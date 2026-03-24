@@ -4,7 +4,7 @@ import {
   HelpCircle, LogOut, Search, Bell, Settings, ShieldCheck,
   CheckCircle2, Clock, Lock, MapPin, Star, BadgeCheck,
   Calendar, Timer, ArrowRight, Download, FileText as FilePdf,
-  ImageIcon, Zap, Gavel,
+  ImageIcon, Zap, Gavel, Gauge,
 } from "lucide-react";
 import { useGetDemandById } from "@workspace/api-client-react";
 import { useParams } from "wouter";
@@ -49,6 +49,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
           { icon: Users,           label: "OPC 人才库" },
           { icon: BarChart2,       label: "数据分析" },
           { icon: FileText,        label: "项目报告" },
+          { icon: Gauge,           label: "驾驶舱",   href: "/publisher/cockpit" },
           { icon: Gavel,           label: "争议处理", href: "/publisher/disputes" },
         ].map(item => (
           <Link key={item.label} href={(item as any).href ?? (item.label === "工作台" ? "/publisher" : "#")}>

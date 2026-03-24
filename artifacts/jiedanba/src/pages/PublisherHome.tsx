@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BarChart2, FileText,
   PlusCircle, HelpCircle, LogOut, Search, Bell, Settings,
   Star, TrendingUp, ChevronsRight, Banknote, CircleDollarSign,
-  ShieldCheck, User, Gavel,
+  ShieldCheck, User, Gavel, Gauge,
 } from "lucide-react";
 import {
   useListDemands,
@@ -114,6 +114,7 @@ export default function PublisherHome() {
           <SidebarLink icon={Users}           label="OPC 人才库" />
           <SidebarLink icon={BarChart2}       label="数据分析" />
           <SidebarLink icon={FileText}        label="项目报告" />
+          <SidebarLink icon={Gauge}           label="驾驶舱"   href="/publisher/cockpit" />
           <SidebarLink icon={Gavel}           label="争议处理" href="/publisher/disputes" />
         </nav>
 
