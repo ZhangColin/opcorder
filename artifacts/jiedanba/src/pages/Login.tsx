@@ -9,8 +9,7 @@ export default function Login() {
   const [, navigate] = useLocation();
 
   const enter = (role: "opc" | "publisher") => {
-    localStorage.setItem("jdb_role", role);
-    navigate(role === "opc" ? "/" : "/publisher");
+    navigate(`/auth/${role}`);
   };
 
   return (

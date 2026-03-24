@@ -9,6 +9,7 @@ import Home from "@/pages/Home";
 import PublisherHome from "@/pages/PublisherHome";
 import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
 import Community from "@/pages/Community";
+import Auth from "@/pages/Auth";
 import Disputes from "@/pages/Disputes";
 import PublisherDisputes from "@/pages/PublisherDisputes";
 import Cockpit from "@/pages/Cockpit";
@@ -52,6 +53,7 @@ function Router() {
     <Switch>
       {/* Standalone routes — no Layout */}
       <Route path="/login" component={Login} />
+      <Route path="/auth/:role" component={Auth} />
       <Route path="/publisher" component={PublisherHome} />
       <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
       <Route path="/publisher/disputes" component={PublisherDisputes} />
