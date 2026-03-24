@@ -1,0 +1,19 @@
+packages:
+  "framer-motion": "Animations for cards, page transitions, and interactive elements"
+  "date-fns": "Formatting dates for deadlines, timestamps, and milestones"
+  "lucide-react": "Beautiful consistent iconography across the application"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to safely merge Tailwind CSS classes"
+
+images:
+  - path: "artifacts/jiedanba/public/images/hero-bg.png"
+    description: "high-angle architectural blueprint patterns overlaid on a modern glass skyscraper facade with deep blue tones, tech and business vibe, abstract background"
+    aspect_ratio: "16:9"
+  - path: "artifacts/jiedanba/public/images/banner-office.png"
+    description: "modern collaborative tech workspace with diverse professionals working on large digital screens in a bright airy office, premium corporate style, warm lighting"
+    aspect_ratio: "21:9"
+
+notes:
+  - "The API client is pre-generated in @workspace/api-client-react, so hooks are directly imported from there."
+  - "UI text is entirely in Simplified Chinese as per PRD."
+  - "Using deep blue (#00327d) as primary and dark teal/green (#006b5a) as secondary accents."

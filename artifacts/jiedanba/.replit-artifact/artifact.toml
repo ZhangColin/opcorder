@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "接单吧 - OPC撮合交易平台"
+version = "1.0.0"
+id = "artifacts/jiedanba"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24926
+
+[services.development]
+run = "pnpm --filter @workspace/jiedanba run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/jiedanba", "run", "build" ]
+publicDir = "artifacts/jiedanba/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24926"
+BASE_PATH = "/"

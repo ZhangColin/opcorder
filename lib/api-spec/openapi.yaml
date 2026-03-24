@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 1.0.0
+  description: JieDanBa OPC Matching Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: demands
+    description: Demand management
+  - name: bids
+    description: Bid/application management
+  - name: orders
+    description: Order management
+  - name: users
+    description: User management
+  - name: notifications
+    description: Notification management
+  - name: portfolios
+    description: Portfolio management
+  - name: stats
+    description: Platform statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,618 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /stats/overview:
+    get:
+      operationId: getOverviewStats
+      tags: [stats]
+      summary: Get platform overview statistics
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverviewStats"
+
+  /users/me:
+    get:
+      operationId: getCurrentUser
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/opc-leaderboard:
+    get:
+      operationId: getOpcLeaderboard
+      tags: [users]
+      summary: Get OPC leaderboard
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpcProfile"
+
+  /users/{userId}:
+    get:
+      operationId: getUserById
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{userId}/opc-profile:
+    get:
+      operationId: getOpcProfile
+      tags: [users]
+      summary: Get OPC profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OPC profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpcProfile"
+    put:
+      operationId: updateOpcProfile
+      tags: [users]
+      summary: Update OPC profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOpcProfileInput"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpcProfile"
+
+  /demands:
+    get:
+      operationId: listDemands
+      tags: [demands]
+      summary: List demands with filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: opcLevel
+          in: query
+          schema:
+            type: string
+            enum: [C, B, A, any]
+        - name: minBudget
+          in: query
+          schema:
+            type: number
+        - name: maxBudget
+          in: query
+          schema:
+            type: number
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [newest, deadline, budget_high, budget_low]
+            default: newest
+      responses:
+        "200":
+          description: Demands list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandListResponse"
+    post:
+      operationId: createDemand
+      tags: [demands]
+      summary: Create a new demand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDemandInput"
+      responses:
+        "201":
+          description: Created demand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+
+  /demands/{demandId}:
+    get:
+      operationId: getDemandById
+      tags: [demands]
+      summary: Get demand detail
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Demand detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+    put:
+      operationId: updateDemand
+      tags: [demands]
+      summary: Update a demand
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDemandInput"
+      responses:
+        "200":
+          description: Updated demand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+
+  /demands/{demandId}/status:
+    patch:
+      operationId: updateDemandStatus
+      tags: [demands]
+      summary: Update demand status
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
+                reason:
+                  type: string
+              required:
+                - status
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+
+  /demands/{demandId}/bids:
+    get:
+      operationId: listBidsForDemand
+      tags: [bids]
+      summary: List bids for a demand
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bids list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BidApplication"
+    post:
+      operationId: createBid
+      tags: [bids]
+      summary: Submit a bid application
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBidInput"
+      responses:
+        "201":
+          description: Bid created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidApplication"
+
+  /bids/{bidId}/status:
+    patch:
+      operationId: updateBidStatus
+      tags: [bids]
+      summary: Accept or reject a bid
+      parameters:
+        - name: bidId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected]
+              required:
+                - status
+      responses:
+        "200":
+          description: Updated bid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidApplication"
+
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [in_progress, pending_acceptance, completed, closed, disputed]
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [opc, publisher]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderListResponse"
+
+  /orders/{orderId}:
+    get:
+      operationId: getOrderById
+      tags: [orders]
+      summary: Get order detail
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{orderId}/deliverables:
+    post:
+      operationId: submitDeliverable
+      tags: [orders]
+      summary: Submit a deliverable
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeliverableInput"
+      responses:
+        "201":
+          description: Deliverable submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deliverable"
+
+  /orders/{orderId}/accept:
+    post:
+      operationId: acceptOrder
+      tags: [orders]
+      summary: Accept order delivery
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+      responses:
+        "200":
+          description: Order accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{orderId}/reject:
+    post:
+      operationId: rejectDelivery
+      tags: [orders]
+      summary: Reject delivery with feedback
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+              required:
+                - reason
+      responses:
+        "200":
+          description: Delivery rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /portfolios:
+    get:
+      operationId: listPortfolios
+      tags: [portfolios]
+      summary: List portfolio items
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Portfolio items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Portfolio"
+    post:
+      operationId: createPortfolio
+      tags: [portfolios]
+      summary: Add a portfolio item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePortfolioInput"
+      responses:
+        "201":
+          description: Portfolio created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+
+  /portfolios/{portfolioId}:
+    put:
+      operationId: updatePortfolio
+      tags: [portfolios]
+      summary: Update a portfolio item
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePortfolioInput"
+      responses:
+        "200":
+          description: Updated portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+    delete:
+      operationId: deletePortfolio
+      tags: [portfolios]
+      summary: Delete a portfolio item
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Notifications list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListResponse"
+
+  /notifications/{notificationId}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                required:
+                  - count
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +659,625 @@ components:
       required:
         - status
 
+    OverviewStats:
+      type: object
+      properties:
+        totalPayout:
+          type: number
+        payoutGrowth:
+          type: number
+        activeOpcs:
+          type: integer
+        monthlyOrders:
+          type: integer
+        completionRate:
+          type: number
+      required:
+        - totalPayout
+        - payoutGrowth
+        - activeOpcs
+        - monthlyOrders
+        - completionRate
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        nickname:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        role:
+          type: string
+          enum: [opc, publisher, admin]
+        status:
+          type: string
+          enum: [active, suspended, banned]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - nickname
+        - role
+        - status
+        - createdAt
+
+    OpcProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        nickname:
+          type: string
+        avatar:
+          type: string
+        level:
+          type: string
+          enum: [C, B, A]
+        bio:
+          type: string
+        skillTags:
+          type: array
+          items:
+            type: string
+        industryTags:
+          type: array
+          items:
+            type: string
+        creditScore:
+          type: number
+        totalOrders:
+          type: integer
+        completionRate:
+          type: number
+        avgRating:
+          type: number
+        totalEarnings:
+          type: number
+        activityScore:
+          type: number
+      required:
+        - id
+        - userId
+        - nickname
+        - level
+        - creditScore
+
+    UpdateOpcProfileInput:
+      type: object
+      properties:
+        bio:
+          type: string
+        skillTags:
+          type: array
+          items:
+            type: string
+        industryTags:
+          type: array
+          items:
+            type: string
+
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        deadline:
+          type: string
+          format: date
+        deliverableDesc:
+          type: string
+        status:
+          type: string
+          enum: [pending, submitted, approved, rejected]
+      required:
+        - name
+        - deadline
+
+    Demand:
+      type: object
+      properties:
+        id:
+          type: integer
+        demandNo:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [ai_education, gov_training, ai_research, party_building, livestream_media, ai_tool_dev, other]
+        typeLabel:
+          type: string
+        description:
+          type: string
+        skillTags:
+          type: array
+          items:
+            type: string
+        opcLevel:
+          type: string
+          enum: [C, B, A, any]
+        budgetMin:
+          type: number
+        budgetMax:
+          type: number
+        deadline:
+          type: string
+          format: date
+        milestones:
+          type: array
+          items:
+            $ref: "#/components/schemas/Milestone"
+        mode:
+          type: string
+          enum: [open, directed]
+        status:
+          type: string
+          enum: [draft, pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
+        isUrgent:
+          type: boolean
+        bidDeadline:
+          type: string
+          format: date-time
+        publisherId:
+          type: integer
+        publisherName:
+          type: string
+        bidCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - demandNo
+        - title
+        - type
+        - description
+        - skillTags
+        - opcLevel
+        - budgetMin
+        - budgetMax
+        - deadline
+        - mode
+        - status
+        - publisherId
+        - createdAt
+
+    DemandListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Demand"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+        - totalPages
+
+    CreateDemandInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 50
+        type:
+          type: string
+          enum: [ai_education, gov_training, ai_research, party_building, livestream_media, ai_tool_dev, other]
+        description:
+          type: string
+        skillTags:
+          type: array
+          items:
+            type: string
+        opcLevel:
+          type: string
+          enum: [C, B, A, any]
+        budgetMin:
+          type: number
+        budgetMax:
+          type: number
+        deadline:
+          type: string
+          format: date
+        milestones:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              deadline:
+                type: string
+                format: date
+              deliverableDesc:
+                type: string
+            required:
+              - name
+              - deadline
+        mode:
+          type: string
+          enum: [open, directed]
+        bidDeadline:
+          type: string
+          format: date-time
+        isUrgent:
+          type: boolean
+          default: false
+        directedOpcIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - title
+        - type
+        - description
+        - skillTags
+        - opcLevel
+        - budgetMin
+        - budgetMax
+        - deadline
+        - mode
+
+    UpdateDemandInput:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 50
+        description:
+          type: string
+        skillTags:
+          type: array
+          items:
+            type: string
+        opcLevel:
+          type: string
+          enum: [C, B, A, any]
+        budgetMin:
+          type: number
+        budgetMax:
+          type: number
+        deadline:
+          type: string
+          format: date
+        milestones:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              deadline:
+                type: string
+                format: date
+              deliverableDesc:
+                type: string
+            required:
+              - name
+              - deadline
+        bidDeadline:
+          type: string
+          format: date-time
+        isUrgent:
+          type: boolean
+
+    BidApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+        demandId:
+          type: integer
+        opcId:
+          type: integer
+        opcNickname:
+          type: string
+        opcAvatar:
+          type: string
+        opcLevel:
+          type: string
+        opcCreditScore:
+          type: number
+        opcAvgRating:
+          type: number
+        proposal:
+          type: string
+        estimatedDays:
+          type: integer
+        portfolioLinks:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - demandId
+        - opcId
+        - proposal
+        - status
+        - createdAt
+
+    CreateBidInput:
+      type: object
+      properties:
+        proposal:
+          type: string
+        estimatedDays:
+          type: integer
+        portfolioLinks:
+          type: array
+          items:
+            type: string
+      required:
+        - proposal
+        - estimatedDays
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        orderNo:
+          type: string
+        demandId:
+          type: integer
+        demandTitle:
+          type: string
+        demandType:
+          type: string
+        opcId:
+          type: integer
+        opcNickname:
+          type: string
+        publisherId:
+          type: integer
+        publisherName:
+          type: string
+        amount:
+          type: number
+        opcShare:
+          type: number
+        publisherShare:
+          type: number
+        platformFee:
+          type: number
+        status:
+          type: string
+          enum: [in_progress, pending_acceptance, completed, closed, disputed]
+        deliverables:
+          type: array
+          items:
+            $ref: "#/components/schemas/Deliverable"
+        milestones:
+          type: array
+          items:
+            $ref: "#/components/schemas/Milestone"
+        rating:
+          type: number
+        reviewComment:
+          type: string
+        deadline:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderNo
+        - demandId
+        - demandTitle
+        - opcId
+        - publisherId
+        - amount
+        - status
+        - createdAt
+
+    OrderListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+        - totalPages
+
+    Deliverable:
+      type: object
+      properties:
+        id:
+          type: integer
+        orderId:
+          type: integer
+        milestoneId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        fileUrl:
+          type: string
+        fileName:
+          type: string
+        status:
+          type: string
+          enum: [submitted, approved, rejected]
+        feedback:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderId
+        - title
+        - status
+        - submittedAt
+
+    CreateDeliverableInput:
+      type: object
+      properties:
+        milestoneId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        fileUrl:
+          type: string
+        fileName:
+          type: string
+      required:
+        - title
+        - description
+
+    Portfolio:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        coverImage:
+          type: string
+        description:
+          type: string
+        projectUrl:
+          type: string
+        orderId:
+          type: integer
+        rating:
+          type: number
+        clientFeedback:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - title
+        - type
+        - description
+        - createdAt
+
+    CreatePortfolioInput:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+        coverImage:
+          type: string
+        description:
+          type: string
+        projectUrl:
+          type: string
+      required:
+        - title
+        - type
+        - description
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+          enum: [bid_received, bid_accepted, bid_rejected, order_created, delivery_submitted, delivery_accepted, delivery_rejected, directed_invite, system]
+        title:
+          type: string
+        content:
+          type: string
+        isRead:
+          type: boolean
+        relatedId:
+          type: integer
+        relatedType:
+          type: string
+          enum: [demand, order, bid]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - type
+        - title
+        - content
+        - isRead
+        - createdAt
+
+    NotificationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        total:
+          type: integer
+        unreadCount:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - unreadCount
+        - page
+        - limit
