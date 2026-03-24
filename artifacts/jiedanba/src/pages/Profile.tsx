@@ -138,21 +138,38 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
-  /* ── File upload ── */
+  /* ── File upload with canvas compression ── */
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) {
-      alert("图片不能超过 3 MB，请压缩后重试");
+    if (file.size > 10 * 1024 * 1024) {
+      alert("图片不能超过 10 MB");
       return;
     }
     const reader = new FileReader();
     reader.onload = ev => {
-      const dataUrl = ev.target?.result as string;
-      setAvatarPreview(dataUrl);
-      set("avatar", dataUrl);
+      const img = new Image();
+      img.onload = () => {
+        /* Resize to max 600×600 and compress to JPEG */
+        const MAX = 600;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+          else                 { width = Math.round(width * MAX / height);  height = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width  = width;
+        canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", 0.80);
+        setAvatarPreview(compressed);
+        set("avatar", compressed);
+      };
+      img.src = ev.target?.result as string;
     };
     reader.readAsDataURL(file);
+    /* Reset input so same file can be re-selected */
+    e.target.value = "";
   }, []);
 
   /* ── Skills ── */
