@@ -22,6 +22,7 @@ import OrderHall from "@/pages/OrderHall";
 import Profile from "@/pages/Profile";
 import Academy from "@/pages/Academy";
 import Notifications from "@/pages/Notifications";
+import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -54,6 +55,7 @@ function Router() {
       {/* Standalone routes — no Layout */}
       <Route path="/login" component={Login} />
       <Route path="/auth/:role" component={Auth} />
+      <Route path="/admin" component={Admin} />
       <Route path="/publisher" component={PublisherHome} />
       <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
       <Route path="/publisher/disputes" component={PublisherDisputes} />
