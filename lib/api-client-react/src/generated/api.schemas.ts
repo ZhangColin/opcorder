@@ -67,12 +67,26 @@ export interface OpcProfile {
   avgRating?: number;
   totalEarnings?: number;
   activityScore?: number;
+  title?: string;
+  location?: string;
+  website?: string;
+  yearsExp?: number;
+  wechat?: string;
+  phone?: string;
 }
 
 export interface UpdateOpcProfileInput {
   bio?: string;
   skillTags?: string[];
   industryTags?: string[];
+  title?: string;
+  location?: string;
+  website?: string;
+  yearsExp?: number;
+  wechat?: string;
+  nickname?: string;
+  avatar?: string;
+  phone?: string;
 }
 
 export type MilestoneStatus =

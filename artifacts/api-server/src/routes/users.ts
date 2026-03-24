@@ -1,32 +1,54 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, opcProfilesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import {
-  GetCurrentUserResponse,
-  GetOpcLeaderboardQueryParams,
-  GetUserByIdResponse,
-  GetOpcProfileResponse,
-  UpdateOpcProfileBody,
-} from "@workspace/api-zod";
+import { GetOpcLeaderboardQueryParams, UpdateOpcProfileBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+async function buildProfileResponse(userId: number) {
+  const [profile] = await db
+    .select({
+      id:             opcProfilesTable.id,
+      userId:         opcProfilesTable.userId,
+      nickname:       usersTable.nickname,
+      avatar:         usersTable.avatar,
+      phone:          usersTable.phone,
+      level:          opcProfilesTable.level,
+      bio:            opcProfilesTable.bio,
+      skillTags:      opcProfilesTable.skillTags,
+      industryTags:   opcProfilesTable.industryTags,
+      creditScore:    opcProfilesTable.creditScore,
+      totalOrders:    opcProfilesTable.totalOrders,
+      completionRate: opcProfilesTable.completionRate,
+      avgRating:      opcProfilesTable.avgRating,
+      totalEarnings:  opcProfilesTable.totalEarnings,
+      activityScore:  opcProfilesTable.activityScore,
+      title:          opcProfilesTable.title,
+      location:       opcProfilesTable.location,
+      website:        opcProfilesTable.website,
+      yearsExp:       opcProfilesTable.yearsExp,
+      wechat:         opcProfilesTable.wechat,
+    })
+    .from(opcProfilesTable)
+    .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
+    .where(eq(opcProfilesTable.userId, userId));
+  return profile;
+}
 
 router.get("/users/me", async (_req, res) => {
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.role, "opc")).limit(1);
-    if (!user) {
-      return res.status(404).json({ error: "No user found" });
-    }
+    if (!user) return res.status(404).json({ error: "No user found" });
     res.json({
-      id: user.id,
-      nickname: user.nickname,
-      phone: user.phone,
-      avatar: user.avatar,
-      role: user.role,
-      status: user.status,
+      id:        user.id,
+      nickname:  user.nickname,
+      phone:     user.phone,
+      avatar:    user.avatar,
+      role:      user.role,
+      status:    user.status,
       createdAt: user.createdAt.toISOString(),
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: "Failed to fetch user" });
   }
 });
@@ -36,28 +58,27 @@ router.get("/users/opc-leaderboard", async (req, res) => {
     const { limit } = GetOpcLeaderboardQueryParams.parse(req.query);
     const profiles = await db
       .select({
-        id: opcProfilesTable.id,
-        userId: opcProfilesTable.userId,
-        nickname: usersTable.nickname,
-        avatar: usersTable.avatar,
-        level: opcProfilesTable.level,
-        bio: opcProfilesTable.bio,
-        skillTags: opcProfilesTable.skillTags,
-        industryTags: opcProfilesTable.industryTags,
-        creditScore: opcProfilesTable.creditScore,
-        totalOrders: opcProfilesTable.totalOrders,
+        id:             opcProfilesTable.id,
+        userId:         opcProfilesTable.userId,
+        nickname:       usersTable.nickname,
+        avatar:         usersTable.avatar,
+        level:          opcProfilesTable.level,
+        bio:            opcProfilesTable.bio,
+        skillTags:      opcProfilesTable.skillTags,
+        industryTags:   opcProfilesTable.industryTags,
+        creditScore:    opcProfilesTable.creditScore,
+        totalOrders:    opcProfilesTable.totalOrders,
         completionRate: opcProfilesTable.completionRate,
-        avgRating: opcProfilesTable.avgRating,
-        totalEarnings: opcProfilesTable.totalEarnings,
-        activityScore: opcProfilesTable.activityScore,
+        avgRating:      opcProfilesTable.avgRating,
+        totalEarnings:  opcProfilesTable.totalEarnings,
+        activityScore:  opcProfilesTable.activityScore,
       })
       .from(opcProfilesTable)
       .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
       .orderBy(desc(opcProfilesTable.activityScore))
       .limit(limit ?? 10);
-
     res.json(profiles);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 });
@@ -66,19 +87,17 @@ router.get("/users/:userId", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
     res.json({
-      id: user.id,
-      nickname: user.nickname,
-      phone: user.phone,
-      avatar: user.avatar,
-      role: user.role,
-      status: user.status,
+      id:        user.id,
+      nickname:  user.nickname,
+      phone:     user.phone,
+      avatar:    user.avatar,
+      role:      user.role,
+      status:    user.status,
       createdAt: user.createdAt.toISOString(),
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: "Failed to fetch user" });
   }
 });
@@ -86,32 +105,10 @@ router.get("/users/:userId", async (req, res) => {
 router.get("/users/:userId/opc-profile", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const [profile] = await db
-      .select({
-        id: opcProfilesTable.id,
-        userId: opcProfilesTable.userId,
-        nickname: usersTable.nickname,
-        avatar: usersTable.avatar,
-        level: opcProfilesTable.level,
-        bio: opcProfilesTable.bio,
-        skillTags: opcProfilesTable.skillTags,
-        industryTags: opcProfilesTable.industryTags,
-        creditScore: opcProfilesTable.creditScore,
-        totalOrders: opcProfilesTable.totalOrders,
-        completionRate: opcProfilesTable.completionRate,
-        avgRating: opcProfilesTable.avgRating,
-        totalEarnings: opcProfilesTable.totalEarnings,
-        activityScore: opcProfilesTable.activityScore,
-      })
-      .from(opcProfilesTable)
-      .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
-      .where(eq(opcProfilesTable.userId, userId));
-
-    if (!profile) {
-      return res.status(404).json({ error: "OPC profile not found" });
-    }
+    const profile = await buildProfileResponse(userId);
+    if (!profile) return res.status(404).json({ error: "OPC profile not found" });
     res.json(profile);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
@@ -121,36 +118,36 @@ router.put("/users/:userId/opc-profile", async (req, res) => {
     const userId = parseInt(req.params.userId);
     const body = UpdateOpcProfileBody.parse(req.body);
 
-    const updateData: Record<string, unknown> = {};
-    if (body.bio !== undefined) updateData.bio = body.bio;
-    if (body.skillTags !== undefined) updateData.skillTags = body.skillTags;
-    if (body.industryTags !== undefined) updateData.industryTags = body.industryTags;
+    /* ── Update opc_profiles fields ── */
+    const profileUpdate: Record<string, unknown> = {};
+    if (body.bio          !== undefined) profileUpdate.bio          = body.bio;
+    if (body.skillTags    !== undefined) profileUpdate.skillTags    = body.skillTags;
+    if (body.industryTags !== undefined) profileUpdate.industryTags = body.industryTags;
+    if (body.title        !== undefined) profileUpdate.title        = body.title;
+    if (body.location     !== undefined) profileUpdate.location     = body.location;
+    if (body.website      !== undefined) profileUpdate.website      = body.website;
+    if (body.yearsExp     !== undefined) profileUpdate.yearsExp     = body.yearsExp;
+    if (body.wechat       !== undefined) profileUpdate.wechat       = body.wechat;
 
-    await db.update(opcProfilesTable).set(updateData).where(eq(opcProfilesTable.userId, userId));
+    if (Object.keys(profileUpdate).length > 0) {
+      await db.update(opcProfilesTable).set(profileUpdate).where(eq(opcProfilesTable.userId, userId));
+    }
 
-    const [updated] = await db
-      .select({
-        id: opcProfilesTable.id,
-        userId: opcProfilesTable.userId,
-        nickname: usersTable.nickname,
-        avatar: usersTable.avatar,
-        level: opcProfilesTable.level,
-        bio: opcProfilesTable.bio,
-        skillTags: opcProfilesTable.skillTags,
-        industryTags: opcProfilesTable.industryTags,
-        creditScore: opcProfilesTable.creditScore,
-        totalOrders: opcProfilesTable.totalOrders,
-        completionRate: opcProfilesTable.completionRate,
-        avgRating: opcProfilesTable.avgRating,
-        totalEarnings: opcProfilesTable.totalEarnings,
-        activityScore: opcProfilesTable.activityScore,
-      })
-      .from(opcProfilesTable)
-      .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
-      .where(eq(opcProfilesTable.userId, userId));
+    /* ── Update users fields (nickname, avatar, phone) ── */
+    const userUpdate: Record<string, unknown> = {};
+    if (body.nickname !== undefined) userUpdate.nickname = body.nickname;
+    if (body.avatar   !== undefined) userUpdate.avatar   = body.avatar;
+    if (body.phone    !== undefined) userUpdate.phone    = body.phone;
 
+    if (Object.keys(userUpdate).length > 0) {
+      await db.update(usersTable).set(userUpdate).where(eq(usersTable.id, userId));
+    }
+
+    const updated = await buildProfileResponse(userId);
+    if (!updated) return res.status(404).json({ error: "Profile not found after update" });
     res.json(updated);
-  } catch (error) {
+  } catch (err) {
+    console.error("Update profile error:", err);
     res.status(500).json({ error: "Failed to update profile" });
   }
 });

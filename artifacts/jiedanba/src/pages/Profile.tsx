@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
-  Phone, MessageCircle, CheckCircle2, AlertCircle,
+  Phone, MessageCircle, CheckCircle2, AlertCircle, Upload,
 } from "lucide-react";
-import { useGetCurrentUser, useGetOpcProfile, useListPortfolios } from "@workspace/api-client-react";
-import { useProfile, DEFAULT_PROFILE } from "@/contexts/ProfileContext";
+import {
+  useGetCurrentUser,
+  useGetOpcProfile,
+  useListPortfolios,
+  useUpdateOpcProfile,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
-/* ─── Static data ─────────────────────────────── */
+/* ─── Static ─────────────────────────────────── */
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
   ai_education:     "AI 教育",
@@ -35,7 +40,7 @@ const CERT_BY_LEVEL: Record<string, { label: string; detail: string; type: "done
 };
 
 const PORTFOLIO_ICONS = [Cpu, Bot, Globe, Lock];
-const PORTFOLIO_GRAD = [
+const PORTFOLIO_GRAD  = [
   "from-blue-700 to-indigo-900",
   "from-emerald-700 to-teal-900",
   "from-violet-700 to-purple-900",
@@ -48,7 +53,7 @@ const PRESET_SKILLS = [
   "运维自动化", "知识图谱", "RPA 流程", "VibeCoding",
 ];
 
-/* ─── Sub-components ──────────────────────────── */
+/* ─── Shared components ─────────────────────── */
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -64,8 +69,7 @@ function StarRating({ rating }: { rating: number }) {
 function CircleGauge({ value, max = 5 }: { value: number; max?: number }) {
   const r = 42;
   const circ = 2 * Math.PI * r;
-  const pct = value / max;
-  const offset = circ * (1 - pct);
+  const offset = circ * (1 - value / max);
   return (
     <div className="relative w-24 h-24 shrink-0">
       <svg className="w-full h-full -rotate-90" viewBox="0 0 96 96">
@@ -81,66 +85,77 @@ function CircleGauge({ value, max = 5 }: { value: number; max?: number }) {
   );
 }
 
-/* ─── Avatar component ─────────────────────────── */
-
-function AvatarDisplay({ avatar, name, size = "lg" }: { avatar: string; name: string; size?: "sm" | "lg" }) {
-  const dim  = size === "lg" ? "w-36 h-36" : "w-9 h-9";
+function AvatarCircle({ avatar, name, size = "lg" }: { avatar?: string | null; name: string; size?: "sm" | "lg" }) {
+  const dim  = size === "lg" ? "w-32 h-32" : "w-9 h-9";
   const font = size === "lg" ? "text-5xl font-black" : "text-sm font-bold";
-
-  if (avatar) {
-    return (
-      <img src={avatar} alt={name}
-        className={`${dim} rounded-2xl border-4 border-white shadow-xl object-cover`} />
-    );
-  }
+  const cls  = `${dim} rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-primary/10 flex items-center justify-center`;
   return (
-    <div className={`${dim} rounded-2xl border-4 border-white shadow-xl bg-primary/10 flex items-center justify-center`}>
-      <span className={`${font} text-primary`}>{name?.[0] ?? "新"}</span>
+    <div className={cls}>
+      {avatar ? (
+        <img src={avatar} alt={name} className="w-full h-full object-cover" />
+      ) : (
+        <span className={`${font} text-primary`}>{name?.[0] ?? "新"}</span>
+      )}
     </div>
   );
 }
 
-/* ─── New-user banner ─────────────────────────── */
+/* ─── Edit Drawer ────────────────────────────── */
 
-function NewUserBanner({ onEdit }: { onEdit: () => void }) {
-  return (
-    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-4">
-      <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-        <AlertCircle size={18} className="text-amber-600" />
-      </div>
-      <div className="flex-1">
-        <p className="font-bold text-amber-800 text-sm">欢迎加入接单吧！请完善您的个人资料</p>
-        <p className="text-amber-700 text-xs mt-1 leading-relaxed">
-          完整的职业简介、头像和核心技能标签能显著提升您的接单成功率。
-        </p>
-      </div>
-      <button
-        onClick={onEdit}
-        className="shrink-0 px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl hover:bg-amber-600 transition-colors"
-      >
-        立即完善
-      </button>
-    </div>
-  );
+interface FormState {
+  nickname:  string;
+  title:     string;
+  bio:       string;
+  avatar:    string;
+  skills:    string[];
+  location:  string;
+  website:   string;
+  yearsExp:  number;
+  phone:     string;
+  wechat:    string;
 }
 
-/* ─── Edit Modal ─────────────────────────────── */
-
-interface EditModalProps {
-  open: boolean;
+interface EditDrawerProps {
+  open:    boolean;
   onClose: () => void;
+  userId:  number;
+  initial: FormState;
 }
 
-function EditModal({ open, onClose }: EditModalProps) {
-  const { profile, updateProfile } = useProfile();
-
-  const [form, setForm] = useState({ ...profile });
+function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
+  const [form, setForm]       = useState<FormState>(initial);
   const [newSkill, setNewSkill] = useState("");
-  const [avatarMode, setAvatarMode] = useState<"url" | "initial">(profile.avatar ? "url" : "initial");
-  const [saved, setSaved] = useState(false);
+  const [status, setStatus]   = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [avatarPreview, setAvatarPreview] = useState(initial.avatar);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const set = (k: keyof typeof form, v: unknown) => setForm(prev => ({ ...prev, [k]: v }));
+  const qc = useQueryClient();
+  const { mutateAsync: save } = useUpdateOpcProfile();
 
+  /* reset when drawer opens */
+  const openKey = open ? "open" : "closed";
+
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm(prev => ({ ...prev, [k]: v }));
+
+  /* ── File upload ── */
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert("图片不能超过 3 MB，请压缩后重试");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      setAvatarPreview(dataUrl);
+      set("avatar", dataUrl);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  /* ── Skills ── */
   const addSkill = (tag: string) => {
     const t = tag.trim();
     if (t && !form.skills.includes(t) && form.skills.length < 12) {
@@ -148,37 +163,56 @@ function EditModal({ open, onClose }: EditModalProps) {
     }
     setNewSkill("");
   };
-
   const removeSkill = (tag: string) =>
     set("skills", form.skills.filter(s => s !== tag));
 
-  const handleSave = () => {
-    updateProfile(form);
-    setSaved(true);
-    setTimeout(() => { setSaved(false); onClose(); }, 900);
+  /* ── Save ── */
+  const handleSave = async () => {
+    setStatus("saving");
+    try {
+      await save({
+        userId,
+        data: {
+          nickname:     form.nickname,
+          avatar:       form.avatar || null,
+          bio:          form.bio,
+          skillTags:    form.skills,
+          title:        form.title,
+          location:     form.location,
+          website:      form.website || null,
+          yearsExp:     form.yearsExp,
+          phone:        form.phone,
+          wechat:       form.wechat,
+        },
+      });
+      await qc.invalidateQueries({ queryKey: ["/api/users"] });
+      setStatus("saved");
+      setTimeout(() => { setStatus("idle"); onClose(); }, 800);
+    } catch {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 2000);
+    }
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex" key={openKey}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative ml-auto w-full max-w-xl h-full bg-white shadow-2xl flex flex-col">
 
-      {/* Drawer */}
-      <div className="relative ml-auto w-full max-w-xl h-full bg-white shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100 shrink-0">
           <div>
             <h2 className="text-xl font-extrabold text-blue-900 font-display">编辑个人资料</h2>
-            <p className="text-slate-500 text-xs mt-0.5">修改后将同步显示在个人中心与导航栏</p>
+            <p className="text-slate-400 text-xs mt-0.5">修改后实时同步至平台，所有人可见</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400">
             <X size={20} />
           </button>
         </div>
 
-        {/* Body – scrollable */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto px-7 py-6 space-y-7">
 
           {/* ── 头像 ── */}
@@ -186,47 +220,39 @@ function EditModal({ open, onClose }: EditModalProps) {
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">头像</label>
             <div className="flex items-center gap-5">
               {/* Preview */}
-              <div className="relative shrink-0">
-                {form.avatar ? (
-                  <img src={form.avatar} alt="preview"
-                    className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-100" />
-                ) : (
-                  <div className="w-20 h-20 rounded-2xl bg-primary/10 border-4 border-slate-100 flex items-center justify-center">
-                    <span className="text-3xl font-black text-primary">{form.name?.[0] ?? "新"}</span>
-                  </div>
-                )}
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                  <Camera size={12} className="text-white" />
+              <div className="relative shrink-0 cursor-pointer" onClick={() => fileRef.current?.click()}>
+                <div className="w-20 h-20 rounded-2xl border-4 border-slate-100 overflow-hidden bg-primary/10 flex items-center justify-center">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl font-black text-primary">{form.nickname?.[0] ?? "新"}</span>
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-md">
+                  <Camera size={13} className="text-white" />
                 </div>
               </div>
 
-              {/* Tabs + input */}
+              {/* Upload area */}
               <div className="flex-1">
-                <div className="flex gap-2 mb-3">
-                  {(["url", "initial"] as const).map(m => (
-                    <button key={m} onClick={() => setAvatarMode(m)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                        avatarMode === m ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
-                      }`}>
-                      {m === "url" ? "图片链接" : "使用首字母"}
-                    </button>
-                  ))}
-                </div>
-                {avatarMode === "url" ? (
-                  <input
-                    type="url"
-                    placeholder="https://example.com/avatar.jpg"
-                    value={form.avatar}
-                    onChange={e => set("avatar", e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                  />
-                ) : (
-                  <p className="text-xs text-slate-400">将使用您姓名的首个字符作为头像</p>
-                )}
-                {avatarMode === "initial" && (
-                  <button onClick={() => set("avatar", "")}
-                    className="mt-2 text-xs font-bold text-destructive hover:underline">
-                    清除头像图片
+                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp"
+                  className="hidden" onChange={handleFileChange} />
+
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-primary/30 hover:border-primary/60 bg-primary/5 hover:bg-primary/10 rounded-xl py-4 text-sm font-bold text-primary transition-colors"
+                >
+                  <Upload size={16} /> 点击上传图片
+                </button>
+                <p className="text-[11px] text-slate-400 mt-2 text-center">
+                  支持 JPG / PNG / WebP，最大 3 MB
+                </p>
+                {avatarPreview && (
+                  <button
+                    onClick={() => { setAvatarPreview(""); set("avatar", ""); }}
+                    className="mt-1.5 w-full text-center text-xs text-destructive hover:underline"
+                  >
+                    移除头像
                   </button>
                 )}
               </div>
@@ -236,21 +262,18 @@ function EditModal({ open, onClose }: EditModalProps) {
           {/* ── 基本信息 ── */}
           <section className="space-y-4">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest">基本信息</label>
-
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1.5">显示姓名 *</label>
-              <input type="text" value={form.name} onChange={e => set("name", e.target.value)}
+              <input type="text" value={form.nickname} onChange={e => set("nickname", e.target.value)}
                 placeholder="张明远"
                 className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
             </div>
-
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1.5">职业头衔</label>
               <input type="text" value={form.title} onChange={e => set("title", e.target.value)}
                 placeholder="AI 系统架构师"
                 className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-slate-600 block mb-1.5">
@@ -275,14 +298,11 @@ function EditModal({ open, onClose }: EditModalProps) {
           {/* ── 职业简介 ── */}
           <section>
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-3">职业简介</label>
-            <textarea
-              rows={4}
-              value={form.bio}
+            <textarea rows={4} value={form.bio}
               onChange={e => set("bio", e.target.value)}
               placeholder="介绍您的专业背景、擅长领域和代表性成就…"
-              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none leading-relaxed"
-            />
-            <p className="text-right text-[10px] text-slate-400 mt-1">{form.bio.length} / 300</p>
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none leading-relaxed" />
+            <p className="text-right text-[10px] text-slate-400 mt-1">{form.bio.length} / 500</p>
           </section>
 
           {/* ── 核心技能 ── */}
@@ -290,42 +310,29 @@ function EditModal({ open, onClose }: EditModalProps) {
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-3">
               核心技能 <span className="text-slate-400 font-normal">(最多 12 个)</span>
             </label>
-
-            {/* Current tags */}
             <div className="flex flex-wrap gap-2 mb-3 min-h-[2rem]">
               {form.skills.map(tag => (
-                <span key={tag}
-                  className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-bold">
+                <span key={tag} className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-bold">
                   {tag}
                   <button onClick={() => removeSkill(tag)} className="hover:text-destructive transition-colors">
                     <X size={11} />
                   </button>
                 </span>
               ))}
-              {form.skills.length === 0 && (
-                <span className="text-xs text-slate-400">尚未添加技能标签</span>
-              )}
+              {form.skills.length === 0 && <span className="text-xs text-slate-400">尚未添加技能标签</span>}
             </div>
-
-            {/* Custom add */}
             <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={newSkill}
-                onChange={e => setNewSkill(e.target.value)}
+              <input type="text" value={newSkill} onChange={e => setNewSkill(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addSkill(newSkill); } }}
                 placeholder="输入自定义技能后按回车"
-                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-              />
+                className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
               <button onClick={() => addSkill(newSkill)}
-                className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+                className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90">
                 <Plus size={16} />
               </button>
             </div>
-
-            {/* Preset suggestions */}
             <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">常用技能快速添加</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">快速添加常用技能</p>
               <div className="flex flex-wrap gap-1.5">
                 {PRESET_SKILLS.filter(s => !form.skills.includes(s)).map(s => (
                   <button key={s} onClick={() => addSkill(s)}
@@ -370,18 +377,22 @@ function EditModal({ open, onClose }: EditModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-7 py-4 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white">
+        <div className="px-7 py-4 border-t border-slate-100 flex gap-3 shrink-0 bg-white">
           <button onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">
+            className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">
             取消
           </button>
-          <button onClick={handleSave}
+          <button onClick={handleSave} disabled={status === "saving"}
             className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-              saved
-                ? "bg-secondary text-white"
-                : "bg-primary text-white hover:bg-primary/90"
+              status === "saved"  ? "bg-secondary text-white" :
+              status === "error"  ? "bg-destructive text-white" :
+              status === "saving" ? "bg-primary/70 text-white cursor-not-allowed" :
+              "bg-primary text-white hover:bg-primary/90"
             }`}>
-            {saved ? <><CheckCircle2 size={16} />已保存</> : <><Save size={16} />保存资料</>}
+            {status === "saving" ? "保存中…" :
+             status === "saved"  ? <><CheckCircle2 size={16} />已保存</> :
+             status === "error"  ? "保存失败，请重试" :
+             <><Save size={16} />保存资料</>}
           </button>
         </div>
       </div>
@@ -392,100 +403,148 @@ function EditModal({ open, onClose }: EditModalProps) {
 /* ─── Page ─────────────────────────────────────── */
 
 export default function Profile() {
-  const { profile, isNew } = useProfile();
   const [editOpen, setEditOpen] = useState(false);
 
   const { data: user }       = useGetCurrentUser();
-  const { data: apiProfile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
+  const { data: profile }    = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
   const { data: portfolios } = useListPortfolios({ userId: user?.id ?? 1 }, { query: { enabled: !!user?.id } });
 
-  const level    = profile.level;
+  const level    = profile?.level ?? "C";
   const certs    = CERT_BY_LEVEL[level] ?? CERT_BY_LEVEL["C"];
-  const rating   = Number(apiProfile?.avgRating ?? 4.9);
-  const credits  = apiProfile?.creditScore ?? 100;
-  const skills   = profile.skills.length > 0
-    ? profile.skills
-    : (apiProfile?.skillTags ?? ["AI 架构设计", "系统集成", "云原生", "大模型应用"]);
+  const rating   = Number(profile?.avgRating ?? 0);
+  const credits  = profile?.creditScore ?? 0;
+  const skills   = profile?.skillTags ?? [];
+
+  const name    = profile?.nickname ?? user?.nickname ?? "新用户";
+  const avatar  = profile?.avatar ?? user?.avatar ?? "";
+  const title   = profile?.title ?? "OPC 超级个体";
+  const bio     = profile?.bio ?? "尚未填写职业简介，完善资料有助于获得更多项目机会。";
+  const location = profile?.location ?? "";
+  const yearsExp = profile?.yearsExp ?? 0;
+  const website  = profile?.website ?? "";
+  const phone    = profile?.phone ?? user?.phone ?? "";
+  const wechat   = profile?.wechat ?? "";
+
+  const isNew = !profile?.bio && !profile?.title && skills.length === 0;
+
+  const formInitial: FormState = {
+    nickname: name,
+    title,
+    bio,
+    avatar,
+    skills,
+    location,
+    website: website ?? "",
+    yearsExp: yearsExp ?? 0,
+    phone,
+    wechat,
+  };
 
   const reviewItems = portfolios?.filter(p => p.clientFeedback).slice(0, 2) ?? [];
 
   return (
     <>
-      <EditModal open={editOpen} onClose={() => setEditOpen(false)} />
+      {user && (
+        <EditDrawer
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          userId={user.id}
+          initial={formInitial}
+        />
+      )}
 
       <div className="space-y-6">
 
-        {/* New-user banner */}
-        {isNew && <NewUserBanner onEdit={() => setEditOpen(true)} />}
+        {/* New-user reminder */}
+        {isNew && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-4">
+            <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+              <AlertCircle size={18} className="text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-amber-800 text-sm">欢迎加入接单吧！请完善您的个人资料</p>
+              <p className="text-amber-700 text-xs mt-1 leading-relaxed">
+                完整的头像、职业简介和技能标签能显著提升接单成功率。
+              </p>
+            </div>
+            <button onClick={() => setEditOpen(true)}
+              className="shrink-0 px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl hover:bg-amber-600">
+              立即完善
+            </button>
+          </div>
+        )}
 
-        {/* ═══ Profile Header ═══ */}
+        {/* ═══ Profile Card ═══ */}
         <section className="bg-white rounded-2xl overflow-hidden shadow-sm border border-border/40">
-          {/* Cover */}
-          <div className="h-44 bg-gradient-to-r from-primary to-[#0047ab] relative">
-            <div className="absolute inset-0 opacity-10 pointer-events-none"
+          {/* Cover banner */}
+          <div className="h-40 bg-gradient-to-r from-[#00327d] to-[#0047ab] relative">
+            <div className="absolute inset-0 opacity-10"
               style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "24px 24px" }} />
           </div>
 
-          {/* Info row */}
-          <div className="px-8 pb-8 flex flex-col md:flex-row items-end gap-6 -mt-14 relative z-10">
-            {/* Avatar */}
-            <AvatarDisplay avatar={profile.avatar} name={profile.name} size="lg" />
+          {/* Body below cover */}
+          <div className="px-8 pb-8 relative">
+            {/* Avatar lifted over cover */}
+            <div className="absolute -top-16 left-8">
+              <AvatarCircle avatar={avatar} name={name} size="lg" />
+            </div>
 
-            {/* Name / badges / stats */}
-            <div className="flex-1 pb-1">
-              <div className="flex flex-wrap items-center gap-3 mb-1">
-                <h1 className="text-3xl font-extrabold text-primary font-display">{profile.name}</h1>
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1 bg-secondary/15 text-secondary px-3 py-1 rounded-full text-xs font-bold">
-                    <BadgeCheck size={12} />
-                    Lv.{level} {level === "A" ? "专家认证" : level === "B" ? "进阶认证" : "基础认证"}
-                  </span>
-                  <span className="inline-flex items-center gap-1 bg-[#4dffb2]/20 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">
-                    <ShieldCheck size={12} /> 平台认证伙伴
-                  </span>
-                </div>
+            {/* Row: badges + edit button — cleared past avatar */}
+            <div className="flex items-start justify-between pt-20">
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1 bg-secondary/15 text-secondary px-3 py-1 rounded-full text-xs font-bold">
+                  <BadgeCheck size={12} />
+                  Lv.{level} {level === "A" ? "专家认证" : level === "B" ? "进阶认证" : "基础认证"}
+                </span>
+                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">
+                  <ShieldCheck size={12} /> 平台认证伙伴
+                </span>
               </div>
-
-              <p className="text-slate-500 font-medium text-sm mb-1">{profile.title}</p>
-              {(profile.location || profile.yearsExp > 0) && (
-                <div className="flex items-center gap-3 text-xs text-slate-400 mb-3">
-                  {profile.location && <span className="flex items-center gap-1"><MapPin size={11} />{profile.location}</span>}
-                  {profile.yearsExp > 0 && <span className="flex items-center gap-1"><Briefcase size={11} />{profile.yearsExp} 年从业经验</span>}
-                </div>
-              )}
-              <p className="text-muted-foreground font-medium text-base mb-4">{profile.bio}</p>
-
-              <div className="flex gap-8 border-t border-border pt-4">
-                <div>
-                  <span className="block text-2xl font-bold text-primary">{portfolios?.length ?? 0}+</span>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">完成项目</span>
-                </div>
-                <div>
-                  <span className="block text-2xl font-bold text-primary">{rating}/5.0</span>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">综合评分</span>
-                </div>
-                <div>
-                  <span className="block text-2xl font-bold text-primary">{credits}</span>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">信用分</span>
-                </div>
-                <div>
-                  <span className="block text-2xl font-bold text-primary">98%</span>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">按时交付率</span>
-                </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => setEditOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-primary/30 text-primary text-sm font-bold rounded-xl hover:bg-primary/5 transition-colors">
+                  <Pencil size={14} /> 编辑资料
+                </button>
+                <button className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 shadow-sm">
+                  联系报价 <ChevronRight size={14} />
+                </button>
               </div>
             </div>
 
-            {/* CTA buttons */}
-            <div className="pb-1 shrink-0 flex flex-col gap-2">
-              <button
-                onClick={() => setEditOpen(true)}
-                className="border border-primary text-primary px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-primary/5 transition-all flex items-center gap-2"
-              >
-                <Pencil size={15} /> 编辑资料
-              </button>
-              <button className="bg-gradient-to-br from-primary to-[#0047ab] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:brightness-110 transition-all flex items-center gap-2">
-                联系报价 <ChevronRight size={15} />
-              </button>
+            {/* Name + title */}
+            <div className="mt-4">
+              <h1 className="text-3xl font-extrabold text-blue-900 font-display leading-tight">{name}</h1>
+              <p className="text-slate-500 font-medium mt-1">{title}</p>
+              {(location || yearsExp > 0) && (
+                <div className="flex items-center gap-4 mt-2">
+                  {location && (
+                    <span className="flex items-center gap-1 text-sm text-slate-400">
+                      <MapPin size={13} /> {location}
+                    </span>
+                  )}
+                  {(yearsExp ?? 0) > 0 && (
+                    <span className="flex items-center gap-1 text-sm text-slate-400">
+                      <Briefcase size={13} /> {yearsExp} 年从业经验
+                    </span>
+                  )}
+                </div>
+              )}
+              <p className="mt-3 text-slate-600 leading-relaxed">{bio}</p>
+            </div>
+
+            {/* Stats */}
+            <div className="mt-6 pt-5 border-t border-slate-100 flex gap-10">
+              {[
+                { val: `${portfolios?.length ?? 0}+`, label: "完成项目" },
+                { val: rating > 0 ? `${rating}/5.0` : "暂无评分", label: "综合评分" },
+                { val: credits > 0 ? String(credits) : "—", label: "信用分" },
+                { val: "98%", label: "按时交付率" },
+              ].map(s => (
+                <div key={s.label}>
+                  <span className="block text-2xl font-bold text-blue-900">{s.val}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -497,25 +556,27 @@ export default function Profile() {
           <aside className="col-span-12 lg:col-span-4 space-y-6">
 
             {/* Reputation gauge */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
-              <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-6">信誉分析</h3>
-              <div className="flex items-center gap-6">
-                <CircleGauge value={rating} />
-                <div>
-                  <p className="font-bold text-lg text-primary">
-                    {rating >= 4.8 ? "大师级信誉" : rating >= 4.5 ? "优秀口碑" : "良好信誉"}
-                  </p>
-                  <p className="text-sm text-muted-foreground leading-relaxed mt-1">
-                    平台前 2% 顶级 OPC，合规记录优秀，履约率高。
-                  </p>
+            {rating > 0 && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">信誉分析</h3>
+                <div className="flex items-center gap-6">
+                  <CircleGauge value={rating} />
+                  <div>
+                    <p className="font-bold text-lg text-blue-900">
+                      {rating >= 4.8 ? "大师级信誉" : rating >= 4.5 ? "优秀口碑" : "良好信誉"}
+                    </p>
+                    <p className="text-sm text-slate-500 leading-relaxed mt-1">
+                      平台前 2% 顶级 OPC，合规记录优秀，履约率高。
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Core Skills */}
+            {/* Skills */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">核心技能</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">核心技能</h3>
                 <button onClick={() => setEditOpen(true)}
                   className="text-primary text-[10px] font-bold flex items-center gap-1 hover:underline">
                   <Pencil size={10} /> 编辑
@@ -524,7 +585,7 @@ export default function Profile() {
               {skills.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {skills.map(tag => (
-                    <span key={tag} className="bg-muted px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-border/50">
+                    <span key={tag} className="bg-slate-100 px-3 py-1.5 rounded-lg text-sm font-medium text-blue-900 border border-slate-200">
                       {tag}
                     </span>
                   ))}
@@ -540,80 +601,79 @@ export default function Profile() {
             {/* Bio */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">职业简介</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">职业简介</h3>
                 <button onClick={() => setEditOpen(true)}
                   className="text-primary text-[10px] font-bold flex items-center gap-1 hover:underline">
                   <Pencil size={10} /> 编辑
                 </button>
               </div>
-              <p className="text-muted-foreground text-sm leading-relaxed">{profile.bio}</p>
+              <p className="text-slate-600 text-sm leading-relaxed">{bio}</p>
             </div>
 
-            {/* Contact info (if filled) */}
-            {(profile.website || profile.phone || profile.wechat) && (
+            {/* Contact */}
+            {(website || phone || wechat) && (
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">联系方式</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">联系方式</h3>
                 <div className="space-y-3">
-                  {profile.website && (
-                    <a href={profile.website} target="_blank" rel="noreferrer"
+                  {website && (
+                    <a href={website} target="_blank" rel="noreferrer"
                       className="flex items-center gap-2 text-sm text-primary font-medium hover:underline">
-                      <Link2 size={14} className="text-slate-400" /> {profile.website}
+                      <Link2 size={14} className="text-slate-400 shrink-0" />
+                      <span className="truncate">{website}</span>
                     </a>
                   )}
-                  {profile.phone && (
-                    <p className="flex items-center gap-2 text-sm text-slate-600">
-                      <Phone size={14} className="text-slate-400" /> {profile.phone}
+                  {phone && (
+                    <p className="flex items-center gap-2 text-sm text-slate-700">
+                      <Phone size={14} className="text-slate-400 shrink-0" /> {phone}
                     </p>
                   )}
-                  {profile.wechat && (
-                    <p className="flex items-center gap-2 text-sm text-slate-600">
-                      <MessageCircle size={14} className="text-slate-400" /> {profile.wechat}
+                  {wechat && (
+                    <p className="flex items-center gap-2 text-sm text-slate-700">
+                      <MessageCircle size={14} className="text-slate-400 shrink-0" /> {wechat}
                     </p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Certification Timeline */}
+            {/* Certification */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
-              <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-6">认证历史</h3>
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">认证历史</h3>
               <div className="relative space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
                 {certs.map((cert, i) => (
                   <div key={i} className={`relative pl-8 ${cert.type === "locked" ? "opacity-50" : ""}`}>
                     <div className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white z-10 ${
-                      cert.type === "current" ? "bg-secondary" : cert.type === "done" ? "bg-primary" : "bg-muted-foreground/50"
+                      cert.type === "current" ? "bg-secondary" : cert.type === "done" ? "bg-primary" : "bg-slate-400"
                     }`}>
                       <Star size={10} className="text-white fill-white" />
                     </div>
-                    <p className="text-sm font-bold text-foreground">{cert.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{cert.detail}</p>
+                    <p className="text-sm font-bold text-blue-900">{cert.label}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{cert.detail}</p>
                   </div>
                 ))}
               </div>
             </div>
           </aside>
 
-          {/* Main content 8-col */}
+          {/* Main 8-col */}
           <div className="col-span-12 lg:col-span-8 space-y-10">
 
-            {/* Portfolio Gallery */}
+            {/* Portfolio */}
             <section>
               <div className="flex justify-between items-end mb-6">
-                <h2 className="text-2xl font-extrabold text-primary font-display">案例作品集</h2>
+                <h2 className="text-2xl font-extrabold text-blue-900 font-display">案例作品集</h2>
                 <button className="text-secondary font-bold text-sm hover:underline flex items-center gap-1">
-                  查看全部项目 <ChevronRight size={16} />
+                  查看全部 <ChevronRight size={16} />
                 </button>
               </div>
-
               {portfolios && portfolios.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {portfolios.map((p, idx) => {
                     const Icon = PORTFOLIO_ICONS[idx % PORTFOLIO_ICONS.length];
                     const grad = PORTFOLIO_GRAD[idx % PORTFOLIO_GRAD.length];
-                    const typeLabel = DEMAND_TYPE_LABELS[p.type] ?? p.type;
                     return (
                       <div key={p.id}
-                        className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-border/40">
+                        className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-border/40">
                         <div className={`h-48 bg-gradient-to-br ${grad} flex items-center justify-center relative overflow-hidden`}>
                           {p.coverImage ? (
                             <img src={p.coverImage} alt={p.title}
@@ -627,10 +687,10 @@ export default function Profile() {
                         </div>
                         <div className="p-6">
                           <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-3 inline-block">
-                            {typeLabel}
+                            {DEMAND_TYPE_LABELS[p.type] ?? p.type}
                           </span>
-                          <h3 className="text-lg font-bold text-foreground mb-2 font-display">{p.title}</h3>
-                          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{p.description}</p>
+                          <h3 className="text-lg font-bold text-blue-900 mb-2 font-display">{p.title}</h3>
+                          <p className="text-sm text-slate-500 mb-4 line-clamp-2">{p.description}</p>
                           <a href={p.projectUrl ?? "#"}
                             className="inline-flex items-center text-primary font-bold text-sm gap-1 hover:gap-2 transition-all">
                             查看案例 <ChevronRight size={16} />
@@ -641,22 +701,22 @@ export default function Profile() {
                   })}
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl border-2 border-dashed border-border p-16 text-center">
-                  <p className="text-muted-foreground font-medium">暂无作品，上传案例可大幅提升接单率</p>
+                <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-16 text-center">
+                  <p className="text-slate-400 font-medium">暂无作品集，完成项目后可在此展示</p>
                 </div>
               )}
             </section>
 
-            {/* Client Reviews */}
+            {/* Reviews */}
             {reviewItems.length > 0 && (
               <section>
-                <h2 className="text-2xl font-extrabold text-primary mb-6 font-display">客户评价</h2>
+                <h2 className="text-2xl font-extrabold text-blue-900 mb-6 font-display">客户评价</h2>
                 <div className="space-y-4">
                   {reviewItems.map((p, i) => {
                     const borderColors = ["border-secondary", "border-primary"];
-                    const initials    = ["HT", "LZ"];
-                    const bgColors    = ["bg-primary/10 text-primary", "bg-secondary/15 text-secondary"];
-                    const reviewers   = ["海创元运营团队负责人", "政企培训客户代表"];
+                    const initials     = ["HT", "LZ"];
+                    const bgColors     = ["bg-primary/10 text-primary", "bg-secondary/15 text-secondary"];
+                    const reviewers    = ["海创元运营团队负责人", "政企培训客户代表"];
                     return (
                       <div key={p.id}
                         className={`bg-white p-6 rounded-2xl shadow-sm border-l-4 ${borderColors[i % 2]} border border-border/40`}>
@@ -666,13 +726,13 @@ export default function Profile() {
                               {initials[i % 2]}
                             </div>
                             <div>
-                              <p className="font-bold text-foreground text-sm">{reviewers[i % 2]}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">已验证合作</p>
+                              <p className="font-bold text-blue-900 text-sm">{reviewers[i % 2]}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">已验证合作</p>
                             </div>
                           </div>
                           <StarRating rating={p.rating ?? 5} />
                         </div>
-                        <p className="text-muted-foreground italic leading-relaxed text-sm">"{p.clientFeedback}"</p>
+                        <p className="text-slate-600 italic leading-relaxed text-sm">"{p.clientFeedback}"</p>
                       </div>
                     );
                   })}

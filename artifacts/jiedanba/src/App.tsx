@@ -24,8 +24,6 @@ import Academy from "@/pages/Academy";
 import Notifications from "@/pages/Notifications";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
-import { ProfileProvider } from "@/contexts/ProfileContext";
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -93,14 +91,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ProfileProvider>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </ProfileProvider>
+      <TooltipProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

@@ -18,6 +18,11 @@ export const opcProfilesTable = pgTable("opc_profiles", {
   avgRating: real("avg_rating").notNull().default(0),
   totalEarnings: real("total_earnings").notNull().default(0),
   activityScore: real("activity_score").notNull().default(0),
+  title: varchar("title", { length: 200 }),
+  location: varchar("location", { length: 100 }),
+  website: text("website"),
+  yearsExp: integer("years_exp").default(0),
+  wechat: varchar("wechat", { length: 100 }),
 });
 
 export const insertOpcProfileSchema = createInsertSchema(opcProfilesTable).omit({ id: true });

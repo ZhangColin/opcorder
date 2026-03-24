@@ -116,9 +116,17 @@ export const UpdateOpcProfileParams = zod.object({
 });
 
 export const UpdateOpcProfileBody = zod.object({
-  bio: zod.string().optional(),
-  skillTags: zod.array(zod.string()).optional(),
+  bio:          zod.string().max(500).optional(),
+  skillTags:    zod.array(zod.string()).optional(),
   industryTags: zod.array(zod.string()).optional(),
+  title:        zod.string().max(200).optional(),
+  location:     zod.string().max(100).optional(),
+  website:      zod.string().max(500).optional().nullable(),
+  yearsExp:     zod.number().int().min(0).max(60).optional(),
+  wechat:       zod.string().max(100).optional(),
+  nickname:     zod.string().max(100).optional(),
+  avatar:       zod.string().optional().nullable(),
+  phone:        zod.string().max(20).optional(),
 });
 
 export const UpdateOpcProfileResponse = zod.object({
