@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Alpha Systems Arch. (Chen Zimo) | JieDanBa Portfolio</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-dim": "#dadadc",
+              "on-error": "#ffffff",
+              "surface": "#f9f9fc",
+              "surface-bright": "#f9f9fc",
+              "inverse-on-surface": "#f0f0f3",
+              "on-tertiary-fixed": "#002112",
+              "secondary-container": "#54f8d7",
+              "tertiary-container": "#005939",
+              "surface-container-highest": "#e2e2e5",
+              "primary": "#00327d",
+              "tertiary-fixed-dim": "#00e297",
+              "primary-container": "#0047ab",
+              "surface-container-lowest": "#ffffff",
+              "primary-fixed": "#dae2ff",
+              "on-secondary-fixed": "#00201a",
+              "secondary-fixed": "#58fbda",
+              "on-tertiary": "#ffffff",
+              "on-surface": "#1a1c1e",
+              "error-container": "#ffdad6",
+              "on-background": "#1a1c1e",
+              "tertiary": "#003f27",
+              "inverse-primary": "#b1c5ff",
+              "on-tertiary-fixed-variant": "#005234",
+              "on-surface-variant": "#434653",
+              "error": "#ba1a1a",
+              "on-tertiary-container": "#00d991",
+              "on-primary": "#ffffff",
+              "background": "#f9f9fc",
+              "surface-tint": "#2559bd",
+              "surface-container": "#eeeef0",
+              "on-primary-fixed-variant": "#00419e",
+              "surface-container-high": "#e8e8ea",
+              "secondary": "#006b5a",
+              "inverse-surface": "#2f3133",
+              "on-secondary-fixed-variant": "#005143",
+              "tertiary-fixed": "#4dffb2",
+              "on-primary-container": "#a5bdff",
+              "secondary-fixed-dim": "#2cdebf",
+              "surface-variant": "#e2e2e5",
+              "surface-container-low": "#f3f3f6",
+              "on-secondary-container": "#00705e",
+              "on-secondary": "#ffffff",
+              "on-primary-fixed": "#001946",
+              "outline": "#737784",
+              "primary-fixed-dim": "#b1c5ff",
+              "outline-variant": "#c3c6d5",
+              "on-error-container": "#93000a"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm dark:shadow-none">
+<nav class="flex justify-between items-center h-16 px-8 max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-extrabold tracking-tight text-blue-900 dark:text-blue-200">JieDanBa</span>
+<div class="hidden md:flex gap-6 items-center">
+<a class="text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors font-medium text-sm" href="#">Marketplace</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors font-medium text-sm" href="#">My Orders</a>
+<a class="text-blue-700 dark:text-blue-300 font-bold border-b-2 border-blue-700 pb-1 text-sm" href="#">Portfolio</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors font-medium text-sm" href="#">Analytics</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors font-medium text-sm" href="#">Messages</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 rounded-full">
+<span class="material-symbols-outlined text-slate-600">notifications</span>
+</button>
+<button class="p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-200 rounded-full">
+<span class="material-symbols-outlined text-slate-600">settings</span>
+</button>
+<img alt="User Profile Avatar" class="w-10 h-10 rounded-full object-cover ring-2 ring-primary-fixed" data-alt="Close-up professional portrait of a tech architect with glasses and a friendly, confident expression, soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRSL9R0bm0A40FtVzaQfWEE9h0JYctMRwYrIZT11ua9v34RQnGS7mrQ2bQh8hQhYTeHOH2HKi95b1co4H2S-j88ScJzMsRVbZgBA-qcxu3JxdrP9Y3JHpqostehpCgjLr-wTp9g_9Wh9Itybwvy5_gdWYdVvj2QKsOiAmw-fuBdAs20OWJN09NvAh-XWuT56bwuZZouKR9ZQLuKL4ifJjLE3Qur94eK0Nj8azr-r9aqGJv2BsqZ6MiQDOrYszXidiUaf19sLYd3Q55"/>
+</div>
+</nav>
+</header>
+<main class="pt-24 pb-20 px-8 max-w-screen-2xl mx-auto space-y-10">
+<!-- Profile Header Section -->
+<section class="relative bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
+<div class="h-48 bg-gradient-to-r from-primary to-primary-container relative">
+<div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 24px 24px;"></div>
+</div>
+<div class="px-8 pb-8 flex flex-col md:flex-row items-end gap-6 -mt-16 relative z-10">
+<img class="w-40 h-40 rounded-xl object-cover border-4 border-white shadow-lg bg-white" data-alt="High-resolution professional headshot of a mature tech architect with refined features and modern eyewear, clean white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQHFsUqrQyPbweKoLEh3AJTu7M3V2AcBf6faufM9CICznNYgAobhSDJSOb7cqv4eUmk9mtyfA6Ev1TFjsWCs6y8Km-3GSLn2prlEZ_VkVng29m-7SNmm8PieE7itTzg8bjq88HGxDFxQQ2oAm6ENkwBT4RfkihTk2DuI68XL97df_co2nzCoxISPPZWGhP0EVAPhNkbOzT25v_Mttls8ojqqDTMtMI-aYckYP1yVqNRQdUKKmg4081hrOKoigvIvBhgY8Hb7ig0AXa"/>
+<div class="flex-1 pb-2">
+<div class="flex flex-wrap items-center gap-3 mb-1">
+<h1 class="text-3xl font-extrabold text-primary">Alpha Systems Arch. (Chen Zimo)</h1>
+<div class="flex gap-2">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">verified</span>
+                                L3 Expert Certified
+                            </span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" style="font-variation-settings: 'FILL' 1;">shield</span>
+                                SOE Verified Partner
+                            </span>
+</div>
+</div>
+<p class="text-on-surface-variant font-medium text-lg mb-4">Specializing in AI-Driven Microservices &amp; Cloud Infrastructure</p>
+<div class="flex gap-8 border-t border-surface-container pt-4">
+<div>
+<span class="block text-2xl font-bold text-primary">128</span>
+<span class="text-xs font-semibold text-outline uppercase tracking-wider">Projects Completed</span>
+</div>
+<div>
+<span class="block text-2xl font-bold text-primary">4.9/5.0</span>
+<span class="text-xs font-semibold text-outline uppercase tracking-wider">Rating</span>
+</div>
+<div>
+<span class="block text-2xl font-bold text-primary">98%</span>
+<span class="text-xs font-semibold text-outline uppercase tracking-wider">On-time Delivery</span>
+</div>
+</div>
+</div>
+<div class="pb-2">
+<button class="bg-gradient-to-br from-primary to-primary-container text-white px-8 py-3 rounded-lg font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+<span class="material-symbols-outlined">send</span>
+                        Connect for Quote
+                    </button>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-12 gap-8 items-start">
+<!-- Left Column: Stats & Capabilities -->
+<aside class="col-span-12 lg:col-span-4 space-y-8">
+<!-- Credit Score Card -->
+<div class="bg-surface-container-low p-6 rounded-xl">
+<h3 class="text-sm font-bold text-outline uppercase tracking-widest mb-6">Reputation Analytics</h3>
+<div class="flex items-center gap-6">
+<div class="relative w-24 h-24">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-highest" cx="48" cy="48" fill="transparent" r="42" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-secondary" cx="48" cy="48" fill="transparent" r="42" stroke="currentColor" stroke-dasharray="264" stroke-dashoffset="5" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-xl font-black text-on-surface">4.9</span>
+</div>
+</div>
+<div>
+<p class="font-bold text-lg text-primary">Master Tier Credit</p>
+<p class="text-sm text-on-surface-variant leading-relaxed">Top 2% of platform architects. Excellent compliance and reliability record.</p>
+</div>
+</div>
+</div>
+<!-- Capabilities -->
+<div class="bg-surface-container-low p-6 rounded-xl">
+<h3 class="text-sm font-bold text-outline uppercase tracking-widest mb-4">Core Stack &amp; Capabilities</h3>
+<div class="flex flex-wrap gap-2">
+<span class="bg-surface-container-lowest px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-outline-variant/30">Cloud Architecture</span>
+<span class="bg-surface-container-lowest px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-outline-variant/30">Python</span>
+<span class="bg-surface-container-lowest px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-outline-variant/30">AI Agent Development</span>
+<span class="bg-surface-container-lowest px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-outline-variant/30">RAG Systems</span>
+<span class="bg-surface-container-lowest px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-outline-variant/30">Docker</span>
+<span class="bg-surface-container-lowest px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-outline-variant/30">Kubernetes</span>
+<span class="bg-surface-container-lowest px-3 py-1.5 rounded-lg text-sm font-medium text-primary border border-outline-variant/30">Deep Learning</span>
+</div>
+</div>
+<!-- Bio -->
+<div class="bg-surface-container-low p-6 rounded-xl">
+<h3 class="text-sm font-bold text-outline uppercase tracking-widest mb-4">Professional Bio</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed space-y-4">
+                        Over 12 years of experience in system architecture. I specialize in bridging legacy infrastructure with modern AI-driven solutions. 
+                        <br/><br/>
+                        Having collaborated extensively with <strong>Haikuangyuan Tech</strong> and leading SOEs, I bring a disciplined approach to microservice orchestration and enterprise-scale knowledge management.
+                    </p>
+</div>
+<!-- Certification Timeline -->
+<div class="bg-surface-container-low p-6 rounded-xl">
+<h3 class="text-sm font-bold text-outline uppercase tracking-widest mb-6">Certification History</h3>
+<div class="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-outline-variant/30">
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-secondary flex items-center justify-center ring-4 ring-surface-container-low">
+<span class="material-symbols-outlined text-white text-xs" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="text-sm font-bold text-on-surface">L3 Expert Architect</p>
+<p class="text-xs text-on-surface-variant">Unlocked Sept 2023 • Advanced Neural Orchestration</p>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center ring-4 ring-surface-container-low">
+<span class="material-symbols-outlined text-white text-xs" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<p class="text-sm font-bold text-on-surface">L2 Senior Developer</p>
+<p class="text-xs text-on-surface-variant">Unlocked Feb 2022 • Cloud Native Migration</p>
+</div>
+<div class="relative pl-8 opacity-60">
+<div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-outline flex items-center justify-center ring-4 ring-surface-container-low">
+<span class="material-symbols-outlined text-white text-xs" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<p class="text-sm font-bold text-on-surface">L1 Foundational</p>
+<p class="text-xs text-on-surface-variant">Unlocked Jan 2020 • System Integration Basics</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area: Portfolio & Reviews -->
+<div class="col-span-12 lg:col-span-8 space-y-10">
+<!-- Portfolio Gallery -->
+<section>
+<div class="flex justify-between items-end mb-6">
+<h2 class="text-2xl font-extrabold text-primary">Case Study Portfolio</h2>
+<a class="text-secondary font-bold text-sm hover:underline flex items-center gap-1" href="#">
+                            Explore All Projects
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Card 1 -->
+<div class="group bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+<div class="h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Complex data visualization interface with glowing nodes and digital connections, dark blue tech aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC48QjE-C6sq1PTICLEFmqZfqr2mnMLqw8YV6acn3en9bimfznC3kJ37pvZ0Fs8ZWN1R700ZlZCCPX1lnc0_3z_QTjTuXpyzkFAJYXNyqbJZgA8H3DiMNZ8B9_6VhOugDFB3a2KJ8-SQGzrmTcwl-8TOg4f-RUTMkoLxFeW62y4QAn6zvp5rSBDX5mYLURKYDsGsegoLN6G8PE6wVnwLU0DCrrSABHoUUJ1kOehzP_HkW76PLXm_vbw4v-pFSpyPXPFsbshhKBmlLzS"/>
+</div>
+<div class="p-6">
+<span class="bg-primary-fixed text-on-primary-fixed-variant px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block">AI Education</span>
+<h3 class="text-lg font-bold text-on-surface mb-2">Enterprise Knowledge Graph Construction</h3>
+<p class="text-sm text-on-surface-variant mb-4 line-clamp-2">Implementation of a multi-tiered RAG system for internal documentation and training automation.</p>
+<a class="inline-flex items-center text-primary font-bold text-sm gap-1 hover:gap-2 transition-all" href="#">
+                                    View Case Study
+                                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+</a>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+<div class="h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Futuristic satellite view of earth with digital grid overlay, representing global network infrastructure" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSggeKAxdlWD-7XS-fcYqgcsFaXF3JZSH7q0cdiLdz1hedwWlRB0OR5fa6PJHkHORLG82MM12XDf_xSNmZWiviP0bxXQFrmOG_SPczP98d30Cr9pZwFjAWLnA28zwolF6A7-eETasi7EgNNzwwnqzWjGr5UT8wLXqqfHsU7ttzPIR5iECiSxPZX0Wlb5IzU7gM72BF_DOlp9jENOCX5b5iuxzGilpUDOrE-nAVlfSGMWEnVmLVNBeOiwA8Alk3SgrWcKk4_X4wP9mp"/>
+</div>
+<div class="p-6">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block">Cloud Infra</span>
+<h3 class="text-lg font-bold text-on-surface mb-2">High-Availability Microservices Migration</h3>
+<p class="text-sm text-on-surface-variant mb-4 line-clamp-2">Migrating legacy monolithic services to a Kubernetes-based distributed architecture.</p>
+<a class="inline-flex items-center text-primary font-bold text-sm gap-1 hover:gap-2 transition-all" href="#">
+                                    View Case Study
+                                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+</a>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+<div class="h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Server room with blue lighting and glass reflections, highlighting precision and high-tech hardware" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwnEVVE3BDrfveb4TyPvgOzvYZ0nPuthLOxiZa2IGogpurgAxmTGfPzJze7GpuNxNlq2yZE56-A2Nh2y1KUgOhPYpBLnwGZ3ETkLCgTLBvzsshRMma7FjFiIndKbmpA6WZsCOFYyd1l4YzvpdO9aNoM3O8pgQuTpLtexVOtDGsbHVIcQbs2BkUroq4YmC6FjoioRWNjpDVxlxJn5pNgVYuXo1Wq9094Nammeu4rwK2rXwTByF5ldPZPASwrBj99YJSnaPPGyXjHyC-"/>
+</div>
+<div class="p-6">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed-variant px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block">AI Agents</span>
+<h3 class="text-lg font-bold text-on-surface mb-2">Autonomous Support Agent Swarm</h3>
+<p class="text-sm text-on-surface-variant mb-4 line-clamp-2">Multi-agent system handling Tier 1 support tickets with 94% accuracy and instant response.</p>
+<a class="inline-flex items-center text-primary font-bold text-sm gap-1 hover:gap-2 transition-all" href="#">
+                                    View Case Study
+                                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+</a>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="group bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+<div class="h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Abstract 3D blocks in a structured grid, representing blockchain and data security concepts" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZf0mWJ2VdQQvrPCE1iThiZV-M7D4y5oWudYnY69frfU2PmxtyOauB2u6wqwuaq1g0DRtnGZPXVXsiJnoM9YPAXQ5mN52QAwAXoGFwATRPfSBMmxYM1SNAsxEYymyaoH62EqO5OUqpyyHGru6YXyXNVsIlzoCue7Eojqwazz0kjkR6FpKxrthLbOW8qQYdqZ4SWlVJJ0SYxMHtfha0gfrcuGSQY3ttaHDp5vd5YwpRTSjW_DepsWtvfok4cTo7evJzHUhwz2quUjTR"/>
+</div>
+<div class="p-6">
+<span class="bg-primary-fixed text-on-primary-fixed-variant px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block">Security</span>
+<h3 class="text-lg font-bold text-on-surface mb-2">Zero-Trust Enterprise Vault</h3>
+<p class="text-sm text-on-surface-variant mb-4 line-clamp-2">Securing sensitive intellectual property with decentralized encryption and access control.</p>
+<a class="inline-flex items-center text-primary font-bold text-sm gap-1 hover:gap-2 transition-all" href="#">
+                                    View Case Study
+                                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+</a>
+</div>
+</div>
+</div>
+</section>
+<!-- Reviews & Testimonials -->
+<section>
+<h2 class="text-2xl font-extrabold text-primary mb-6">Client Testimonials</h2>
+<div class="space-y-4">
+<!-- Review 1 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-secondary">
+<div class="flex justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center font-bold text-primary">HT</div>
+<div>
+<p class="font-bold text-on-surface">Director of Ops, Haikuangyuan Tech</p>
+<p class="text-xs text-on-surface-variant">Nov 2023 • Verified Collaboration</p>
+</div>
+</div>
+<div class="flex text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+</div>
+<p class="text-on-surface-variant italic leading-relaxed">
+                                "Chen Zimo's approach to architecture is both visionary and practical. He successfully revamped our core microservices cluster with zero downtime. His expertise in AI integration saved our team hundreds of man-hours monthly."
+                            </p>
+</div>
+<!-- Review 2 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-primary">
+<div class="flex justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center font-bold text-secondary">LZ</div>
+<div>
+<p class="font-bold text-on-surface">Li Zhaoyu, Lead Engineer at Sinotech</p>
+<p class="text-xs text-on-surface-variant">Aug 2023 • Verified Collaboration</p>
+</div>
+</div>
+<div class="flex text-secondary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">star</span>
+</div>
+</div>
+<p class="text-on-surface-variant italic leading-relaxed">
+                                "An exceptional architect who understands the unique constraints of SOE requirements. Highly reliable and technically superior in Docker/K8s orchestration."
+                            </p>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-50 dark:bg-slate-950 w-full py-12 border-t border-slate-200 dark:border-slate-800">
+<div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex flex-col gap-2">
+<span class="font-bold text-slate-900 dark:text-slate-100 text-lg">JieDanBa Intelligent Exchange</span>
+<p class="font-inter text-xs text-slate-500 dark:text-slate-400">© 2024 JieDanBa Intelligent Exchange. All rights reserved.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-inter text-xs text-slate-400 hover:text-slate-600 transition-colors" href="#">Terms of Service</a>
+<a class="font-inter text-xs text-slate-400 hover:text-slate-600 transition-colors" href="#">Privacy Policy</a>
+<a class="font-inter text-xs text-slate-400 hover:text-slate-600 transition-colors" href="#">Help Center</a>
+<a class="font-inter text-xs text-slate-400 hover:text-slate-600 transition-colors" href="#">API Documentation</a>
+</div>
+</div>
+</footer>
+</body></html>
