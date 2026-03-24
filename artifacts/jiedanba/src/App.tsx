@@ -1,10 +1,12 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { Layout } from "@/components/layout/Layout";
+import Login from "@/pages/Login";
 import Home from "@/pages/Home";
+import PublisherHome from "@/pages/PublisherHome";
 import DemandHall from "@/pages/DemandHall";
 import DemandDetail from "@/pages/DemandDetail";
 import CreateDemand from "@/pages/CreateDemand";
@@ -27,21 +29,32 @@ const queryClient = new QueryClient({
 
 function Router() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/demands" component={DemandHall} />
-        <Route path="/demands/:id" component={DemandDetail} />
-        <Route path="/create-demand" component={CreateDemand} />
-        <Route path="/order-hall" component={OrderHall} />
-        <Route path="/orders" component={MyOrders} />
-        <Route path="/orders/:id" component={OrderDetail} />
-        <Route path="/profile" component={Profile} />
-        <Route path="/academy" component={Academy} />
-        <Route path="/notifications" component={Notifications} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      {/* Standalone routes — no Layout */}
+      <Route path="/login" component={Login} />
+      <Route path="/publisher" component={PublisherHome} />
+
+      {/* OPC routes — wrapped in Layout */}
+      <Route>
+        {() => (
+          <Layout>
+            <Switch>
+              <Route path="/" component={Home} />
+              <Route path="/demands" component={DemandHall} />
+              <Route path="/demands/:id" component={DemandDetail} />
+              <Route path="/create-demand" component={CreateDemand} />
+              <Route path="/order-hall" component={OrderHall} />
+              <Route path="/orders" component={MyOrders} />
+              <Route path="/orders/:id" component={OrderDetail} />
+              <Route path="/profile" component={Profile} />
+              <Route path="/academy" component={Academy} />
+              <Route path="/notifications" component={Notifications} />
+              <Route component={NotFound} />
+            </Switch>
+          </Layout>
+        )}
+      </Route>
+    </Switch>
   );
 }
 
