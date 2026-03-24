@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import {
   CheckCircle2, ShieldCheck, Globe, HelpCircle, ArrowRight,
   Building2, User, BadgeCheck, Banknote, ListChecks, ChartBar,
-  Cpu, Lock,
+  Cpu, Lock, MessageSquare, TrendingUp, CalendarDays,
 } from "lucide-react";
 
 export default function Login() {
@@ -60,7 +60,7 @@ export default function Login() {
         </div>
 
         {/* Identity Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl">
 
           {/* ── OPC Card ── */}
           <div className="group relative bg-white rounded-xl overflow-hidden border border-outline-variant/20 hover:border-secondary/40 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1">
@@ -186,6 +186,69 @@ export default function Login() {
 
             {/* Bottom accent */}
             <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-primary-container to-primary" />
+          </div>
+
+          {/* ── Community Card ── */}
+          <div className="group relative bg-white rounded-xl overflow-hidden border border-outline-variant/20 hover:border-amber-400/50 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1">
+            {/* Watermark */}
+            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
+              <Globe size={96} className="text-amber-500" />
+            </div>
+
+            <div className="p-8 h-full flex flex-col">
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                  <MessageSquare size={28} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold font-display text-primary">社区逛逛</h2>
+                  <p className="text-sm text-on-surface-variant">访客浏览 · 无需注册</p>
+                </div>
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-5 mb-10 flex-grow">
+                {[
+                  {
+                    icon: TrendingUp,
+                    title: "浏览热门话题",
+                    desc: "探索 VibeCoding、AIGC、政企数字化等前沿讨论",
+                  },
+                  {
+                    icon: Globe,
+                    title: "探索 OPC 生态",
+                    desc: "了解平台贡献榜、认证路径与顶尖 OPC 动态",
+                  },
+                  {
+                    icon: CalendarDays,
+                    title: "参与社区活动",
+                    desc: "查看线上沙龙、直播活动与技术分享信息",
+                  },
+                ].map(({ icon: Icon, title, desc }) => (
+                  <li key={title} className="flex items-start gap-3">
+                    <Icon size={20} className="text-amber-500 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-primary block text-sm">{title}</span>
+                      <span className="text-sm text-on-surface-variant leading-relaxed">{desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              <button
+                onClick={() => navigate("/community")}
+                className="w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98]"
+                style={{ background: "linear-gradient(to right, #b45309, #d97706)" }}
+              >
+                访客浏览社区
+                <ArrowRight size={18} />
+              </button>
+            </div>
+
+            {/* Bottom accent */}
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-amber-500" />
           </div>
         </div>
 

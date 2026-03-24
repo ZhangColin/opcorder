@@ -8,6 +8,7 @@ import Login from "@/pages/Login";
 import Home from "@/pages/Home";
 import PublisherHome from "@/pages/PublisherHome";
 import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
+import Community from "@/pages/Community";
 import DemandHall from "@/pages/DemandHall";
 import DemandDetail from "@/pages/DemandDetail";
 import CreateDemand from "@/pages/CreateDemand";
@@ -50,6 +51,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/publisher" component={PublisherHome} />
       <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
+      <Route path="/community" component={Community} />
 
       {/* OPC routes — role-gated, wrapped in Layout */}
       <Route>
