@@ -12,6 +12,7 @@ export function Navbar() {
     { href: "/create-demand", label: "发布需求" },
     { href: "/orders", label: "我的订单" },
     { href: "/profile", label: "个人中心" },
+    { href: "/academy", label: "培训进阶" },
   ];
 
   return (

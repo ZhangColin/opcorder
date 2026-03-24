@@ -12,6 +12,7 @@ import MyOrders from "@/pages/MyOrders";
 import OrderDetail from "@/pages/OrderDetail";
 import OrderHall from "@/pages/OrderHall";
 import Profile from "@/pages/Profile";
+import Academy from "@/pages/Academy";
 import Notifications from "@/pages/Notifications";
 import NotFound from "@/pages/not-found";
 
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/orders" component={MyOrders} />
         <Route path="/orders/:id" component={OrderDetail} />
         <Route path="/profile" component={Profile} />
+        <Route path="/academy" component={Academy} />
         <Route path="/notifications" component={Notifications} />
         <Route component={NotFound} />
       </Switch>
