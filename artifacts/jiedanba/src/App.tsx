@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,6 +27,21 @@ const queryClient = new QueryClient({
   },
 });
 
+function RoleGate({ children }: { children: React.ReactNode }) {
+  const role = localStorage.getItem("jdb_role");
+  const [, navigate] = useLocation();
+
+  if (!role) {
+    navigate("/login");
+    return null;
+  }
+  if (role === "publisher") {
+    navigate("/publisher");
+    return null;
+  }
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     <Switch>
@@ -34,24 +49,26 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/publisher" component={PublisherHome} />
 
-      {/* OPC routes — wrapped in Layout */}
+      {/* OPC routes — role-gated, wrapped in Layout */}
       <Route>
         {() => (
-          <Layout>
-            <Switch>
-              <Route path="/" component={Home} />
-              <Route path="/demands" component={DemandHall} />
-              <Route path="/demands/:id" component={DemandDetail} />
-              <Route path="/create-demand" component={CreateDemand} />
-              <Route path="/order-hall" component={OrderHall} />
-              <Route path="/orders" component={MyOrders} />
-              <Route path="/orders/:id" component={OrderDetail} />
-              <Route path="/profile" component={Profile} />
-              <Route path="/academy" component={Academy} />
-              <Route path="/notifications" component={Notifications} />
-              <Route component={NotFound} />
-            </Switch>
-          </Layout>
+          <RoleGate>
+            <Layout>
+              <Switch>
+                <Route path="/" component={Home} />
+                <Route path="/demands" component={DemandHall} />
+                <Route path="/demands/:id" component={DemandDetail} />
+                <Route path="/create-demand" component={CreateDemand} />
+                <Route path="/order-hall" component={OrderHall} />
+                <Route path="/orders" component={MyOrders} />
+                <Route path="/orders/:id" component={OrderDetail} />
+                <Route path="/profile" component={Profile} />
+                <Route path="/academy" component={Academy} />
+                <Route path="/notifications" component={Notifications} />
+                <Route component={NotFound} />
+              </Switch>
+            </Layout>
+          </RoleGate>
         )}
       </Route>
     </Switch>
