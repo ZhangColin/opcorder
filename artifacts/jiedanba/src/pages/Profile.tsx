@@ -202,7 +202,10 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
           wechat:       form.wechat,
         },
       });
-      await qc.invalidateQueries({ queryKey: ["/api/users"] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["/api/users/me"] }),
+        qc.invalidateQueries({ queryKey: [`/api/users/${userId}/opc-profile`] }),
+      ]);
       setStatus("saved");
       setTimeout(() => { setStatus("idle"); onClose(); }, 800);
     } catch {

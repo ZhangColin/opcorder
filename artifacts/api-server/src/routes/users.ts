@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, opcProfilesTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 import { GetOpcLeaderboardQueryParams, UpdateOpcProfileBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -37,7 +37,7 @@ async function buildProfileResponse(userId: number) {
 
 router.get("/users/me", async (_req, res) => {
   try {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.role, "opc")).limit(1);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.role, "opc")).orderBy(asc(usersTable.id)).limit(1);
     if (!user) return res.status(404).json({ error: "No user found" });
     res.json({
       id:        user.id,
