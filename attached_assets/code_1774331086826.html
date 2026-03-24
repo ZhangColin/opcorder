@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dispute Resolution Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "background": "#f9f9fc",
+              "surface-bright": "#f9f9fc",
+              "on-primary-fixed": "#001946",
+              "secondary-container": "#54f8d7",
+              "surface-container-low": "#f3f3f6",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-highest": "#e2e2e5",
+              "secondary": "#006b5a",
+              "on-secondary": "#ffffff",
+              "on-error-container": "#93000a",
+              "secondary-fixed": "#58fbda",
+              "on-surface-variant": "#434653",
+              "primary": "#00327d",
+              "on-tertiary": "#ffffff",
+              "on-surface": "#1a1c1e",
+              "surface-dim": "#dadadc",
+              "on-secondary-fixed": "#00201a",
+              "surface-container-high": "#e8e8ea",
+              "secondary-fixed-dim": "#2cdebf",
+              "primary-fixed": "#dae2ff",
+              "primary-fixed-dim": "#b1c5ff",
+              "tertiary-fixed-dim": "#00e297",
+              "on-tertiary-fixed": "#002112",
+              "tertiary-container": "#005939",
+              "tertiary-fixed": "#4dffb2",
+              "on-error": "#ffffff",
+              "inverse-primary": "#b1c5ff",
+              "surface-container": "#eeeef0",
+              "tertiary": "#003f27",
+              "on-tertiary-fixed-variant": "#005234",
+              "on-secondary-container": "#00705e",
+              "on-primary-container": "#a5bdff",
+              "inverse-on-surface": "#f0f0f3",
+              "inverse-surface": "#2f3133",
+              "outline": "#737784",
+              "on-primary": "#ffffff",
+              "primary-container": "#0047ab",
+              "error": "#ba1a1a",
+              "on-primary-fixed-variant": "#00419e",
+              "surface-variant": "#e2e2e5",
+              "surface": "#f9f9fc",
+              "on-tertiary-container": "#00d991",
+              "on-background": "#1a1c1e",
+              "on-secondary-fixed-variant": "#005143",
+              "error-container": "#ffdad6",
+              "surface-tint": "#2559bd",
+              "outline-variant": "#c3c6d5"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- SideNavBar Component -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r-0 bg-slate-50 dark:bg-slate-900 flex flex-col h-full py-6 px-4 z-50">
+<div class="text-xl font-extrabold text-blue-900 dark:text-blue-100 mb-8 font-headline">Dispute Panel</div>
+<nav class="flex-1 space-y-1">
+<!-- Active State: Demands (Closest to Dashboard/Queue context) -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-bold text-sm tracking-tight scale-95 active:scale-100 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-blue-700 dark:text-blue-300 font-bold border-r-4 border-blue-700 dark:border-blue-400 bg-white dark:bg-slate-800 font-['Plus_Jakarta_Sans'] text-sm tracking-tight scale-95 active:scale-100 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span>Demands</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-bold text-sm tracking-tight scale-95 active:scale-100 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span>Orders</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-bold text-sm tracking-tight scale-95 active:scale-100 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Finance</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 font-['Plus_Jakarta_Sans'] font-bold text-sm tracking-tight scale-95 active:scale-100 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+<span>Community</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-slate-200 dark:border-slate-800">
+<button class="w-full bg-primary text-white py-3 rounded-lg font-bold text-sm hover:opacity-90 transition-all active:scale-95">
+                New Case
+            </button>
+<div class="flex items-center gap-3 mt-6 px-2">
+<img alt="Admin User Avatar" class="w-10 h-10 rounded-full bg-surface-container-high" data-alt="professional portrait of a system administrator in business attire, clean background, soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_bKfPsXkSj8JPQGmaZ42ken0NI9WrZAYYZQFvwv0MfvGosN5WHksbBZEYMy8nbjYJNfgShGA68RvOHWpSUvwOO2rpf7PnpHfeApdGcXanhIs7KYin5kXSkLxJcBQNebvK8gde-Ka5RNWQuomFnUxqjj1WyKdV4eDC-eeV8RxiDE3d9l53oC9Ln4hh76PTlwp9mpVT7ZKz9TYLH9c5JM5hNeO-Wqi0MxKyAvQnGjGyZt_VdIWdEJ5NX4lsiQIfv8QkO72NbEK54jpe"/>
+<div>
+<p class="text-sm font-bold text-on-surface">Admin User</p>
+<p class="text-xs text-on-surface-variant">System Administrator</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar Component -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 flex justify-between items-center px-8 w-full">
+<div class="flex items-center bg-surface-container-low px-4 py-2 rounded-lg w-96 focus-within:ring-2 focus-within:ring-blue-500/20">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline" placeholder="Search dispute ID, user, or project..." type="text"/>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4">
+<button class="text-slate-400 dark:text-slate-500 hover:text-blue-600 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-400 dark:text-slate-500 hover:text-blue-600 transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="text-slate-400 dark:text-slate-500 hover:text-blue-600 transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-outline-variant/30"></div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-semibold font-headline text-blue-800">Dispute Resolution Admin</span>
+<img alt="Admin Profile" class="w-8 h-8 rounded-full border border-primary/10" data-alt="Close up of a professional user profile placeholder with soft blue gradients" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZLMoNDxmLandSEwSmptnAO8KO1msdWlmOfHacS8e_5tnINYSNf4c5fT_ZZk-YKHpelkP_0KTA1NaEAqiL9DLSTtmt7DK1zJk1YHgYyBtvStQ7ftkHO7B2tXbA-BkYd74rucNQ4i420uhmMoqGY9dFgbjbgKHs9bZiG37u7DccMR66EzBNQpX7zrwyuGv7uu1-a94F0Kzo-MVrDCSzh2nitax6V6vyP9yasoJLlgMnQbuMxP2c_vxWDQyRUicGLeqB5K4Lqv9r94Ci"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 p-8 min-h-screen">
+<!-- Dashboard Header -->
+<div class="mb-10">
+<h1 class="text-3xl font-extrabold tracking-tight text-on-surface font-headline mb-2">Dispute Resolution Dashboard</h1>
+<p class="text-on-surface-variant max-w-2xl">Monitor and adjudicate active conflicts within the OPC ecosystem. Evidence-backed mediation and final rulings are managed here.</p>
+</div>
+<!-- 1. Overview Cards (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+<div class="bg-surface-container-lowest p-6 rounded-xl border-none shadow-sm flex flex-col justify-between">
+<div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Total Disputes</span>
+<h3 class="text-4xl font-extrabold font-headline text-primary">1,284</h3>
+</div>
+<div class="mt-4 flex items-center gap-2 text-secondary font-medium text-sm">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+<span>+12% from last month</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border-none shadow-sm flex flex-col justify-between">
+<div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Pending Resolution</span>
+<h3 class="text-4xl font-extrabold font-headline text-on-surface">42</h3>
+</div>
+<div class="mt-4 flex items-center gap-2 text-error font-medium text-sm">
+<span class="material-symbols-outlined text-sm" data-icon="warning">warning</span>
+<span>8 urgent cases</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border-none shadow-sm flex flex-col justify-between border-l-4 border-secondary">
+<div>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2 block">Avg. Resolution Time</span>
+<h3 class="text-4xl font-extrabold font-headline text-on-surface">3.4 Days</h3>
+</div>
+<div class="mt-4 flex items-center gap-2 text-secondary font-medium text-sm">
+<span class="material-symbols-outlined text-sm" data-icon="timer">timer</span>
+<span>-18h vs last week</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border-none shadow-sm flex flex-col justify-between bg-primary text-white">
+<div>
+<span class="text-xs font-bold uppercase tracking-widest text-primary-fixed mb-2 block">Settled Amount</span>
+<h3 class="text-4xl font-extrabold font-headline">$142,800</h3>
+</div>
+<div class="mt-4 flex items-center gap-2 text-primary-fixed-dim font-medium text-sm">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span>
+<span>94% Success Rate</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- 2. Dispute Queue Table -->
+<div class="lg:col-span-2 space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="list">list</span>
+                        Active Dispute Queue
+                    </h2>
+<div class="flex gap-2">
+<button class="bg-surface-container-high px-3 py-1.5 rounded text-xs font-bold hover:bg-surface-container-highest transition-colors">Filter</button>
+<button class="bg-surface-container-high px-3 py-1.5 rounded text-xs font-bold hover:bg-surface-container-highest transition-colors">Export</button>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low text-on-surface-variant uppercase text-[10px] font-bold tracking-widest">
+<tr>
+<th class="px-6 py-4">Case ID</th>
+<th class="px-6 py-4">Project / Parties</th>
+<th class="px-6 py-4">Reason</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low">
+<!-- Case 1 -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-6 py-6 align-top">
+<span class="font-mono text-xs font-bold text-primary">#DS-8821</span>
+</td>
+<td class="px-6 py-6">
+<p class="font-bold text-sm text-on-surface mb-1">Neo-Banking Architecture</p>
+<div class="flex items-center gap-2 text-[11px] text-on-surface-variant">
+<span class="px-1.5 py-0.5 bg-surface-container-high rounded italic">Issuer: Sarah J.</span>
+<span>vs</span>
+<span class="px-1.5 py-0.5 bg-surface-container-high rounded italic">OPC: DevNode Inc.</span>
+</div>
+</td>
+<td class="px-6 py-6">
+<span class="px-2 py-1 rounded-full bg-error-container text-on-error-container text-[10px] font-bold uppercase">Quality</span>
+</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary animate-pulse"></div>
+<span class="text-xs font-medium">Mediation</span>
+</div>
+</td>
+<td class="px-6 py-6 text-right">
+<button class="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</td>
+</tr>
+<!-- Case 2 -->
+<tr class="bg-primary/5 hover:bg-primary/10 transition-colors group">
+<td class="px-6 py-6 align-top">
+<span class="font-mono text-xs font-bold text-primary">#DS-9042</span>
+</td>
+<td class="px-6 py-6">
+<p class="font-bold text-sm text-on-surface mb-1">Smart Logistics AI</p>
+<div class="flex items-center gap-2 text-[11px] text-on-surface-variant">
+<span class="px-1.5 py-0.5 bg-surface-container-high rounded italic">Issuer: GlobalShip</span>
+<span>vs</span>
+<span class="px-1.5 py-0.5 bg-surface-container-high rounded italic">OPC: Alan Wright</span>
+</div>
+</td>
+<td class="px-6 py-6">
+<span class="px-2 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold uppercase">Delay</span>
+</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-amber-500"></div>
+<span class="text-xs font-medium">Evidence Collection</span>
+</div>
+</td>
+<td class="px-6 py-6 text-right">
+<button class="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</td>
+</tr>
+<!-- Case 3 -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-6 py-6 align-top">
+<span class="font-mono text-xs font-bold text-primary">#DS-7741</span>
+</td>
+<td class="px-6 py-6">
+<p class="font-bold text-sm text-on-surface mb-1">Retail CRM Plugin</p>
+<div class="flex items-center gap-2 text-[11px] text-on-surface-variant">
+<span class="px-1.5 py-0.5 bg-surface-container-high rounded italic">Issuer: ShopHub</span>
+<span>vs</span>
+<span class="px-1.5 py-0.5 bg-surface-container-high rounded italic">OPC: PixelCraft</span>
+</div>
+</td>
+<td class="px-6 py-6">
+<span class="px-2 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold uppercase">Payment</span>
+</td>
+<td class="px-6 py-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-blue-500"></div>
+<span class="text-xs font-medium">New</span>
+</div>
+</td>
+<td class="px-6 py-6 text-right">
+<button class="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- 4. Case Detail Panel (Side Focus) -->
+<div class="space-y-6">
+<h2 class="text-xl font-bold font-headline flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="visibility">visibility</span>
+                    Case Focus
+                </h2>
+<div class="bg-surface-container-lowest rounded-xl shadow-lg border border-primary/10 overflow-hidden">
+<div class="p-6 bg-primary text-white">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-bold text-lg font-headline">#DS-8821 Detail</h3>
+<p class="text-xs opacity-80">Mediation Phase • 48h Remaining</p>
+</div>
+<span class="px-2 py-1 rounded bg-secondary-container text-on-secondary-container text-[10px] font-extrabold uppercase tracking-tighter">AI Recommended</span>
+</div>
+<div class="flex gap-4 mt-6">
+<div class="flex-1">
+<p class="text-[10px] uppercase font-bold text-primary-fixed mb-1">In Escrow</p>
+<p class="text-xl font-bold">$12,500.00</p>
+</div>
+<div class="flex-1 border-l border-white/20 pl-4">
+<p class="text-[10px] uppercase font-bold text-primary-fixed mb-1">Priority</p>
+<p class="text-xl font-bold">High</p>
+</div>
+</div>
+</div>
+<div class="p-6 space-y-6">
+<!-- Milestone Progress -->
+<div>
+<p class="text-xs font-bold text-on-surface-variant uppercase mb-3">Milestone Progress</p>
+<div class="space-y-3">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs font-medium">Sprint 1: Architecture Design</span>
+</div>
+<div class="flex items-center gap-3 opacity-40">
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+<span class="text-xs">Sprint 2: API Integration (Disputed)</span>
+</div>
+</div>
+</div>
+<!-- 3. Quick Action Buttons -->
+<div class="grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-sm font-bold transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="file_present">file_present</span>
+                                Evidence
+                            </button>
+<button class="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-sm font-bold transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="group_add">group_add</span>
+                                Invite
+                            </button>
+<button class="col-span-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-error/20 text-error hover:bg-error/5 text-sm font-bold transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="gavel">gavel</span>
+                                Escalate to Arbitration
+                            </button>
+</div>
+<!-- 5. Resolution Tools -->
+<div class="pt-6 border-t border-surface-container-low">
+<p class="text-xs font-bold text-on-surface-variant uppercase mb-4">Adjudication Actions</p>
+<div class="space-y-2">
+<button class="w-full text-left p-3 rounded-lg bg-secondary/10 hover:bg-secondary/20 text-secondary flex items-center justify-between group transition-all">
+<div>
+<p class="text-sm font-bold">Release Funds</p>
+<p class="text-[10px] opacity-70">Payout 100% to OPC Professional</p>
+</div>
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="send">send</span>
+</button>
+<button class="w-full text-left p-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-between group transition-all">
+<div>
+<p class="text-sm font-bold">Refund Issuer</p>
+<p class="text-[10px] opacity-70">Return 100% to Sarah J.</p>
+</div>
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="replay">replay</span>
+</button>
+<button class="w-full text-left p-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-between group transition-all">
+<div>
+<p class="text-sm font-bold">Partial Payout</p>
+<p class="text-[10px] opacity-70">Custom distribution split</p>
+</div>
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="call_split">call_split</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Chat Preview Card -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm space-y-4">
+<h4 class="text-sm font-bold font-headline uppercase tracking-wider text-on-surface-variant">Recent Chat History</h4>
+<div class="space-y-3">
+<div class="flex gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-highest flex-shrink-0 flex items-center justify-center font-bold text-[10px]">SJ</div>
+<div class="bg-surface-container-low p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl text-xs">
+                                The API endpoint documentation doesn't match the actual responses. We're getting 404s on the /auth route.
+                            </div>
+</div>
+<div class="flex gap-3 flex-row-reverse">
+<div class="w-8 h-8 rounded bg-primary flex-shrink-0 flex items-center justify-center font-bold text-[10px] text-white">DN</div>
+<div class="bg-primary-fixed p-3 rounded-tl-xl rounded-br-xl rounded-bl-xl text-xs text-on-primary-fixed">
+                                We updated the endpoints last Friday as per the changelog. Please check your implementation.
+                            </div>
+</div>
+</div>
+<button class="w-full text-center text-xs font-bold text-primary py-2 hover:underline">View Full 124 Messages</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Global FAB Suppression (No FAB for Admin Context) -->
+</body></html>

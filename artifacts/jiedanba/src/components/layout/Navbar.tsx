@@ -10,6 +10,7 @@ export function Navbar() {
     { href: "/demands", label: "抢单大厅" },
     { href: "/order-hall", label: "订单大厅" },
     { href: "/orders", label: "我的订单" },
+    { href: "/disputes", label: "争议处理" },
     { href: "/academy", label: "培训进阶" },
     { href: "/profile", label: "个人中心" },
   ];

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, BarChart2, FileText,
   PlusCircle, HelpCircle, LogOut, Search, Bell, Settings,
   Star, TrendingUp, ChevronsRight, Banknote, CircleDollarSign,
-  ShieldCheck, User,
+  ShieldCheck, User, Gavel,
 } from "lucide-react";
 import {
   useListDemands,
@@ -36,18 +36,31 @@ function SidebarLink({
   label,
   active,
   onClick,
+  href,
 }: {
   icon: React.ElementType;
   label: string;
   active?: boolean;
   onClick?: () => void;
+  href?: string;
 }) {
+  const cls = `w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 ${
+    active ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-primary"
+  }`;
+  if (href) {
+    return (
+      <Link href={href}>
+        <div className={cls + " cursor-pointer"}>
+          <Icon size={18} />
+          {label}
+        </div>
+      </Link>
+    );
+  }
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 ${
-        active ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-primary"
-      }`}
+      className={cls}
     >
       <Icon size={18} />
       {label}
@@ -101,6 +114,7 @@ export default function PublisherHome() {
           <SidebarLink icon={Users}           label="OPC 人才库" />
           <SidebarLink icon={BarChart2}       label="数据分析" />
           <SidebarLink icon={FileText}        label="项目报告" />
+          <SidebarLink icon={Gavel}           label="争议处理" href="/publisher/disputes" />
         </nav>
 
         {/* CTA */}

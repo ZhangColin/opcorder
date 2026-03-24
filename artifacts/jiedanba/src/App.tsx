@@ -9,6 +9,8 @@ import Home from "@/pages/Home";
 import PublisherHome from "@/pages/PublisherHome";
 import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
 import Community from "@/pages/Community";
+import Disputes from "@/pages/Disputes";
+import PublisherDisputes from "@/pages/PublisherDisputes";
 import DemandHall from "@/pages/DemandHall";
 import DemandDetail from "@/pages/DemandDetail";
 import MyOrders from "@/pages/MyOrders";
@@ -50,6 +52,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/publisher" component={PublisherHome} />
       <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
+      <Route path="/publisher/disputes" component={PublisherDisputes} />
       <Route path="/community" component={Community} />
 
       {/* OPC routes — role-gated, wrapped in Layout */}
@@ -64,6 +67,7 @@ function Router() {
                 <Route path="/order-hall" component={OrderHall} />
                 <Route path="/orders" component={MyOrders} />
                 <Route path="/orders/:id" component={OrderDetail} />
+                <Route path="/disputes" component={Disputes} />
                 <Route path="/profile" component={Profile} />
                 <Route path="/academy" component={Academy} />
                 <Route path="/notifications" component={Notifications} />
