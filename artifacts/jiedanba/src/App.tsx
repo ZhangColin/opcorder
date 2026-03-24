@@ -11,7 +11,6 @@ import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
 import Community from "@/pages/Community";
 import DemandHall from "@/pages/DemandHall";
 import DemandDetail from "@/pages/DemandDetail";
-import CreateDemand from "@/pages/CreateDemand";
 import MyOrders from "@/pages/MyOrders";
 import OrderDetail from "@/pages/OrderDetail";
 import OrderHall from "@/pages/OrderHall";
@@ -62,7 +61,6 @@ function Router() {
                 <Route path="/" component={Home} />
                 <Route path="/demands" component={DemandHall} />
                 <Route path="/demands/:id" component={DemandDetail} />
-                <Route path="/create-demand" component={CreateDemand} />
                 <Route path="/order-hall" component={OrderHall} />
                 <Route path="/orders" component={MyOrders} />
                 <Route path="/orders/:id" component={OrderDetail} />
