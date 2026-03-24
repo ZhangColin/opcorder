@@ -104,7 +104,7 @@ export default function PublisherHome() {
         </nav>
 
         {/* CTA */}
-        <Link href="/create-demand">
+        <Link href="/publisher/demand/1">
           <div className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer">
             <PlusCircle size={16} /> 发布新需求
           </div>

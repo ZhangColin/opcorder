@@ -7,6 +7,7 @@ import { Layout } from "@/components/layout/Layout";
 import Login from "@/pages/Login";
 import Home from "@/pages/Home";
 import PublisherHome from "@/pages/PublisherHome";
+import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
 import DemandHall from "@/pages/DemandHall";
 import DemandDetail from "@/pages/DemandDetail";
 import CreateDemand from "@/pages/CreateDemand";
@@ -48,6 +49,7 @@ function Router() {
       {/* Standalone routes — no Layout */}
       <Route path="/login" component={Login} />
       <Route path="/publisher" component={PublisherHome} />
+      <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
 
       {/* OPC routes — role-gated, wrapped in Layout */}
       <Route>
