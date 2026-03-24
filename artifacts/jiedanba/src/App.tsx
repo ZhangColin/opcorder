@@ -10,6 +10,7 @@ import DemandDetail from "@/pages/DemandDetail";
 import CreateDemand from "@/pages/CreateDemand";
 import MyOrders from "@/pages/MyOrders";
 import OrderDetail from "@/pages/OrderDetail";
+import OrderHall from "@/pages/OrderHall";
 import Profile from "@/pages/Profile";
 import Notifications from "@/pages/Notifications";
 import NotFound from "@/pages/not-found";
@@ -31,6 +32,7 @@ function Router() {
         <Route path="/demands" component={DemandHall} />
         <Route path="/demands/:id" component={DemandDetail} />
         <Route path="/create-demand" component={CreateDemand} />
+        <Route path="/order-hall" component={OrderHall} />
         <Route path="/orders" component={MyOrders} />
         <Route path="/orders/:id" component={OrderDetail} />
         <Route path="/profile" component={Profile} />

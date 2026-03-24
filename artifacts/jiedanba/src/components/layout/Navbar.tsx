@@ -7,6 +7,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: "首页" },
+    { href: "/order-hall", label: "订单大厅" },
     { href: "/demands", label: "抢单大厅" },
     { href: "/create-demand", label: "发布需求" },
     { href: "/orders", label: "我的订单" },

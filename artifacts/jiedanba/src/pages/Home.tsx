@@ -102,7 +102,7 @@ export default function Home() {
               </h3>
               <p className="text-muted-foreground text-sm font-medium mt-1">基于您的能力模型智能推荐</p>
             </div>
-            <Link href="/demands" className="text-primary font-bold text-sm flex items-center group hover:underline underline-offset-4">
+            <Link href="/order-hall" className="text-primary font-bold text-sm flex items-center group hover:underline underline-offset-4">
               查看全部 <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
