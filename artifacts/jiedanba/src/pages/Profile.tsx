@@ -1,16 +1,19 @@
 import { useState, useRef, useCallback } from "react";
+import { Link } from "wouter";
 import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
-  Phone, MessageCircle, CheckCircle2, AlertCircle, Upload,
+  Phone, MessageCircle, CheckCircle2, AlertCircle, Upload, ExternalLink,
 } from "lucide-react";
 import {
   useGetCurrentUser,
   useGetOpcProfile,
   useListPortfolios,
   useUpdateOpcProfile,
+  type Portfolio,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { PortfolioDrawer, TYPE_LABEL } from "@/components/PortfolioDrawer";
 
 /* ─── Static ─────────────────────────────────── */
 
@@ -422,8 +425,15 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
 
 /* ─── Page ─────────────────────────────────────── */
 
+const PREVIEW_COUNT = 4;
+
 export default function Profile() {
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen,         setEditOpen]         = useState(false);
+  const [portfolioDrawer,  setPortfolioDrawer]  = useState(false);
+  const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null);
+
+  const openAddPortfolio  = () => { setEditingPortfolio(null); setPortfolioDrawer(true); };
+  const openEditPortfolio = (p: Portfolio) => { setEditingPortfolio(p); setPortfolioDrawer(true); };
 
   const { data: user }       = useGetCurrentUser();
   const { data: profile }    = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
@@ -472,6 +482,12 @@ export default function Profile() {
           initial={formInitial}
         />
       )}
+      <PortfolioDrawer
+        open={portfolioDrawer}
+        onClose={() => setPortfolioDrawer(false)}
+        userId={user?.id ?? 1}
+        initial={editingPortfolio}
+      />
 
       <div className="space-y-6">
 
@@ -680,49 +696,96 @@ export default function Profile() {
 
             {/* Portfolio */}
             <section>
-              <div className="flex justify-between items-end mb-6">
-                <h2 className="text-2xl font-extrabold text-blue-900 font-display">案例作品集</h2>
-                <button className="text-secondary font-bold text-sm hover:underline flex items-center gap-1">
-                  查看全部 <ChevronRight size={16} />
-                </button>
-              </div>
-              {portfolios && portfolios.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {portfolios.map((p, idx) => {
-                    const Icon = PORTFOLIO_ICONS[idx % PORTFOLIO_ICONS.length];
-                    const grad = PORTFOLIO_GRAD[idx % PORTFOLIO_GRAD.length];
-                    return (
-                      <div key={p.id}
-                        className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-border/40">
-                        <div className={`h-48 bg-gradient-to-br ${grad} flex items-center justify-center relative overflow-hidden`}>
-                          {p.coverImage ? (
-                            <img src={p.coverImage} alt={p.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                          ) : (
-                            <>
-                              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "20px 20px" }} />
-                              <Icon size={48} className="text-white/60 group-hover:scale-110 transition-transform duration-500" />
-                            </>
-                          )}
-                        </div>
-                        <div className="p-6">
-                          <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-3 inline-block">
-                            {DEMAND_TYPE_LABELS[p.type] ?? p.type}
-                          </span>
-                          <h3 className="text-lg font-bold text-blue-900 mb-2 font-display">{p.title}</h3>
-                          <p className="text-sm text-slate-500 mb-4 line-clamp-2">{p.description}</p>
-                          <a href={p.projectUrl ?? "#"}
-                            className="inline-flex items-center text-primary font-bold text-sm gap-1 hover:gap-2 transition-all">
-                            查看案例 <ChevronRight size={16} />
-                          </a>
-                        </div>
-                      </div>
-                    );
-                  })}
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-extrabold text-blue-900 font-display">案例作品集</h2>
+                  {(portfolios?.length ?? 0) > 0 && (
+                    <p className="text-slate-400 text-sm mt-0.5">{portfolios?.length} 个案例</p>
+                  )}
                 </div>
+                <div className="flex items-center gap-2">
+                  {(portfolios?.length ?? 0) > 0 && (
+                    <Link href="/portfolios"
+                      className="text-secondary font-bold text-sm hover:underline flex items-center gap-1">
+                      查看全部 <ChevronRight size={16} />
+                    </Link>
+                  )}
+                  <button onClick={openAddPortfolio}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 shadow-sm transition-colors">
+                    <Plus size={14} /> 添加案例
+                  </button>
+                </div>
+              </div>
+
+              {portfolios && portfolios.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {portfolios.slice(0, PREVIEW_COUNT).map((p, idx) => {
+                      const Icon = PORTFOLIO_ICONS[idx % PORTFOLIO_ICONS.length];
+                      const grad = PORTFOLIO_GRAD[idx % PORTFOLIO_GRAD.length];
+                      return (
+                        <div key={p.id}
+                          className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-border/40">
+                          <div className={`h-44 bg-gradient-to-br ${grad} flex items-center justify-center relative overflow-hidden`}>
+                            {p.coverImage ? (
+                              <img src={p.coverImage} alt={p.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            ) : (
+                              <>
+                                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "20px 20px" }} />
+                                <Icon size={44} className="text-white/60 group-hover:scale-110 transition-transform duration-500" />
+                              </>
+                            )}
+                            {/* Edit overlay */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                              <button
+                                onClick={() => openEditPortfolio(p)}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-white text-blue-900 rounded-xl text-sm font-bold shadow-lg">
+                                <Pencil size={13} /> 编辑
+                              </button>
+                            </div>
+                          </div>
+                          <div className="p-5">
+                            <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-3 inline-block">
+                              {TYPE_LABEL[p.type] ?? p.type}
+                            </span>
+                            <h3 className="text-base font-bold text-blue-900 mb-1.5 font-display leading-snug">{p.title}</h3>
+                            <p className="text-sm text-slate-500 mb-3 line-clamp-2 leading-relaxed">{p.description}</p>
+                            <div className="flex items-center justify-between">
+                              {p.projectUrl ? (
+                                <a href={p.projectUrl} target="_blank" rel="noreferrer"
+                                  className="inline-flex items-center text-primary font-bold text-sm gap-1 hover:underline">
+                                  查看案例 <ExternalLink size={13} />
+                                </a>
+                              ) : <span />}
+                              <button onClick={() => openEditPortfolio(p)}
+                                className="text-slate-400 hover:text-primary transition-colors">
+                                <Pencil size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {portfolios.length > PREVIEW_COUNT && (
+                    <Link href="/portfolios"
+                      className="mt-4 flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-sm font-bold text-slate-600 hover:border-primary/40 hover:text-primary transition-all">
+                      查看全部 {portfolios.length} 个案例 <ChevronRight size={16} />
+                    </Link>
+                  )}
+                </>
               ) : (
-                <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-16 text-center">
-                  <p className="text-slate-400 font-medium">暂无作品集，完成项目后可在此展示</p>
+                <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
+                  <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Cpu size={24} className="text-primary" />
+                  </div>
+                  <p className="text-blue-900 font-bold mb-1">还没有案例作品</p>
+                  <p className="text-slate-400 text-sm mb-5">添加您的项目案例，让发单方了解您的能力</p>
+                  <button onClick={openAddPortfolio}
+                    className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+                    <Plus size={15} className="inline mr-1.5" />添加第一个案例
+                  </button>
                 </div>
               )}
             </section>

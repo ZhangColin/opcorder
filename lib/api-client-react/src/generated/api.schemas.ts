@@ -383,6 +383,7 @@ export interface Portfolio {
 }
 
 export interface CreatePortfolioInput {
+  userId: number;
   title: string;
   type: string;
   coverImage?: string;

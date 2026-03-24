@@ -20,6 +20,7 @@ import MyOrders from "@/pages/MyOrders";
 import OrderDetail from "@/pages/OrderDetail";
 import OrderHall from "@/pages/OrderHall";
 import Profile from "@/pages/Profile";
+import Portfolios from "@/pages/Portfolios";
 import Academy from "@/pages/Academy";
 import Notifications from "@/pages/Notifications";
 import Admin from "@/pages/Admin";
@@ -76,6 +77,7 @@ function Router() {
                 <Route path="/disputes" component={Disputes} />
                 <Route path="/cockpit" component={Cockpit} />
                 <Route path="/profile" component={Profile} />
+                <Route path="/portfolios" component={Portfolios} />
                 <Route path="/academy" component={Academy} />
                 <Route path="/notifications" component={Notifications} />
                 <Route component={NotFound} />

@@ -31,7 +31,7 @@ router.post("/portfolios", async (req, res) => {
     const body = CreatePortfolioBody.parse(req.body);
 
     const [portfolio] = await db.insert(portfoliosTable).values({
-      userId: 2,
+      userId: body.userId,
       title: body.title,
       type: body.type,
       coverImage: body.coverImage,

@@ -890,6 +890,7 @@ export const ListPortfoliosResponse = zod.array(ListPortfoliosResponseItem);
  * @summary Add a portfolio item
  */
 export const CreatePortfolioBody = zod.object({
+  userId: zod.number(),
   title: zod.string(),
   type: zod.string(),
   coverImage: zod.string().optional(),
