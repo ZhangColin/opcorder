@@ -268,12 +268,18 @@ export default function Login() {
         <span className="text-xs font-medium text-slate-400">
           © 2026 接单吧 · 数字交易架构完整性的践行者
         </span>
-        <div className="flex gap-6">
+        <div className="flex gap-6 items-center">
           {["隐私政策", "服务条款", "联系支持"].map(link => (
             <a key={link} href="#" className="text-xs font-medium text-slate-400 hover:text-primary transition-colors">
               {link}
             </a>
           ))}
+          <button
+            onClick={() => navigate("/auth/admin")}
+            className="text-xs font-medium text-slate-300 hover:text-slate-500 transition-colors"
+          >
+            管理员登录
+          </button>
         </div>
       </footer>
     </div>

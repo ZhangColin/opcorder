@@ -7,7 +7,7 @@ import {
 
 /* ─── Types ─────────────────────────────────── */
 
-type Role = "opc" | "publisher";
+type Role = "opc" | "publisher" | "admin";
 type Tab  = "login" | "register";
 
 /* ─── Helpers ───────────────────────────────── */
@@ -23,6 +23,11 @@ const ROLE_COPY: Record<Role, { label: string; sub: string; color: string }> = {
     sub:   "企业需求方",
     color: "text-blue-200",
   },
+  admin: {
+    label: "平台管理员",
+    sub:   "后台运营专员",
+    color: "text-purple-300",
+  },
 };
 
 const STATS = [
@@ -36,7 +41,7 @@ const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function Auth() {
   const { role: rawRole } = useParams<{ role: string }>();
-  const role: Role = rawRole === "publisher" ? "publisher" : "opc";
+  const role: Role = rawRole === "publisher" ? "publisher" : rawRole === "admin" ? "admin" : "opc";
   const [, navigate]   = useLocation();
   const [tab, setTab]  = useState<Tab>("login");
 
@@ -102,9 +107,11 @@ export default function Auth() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败，请重试"); return; }
 
-      localStorage.setItem("jdb_role",    role);
-      localStorage.setItem("jdb_user_id", String(data.id));
-      navigate(role === "opc" ? "/" : "/publisher");
+      localStorage.setItem("jdb_role",     data.role ?? role);
+      localStorage.setItem("jdb_user_id",  String(data.id));
+      localStorage.setItem("jdb_nickname", data.nickname ?? "");
+      const dest = data.role === "admin" ? "/admin" : data.role === "opc" ? "/" : "/publisher";
+      navigate(dest);
     } catch {
       setError("网络错误，请稍后重试");
     } finally {
@@ -201,22 +208,24 @@ export default function Auth() {
               </p>
             </header>
 
-            {/* Tabs */}
-            <div className="flex gap-1 mb-8 bg-slate-100 p-1 rounded-xl">
-              {(["login", "register"] as Tab[]).map(t => (
-                <button
-                  key={t}
-                  onClick={() => switchTab(t)}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
-                    tab === t
-                      ? "bg-white text-primary shadow-sm"
-                      : "text-slate-500 hover:text-foreground"
-                  }`}
-                >
-                  {t === "login" ? "登录" : "注册"}
-                </button>
-              ))}
-            </div>
+            {/* Tabs — hidden for admin (login only) */}
+            {role !== "admin" && (
+              <div className="flex gap-1 mb-8 bg-slate-100 p-1 rounded-xl">
+                {(["login", "register"] as Tab[]).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => switchTab(t)}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                      tab === t
+                        ? "bg-white text-primary shadow-sm"
+                        : "text-slate-500 hover:text-foreground"
+                    }`}
+                  >
+                    {t === "login" ? "登录" : "注册"}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Registration success */}
             {regOk && (
@@ -350,6 +359,8 @@ export default function Auth() {
                 style={{
                   background: role === "opc"
                     ? "linear-gradient(to right, #006b5a, #005143)"
+                    : role === "admin"
+                    ? "linear-gradient(to right, #4f1d96, #7c3aed)"
                     : "linear-gradient(to right, #00327d, #0047ab)",
                 }}
               >

@@ -10,6 +10,7 @@ import notificationsRouter from "./notifications";
 import authRouter from "./auth";
 import postsRouter from "./posts";
 import coursesRouter from "./courses";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(portfoliosRouter);
 router.use(notificationsRouter);
 router.use(postsRouter);
 router.use(coursesRouter);
+router.use(adminRouter);
 
 export default router;
