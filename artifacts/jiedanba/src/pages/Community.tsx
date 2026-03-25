@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import {
   ShieldCheck, Search, Bell, User, ThumbsUp, MessageSquare,
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
   ArrowRight, Filter, Plus, X, Send, Loader2,
+  ChevronDown, LogOut, ArrowLeft,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard, useGetCurrentUser,
@@ -33,6 +34,77 @@ const LEADERBOARD_MOCK = [
 ];
 
 const SUGGESTED_TAGS = ["#VibeCoding", "#AIPrompting", "#政企数字化", "#合规", "#接单经验", "#新手攻略"];
+
+/* ─── User badge with dropdown ──────────────────── */
+
+interface UserBadgeProps {
+  nickname: string;
+  role: string;
+}
+
+function UserBadge({ nickname, role }: UserBadgeProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("jdb_user_id");
+    localStorage.removeItem("jdb_role");
+    navigate("/login");
+  };
+
+  const backLabel = role === "publisher" ? "返回发单方端" : "返回OPC端";
+  const backHref  = role === "publisher" ? "/publisher" : "/";
+  const initials  = nickname.slice(0, 2);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 bg-primary/8 hover:bg-primary/14 text-primary px-3 py-1.5 rounded-full transition-colors"
+      >
+        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
+          {initials}
+        </div>
+        <span className="text-sm font-bold max-w-[80px] truncate hidden sm:block">{nickname}</span>
+        <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+            <p className="text-xs font-bold text-blue-900 truncate">{nickname}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{role === "publisher" ? "发单方账号" : "OPC 账号"}</p>
+          </div>
+          <Link href={backHref}>
+            <div
+              className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-blue-900 hover:bg-primary/5 transition-colors cursor-pointer"
+              onClick={() => setOpen(false)}
+            >
+              <ArrowLeft size={15} className="text-primary" />
+              {backLabel}
+            </div>
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <LogOut size={15} />
+            退出登录
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─── Login prompt modal ─────────────────────── */
 
@@ -252,13 +324,16 @@ export default function Community() {
               <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
             <button onClick={() => requireLogin()} className="p-2 text-blue-900 hover:bg-slate-50 rounded-full transition-colors"><Bell size={20} /></button>
-            <button onClick={() => requireLogin()} className="p-2 text-blue-900 hover:bg-slate-50 rounded-full transition-colors"><User size={20} /></button>
-            {isGuest && (
+            {!isGuest && user?.nickname ? (
+              <UserBadge nickname={user.nickname} role={role ?? "opc"} />
+            ) : isGuest ? (
               <Link href="/login">
-                <div className="hidden sm:flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-full text-sm font-bold cursor-pointer hover:bg-primary/90 transition-colors">
+                <div className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-full text-sm font-bold cursor-pointer hover:bg-primary/90 transition-colors">
                   登录 <ArrowRight size={14} />
                 </div>
               </Link>
+            ) : (
+              <button className="p-2 text-blue-900 hover:bg-slate-50 rounded-full transition-colors"><User size={20} /></button>
             )}
           </div>
         </div>
