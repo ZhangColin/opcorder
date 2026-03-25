@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { format } from "date-fns";
-import { zhCN } from "date-fns/locale";
-import { ArrowLeft, MapPin, Clock, ShieldAlert, CheckCircle, FileText } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File } from "lucide-react";
 import { useGetDemandById, useCreateBid } from "@workspace/api-client-react";
 import { DEMAND_TYPES, DEMAND_STATUSES, OPC_LEVELS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
+
+function AttachmentIcon({ type }: { type: string }) {
+  if (type === "image") return <FileImage size={18} className="text-blue-500" />;
+  if (type === "spreadsheet") return <FileSpreadsheet size={18} className="text-green-600" />;
+  if (type === "archive") return <FileArchive size={18} className="text-yellow-600" />;
+  return <File size={18} className="text-muted-foreground" />;
+}
 
 export default function DemandDetail() {
   const [, params] = useRoute("/demands/:id");
@@ -27,6 +33,11 @@ export default function DemandDetail() {
   const statusInfo = DEMAND_STATUSES[demand.status] || DEMAND_STATUSES.published;
   const levelInfo = OPC_LEVELS[demand.opcLevel] || OPC_LEVELS.any;
 
+  const attachments: Array<{ name: string; size: string; type: string; url: string }> =
+    (demand as any).attachments?.length
+      ? (demand as any).attachments
+      : [];
+
   const handleBidSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     submitBid({
@@ -38,7 +49,7 @@ export default function DemandDetail() {
       }
     }, {
       onSuccess: () => {
-        toast({ title: "抢单申请已提交", description: "发单方将尽快审核您的申请。" });
+        toast({ title: "接单申请已提交", description: "发单方将尽快审核您的申请。" });
         setShowBidForm(false);
       },
       onError: (err) => {
@@ -107,12 +118,12 @@ export default function DemandDetail() {
                 onClick={() => setShowBidForm(true)}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/25 active:scale-95 transition-all text-lg"
               >
-                立即抢单
+                立即接单
               </button>
             )}
             {demand.status !== 'published' && (
               <button disabled className="w-full bg-muted text-muted-foreground font-bold py-4 rounded-xl cursor-not-allowed text-lg">
-                不可抢单
+                不可接单
               </button>
             )}
             <p className="text-center text-xs text-muted-foreground mt-4 flex items-center justify-center">
@@ -125,6 +136,8 @@ export default function DemandDetail() {
       {/* Content Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+
+          {/* Demand Description */}
           <div className="bg-card rounded-3xl p-8 border border-border shadow-sm">
             <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
               <FileText className="text-primary" /> 需求详情
@@ -134,6 +147,36 @@ export default function DemandDetail() {
                 <p key={i}>{para}</p>
               ))}
             </div>
+          </div>
+
+          {/* Attachments */}
+          <div className="bg-card rounded-3xl p-8 border border-border shadow-sm">
+            <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
+              <Download className="text-primary" /> 参考资料下载
+            </h3>
+            {attachments.length === 0 ? (
+              <p className="text-muted-foreground text-sm">发单方暂未上传参考资料。</p>
+            ) : (
+              <ul className="space-y-3">
+                {attachments.map((file, idx) => (
+                  <li key={idx}>
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-4 p-4 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                    >
+                      <AttachmentIcon type={file.type} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{file.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{file.size}</p>
+                      </div>
+                      <Download size={15} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -165,7 +208,7 @@ export default function DemandDetail() {
             <button onClick={() => setShowBidForm(false)} className="absolute top-6 right-6 text-muted-foreground hover:text-foreground">
               ✕
             </button>
-            <h2 className="text-2xl font-black font-display mb-2">提交抢单申请</h2>
+            <h2 className="text-2xl font-black font-display mb-2">提交接单申请</h2>
             <p className="text-muted-foreground mb-8 text-sm">请详细填写您的解决方案和优势，提高中标率。</p>
             
             <form onSubmit={handleBidSubmit} className="space-y-5">

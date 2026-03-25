@@ -27,6 +27,7 @@ export const demandsTable = pgTable("demands", {
   budgetMax: real("budget_max").notNull(),
   deadline: date("deadline").notNull(),
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>>().default([]),
+  attachments: jsonb("attachments").$type<Array<{ name: string; size: string; type: string; url: string }>>().default([]),
   mode: demandModeEnum("mode").notNull().default("open"),
   status: demandStatusEnum("status").notNull().default("draft"),
   isUrgent: boolean("is_urgent").notNull().default(false),
