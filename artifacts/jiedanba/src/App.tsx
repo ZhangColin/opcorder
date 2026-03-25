@@ -15,7 +15,6 @@ import Disputes from "@/pages/Disputes";
 import PublisherDisputes from "@/pages/PublisherDisputes";
 import Cockpit from "@/pages/Cockpit";
 import PublisherCockpit from "@/pages/PublisherCockpit";
-import DemandHall from "@/pages/DemandHall";
 import DemandDetail from "@/pages/DemandDetail";
 import MyOrders from "@/pages/MyOrders";
 import OrderDetail from "@/pages/OrderDetail";
@@ -73,7 +72,6 @@ function Router() {
             <Layout>
               <Switch>
                 <Route path="/" component={Home} />
-                <Route path="/demands" component={DemandHall} />
                 <Route path="/demands/:id" component={DemandDetail} />
                 <Route path="/order-hall" component={OrderHall} />
                 <Route path="/orders" component={MyOrders} />
