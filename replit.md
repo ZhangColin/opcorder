@@ -86,6 +86,8 @@ OPC gets 60%, publisher 30%, platform fee 10%
 - `/publisher/demand/:id` - 需求详情 (demand detail with bid review + OPC bid list, confirm/reject)
 - `/publisher/orders` - 订单管理列表 (order list with status tabs, milestone progress)
 - `/publisher/orders/:id` - 订单详情 (milestone review, deliverable list, acceptance + return actions)
+- `/publisher/opc-library` - OPC 人才库 (OPC grid with level/skill filters, detail drawer with portfolio)
+- `/publisher/notifications` - 消息中心 (notification list, mark read, filter by category, jump to related demand/order)
 - `/publisher/cockpit` - 驾驶舱 (operational analytics)
 - `/publisher/disputes` - 争议处理
 

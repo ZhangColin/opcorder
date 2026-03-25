@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, BarChart2, FileText,
-  PlusCircle, HelpCircle, LogOut, ShieldCheck, Gavel, Gauge, ClipboardList,
+  PlusCircle, HelpCircle, LogOut, ShieldCheck, Gavel, Gauge, ClipboardList, Bell,
 } from "lucide-react";
 
 interface SidebarLinkProps {
@@ -49,9 +49,10 @@ export function PublisherSidebar({ onLogout }: { onLogout: () => void }) {
       <nav className="flex-1 flex flex-col gap-0.5">
         <SidebarLink icon={LayoutDashboard} label="工作台"    href="/publisher"          active={isActive("/publisher")} />
         <SidebarLink icon={FileText}        label="需求管理"   href="/publisher/demands"  active={isActive("/publisher/demands")} />
-        <SidebarLink icon={ClipboardList}   label="订单管理"   href="/publisher/orders"   active={isActive("/publisher/orders")} />
-        <SidebarLink icon={Users}           label="OPC 人才库" href="#"                   active={false} />
-        <SidebarLink icon={BarChart2}       label="数据分析"   href="#"                   active={false} />
+        <SidebarLink icon={ClipboardList}   label="订单管理"    href="/publisher/orders"        active={isActive("/publisher/orders")} />
+        <SidebarLink icon={Users}           label="OPC 人才库"  href="/publisher/opc-library"  active={isActive("/publisher/opc-library")} />
+        <SidebarLink icon={Bell}            label="消息中心"    href="/publisher/notifications" active={isActive("/publisher/notifications")} />
+        <SidebarLink icon={BarChart2}       label="数据分析"    href="#"                        active={false} />
         <SidebarLink icon={Gauge}           label="驾驶舱"    href="/publisher/cockpit"  active={isActive("/publisher/cockpit")} />
         <SidebarLink icon={Gavel}           label="争议处理"  href="/publisher/disputes" active={isActive("/publisher/disputes")} />
       </nav>
