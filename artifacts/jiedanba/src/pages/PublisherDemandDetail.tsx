@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
-  Search, Bell, Settings,
-  CheckCircle2, Clock, Lock, MapPin, Star, BadgeCheck,
-  Calendar, Timer, ArrowRight, Download, FileText as FilePdf,
-  ImageIcon, Zap,
+  Search, Bell, Settings, Star, BadgeCheck, Calendar,
+  Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
+  XCircle, ExternalLink, AlertCircle, Timer, Trophy,
 } from "lucide-react";
-import { useGetDemandById } from "@workspace/api-client-react";
+import {
+  useGetDemandById,
+  useListBidsForDemand,
+  useUpdateBidStatus,
+} from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
-
-/* ─── Constants ───────────────────────────────── */
+import { useQueryClient } from "@tanstack/react-query";
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
   ai_education: "AI 教育",
@@ -21,29 +24,93 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
   other: "综合",
 };
 
-const MILESTONES = [
-  { label: "阶段一：需求分析",  pct: "30% 付款", status: "done" as const },
-  { label: "阶段二：核心开发",  pct: "50% 付款", status: "current" as const },
-  { label: "阶段三：集成验收",  pct: "20% 付款", status: "locked" as const },
-];
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  draft:              { label: "草稿",   color: "bg-slate-100 text-slate-600" },
+  pending_review:     { label: "待审核", color: "bg-amber-100 text-amber-700" },
+  published:          { label: "招募中", color: "bg-blue-100 text-blue-700" },
+  matched:            { label: "已匹配", color: "bg-purple-100 text-purple-700" },
+  in_progress:        { label: "进行中", color: "bg-green-100 text-green-700" },
+  pending_acceptance: { label: "待验收", color: "bg-orange-100 text-orange-700" },
+  completed:          { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
+  closed:             { label: "已关闭", color: "bg-red-100 text-red-600" },
+};
 
-/* ─── Page ────────────────────────────────────── */
+const OPC_LEVEL_COLOR: Record<string, string> = {
+  C: "bg-slate-100 text-slate-600",
+  B: "bg-blue-100 text-blue-700",
+  A: "bg-amber-100 text-amber-700",
+};
+
+function StarRating({ score }: { score: number }) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Star
+          key={s}
+          size={12}
+          className={s <= Math.round(score) ? "fill-amber-400 text-amber-400" : "text-slate-200"}
+        />
+      ))}
+      <span className="text-xs text-slate-500 ml-1">{score.toFixed(1)}</span>
+    </div>
+  );
+}
 
 export default function PublisherDemandDetail() {
   const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
-  const demandId = parseInt(params.id ?? "1", 10);
+  const demandId = parseInt(params.id ?? "0", 10);
+  const qc = useQueryClient();
 
-  const { data: demand, isLoading } = useGetDemandById(demandId);
+  const [confirmingBidId, setConfirmingBidId] = useState<number | null>(null);
+  const [rejectingBidId, setRejectingBidId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const { data: demand, isLoading: demandLoading } = useGetDemandById(demandId, {
+    query: { enabled: demandId > 0 },
+  });
+
+  const { data: bids = [], isLoading: bidsLoading } = useListBidsForDemand(demandId, {
+    query: { enabled: demandId > 0 },
+  });
+
+  const updateBidStatus = useUpdateBidStatus();
 
   const logout = () => {
     localStorage.removeItem("jdb_role");
     navigate("/login");
   };
 
+  const handleConfirm = async (bidId: number) => {
+    setActionError(null);
+    try {
+      await updateBidStatus.mutateAsync({ bidId, data: { status: "accepted" } });
+      await qc.invalidateQueries({ queryKey: [`/api/demands/${demandId}/bids`] });
+      await qc.invalidateQueries({ queryKey: [`/api/demands/${demandId}`] });
+      setConfirmingBidId(null);
+    } catch {
+      setActionError("操作失败，请稍后重试");
+    }
+  };
+
+  const handleReject = async (bidId: number) => {
+    setActionError(null);
+    try {
+      await updateBidStatus.mutateAsync({ bidId, data: { status: "rejected" } });
+      await qc.invalidateQueries({ queryKey: [`/api/demands/${demandId}/bids`] });
+      setRejectingBidId(null);
+      setRejectReason("");
+    } catch {
+      setActionError("操作失败，请稍后重试");
+    }
+  };
+
   const typeLabel = demand?.type ? (DEMAND_TYPE_LABELS[demand.type] ?? demand.type) : "综合";
-  const budgetMin = demand?.budgetMin?.toLocaleString() ?? "45,000";
-  const budgetMax = demand?.budgetMax?.toLocaleString() ?? "82,000";
+  const statusCfg = demand?.status ? (STATUS_CONFIG[demand.status] ?? STATUS_CONFIG.draft) : STATUS_CONFIG.draft;
+
+  const pendingBids = (bids as any[]).filter((b: any) => b.status === "pending");
+  const processedBids = (bids as any[]).filter((b: any) => b.status !== "pending");
 
   return (
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
@@ -52,15 +119,24 @@ export default function PublisherDemandDetail() {
       <main className="flex-1 ml-64 min-h-screen">
         {/* Top bar */}
         <header className="fixed top-0 right-0 left-64 z-40 bg-white/80 backdrop-blur-md shadow-sm flex justify-between items-center px-8 py-3">
-          <div className="relative w-full max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="搜索需求 ID、人才、结算记录…"
-              className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
-            />
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/publisher/demands")}
+              className="flex items-center gap-2 text-slate-500 hover:text-primary text-sm font-medium transition-colors"
+            >
+              <ArrowLeft size={16} /> 返回需求列表
+            </button>
+            <div className="h-5 w-px bg-slate-200" />
+            <div className="relative w-64">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="搜索…"
+                className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-4 ml-6">
+          <div className="flex items-center gap-4">
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
@@ -81,249 +157,411 @@ export default function PublisherDemandDetail() {
           </div>
         </header>
 
-        {/* Body */}
-        <div className="pt-24 pb-20 px-8 max-w-[1280px] mx-auto">
-
-          {isLoading ? (
+        <div className="pt-20 pb-16 px-8 max-w-[1280px] mx-auto">
+          {demandLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-8 h-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
             </div>
+          ) : !demand ? (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+              <AlertCircle size={48} className="mb-4 text-slate-300" />
+              <p className="text-lg font-medium">需求不存在或已被删除</p>
+              <button onClick={() => navigate("/publisher/demands")} className="mt-4 text-primary text-sm hover:underline">
+                返回需求列表
+              </button>
+            </div>
           ) : (
             <>
-              {/* ── Header ── */}
-              <div className="mb-10">
-                <div className="flex items-center gap-3 text-on-surface-variant mb-4">
-                  <span className="text-xs font-bold uppercase tracking-widest bg-slate-100 px-2 py-1 rounded text-slate-600">
-                    {typeLabel}
-                  </span>
-                  <span className="text-xs text-slate-400">·</span>
-                  <span className="text-xs font-medium text-slate-500">
-                    发布日期：{demand?.createdAt ? new Date(demand.createdAt).toLocaleDateString("zh-CN") : "2024年10月24日"}
-                  </span>
+              {/* ── Demand Header ── */}
+              <div className="mb-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      <span className="text-xs font-bold uppercase tracking-widest bg-slate-100 px-2 py-1 rounded text-slate-600">
+                        {typeLabel}
+                      </span>
+                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${statusCfg.color}`}>
+                        {statusCfg.label}
+                      </span>
+                      {demand.isUrgent && (
+                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-red-100 text-red-600 flex items-center gap-1">
+                          <Zap size={10} /> 紧急
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
+                    </div>
+                    <h1 className="text-2xl font-extrabold text-primary tracking-tight mb-3 font-display leading-tight">
+                      {demand.title}
+                    </h1>
+                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-3">{demand.description}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-slate-400 mb-1">预算区间</p>
+                    <p className="text-2xl font-extrabold text-primary">
+                      ¥{demand.budgetMin.toLocaleString()} – ¥{demand.budgetMax.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1 flex items-center justify-end gap-1">
+                      <Calendar size={12} />
+                      截止 {new Date(demand.deadline).toLocaleDateString("zh-CN")}
+                    </p>
+                  </div>
                 </div>
 
-                <h1 className="text-3xl md:text-4xl font-extrabold text-primary tracking-tight mb-4 font-display leading-tight">
-                  {demand?.title ?? "AI 驱动的供应链优化引擎开发"}
-                </h1>
-
-                <div className="flex flex-wrap gap-4 items-center">
-                  <div className="flex items-center bg-secondary/10 text-secondary px-3 py-1 rounded-full text-sm font-bold">
-                    <BadgeCheck size={14} className="mr-1" />
-                    需求招募中
-                  </div>
-                  <div className="text-slate-500 flex items-center gap-1 text-sm">
-                    <MapPin size={16} />
-                    北京 · 远程协作
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Milestone Roadmap ── */}
-              <section className="mb-12 bg-slate-50 rounded-2xl p-8 border border-outline-variant/20">
-                <h3 className="text-lg font-bold text-primary mb-8 flex items-center gap-2 font-display">
-                  <Zap size={18} /> 项目执行路线图
-                </h3>
-
-                <div className="relative">
-                  {/* Track */}
-                  <div className="absolute top-5 left-0 w-full h-1 bg-slate-200 rounded-full" />
-                  <div className="absolute top-5 left-0 w-1/3 h-1 bg-secondary rounded-full" />
-
-                  <div className="relative flex justify-between">
-                    {MILESTONES.map((m, i) => (
-                      <div key={i} className="flex flex-col items-center text-center max-w-[180px]">
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center z-10 mb-4 ring-4 ring-slate-50 ${
-                            m.status === "done"
-                              ? "bg-secondary text-white"
-                              : m.status === "current"
-                              ? "bg-primary/20 text-primary"
-                              : "bg-slate-200 text-slate-400"
-                          }`}
-                        >
-                          {m.status === "done" ? (
-                            <CheckCircle2 size={20} />
-                          ) : m.status === "current" ? (
-                            <Clock size={20} />
-                          ) : (
-                            <Lock size={16} />
-                          )}
-                        </div>
-                        <span className={`text-sm font-bold ${m.status === "locked" ? "text-slate-400" : "text-foreground"}`}>
-                          {m.label}
-                        </span>
-                        <span className={`text-xs mt-1 font-semibold ${
-                          m.status === "done" ? "text-secondary" : "text-slate-400"
-                        }`}>
-                          {m.pct}
-                        </span>
-                      </div>
+                {/* Skills */}
+                {demand.skillTags && demand.skillTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-5 pt-5 border-t border-slate-100">
+                    {demand.skillTags.map((tag) => (
+                      <span key={tag} className="bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                        {tag}
+                      </span>
                     ))}
                   </div>
+                )}
+              </div>
+
+              {actionError && (
+                <div className="mb-6 flex items-center gap-3 bg-red-50 text-red-700 rounded-xl p-4 border border-red-200">
+                  <AlertCircle size={18} />
+                  <span className="text-sm font-medium">{actionError}</span>
                 </div>
-              </section>
+              )}
 
-              {/* ── 3-col main split ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left: Bid Applications */}
+                <div className="lg:col-span-2 space-y-8">
 
-                {/* Left: Description */}
-                <div className="lg:col-span-2 space-y-10">
-                  <div className="bg-white p-8 rounded-2xl shadow-sm border-l-4 border-primary">
-                    <h2 className="text-2xl font-bold text-foreground mb-6 font-display">详细需求描述</h2>
-                    <div className="text-slate-600 leading-relaxed space-y-5">
-                      <p>
-                        {demand?.description ?? "海创元科技正在寻求一支资深全栈开发团队，搭建并实现一套 AI 驱动的政企数字化服务引擎。系统将实时处理来自超过 5,000 个政务节点的数据，以优化资源配置效率并缩短服务交付周期。"}
-                      </p>
-
-                      <div>
-                        <h4 className="text-lg font-bold text-foreground mb-3">核心工作内容：</h4>
-                        <ul className="list-disc pl-5 space-y-2 text-sm">
-                          {[
-                            "使用 Go 或 Java Spring Boot 设计可扩展的微服务架构",
-                            "基于 Apache Kafka 和 Flink 实现实时数据接入管道",
-                            "使用 TensorFlow 或 PyTorch 开发预测性路由优化算法",
-                            "使用 React 与 D3.js 构建高性能可视化数据分析仪表盘",
-                          ].map((item, i) => <li key={i}>{item}</li>)}
-                        </ul>
-                      </div>
-
-                      <div>
-                        <h4 className="text-lg font-bold text-foreground mb-3">技术规范标准：</h4>
-                        <p className="text-sm">
-                          所有代码须遵循 SOE 级安全协议。候选方需具备高并发场景处理经验及静态/传输中数据加密实施能力。最终交付物须通过国家政务数字化合规审查。
-                        </p>
-                      </div>
+                  {/* Pending Bids */}
+                  <section>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-bold text-primary font-display flex items-center gap-2">
+                        <User size={18} /> 抢单申请
+                        {pendingBids.length > 0 && (
+                          <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                            {pendingBids.length}
+                          </span>
+                        )}
+                      </h2>
                     </div>
 
-                    {/* Reference Files */}
-                    <div className="mt-10">
-                      <h4 className="text-sm font-bold text-primary uppercase tracking-widest mb-5">参考文件下载</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                          { icon: FilePdf, iconCls: "text-red-500 bg-red-50", name: "技术规范说明书_V2.pdf", meta: "4.2 MB · 2 天前更新" },
-                          { icon: ImageIcon, iconCls: "text-primary bg-primary/10", name: "系统架构设计图.jpg",   meta: "1.8 MB · 高分辨率" },
-                        ].map(f => (
-                          <div key={f.name} className="group flex items-center p-4 rounded-xl bg-slate-50 border border-outline-variant/30 hover:border-primary transition-all cursor-pointer">
-                            <div className={`p-3 rounded-xl mr-4 ${f.iconCls}`}>
-                              <f.icon size={20} />
+                    {bidsLoading ? (
+                      <div className="flex items-center justify-center h-32 bg-white rounded-2xl border border-slate-100">
+                        <div className="w-6 h-6 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                      </div>
+                    ) : pendingBids.length === 0 ? (
+                      <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">
+                        <User size={40} className="mx-auto mb-3 text-slate-200" />
+                        <p className="font-medium">暂无待审核的抢单申请</p>
+                        <p className="text-xs mt-1">
+                          {demand.status === "published"
+                            ? "需求已发布，等待 OPC 提交申请"
+                            : "需求尚未发布或招募已结束"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {pendingBids.map((bid: any) => (
+                          <div
+                            key={bid.id}
+                            className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-6"
+                          >
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary">
+                                  {bid.opcAvatar ? (
+                                    <img src={bid.opcAvatar} alt={bid.opcNickname} className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    (bid.opcNickname?.[0] ?? "O")
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-foreground">{bid.opcNickname ?? `OPC #${bid.opcId}`}</span>
+                                    {bid.opcLevel && (
+                                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${OPC_LEVEL_COLOR[bid.opcLevel] ?? "bg-slate-100 text-slate-600"}`}>
+                                        {bid.opcLevel}级
+                                      </span>
+                                    )}
+                                  </div>
+                                  {bid.opcCreditScore !== undefined && (
+                                    <div className="mt-1">
+                                      <StarRating score={bid.opcCreditScore} />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                {bid.estimatedDays && (
+                                  <div className="flex items-center gap-1 text-slate-500 text-sm">
+                                    <Timer size={14} />
+                                    <span>预计 {bid.estimatedDays} 天完成</span>
+                                  </div>
+                                )}
+                                <p className="text-xs text-slate-400 mt-1">
+                                  申请时间：{new Date(bid.createdAt).toLocaleDateString("zh-CN")}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-foreground truncate">{f.name}</p>
-                              <p className="text-xs text-slate-400 mt-0.5">{f.meta}</p>
+
+                            {/* Proposal */}
+                            <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">接单方案描述</p>
+                              <p className="text-sm text-slate-700 leading-relaxed">{bid.proposal}</p>
                             </div>
-                            <Download size={16} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+
+                            {/* Portfolio Links */}
+                            {bid.portfolioLinks && bid.portfolioLinks.length > 0 && (
+                              <div className="mb-4">
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">作品集链接</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {bid.portfolioLinks.map((link: string, idx: number) => (
+                                    <a
+                                      key={idx}
+                                      href={link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-full"
+                                    >
+                                      <ExternalLink size={10} /> 查看作品 {idx + 1}
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Actions */}
+                            {confirmingBidId === bid.id ? (
+                              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <p className="text-sm font-bold text-blue-800 mb-3">
+                                  确认选择 <span className="text-primary">{bid.opcNickname}</span> 接单？
+                                </p>
+                                <p className="text-xs text-blue-600 mb-4">
+                                  确认后将自动生成交易订单，其余申请将自动婉拒。
+                                </p>
+                                <div className="flex gap-3">
+                                  <button
+                                    onClick={() => handleConfirm(bid.id)}
+                                    disabled={updateBidStatus.isPending}
+                                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                  >
+                                    <CheckCircle2 size={14} />
+                                    {updateBidStatus.isPending ? "处理中…" : "确认接单"}
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmingBidId(null)}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                  >
+                                    取消
+                                  </button>
+                                </div>
+                              </div>
+                            ) : rejectingBidId === bid.id ? (
+                              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                <p className="text-sm font-bold text-red-700 mb-3">
+                                  婉拒 <span className="font-bold">{bid.opcNickname}</span> 的申请
+                                </p>
+                                <textarea
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  placeholder="请填写婉拒原因（选填）"
+                                  rows={2}
+                                  className="w-full text-sm rounded-lg border border-red-200 bg-white px-3 py-2 mb-3 focus:ring-2 focus:ring-red-200 outline-none resize-none"
+                                />
+                                <div className="flex gap-3">
+                                  <button
+                                    onClick={() => handleReject(bid.id)}
+                                    disabled={updateBidStatus.isPending}
+                                    className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
+                                  >
+                                    <XCircle size={14} />
+                                    {updateBidStatus.isPending ? "处理中…" : "确认婉拒"}
+                                  </button>
+                                  <button
+                                    onClick={() => { setRejectingBidId(null); setRejectReason(""); }}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                  >
+                                    取消
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={() => setConfirmingBidId(bid.id)}
+                                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                                >
+                                  <CheckCircle2 size={14} /> 确认接单
+                                </button>
+                                <button
+                                  onClick={() => setRejectingBidId(bid.id)}
+                                  className="flex items-center gap-2 border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+                                >
+                                  <XCircle size={14} /> 婉拒
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
-                    </div>
-                  </div>
+                    )}
+                  </section>
+
+                  {/* Already processed bids */}
+                  {processedBids.length > 0 && (
+                    <section>
+                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-3">已处理申请</h3>
+                      <div className="space-y-3">
+                        {processedBids.map((bid: any) => (
+                          <div
+                            key={bid.id}
+                            className="bg-white rounded-xl border border-slate-100 px-5 py-4 flex items-center gap-4"
+                          >
+                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">
+                              {bid.opcNickname?.[0] ?? "O"}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-foreground text-sm">{bid.opcNickname ?? `OPC #${bid.opcId}`}</span>
+                                {bid.opcLevel && (
+                                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${OPC_LEVEL_COLOR[bid.opcLevel] ?? "bg-slate-100 text-slate-600"}`}>
+                                    {bid.opcLevel}级
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{bid.proposal}</p>
+                            </div>
+                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                              bid.status === "accepted"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-600"
+                            }`}>
+                              {bid.status === "accepted" ? "已确认" : "已婉拒"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Milestone Roadmap */}
+                  {demand.milestones && demand.milestones.length > 0 && (
+                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
+                      <h3 className="text-base font-bold text-primary mb-6 flex items-center gap-2 font-display">
+                        <Zap size={16} /> 里程碑计划
+                      </h3>
+                      <div className="space-y-4">
+                        {demand.milestones.map((m: any, i: number) => (
+                          <div key={i} className="flex items-start gap-4">
+                            <div className="flex flex-col items-center">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
+                                {i + 1}
+                              </div>
+                              {i < (demand.milestones?.length ?? 0) - 1 && (
+                                <div className="w-px h-8 bg-slate-200 mt-2" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 pb-4">
+                              <p className="font-bold text-foreground text-sm">{m.name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">截止：{new Date(m.deadline).toLocaleDateString("zh-CN")}</p>
+                              {m.deliverableDesc && (
+                                <p className="text-xs text-slate-400 mt-1">{m.deliverableDesc}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
                 </div>
 
-                {/* Right: Sidebar */}
+                {/* Right Sidebar */}
                 <div className="lg:col-span-1 space-y-6">
-
-                  {/* Client Profile */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/20">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">关于发单方</h3>
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-white font-extrabold text-xl shrink-0">
-                        海
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-foreground leading-tight">海创元科技</h4>
-                        <div className="flex items-center text-amber-400 mt-1">
-                          <Star size={14} className="fill-amber-400" />
-                          <span className="text-sm font-bold text-slate-700 ml-1">4.9</span>
-                          <span className="text-xs text-slate-400 ml-2 font-normal">(128 个订单)</span>
-                        </div>
-                      </div>
-                    </div>
+                  {/* Demand Meta */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">需求详情</h3>
                     <div className="space-y-3 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">加入时间</span>
-                        <span className="font-semibold">2021年1月</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">需求编号</span>
+                        <span className="font-mono text-xs font-bold text-slate-700">{demand.demandNo}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500">认证状态</span>
-                        <span className="text-secondary font-semibold flex items-center gap-1">
-                          <BadgeCheck size={14} /> 国企认证
+                        <span className="text-slate-500">派单模式</span>
+                        <span className="font-semibold">{demand.mode === "open" ? "公开抢单" : "定向派单"}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">OPC等级要求</span>
+                        <span className="font-semibold">{demand.opcLevel === "any" ? "不限" : `${demand.opcLevel}级及以上`}</span>
+                      </div>
+                      {demand.bidDeadline && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500">抢单截止</span>
+                          <span className="font-semibold">{new Date(demand.bidDeadline).toLocaleDateString("zh-CN")}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">已收申请</span>
+                        <span className="font-bold text-primary">{(bids as any[]).length} 份</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">待审核</span>
+                        <span className={`font-bold ${pendingBids.length > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                          {pendingBids.length} 份
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Sticky Apply Box */}
-                  <div className="sticky top-24 bg-white p-6 rounded-2xl shadow-[0_12px_40px_-15px_rgba(0,50,125,0.12)] border border-primary/10">
-                    <div className="mb-6">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">预算区间</p>
-                      <p className="text-3xl font-extrabold text-primary">
-                        ¥{budgetMin} - ¥{budgetMax}
-                      </p>
-                      <p className="text-xs text-secondary font-semibold mt-1 flex items-center gap-1">
-                        <Zap size={12} /> 资金托管已激活
-                      </p>
+                  {/* Status Info */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">当前状态</h3>
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${statusCfg.color}`}>
+                      {demand.status === "published" && <Clock size={14} />}
+                      {demand.status === "matched" && <CheckCircle2 size={14} />}
+                      {demand.status === "in_progress" && <Trophy size={14} />}
+                      {statusCfg.label}
                     </div>
 
-                    <div className="mb-8 space-y-3">
-                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
-                        <Calendar size={18} className="text-primary shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-slate-500 uppercase font-bold">报名截止时间</p>
-                          <p className="text-sm font-bold">2025年11月15日</p>
-                        </div>
+                    {demand.status === "matched" && (
+                      <div className="mt-4">
+                        <Link href={`/publisher/orders`}>
+                          <button className="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-xl px-4 py-3 text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
+                            查看关联订单 <ChevronRight size={16} />
+                          </button>
+                        </Link>
                       </div>
-                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
-                        <Timer size={18} className="text-primary shrink-0" />
-                        <div>
-                          <p className="text-[10px] text-slate-500 uppercase font-bold">预计工期</p>
-                          <p className="text-sm font-bold">3 - 4 个月</p>
+                    )}
+                    {demand.status === "in_progress" && (
+                      <div className="mt-4">
+                        <Link href={`/publisher/orders`}>
+                          <button className="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-xl px-4 py-3 text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
+                            进入订单管理 <ChevronRight size={16} />
+                          </button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Publisher Info */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">关于发单方</h3>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white font-extrabold text-lg shrink-0">
+                        海
+                      </div>
+                      <div>
+                        <p className="font-bold text-foreground">海创元科技</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <BadgeCheck size={12} className="text-secondary" />
+                          <span className="text-xs text-secondary font-medium">国企认证</span>
                         </div>
                       </div>
                     </div>
-
-                    <button className="w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-lg" style={{ background: "linear-gradient(to right, #00327d, #0047ab)" }}>
-                      确认发布此需求
-                      <ArrowRight size={18} />
-                    </button>
-                    <p className="text-[10px] text-center text-slate-400 mt-4">
-                      点击发布即表示您同意《数字架构师风险披露条款》
-                    </p>
+                    <p className="text-xs text-slate-500 mt-4">发布日期：{new Date(demand.createdAt).toLocaleDateString("zh-CN")}</p>
                   </div>
                 </div>
               </div>
             </>
           )}
         </div>
-
-        {/* Footer */}
-        <footer className="bg-slate-50 border-t border-slate-200/60 py-10 px-8 ml-0">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-[1280px] mx-auto">
-            <div className="col-span-1">
-              <div className="font-display font-bold text-lg text-slate-900 mb-3">接单吧</div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest leading-relaxed">
-                © 2026 接单吧 · 海创元数字交易平台 · 国企监管实体
-              </p>
-            </div>
-            {[
-              { title: "平台", links: ["服务条款", "隐私政策", "风险披露"] },
-              { title: "资源", links: ["API 文档", "关于数字架构师"] },
-              { title: "联系", links: ["联系支持", "全球办事处"] },
-            ].map(col => (
-              <div key={col.title} className="col-span-1">
-                <h4 className="text-[10px] font-bold text-primary mb-3 uppercase tracking-widest">{col.title}</h4>
-                <ul className="space-y-2">
-                  {col.links.map(link => (
-                    <li key={link}>
-                      <a href="#" className="text-[10px] uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">
-                        {link}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </footer>
       </main>
     </div>
   );

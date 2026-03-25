@@ -83,7 +83,9 @@ OPC gets 60%, publisher 30%, platform fee 10%
 - `/publisher/demands` - 需求管理列表 (demand list with status tabs + type filter)
 - `/publisher/demands/new` - 发布新需求 (full demand creation form per PRD 2.1.2)
 - `/publisher/demands/:id/edit` - 编辑需求 (edit existing demand, loads existing data)
-- `/publisher/demand/:id` - 需求详情 (demand detail with bid review)
+- `/publisher/demand/:id` - 需求详情 (demand detail with bid review + OPC bid list, confirm/reject)
+- `/publisher/orders` - 订单管理列表 (order list with status tabs, milestone progress)
+- `/publisher/orders/:id` - 订单详情 (milestone review, deliverable list, acceptance + return actions)
 - `/publisher/cockpit` - 驾驶舱 (operational analytics)
 - `/publisher/disputes` - 争议处理
 

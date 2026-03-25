@@ -11,6 +11,8 @@ import PublisherHome from "@/pages/PublisherHome";
 import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
 import PublisherDemandList from "@/pages/PublisherDemandList";
 import PublisherCreateDemand from "@/pages/PublisherCreateDemand";
+import PublisherOrderList from "@/pages/PublisherOrderList";
+import PublisherOrderDetail from "@/pages/PublisherOrderDetail";
 import Community from "@/pages/Community";
 import Auth from "@/pages/Auth";
 import Disputes from "@/pages/Disputes";
@@ -66,6 +68,8 @@ function Router() {
       <Route path="/publisher/demands/new" component={PublisherCreateDemand} />
       <Route path="/publisher/demands/:id/edit" component={PublisherCreateDemand} />
       <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
+      <Route path="/publisher/orders" component={PublisherOrderList} />
+      <Route path="/publisher/orders/:id" component={PublisherOrderDetail} />
       <Route path="/publisher/disputes" component={PublisherDisputes} />
       <Route path="/publisher/cockpit" component={PublisherCockpit} />
       <Route path="/community" component={Community} />
