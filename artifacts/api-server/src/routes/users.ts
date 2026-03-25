@@ -84,6 +84,7 @@ router.get("/users/opc-leaderboard", async (req, res) => {
         avgRating:      opcProfilesTable.avgRating,
         totalEarnings:  opcProfilesTable.totalEarnings,
         activityScore:  opcProfilesTable.activityScore,
+        title:          opcProfilesTable.title,
       })
       .from(opcProfilesTable)
       .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))

@@ -382,7 +382,7 @@ export default function PublisherOpcLibrary() {
               {filtered.map((opc) => (
                 <div
                   key={opc.id}
-                  onClick={() => setSelectedOpcId(opc.id)}
+                  onClick={() => setSelectedOpcId(opc.userId)}
                   className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group p-6"
                 >
                   {/* Header */}
