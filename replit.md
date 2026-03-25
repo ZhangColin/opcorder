@@ -68,14 +68,43 @@ C=新手, B=进阶, A=专家
 OPC gets 60%, publisher 30%, platform fee 10%
 
 ### Frontend Routes
+
+**OPC routes:**
 - `/` - Home page (KPI stats, banner, recommended demands, OPC leaderboard)
 - `/demands` - 抢单大厅 (demand hall with filters)
 - `/demands/:id` - Demand detail with bid button
-- `/create-demand` - 发布需求 form
 - `/orders` - 我的订单 (orders with status tabs)
 - `/orders/:id` - Order detail with deliverable submission
 - `/profile` - 个人中心 (OPC profile & portfolio)
 - `/notifications` - 消息中心
+
+**Publisher (发单方) routes:**
+- `/publisher` - 工作台 (dashboard with stats, OPC recommendations, demand tracking)
+- `/publisher/demands` - 需求管理列表 (demand list with status tabs + type filter)
+- `/publisher/demands/new` - 发布新需求 (full demand creation form per PRD 2.1.2)
+- `/publisher/demands/:id/edit` - 编辑需求 (edit existing demand, loads existing data)
+- `/publisher/demand/:id` - 需求详情 (demand detail with bid review)
+- `/publisher/cockpit` - 驾驶舱 (operational analytics)
+- `/publisher/disputes` - 争议处理
+
+**Publisher Demand Creation Form includes all PRD fields:**
+- 需求标题 (max 50 chars)
+- 需求类型 (7 options)
+- 需求描述 (textarea)
+- 需求技能标签 (multi-select, 15 predefined options)
+- 需求OPC等级 (C/B/A/不限)
+- 预算范围 (min-max with settlement preview)
+- 交付截止日期 (min: today+3 days)
+- 派单模式 (公开抢单 / 定向派单)
+- 抢单截止时间 (for open mode)
+- 定向邀约OPC (for directed mode, searchable from OPC pool)
+- 里程碑节点 (dynamic form, optional)
+- 参考材料/附件 (file upload, optional)
+- 紧急标记 (urgent toggle)
+- Save as draft / Submit for review
+
+**Shared Publisher Component:**
+- `src/components/publisher/PublisherSidebar.tsx` - Shared sidebar with active route detection
 
 ### API Endpoints (mounted at /api)
 - `GET /api/health` - Health check

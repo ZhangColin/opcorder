@@ -1,13 +1,13 @@
 import { useLocation, Link } from "wouter";
 import {
-  LayoutDashboard, Users, BarChart2, FileText, PlusCircle,
-  HelpCircle, LogOut, Search, Bell, Settings, ShieldCheck,
+  Search, Bell, Settings,
   CheckCircle2, Clock, Lock, MapPin, Star, BadgeCheck,
   Calendar, Timer, ArrowRight, Download, FileText as FilePdf,
-  ImageIcon, Zap, Gavel, Gauge,
+  ImageIcon, Zap,
 } from "lucide-react";
 import { useGetDemandById } from "@workspace/api-client-react";
 import { useParams } from "wouter";
+import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 
 /* ─── Constants ───────────────────────────────── */
 
@@ -26,63 +26,6 @@ const MILESTONES = [
   { label: "阶段二：核心开发",  pct: "50% 付款", status: "current" as const },
   { label: "阶段三：集成验收",  pct: "20% 付款", status: "locked" as const },
 ];
-
-/* ─── Sidebar ────────────────────────────────── */
-
-function Sidebar({ onLogout }: { onLogout: () => void }) {
-  return (
-    <aside className="h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex flex-col p-4 gap-1">
-      <div className="mb-6 px-2 flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
-          <ShieldCheck size={20} strokeWidth={2.5} />
-        </div>
-        <div>
-          <h2 className="text-base font-extrabold text-blue-900 leading-tight font-display">发单方门户</h2>
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest">机构专属通道</p>
-        </div>
-      </div>
-
-      <nav className="flex-1 flex flex-col gap-0.5">
-        {[
-          { icon: LayoutDashboard, label: "工作台" },
-          { icon: FileText,        label: "我的需求", active: true },
-          { icon: Users,           label: "OPC 人才库" },
-          { icon: BarChart2,       label: "数据分析" },
-          { icon: FileText,        label: "项目报告" },
-          { icon: Gauge,           label: "驾驶舱",   href: "/publisher/cockpit" },
-          { icon: Gavel,           label: "争议处理", href: "/publisher/disputes" },
-        ].map(item => (
-          <Link key={item.label} href={(item as any).href ?? (item.label === "工作台" ? "/publisher" : "#")}>
-            <div className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 cursor-pointer ${
-              item.active ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-primary"
-            }`}>
-              <item.icon size={18} />
-              {item.label}
-            </div>
-          </Link>
-        ))}
-      </nav>
-
-      <Link href="/publisher/demand/1">
-        <div className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer">
-          <PlusCircle size={16} /> 发布新需求
-        </div>
-      </Link>
-
-      <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-primary transition-all">
-          <HelpCircle size={18} /> 帮助中心
-        </button>
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors"
-        >
-          <LogOut size={18} /> 退出登录
-        </button>
-      </div>
-    </aside>
-  );
-}
 
 /* ─── Page ────────────────────────────────────── */
 
@@ -104,7 +47,7 @@ export default function PublisherDemandDetail() {
 
   return (
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
-      <Sidebar onLogout={logout} />
+      <PublisherSidebar onLogout={logout} />
 
       <main className="flex-1 ml-64 min-h-screen">
         {/* Top bar */}

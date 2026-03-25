@@ -9,6 +9,8 @@ import Login from "@/pages/Login";
 import Home from "@/pages/Home";
 import PublisherHome from "@/pages/PublisherHome";
 import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
+import PublisherDemandList from "@/pages/PublisherDemandList";
+import PublisherCreateDemand from "@/pages/PublisherCreateDemand";
 import Community from "@/pages/Community";
 import Auth from "@/pages/Auth";
 import Disputes from "@/pages/Disputes";
@@ -60,6 +62,9 @@ function Router() {
       <Route path="/auth/:role" component={Auth} />
       <Route path="/admin" component={Admin} />
       <Route path="/publisher" component={PublisherHome} />
+      <Route path="/publisher/demands" component={PublisherDemandList} />
+      <Route path="/publisher/demands/new" component={PublisherCreateDemand} />
+      <Route path="/publisher/demands/:id/edit" component={PublisherCreateDemand} />
       <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
       <Route path="/publisher/disputes" component={PublisherDisputes} />
       <Route path="/publisher/cockpit" component={PublisherCockpit} />
