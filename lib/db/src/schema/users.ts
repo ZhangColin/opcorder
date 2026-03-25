@@ -8,6 +8,8 @@ export const userStatusEnum = pgEnum("user_status", ["active", "suspended", "ban
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   nickname: varchar("nickname", { length: 100 }).notNull(),
+  email: varchar("email", { length: 200 }).unique(),
+  passwordHash: text("password_hash"),
   phone: varchar("phone", { length: 20 }),
   avatar: text("avatar"),
   role: userRoleEnum("role").notNull().default("opc"),

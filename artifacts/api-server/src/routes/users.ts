@@ -35,13 +35,25 @@ async function buildProfileResponse(userId: number) {
   return profile;
 }
 
-router.get("/users/me", async (_req, res) => {
+router.get("/users/me", async (req, res) => {
   try {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.role, "opc")).orderBy(asc(usersTable.id)).limit(1);
+    const authHeader = req.headers.authorization;
+    const userId     = authHeader?.startsWith("Bearer ")
+      ? parseInt(authHeader.slice(7), 10)
+      : NaN;
+
+    let user;
+    if (!isNaN(userId) && userId > 0) {
+      [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    } else {
+      [user] = await db.select().from(usersTable).where(eq(usersTable.role, "opc")).orderBy(asc(usersTable.id)).limit(1);
+    }
+
     if (!user) return res.status(404).json({ error: "No user found" });
     res.json({
       id:        user.id,
       nickname:  user.nickname,
+      email:     user.email,
       phone:     user.phone,
       avatar:    user.avatar,
       role:      user.role,

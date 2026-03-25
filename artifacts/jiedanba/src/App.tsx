@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wo
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 import { Layout } from "@/components/layout/Layout";
 import Login from "@/pages/Login";
@@ -33,6 +34,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/* Send stored user ID as Bearer token with every API request */
+setAuthTokenGetter(() => localStorage.getItem("jdb_user_id"));
 
 function RoleGate({ children }: { children: React.ReactNode }) {
   const role = localStorage.getItem("jdb_role");

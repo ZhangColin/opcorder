@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Bell, Search, Menu, ShieldCheck, UserPen, LogOut, ChevronDown } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function Navbar() {
   const [location, navigate] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
 
   const { data: user }    = useGetCurrentUser();
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
@@ -46,6 +48,8 @@ export function Navbar() {
   function handleLogout() {
     setMenuOpen(false);
     localStorage.removeItem("jdb_role");
+    localStorage.removeItem("jdb_user_id");
+    qc.clear();
     navigate("/login");
   }
 
