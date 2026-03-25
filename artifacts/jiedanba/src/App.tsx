@@ -15,6 +15,7 @@ import PublisherOrderList from "@/pages/PublisherOrderList";
 import PublisherOrderDetail from "@/pages/PublisherOrderDetail";
 import PublisherOpcLibrary from "@/pages/PublisherOpcLibrary";
 import PublisherNotifications from "@/pages/PublisherNotifications";
+import PublisherFinance from "@/pages/PublisherFinance";
 import Community from "@/pages/Community";
 import Auth from "@/pages/Auth";
 import DemandDetail from "@/pages/DemandDetail";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/publisher/orders/:id" component={PublisherOrderDetail} />
       <Route path="/publisher/opc-library" component={PublisherOpcLibrary} />
       <Route path="/publisher/notifications" component={PublisherNotifications} />
+      <Route path="/publisher/finance" component={PublisherFinance} />
       <Route path="/community" component={Community} />
 
       {/* OPC routes — role-gated, wrapped in Layout */}

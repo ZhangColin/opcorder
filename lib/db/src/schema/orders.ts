@@ -22,6 +22,8 @@ export const ordersTable = pgTable("orders", {
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>>().default([]),
   rating: real("rating"),
   reviewComment: text("review_comment"),
+  opcRating: real("opc_rating"),
+  opcReviewComment: text("opc_review_comment"),
   deadline: date("deadline"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

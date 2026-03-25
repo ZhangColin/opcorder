@@ -52,7 +52,7 @@ export function PublisherSidebar({ onLogout }: { onLogout: () => void }) {
         <SidebarLink icon={ClipboardList}   label="订单管理"    href="/publisher/orders"        active={isActive("/publisher/orders")} />
         <SidebarLink icon={Users}           label="OPC 人才库"  href="/publisher/opc-library"  active={isActive("/publisher/opc-library")} />
         <SidebarLink icon={Bell}            label="消息中心"    href="/publisher/notifications" active={isActive("/publisher/notifications")} />
-        <SidebarLink icon={BarChart2}       label="数据分析"    href="#"                        active={false} />
+        <SidebarLink icon={BarChart2}       label="财务中心"    href="/publisher/finance"       active={isActive("/publisher/finance")} />
         <SidebarLink icon={MessageSquare}   label="社区"      href="/community"          active={isActive("/community")} />
       </nav>
 

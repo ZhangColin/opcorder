@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   ArrowLeft, CheckCircle2, Clock, XCircle, UploadCloud, AlertCircle,
-  ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag,
+  ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag, Star, Send, Loader2,
 } from "lucide-react";
 import {
   useGetOrderById,
@@ -154,6 +154,8 @@ function MilestoneCard({
   const msDelivs = deliverables.filter((d) => d.milestoneId === ms.id);
   const canSubmit = orderStatus === "in_progress" && (status === "pending" || status === "rejected");
   const latestRejected = msDelivs.find((d) => d.status === "rejected");
+  const rejectedCount = msDelivs.filter((d) => d.status === "rejected").length;
+  const MAX_REVISIONS = 3;
 
   return (
     <div className="border border-border rounded-2xl overflow-hidden bg-card shadow-sm">
@@ -174,6 +176,11 @@ function MilestoneCard({
         <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${cfg.cls}`}>
           <Icon size={12} /> {cfg.label}
         </span>
+        {rejectedCount > 0 && (
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${rejectedCount >= MAX_REVISIONS ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>
+            返工 {rejectedCount}/{MAX_REVISIONS}
+          </span>
+        )}
         {expanded ? <ChevronUp size={16} className="text-muted-foreground shrink-0" /> : <ChevronDown size={16} className="text-muted-foreground shrink-0" />}
       </button>
 
@@ -232,6 +239,86 @@ function MilestoneCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <button
+          key={s}
+          type="button"
+          onMouseEnter={() => setHover(s)}
+          onMouseLeave={() => setHover(0)}
+          onClick={() => onChange(s)}
+          className="p-0.5 transition-transform hover:scale-110"
+        >
+          <Star size={22} className={s <= (hover || value) ? "fill-amber-400 text-amber-400" : "text-slate-200"} />
+        </button>
+      ))}
+      {value > 0 && (
+        <span className="text-sm text-slate-500 ml-1">
+          {["", "较差", "一般", "良好", "优秀", "完美"][value]}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function OpcReviewPanel({ orderId, onDone }: { orderId: number; onDone: () => void }) {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (rating === 0) { toast({ title: "请选择评分", variant: "destructive" }); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/opc-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ rating, comment }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "评价已提交" });
+      onDone();
+    } catch {
+      toast({ title: "提交失败，请重试", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-4">
+      <p className="font-bold text-blue-800 flex items-center gap-2">
+        <Star size={16} className="text-amber-400 fill-amber-400" /> 对此次合作的发单方进行评价
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <StarPicker value={rating} onChange={setRating} />
+        <textarea
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          rows={2}
+          placeholder="分享您对发单方的合作体验（选填）…"
+          className="w-full px-3 py-2 border border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none bg-white"
+        />
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={loading || rating === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} 提交评价
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -414,17 +501,39 @@ export default function OrderDetail() {
 
       {/* Completion status */}
       {order.status === "completed" && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-center gap-4">
-          <CheckCircle2 size={28} className="text-green-600 shrink-0" />
-          <div>
-            <p className="font-bold text-green-800">订单已完成，结算已触发</p>
-            <p className="text-sm text-green-700 mt-0.5">
-              您的分成 ¥{(order.opcShare ?? 0).toLocaleString()} 将在 3 个工作日内到账。
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-center gap-4">
+            <CheckCircle2 size={28} className="text-green-600 shrink-0" />
+            <div>
+              <p className="font-bold text-green-800">订单已完成，结算已触发</p>
+              <p className="text-sm text-green-700 mt-0.5">
+                您的分成 ¥{(order.opcShare ?? 0).toLocaleString()} 将在 3 个工作日内到账。
+              </p>
               {order.rating && (
-                <span className="ml-2">客户评分：{"★".repeat(order.rating)}{"☆".repeat(5 - order.rating)}</span>
+                <div className="flex items-center gap-1 mt-1">
+                  {[1,2,3,4,5].map(s => (
+                    <Star key={s} size={12} className={s <= (order.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
+                  ))}
+                  <span className="text-xs text-green-600 ml-1">发单方评分：{order.rating} 分</span>
+                </div>
               )}
-            </p>
+              {order.reviewComment && (
+                <p className="text-xs text-green-700 mt-0.5">评价：{order.reviewComment}</p>
+              )}
+              {(order as any).opcRating && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-green-600">您的评价：</span>
+                  {[1,2,3,4,5].map(s => (
+                    <Star key={s} size={12} className={s <= ((order as any).opcRating ?? 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+
+          {!(order as any).opcRating && (
+            <OpcReviewPanel orderId={id} onDone={onRefetch} />
+          )}
         </div>
       )}
 

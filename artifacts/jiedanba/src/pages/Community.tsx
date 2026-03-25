@@ -4,11 +4,12 @@ import {
   ShieldCheck, Search, Bell, User, ThumbsUp, MessageSquare,
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
   ArrowRight, Filter, Plus, X, Send, Loader2,
-  ChevronDown, LogOut, ArrowLeft,
+  ChevronDown, LogOut, ArrowLeft, ChevronUp,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard, useGetCurrentUser,
   useListPosts, useCreatePost, useTogglePostLike,
+  useListPostComments, useCreatePostComment,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -244,6 +245,79 @@ function NewPostModal({ userId, onClose }: { userId: number; onClose: () => void
   );
 }
 
+/* ─── Comments Panel ─────────────────────────── */
+
+function CommentsPanel({ postId, userId, isGuest, onRequireLogin }: {
+  postId: number;
+  userId?: number;
+  isGuest: boolean;
+  onRequireLogin: () => void;
+}) {
+  const [text, setText] = useState("");
+  const qc = useQueryClient();
+  const { data: comments = [], isLoading } = useListPostComments(postId);
+  const { mutateAsync: createComment, isPending } = useCreatePostComment();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() || !userId) return;
+    await createComment({ postId, data: { authorId: userId, content: text.trim() } });
+    setText("");
+    qc.invalidateQueries({ queryKey: [`/api/posts/${postId}/comments`] });
+    qc.invalidateQueries({ queryKey: ["/posts"] });
+  };
+
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-4 space-y-3">
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-slate-400 text-xs"><Loader2 size={12} className="animate-spin" /> 加载评论…</div>
+      ) : comments.length === 0 ? (
+        <p className="text-xs text-slate-400">暂无评论，来发表第一条！</p>
+      ) : (
+        <div className="space-y-3">
+          {comments.map(c => (
+            <div key={c.id} className="flex gap-3">
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                {(c.authorName ?? "匿名").slice(0, 1)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-primary">{c.authorName}</span>
+                  <span className="text-[10px] text-slate-400">{new Date(c.createdAt).toLocaleDateString("zh-CN")}</span>
+                </div>
+                <p className="text-sm text-slate-600 mt-0.5">{c.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isGuest ? (
+        <button onClick={onRequireLogin} className="text-xs text-primary font-bold hover:underline">
+          登录后发表评论
+        </button>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+          <input
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="发表评论…"
+            className="flex-1 text-sm px-3 py-2 border border-slate-200 rounded-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+            maxLength={300}
+          />
+          <button
+            type="submit"
+            disabled={isPending || !text.trim()}
+            className="p-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors disabled:opacity-40"
+          >
+            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 /* ─── Page ────────────────────────────────────── */
 
 type FeedTab = "latest" | "hot";
@@ -271,6 +345,7 @@ export default function Community() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showNewPost, setShowNewPost]         = useState(false);
   const [likedIds, setLikedIds]               = useState<Set<number>>(new Set());
+  const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(new Set());
 
   const role    = localStorage.getItem("jdb_role");
   const isGuest = !role;
@@ -413,8 +488,20 @@ export default function Community() {
               </div>
             ) : posts.map(post => {
               const isLiked = likedIds.has(post.id) || post.likedByMe;
+              const commentsOpen = expandedCommentIds.has(post.id);
+
+              const toggleComments = () => {
+                if (isGuest) { setShowLoginPrompt(true); return; }
+                setExpandedCommentIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(post.id)) next.delete(post.id);
+                  else next.add(post.id);
+                  return next;
+                });
+              };
+
               return (
-                <article key={post.id} className="bg-white rounded-2xl p-6 border border-slate-100 hover:border-slate-200 hover:shadow-md transition-all group cursor-pointer">
+                <article key={post.id} className="bg-white rounded-2xl p-6 border border-slate-100 hover:border-slate-200 hover:shadow-md transition-all group">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-full bg-primary/10 border-2 border-slate-50 flex items-center justify-center font-bold text-primary text-sm shrink-0">
                       {(post.authorName ?? "匿名").slice(0, 2)}
@@ -429,7 +516,7 @@ export default function Community() {
                           {new Date(post.createdAt).toLocaleDateString("zh-CN")}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug">
+                      <h3 className="text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug cursor-pointer">
                         {post.title}
                       </h3>
                       <p className="text-slate-500 text-sm leading-relaxed mb-4 line-clamp-2">{post.content}</p>
@@ -446,9 +533,16 @@ export default function Community() {
                           <ThumbsUp size={16} className={isLiked ? "fill-primary" : ""} />
                           <span className="text-xs font-medium">{formatCount(post.likesCount)}</span>
                         </button>
-                        <button onClick={() => requireLogin()} className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                          <MessageSquare size={16} />
+                        <button
+                          onClick={toggleComments}
+                          className={`flex items-center gap-1.5 transition-colors ${commentsOpen ? "text-primary" : "hover:text-primary"}`}
+                        >
+                          <MessageSquare size={16} className={commentsOpen ? "fill-primary/20" : ""} />
                           <span className="text-xs font-medium">{formatCount(post.commentsCount)}</span>
+                          {commentsOpen
+                            ? <ChevronUp size={12} />
+                            : <ChevronDown size={12} />
+                          }
                         </button>
                         <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
                           <Eye size={16} />
@@ -458,6 +552,15 @@ export default function Community() {
                           <Share2 size={16} />
                         </button>
                       </div>
+
+                      {commentsOpen && (
+                        <CommentsPanel
+                          postId={post.id}
+                          userId={user?.id}
+                          isGuest={isGuest}
+                          onRequireLogin={() => setShowLoginPrompt(true)}
+                        />
+                      )}
                     </div>
                   </div>
                 </article>

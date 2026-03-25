@@ -89,8 +89,9 @@ OPC gets 60%, publisher 30%, platform fee 10%
 - `/publisher/orders/:id` - 订单详情 (milestone review, deliverable list, acceptance + return actions)
 - `/publisher/opc-library` - OPC 人才库 (OPC grid with level/skill filters, detail drawer with portfolio)
 - `/publisher/notifications` - 消息中心 (notification list, mark read, filter by category, jump to related demand/order)
-- `/publisher/cockpit` - 驾驶舱 (operational analytics)
-- `/publisher/disputes` - 争议处理
+- `/publisher/finance` - 财务中心 (**new**: KPI cards + order breakdown table with amounts, statuses, ratings)
+- `/publisher/cockpit` - 驾驶舱 (operational analytics, orphaned)
+- `/publisher/disputes` - 争议处理 (orphaned)
 
 **Publisher Demand Creation Form includes all PRD fields:**
 - 需求标题 (max 50 chars)
@@ -123,10 +124,13 @@ OPC gets 60%, publisher 30%, platform fee 10%
 - `GET /api/orders` - List orders
 - `GET /api/orders/:id` - Order detail with deliverables
 - `POST /api/orders/:orderId/deliverables` - Submit deliverable
-- `POST /api/orders/:orderId/accept` - Accept delivery
-- `POST /api/orders/:orderId/reject` - Reject delivery
+- `POST /api/orders/:orderId/accept` - Accept delivery (publisher rates OPC: rating+comment)
+- `POST /api/orders/:orderId/reject` - Reject delivery (**updated**: counts rejections, auto-disputes after 3 revisions)
+- `POST /api/orders/:orderId/opc-review` - OPC rates publisher (**new**: opcRating+opcReviewComment)
 - `GET /api/portfolios` - List portfolios
 - `GET /api/notifications` - List notifications
+- `GET /api/posts/:postId/comments` - List post comments
+- `POST /api/posts/:postId/comments` - Create comment
 
 ### Demo Data
 - 9 users (1 publisher: 海创元运营团队, 6 OPCs, 1 admin, 1 extra publisher)

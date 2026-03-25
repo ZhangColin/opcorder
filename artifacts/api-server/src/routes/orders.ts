@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable } from "@workspace/db";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable } from "@workspace/db";
+import { eq, desc, count, sql, and } from "drizzle-orm";
 import {
   ListOrdersQueryParams,
   SubmitDeliverableBody,
@@ -42,6 +42,8 @@ router.get("/orders", async (req, res) => {
         milestones: ordersTable.milestones,
         rating: ordersTable.rating,
         reviewComment: ordersTable.reviewComment,
+        opcRating: ordersTable.opcRating,
+        opcReviewComment: ordersTable.opcReviewComment,
         deadline: ordersTable.deadline,
         createdAt: ordersTable.createdAt,
         updatedAt: ordersTable.updatedAt,
@@ -104,6 +106,8 @@ router.get("/orders/:orderId", async (req, res) => {
         milestones: ordersTable.milestones,
         rating: ordersTable.rating,
         reviewComment: ordersTable.reviewComment,
+        opcRating: ordersTable.opcRating,
+        opcReviewComment: ordersTable.opcReviewComment,
         deadline: ordersTable.deadline,
         createdAt: ordersTable.createdAt,
         updatedAt: ordersTable.updatedAt,
@@ -214,15 +218,79 @@ router.post("/orders/:orderId/reject", async (req, res) => {
     const orderId = parseInt(req.params.orderId);
     const body = RejectDeliveryBody.parse(req.body);
 
-    const [updated] = await db.update(ordersTable).set({
-      status: "in_progress",
-      updatedAt: new Date(),
-    }).where(eq(ordersTable.id, orderId)).returning();
-
     await db.update(deliverablesTable).set({
       status: "rejected",
       feedback: body.reason,
-    }).where(eq(deliverablesTable.orderId, orderId));
+    }).where(and(
+      eq(deliverablesTable.orderId, orderId),
+      eq(deliverablesTable.status, "submitted"),
+    ));
+
+    const [{ rejectionCount }] = await db
+      .select({ rejectionCount: count() })
+      .from(deliverablesTable)
+      .where(and(
+        eq(deliverablesTable.orderId, orderId),
+        eq(deliverablesTable.status, "rejected"),
+      ));
+
+    const MAX_REVISIONS = 3;
+    const newStatus = Number(rejectionCount) >= MAX_REVISIONS ? "disputed" : "in_progress";
+
+    const [updated] = await db.update(ordersTable).set({
+      status: newStatus as any,
+      updatedAt: new Date(),
+    }).where(eq(ordersTable.id, orderId)).returning();
+
+    if (newStatus === "disputed") {
+      await db.insert(notificationsTable).values({
+        userId: updated.opcId,
+        type: "dispute_raised",
+        title: "订单已进入争议流程",
+        content: `您的订单因返工次数达到上限（${MAX_REVISIONS}次），已自动转入争议处理流程，平台将在48小时内介入调解。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
+      await db.insert(notificationsTable).values({
+        userId: updated.publisherId,
+        type: "dispute_raised",
+        title: "订单已进入争议流程",
+        content: `订单返工次数已达上限（${MAX_REVISIONS}次），已自动转入争议处理流程，平台将在48小时内介入调解。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
+    }
+
+    res.json({
+      ...updated,
+      rejectionCount: Number(rejectionCount),
+      autoDisputed: newStatus === "disputed",
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to reject delivery" });
+  }
+});
+
+router.post("/orders/:orderId/opc-review", async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    const { rating, comment } = req.body as { rating?: unknown; comment?: string };
+    if (typeof rating !== "number" || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "rating must be 1-5" });
+    }
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (order.status !== "completed") return res.status(400).json({ error: "Order not completed" });
+    if (order.opcRating) return res.status(400).json({ error: "OPC review already submitted" });
+
+    const [updated] = await db.update(ordersTable).set({
+      opcRating: rating as number,
+      opcReviewComment: comment ?? null,
+      updatedAt: new Date(),
+    }).where(eq(ordersTable.id, orderId)).returning();
 
     res.json({
       ...updated,
@@ -230,7 +298,7 @@ router.post("/orders/:orderId/reject", async (req, res) => {
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to reject delivery" });
+    res.status(500).json({ error: "Failed to submit OPC review" });
   }
 });
 
