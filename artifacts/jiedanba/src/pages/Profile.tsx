@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from "react";
-import { Link } from "wouter";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Link, useSearch } from "wouter";
 import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
@@ -428,9 +428,19 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
 const PREVIEW_COUNT = 4;
 
 export default function Profile() {
+  const search = useSearch();
   const [editOpen,         setEditOpen]         = useState(false);
   const [portfolioDrawer,  setPortfolioDrawer]  = useState(false);
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null);
+
+  /* Auto-open edit drawer when navigated here with ?edit=1 */
+  useEffect(() => {
+    if (new URLSearchParams(search).get("edit") === "1") {
+      setEditOpen(true);
+      /* Clean up the query param without a full reload */
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [search]);
 
   const openAddPortfolio  = () => { setEditingPortfolio(null); setPortfolioDrawer(true); };
   const openEditPortfolio = (p: Portfolio) => { setEditingPortfolio(p); setPortfolioDrawer(true); };
