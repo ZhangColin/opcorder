@@ -45,7 +45,8 @@ export function Navbar() {
 
   function handleLogout() {
     setMenuOpen(false);
-    navigate("/");
+    localStorage.removeItem("jdb_role");
+    navigate("/login");
   }
 
   return (
@@ -136,7 +137,7 @@ export function Navbar() {
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors text-left">
                     <LogOut size={15} className="shrink-0" />
-                    退出系统
+                    退出登录
                   </button>
                 </div>
               </div>
