@@ -3,6 +3,7 @@ import {
   CheckCircle2, ShieldCheck, Globe, HelpCircle, ArrowRight,
   Building2, User, BadgeCheck, Banknote, ListChecks, ChartBar,
   Cpu, Lock, MessageSquare, TrendingUp, CalendarDays,
+  LayoutDashboard,
 } from "lucide-react";
 
 export default function Login() {
@@ -251,8 +252,31 @@ export default function Login() {
           </div>
         </div>
 
+        {/* Admin Backend Entry */}
+        <div className="mt-8 w-full max-w-6xl">
+          <div
+            className="group relative flex items-center justify-between gap-4 px-6 py-4 rounded-2xl border border-violet-200/60 bg-gradient-to-r from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 hover:border-violet-300 transition-all duration-300 cursor-pointer"
+            onClick={() => navigate("/auth/admin")}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                <LayoutDashboard size={20} className="text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-violet-900">管理后台</p>
+                <p className="text-xs text-violet-500">仅限平台授权管理员访问 · 需验证账号权限</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-violet-600 font-semibold text-sm group-hover:gap-3 transition-all">
+              进入后台
+              <ArrowRight size={16} />
+            </div>
+            <div className="absolute inset-0 rounded-2xl ring-1 ring-violet-200/40 pointer-events-none" />
+          </div>
+        </div>
+
         {/* Ecosystem anchor */}
-        <div className="mt-16 flex items-center gap-4 py-3 px-6 bg-surface-container-low rounded-full border border-outline-variant/10">
+        <div className="mt-10 flex items-center gap-4 py-3 px-6 bg-surface-container-low rounded-full border border-outline-variant/10">
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">赋能平台</span>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -274,12 +298,6 @@ export default function Login() {
               {link}
             </a>
           ))}
-          <button
-            onClick={() => navigate("/auth/admin")}
-            className="text-xs font-medium text-slate-300 hover:text-slate-500 transition-colors"
-          >
-            管理员登录
-          </button>
         </div>
       </footer>
     </div>

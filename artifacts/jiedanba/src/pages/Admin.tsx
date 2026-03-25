@@ -963,15 +963,21 @@ export default function Admin() {
   const { toast } = useToast();
 
   const role = localStorage.getItem("jdb_role");
-  if (role && role !== "admin") {
+  if (!role || role !== "admin") {
     return (
       <div className="min-h-screen bg-[#f3f3f6] flex items-center justify-center">
         <div className="text-center">
           <ShieldCheck size={48} className="text-slate-300 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-blue-900 mb-2">权限不足</h2>
-          <p className="text-slate-500 text-sm mb-6">此页面仅限平台管理员访问</p>
-          <button onClick={() => navigate("/login")}
-            className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-sm">返回登录</button>
+          <h2 className="text-xl font-bold text-blue-900 mb-2">
+            {role ? "权限不足" : "请先登录"}
+          </h2>
+          <p className="text-slate-500 text-sm mb-6">
+            {role ? "此页面仅限平台管理员访问" : "需要管理员账号才能进入后台"}
+          </p>
+          <button onClick={() => navigate("/auth/admin")}
+            className="px-6 py-2.5 bg-violet-600 text-white rounded-xl font-bold text-sm hover:bg-violet-700 transition-colors">
+            前往管理员登录
+          </button>
         </div>
       </div>
     );
