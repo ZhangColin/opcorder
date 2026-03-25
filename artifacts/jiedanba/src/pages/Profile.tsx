@@ -776,16 +776,23 @@ export default function Profile() {
                   )}
                 </>
               ) : (
-                <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
-                  <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Cpu size={24} className="text-primary" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-border/40">
+                    <div className="h-44 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
+                      <Cpu size={44} className="text-slate-400" />
+                    </div>
+                    <div className="p-5">
+                      <span className="bg-slate-100 text-slate-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-3 inline-block">
+                        暂无类型
+                      </span>
+                      <h3 className="text-base font-bold text-slate-400 mb-1.5 font-display">尚未上传案例，请尽快更新</h3>
+                      <p className="text-sm text-slate-300 mb-3">添加您的项目案例，让发单方了解您的能力</p>
+                      <button onClick={openAddPortfolio}
+                        className="inline-flex items-center text-primary font-bold text-sm gap-1 hover:underline">
+                        <Plus size={14} /> 立即添加
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-blue-900 font-bold mb-1">还没有案例作品</p>
-                  <p className="text-slate-400 text-sm mb-5">添加您的项目案例，让发单方了解您的能力</p>
-                  <button onClick={openAddPortfolio}
-                    className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
-                    <Plus size={15} className="inline mr-1.5" />添加第一个案例
-                  </button>
                 </div>
               )}
             </section>
