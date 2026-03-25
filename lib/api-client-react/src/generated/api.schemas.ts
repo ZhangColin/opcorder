@@ -67,26 +67,12 @@ export interface OpcProfile {
   avgRating?: number;
   totalEarnings?: number;
   activityScore?: number;
-  title?: string;
-  location?: string;
-  website?: string;
-  yearsExp?: number;
-  wechat?: string;
-  phone?: string;
 }
 
 export interface UpdateOpcProfileInput {
   bio?: string;
   skillTags?: string[];
   industryTags?: string[];
-  title?: string;
-  location?: string;
-  website?: string;
-  yearsExp?: number;
-  wechat?: string;
-  nickname?: string;
-  avatar?: string;
-  phone?: string;
 }
 
 export type MilestoneStatus =
@@ -383,7 +369,6 @@ export interface Portfolio {
 }
 
 export interface CreatePortfolioInput {
-  userId: number;
   title: string;
   type: string;
   coverImage?: string;
@@ -433,6 +418,94 @@ export interface NotificationListResponse {
   unreadCount: number;
   page: number;
   limit: number;
+}
+
+export interface Post {
+  id: number;
+  authorId: number;
+  authorName?: string;
+  authorLevel?: string;
+  title: string;
+  content: string;
+  tags: string[];
+  likesCount: number;
+  commentsCount: number;
+  viewsCount: number;
+  likedByMe?: boolean;
+  createdAt: string;
+}
+
+export interface PostListResponse {
+  items: Post[];
+  total: number;
+}
+
+export interface PostComment {
+  id: number;
+  postId: number;
+  authorId: number;
+  authorName?: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface CreatePostInput {
+  authorId: number;
+  title: string;
+  content: string;
+  tags?: string[];
+}
+
+export type CourseCategory =
+  (typeof CourseCategory)[keyof typeof CourseCategory];
+
+export const CourseCategory = {
+  tech: "tech",
+  strategy: "strategy",
+  compliance: "compliance",
+  operations: "operations",
+} as const;
+
+export type CourseRequiredLevel =
+  (typeof CourseRequiredLevel)[keyof typeof CourseRequiredLevel];
+
+export const CourseRequiredLevel = {
+  C: "C",
+  B: "B",
+  A: "A",
+} as const;
+
+export interface Course {
+  id: number;
+  title: string;
+  category: CourseCategory;
+  requiredLevel: CourseRequiredLevel;
+  durationMinutes: number;
+  description: string;
+  badge?: string;
+  rating?: number;
+  learnersCount?: number;
+  isRequired: boolean;
+  createdAt: string;
+}
+
+export interface Enrollment {
+  id: number;
+  courseId: number;
+  userId: number;
+  progressPct: number;
+  completedAt?: string;
+  createdAt: string;
+}
+
+export interface EnrollmentWithCourse {
+  id: number;
+  courseId: number;
+  userId: number;
+  progressPct: number;
+  completedAt?: string;
+  createdAt: string;
+  course: Course;
 }
 
 export type GetOpcLeaderboardParams = {
@@ -566,4 +639,63 @@ export type ListNotificationsParams = {
 
 export type MarkAllNotificationsRead200 = {
   count: number;
+};
+
+export type ListPostsParams = {
+  sort?: ListPostsSort;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListPostsSort = (typeof ListPostsSort)[keyof typeof ListPostsSort];
+
+export const ListPostsSort = {
+  latest: "latest",
+  hot: "hot",
+} as const;
+
+export type TogglePostLikeBody = {
+  userId: number;
+};
+
+export type TogglePostLike200 = {
+  liked: boolean;
+  likesCount: number;
+};
+
+export type CreatePostCommentBody = {
+  authorId: number;
+  content: string;
+};
+
+export type ListCoursesParams = {
+  category?: ListCoursesCategory;
+  requiredLevel?: ListCoursesRequiredLevel;
+};
+
+export type ListCoursesCategory =
+  (typeof ListCoursesCategory)[keyof typeof ListCoursesCategory];
+
+export const ListCoursesCategory = {
+  tech: "tech",
+  strategy: "strategy",
+  compliance: "compliance",
+  operations: "operations",
+} as const;
+
+export type ListCoursesRequiredLevel =
+  (typeof ListCoursesRequiredLevel)[keyof typeof ListCoursesRequiredLevel];
+
+export const ListCoursesRequiredLevel = {
+  C: "C",
+  B: "B",
+  A: "A",
+} as const;
+
+export type EnrollCourseBody = {
+  userId: number;
+};
+
+export type ListMyEnrollmentsParams = {
+  userId: number;
 };

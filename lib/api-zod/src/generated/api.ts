@@ -116,17 +116,9 @@ export const UpdateOpcProfileParams = zod.object({
 });
 
 export const UpdateOpcProfileBody = zod.object({
-  bio:          zod.string().max(500).optional(),
-  skillTags:    zod.array(zod.string()).optional(),
+  bio: zod.string().optional(),
+  skillTags: zod.array(zod.string()).optional(),
   industryTags: zod.array(zod.string()).optional(),
-  title:        zod.string().max(200).optional(),
-  location:     zod.string().max(100).optional(),
-  website:      zod.string().max(500).optional().nullable(),
-  yearsExp:     zod.number().int().min(0).max(60).optional(),
-  wechat:       zod.string().max(100).optional(),
-  nickname:     zod.string().max(100).optional(),
-  avatar:       zod.string().optional().nullable(),
-  phone:        zod.string().max(20).optional(),
 });
 
 export const UpdateOpcProfileResponse = zod.object({
@@ -890,7 +882,6 @@ export const ListPortfoliosResponse = zod.array(ListPortfoliosResponseItem);
  * @summary Add a portfolio item
  */
 export const CreatePortfolioBody = zod.object({
-  userId: zod.number(),
   title: zod.string(),
   type: zod.string(),
   coverImage: zod.string().optional(),
@@ -1014,3 +1005,168 @@ export const MarkNotificationReadResponse = zod.object({
 export const MarkAllNotificationsReadResponse = zod.object({
   count: zod.number(),
 });
+
+/**
+ * @summary List community posts
+ */
+export const listPostsQuerySortDefault = `latest`;
+export const listPostsQueryLimitDefault = 20;
+export const listPostsQueryOffsetDefault = 0;
+
+export const ListPostsQueryParams = zod.object({
+  sort: zod.enum(["latest", "hot"]).default(listPostsQuerySortDefault),
+  limit: zod.coerce.number().default(listPostsQueryLimitDefault),
+  offset: zod.coerce.number().default(listPostsQueryOffsetDefault),
+});
+
+export const ListPostsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      authorId: zod.number(),
+      authorName: zod.string().optional(),
+      authorLevel: zod.string().optional(),
+      title: zod.string(),
+      content: zod.string(),
+      tags: zod.array(zod.string()),
+      likesCount: zod.number(),
+      commentsCount: zod.number(),
+      viewsCount: zod.number(),
+      likedByMe: zod.boolean().optional(),
+      createdAt: zod.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a new community post
+ */
+export const CreatePostBody = zod.object({
+  authorId: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  tags: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Toggle like on a post
+ */
+export const TogglePostLikeParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const TogglePostLikeBody = zod.object({
+  userId: zod.number(),
+});
+
+export const TogglePostLikeResponse = zod.object({
+  liked: zod.boolean(),
+  likesCount: zod.number(),
+});
+
+/**
+ * @summary Get comments for a post
+ */
+export const ListPostCommentsParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const ListPostCommentsResponseItem = zod.object({
+  id: zod.number(),
+  postId: zod.number(),
+  authorId: zod.number(),
+  authorName: zod.string().optional(),
+  content: zod.string(),
+  createdAt: zod.date(),
+});
+export const ListPostCommentsResponse = zod.array(ListPostCommentsResponseItem);
+
+/**
+ * @summary Add a comment to a post
+ */
+export const CreatePostCommentParams = zod.object({
+  postId: zod.coerce.number(),
+});
+
+export const CreatePostCommentBody = zod.object({
+  authorId: zod.number(),
+  content: zod.string(),
+});
+
+/**
+ * @summary List available courses
+ */
+export const ListCoursesQueryParams = zod.object({
+  category: zod
+    .enum(["tech", "strategy", "compliance", "operations"])
+    .optional(),
+  requiredLevel: zod.enum(["C", "B", "A"]).optional(),
+});
+
+export const ListCoursesResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  category: zod.enum(["tech", "strategy", "compliance", "operations"]),
+  requiredLevel: zod.enum(["C", "B", "A"]),
+  durationMinutes: zod.number(),
+  description: zod.string(),
+  badge: zod.string().optional(),
+  rating: zod.number().optional(),
+  learnersCount: zod.number().optional(),
+  isRequired: zod.boolean(),
+  createdAt: zod.date(),
+});
+export const ListCoursesResponse = zod.array(ListCoursesResponseItem);
+
+/**
+ * @summary Enroll in a course
+ */
+export const EnrollCourseParams = zod.object({
+  courseId: zod.coerce.number(),
+});
+
+export const EnrollCourseBody = zod.object({
+  userId: zod.number(),
+});
+
+export const EnrollCourseResponse = zod.object({
+  id: zod.number(),
+  courseId: zod.number(),
+  userId: zod.number(),
+  progressPct: zod.number(),
+  completedAt: zod.date().optional(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Get current user course enrollments
+ */
+export const ListMyEnrollmentsQueryParams = zod.object({
+  userId: zod.coerce.number(),
+});
+
+export const ListMyEnrollmentsResponseItem = zod.object({
+  id: zod.number(),
+  courseId: zod.number(),
+  userId: zod.number(),
+  progressPct: zod.number(),
+  completedAt: zod.date().optional(),
+  createdAt: zod.date(),
+  course: zod.object({
+    id: zod.number(),
+    title: zod.string(),
+    category: zod.enum(["tech", "strategy", "compliance", "operations"]),
+    requiredLevel: zod.enum(["C", "B", "A"]),
+    durationMinutes: zod.number(),
+    description: zod.string(),
+    badge: zod.string().optional(),
+    rating: zod.number().optional(),
+    learnersCount: zod.number().optional(),
+    isRequired: zod.boolean(),
+    createdAt: zod.date(),
+  }),
+});
+export const ListMyEnrollmentsResponse = zod.array(
+  ListMyEnrollmentsResponseItem,
+);

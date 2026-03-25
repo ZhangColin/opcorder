@@ -19,19 +19,28 @@ import type {
 import type {
   AcceptOrderBody,
   BidApplication,
+  Course,
   CreateBidInput,
   CreateDeliverableInput,
   CreateDemandInput,
   CreatePortfolioInput,
+  CreatePostCommentBody,
+  CreatePostInput,
   Deliverable,
   Demand,
   DemandListResponse,
+  EnrollCourseBody,
+  Enrollment,
+  EnrollmentWithCourse,
   GetOpcLeaderboardParams,
   HealthStatus,
+  ListCoursesParams,
   ListDemandsParams,
+  ListMyEnrollmentsParams,
   ListNotificationsParams,
   ListOrdersParams,
   ListPortfoliosParams,
+  ListPostsParams,
   MarkAllNotificationsRead200,
   Notification,
   NotificationListResponse,
@@ -40,7 +49,12 @@ import type {
   OrderListResponse,
   OverviewStats,
   Portfolio,
+  Post,
+  PostComment,
+  PostListResponse,
   RejectDeliveryBody,
+  TogglePostLike200,
+  TogglePostLikeBody,
   UpdateBidStatusBody,
   UpdateDemandInput,
   UpdateDemandStatusBody,
@@ -2402,3 +2416,723 @@ export const useMarkAllNotificationsRead = <
 > => {
   return useMutation(getMarkAllNotificationsReadMutationOptions(options));
 };
+
+/**
+ * @summary List community posts
+ */
+export const getListPostsUrl = (params?: ListPostsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/posts?${stringifiedParams}`
+    : `/api/posts`;
+};
+
+export const listPosts = async (
+  params?: ListPostsParams,
+  options?: RequestInit,
+): Promise<PostListResponse> => {
+  return customFetch<PostListResponse>(getListPostsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPostsQueryKey = (params?: ListPostsParams) => {
+  return [`/api/posts`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPostsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPosts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPostsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPosts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPostsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPosts>>> = ({
+    signal,
+  }) => listPosts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPosts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPostsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPosts>>
+>;
+export type ListPostsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List community posts
+ */
+
+export function useListPosts<
+  TData = Awaited<ReturnType<typeof listPosts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPostsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPosts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPostsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new community post
+ */
+export const getCreatePostUrl = () => {
+  return `/api/posts`;
+};
+
+export const createPost = async (
+  createPostInput: CreatePostInput,
+  options?: RequestInit,
+): Promise<Post> => {
+  return customFetch<Post>(getCreatePostUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPostInput),
+  });
+};
+
+export const getCreatePostMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPost>>,
+    TError,
+    { data: BodyType<CreatePostInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPost>>,
+  TError,
+  { data: BodyType<CreatePostInput> },
+  TContext
+> => {
+  const mutationKey = ["createPost"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPost>>,
+    { data: BodyType<CreatePostInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPost(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPost>>
+>;
+export type CreatePostMutationBody = BodyType<CreatePostInput>;
+export type CreatePostMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new community post
+ */
+export const useCreatePost = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPost>>,
+    TError,
+    { data: BodyType<CreatePostInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPost>>,
+  TError,
+  { data: BodyType<CreatePostInput> },
+  TContext
+> => {
+  return useMutation(getCreatePostMutationOptions(options));
+};
+
+/**
+ * @summary Toggle like on a post
+ */
+export const getTogglePostLikeUrl = (postId: number) => {
+  return `/api/posts/${postId}/like`;
+};
+
+export const togglePostLike = async (
+  postId: number,
+  togglePostLikeBody: TogglePostLikeBody,
+  options?: RequestInit,
+): Promise<TogglePostLike200> => {
+  return customFetch<TogglePostLike200>(getTogglePostLikeUrl(postId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(togglePostLikeBody),
+  });
+};
+
+export const getTogglePostLikeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof togglePostLike>>,
+    TError,
+    { postId: number; data: BodyType<TogglePostLikeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof togglePostLike>>,
+  TError,
+  { postId: number; data: BodyType<TogglePostLikeBody> },
+  TContext
+> => {
+  const mutationKey = ["togglePostLike"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof togglePostLike>>,
+    { postId: number; data: BodyType<TogglePostLikeBody> }
+  > = (props) => {
+    const { postId, data } = props ?? {};
+
+    return togglePostLike(postId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TogglePostLikeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof togglePostLike>>
+>;
+export type TogglePostLikeMutationBody = BodyType<TogglePostLikeBody>;
+export type TogglePostLikeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle like on a post
+ */
+export const useTogglePostLike = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof togglePostLike>>,
+    TError,
+    { postId: number; data: BodyType<TogglePostLikeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof togglePostLike>>,
+  TError,
+  { postId: number; data: BodyType<TogglePostLikeBody> },
+  TContext
+> => {
+  return useMutation(getTogglePostLikeMutationOptions(options));
+};
+
+/**
+ * @summary Get comments for a post
+ */
+export const getListPostCommentsUrl = (postId: number) => {
+  return `/api/posts/${postId}/comments`;
+};
+
+export const listPostComments = async (
+  postId: number,
+  options?: RequestInit,
+): Promise<PostComment[]> => {
+  return customFetch<PostComment[]>(getListPostCommentsUrl(postId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPostCommentsQueryKey = (postId: number) => {
+  return [`/api/posts/${postId}/comments`] as const;
+};
+
+export const getListPostCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPostComments>>,
+  TError = ErrorType<unknown>,
+>(
+  postId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPostComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPostCommentsQueryKey(postId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPostComments>>
+  > = ({ signal }) => listPostComments(postId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!postId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPostComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPostCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPostComments>>
+>;
+export type ListPostCommentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get comments for a post
+ */
+
+export function useListPostComments<
+  TData = Awaited<ReturnType<typeof listPostComments>>,
+  TError = ErrorType<unknown>,
+>(
+  postId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPostComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPostCommentsQueryOptions(postId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a comment to a post
+ */
+export const getCreatePostCommentUrl = (postId: number) => {
+  return `/api/posts/${postId}/comments`;
+};
+
+export const createPostComment = async (
+  postId: number,
+  createPostCommentBody: CreatePostCommentBody,
+  options?: RequestInit,
+): Promise<PostComment> => {
+  return customFetch<PostComment>(getCreatePostCommentUrl(postId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPostCommentBody),
+  });
+};
+
+export const getCreatePostCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPostComment>>,
+    TError,
+    { postId: number; data: BodyType<CreatePostCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPostComment>>,
+  TError,
+  { postId: number; data: BodyType<CreatePostCommentBody> },
+  TContext
+> => {
+  const mutationKey = ["createPostComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPostComment>>,
+    { postId: number; data: BodyType<CreatePostCommentBody> }
+  > = (props) => {
+    const { postId, data } = props ?? {};
+
+    return createPostComment(postId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePostCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPostComment>>
+>;
+export type CreatePostCommentMutationBody = BodyType<CreatePostCommentBody>;
+export type CreatePostCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a comment to a post
+ */
+export const useCreatePostComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPostComment>>,
+    TError,
+    { postId: number; data: BodyType<CreatePostCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPostComment>>,
+  TError,
+  { postId: number; data: BodyType<CreatePostCommentBody> },
+  TContext
+> => {
+  return useMutation(getCreatePostCommentMutationOptions(options));
+};
+
+/**
+ * @summary List available courses
+ */
+export const getListCoursesUrl = (params?: ListCoursesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/courses?${stringifiedParams}`
+    : `/api/courses`;
+};
+
+export const listCourses = async (
+  params?: ListCoursesParams,
+  options?: RequestInit,
+): Promise<Course[]> => {
+  return customFetch<Course[]>(getListCoursesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCoursesQueryKey = (params?: ListCoursesParams) => {
+  return [`/api/courses`, ...(params ? [params] : [])] as const;
+};
+
+export const getListCoursesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCourses>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCoursesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCourses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCoursesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCourses>>> = ({
+    signal,
+  }) => listCourses(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCourses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCoursesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCourses>>
+>;
+export type ListCoursesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List available courses
+ */
+
+export function useListCourses<
+  TData = Awaited<ReturnType<typeof listCourses>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCoursesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCourses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCoursesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Enroll in a course
+ */
+export const getEnrollCourseUrl = (courseId: number) => {
+  return `/api/courses/${courseId}/enroll`;
+};
+
+export const enrollCourse = async (
+  courseId: number,
+  enrollCourseBody: EnrollCourseBody,
+  options?: RequestInit,
+): Promise<Enrollment> => {
+  return customFetch<Enrollment>(getEnrollCourseUrl(courseId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(enrollCourseBody),
+  });
+};
+
+export const getEnrollCourseMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof enrollCourse>>,
+    TError,
+    { courseId: number; data: BodyType<EnrollCourseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof enrollCourse>>,
+  TError,
+  { courseId: number; data: BodyType<EnrollCourseBody> },
+  TContext
+> => {
+  const mutationKey = ["enrollCourse"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof enrollCourse>>,
+    { courseId: number; data: BodyType<EnrollCourseBody> }
+  > = (props) => {
+    const { courseId, data } = props ?? {};
+
+    return enrollCourse(courseId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EnrollCourseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof enrollCourse>>
+>;
+export type EnrollCourseMutationBody = BodyType<EnrollCourseBody>;
+export type EnrollCourseMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Enroll in a course
+ */
+export const useEnrollCourse = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof enrollCourse>>,
+    TError,
+    { courseId: number; data: BodyType<EnrollCourseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof enrollCourse>>,
+  TError,
+  { courseId: number; data: BodyType<EnrollCourseBody> },
+  TContext
+> => {
+  return useMutation(getEnrollCourseMutationOptions(options));
+};
+
+/**
+ * @summary Get current user course enrollments
+ */
+export const getListMyEnrollmentsUrl = (params: ListMyEnrollmentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/courses/my-enrollments?${stringifiedParams}`
+    : `/api/courses/my-enrollments`;
+};
+
+export const listMyEnrollments = async (
+  params: ListMyEnrollmentsParams,
+  options?: RequestInit,
+): Promise<EnrollmentWithCourse[]> => {
+  return customFetch<EnrollmentWithCourse[]>(getListMyEnrollmentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyEnrollmentsQueryKey = (
+  params?: ListMyEnrollmentsParams,
+) => {
+  return [`/api/courses/my-enrollments`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMyEnrollmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyEnrollments>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListMyEnrollmentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyEnrollments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMyEnrollmentsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyEnrollments>>
+  > = ({ signal }) => listMyEnrollments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyEnrollments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyEnrollmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyEnrollments>>
+>;
+export type ListMyEnrollmentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current user course enrollments
+ */
+
+export function useListMyEnrollments<
+  TData = Awaited<ReturnType<typeof listMyEnrollments>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListMyEnrollmentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMyEnrollments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyEnrollmentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

@@ -6,3 +6,5 @@ export * from "./orders";
 export * from "./deliverables";
 export * from "./portfolios";
 export * from "./notifications";
+export * from "./posts";
+export * from "./courses";

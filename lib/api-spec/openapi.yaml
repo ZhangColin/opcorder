@@ -649,6 +649,220 @@ paths:
                 required:
                   - count
 
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [community]
+      summary: List community posts
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [latest, hot]
+            default: latest
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostListResponse"
+    post:
+      operationId: createPost
+      tags: [community]
+      summary: Create a new community post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostInput"
+      responses:
+        "201":
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/{postId}/like:
+    post:
+      operationId: togglePostLike
+      tags: [community]
+      summary: Toggle like on a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: integer
+              required: [userId]
+      responses:
+        "200":
+          description: Toggle result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                  likesCount:
+                    type: integer
+                required: [liked, likesCount]
+
+  /posts/{postId}/comments:
+    get:
+      operationId: listPostComments
+      tags: [community]
+      summary: Get comments for a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PostComment"
+    post:
+      operationId: createPostComment
+      tags: [community]
+      summary: Add a comment to a post
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                authorId:
+                  type: integer
+                content:
+                  type: string
+              required: [authorId, content]
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostComment"
+
+  /courses:
+    get:
+      operationId: listCourses
+      tags: [academy]
+      summary: List available courses
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [tech, strategy, compliance, operations]
+        - name: requiredLevel
+          in: query
+          schema:
+            type: string
+            enum: [C, B, A]
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+
+  /courses/{courseId}/enroll:
+    post:
+      operationId: enrollCourse
+      tags: [academy]
+      summary: Enroll in a course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: integer
+              required: [userId]
+      responses:
+        "201":
+          description: Enrollment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "200":
+          description: Already enrolled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+
+  /courses/my-enrollments:
+    get:
+      operationId: listMyEnrollments
+      tags: [academy]
+      summary: Get current user course enrollments
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of enrollments with course info
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EnrollmentWithCourse"
+
 components:
   schemas:
     HealthStatus:
@@ -1281,3 +1495,187 @@ components:
         - unreadCount
         - page
         - limit
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        authorLevel:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        likesCount:
+          type: integer
+        commentsCount:
+          type: integer
+        viewsCount:
+          type: integer
+        likedByMe:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - authorId
+        - title
+        - content
+        - tags
+        - likesCount
+        - commentsCount
+        - viewsCount
+        - createdAt
+
+    PostListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        total:
+          type: integer
+      required:
+        - items
+        - total
+
+    PostComment:
+      type: object
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        authorId:
+          type: integer
+        authorName:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - postId
+        - authorId
+        - content
+        - createdAt
+
+    CreatePostInput:
+      type: object
+      properties:
+        authorId:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - authorId
+        - title
+        - content
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+          enum: [tech, strategy, compliance, operations]
+        requiredLevel:
+          type: string
+          enum: [C, B, A]
+        durationMinutes:
+          type: integer
+        description:
+          type: string
+        badge:
+          type: string
+        rating:
+          type: number
+        learnersCount:
+          type: integer
+        isRequired:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - category
+        - requiredLevel
+        - durationMinutes
+        - description
+        - isRequired
+        - createdAt
+
+    Enrollment:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        userId:
+          type: integer
+        progressPct:
+          type: integer
+        completedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - courseId
+        - userId
+        - progressPct
+        - createdAt
+
+    EnrollmentWithCourse:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        userId:
+          type: integer
+        progressPct:
+          type: integer
+        completedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        course:
+          $ref: "#/components/schemas/Course"
+      required:
+        - id
+        - courseId
+        - userId
+        - progressPct
+        - createdAt
+        - course

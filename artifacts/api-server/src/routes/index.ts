@@ -8,6 +8,8 @@ import ordersRouter from "./orders";
 import portfoliosRouter from "./portfolios";
 import notificationsRouter from "./notifications";
 import authRouter from "./auth";
+import postsRouter from "./posts";
+import coursesRouter from "./courses";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(bidsRouter);
 router.use(ordersRouter);
 router.use(portfoliosRouter);
 router.use(notificationsRouter);
+router.use(postsRouter);
+router.use(coursesRouter);
 
 export default router;
