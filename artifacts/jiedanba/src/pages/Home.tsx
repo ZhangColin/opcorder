@@ -68,28 +68,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Horizontal Banner */}
-      <section className="relative h-56 rounded-3xl overflow-hidden group shadow-lg">
-        <img 
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
-          src={`${import.meta.env.BASE_URL}images/banner-office.png`}
-          alt="Office Banner" 
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#001946]/95 via-[#00327d]/80 to-transparent flex items-center px-10 md:px-16">
-          <div className="max-w-2xl transform transition-transform duration-500 group-hover:translate-x-2">
-            <h2 className="text-3xl md:text-4xl font-black text-white font-display tracking-tight mb-4">
-              海创元数字生态转型
-            </h2>
-            <p className="text-white/80 text-lg font-medium mb-8 leading-relaxed">
-              以架构精度赋能企业，以智能撮合连接超级个体。开启数字世界的新工作方式。
-            </p>
-            <Link href="/create-demand" className="bg-white text-primary px-8 py-3.5 rounded-xl font-bold text-sm transition-all hover:bg-gray-50 active:scale-95 shadow-xl hover:shadow-white/20 inline-flex items-center gap-2">
-              立即发布需求 <ArrowRight size={18} />
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* Main Dashboard Grid */}
       <div className="grid grid-cols-12 gap-10">
         
