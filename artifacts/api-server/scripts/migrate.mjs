@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
  * Production database migration / seed script.
- * Runs once on first deploy; idempotent on subsequent runs.
+ * Uses a version-based strategy to decide whether to reseed.
  *
  * Logic:
- *  - If the `users` table does NOT exist in the target DB → apply full seed.sql
- *  - If the `users` table already has rows → skip (already initialised)
- *  - If the table exists but is empty → apply seed.sql (fresh schema, no data)
+ *  - Read SEED_TARGET_VERSION from seed.sql (set by _seed_meta insert)
+ *  - Read current version from _seed_meta table in production DB
+ *  - If versions differ (or table missing) → full resync:
+ *      DROP SCHEMA public CASCADE → CREATE SCHEMA public → apply seed.sql
+ *  - If versions match → skip (already up to date)
+ *
+ * To force a resync on next deploy: bump the seed_version value in seed.sql
+ * and append the new _seed_meta upsert at the end of seed.sql.
  */
 
 import { execSync } from "child_process";
@@ -22,20 +27,25 @@ const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SEED_FILE = path.resolve(__dirname, "..", "seed.sql");
 
-async function checkInitialised(pool) {
-  // Check whether users table exists
-  const tableCheck = await pool.query(`
-    SELECT COUNT(*) AS cnt
-    FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'users'
-  `);
-  const tableExists = parseInt(tableCheck.rows[0].cnt, 10) > 0;
+const SEED_TARGET_VERSION = "2";
 
-  if (!tableExists) return false;
+async function getCurrentVersion(pool) {
+  try {
+    const tableCheck = await pool.query(`
+      SELECT COUNT(*) AS cnt
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = '_seed_meta'
+    `);
+    if (parseInt(tableCheck.rows[0].cnt, 10) === 0) return null;
 
-  // Table exists — check if it has any rows
-  const rowCheck = await pool.query("SELECT COUNT(*) AS cnt FROM users");
-  return parseInt(rowCheck.rows[0].cnt, 10) > 0;
+    const versionRow = await pool.query(
+      "SELECT value FROM _seed_meta WHERE key = 'seed_version'"
+    );
+    if (versionRow.rows.length === 0) return null;
+    return versionRow.rows[0].value;
+  } catch {
+    return null;
+  }
 }
 
 async function main() {
@@ -53,27 +63,34 @@ async function main() {
   const pool = new Pool({ connectionString: dbUrl });
 
   try {
-    const alreadyInit = await checkInitialised(pool);
-    if (alreadyInit) {
-      console.log("[migrate] Database already initialised — skipping seed.");
+    const currentVersion = await getCurrentVersion(pool);
+    console.log(
+      `[migrate] DB seed version: ${currentVersion ?? "(none)"} → target: ${SEED_TARGET_VERSION}`
+    );
+
+    if (currentVersion === SEED_TARGET_VERSION) {
+      console.log("[migrate] Already at target version — skipping reseed.");
       return;
     }
 
-    console.log("[migrate] Initialising production database from seed.sql …");
+    console.log("[migrate] Version mismatch — performing full resync …");
     await pool.end();
 
-    // Run psql; -v ON_ERROR_STOP=0 means we continue past non-fatal errors
-    // (e.g. CREATE SCHEMA public already exists on a fresh Replit PG instance)
+    execSync(
+      `psql "${dbUrl}" -v ON_ERROR_STOP=0 --quiet -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`,
+      { stdio: "inherit", shell: true }
+    );
+
     execSync(
       `psql "${dbUrl}" -v ON_ERROR_STOP=0 --quiet -f "${SEED_FILE}"`,
       { stdio: "inherit", shell: true }
     );
 
-    console.log("[migrate] ✓ Database seeded successfully.");
+    console.log(
+      `[migrate] ✓ Database resynced to seed version ${SEED_TARGET_VERSION}.`
+    );
   } catch (err) {
     console.error("[migrate] Migration error:", err.message ?? err);
-    // Don't exit 1 — let the server start anyway so health-check passes;
-    // the DB might have been partially initialised on a previous attempt.
   } finally {
     try { await pool.end(); } catch (_) {}
   }

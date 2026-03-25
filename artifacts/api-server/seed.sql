@@ -1265,5 +1265,15 @@ ALTER TABLE ONLY public.posts
 -- PostgreSQL database dump complete
 --
 
-\unrestrict WR1kNR5UZmVGvUYEauhpNF0D9VGiPWpSgi7dT6bvRAnE0SYlzUjpGCiZWV2uI7x
 
+
+--
+-- Seed version tracking (used by migrate.mjs to detect when to resync)
+--
+CREATE TABLE IF NOT EXISTS public._seed_meta (
+    key varchar(64) PRIMARY KEY,
+    value text NOT NULL
+);
+
+INSERT INTO public._seed_meta (key, value) VALUES ('seed_version', '2')
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
