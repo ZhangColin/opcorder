@@ -64,13 +64,16 @@ async function adminDelete(path: string) {
 
 type Module =
   | "dashboard" | "users" | "demands" | "orders"
-  | "finance"   | "ecosystem" | "training" | "content";
+  | "finance"   | "ecosystem" | "training" | "content"
+  | "cockpit"   | "disputes";
 
 const NAV: { key: Module; icon: React.ElementType; label: string }[] = [
   { key: "dashboard",  icon: LayoutDashboard, label: "数据看板" },
+  { key: "cockpit",    icon: BarChart3,        label: "平台驾驶舱" },
   { key: "users",      icon: Users,           label: "用户管理" },
   { key: "demands",    icon: FileText,         label: "需求管理" },
   { key: "orders",     icon: ShoppingBag,      label: "订单管理" },
+  { key: "disputes",   icon: Gavel,            label: "争议管理" },
   { key: "finance",    icon: Wallet,           label: "财务管理" },
   { key: "ecosystem",  icon: Network,          label: "OPC 生态池" },
   { key: "training",   icon: GraduationCap,    label: "认证培训" },
@@ -940,14 +943,228 @@ function ContentReview() {
   );
 }
 
-/* ─── Module renderer ─────────────────────────── */
+/* ─── Module: 平台驾驶舱 ──────────────────────────── */
+
+function PlatformCockpit() {
+  const { data: stats } = useQuery<{
+    totalOrders: number; totalAmount: number; completionRate: number;
+    activeOpcs: number; inProgressOrders: number; disputedOrders: number;
+    pendingDemands: number; totalPosts: number;
+  }>({
+    queryKey: ["admin-stats"],
+    queryFn: () => adminGet("/api/admin/stats"),
+  });
+
+  const { data: finance } = useQuery<{
+    totalSettled: number; totalPlatformFee: number; totalOpcIncome: number;
+    pendingSettlement: number; transactions: Array<{
+      id: number; orderNo: string; amount: number; opcShare: number;
+      platformFee: number; status: string; createdAt: string;
+      opcName: string; publisherName: string;
+    }>;
+  }>({
+    queryKey: ["admin-finance"],
+    queryFn: () => adminGet("/api/admin/finance"),
+  });
+
+  const kpis = [
+    { label: "平台总结算",   value: `¥${((finance?.totalSettled ?? 0) / 10000).toFixed(1)}万`,   icon: Wallet,     color: "bg-primary/10 text-primary" },
+    { label: "平台抽佣收入", value: `¥${((finance?.totalPlatformFee ?? 0) / 10000).toFixed(1)}万`, icon: CreditCard, color: "bg-violet-100 text-violet-600" },
+    { label: "OPC 净收入",  value: `¥${((finance?.totalOpcIncome ?? 0) / 10000).toFixed(1)}万`,   icon: TrendingUp, color: "bg-secondary/10 text-secondary" },
+    { label: "待结算金额",   value: `¥${((finance?.pendingSettlement ?? 0) / 10000).toFixed(1)}万`, icon: Clock,      color: "bg-amber-100 text-amber-600" },
+    { label: "订单完成率",   value: `${stats?.completionRate ?? 0}%`,     icon: Activity,   color: "bg-green-100 text-green-600" },
+    { label: "进行中订单",   value: String(stats?.inProgressOrders ?? 0), icon: ShoppingBag, color: "bg-blue-100 text-blue-600" },
+    { label: "活跃 OPC 数", value: String(stats?.activeOpcs ?? 0),        icon: Users,      color: "bg-indigo-100 text-indigo-600" },
+    { label: "争议订单",     value: String(stats?.disputedOrders ?? 0),   icon: Gavel,      color: "bg-red-100 text-red-600" },
+  ];
+
+  return (
+    <div className="space-y-8">
+      <SectionHeader title="平台驾驶舱" sub="全平台核心业务指标实时监控 · 资金流水总览" />
+
+      <div className="grid grid-cols-4 gap-4">
+        {kpis.map(k => {
+          const Icon = k.icon;
+          return (
+            <div key={k.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${k.color}`}>
+                  <Icon size={18} />
+                </div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{k.label}</span>
+              </div>
+              <p className="text-2xl font-extrabold text-blue-900 font-display">{k.value}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="font-bold text-blue-900">近期结算流水</h3>
+          <StatusBadge label={`共 ${finance?.transactions.length ?? 0} 笔`} color="bg-slate-100 text-slate-500" />
+        </div>
+        <TableShell headers={["订单编号", "发单方", "OPC", "订单金额", "平台佣金", "OPC分成", "状态", "时间"]}>
+          {(finance?.transactions ?? []).length === 0 ? <EmptyRow cols={8} /> :
+            finance?.transactions.slice(0, 20).map(t => (
+              <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
+                <td className="px-6 py-4 font-mono text-xs text-slate-400">{t.orderNo}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">{t.publisherName}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">{t.opcName}</td>
+                <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{t.amount.toLocaleString()}</td>
+                <td className="px-6 py-4 text-sm font-medium text-violet-600">¥{t.platformFee.toLocaleString()}</td>
+                <td className="px-6 py-4 text-sm font-medium text-secondary">¥{t.opcShare.toLocaleString()}</td>
+                <td className="px-6 py-4">
+                  <StatusBadge
+                    label={t.status === "completed" ? "已结算" : t.status === "in_progress" ? "进行中" : t.status}
+                    color={t.status === "completed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}
+                  />
+                </td>
+                <td className="px-6 py-4 text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</td>
+              </tr>
+            ))
+          }
+        </TableShell>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Module: 争议管理 ──────────────────────────── */
+
+function DisputeManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: orders = [], isLoading } = useQuery<Array<{
+    id: number; orderNo: string; status: string; amount: number;
+    opcName: string; publisherName: string; demandTitle: string;
+    daysSinceCreated: number; createdAt: string;
+    totalMilestones: number; completedMilestones: number;
+  }>>({
+    queryKey: ["admin-orders-disputed"],
+    queryFn: () => adminGet("/api/admin/orders?status=disputed"),
+  });
+
+  const allOrders = useQuery<Array<{
+    id: number; orderNo: string; status: string; amount: number;
+    opcName: string; publisherName: string; demandTitle: string;
+    daysSinceCreated: number; createdAt: string;
+  }>>({
+    queryKey: ["admin-orders-all-for-dispute"],
+    queryFn: () => adminGet("/api/admin/orders"),
+  });
+
+  const mutate = useMutation({
+    mutationFn: ({ id, action }: { id: number; action: string }) =>
+      adminPatch(`/api/admin/orders/${id}`, { action }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-orders-disputed"] });
+      qc.invalidateQueries({ queryKey: ["admin-orders-all-for-dispute"] });
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      toast({ title: "操作成功" });
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const disputed = orders.filter(o => o.status === "disputed");
+  const allDisputed = allOrders.data?.filter(o => o.status === "disputed") ?? disputed;
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="争议管理" sub="处理平台争议订单 · 强制结算或关闭仲裁" />
+
+      <div className="grid grid-cols-3 gap-5">
+        <StatCard label="当前争议订单" value={String(allDisputed.length)} icon={Gavel} />
+        <StatCard label="争议金额合计" value={`¥${allDisputed.reduce((s, o) => s + o.amount, 0).toLocaleString()}`} icon={AlertCircle} />
+        <StatCard label="待裁决" value={String(allDisputed.length)} icon={Clock} accent />
+      </div>
+
+      <TableShell headers={["订单编号", "需求标题", "发单方", "OPC", "金额", "在途天数", "状态", "操作"]}>
+        {isLoading ? <LoadingRow cols={8} /> : allDisputed.length === 0 ? (
+          <tr><td colSpan={8} className="py-16 text-center text-slate-400 text-sm">暂无争议订单</td></tr>
+        ) : allDisputed.map(o => (
+          <tr key={o.id} className="hover:bg-red-50/30 transition-colors">
+            <td className="px-6 py-4 font-mono text-xs text-slate-400">{o.orderNo}</td>
+            <td className="px-6 py-4 text-sm font-bold text-blue-900 max-w-[160px]">
+              <span className="line-clamp-1">{o.demandTitle}</span>
+            </td>
+            <td className="px-6 py-4 text-sm text-slate-600">{o.publisherName}</td>
+            <td className="px-6 py-4 text-sm text-slate-600">{o.opcName}</td>
+            <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{o.amount.toLocaleString()}</td>
+            <td className="px-6 py-4">
+              <span className={`text-sm font-bold ${o.daysSinceCreated > 30 ? "text-red-600" : "text-amber-600"}`}>
+                {o.daysSinceCreated} 天
+              </span>
+            </td>
+            <td className="px-6 py-4">
+              <StatusBadge label="争议中" color="bg-red-100 text-red-600" />
+            </td>
+            <td className="px-6 py-4">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => mutate.mutate({ id: o.id, action: "forceSettle" })}
+                  title="强制结算给OPC"
+                  className="px-3 py-1.5 text-xs font-bold bg-secondary/10 text-secondary hover:bg-secondary/20 rounded-lg transition-colors"
+                >
+                  强制结算
+                </button>
+                <button
+                  onClick={() => mutate.mutate({ id: o.id, action: "resolveDispute" })}
+                  title="关闭争议，恢复进行中"
+                  className="px-3 py-1.5 text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                >
+                  关闭仲裁
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </TableShell>
+
+      {/* All orders that could be marked as disputed */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+          <AlertTriangle size={16} className="text-amber-500" />
+          <h3 className="font-bold text-blue-900">可标记争议的订单</h3>
+          <p className="text-xs text-slate-400">（进行中的订单可被标记为争议）</p>
+        </div>
+        <TableShell headers={["订单编号", "需求标题", "金额", "状态", "操作"]}>
+          {allOrders.isLoading ? <LoadingRow cols={5} /> :
+            (allOrders.data ?? []).filter(o => o.status === "in_progress").length === 0 ? <EmptyRow cols={5} /> :
+            (allOrders.data ?? []).filter(o => o.status === "in_progress").map(o => (
+              <tr key={o.id} className="hover:bg-slate-50/60 transition-colors">
+                <td className="px-6 py-4 font-mono text-xs text-slate-400">{o.orderNo}</td>
+                <td className="px-6 py-4 text-sm font-bold text-blue-900 max-w-[200px]">
+                  <span className="line-clamp-1">{o.demandTitle}</span>
+                </td>
+                <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{o.amount.toLocaleString()}</td>
+                <td className="px-6 py-4"><StatusBadge label="进行中" color="bg-blue-100 text-blue-600" /></td>
+                <td className="px-6 py-4">
+                  <button
+                    onClick={() => mutate.mutate({ id: o.id, action: "markDisputed" })}
+                    className="px-3 py-1.5 text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                  >
+                    标记争议
+                  </button>
+                </td>
+              </tr>
+            ))
+          }
+        </TableShell>
+      </div>
+    </div>
+  );
+}
 
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
     case "dashboard":  return <Dashboard />;
+    case "cockpit":    return <PlatformCockpit />;
     case "users":      return <UserManagement />;
     case "demands":    return <DemandManagement />;
     case "orders":     return <OrderManagement />;
+    case "disputes":   return <DisputeManagement />;
     case "finance":    return <FinanceManagement />;
     case "ecosystem":  return <EcosystemManagement />;
     case "training":   return <TrainingManagement />;

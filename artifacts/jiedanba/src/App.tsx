@@ -17,10 +17,6 @@ import PublisherOpcLibrary from "@/pages/PublisherOpcLibrary";
 import PublisherNotifications from "@/pages/PublisherNotifications";
 import Community from "@/pages/Community";
 import Auth from "@/pages/Auth";
-import Disputes from "@/pages/Disputes";
-import PublisherDisputes from "@/pages/PublisherDisputes";
-import Cockpit from "@/pages/Cockpit";
-import PublisherCockpit from "@/pages/PublisherCockpit";
 import DemandDetail from "@/pages/DemandDetail";
 import MyOrders from "@/pages/MyOrders";
 import OrderDetail from "@/pages/OrderDetail";
@@ -75,8 +71,6 @@ function Router() {
       <Route path="/publisher/orders/:id" component={PublisherOrderDetail} />
       <Route path="/publisher/opc-library" component={PublisherOpcLibrary} />
       <Route path="/publisher/notifications" component={PublisherNotifications} />
-      <Route path="/publisher/disputes" component={PublisherDisputes} />
-      <Route path="/publisher/cockpit" component={PublisherCockpit} />
       <Route path="/community" component={Community} />
 
       {/* OPC routes — role-gated, wrapped in Layout */}
@@ -90,8 +84,6 @@ function Router() {
                 <Route path="/order-hall" component={OrderHall} />
                 <Route path="/orders" component={MyOrders} />
                 <Route path="/orders/:id" component={OrderDetail} />
-                <Route path="/disputes" component={Disputes} />
-                <Route path="/cockpit" component={Cockpit} />
                 <Route path="/profile" component={Profile} />
                 <Route path="/portfolios" component={Portfolios} />
                 <Route path="/academy" component={Academy} />

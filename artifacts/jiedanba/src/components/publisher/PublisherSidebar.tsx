@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, BarChart2, FileText,
-  PlusCircle, HelpCircle, LogOut, ShieldCheck, Gavel, Gauge, ClipboardList, Bell,
+  PlusCircle, HelpCircle, LogOut, ShieldCheck, ClipboardList, Bell, MessageSquare,
 } from "lucide-react";
 
 interface SidebarLinkProps {
@@ -53,8 +53,7 @@ export function PublisherSidebar({ onLogout }: { onLogout: () => void }) {
         <SidebarLink icon={Users}           label="OPC 人才库"  href="/publisher/opc-library"  active={isActive("/publisher/opc-library")} />
         <SidebarLink icon={Bell}            label="消息中心"    href="/publisher/notifications" active={isActive("/publisher/notifications")} />
         <SidebarLink icon={BarChart2}       label="数据分析"    href="#"                        active={false} />
-        <SidebarLink icon={Gauge}           label="驾驶舱"    href="/publisher/cockpit"  active={isActive("/publisher/cockpit")} />
-        <SidebarLink icon={Gavel}           label="争议处理"  href="/publisher/disputes" active={isActive("/publisher/disputes")} />
+        <SidebarLink icon={MessageSquare}   label="社区"      href="/community"          active={isActive("/community")} />
       </nav>
 
       <Link href="/publisher/demands/new">

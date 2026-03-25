@@ -107,6 +107,11 @@ export default function Auth() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败，请重试"); return; }
 
+      if (data.role === "admin" && role !== "admin") {
+        setError("此账号为管理员账号，请通过管理后台专属入口登录");
+        return;
+      }
+
       localStorage.setItem("jdb_role",     data.role ?? role);
       localStorage.setItem("jdb_user_id",  String(data.id));
       localStorage.setItem("jdb_nickname", data.nickname ?? "");

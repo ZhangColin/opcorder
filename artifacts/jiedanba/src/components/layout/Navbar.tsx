@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Search, Menu, ShieldCheck, UserPen, LogOut, ChevronDown } from "lucide-react";
+import { Bell, Search, Menu, ShieldCheck, UserPen, LogOut, ChevronDown, MessageSquare } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -33,11 +33,10 @@ export function Navbar() {
     { href: "/",           label: "首页" },
     { href: "/order-hall", label: "订单大厅" },
     { href: "/orders",     label: "我的订单" },
-    { href: "/cockpit",    label: "驾驶舱" },
-    { href: "/disputes",   label: "争议处理" },
     { href: "/academy",    label: "培训进阶" },
     { href: "/profile",    label: "个人中心" },
     { href: "/income",     label: "收入结算" },
+    { href: "/community",  label: "社区" },
   ];
 
   function handleEditProfile() {
