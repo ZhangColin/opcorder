@@ -37,6 +37,7 @@ export function Navbar() {
     { href: "/disputes",   label: "争议处理" },
     { href: "/academy",    label: "培训进阶" },
     { href: "/profile",    label: "个人中心" },
+    { href: "/income",     label: "收入结算" },
   ];
 
   function handleEditProfile() {

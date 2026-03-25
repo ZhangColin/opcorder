@@ -1,132 +1,442 @@
 import { useState } from "react";
-import { useRoute } from "wouter";
-import { ArrowLeft, Box, UploadCloud, CheckCircle, FileX } from "lucide-react";
-import { useGetOrderById, useSubmitDeliverable, useAcceptOrder } from "@workspace/api-client-react";
+import { useRoute, useLocation } from "wouter";
+import {
+  ArrowLeft, CheckCircle2, Clock, XCircle, UploadCloud, AlertCircle,
+  ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag,
+} from "lucide-react";
+import {
+  useGetOrderById,
+  useSubmitDeliverable,
+} from "@workspace/api-client-react";
+import type { Milestone, Deliverable } from "@workspace/api-client-react";
 import { ORDER_STATUSES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+
+const MS_STATUS_CFG = {
+  pending:   { label: "待提交", icon: Clock,       cls: "bg-amber-100 text-amber-700" },
+  submitted: { label: "审核中", icon: Clock,       cls: "bg-blue-100  text-blue-700"  },
+  approved:  { label: "已通过", icon: CheckCircle2, cls: "bg-green-100 text-green-700" },
+  rejected:  { label: "已打回", icon: XCircle,     cls: "bg-red-100   text-red-700"   },
+} as const;
+
+const DELIV_STATUS_CFG = {
+  submitted: { label: "待审核", cls: "bg-amber-100 text-amber-700" },
+  approved:  { label: "已通过", cls: "bg-green-100 text-green-700" },
+  rejected:  { label: "已打回", cls: "bg-red-100   text-red-700"   },
+} as const;
+
+function EmptyDelivForm({
+  milestoneId,
+  milestoneLabel,
+  orderId,
+  onSuccess,
+}: {
+  milestoneId?: number;
+  milestoneLabel: string;
+  orderId: number;
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "", fileUrl: "" });
+  const { mutate: submit, isPending } = useSubmitDeliverable();
+  const { toast } = useToast();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submit(
+      {
+        orderId,
+        data: {
+          title: form.title,
+          description: form.description,
+          fileUrl: form.fileUrl || undefined,
+          milestoneId,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "交付物已提交", description: "等待发单方审核。" });
+          setForm({ title: "", description: "", fileUrl: "" });
+          setOpen(false);
+          onSuccess();
+        },
+        onError: () => {
+          toast({ title: "提交失败", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-3 flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80 transition-colors"
+      >
+        <UploadCloud size={15} /> 提交{milestoneLabel}交付物
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-4 border border-primary/20 rounded-xl p-4 bg-primary/5 space-y-3">
+      <p className="text-sm font-bold text-primary mb-1">提交「{milestoneLabel}」交付物</p>
+      <div>
+        <label className="block text-xs font-bold mb-1 text-foreground">交付物名称 *</label>
+        <input
+          required
+          className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none"
+          placeholder="例：第一阶段需求分析报告"
+          value={form.title}
+          onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold mb-1 text-foreground">交付说明</label>
+        <textarea
+          rows={2}
+          className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none resize-none"
+          placeholder="简述交付内容及要点…"
+          value={form.description}
+          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold mb-1 text-foreground">文件链接（网盘/代码仓库等）</label>
+        <input
+          className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none"
+          placeholder="https://..."
+          value={form.fileUrl}
+          onChange={(e) => setForm((p) => ({ ...p, fileUrl: e.target.value }))}
+        />
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="flex-1 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50"
+        >
+          {isPending ? "提交中…" : "确认提交"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          取消
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function MilestoneCard({
+  ms,
+  index,
+  deliverables,
+  orderId,
+  orderStatus,
+  onRefetch,
+}: {
+  ms: Milestone;
+  index: number;
+  deliverables: Deliverable[];
+  orderId: number;
+  orderStatus: string;
+  onRefetch: () => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const status = ms.status ?? "pending";
+  const cfg = MS_STATUS_CFG[status as keyof typeof MS_STATUS_CFG] ?? MS_STATUS_CFG.pending;
+  const Icon = cfg.icon;
+
+  const msDelivs = deliverables.filter((d) => d.milestoneId === ms.id);
+  const canSubmit = orderStatus === "in_progress" && (status === "pending" || status === "rejected");
+  const latestRejected = msDelivs.find((d) => d.status === "rejected");
+
+  return (
+    <div className="border border-border rounded-2xl overflow-hidden bg-card shadow-sm">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-4 p-5 hover:bg-muted/40 transition-colors text-left"
+      >
+        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-sm shrink-0">
+          {index + 1}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-foreground">{ms.name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            截止：{ms.deadline}
+            {ms.deliverableDesc && <> · {ms.deliverableDesc}</>}
+          </p>
+        </div>
+        <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${cfg.cls}`}>
+          <Icon size={12} /> {cfg.label}
+        </span>
+        {expanded ? <ChevronUp size={16} className="text-muted-foreground shrink-0" /> : <ChevronDown size={16} className="text-muted-foreground shrink-0" />}
+      </button>
+
+      {expanded && (
+        <div className="px-5 pb-5 border-t border-border">
+          {latestRejected && (
+            <div className="mt-4 flex gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
+              <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-red-700 mb-0.5">打回原因</p>
+                <p className="text-sm text-red-600">{latestRejected.feedback || "请查阅沟通记录后重新提交。"}</p>
+              </div>
+            </div>
+          )}
+
+          {msDelivs.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">本节点交付记录</p>
+              {msDelivs.map((d) => {
+                const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
+                return (
+                  <div key={d.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-background border border-border">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground">{d.title}</p>
+                      {d.description && <p className="text-xs text-muted-foreground mt-0.5">{d.description}</p>}
+                      {d.fileUrl && (
+                        <a href={d.fileUrl} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary font-bold mt-1 hover:underline">
+                          <ExternalLink size={11} /> 查看附件
+                        </a>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(d.submittedAt).toLocaleString("zh-CN")}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded ${dc.cls}`}>{dc.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {canSubmit && (
+            <EmptyDelivForm
+              milestoneId={ms.id}
+              milestoneLabel={ms.name}
+              orderId={orderId}
+              onSuccess={onRefetch}
+            />
+          )}
+
+          {status === "rejected" && (
+            <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <RotateCcw size={11} /> 请修改后重新提交本节点交付物
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function OrderDetail() {
   const [, params] = useRoute("/orders/:id");
+  const [, navigate] = useLocation();
   const id = parseInt(params?.id || "0", 10);
   const { toast } = useToast();
-  
+  const qc = useQueryClient();
+
   const { data: order, isLoading, refetch } = useGetOrderById(id);
-  const { mutate: submitDeliverable, isPending: isSubmitting } = useSubmitDeliverable();
-  const { mutate: acceptOrder, isPending: isAccepting } = useAcceptOrder();
 
-  const [deliveryForm, setDeliveryForm] = useState({ title: "", description: "", fileUrl: "" });
-
-  if (isLoading || !order) return <div className="animate-pulse h-96 bg-card rounded-3xl border border-border"></div>;
-
-  const status = ORDER_STATUSES[order.status] || ORDER_STATUSES.in_progress;
-
-  const handleSubmitDeliverable = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitDeliverable({ orderId: id, data: deliveryForm }, {
-      onSuccess: () => {
-        toast({ title: "交付物已提交", description: "等待发单方验收。" });
-        setDeliveryForm({ title: "", description: "", fileUrl: "" });
-        refetch();
-      }
-    });
+  const onRefetch = () => {
+    refetch();
+    qc.invalidateQueries({ queryKey: ["/api/orders"] });
   };
 
-  const handleAccept = () => {
-    if(!confirm("确认验收通过吗？资金将结算给接单方。")) return;
-    acceptOrder({ orderId: id, data: { rating: 5, comment: "优秀完成" } }, {
-      onSuccess: () => {
-        toast({ title: "验收成功", description: "订单已完成结算。" });
-        refetch();
-      }
-    });
-  };
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-4 animate-pulse">
+        <div className="h-8 bg-muted rounded-lg w-32" />
+        <div className="h-40 bg-muted rounded-2xl" />
+        <div className="h-80 bg-muted rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="max-w-4xl mx-auto text-center py-20 text-muted-foreground">
+        订单不存在或无权访问
+      </div>
+    );
+  }
+
+  const statusCfg = ORDER_STATUSES[order.status] ?? ORDER_STATUSES.in_progress;
+  const hasMilestones = (order.milestones?.length ?? 0) > 0;
+  const unlinkedDelivs = (order.deliverables ?? []).filter((d) => !d.milestoneId);
+  const canSubmitGeneral = order.status === "in_progress" && !hasMilestones;
+
+  const msCompletedCount = (order.milestones ?? []).filter((m) => m.status === "approved").length;
+  const msTotal = (order.milestones ?? []).length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <button onClick={() => window.history.back()} className="flex items-center text-muted-foreground hover:text-foreground font-bold text-sm transition-colors w-max">
-        <ArrowLeft size={16} className="mr-2" /> 返回订单列表
+    <div className="max-w-4xl mx-auto space-y-6">
+      <button
+        onClick={() => navigate("/orders")}
+        className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-bold text-sm transition-colors"
+      >
+        <ArrowLeft size={16} /> 返回订单列表
       </button>
 
       {/* Header */}
-      <div className="bg-card rounded-3xl p-8 border border-border shadow-sm flex flex-col md:flex-row justify-between gap-6">
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-6 flex flex-col md:flex-row justify-between gap-5">
         <div>
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">No. {order.orderNo}</span>
-            <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${status.color}`}>{status.label}</span>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
+              {order.orderNo}
+            </span>
+            <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${statusCfg.color}`}>
+              {statusCfg.label}
+            </span>
           </div>
-          <h1 className="text-2xl font-black font-display text-foreground mb-4">{order.demandTitle}</h1>
-          <div className="flex flex-wrap gap-8 text-sm text-muted-foreground font-medium">
-            <div>发单方: <span className="text-foreground">{order.publisherName}</span></div>
-            <div>接单方: <span className="text-foreground">{order.opcNickname}</span></div>
-            <div>截止时间: <span className="text-foreground">{order.deadline}</span></div>
+          <h1 className="text-xl font-black font-display text-foreground mb-3">{order.demandTitle}</h1>
+          <div className="flex flex-wrap gap-5 text-sm text-muted-foreground font-medium">
+            <span>发单方: <span className="text-foreground">{order.publisherName}</span></span>
+            <span>截止日期: <span className="text-foreground">{order.deadline ?? "—"}</span></span>
           </div>
         </div>
-        <div className="text-left md:text-right bg-muted/50 p-6 rounded-2xl border border-border min-w-[200px]">
-          <span className="block text-xs text-muted-foreground font-bold uppercase tracking-widest mb-2">订单总额</span>
-          <span className="text-3xl font-black text-secondary">¥{order.amount.toLocaleString()}</span>
-          {order.status === 'pending_acceptance' && (
-             <button onClick={handleAccept} disabled={isAccepting} className="w-full mt-4 bg-secondary text-white font-bold py-2 rounded-lg shadow-lg shadow-secondary/20 hover:bg-secondary/90 transition-all">
-               确认验收付款
-             </button>
+        <div className="bg-muted/50 rounded-xl border border-border p-5 text-left md:text-right min-w-[160px]">
+          <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-1">我的分成</p>
+          <p className="text-3xl font-black text-secondary">
+            ¥{(order.opcShare ?? order.amount * 0.6).toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            订单总额 ¥{order.amount.toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {/* Milestone progress summary */}
+      {hasMilestones && (
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-foreground flex items-center gap-2">
+              <Flag size={16} className="text-primary" /> 里程碑进度
+            </h2>
+            <span className="text-sm font-bold text-muted-foreground">
+              {msCompletedCount} / {msTotal} 已完成
+            </span>
+          </div>
+          <div className="flex gap-1 h-2">
+            {(order.milestones ?? []).map((m, i) => {
+              const s = m.status ?? "pending";
+              const bg = s === "approved" ? "bg-green-500" : s === "submitted" ? "bg-blue-400" : s === "rejected" ? "bg-red-400" : "bg-muted";
+              return <div key={i} className={`flex-1 rounded-full ${bg} transition-all`} />;
+            })}
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-xs text-muted-foreground">开始</span>
+            <span className="text-xs text-muted-foreground">完成</span>
+          </div>
+        </div>
+      )}
+
+      {/* Milestone cards or generic form */}
+      {hasMilestones ? (
+        <div className="space-y-3">
+          <h2 className="font-bold text-foreground text-sm uppercase tracking-wider text-muted-foreground px-1">
+            里程碑节点详情
+          </h2>
+          {(order.milestones ?? []).map((ms, i) => (
+            <MilestoneCard
+              key={ms.id ?? i}
+              ms={ms}
+              index={i}
+              deliverables={order.deliverables ?? []}
+              orderId={id}
+              orderStatus={order.status}
+              onRefetch={onRefetch}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
+          <h2 className="font-bold text-foreground mb-4 flex items-center gap-2">
+            <UploadCloud size={16} className="text-primary" /> 提交交付物
+          </h2>
+
+          {canSubmitGeneral ? (
+            <EmptyDelivForm
+              milestoneLabel="全部"
+              orderId={id}
+              onSuccess={onRefetch}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {order.status === "pending_acceptance"
+                ? "交付物已提交，等待发单方验收。"
+                : order.status === "completed"
+                ? "订单已完成。"
+                : "当前状态无法提交交付物。"}
+            </p>
+          )}
+
+          {unlinkedDelivs.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">交付记录</p>
+              {unlinkedDelivs.map((d) => {
+                const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
+                return (
+                  <div key={d.id} className="flex items-start justify-between gap-3 p-4 rounded-xl bg-background border border-border">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-foreground text-sm">{d.title}</p>
+                      {d.description && <p className="text-xs text-muted-foreground mt-0.5">{d.description}</p>}
+                      {d.feedback && d.status === "rejected" && (
+                        <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+                          打回原因：{d.feedback}
+                        </div>
+                      )}
+                      {d.fileUrl && (
+                        <a href={d.fileUrl} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary font-bold mt-1.5 hover:underline">
+                          <ExternalLink size={11} /> 查看附件
+                        </a>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        {new Date(d.submittedAt).toLocaleString("zh-CN")}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${dc.cls}`}>{dc.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Deliverables Form */}
-        {order.status === 'in_progress' && (
-          <div className="bg-card rounded-3xl p-8 border border-border shadow-sm">
-            <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
-              <UploadCloud className="text-primary" /> 提交交付物
-            </h3>
-            <form onSubmit={handleSubmitDeliverable} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-2">交付物名称 *</label>
-                <input required className="w-full bg-background border-2 border-border rounded-xl p-3 text-sm focus:border-primary outline-none" 
-                  value={deliveryForm.title} onChange={e=>setDeliveryForm(p=>({...p, title:e.target.value}))}/>
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">交付说明</label>
-                <textarea className="w-full bg-background border-2 border-border rounded-xl p-3 text-sm focus:border-primary outline-none resize-none" rows={3}
-                  value={deliveryForm.description} onChange={e=>setDeliveryForm(p=>({...p, description:e.target.value}))}/>
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">文件链接 (网盘等)</label>
-                <input className="w-full bg-background border-2 border-border rounded-xl p-3 text-sm focus:border-primary outline-none" 
-                  value={deliveryForm.fileUrl} onChange={e=>setDeliveryForm(p=>({...p, fileUrl:e.target.value}))}/>
-              </div>
-              <button disabled={isSubmitting} className="w-full py-3.5 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 mt-4 disabled:opacity-50">
-                {isSubmitting ? "提交中..." : "确认提交"}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Deliverables List */}
-        <div className={`bg-card rounded-3xl p-8 border border-border shadow-sm ${order.status !== 'in_progress' ? 'lg:col-span-2' : ''}`}>
-          <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
-            <Box className="text-secondary" /> 交付记录
-          </h3>
-          <div className="space-y-4">
-            {order.deliverables?.length ? order.deliverables.map(d => (
-              <div key={d.id} className="p-4 rounded-xl border border-border bg-background">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-bold text-foreground">{d.title}</h4>
-                  <span className="text-xs font-bold px-2 py-1 rounded bg-muted text-muted-foreground">{d.status === 'approved' ? '已通过' : d.status === 'rejected' ? '已打回' : '待审核'}</span>
-                </div>
-                {d.description && <p className="text-sm text-muted-foreground mb-3">{d.description}</p>}
-                {d.fileUrl && <a href={d.fileUrl} target="_blank" rel="noreferrer" className="text-primary text-sm font-bold hover:underline">🔗 查看附件</a>}
-                <div className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">提交于 {new Date(d.submittedAt).toLocaleString('zh-CN')}</div>
-              </div>
-            )) : (
-              <div className="text-center py-10 text-muted-foreground flex flex-col items-center">
-                <FileX size={32} className="mb-2 opacity-50" />
-                暂无交付记录
-              </div>
-            )}
+      {/* Completion status */}
+      {order.status === "completed" && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-center gap-4">
+          <CheckCircle2 size={28} className="text-green-600 shrink-0" />
+          <div>
+            <p className="font-bold text-green-800">订单已完成，结算已触发</p>
+            <p className="text-sm text-green-700 mt-0.5">
+              您的分成 ¥{(order.opcShare ?? 0).toLocaleString()} 将在 3 个工作日内到账。
+              {order.rating && (
+                <span className="ml-2">客户评分：{"★".repeat(order.rating)}{"☆".repeat(5 - order.rating)}</span>
+              )}
+            </p>
           </div>
         </div>
-      </div>
+      )}
+
+      {order.status === "disputed" && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-center gap-4">
+          <AlertCircle size={28} className="text-red-500 shrink-0" />
+          <div>
+            <p className="font-bold text-red-800">订单处于争议状态</p>
+            <p className="text-sm text-red-700 mt-0.5">平台将在 48 小时内介入调解，请保持联系方式畅通。</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

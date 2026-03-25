@@ -3,7 +3,7 @@ import { Link, useSearch } from "wouter";
 import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
-  Phone, MessageCircle, CheckCircle2, AlertCircle, Upload, ExternalLink,
+  Phone, MessageCircle, CheckCircle2, AlertCircle, Upload, ExternalLink, Banknote,
 } from "lucide-react";
 import {
   useGetCurrentUser,
@@ -699,6 +699,23 @@ export default function Profile() {
                 ))}
               </div>
             </div>
+
+            {/* Income quick link */}
+            <Link
+              href="/income"
+              className="flex items-center justify-between gap-3 bg-white rounded-2xl p-5 shadow-sm border border-border/40 hover:border-secondary/40 hover:shadow-md transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center">
+                  <Banknote size={18} className="text-secondary" />
+                </div>
+                <div>
+                  <p className="font-bold text-blue-900 text-sm">收入结算</p>
+                  <p className="text-xs text-slate-400">查看结算明细与待结算金额</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-slate-400 group-hover:text-secondary transition-colors" />
+            </Link>
           </aside>
 
           {/* Main 8-col */}

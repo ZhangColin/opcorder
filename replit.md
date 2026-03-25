@@ -74,9 +74,10 @@ OPC gets 60%, publisher 30%, platform fee 10%
 - `/demands` - 抢单大厅 (demand hall with filters)
 - `/demands/:id` - Demand detail with bid button
 - `/orders` - 我的订单 (orders with status tabs)
-- `/orders/:id` - Order detail with deliverable submission
-- `/profile` - 个人中心 (OPC profile & portfolio)
-- `/notifications` - 消息中心
+- `/orders/:id` - Order detail with **milestone timeline** (per-milestone deliverable submit, rejected re-submit, feedback display)
+- `/profile` - 个人中心 (OPC profile, skills, certifications, income quick link)
+- `/income` - 收入结算 (income/settlement center, KPIs, per-order settlement table)
+- `/notifications` - 消息中心 (**upgraded**: category tabs, single mark-read, jump to order/demand, directed-invite Accept/Reject inline)
 
 **Publisher (发单方) routes:**
 - `/publisher` - 工作台 (dashboard with stats, OPC recommendations, demand tracking)
