@@ -10,11 +10,11 @@ router.post("/auth/login", async (req, res) => {
     const { email, password, role } = req.body as {
       email: string;
       password: string;
-      role: string;
+      role?: string;
     };
 
-    if (!email || !password || !role) {
-      return res.status(400).json({ error: "请填写完整的登录信息" });
+    if (!email || !password) {
+      return res.status(400).json({ error: "请填写邮箱和密码" });
     }
 
     const [user] = await db
@@ -32,7 +32,7 @@ router.post("/auth/login", async (req, res) => {
       return res.status(401).json({ error: "账号或密码错误" });
     }
 
-    if (user.role !== role && user.role !== "admin") {
+    if (role && user.role !== role && user.role !== "admin") {
       const roleLabel = user.role === "opc" ? "OPC 超级个体" : "需求发布方";
       return res.status(403).json({
         error: `该账号已注册为【${roleLabel}】，请切换对应身份登录`,
