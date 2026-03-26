@@ -72,7 +72,7 @@ router.post("/demands/:demandId/bids", async (req, res) => {
         .from(usersTable).where(eq(usersTable.id, opcId)).limit(1);
       await db.insert(notificationsTable).values({
         userId: demand.publisherId,
-        type: "new_bid",
+        type: "bid_received",
         title: "有新的抢单申请",
         content: `OPC「${opc?.nickname ?? "未知"}」已对您的需求「${demand.title}」发起抢单申请，请及时查看并处理。`,
         relatedId: demandId,
