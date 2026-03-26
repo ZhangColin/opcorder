@@ -45,7 +45,7 @@ export default function PublisherHome() {
 
   const { data: stats }        = useGetOverviewStats();
   const { data: demandsData }  = useListDemands({
-    status: demandFilter === "all" ? undefined : (demandFilter as any),
+    status: demandFilter === "all" ? undefined : demandFilter === "open" ? "published" as any : (demandFilter as any),
     publisherId: userId || undefined,
     page: 1, limit: 6,
   });

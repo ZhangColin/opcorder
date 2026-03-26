@@ -262,7 +262,12 @@ export default function PublisherCreateDemand() {
 
   /* ── Submit ── */
   const handleSubmit = async (asDraft: boolean) => {
-    if (!asDraft && !validate()) return;
+    if (!asDraft && !validate()) {
+      // 滚动到顶部以便用户看到错误提示
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast({ title: "请检查表单", description: "请填写所有必填项后再提交", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const payload = {

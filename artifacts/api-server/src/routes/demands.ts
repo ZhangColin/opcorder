@@ -31,7 +31,11 @@ function generateDemandNo(): string {
 
 router.get("/demands", async (req, res) => {
   try {
-    const params = ListDemandsQueryParams.parse(req.query);
+    // Use safeParse so unknown enum values (e.g. status="open") fall back to undefined instead of 500
+    const result = ListDemandsQueryParams.safeParse(req.query);
+    const params = result.success
+      ? result.data
+      : ListDemandsQueryParams.parse({ ...req.query, status: undefined });
     const conditions = [];
 
     if (params.status) conditions.push(eq(demandsTable.status, params.status as any));
