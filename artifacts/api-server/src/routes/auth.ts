@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, opcProfilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -95,6 +95,11 @@ router.post("/auth/register", async (req, res) => {
       passwordHash,
       role: role as "opc" | "publisher",
     }).returning();
+
+    /* ── Auto-create OPC profile row for OPC registrants ── */
+    if (role === "opc") {
+      await db.insert(opcProfilesTable).values({ userId: user.id });
+    }
 
     res.status(201).json({
       id:        user.id,

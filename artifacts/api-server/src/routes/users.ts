@@ -131,6 +131,17 @@ router.put("/users/:userId/opc-profile", async (req, res) => {
     const userId = parseInt(req.params.userId);
     const body = UpdateOpcProfileBody.parse(req.body);
 
+    /* ── Ensure OPC profile row exists (create if missing) ── */
+    const [existing] = await db
+      .select({ id: opcProfilesTable.id })
+      .from(opcProfilesTable)
+      .where(eq(opcProfilesTable.userId, userId))
+      .limit(1);
+
+    if (!existing) {
+      await db.insert(opcProfilesTable).values({ userId });
+    }
+
     /* ── Update opc_profiles fields ── */
     const profileUpdate: Record<string, unknown> = {};
     if (body.bio          !== undefined) profileUpdate.bio          = body.bio;

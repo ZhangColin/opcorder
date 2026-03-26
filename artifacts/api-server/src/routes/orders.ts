@@ -19,8 +19,10 @@ router.get("/orders", async (req, res) => {
 
     const conditions = [];
     if (params.status) conditions.push(eq(ordersTable.status, params.status as any));
+    if (params.publisherId) conditions.push(eq(ordersTable.publisherId, params.publisherId));
+    if (params.opcId) conditions.push(eq(ordersTable.opcId, params.opcId));
 
-    const whereClause = conditions.length > 0 ? conditions[0] : undefined;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [totalResult] = await db.select({ count: count() }).from(ordersTable).where(whereClause);
     const total = Number(totalResult.count);

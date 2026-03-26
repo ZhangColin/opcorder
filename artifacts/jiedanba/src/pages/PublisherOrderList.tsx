@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useListOrders } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 const STATUS_TABS = [
   { key: "all",                label: "全部" },
@@ -29,9 +30,12 @@ export default function PublisherOrderList() {
   const [activeTab, setActiveTab] = useState("all");
   const [page, setPage] = useState(1);
 
+  const { userId, nickname, avatarChar, roleLabel } = useCurrentUser();
+
   const { data, isLoading } = useListOrders({
     ...(activeTab !== "all" ? { status: activeTab as any } : {}),
     role: "publisher",
+    publisherId: userId || undefined,
     page,
     limit: 10,
   });
@@ -42,6 +46,8 @@ export default function PublisherOrderList() {
 
   const logout = () => {
     localStorage.removeItem("jdb_role");
+    localStorage.removeItem("jdb_user_id");
+    localStorage.removeItem("jdb_nickname");
     navigate("/login");
   };
 
@@ -66,21 +72,21 @@ export default function PublisherOrderList() {
             />
           </div>
           <div className="flex items-center gap-4 ml-6">
-            <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+            <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors" onClick={() => navigate("/publisher/notifications")}>
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors" onClick={() => navigate("/publisher/profile")}>
               <Settings size={20} />
             </button>
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">海创元运营团队</p>
-                <p className="text-[10px] text-slate-500 font-medium">项目经理</p>
+                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-                海
+                {avatarChar}
               </div>
             </div>
           </div>

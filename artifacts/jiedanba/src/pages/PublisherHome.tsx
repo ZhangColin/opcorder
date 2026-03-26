@@ -11,6 +11,7 @@ import {
   useGetOpcLeaderboard,
   useGetOverviewStats,
 } from "@workspace/api-client-react";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 /* ─── Constants ───────────────────────────────── */
 
@@ -37,15 +38,20 @@ export default function PublisherHome() {
   const [, navigate] = useLocation();
   const [demandFilter, setDemandFilter] = useState<DemandFilter>("all");
 
+  const { userId, nickname, avatarChar, roleLabel } = useCurrentUser();
+
   const { data: stats }        = useGetOverviewStats();
   const { data: demandsData }  = useListDemands({
     status: demandFilter === "all" ? undefined : (demandFilter as any),
+    publisherId: userId || undefined,
     page: 1, limit: 6,
   });
   const { data: leaderboard }  = useGetOpcLeaderboard({ limit: 5 });
 
   const logout = () => {
     localStorage.removeItem("jdb_role");
+    localStorage.removeItem("jdb_user_id");
+    localStorage.removeItem("jdb_nickname");
     navigate("/login");
   };
 
@@ -71,21 +77,21 @@ export default function PublisherHome() {
             />
           </div>
           <div className="flex items-center gap-4 ml-6">
-            <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+            <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors" onClick={() => navigate("/publisher/notifications")}>
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors" onClick={() => navigate("/publisher/profile")}>
               <Settings size={20} />
             </button>
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">海创元运营团队</p>
-                <p className="text-[10px] text-slate-500 font-medium">项目经理</p>
+                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-                海
+                {avatarChar}
               </div>
             </div>
           </div>
@@ -99,7 +105,7 @@ export default function PublisherHome() {
             <div className="col-span-12 lg:col-span-7 bg-white p-8 rounded-2xl shadow-sm relative overflow-hidden group">
               <div className="relative z-10">
                 <h1 className="font-display text-3xl font-extrabold text-primary mb-2 tracking-tight">
-                  欢迎回来，项目经理
+                  欢迎回来，{nickname || "发单方"}
                 </h1>
                 <p className="text-slate-500 max-w-md mb-8 leading-relaxed">
                   您的项目生态运转高效。今日有{" "}

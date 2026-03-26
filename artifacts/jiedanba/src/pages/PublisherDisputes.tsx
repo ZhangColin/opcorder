@@ -1,3 +1,4 @@
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
@@ -146,6 +147,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
 
 export default function PublisherDisputes() {
   const [, navigate] = useLocation();
+  const { nickname, avatarChar, roleLabel } = useCurrentUser();
   const [selectedId, setSelectedId] = useState(CASES[0].id);
   const focused = CASES.find(c => c.id === selectedId) ?? CASES[0];
 
@@ -180,12 +182,10 @@ export default function PublisherDisputes() {
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">海创元运营团队</p>
-                <p className="text-[10px] text-slate-500 font-medium">项目经理</p>
+                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-                海
-              </div>
+              {avatarChar}
             </div>
           </div>
         </header>

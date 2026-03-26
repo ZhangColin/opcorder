@@ -6,6 +6,7 @@ import {
   useListNotifications,
   useSubmitDeliverable,
 } from "@workspace/api-client-react";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   CheckCircle2,
   Clock,
@@ -62,9 +63,11 @@ export default function MyOrders() {
   const [codeUrl, setCodeUrl] = useState("");
   const [docUrl, setDocUrl] = useState("");
   const { toast } = useToast();
+  const { userId } = useCurrentUser();
 
   const { data: ordersData, isLoading } = useListOrders({
     status: tab === "all" ? undefined : (tab as any),
+    opcId: userId || undefined,
     page: 1,
     limit: 20,
   });

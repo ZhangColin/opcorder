@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, demandsTable, usersTable } from "@workspace/db";
-import { eq, and, gte, lte, like, desc, asc, sql, count, ilike } from "drizzle-orm";
+import { db, demandsTable, usersTable, bidsTable } from "@workspace/db";
+import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
 import {
   ListDemandsQueryParams,
   ListDemandsResponse,
@@ -40,6 +40,7 @@ router.get("/demands", async (req, res) => {
     if (params.minBudget) conditions.push(gte(demandsTable.budgetMax, params.minBudget));
     if (params.maxBudget) conditions.push(lte(demandsTable.budgetMin, params.maxBudget));
     if (params.search) conditions.push(ilike(demandsTable.title, `%${params.search}%`));
+    if (params.publisherId) conditions.push(eq(demandsTable.publisherId, params.publisherId));
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -88,10 +89,22 @@ router.get("/demands", async (req, res) => {
       .limit(limit)
       .offset(offset);
 
+    /* ── Get real bid counts for all returned demands ── */
+    const demandIds = demands.map(d => d.id);
+    let bidCountMap: Record<number, number> = {};
+    if (demandIds.length > 0) {
+      const bidCounts = await db
+        .select({ demandId: bidsTable.demandId, cnt: count() })
+        .from(bidsTable)
+        .where(inArray(bidsTable.demandId, demandIds))
+        .groupBy(bidsTable.demandId);
+      bidCounts.forEach(r => { bidCountMap[r.demandId] = Number(r.cnt); });
+    }
+
     const items = demands.map(d => ({
       ...d,
       typeLabel: DEMAND_TYPE_LABELS[d.type] || d.type,
-      bidCount: 0,
+      bidCount: bidCountMap[d.id] ?? 0,
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
       bidDeadline: d.bidDeadline?.toISOString(),
@@ -129,7 +142,11 @@ router.post("/demands", async (req, res) => {
       mode: body.mode as any,
       isUrgent: body.isUrgent ?? false,
       bidDeadline: body.bidDeadline ? new Date(body.bidDeadline) : null,
-      publisherId: 1,
+      publisherId: (() => {
+        const authHeader = req.headers.authorization;
+        const uid = authHeader?.startsWith("Bearer ") ? parseInt(authHeader.slice(7)) : 1;
+        return isNaN(uid) ? 1 : uid;
+      })(),
       directedOpcIds: body.directedOpcIds || [],
       status: "draft",
     }).returning();

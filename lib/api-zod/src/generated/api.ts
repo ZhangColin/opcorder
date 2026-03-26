@@ -116,9 +116,17 @@ export const UpdateOpcProfileParams = zod.object({
 });
 
 export const UpdateOpcProfileBody = zod.object({
+  nickname: zod.string().optional(),
+  avatar: zod.string().nullable().optional(),
+  phone: zod.string().nullable().optional(),
   bio: zod.string().optional(),
   skillTags: zod.array(zod.string()).optional(),
   industryTags: zod.array(zod.string()).optional(),
+  title: zod.string().optional(),
+  location: zod.string().nullable().optional(),
+  website: zod.string().nullable().optional(),
+  yearsExp: zod.number().optional(),
+  wechat: zod.string().nullable().optional(),
 });
 
 export const UpdateOpcProfileResponse = zod.object({
@@ -163,6 +171,7 @@ export const ListDemandsQueryParams = zod.object({
   minBudget: zod.coerce.number().optional(),
   maxBudget: zod.coerce.number().optional(),
   search: zod.coerce.string().optional(),
+  publisherId: zod.coerce.number().optional(),
   page: zod.coerce.number().default(listDemandsQueryPageDefault),
   limit: zod.coerce.number().default(listDemandsQueryLimitDefault),
   sortBy: zod
@@ -252,20 +261,20 @@ export const CreateDemandBody = zod.object({
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),
-  budgetMin: zod.number(),
-  budgetMax: zod.number(),
-  deadline: zod.date(),
+  budgetMin: zod.coerce.number(),
+  budgetMax: zod.coerce.number(),
+  deadline: zod.coerce.date().optional(),
   milestones: zod
     .array(
       zod.object({
         name: zod.string(),
-        deadline: zod.date(),
+        deadline: zod.coerce.date().optional(),
         deliverableDesc: zod.string().optional(),
       }),
     )
     .optional(),
   mode: zod.enum(["open", "directed"]),
-  bidDeadline: zod.date().optional(),
+  bidDeadline: zod.coerce.date().optional(),
   isUrgent: zod.boolean().default(createDemandBodyIsUrgentDefault),
   directedOpcIds: zod.array(zod.number()).optional(),
 });
@@ -344,19 +353,19 @@ export const UpdateDemandBody = zod.object({
   description: zod.string().optional(),
   skillTags: zod.array(zod.string()).optional(),
   opcLevel: zod.enum(["C", "B", "A", "any"]).optional(),
-  budgetMin: zod.number().optional(),
-  budgetMax: zod.number().optional(),
-  deadline: zod.date().optional(),
+  budgetMin: zod.coerce.number().optional(),
+  budgetMax: zod.coerce.number().optional(),
+  deadline: zod.coerce.date().optional(),
   milestones: zod
     .array(
       zod.object({
         name: zod.string(),
-        deadline: zod.date(),
+        deadline: zod.coerce.date().optional(),
         deliverableDesc: zod.string().optional(),
       }),
     )
     .optional(),
-  bidDeadline: zod.date().optional(),
+  bidDeadline: zod.coerce.date().optional(),
   isUrgent: zod.boolean().optional(),
 });
 
@@ -569,6 +578,8 @@ export const ListOrdersQueryParams = zod.object({
     ])
     .optional(),
   role: zod.enum(["opc", "publisher"]).optional(),
+  publisherId: zod.coerce.number().optional(),
+  opcId: zod.coerce.number().optional(),
   page: zod.coerce.number().default(listOrdersQueryPageDefault),
   limit: zod.coerce.number().default(listOrdersQueryLimitDefault),
 });
@@ -882,6 +893,7 @@ export const ListPortfoliosResponse = zod.array(ListPortfoliosResponseItem);
  * @summary Add a portfolio item
  */
 export const CreatePortfolioBody = zod.object({
+  userId: zod.number(),
   title: zod.string(),
   type: zod.string(),
   coverImage: zod.string().optional(),

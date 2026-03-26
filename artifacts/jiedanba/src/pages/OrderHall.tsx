@@ -81,11 +81,9 @@ function MarketplaceCard({ demand }: { demand: Demand }) {
             </span>
           </div>
           <div className="text-right shrink-0 ml-2">
-            <span className="block text-2xl font-extrabold text-primary tracking-tight leading-none">
-              ¥{demand.budgetMin?.toLocaleString()}
-            </span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5 block">
-              {demand.budgetMax ? `- ${demand.budgetMax.toLocaleString()}` : "预算"}
+            <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-0.5">预算</span>
+            <span className="block text-lg font-extrabold text-primary tracking-tight leading-none">
+              ¥{demand.budgetMin?.toLocaleString()}{demand.budgetMax ? ` - ¥${demand.budgetMax.toLocaleString()}` : ""}
             </span>
           </div>
         </div>

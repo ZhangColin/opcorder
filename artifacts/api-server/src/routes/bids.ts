@@ -46,9 +46,18 @@ router.post("/demands/:demandId/bids", async (req, res) => {
     const demandId = parseInt(req.params.demandId);
     const body = CreateBidBody.parse(req.body);
 
+    const authHeader = req.headers.authorization;
+    const opcId = authHeader?.startsWith("Bearer ")
+      ? parseInt(authHeader.slice(7), 10)
+      : NaN;
+
+    if (isNaN(opcId) || opcId <= 0) {
+      return res.status(401).json({ error: "未授权，请先登录" });
+    }
+
     const [bid] = await db.insert(bidsTable).values({
       demandId,
-      opcId: 2,
+      opcId,
       proposal: body.proposal,
       estimatedDays: body.estimatedDays,
       portfolioLinks: body.portfolioLinks || [],
