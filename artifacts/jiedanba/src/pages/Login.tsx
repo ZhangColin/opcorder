@@ -25,6 +25,7 @@ export default function Login() {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const [regOk,    setRegOk]    = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   const switchTab = (t: Tab) => {
     setTab(t); setError(""); setRegOk(false);
@@ -83,6 +84,33 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex font-body text-[#1a1c1e]">
+      {/* ── Forgot Password Modal ── */}
+      {showForgot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
+            <h3 className="text-lg font-black text-foreground mb-2">重置密码</h3>
+            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+              请联系平台客服协助重置密码：
+            </p>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <span className="font-bold text-slate-700">微信：</span>
+                <span className="text-primary font-medium">jiedanba_support</span>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <span className="font-bold text-slate-700">邮件：</span>
+                <a href="mailto:support@jiedanba.com" className="text-primary font-medium hover:underline">support@jiedanba.com</a>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowForgot(false)}
+              className="mt-6 w-full bg-primary text-white rounded-xl py-2.5 font-bold text-sm hover:bg-primary/90 transition-colors"
+            >
+              知道了
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Left: Brand Visual ── */}
       <section className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary">
@@ -202,7 +230,11 @@ export default function Login() {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">密码</label>
-                  <a href="#" className="text-xs font-semibold text-secondary hover:underline">忘记密码？</a>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgot(true)}
+                    className="text-xs font-semibold text-secondary hover:underline"
+                  >忘记密码？</button>
                 </div>
                 <div className="relative">
                   <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />

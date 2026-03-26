@@ -346,6 +346,8 @@ export default function Community() {
   const [showNewPost, setShowNewPost]         = useState(false);
   const [likedIds, setLikedIds]               = useState<Set<number>>(new Set());
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(new Set());
+  const [searchInput, setSearchInput]         = useState("");
+  const [searchQuery, setSearchQuery]         = useState("");
 
   const role    = localStorage.getItem("jdb_role");
   const isGuest = !role;
@@ -353,8 +355,13 @@ export default function Community() {
   const { data: user }        = useGetCurrentUser();
   const { data: leaderboard } = useGetOpcLeaderboard({ limit: 3 });
 
-  const { data: postsData, isLoading: postsLoading } = useListPosts({ sort: feedTab });
+  const { data: postsData, isLoading: postsLoading } = useListPosts({ sort: feedTab, ...(searchQuery ? { search: searchQuery } as any : {}) });
   const posts = postsData?.items ?? [];
+
+  const handleSearch = (q: string) => {
+    setSearchQuery(q.trim());
+    setSearchInput(q);
+  };
 
   const { mutateAsync: toggleLike } = useTogglePostLike();
   const qc = useQueryClient();
@@ -395,8 +402,19 @@ export default function Community() {
 
           <div className="flex items-center gap-3">
             <div className="relative hidden lg:block">
-              <input className="bg-slate-100 border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 w-56 outline-none placeholder:text-slate-400" placeholder="搜索讨论…" type="text" />
-              <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                className="bg-slate-100 border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 w-56 outline-none placeholder:text-slate-400"
+                placeholder="搜索讨论…"
+                type="text"
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleSearch(searchInput)}
+              />
+              <Search
+                size={14}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-primary"
+                onClick={() => handleSearch(searchInput)}
+              />
             </div>
             <button onClick={() => requireLogin()} className="p-2 text-blue-900 hover:bg-slate-50 rounded-full transition-colors"><Bell size={20} /></button>
             {!isGuest && user?.nickname ? (
@@ -432,8 +450,14 @@ export default function Community() {
               className="w-full h-16 px-8 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 text-white placeholder-white/60 focus:ring-4 focus:ring-secondary/30 focus:bg-white/15 transition-all text-base outline-none"
               placeholder="搜索你感兴趣的话题或关键词…"
               type="text"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleSearch(searchInput)}
             />
-            <button className="absolute right-2 top-2 bottom-2 px-7 bg-secondary text-white rounded-full font-bold flex items-center gap-2 hover:bg-secondary/90 transition-colors text-sm">
+            <button
+              onClick={() => handleSearch(searchInput)}
+              className="absolute right-2 top-2 bottom-2 px-7 bg-secondary text-white rounded-full font-bold flex items-center gap-2 hover:bg-secondary/90 transition-colors text-sm"
+            >
               <Search size={16} /> 搜索话题
             </button>
           </div>

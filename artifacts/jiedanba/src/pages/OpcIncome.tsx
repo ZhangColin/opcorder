@@ -25,13 +25,14 @@ const DEMAND_TYPES: Record<string, string> = {
 
 export default function OpcIncome() {
   const { data: user } = useGetCurrentUser();
+  const opcId = Number(localStorage.getItem("jdb_user_id") ?? 0) || undefined;
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, {
     query: { enabled: !!user?.id },
   });
-  const { data: allOrders } = useListOrders({ role: "opc", limit: 200 });
-  const { data: completedOrders } = useListOrders({ role: "opc", status: "completed", limit: 200 });
-  const { data: activeOrders } = useListOrders({ role: "opc", status: "in_progress", limit: 200 });
-  const { data: pendingOrders } = useListOrders({ role: "opc", status: "pending_acceptance", limit: 200 });
+  const { data: allOrders } = useListOrders({ opcId, limit: 200 });
+  const { data: completedOrders } = useListOrders({ opcId, status: "completed", limit: 200 });
+  const { data: activeOrders } = useListOrders({ opcId, status: "in_progress", limit: 200 });
+  const { data: pendingOrders } = useListOrders({ opcId, status: "pending_acceptance", limit: 200 });
 
   const totalEarned = (completedOrders?.items ?? []).reduce(
     (sum, o) => sum + (o.opcShare ?? o.amount * 0.6), 0

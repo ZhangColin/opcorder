@@ -1,6 +1,7 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
+import { HelpDialog } from "@/components/HelpDialog";
 import {
   LayoutDashboard, Users, BarChart2, FileText, PlusCircle,
   HelpCircle, LogOut, Search, Bell, Settings, ShieldCheck,
@@ -90,8 +91,11 @@ const STATS = [
 /* ─── Sidebar ─────────────────────────────────── */
 
 function Sidebar({ onLogout }: { onLogout: () => void }) {
+  const [showHelp, setShowHelp] = useState(false);
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex flex-col p-4 gap-1">
+    <>
+      {showHelp && <HelpDialog onClose={() => setShowHelp(false)} />}
+      <aside className="h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex flex-col p-4 gap-1">
       <div className="mb-6 px-2 flex items-center gap-3">
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
           <ShieldCheck size={20} strokeWidth={2.5} />
@@ -129,7 +133,10 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
       </Link>
 
       <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-primary transition-all">
+        <button
+          onClick={() => setShowHelp(true)}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-primary hover:bg-primary/5 transition-all"
+        >
           <HelpCircle size={18} /> 帮助中心
         </button>
         <button
@@ -140,6 +147,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
     </aside>
+    </>
   );
 }
 

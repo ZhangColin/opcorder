@@ -53,11 +53,10 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function PublisherFinance() {
   const [, navigate] = useLocation();
-  const { data, isLoading } = useListOrders({ limit: 200 });
+  const publisherId = Number(localStorage.getItem("jdb_user_id") ?? 0) || undefined;
+  const { data, isLoading } = useListOrders({ publisherId, limit: 200 });
   const orders = data?.items ?? [];
-
-  const publisherId = Number(localStorage.getItem("jdb_user_id") ?? 0);
-  const myOrders = publisherId ? orders.filter(o => o.publisherId === publisherId) : orders;
+  const myOrders = orders;
 
   const totalSpend        = myOrders.reduce((s, o) => s + (o.amount ?? 0), 0);
   const completedOrders   = myOrders.filter(o => o.status === "completed");

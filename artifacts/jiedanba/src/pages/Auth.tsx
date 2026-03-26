@@ -4,6 +4,7 @@ import {
   ShieldCheck, Eye, EyeOff, ArrowRight,
   Mail, Lock, User, Building2, CheckCircle2, AlertCircle,
 } from "lucide-react";
+import { HelpDialog } from "@/components/HelpDialog";
 
 /* ─── Types ─────────────────────────────────── */
 
@@ -54,6 +55,8 @@ export default function Auth() {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const [regOk,    setRegOk]    = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const roleCopy = ROLE_COPY[role];
 
@@ -126,6 +129,26 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f9f9fc] text-[#1a1c1e]">
+      {showHelp && <HelpDialog onClose={() => setShowHelp(false)} />}
+      {showForgot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
+            <h3 className="text-lg font-black text-foreground mb-2">重置密码</h3>
+            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">请联系平台客服协助重置密码：</p>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <span className="font-bold text-slate-700">微信：</span>
+                <span className="text-primary font-medium">jiedanba_support</span>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <span className="font-bold text-slate-700">邮件：</span>
+                <a href="mailto:support@jiedanba.com" className="text-primary font-medium hover:underline">support@jiedanba.com</a>
+              </div>
+            </div>
+            <button onClick={() => setShowForgot(false)} className="mt-6 w-full bg-primary text-white rounded-xl py-2.5 font-bold text-sm hover:bg-primary/90 transition-colors">知道了</button>
+          </div>
+        </div>
+      )}
       <main className="flex-grow flex items-stretch min-h-screen">
 
         {/* ── Left: Visual Narrative ── */}
@@ -294,7 +317,7 @@ export default function Auth() {
                     密码
                   </label>
                   {tab === "login" && (
-                    <a href="#" className="text-xs font-semibold text-secondary hover:underline">忘记密码？</a>
+                    <button type="button" onClick={() => setShowForgot(true)} className="text-xs font-semibold text-secondary hover:underline">忘记密码？</button>
                   )}
                 </div>
                 <div className="relative">
@@ -390,7 +413,7 @@ export default function Auth() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-500">需要技术支持？</span>
-                <a href="#" className="font-bold text-secondary hover:underline">帮助中心</a>
+                <button type="button" onClick={() => setShowHelp(true)} className="font-bold text-secondary hover:underline">帮助中心</button>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-500">更换身份？</span>

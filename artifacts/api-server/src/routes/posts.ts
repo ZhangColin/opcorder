@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, postsTable, postLikesTable, postCommentsTable, usersTable, opcProfilesTable } from "@workspace/db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, or, ilike } from "drizzle-orm";
 import {
   ListPostsQueryParams,
   CreatePostBody,
@@ -32,8 +32,13 @@ router.get("/posts", async (req, res) => {
     const params = ListPostsQueryParams.parse(req.query);
     const limit = params.limit ?? 20;
     const offset = params.offset ?? 0;
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
 
     const orderBy = params.sort === "hot" ? desc(postsTable.likesCount) : desc(postsTable.createdAt);
+
+    const searchCondition = search
+      ? or(ilike(postsTable.title, `%${search}%`), ilike(postsTable.content, `%${search}%`))
+      : undefined;
 
     const posts = await db
       .select({
@@ -44,20 +49,52 @@ router.get("/posts", async (req, res) => {
       .from(postsTable)
       .leftJoin(usersTable, eq(postsTable.authorId, usersTable.id))
       .leftJoin(opcProfilesTable, eq(postsTable.authorId, opcProfilesTable.userId))
+      .where(searchCondition)
       .orderBy(orderBy)
       .limit(limit)
       .offset(offset);
 
-    const total = await db.select({ count: sql<number>`count(*)` }).from(postsTable);
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(postsTable)
+      .where(searchCondition);
 
     res.json({
       items: posts.map(({ post, nickname, level }) =>
         formatPost(post, nickname ?? "匿名用户", level ?? "C")
       ),
-      total: Number(total[0]?.count ?? 0),
+      total: Number(countResult[0]?.count ?? 0),
     });
   } catch {
     res.status(500).json({ error: "Failed to list posts" });
+  }
+});
+
+router.get("/posts/:postId", async (req, res) => {
+  try {
+    const postId = parseInt(req.params.postId);
+    if (isNaN(postId)) return res.status(400).json({ error: "Invalid postId" });
+
+    const [row] = await db
+      .select({
+        post: postsTable,
+        nickname: usersTable.nickname,
+        level: opcProfilesTable.level,
+      })
+      .from(postsTable)
+      .leftJoin(usersTable, eq(postsTable.authorId, usersTable.id))
+      .leftJoin(opcProfilesTable, eq(postsTable.authorId, opcProfilesTable.userId))
+      .where(eq(postsTable.id, postId));
+
+    if (!row) return res.status(404).json({ error: "Post not found" });
+
+    await db.update(postsTable)
+      .set({ viewsCount: sql`${postsTable.viewsCount} + 1` })
+      .where(eq(postsTable.id, postId));
+
+    res.json(formatPost(row.post, row.nickname ?? "匿名用户", row.level ?? "C"));
+  } catch {
+    res.status(500).json({ error: "Failed to get post" });
   }
 });
 
