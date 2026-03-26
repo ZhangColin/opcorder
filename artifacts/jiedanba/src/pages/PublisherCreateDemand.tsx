@@ -5,7 +5,7 @@ import {
   Search, Bell, Settings, Plus, Trash2, AlertCircle,
   CheckCircle2, ChevronRight, Info, Zap, Upload, X,
 } from "lucide-react";
-import { useCreateDemand, useUpdateDemand, useGetDemandById, useGetOpcLeaderboard } from "@workspace/api-client-react";
+import { useCreateDemand, useUpdateDemand, useUpdateDemandStatus, useGetDemandById, useGetOpcLeaderboard } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { useToast } from "@/hooks/use-toast";
 
@@ -137,6 +137,7 @@ export default function PublisherCreateDemand() {
   const { data: opcLeaderboard } = useGetOpcLeaderboard({ limit: 20 });
   const createDemand = useCreateDemand();
   const updateDemand = useUpdateDemand();
+  const updateStatus = useUpdateDemandStatus();
 
   /* ── Form state ── */
   const [title, setTitle] = useState("");
@@ -243,7 +244,10 @@ export default function PublisherCreateDemand() {
         await updateDemand.mutateAsync({ demandId: editId, data: payload });
         toast({ title: "需求已更新", description: "需求信息已保存成功" });
       } else {
-        await createDemand.mutateAsync({ data: payload });
+        const created = await createDemand.mutateAsync({ data: payload });
+        if (!asDraft && created?.id) {
+          await updateStatus.mutateAsync({ demandId: created.id, data: { status: "pending_review" } });
+        }
         toast({ title: asDraft ? "草稿已保存" : "需求已提交审核", description: asDraft ? "您可以随时回来继续编辑" : "平台将在24小时内完成审核" });
       }
       navigate("/publisher/demands");
