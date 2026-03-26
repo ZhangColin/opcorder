@@ -16,12 +16,15 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 /* ─── Constants ───────────────────────────────── */
 
 const DEMAND_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  published: { label: "招募中", cls: "bg-amber-50 text-amber-700" },
-  open:      { label: "招募中", cls: "bg-amber-50 text-amber-700" },
+  draft:             { label: "草稿",   cls: "bg-slate-100 text-slate-500" },
+  pending_review:    { label: "待审核", cls: "bg-amber-50 text-amber-700" },
+  published:         { label: "招募中", cls: "bg-amber-50 text-amber-700" },
+  open:              { label: "招募中", cls: "bg-amber-50 text-amber-700" },
+  matched:           { label: "已匹配", cls: "bg-cyan-50 text-cyan-700" },
   in_progress:       { label: "进行中", cls: "bg-blue-50 text-blue-700" },
   pending_acceptance:{ label: "待验收", cls: "bg-purple-50 text-purple-700" },
-  completed: { label: "已完成", cls: "bg-green-50 text-green-700" },
-  closed:    { label: "已关闭", cls: "bg-slate-100 text-slate-500" },
+  completed:         { label: "已完成", cls: "bg-green-50 text-green-700" },
+  closed:            { label: "已关闭", cls: "bg-slate-100 text-slate-500" },
 };
 
 function statusProgress(status: string, idx: number): number {
@@ -113,10 +116,10 @@ export default function PublisherHome() {
                   质检审核待处理。
                 </p>
                 <div className="flex gap-3 flex-wrap">
-                  <button className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-95">
+                  <button onClick={() => navigate("/publisher/demands")} className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-95">
                     查看进行中的项目
                   </button>
-                  <button className="bg-slate-100 text-primary px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all">
+                  <button onClick={() => navigate("/publisher/cockpit")} className="bg-slate-100 text-primary px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all">
                     审计日志
                   </button>
                 </div>
@@ -268,11 +271,11 @@ export default function PublisherHome() {
                         const opcInitials = assignedOpc ? (assignedOpc.nickname ?? "OC").slice(0, 2) : null;
 
                         return (
-                          <tr key={d.id} className="group hover:bg-slate-50/50 transition-colors">
+                          <tr key={d.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/publisher/demand/${d.id}`)}>
                             {/* ID / Title */}
                             <td className="px-4 py-4">
                               <p className="text-[10px] font-bold text-slate-400 font-mono">
-                                #HKY-{String(d.id).padStart(4, "0")}
+                                {d.demandNo ?? `#JDB-${String(d.id).padStart(4, "0")}`}
                               </p>
                               <p className="text-sm font-bold text-blue-900 group-hover:text-primary transition-colors line-clamp-1">
                                 {d.title}

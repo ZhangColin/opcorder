@@ -135,7 +135,7 @@ router.post("/posts/:postId/like", async (req, res) => {
       await db.delete(postLikesTable)
         .where(and(eq(postLikesTable.postId, postId), eq(postLikesTable.userId, body.userId)));
       await db.update(postsTable)
-        .set({ likesCount: sql`${postsTable.likesCount} - 1` })
+        .set({ likesCount: sql`GREATEST(0, ${postsTable.likesCount} - 1)` })
         .where(eq(postsTable.id, postId));
       liked = false;
     } else {

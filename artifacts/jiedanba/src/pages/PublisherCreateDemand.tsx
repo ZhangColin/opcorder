@@ -111,6 +111,47 @@ function TagSelector({
 
 /* ─── Section wrapper ─────────────────────────── */
 
+function AttachmentLinkInput({ onAdd }: { onAdd: (name: string, url: string) => void }) {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const handleAdd = () => {
+    const n = name.trim(), u = url.trim();
+    if (!n || !u) return;
+    try { new URL(u); } catch { return; }
+    onAdd(n, u);
+    setName(""); setUrl("");
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="文件名称（如：需求说明.pdf）"
+          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
+        <input
+          type="url"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="粘贴文件链接 (https://...)"
+          className="flex-[2] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={!name.trim() || !url.trim()}
+          className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
+        >
+          添加
+        </button>
+      </div>
+      <p className="text-xs text-slate-400">支持飞书文档、Google Drive、百度网盘等任意可访问链接</p>
+    </div>
+  );
+}
+
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-8">
@@ -670,8 +711,7 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 6: 参考材料（选填）── */}
-          <Section title="参考材料 / 附件" subtitle="选填：上传相关参考文件（PDF、Word、图片等，单文件≤20MB）">
-
+          <Section title="参考材料 / 附件" subtitle="选填：填写参考资料链接（飞书文档、Google Drive、百度网盘等）">
             {attachments.length > 0 && (
               <div className="space-y-2 mb-4">
                 {attachments.map((att, i) => (
@@ -681,7 +721,7 @@ export default function PublisherCreateDemand() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-blue-900 truncate">{att.name}</p>
-                      <p className="text-xs text-slate-400">{att.size}</p>
+                      <a href={att.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline truncate block">{att.url}</a>
                     </div>
                     <button
                       type="button"
@@ -695,32 +735,7 @@ export default function PublisherCreateDemand() {
               </div>
             )}
 
-            <label className="block cursor-pointer">
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"
-                className="hidden"
-                onChange={e => {
-                  const files = Array.from(e.target.files ?? []);
-                  const newAttachments = files
-                    .filter(f => f.size <= 20 * 1024 * 1024)
-                    .map(f => ({
-                      name: f.name,
-                      size: `${(f.size / 1024 / 1024).toFixed(1)} MB`,
-                      type: f.type,
-                      url: URL.createObjectURL(f),
-                    }));
-                  setAttachments(prev => [...prev, ...newAttachments]);
-                  e.target.value = "";
-                }}
-              />
-              <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl py-10 hover:border-primary/50 hover:bg-primary/5 transition-colors">
-                <Upload size={24} className="text-slate-400 mb-3" />
-                <p className="text-sm font-bold text-slate-600">点击或拖拽文件至此上传</p>
-                <p className="text-xs text-slate-400 mt-1">支持 PDF、Word、PPT、图片、压缩包，单文件 ≤ 20MB</p>
-              </div>
-            </label>
+            <AttachmentLinkInput onAdd={(name, url) => setAttachments(prev => [...prev, { name, url, size: "外链", type: "link" }])} />
           </Section>
 
           {/* ── Tips ── */}

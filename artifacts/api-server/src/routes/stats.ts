@@ -24,11 +24,11 @@ router.get("/stats/overview", async (_req, res) => {
     const completionRate = totalOrders > 0 ? (Number(completedOrders.count) / totalOrders) * 100 : 0;
 
     const data = GetOverviewStatsResponse.parse({
-      totalPayout: Number(orderStats.totalAmount) || 1500000,
+      totalPayout: Number(orderStats.totalAmount) || 0,
       payoutGrowth: 12.5,
-      activeOpcs: Number(opcCount.count) || 120,
-      monthlyOrders: totalOrders || 482,
-      completionRate: completionRate || 95.8,
+      activeOpcs: Number(opcCount.count) || 0,
+      monthlyOrders: totalOrders || 0,
+      completionRate: completionRate || 0,
     });
     res.json(data);
   } catch (error) {

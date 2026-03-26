@@ -339,11 +339,144 @@ function formatCount(n: number) {
   return String(n);
 }
 
+function handleShare(postId: number, title: string) {
+  const url = `${window.location.origin}/community#post-${postId}`;
+  if (navigator.share) {
+    navigator.share({ title, url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(url).then(() => {
+      alert("链接已复制到剪贴板");
+    }).catch(() => {
+      alert("分享链接：" + url);
+    });
+  }
+}
+
+interface PostDetailModalProps {
+  postId: number;
+  userId?: number;
+  isGuest: boolean;
+  onClose: () => void;
+}
+
+function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalProps) {
+  const { data: commentsData } = useListPostComments({ postId });
+  const { mutateAsync: createComment } = useCreatePostComment();
+  const [input, setInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const qc = useQueryClient();
+  const { data: postsData } = useListPosts({ sort: "latest" });
+  const post = postsData?.items?.find(p => p.id === postId);
+
+  const handleComment = async () => {
+    if (!userId || !input.trim()) return;
+    setSubmitting(true);
+    try {
+      await createComment({ postId, data: { userId, content: input.trim() } });
+      setInput("");
+      qc.invalidateQueries({ queryKey: ["/posts"] });
+      qc.invalidateQueries({ queryKey: [`/posts/${postId}/comments`] });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <h2 className="text-xl font-extrabold text-primary font-display">话题详情</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => post && handleShare(postId, post.title)}
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary border border-slate-200 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <Share2 size={14} /> 分享
+            </button>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {post ? (
+            <>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm shrink-0">
+                    {(post.authorName ?? "匿名").slice(0, 2)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-primary">{post.authorName}</p>
+                    <p className="text-[10px] text-slate-400">{new Date(post.createdAt).toLocaleDateString("zh-CN")}</p>
+                  </div>
+                </div>
+                <h3 className="text-lg font-extrabold text-foreground mb-3 font-display">{post.title}</h3>
+                <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                {(post.tags ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {(post.tags ?? []).map(tag => (
+                      <span key={tag} className="text-secondary text-xs font-bold bg-secondary/8 px-3 py-1 rounded-full border border-secondary/15">{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-slate-100 pt-5">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
+                  评论 ({commentsData?.items?.length ?? 0})
+                </p>
+                {(commentsData?.items ?? []).length === 0 ? (
+                  <p className="text-center text-slate-400 text-sm py-6">暂无评论，快来发表第一条吧</p>
+                ) : (
+                  <div className="space-y-4">
+                    {(commentsData?.items ?? []).map(c => (
+                      <div key={c.id} className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs shrink-0">
+                          {(c.authorName ?? "匿").slice(0, 1)}
+                        </div>
+                        <div className="flex-1 bg-slate-50 rounded-xl p-3">
+                          <p className="text-xs font-bold text-slate-700 mb-1">{c.authorName ?? "匿名"}</p>
+                          <p className="text-sm text-slate-600">{c.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="py-12 text-center text-slate-400">加载中…</div>
+          )}
+        </div>
+        {!isGuest && (
+          <div className="p-4 border-t border-slate-100 flex items-center gap-3">
+            <input
+              className="flex-1 bg-slate-100 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              placeholder="发表评论…"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
+            />
+            <button
+              onClick={handleComment}
+              disabled={submitting || !input.trim()}
+              className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-primary/90 transition-colors"
+            >
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Community() {
   const [, navigate]          = useLocation();
   const [feedTab, setFeedTab] = useState<FeedTab>("latest");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showNewPost, setShowNewPost]         = useState(false);
+  const [selectedPostId, setSelectedPostId]   = useState<number | null>(null);
   const [likedIds, setLikedIds]               = useState<Set<number>>(new Set());
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(new Set());
   const [searchInput, setSearchInput]         = useState("");
@@ -384,6 +517,14 @@ export default function Community() {
     <div className="min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
       {showLoginPrompt && <LoginPrompt onClose={() => setShowLoginPrompt(false)} onLogin={() => navigate("/login")} />}
       {showNewPost && user?.id && <NewPostModal userId={user.id} onClose={() => setShowNewPost(false)} />}
+      {selectedPostId !== null && (
+        <PostDetailModal
+          postId={selectedPostId}
+          userId={user?.id}
+          isGuest={isGuest}
+          onClose={() => setSelectedPostId(null)}
+        />
+      )}
 
       {/* ── Top Nav ── */}
       <header className="fixed top-0 w-full z-40 bg-white/80 backdrop-blur-md shadow-sm">
@@ -540,7 +681,10 @@ export default function Community() {
                           {new Date(post.createdAt).toLocaleDateString("zh-CN")}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug cursor-pointer">
+                      <h3
+                        className="text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug cursor-pointer hover:underline underline-offset-2"
+                        onClick={() => setSelectedPostId(post.id)}
+                      >
                         {post.title}
                       </h3>
                       <p className="text-slate-500 text-sm leading-relaxed mb-4 line-clamp-2">{post.content}</p>
@@ -572,7 +716,11 @@ export default function Community() {
                           <Eye size={16} />
                           <span className="text-xs font-medium">{formatCount(post.viewsCount)}</span>
                         </button>
-                        <button onClick={() => requireLogin()} className="ml-auto flex items-center gap-1.5 hover:text-primary transition-colors">
+                        <button
+                          onClick={() => { if (!requireLogin()) handleShare(post.id, post.title); }}
+                          className="ml-auto flex items-center gap-1.5 hover:text-primary transition-colors"
+                          title="分享话题"
+                        >
                           <Share2 size={16} />
                         </button>
                       </div>

@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   Search, Bell, Settings, Users, Star, BadgeCheck,
   ChevronRight, X, ExternalLink, Zap, AlertCircle,
-  Award, TrendingUp, Clock,
+  Award, TrendingUp, Clock, Send, ChevronDown,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard,
   useGetOpcProfile,
   useListPortfolios,
+  useListDemands,
 } from "@workspace/api-client-react";
 import type { OpcProfile } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 
 const LEVEL_COLOR: Record<string, string> = {
@@ -45,9 +48,11 @@ function StarRow({ score }: { score: number }) {
 
 function OpcDetailDrawer({
   opcId,
+  publisherId,
   onClose,
 }: {
   opcId: number;
+  publisherId?: number;
   onClose: () => void;
 }) {
   const { data: opc, isLoading: opcLoading } = useGetOpcProfile(opcId, {
@@ -57,6 +62,33 @@ function OpcDetailDrawer({
     { userId: opcId },
     { query: { enabled: opcId > 0 } },
   );
+  const { data: demandsData } = useListDemands(
+    { status: "published", limit: 10, ...( publisherId ? { publisherId } : {} ) } as any,
+    { query: { enabled: !!publisherId } },
+  );
+  const demands = demandsData?.items ?? [];
+  const [selectedDemandId, setSelectedDemandId] = useState<number | "">("");
+  const [inviting, setInviting] = useState(false);
+  const { toast } = useToast();
+
+  const handleInvite = async () => {
+    if (!selectedDemandId || !publisherId) return;
+    setInviting(true);
+    try {
+      const resp = await fetch(`/api/demands/${selectedDemandId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opcId, publisherId }),
+      });
+      if (!resp.ok) throw new Error("邀请失败");
+      toast({ title: "邀约已发送", description: "OPC 将在通知中心收到您的邀约" });
+      setSelectedDemandId("");
+    } catch {
+      toast({ title: "发送失败", description: "请稍后重试", variant: "destructive" });
+    } finally {
+      setInviting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -217,6 +249,35 @@ function OpcDetailDrawer({
             </>
           )}
         </div>
+
+        {/* Invite Footer */}
+        {publisherId && demands.length > 0 && (
+          <div className="border-t border-slate-100 p-4 space-y-3 bg-slate-50">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">定向邀约</p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <select
+                  value={selectedDemandId}
+                  onChange={e => setSelectedDemandId(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 font-medium outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary pr-8"
+                >
+                  <option value="">选择需求…</option>
+                  {demands.map(d => (
+                    <option key={d.id} value={d.id}>{d.title}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+              <button
+                onClick={handleInvite}
+                disabled={!selectedDemandId || inviting}
+                className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-primary/90 transition-colors shrink-0"
+              >
+                {inviting ? "发送中…" : <><Send size={14} /> 邀约</>}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -229,6 +290,7 @@ export default function PublisherOpcLibrary() {
   const [filterSkill, setFilterSkill] = useState<string>("");
   const [selectedOpcId, setSelectedOpcId] = useState<number | null>(null);
 
+  const { userId: publisherId, nickname, avatarChar, roleLabel } = useCurrentUser();
   const { data: opcs = [], isLoading } = useGetOpcLeaderboard({ limit: 100 });
 
   const logout = () => {
@@ -254,7 +316,7 @@ export default function PublisherOpcLibrary() {
       <PublisherSidebar onLogout={logout} />
 
       {selectedOpcId !== null && (
-        <OpcDetailDrawer opcId={selectedOpcId} onClose={() => setSelectedOpcId(null)} />
+        <OpcDetailDrawer opcId={selectedOpcId} publisherId={publisherId || undefined} onClose={() => setSelectedOpcId(null)} />
       )}
 
       <main className="flex-1 ml-64 min-h-screen">
@@ -275,17 +337,14 @@ export default function PublisherOpcLibrary() {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
-              <Settings size={20} />
-            </button>
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">海创元运营团队</p>
-                <p className="text-[10px] text-slate-500 font-medium">项目经理</p>
+                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-                海
+                {avatarChar}
               </div>
             </div>
           </div>

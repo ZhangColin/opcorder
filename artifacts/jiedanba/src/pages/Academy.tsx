@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, Star, Lock, Trophy, FileText, Video,
   Download, ChevronRight, Zap, Cpu, ShieldCheck,
@@ -202,9 +203,13 @@ export default function Academy() {
   const enrollmentMap = new Map(enrollments.map(e => [e.courseId, e.progressPct]));
 
   const { mutateAsync: enrollCourse } = useEnrollCourse();
+  const { toast } = useToast();
 
   const handleEnroll = async (courseId: number) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      toast({ title: "请先登录", description: "登录后即可报名课程", variant: "destructive" });
+      return;
+    }
     setEnrollingId(courseId);
     try {
       await enrollCourse({ courseId, data: { userId: user.id } });

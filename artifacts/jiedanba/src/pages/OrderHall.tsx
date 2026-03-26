@@ -163,8 +163,8 @@ function MarketplaceListRow({ demand }: { demand: Demand }) {
         <span className="block text-lg font-extrabold text-primary leading-none">¥{demand.budgetMin?.toLocaleString()}</span>
         <span className="text-[10px] text-muted-foreground">起</span>
       </div>
-      <span className="hidden lg:flex items-center gap-1 text-xs text-muted-foreground font-medium shrink-0 w-24">
-        <Clock size={12} /> {daysRemaining(demand.bidDeadline)}
+      <span className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">
+        <Clock size={12} className="shrink-0" /> {daysRemaining(demand.bidDeadline)}
       </span>
       <Link
         href={`/demands/${demand.id}`}

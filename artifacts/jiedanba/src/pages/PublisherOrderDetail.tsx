@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   Search, Bell, Settings, ArrowLeft, CheckCircle2, Clock,
   XCircle, Star, AlertCircle, Zap, FileText, Download,
@@ -71,6 +72,7 @@ export default function PublisherOrderDetail() {
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id ?? "0", 10);
   const qc = useQueryClient();
+  const { nickname, avatarChar, roleLabel } = useCurrentUser();
 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [rating, setRating] = useState(0);
@@ -178,11 +180,11 @@ export default function PublisherOrderDetail() {
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">海创元运营团队</p>
-                <p className="text-[10px] text-slate-500 font-medium">项目经理</p>
+                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-                海
+                {avatarChar}
               </div>
             </div>
           </div>
@@ -436,7 +438,7 @@ export default function PublisherOrderDetail() {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-slate-500">订单金额</span>
-                        <span className="font-extrabold text-primary text-base">¥{order.amount.toLocaleString()}</span>
+                        <span className="font-extrabold text-primary text-base">¥{(order.amount ?? 0).toLocaleString()}</span>
                       </div>
                       {order.deadline && (
                         <div className="flex justify-between items-center">

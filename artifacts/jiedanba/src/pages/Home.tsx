@@ -28,10 +28,10 @@ export default function Home() {
           </div>
           <div className="flex items-baseline gap-3">
             <span className="text-4xl lg:text-5xl font-black tracking-tighter font-display">
-              {statsLoading ? "..." : `¥${(stats?.totalPayout || 1500000).toLocaleString()}+`}
+              {statsLoading ? "..." : `¥${(stats?.totalPayout ?? 0).toLocaleString()}`}
             </span>
             <span className="text-accent flex items-center text-sm font-bold bg-accent/10 px-2 py-1 rounded-md">
-              <TrendingUp size={14} className="mr-1" />+{statsLoading ? "0" : stats?.payoutGrowth || 12.5}%
+              <TrendingUp size={14} className="mr-1" />+{statsLoading ? "0" : (stats?.payoutGrowth ?? 0).toFixed(1)}%
             </span>
           </div>
           <p className="text-white/60 text-sm mt-3 font-medium">企业级资金托管，安全合规的支付保障。</p>
@@ -43,7 +43,7 @@ export default function Home() {
           </div>
           <div className="flex items-baseline gap-3">
             <span className="text-4xl lg:text-5xl font-black tracking-tighter font-display">
-              {statsLoading ? "..." : `${stats?.activeOpcs || 120}+`}
+              {statsLoading ? "..." : `${stats?.activeOpcs ?? 0}`}
             </span>
             <span className="bg-white/20 text-white text-[10px] px-2 py-1 rounded border border-white/30 uppercase tracking-tighter font-bold">
               已认证
@@ -58,7 +58,7 @@ export default function Home() {
           </div>
           <div className="flex items-baseline gap-3">
             <span className="text-4xl lg:text-5xl font-black tracking-tighter font-display">
-              {statsLoading ? "..." : (stats?.monthlyOrders || 482)}
+              {statsLoading ? "..." : (stats?.monthlyOrders ?? 0)}
             </span>
             <span className="bg-accent text-accent-foreground text-[10px] px-2 py-1 rounded font-bold">
               高频流转

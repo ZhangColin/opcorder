@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable } from "@workspace/db";
+import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   CreateBidBody,
@@ -63,6 +63,22 @@ router.post("/demands/:demandId/bids", async (req, res) => {
       portfolioLinks: body.portfolioLinks || [],
       status: "pending",
     }).returning();
+
+    // 通知发布方有人抢单
+    const [demand] = await db.select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+      .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
+    if (demand?.publisherId) {
+      const [opc] = await db.select({ nickname: usersTable.nickname })
+        .from(usersTable).where(eq(usersTable.id, opcId)).limit(1);
+      await db.insert(notificationsTable).values({
+        userId: demand.publisherId,
+        type: "new_bid",
+        title: "有新的抢单申请",
+        content: `OPC「${opc?.nickname ?? "未知"}」已对您的需求「${demand.title}」发起抢单申请，请及时查看并处理。`,
+        relatedId: demandId,
+        relatedType: "demand",
+      });
+    }
 
     res.status(201).json({
       ...bid,

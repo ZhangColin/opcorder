@@ -369,6 +369,7 @@ interface AdminDemand {
 function DemandManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [filter, setFilter] = useState("all");
 
   const { data: demands = [], isLoading } = useQuery<AdminDemand[]>({
@@ -429,11 +430,15 @@ function DemandManagement() {
               </td>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">{d.demandNo}</td>
               <td className="px-6 py-4 text-sm text-slate-500">{d.publisherName}</td>
-              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{((d.budgetMin ?? 0) / 10000).toFixed(0)}–{((d.budgetMax ?? 0) / 10000).toFixed(0)}万</td>
+              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{(d.budgetMin ?? 0).toLocaleString()}–¥{(d.budgetMax ?? 0).toLocaleString()}</td>
               <td className="px-6 py-4 text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</td>
               <td className="px-6 py-4"><StatusBadge label={statusCN[d.status] ?? d.status} color={statusColor(d.status)} /></td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-1">
+                  <button onClick={() => navigate(`/publisher/demand/${d.id}`)}
+                    title="查看详情" className="p-2 rounded-xl hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors">
+                    <Eye size={15} />
+                  </button>
                   {d.status === "pending_review" && (
                     <button onClick={() => mutate.mutate({ id: d.id, action: "approve" })}
                       title="通过审核" className="p-2 rounded-xl hover:bg-green-50 text-slate-400 hover:text-secondary transition-colors">

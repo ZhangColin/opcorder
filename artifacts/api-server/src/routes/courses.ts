@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, coursesTable, enrollmentsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import {
   ListCoursesQueryParams,
   EnrollCourseBody,
@@ -92,7 +92,7 @@ router.post("/courses/:courseId/enroll", async (req, res) => {
     }).returning();
 
     await db.update(coursesTable)
-      .set({ learnersCount: coursesTable.learnersCount })
+      .set({ learnersCount: sql`${coursesTable.learnersCount} + 1` })
       .where(eq(coursesTable.id, courseId));
 
     const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, courseId));

@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { HelpDialog } from "@/components/HelpDialog";
 import {
-  LayoutDashboard, Users, BarChart2, FileText, PlusCircle,
-  HelpCircle, LogOut, Search, Bell, Settings, ShieldCheck,
+  LayoutDashboard, Users, FileText, PlusCircle,
+  HelpCircle, LogOut, Search, Bell, ShieldCheck,
   Wallet, Lock, Clock, CreditCard, TrendingUp, Download,
   BarChart3, Gavel, Zap, ArrowDownLeft, Landmark, Percent,
   MoreHorizontal, Gauge,
@@ -51,13 +51,11 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
 
       <nav className="flex-1 flex flex-col gap-0.5">
         {[
-          { icon: LayoutDashboard, label: "工作台",  href: "/publisher" },
-          { icon: FileText,        label: "我的需求", href: "#" },
-          { icon: Users,           label: "OPC 人才库", href: "#" },
-          { icon: BarChart2,       label: "数据分析", href: "#" },
-          { icon: FileText,        label: "项目报告", href: "#" },
-          { icon: Gauge,           label: "驾驶舱",   href: "/publisher/cockpit", active: true },
-          { icon: Gavel,           label: "争议处理", href: "/publisher/disputes" },
+          { icon: LayoutDashboard, label: "工作台",    href: "/publisher" },
+          { icon: FileText,        label: "我的需求",  href: "/publisher/demands" },
+          { icon: Users,           label: "OPC 人才库", href: "/publisher/opc-library" },
+          { icon: Gauge,           label: "驾驶舱",    href: "/publisher/cockpit", active: true },
+          { icon: Gavel,           label: "争议处理",  href: "/publisher/disputes" },
         ].map(item => (
           <Link key={item.label} href={item.href}>
             <div className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 cursor-pointer ${
@@ -126,16 +124,15 @@ export default function PublisherCockpit() {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
-              <Settings size={20} />
-            </button>
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
                 <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
               </div>
-              {avatarChar}
+              <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
+                {avatarChar}
+              </div>
             </div>
           </div>
         </header>

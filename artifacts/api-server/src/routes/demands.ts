@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, demandsTable, usersTable, bidsTable } from "@workspace/db";
+import { db, demandsTable, usersTable, bidsTable, notificationsTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
 import {
   ListDemandsQueryParams,
@@ -258,6 +258,35 @@ router.patch("/demands/:demandId/status", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to update demand status" });
+  }
+});
+
+/* ── Invite OPC to a demand ──────────────────────────── */
+router.post("/demands/:demandId/invite", async (req, res) => {
+  try {
+    const demandId = parseInt(req.params.demandId);
+    const { opcId, publisherId } = req.body as { opcId: number; publisherId: number };
+    if (!opcId || !publisherId) return res.status(400).json({ error: "opcId and publisherId required" });
+
+    const [demand] = await db.select({ title: demandsTable.title })
+      .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+
+    const [publisher] = await db.select({ nickname: usersTable.nickname })
+      .from(usersTable).where(eq(usersTable.id, publisherId)).limit(1);
+
+    await db.insert(notificationsTable).values({
+      userId: opcId,
+      type: "directed_invite",
+      title: "收到定向邀约",
+      content: `「${publisher?.nickname ?? "发单方"}」邀请您接单：${demand.title}，请查看需求详情并决定是否参与。`,
+      relatedId: demandId,
+      relatedType: "demand",
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to send invite" });
   }
 });
 
