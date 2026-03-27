@@ -2,7 +2,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
-  Search, Bell, Settings, Star, BadgeCheck, Calendar,
+  Search, Bell, Star, BadgeCheck, Calendar,
   Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
+import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useQueryClient } from "@tanstack/react-query";
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
@@ -59,7 +60,7 @@ function StarRating({ score }: { score: number }) {
 
 export default function PublisherDemandDetail() {
   const [, navigate] = useLocation();
-  const { nickname, avatarChar, roleLabel } = useCurrentUser();
+  // useCurrentUser() destructure removed
   const params = useParams<{ id: string }>();
   const demandId = parseInt(params.id ?? "0", 10);
   const qc = useQueryClient();
@@ -143,17 +144,7 @@ export default function PublisherDemandDetail() {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
-              <Settings size={20} />
-            </button>
-            <div className="h-8 w-px bg-slate-200" />
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
-                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
-              </div>
-              {avatarChar}
-            </div>
+            <PublisherHeaderUser onLogout={logout} />
           </div>
         </header>
 

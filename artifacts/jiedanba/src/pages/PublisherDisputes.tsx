@@ -2,9 +2,10 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { HelpDialog } from "@/components/HelpDialog";
+import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import {
   LayoutDashboard, Users, BarChart2, FileText, PlusCircle,
-  HelpCircle, LogOut, Search, Bell, Settings, ShieldCheck,
+  HelpCircle, LogOut, Search, Bell, ShieldCheck,
   Gavel, TrendingUp, AlertTriangle, Timer, CheckCircle2,
   FileText as FileIcon, UserPlus, Send, RotateCcw,
   SplitSquareHorizontal, ChevronRight, List, Eye,
@@ -155,7 +156,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
 
 export default function PublisherDisputes() {
   const [, navigate] = useLocation();
-  const { nickname, avatarChar, roleLabel } = useCurrentUser();
+  const { } = useCurrentUser();
   const [selectedId, setSelectedId] = useState(CASES[0].id);
   const focused = CASES.find(c => c.id === selectedId) ?? CASES[0];
 
@@ -184,17 +185,7 @@ export default function PublisherDisputes() {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
-              <Settings size={20} />
-            </button>
-            <div className="h-8 w-px bg-slate-200" />
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
-                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
-              </div>
-              {avatarChar}
-            </div>
+            <PublisherHeaderUser onLogout={logout} />
           </div>
         </header>
 

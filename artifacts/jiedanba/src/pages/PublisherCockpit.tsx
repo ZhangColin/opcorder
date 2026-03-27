@@ -2,6 +2,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { HelpDialog } from "@/components/HelpDialog";
+import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import {
   LayoutDashboard, Users, FileText, PlusCircle,
   HelpCircle, LogOut, Search, Bell, ShieldCheck,
@@ -97,7 +98,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
 
 export default function PublisherCockpit() {
   const [, navigate] = useLocation();
-  const { nickname, avatarChar, roleLabel } = useCurrentUser();
+  const { } = useCurrentUser();
 
   const logout = () => {
     localStorage.removeItem("jdb_role");
@@ -124,16 +125,7 @@ export default function PublisherCockpit() {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <div className="h-8 w-px bg-slate-200" />
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
-                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-                {avatarChar}
-              </div>
-            </div>
+            <PublisherHeaderUser onLogout={logout} />
           </div>
         </header>
 

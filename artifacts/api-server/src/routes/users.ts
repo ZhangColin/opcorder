@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, opcProfilesTable } from "@workspace/db";
+import { db, usersTable, opcProfilesTable, publisherProfilesTable } from "@workspace/db";
 import { eq, desc, asc } from "drizzle-orm";
 import { GetOpcLeaderboardQueryParams, UpdateOpcProfileBody } from "@workspace/api-zod";
 
@@ -173,6 +173,90 @@ router.put("/users/:userId/opc-profile", async (req, res) => {
   } catch (err) {
     console.error("Update profile error:", err);
     res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+/* ─── Publisher Profile ───────────────────────────────────────────────────── */
+
+router.get("/users/:userId/publisher-profile", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const [user] = await db.select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone })
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const [profile] = await db.select().from(publisherProfilesTable)
+      .where(eq(publisherProfilesTable.userId, userId)).limit(1);
+
+    res.json({
+      userId: user.id,
+      nickname: user.nickname,
+      email: user.email,
+      phone: user.phone,
+      companyDesc: profile?.companyDesc ?? null,
+      location: profile?.location ?? null,
+      industry: profile?.industry ?? null,
+      teamSize: profile?.teamSize ?? null,
+      foundedYear: profile?.foundedYear ?? null,
+      website: profile?.website ?? null,
+      contactEmail: profile?.contactEmail ?? null,
+    });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch publisher profile" });
+  }
+});
+
+router.patch("/users/:userId/publisher-profile", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const { nickname, phone, companyDesc, location, industry, teamSize, foundedYear, website, contactEmail } = req.body;
+
+    if (nickname !== undefined || phone !== undefined) {
+      const userUpdate: Record<string, unknown> = {};
+      if (nickname !== undefined) userUpdate.nickname = nickname;
+      if (phone !== undefined) userUpdate.phone = phone;
+      await db.update(usersTable).set(userUpdate).where(eq(usersTable.id, userId));
+    }
+
+    const profileUpdate: Record<string, unknown> = { updatedAt: new Date() };
+    if (companyDesc  !== undefined) profileUpdate.companyDesc  = companyDesc;
+    if (location     !== undefined) profileUpdate.location     = location;
+    if (industry     !== undefined) profileUpdate.industry     = industry;
+    if (teamSize     !== undefined) profileUpdate.teamSize     = teamSize;
+    if (foundedYear  !== undefined) profileUpdate.foundedYear  = foundedYear;
+    if (website      !== undefined) profileUpdate.website      = website;
+    if (contactEmail !== undefined) profileUpdate.contactEmail = contactEmail;
+
+    const [existing] = await db.select({ userId: publisherProfilesTable.userId })
+      .from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, userId)).limit(1);
+
+    if (existing) {
+      await db.update(publisherProfilesTable).set(profileUpdate).where(eq(publisherProfilesTable.userId, userId));
+    } else {
+      await db.insert(publisherProfilesTable).values({ userId, ...profileUpdate });
+    }
+
+    const [updatedUser] = await db.select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone })
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const [updatedProfile] = await db.select().from(publisherProfilesTable)
+      .where(eq(publisherProfilesTable.userId, userId)).limit(1);
+
+    res.json({
+      userId: updatedUser.id,
+      nickname: updatedUser.nickname,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      companyDesc: updatedProfile?.companyDesc ?? null,
+      location: updatedProfile?.location ?? null,
+      industry: updatedProfile?.industry ?? null,
+      teamSize: updatedProfile?.teamSize ?? null,
+      foundedYear: updatedProfile?.foundedYear ?? null,
+      website: updatedProfile?.website ?? null,
+      contactEmail: updatedProfile?.contactEmail ?? null,
+    });
+  } catch (err) {
+    console.error("Update publisher profile error:", err);
+    res.status(500).json({ error: "Failed to update publisher profile" });
   }
 });
 

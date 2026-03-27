@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
-  Search, Bell, Settings, ArrowLeft, CheckCircle2, Clock,
+  Search, Bell, ArrowLeft, CheckCircle2, Clock,
   XCircle, Star, AlertCircle, Zap, FileText, Download,
   ChevronRight, Trophy, RefreshCw,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
+import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useQueryClient } from "@tanstack/react-query";
 
 const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -72,7 +73,7 @@ export default function PublisherOrderDetail() {
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id ?? "0", 10);
   const qc = useQueryClient();
-  const { nickname, avatarChar, roleLabel } = useCurrentUser();
+  // useCurrentUser() destructure removed
 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [rating, setRating] = useState(0);
@@ -174,19 +175,7 @@ export default function PublisherOrderDetail() {
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
-            <button className="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
-              <Settings size={20} />
-            </button>
-            <div className="h-8 w-px bg-slate-200" />
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
-                <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-                {avatarChar}
-              </div>
-            </div>
+            <PublisherHeaderUser onLogout={logout} />
           </div>
         </header>
 
