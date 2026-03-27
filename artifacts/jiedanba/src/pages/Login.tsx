@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   ShieldCheck, Eye, EyeOff, ArrowRight,
   Mail, Lock, User, Building2,
-  CheckCircle2, AlertCircle,
+  CheckCircle2, AlertCircle, Compass,
 } from "lucide-react";
 
 type Tab = "login" | "register";
@@ -397,6 +397,20 @@ export default function Login() {
               </button>
             </div>
           </div>
+
+          {/* Guest entry */}
+          <button
+            onClick={() => {
+              localStorage.removeItem("jdb_role");
+              localStorage.removeItem("jdb_user_id");
+              localStorage.removeItem("jdb_nickname");
+              navigate("/community");
+            }}
+            className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm font-semibold hover:border-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all"
+          >
+            <Compass size={15} />
+            随便逛逛，先看看社区
+          </button>
         </div>
 
         <p className="mt-8 text-[10px] text-slate-400 text-center uppercase tracking-widest">
