@@ -22,11 +22,28 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
   other: "其他",
 };
 
-function generateDemandNo(): string {
+async function generateDemandNo(): Promise<string> {
   const now = new Date();
-  const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const seq = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
-  return `JDB-${ym}-${seq}`;
+  const ymd =
+    `${now.getFullYear()}` +
+    `${String(now.getMonth() + 1).padStart(2, "0")}` +
+    `${String(now.getDate()).padStart(2, "0")}`;
+  const prefix = `JDB-${ymd}-`;
+
+  const result = await db.execute(
+    sql`SELECT demand_no FROM demands WHERE demand_no LIKE ${prefix + "%"} ORDER BY demand_no DESC LIMIT 1`
+  );
+
+  let seq = 1;
+  const rows = result.rows as { demand_no: string }[];
+  if (rows.length > 0) {
+    const last = rows[0].demand_no;
+    const parts = last.split("-");
+    const lastSeq = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastSeq)) seq = lastSeq + 1;
+  }
+
+  return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
 router.get("/demands", async (req, res) => {
@@ -130,7 +147,7 @@ router.get("/demands", async (req, res) => {
 router.post("/demands", async (req, res) => {
   try {
     const body = CreateDemandBody.parse(req.body);
-    const demandNo = generateDemandNo();
+    const demandNo = await generateDemandNo();
 
     const [demand] = await db.insert(demandsTable).values({
       demandNo,
