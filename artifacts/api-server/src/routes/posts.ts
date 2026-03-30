@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, postsTable, postLikesTable, postCommentsTable, usersTable, opcProfilesTable, publisherProfilesTable } from "@workspace/db";
+import { db, postsTable, postLikesTable, postCommentsTable, usersTable, publisherProfilesTable } from "@workspace/db";
 import { eq, desc, and, sql, or, ilike } from "drizzle-orm";
 import {
   ListPostsQueryParams,
@@ -34,10 +34,9 @@ function formatPost(
   };
 }
 
-function resolveAvatar(role: string | null, opcAvatar: string | null, publisherLogo: string | null): string | null {
-  if (role === "opc") return opcAvatar ?? null;
-  if (role === "publisher") return publisherLogo ?? null;
-  return null;
+function resolveAvatar(role: string | null, userAvatar: string | null, publisherLogo: string | null): string | null {
+  if (role === "publisher") return publisherLogo ?? userAvatar ?? null;
+  return userAvatar ?? null;
 }
 
 router.get("/posts", async (req, res) => {
@@ -58,12 +57,11 @@ router.get("/posts", async (req, res) => {
         post: postsTable,
         nickname: usersTable.nickname,
         role: usersTable.role,
-        opcAvatar: opcProfilesTable.avatar,
+        userAvatar: usersTable.avatar,
         publisherLogo: publisherProfilesTable.companyLogo,
       })
       .from(postsTable)
       .leftJoin(usersTable, eq(postsTable.authorId, usersTable.id))
-      .leftJoin(opcProfilesTable, eq(postsTable.authorId, opcProfilesTable.userId))
       .leftJoin(publisherProfilesTable, eq(postsTable.authorId, publisherProfilesTable.userId))
       .where(searchCondition)
       .orderBy(orderBy)
@@ -76,8 +74,8 @@ router.get("/posts", async (req, res) => {
       .where(searchCondition);
 
     res.json({
-      items: posts.map(({ post, nickname, role, opcAvatar, publisherLogo }) =>
-        formatPost(post, nickname ?? "匿名用户", role ?? "opc", resolveAvatar(role, opcAvatar, publisherLogo))
+      items: posts.map(({ post, nickname, role, userAvatar, publisherLogo }) =>
+        formatPost(post, nickname ?? "匿名用户", role ?? "opc", resolveAvatar(role, userAvatar, publisherLogo))
       ),
       total: Number(countResult[0]?.count ?? 0),
     });
@@ -97,12 +95,11 @@ router.get("/posts/:postId", async (req, res) => {
         post: postsTable,
         nickname: usersTable.nickname,
         role: usersTable.role,
-        opcAvatar: opcProfilesTable.avatar,
+        userAvatar: usersTable.avatar,
         publisherLogo: publisherProfilesTable.companyLogo,
       })
       .from(postsTable)
       .leftJoin(usersTable, eq(postsTable.authorId, usersTable.id))
-      .leftJoin(opcProfilesTable, eq(postsTable.authorId, opcProfilesTable.userId))
       .leftJoin(publisherProfilesTable, eq(postsTable.authorId, publisherProfilesTable.userId))
       .where(eq(postsTable.id, postId));
 
@@ -112,7 +109,7 @@ router.get("/posts/:postId", async (req, res) => {
       .set({ viewsCount: sql`${postsTable.viewsCount} + 1` })
       .where(eq(postsTable.id, postId));
 
-    res.json(formatPost(row.post, row.nickname ?? "匿名用户", row.role ?? "opc", resolveAvatar(row.role, row.opcAvatar, row.publisherLogo)));
+    res.json(formatPost(row.post, row.nickname ?? "匿名用户", row.role ?? "opc", resolveAvatar(row.role, row.userAvatar, row.publisherLogo)));
   } catch {
     res.status(500).json({ error: "Failed to get post" });
   }
@@ -130,13 +127,12 @@ router.post("/posts", async (req, res) => {
     }).returning();
 
     const [userRow] = await db
-      .select({ nickname: usersTable.nickname, role: usersTable.role, opcAvatar: opcProfilesTable.avatar, publisherLogo: publisherProfilesTable.companyLogo })
+      .select({ nickname: usersTable.nickname, role: usersTable.role, userAvatar: usersTable.avatar, publisherLogo: publisherProfilesTable.companyLogo })
       .from(usersTable)
-      .leftJoin(opcProfilesTable, eq(usersTable.id, opcProfilesTable.userId))
       .leftJoin(publisherProfilesTable, eq(usersTable.id, publisherProfilesTable.userId))
       .where(eq(usersTable.id, body.authorId));
 
-    res.status(201).json(formatPost(post, userRow?.nickname ?? "匿名用户", userRow?.role ?? "opc", resolveAvatar(userRow?.role ?? null, userRow?.opcAvatar ?? null, userRow?.publisherLogo ?? null)));
+    res.status(201).json(formatPost(post, userRow?.nickname ?? "匿名用户", userRow?.role ?? "opc", resolveAvatar(userRow?.role ?? null, userRow?.userAvatar ?? null, userRow?.publisherLogo ?? null)));
   } catch {
     res.status(500).json({ error: "Failed to create post" });
   }
@@ -182,23 +178,22 @@ router.get("/posts/:postId/comments", async (req, res) => {
         comment: postCommentsTable,
         nickname: usersTable.nickname,
         role: usersTable.role,
-        opcAvatar: opcProfilesTable.avatar,
+        userAvatar: usersTable.avatar,
         publisherLogo: publisherProfilesTable.companyLogo,
       })
       .from(postCommentsTable)
       .leftJoin(usersTable, eq(postCommentsTable.authorId, usersTable.id))
-      .leftJoin(opcProfilesTable, eq(postCommentsTable.authorId, opcProfilesTable.userId))
       .leftJoin(publisherProfilesTable, eq(postCommentsTable.authorId, publisherProfilesTable.userId))
       .where(eq(postCommentsTable.postId, postId))
       .orderBy(desc(postCommentsTable.createdAt));
 
-    res.json(comments.map(({ comment, nickname, role, opcAvatar, publisherLogo }) => ({
+    res.json(comments.map(({ comment, nickname, role, userAvatar, publisherLogo }) => ({
       id: comment.id,
       postId: comment.postId,
       authorId: comment.authorId,
       authorName: nickname ?? "匿名用户",
       authorRole: role ?? "opc",
-      authorAvatar: resolveAvatar(role, opcAvatar, publisherLogo),
+      authorAvatar: resolveAvatar(role, userAvatar, publisherLogo),
       content: comment.content,
       createdAt: comment.createdAt.toISOString(),
     })));
@@ -223,9 +218,8 @@ router.post("/posts/:postId/comments", async (req, res) => {
       .where(eq(postsTable.id, postId));
 
     const [userRow] = await db
-      .select({ nickname: usersTable.nickname, role: usersTable.role, opcAvatar: opcProfilesTable.avatar, publisherLogo: publisherProfilesTable.companyLogo })
+      .select({ nickname: usersTable.nickname, role: usersTable.role, userAvatar: usersTable.avatar, publisherLogo: publisherProfilesTable.companyLogo })
       .from(usersTable)
-      .leftJoin(opcProfilesTable, eq(usersTable.id, opcProfilesTable.userId))
       .leftJoin(publisherProfilesTable, eq(usersTable.id, publisherProfilesTable.userId))
       .where(eq(usersTable.id, body.authorId));
 
@@ -235,7 +229,7 @@ router.post("/posts/:postId/comments", async (req, res) => {
       authorId: comment.authorId,
       authorName: userRow?.nickname ?? "匿名用户",
       authorRole: userRow?.role ?? "opc",
-      authorAvatar: resolveAvatar(userRow?.role ?? null, userRow?.opcAvatar ?? null, userRow?.publisherLogo ?? null),
+      authorAvatar: resolveAvatar(userRow?.role ?? null, userRow?.userAvatar ?? null, userRow?.publisherLogo ?? null),
       content: comment.content,
       createdAt: comment.createdAt.toISOString(),
     });
