@@ -53,8 +53,8 @@ export function ChangePasswordDialog({ onClose }: ChangePasswordDialogProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-24 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 relative my-auto">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
