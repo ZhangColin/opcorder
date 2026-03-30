@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
@@ -11,6 +11,7 @@ import {
   Activity, ArrowUpRight, ArrowDownRight, Zap,
   CreditCard, Receipt, BadgeCheck, UserX, UserCheck,
   Gavel, AlertCircle, Loader2, Trash2,
+  SlidersHorizontal, Upload, ImageIcon, Save,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -65,19 +66,20 @@ async function adminDelete(path: string) {
 type Module =
   | "dashboard" | "users" | "demands" | "orders"
   | "finance"   | "ecosystem" | "training" | "content"
-  | "cockpit"   | "disputes";
+  | "cockpit"   | "disputes"  | "settings";
 
 const NAV: { key: Module; icon: React.ElementType; label: string }[] = [
-  { key: "dashboard",  icon: LayoutDashboard, label: "数据看板" },
-  { key: "cockpit",    icon: BarChart3,        label: "平台驾驶舱" },
-  { key: "users",      icon: Users,           label: "用户管理" },
-  { key: "demands",    icon: FileText,         label: "需求管理" },
-  { key: "orders",     icon: ShoppingBag,      label: "订单管理" },
-  { key: "disputes",   icon: Gavel,            label: "争议管理" },
-  { key: "finance",    icon: Wallet,           label: "财务管理" },
-  { key: "ecosystem",  icon: Network,          label: "OPC 生态池" },
-  { key: "training",   icon: GraduationCap,    label: "认证培训" },
-  { key: "content",    icon: Shield,           label: "内容审核" },
+  { key: "dashboard",  icon: LayoutDashboard,    label: "数据看板" },
+  { key: "cockpit",    icon: BarChart3,           label: "平台驾驶舱" },
+  { key: "users",      icon: Users,              label: "用户管理" },
+  { key: "demands",    icon: FileText,            label: "需求管理" },
+  { key: "orders",     icon: ShoppingBag,         label: "订单管理" },
+  { key: "disputes",   icon: Gavel,               label: "争议管理" },
+  { key: "finance",    icon: Wallet,              label: "财务管理" },
+  { key: "ecosystem",  icon: Network,             label: "OPC 生态池" },
+  { key: "training",   icon: GraduationCap,       label: "认证培训" },
+  { key: "content",    icon: Shield,              label: "内容审核" },
+  { key: "settings",   icon: SlidersHorizontal,   label: "站点设置" },
 ];
 
 /* ─── Shared components ─────────────────────────── */
@@ -1162,6 +1164,163 @@ function DisputeManagement() {
   );
 }
 
+/* ─── Site Settings ──────────────────────────────── */
+
+function SiteSettingsManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: settings, isLoading } = useQuery<Record<string, string>>({
+    queryKey: ["admin-settings"],
+    queryFn: () => adminGet("/api/admin/settings"),
+  });
+
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (settings && Object.keys(form).length === 0) {
+      setForm({ ...settings });
+    }
+  }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}/api/admin/settings`, {
+        method: "PUT",
+        headers: getAdminHeaders(),
+        body: JSON.stringify(form),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-settings"] });
+      toast({ title: "站点设置已保存" });
+    },
+    onError: (e: Error) => toast({ title: "保存失败", description: e.message, variant: "destructive" }),
+  });
+
+  async function handleImageUpload(fieldKey: string, file: File) {
+    setUploading(v => ({ ...v, [fieldKey]: true }));
+    try {
+      const ext = file.name.split(".").pop() ?? "png";
+      const objectPath = `/site/${fieldKey}_${Date.now()}.${ext}`;
+      const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ objectPath, contentType: file.type }),
+      });
+      const { uploadUrl, publicUrl } = await res.json();
+      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      setForm(v => ({ ...v, [fieldKey]: publicUrl }));
+      toast({ title: "图片上传成功" });
+    } catch {
+      toast({ title: "上传失败", variant: "destructive" });
+    } finally {
+      setUploading(v => ({ ...v, [fieldKey]: false }));
+    }
+  }
+
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-primary" size={32} /></div>;
+
+  const textFields: { key: string; label: string; placeholder: string; hint?: string }[] = [
+    { key: "site_name",    label: "站点名称",   placeholder: "接单吧" },
+    { key: "site_subtitle",label: "站点副标题", placeholder: "OPC撮合交易平台" },
+    { key: "footer_text",  label: "页脚文字",   placeholder: "© 2026 接单吧 · 海创元 × 东升原点OPC社区" },
+    { key: "icp_number",   label: "ICP 备案号", placeholder: "粤ICP备XXXXXXXX号", hint: "填写备案号后会显示在页脚" },
+    { key: "copyright",    label: "版权声明",   placeholder: "© 2026 接单吧 All Rights Reserved" },
+  ];
+
+  const imageFields: { key: string; label: string; hint: string; accept: string }[] = [
+    { key: "site_logo",    label: "Logo 图标",  hint: "建议尺寸 200×60px，PNG/SVG",  accept: "image/*" },
+    { key: "site_favicon", label: "Favicon",    hint: "建议尺寸 32×32px，ICO/PNG",   accept: "image/*" },
+  ];
+
+  return (
+    <div className="max-w-2xl">
+      <SectionHeader title="站点设置" sub="配置平台品牌、页脚信息及视觉元素" />
+
+      <div className="space-y-6">
+        {/* 文字配置 */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">基本信息</h3>
+          {textFields.map(({ key, label, placeholder, hint }) => (
+            <div key={key}>
+              <label className="block text-sm font-bold text-blue-900 mb-1.5">{label}</label>
+              <input
+                value={form[key] ?? ""}
+                onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
+                placeholder={placeholder}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+              />
+              {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+            </div>
+          ))}
+        </div>
+
+        {/* 图片上传 */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-6">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">图片资源</h3>
+          {imageFields.map(({ key, label, hint, accept }) => (
+            <div key={key}>
+              <label className="block text-sm font-bold text-blue-900 mb-2">{label}</label>
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-14 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+                  {form[key] ? (
+                    <img src={form[key]} alt={label} className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <ImageIcon size={22} className="text-slate-300" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition-colors ${
+                    uploading[key] ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-primary/10 text-primary hover:bg-primary/20"
+                  }`}>
+                    {uploading[key] ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {uploading[key] ? "上传中…" : "上传图片"}
+                    <input
+                      type="file" accept={accept} className="hidden"
+                      disabled={uploading[key]}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(key, f); }}
+                    />
+                  </label>
+                  {form[key] && (
+                    <input
+                      value={form[key]}
+                      onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
+                      placeholder="或直接粘贴图片 URL"
+                      className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
+                    />
+                  )}
+                  {!form[key] && (
+                    <input
+                      value=""
+                      onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
+                      placeholder="或直接粘贴图片 URL"
+                      className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
+                    />
+                  )}
+                  <p className="text-xs text-slate-400 mt-1">{hint}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 保存按钮 */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 disabled:opacity-60 transition-colors"
+          >
+            {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saveMutation.isPending ? "保存中…" : "保存设置"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
     case "dashboard":  return <Dashboard />;
@@ -1174,6 +1333,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "ecosystem":  return <EcosystemManagement />;
     case "training":   return <TrainingManagement />;
     case "content":    return <ContentReview />;
+    case "settings":   return <SiteSettingsManagement />;
   }
 }
 

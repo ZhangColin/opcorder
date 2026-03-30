@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable } from "@workspace/db";
+import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, siteSettingsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 
@@ -476,6 +476,48 @@ router.delete("/admin/content/posts/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "删除失败" });
+  }
+});
+
+/* ─── SITE SETTINGS ─────────────────────────────── */
+
+const DEFAULT_SETTINGS: Record<string, string> = {
+  site_name:    "接单吧",
+  site_subtitle: "OPC撮合交易平台",
+  site_logo:    "",
+  site_favicon: "",
+  footer_text:  "© 2026 接单吧 · 海创元 × 东升原点OPC社区",
+  icp_number:   "",
+  copyright:    "© 2026 接单吧 All Rights Reserved",
+};
+
+router.get("/admin/settings", async (_req, res) => {
+  try {
+    const rows = await db.select().from(siteSettingsTable);
+    const result: Record<string, string> = { ...DEFAULT_SETTINGS };
+    for (const row of rows) {
+      result[row.key] = row.value ?? "";
+    }
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取站点设置失败" });
+  }
+});
+
+router.put("/admin/settings", async (req, res) => {
+  try {
+    const updates = req.body as Record<string, string>;
+    for (const [key, value] of Object.entries(updates)) {
+      await db
+        .insert(siteSettingsTable)
+        .values({ key, value })
+        .onConflictDoUpdate({ target: siteSettingsTable.key, set: { value, updatedAt: new Date() } });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "保存站点设置失败" });
   }
 });
 
