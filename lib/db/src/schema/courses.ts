@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 
 export const courseCategoryEnum = pgEnum("course_category", ["tech", "strategy", "compliance", "operations"]);
 export const courseLevelEnum = pgEnum("course_level", ["C", "B", "A"]);
+export const courseStatusEnum = pgEnum("course_status", ["draft", "published", "closed"]);
+export const paymentStatusEnum = pgEnum("payment_status", ["free", "pending", "paid"]);
 
 export const coursesTable = pgTable("courses", {
   id: serial("id").primaryKey(),
@@ -17,7 +19,13 @@ export const coursesTable = pgTable("courses", {
   rating: real("rating"),
   learnersCount: integer("learners_count").notNull().default(0),
   isRequired: boolean("is_required").notNull().default(false),
+  status: courseStatusEnum("status").notNull().default("draft"),
+  price: real("price").notNull().default(0),
+  syllabusUrl: text("syllabus_url"),
+  instructor: varchar("instructor", { length: 100 }),
+  maxEnrollments: integer("max_enrollments"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const enrollmentsTable = pgTable("enrollments", {
@@ -26,11 +34,16 @@ export const enrollmentsTable = pgTable("enrollments", {
   userId: integer("user_id").notNull().references(() => usersTable.id),
   progressPct: integer("progress_pct").notNull().default(0),
   completedAt: timestamp("completed_at"),
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default("free"),
+  certIssued: boolean("cert_issued").notNull().default(false),
+  certIssuedAt: timestamp("cert_issued_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertEnrollmentSchema = createInsertSchema(enrollmentsTable).omit({ id: true, createdAt: true, completedAt: true });
+export const insertEnrollmentSchema = createInsertSchema(enrollmentsTable).omit({ id: true, createdAt: true, completedAt: true, certIssuedAt: true });
+export const insertCourseSchema = createInsertSchema(coursesTable).omit({ id: true, createdAt: true, updatedAt: true, learnersCount: true });
 
 export type InsertEnrollment = z.infer<typeof insertEnrollmentSchema>;
+export type InsertCourse = z.infer<typeof insertCourseSchema>;
 export type Course = typeof coursesTable.$inferSelect;
 export type Enrollment = typeof enrollmentsTable.$inferSelect;

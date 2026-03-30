@@ -13,6 +13,7 @@ import {
   CreditCard, Receipt, BadgeCheck, UserX, UserCheck,
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
+  Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,6 +47,32 @@ async function adminPatch(path: string, body: object) {
   if (!res.ok) {
     const b = await res.json().catch(() => ({}));
     throw new Error(b.error ?? "操作失败");
+  }
+  return res.json();
+}
+
+async function adminPost(path: string, body: object) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: getAdminHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(b.error ?? "操作失败");
+  }
+  return res.json();
+}
+
+async function adminPut(path: string, body: object) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "PUT",
+    headers: getAdminHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(b.error ?? "更新失败");
   }
   return res.json();
 }
@@ -782,97 +809,581 @@ function EcosystemManagement() {
 
 /* ─── Module: 认证培训管理 ─────────────────────── */
 
+interface AdminCourse {
+  id: number;
+  title: string;
+  category: string;
+  required_level: string;
+  duration_minutes: number;
+  description: string;
+  badge: string | null;
+  rating: number | null;
+  learners_count: number;
+  is_required: boolean;
+  status: string;
+  price: number;
+  syllabus_url: string | null;
+  instructor: string | null;
+  max_enrollments: number | null;
+  enrolled_count: number;
+  passed_count: number;
+  cert_issued_count: number;
+  total_revenue: number;
+}
+
 interface TrainingData {
-  courses: Array<{
-    id: number;
-    title: string;
-    category: string;
-    required_level: string;
-    duration_minutes: number;
-    description: string;
-    badge: string | null;
-    rating: number | null;
-    learners_count: number;
-    is_required: boolean;
-    enrolled_count: number;
-    passed_count: number;
-  }>;
+  courses: AdminCourse[];
   totalEnrollments: number;
   totalPassed: number;
+  totalCerts: number;
+  totalRevenue: number;
+}
+
+interface CourseEnrollment {
+  id: number;
+  user_id: number;
+  nickname: string;
+  email: string;
+  progress_pct: number;
+  completed_at: string | null;
+  payment_status: string;
+  cert_issued: boolean;
+  cert_issued_at: string | null;
+  created_at: string;
+}
+
+const CATEGORY_MAP: Record<string, string> = { tech: "技术", strategy: "战略", compliance: "合规", operations: "运营" };
+const STATUS_LABEL: Record<string, string> = { draft: "草稿", published: "开放报名", closed: "已结课" };
+const STATUS_COLOR: Record<string, string> = {
+  draft: "bg-amber-100 text-amber-700",
+  published: "bg-green-100 text-green-700",
+  closed: "bg-slate-100 text-slate-500",
+};
+const PAY_LABEL: Record<string, string> = { free: "免费", pending: "待支付", paid: "已支付" };
+const PAY_COLOR: Record<string, string> = { free: "bg-slate-100 text-slate-500", pending: "bg-amber-100 text-amber-700", paid: "bg-green-100 text-green-700" };
+
+type CourseForm = {
+  title: string; category: string; requiredLevel: string; durationMinutes: string;
+  description: string; badge: string; rating: string; isRequired: boolean;
+  status: string; price: string; syllabusUrl: string; instructor: string; maxEnrollments: string;
+};
+
+const BLANK_FORM: CourseForm = {
+  title: "", category: "tech", requiredLevel: "C", durationMinutes: "60",
+  description: "", badge: "", rating: "", isRequired: false,
+  status: "draft", price: "0", syllabusUrl: "", instructor: "", maxEnrollments: "",
+};
+
+function courseToForm(c: AdminCourse): CourseForm {
+  return {
+    title: c.title, category: c.category, requiredLevel: c.required_level,
+    durationMinutes: String(c.duration_minutes), description: c.description,
+    badge: c.badge ?? "", rating: c.rating != null ? String(c.rating) : "",
+    isRequired: c.is_required, status: c.status, price: String(c.price),
+    syllabusUrl: c.syllabus_url ?? "", instructor: c.instructor ?? "",
+    maxEnrollments: c.max_enrollments != null ? String(c.max_enrollments) : "",
+  };
+}
+
+function CourseModal({
+  open, onClose, onSave, initialForm, isEdit,
+}: {
+  open: boolean; onClose: () => void;
+  onSave: (form: CourseForm) => void;
+  initialForm: CourseForm; isEdit: boolean;
+}) {
+  const [form, setForm] = useState<CourseForm>(initialForm);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+  const fileRef = { current: null as HTMLInputElement | null };
+
+  useEffect(() => { if (open) setForm(initialForm); }, [open, initialForm]);
+
+  if (!open) return null;
+
+  const set = (k: keyof CourseForm, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSyllabusUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...Object.fromEntries(Object.entries(getAdminHeaders()).filter(([k]) => k !== "Content-Type")) },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!reqRes.ok) throw new Error("上传请求失败");
+      const { uploadURL, objectPath } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error("文件上传失败");
+      const url = `${BASE}/api/storage${objectPath}`;
+      set("syllabusUrl", url);
+      toast({ title: "课纲上传成功" });
+    } catch (e: unknown) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-800">{isEdit ? "编辑课程" : "新建课程"}</h2>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X size={18} /></button>
+        </div>
+        <div className="p-6 space-y-5">
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">课程名称 <span className="text-red-500">*</span></label>
+              <input value={form.title} onChange={e => set("title", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="请输入课程名称" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">课程分类</label>
+              <select value={form.category} onChange={e => set("category", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white">
+                <option value="tech">技术</option>
+                <option value="strategy">战略</option>
+                <option value="compliance">合规</option>
+                <option value="operations">运营</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">所需等级</label>
+              <select value={form.requiredLevel} onChange={e => set("requiredLevel", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white">
+                <option value="C">C级·新手</option>
+                <option value="B">B级·进阶</option>
+                <option value="A">A级·专家</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">发布状态</label>
+              <select value={form.status} onChange={e => set("status", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white">
+                <option value="draft">草稿</option>
+                <option value="published">开放报名</option>
+                <option value="closed">已结课</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">时长（分钟）</label>
+              <input type="number" value={form.durationMinutes} onChange={e => set("durationMinutes", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="60" min="0" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">价格（元）</label>
+              <input type="number" value={form.price} onChange={e => set("price", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="0 表示免费" min="0" step="0.01" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">最大报名人数</label>
+              <input type="number" value={form.maxEnrollments} onChange={e => set("maxEnrollments", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="不限制留空" min="1" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">讲师</label>
+              <input value={form.instructor} onChange={e => set("instructor", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="讲师姓名" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">徽章/标签</label>
+              <input value={form.badge} onChange={e => set("badge", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="如：热门、新课" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">课程简介</label>
+            <textarea value={form.description} onChange={e => set("description", e.target.value)}
+              rows={3}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+              placeholder="请输入课程简介..." />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">课纲文件（PDF/DOCX）</label>
+            <input ref={r => { fileRef.current = r; }} type="file" accept=".pdf,.doc,.docx" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleSyllabusUpload(f); }} />
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-500 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50">
+                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                {uploading ? "上传中..." : "上传课纲"}
+              </button>
+              {form.syllabusUrl ? (
+                <div className="flex items-center gap-2 flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                  <FileCheck size={16} className="text-secondary shrink-0" />
+                  <span className="text-xs text-slate-600 truncate flex-1">已上传课纲</span>
+                  <button onClick={() => set("syllabusUrl", "")} className="text-slate-400 hover:text-red-500 transition-colors"><X size={14} /></button>
+                </div>
+              ) : (
+                <input value={form.syllabusUrl} onChange={e => set("syllabusUrl", e.target.value)}
+                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="或直接填写课纲链接" />
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1">
+            <button type="button"
+              onClick={() => set("isRequired", !form.isRequired)}
+              className={`w-10 h-6 rounded-full transition-colors relative ${form.isRequired ? "bg-primary" : "bg-slate-200"}`}>
+              <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.isRequired ? "translate-x-4" : "translate-x-0"}`} />
+            </button>
+            <span className="text-sm font-semibold text-slate-700">设为必修课程</span>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 p-6 border-t border-slate-100">
+          <button onClick={onClose}
+            className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+            取消
+          </button>
+          <button onClick={() => onSave(form)}
+            disabled={!form.title.trim()}
+            className="px-5 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
+            <Save size={15} />
+            {isEdit ? "保存更改" : "创建课程"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: enrollments = [], isLoading } = useQuery<CourseEnrollment[]>({
+    queryKey: ["admin-course-enrollments", course.id],
+    queryFn: () => adminGet(`/api/admin/training/courses/${course.id}/enrollments`),
+  });
+
+  const payMutation = useMutation({
+    mutationFn: (enrollId: number) => adminPost(`/api/admin/training/enrollments/${enrollId}/pay`, {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-course-enrollments", course.id] }); toast({ title: "已确认支付" }); },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const certMutation = useMutation({
+    mutationFn: (enrollId: number) => adminPost(`/api/admin/training/enrollments/${enrollId}/issue-cert`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-course-enrollments", course.id] });
+      qc.invalidateQueries({ queryKey: ["admin-training"] });
+      toast({ title: "证书已发放" });
+    },
+    onError: (e: Error) => toast({ title: "发证失败", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">报名管理 · {course.title}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">共 {enrollments.length} 人报名</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X size={18} /></button>
+        </div>
+        <div className="overflow-auto flex-1">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                {["学员", "报名时间", "进度", "支付状态", "认证证书", "操作"].map(h => (
+                  <th key={h} className="px-5 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400">加载中...</td></tr>
+              ) : enrollments.length === 0 ? (
+                <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400">暂无报名记录</td></tr>
+              ) : enrollments.map(e => (
+                <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                  <td className="px-5 py-4">
+                    <div className="font-semibold text-slate-800">{e.nickname}</div>
+                    <div className="text-xs text-slate-400">{e.email}</div>
+                  </td>
+                  <td className="px-5 py-4 text-slate-500">{new Date(e.created_at).toLocaleDateString("zh-CN")}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${e.progress_pct}%` }} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-600">{e.progress_pct}%</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <StatusBadge label={PAY_LABEL[e.payment_status] ?? e.payment_status} color={PAY_COLOR[e.payment_status] ?? "bg-slate-100 text-slate-500"} />
+                  </td>
+                  <td className="px-5 py-4">
+                    {e.cert_issued ? (
+                      <div className="flex items-center gap-1.5">
+                        <Award size={14} className="text-secondary" />
+                        <span className="text-xs font-semibold text-secondary">已发证</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">未发证</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-1">
+                      {e.payment_status === "pending" && (
+                        <button
+                          onClick={() => payMutation.mutate(e.id)}
+                          disabled={payMutation.isPending}
+                          title="确认收款（演示）"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors disabled:opacity-50">
+                          <BadgeCent size={13} />
+                          确认收款
+                        </button>
+                      )}
+                      {!e.cert_issued && (e.payment_status === "free" || e.payment_status === "paid") && (
+                        <button
+                          onClick={() => certMutation.mutate(e.id)}
+                          disabled={certMutation.isPending}
+                          title="发放证书"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-secondary/10 text-secondary rounded-lg text-xs font-bold hover:bg-secondary/20 transition-colors disabled:opacity-50">
+                          <Award size={13} />
+                          发放证书
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TrainingManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editCourse, setEditCourse] = useState<AdminCourse | null>(null);
+  const [enrollCourse, setEnrollCourse] = useState<AdminCourse | null>(null);
 
   const { data, isLoading } = useQuery<TrainingData>({
     queryKey: ["admin-training"],
     queryFn: () => adminGet("/api/admin/training"),
   });
 
-  const mutate = useMutation({
+  const createMutation = useMutation({
+    mutationFn: (form: CourseForm) => adminPost("/api/admin/training/courses", {
+      title: form.title, category: form.category, requiredLevel: form.requiredLevel,
+      durationMinutes: Number(form.durationMinutes) || 60,
+      description: form.description, badge: form.badge || null,
+      rating: form.rating ? Number(form.rating) : null,
+      isRequired: form.isRequired, status: form.status,
+      price: Number(form.price) || 0,
+      syllabusUrl: form.syllabusUrl || null,
+      instructor: form.instructor || null,
+      maxEnrollments: form.maxEnrollments ? Number(form.maxEnrollments) : null,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-training"] });
+      toast({ title: "课程已创建" });
+      setModalOpen(false);
+    },
+    onError: (e: Error) => toast({ title: "创建失败", description: e.message, variant: "destructive" }),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, form }: { id: number; form: CourseForm }) => adminPut(`/api/admin/training/courses/${id}`, {
+      title: form.title, category: form.category, requiredLevel: form.requiredLevel,
+      durationMinutes: Number(form.durationMinutes) || 60,
+      description: form.description, badge: form.badge || null,
+      rating: form.rating ? Number(form.rating) : null,
+      isRequired: form.isRequired, status: form.status,
+      price: Number(form.price) || 0,
+      syllabusUrl: form.syllabusUrl || null,
+      instructor: form.instructor || null,
+      maxEnrollments: form.maxEnrollments ? Number(form.maxEnrollments) : null,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-training"] });
+      toast({ title: "课程已更新" });
+      setEditCourse(null);
+    },
+    onError: (e: Error) => toast({ title: "更新失败", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/training/courses/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-training"] }); toast({ title: "课程已删除" }); },
+    onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
+  });
+
+  const actionMutation = useMutation({
     mutationFn: ({ id, action }: { id: number; action: string }) =>
       adminPatch(`/api/admin/training/courses/${id}`, { action }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-training"] }); toast({ title: "操作成功" }); },
     onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
-  const statusCN: Record<string, string> = { published: "开放中", draft: "草稿", closed: "已结课" };
-  const statusColor = (s: string) => ({ published: "bg-green-100 text-green-700", draft: "bg-amber-100 text-amber-700", closed: "bg-slate-100 text-slate-500" }[s] ?? "bg-slate-100 text-slate-500");
+  const courses = data?.courses ?? [];
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="认证培训管理" sub="课程发布、报名管理、结业证书发放、认证自动同步" />
-      <div className="grid grid-cols-3 gap-5">
-        <StatCard label="必修课程数" value={(data?.courses.filter(c => c.is_required).length ?? 0).toString()} icon={BookOpen} />
+      <SectionHeader
+        title="认证培训管理"
+        sub="课程发布、分类管理、课纲上传、线上报名收款、证书发放与等级认证"
+        action={
+          <button onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
+            <Plus size={15} /> 新建课程
+          </button>
+        }
+      />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="开放课程数" value={courses.filter(c => c.status === "published").length.toString()} icon={BookOpen} />
         <StatCard label="总报名人次" value={(data?.totalEnrollments ?? 0).toString()} icon={Users} />
-        <StatCard label="证书已发放" value={(data?.totalPassed ?? 0).toString()} icon={Award} accent />
+        <StatCard label="证书已发放" value={(data?.totalCerts ?? 0).toString()} icon={Award} accent />
+        <StatCard label="课程收入(元)" value={(data?.totalRevenue ?? 0).toFixed(0)} icon={DollarSign} />
       </div>
-      <TableShell headers={["课程名称", "分类", "所需级别", "时长(分钟)", "报名人数", "通过人数", "通过率", "必修", "操作"]}>
-        {isLoading ? <LoadingRow cols={9} /> : (data?.courses ?? []).length === 0 ? <EmptyRow cols={9} /> :
-          data?.courses.map(c => (
+
+      <TableShell headers={["课程名称", "分类", "等级", "讲师", "时长", "价格", "状态", "报名/发证", "操作"]}>
+        {isLoading ? <LoadingRow cols={9} /> : courses.length === 0 ? <EmptyRow cols={9} /> :
+          courses.map(c => (
             <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-              <td className="px-6 py-4 font-bold text-sm text-blue-900 max-w-[200px]">
-                <span className="line-clamp-1">{c.title}</span>
+              <td className="px-5 py-4 max-w-[200px]">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-slate-800 line-clamp-1">{c.title}</div>
+                    {c.badge && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold">{c.badge}</span>}
+                  </div>
+                  {c.syllabus_url && (
+                    <a href={c.syllabus_url} target="_blank" rel="noreferrer" title="查看课纲" className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors shrink-0">
+                      <FileCheck size={13} />
+                    </a>
+                  )}
+                </div>
               </td>
-              <td className="px-6 py-4 text-xs text-slate-500">{c.category}</td>
-              <td className="px-6 py-4">
-                <StatusBadge label={`${c.required_level ?? "—"}级`} color="bg-primary/10 text-primary" />
+              <td className="px-5 py-4">
+                <StatusBadge label={CATEGORY_MAP[c.category] ?? c.category}
+                  color={({ tech: "bg-blue-100 text-blue-700", strategy: "bg-emerald-100 text-emerald-700", compliance: "bg-violet-100 text-violet-700", operations: "bg-orange-100 text-orange-700" })[c.category] ?? "bg-slate-100 text-slate-500"} />
               </td>
-              <td className="px-6 py-4 text-sm text-slate-500">{c.duration_minutes}</td>
-              <td className="px-6 py-4 text-sm font-medium text-blue-900">{Number(c.enrolled_count)}</td>
-              <td className="px-6 py-4 text-sm font-medium text-secondary">{Number(c.passed_count)}</td>
-              <td className="px-6 py-4">
-                {Number(c.enrolled_count) > 0 ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <td className="px-5 py-4">
+                <StatusBadge label={c.required_level + "级"} color="bg-primary/10 text-primary" />
+                {c.is_required && <StatusBadge label="必修" color="bg-red-100 text-red-600" />}
+              </td>
+              <td className="px-5 py-4 text-xs text-slate-500">{c.instructor || "—"}</td>
+              <td className="px-5 py-4 text-xs text-slate-500">{c.duration_minutes}分钟</td>
+              <td className="px-5 py-4 text-sm font-bold text-slate-700">
+                {Number(c.price) === 0 ? <span className="text-secondary font-bold">免费</span> : `¥${Number(c.price).toFixed(0)}`}
+              </td>
+              <td className="px-5 py-4">
+                <StatusBadge label={STATUS_LABEL[c.status] ?? c.status} color={STATUS_COLOR[c.status] ?? "bg-slate-100 text-slate-500"} />
+              </td>
+              <td className="px-5 py-4">
+                <button onClick={() => setEnrollCourse(c)}
+                  className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline">
+                  <ClipboardList size={13} />
+                  {Number(c.enrolled_count)}人报名 / {Number(c.cert_issued_count)}证书
+                </button>
+                {Number(c.enrolled_count) > 0 && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="w-14 h-1 bg-slate-100 rounded-full overflow-hidden">
                       <div className="h-full bg-secondary rounded-full" style={{ width: `${Math.round(Number(c.passed_count) / Number(c.enrolled_count) * 100)}%` }} />
                     </div>
-                    <span className="text-xs font-bold text-secondary">{Math.round(Number(c.passed_count) / Number(c.enrolled_count) * 100)}%</span>
+                    <span className="text-[10px] text-slate-400">{Math.round(Number(c.passed_count) / Number(c.enrolled_count) * 100)}%通过</span>
                   </div>
-                ) : <span className="text-xs text-slate-400">—</span>}
+                )}
               </td>
-              <td className="px-6 py-4"><StatusBadge label={c.is_required ? "必修" : "选修"} color={c.is_required ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"} /></td>
-              <td className="px-6 py-4">
+              <td className="px-5 py-4">
                 <div className="flex items-center gap-1">
-                  {!c.is_required && (
-                    <button onClick={() => mutate.mutate({ id: c.id, action: "publish" })}
-                      title="设为必修" className="p-2 rounded-xl hover:bg-green-50 text-slate-400 hover:text-secondary transition-colors">
-                      <PlayCircle size={15} />
+                  <button onClick={() => setEditCourse(c)} title="编辑"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-primary transition-colors">
+                    <Edit2 size={13} />
+                  </button>
+                  {c.status === "draft" && (
+                    <button onClick={() => actionMutation.mutate({ id: c.id, action: "publish" })} title="发布课程"
+                      className="p-1.5 rounded-lg hover:bg-green-50 text-slate-400 hover:text-green-600 transition-colors">
+                      <PlayCircle size={13} />
+                    </button>
+                  )}
+                  {c.status === "published" && (
+                    <button onClick={() => actionMutation.mutate({ id: c.id, action: "close" })} title="结课"
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+                      <XCircle size={13} />
+                    </button>
+                  )}
+                  {!c.is_required && c.status === "published" && (
+                    <button onClick={() => actionMutation.mutate({ id: c.id, action: "required" })} title="设为必修"
+                      className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
+                      <Star size={13} />
                     </button>
                   )}
                   {c.is_required && (
-                    <button onClick={() => mutate.mutate({ id: c.id, action: "close" })}
-                      title="取消必修" className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
-                      <XCircle size={15} />
+                    <button onClick={() => actionMutation.mutate({ id: c.id, action: "optional" })} title="取消必修"
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+                      <Star size={13} className="fill-amber-400 text-amber-400" />
                     </button>
                   )}
+                  <button onClick={() => {
+                    if (confirm(`确定要删除课程「${c.title}」吗？此操作不可恢复。`)) {
+                      deleteMutation.mutate(c.id);
+                    }
+                  }} title="删除"
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </td>
             </tr>
           ))
         }
       </TableShell>
+
+      <CourseModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={(form) => createMutation.mutate(form)}
+        initialForm={BLANK_FORM}
+        isEdit={false}
+      />
+
+      {editCourse && (
+        <CourseModal
+          open={true}
+          onClose={() => setEditCourse(null)}
+          onSave={(form) => editMutation.mutate({ id: editCourse.id, form })}
+          initialForm={courseToForm(editCourse)}
+          isEdit={true}
+        />
+      )}
+
+      {enrollCourse && (
+        <EnrollmentPanel
+          course={enrollCourse}
+          onClose={() => setEnrollCourse(null)}
+        />
+      )}
     </div>
   );
 }

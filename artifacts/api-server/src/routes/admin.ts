@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, siteSettingsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, siteSettingsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 
@@ -390,9 +390,16 @@ router.get("/admin/training", async (_req, res) => {
         c.rating,
         c.learners_count,
         c.is_required,
+        c.status,
+        c.price,
+        c.syllabus_url,
+        c.instructor,
+        c.max_enrollments,
         c.created_at,
         COUNT(e.id) AS enrolled_count,
-        COUNT(e.id) FILTER (WHERE e.completed_at IS NOT NULL) AS passed_count
+        COUNT(e.id) FILTER (WHERE e.completed_at IS NOT NULL) AS passed_count,
+        COUNT(e.id) FILTER (WHERE e.cert_issued = true) AS cert_issued_count,
+        COALESCE(SUM(CASE WHEN e.payment_status = 'paid' THEN c.price ELSE 0 END), 0) AS total_revenue
       FROM courses c
       LEFT JOIN enrollments e ON e.course_id = c.id
       GROUP BY c.id
@@ -400,7 +407,12 @@ router.get("/admin/training", async (_req, res) => {
     `);
 
     const statsRows = await db.execute(sql`
-      SELECT COUNT(*) AS total_enrollments, COUNT(*) FILTER (WHERE completed_at IS NOT NULL) AS total_passed FROM enrollments
+      SELECT
+        COUNT(*) AS total_enrollments,
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL) AS total_passed,
+        COUNT(*) FILTER (WHERE cert_issued = true) AS total_certs,
+        COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN (SELECT price FROM courses WHERE id = course_id) ELSE 0 END), 0) AS total_revenue
+      FROM enrollments
     `);
     const enrollStats = (statsRows.rows as Array<Record<string, unknown>>)[0];
 
@@ -408,10 +420,86 @@ router.get("/admin/training", async (_req, res) => {
       courses: rows.rows,
       totalEnrollments: Number(enrollStats?.total_enrollments ?? 0),
       totalPassed: Number(enrollStats?.total_passed ?? 0),
+      totalCerts: Number(enrollStats?.total_certs ?? 0),
+      totalRevenue: Number(enrollStats?.total_revenue ?? 0),
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取培训数据失败" });
+  }
+});
+
+router.post("/admin/training/courses", async (req, res) => {
+  try {
+    const {
+      title, category, requiredLevel, durationMinutes, description,
+      badge, rating, isRequired, status, price, syllabusUrl, instructor, maxEnrollments,
+    } = req.body as Record<string, unknown>;
+
+    const [course] = await db.insert(coursesTable).values({
+      title: String(title || ""),
+      category: (category as "tech" | "strategy" | "compliance" | "operations") || "tech",
+      requiredLevel: (requiredLevel as "C" | "B" | "A") || "C",
+      durationMinutes: Number(durationMinutes || 60),
+      description: String(description || ""),
+      badge: badge ? String(badge) : null,
+      rating: rating != null ? Number(rating) : null,
+      isRequired: Boolean(isRequired),
+      status: (status as "draft" | "published" | "closed") || "draft",
+      price: Number(price || 0),
+      syllabusUrl: syllabusUrl ? String(syllabusUrl) : null,
+      instructor: instructor ? String(instructor) : null,
+      maxEnrollments: maxEnrollments != null ? Number(maxEnrollments) : null,
+    }).returning();
+
+    res.status(201).json(course);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "创建课程失败" });
+  }
+});
+
+router.put("/admin/training/courses/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const {
+      title, category, requiredLevel, durationMinutes, description,
+      badge, rating, isRequired, status, price, syllabusUrl, instructor, maxEnrollments,
+    } = req.body as Record<string, unknown>;
+
+    await db.update(coursesTable).set({
+      title: String(title || ""),
+      category: (category as "tech" | "strategy" | "compliance" | "operations") || "tech",
+      requiredLevel: (requiredLevel as "C" | "B" | "A") || "C",
+      durationMinutes: Number(durationMinutes || 60),
+      description: String(description || ""),
+      badge: badge ? String(badge) : null,
+      rating: rating != null ? Number(rating) : null,
+      isRequired: Boolean(isRequired),
+      status: (status as "draft" | "published" | "closed") || "draft",
+      price: Number(price || 0),
+      syllabusUrl: syllabusUrl ? String(syllabusUrl) : null,
+      instructor: instructor ? String(instructor) : null,
+      maxEnrollments: maxEnrollments != null ? Number(maxEnrollments) : null,
+      updatedAt: new Date(),
+    }).where(eq(coursesTable.id, id));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "更新课程失败" });
+  }
+});
+
+router.delete("/admin/training/courses/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await db.delete(enrollmentsTable).where(eq(enrollmentsTable.courseId, id));
+    await db.delete(coursesTable).where(eq(coursesTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "删除课程失败" });
   }
 });
 
@@ -421,9 +509,15 @@ router.patch("/admin/training/courses/:id", async (req, res) => {
     const { action } = req.body as { action: string };
 
     if (action === "publish") {
-      await db.execute(sql`UPDATE courses SET is_required = true WHERE id = ${id}`);
-    } else if (action === "close" || action === "draft") {
-      await db.execute(sql`UPDATE courses SET is_required = false WHERE id = ${id}`);
+      await db.update(coursesTable).set({ status: "published", isRequired: false }).where(eq(coursesTable.id, id));
+    } else if (action === "draft") {
+      await db.update(coursesTable).set({ status: "draft" }).where(eq(coursesTable.id, id));
+    } else if (action === "close") {
+      await db.update(coursesTable).set({ status: "closed" }).where(eq(coursesTable.id, id));
+    } else if (action === "required") {
+      await db.update(coursesTable).set({ isRequired: true, status: "published" }).where(eq(coursesTable.id, id));
+    } else if (action === "optional") {
+      await db.update(coursesTable).set({ isRequired: false }).where(eq(coursesTable.id, id));
     } else {
       return res.status(400).json({ error: "无效操作" });
     }
@@ -432,6 +526,56 @@ router.patch("/admin/training/courses/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "操作失败" });
+  }
+});
+
+router.get("/admin/training/courses/:id/enrollments", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const rows = await db.execute(sql`
+      SELECT
+        e.id, e.user_id, e.progress_pct, e.completed_at,
+        e.payment_status, e.cert_issued, e.cert_issued_at, e.created_at,
+        u.nickname, u.email
+      FROM enrollments e
+      JOIN users u ON u.id = e.user_id
+      WHERE e.course_id = ${id}
+      ORDER BY e.created_at DESC
+    `);
+    res.json(rows.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取报名列表失败" });
+  }
+});
+
+router.post("/admin/training/enrollments/:enrollId/pay", async (req, res) => {
+  try {
+    const enrollId = Number(req.params.enrollId);
+    await db.update(enrollmentsTable)
+      .set({ paymentStatus: "paid" })
+      .where(eq(enrollmentsTable.id, enrollId));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "操作失败" });
+  }
+});
+
+router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res) => {
+  try {
+    const enrollId = Number(req.params.enrollId);
+    const [enroll] = await db.select().from(enrollmentsTable).where(eq(enrollmentsTable.id, enrollId));
+    if (!enroll) return res.status(404).json({ error: "报名记录不存在" });
+
+    await db.update(enrollmentsTable)
+      .set({ certIssued: true, certIssuedAt: new Date(), completedAt: enroll.completedAt ?? new Date() })
+      .where(eq(enrollmentsTable.id, enrollId));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "发证失败" });
   }
 });
 

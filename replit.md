@@ -48,7 +48,7 @@ OPC (One Person Company) matching/trading platform connecting demand publishers 
 - Secondary color: green (#006b5a)
 - Enterprise professional feel with glassmorphism elements
 
-### Database Schema (8 tables)
+### Database Schema (10 tables)
 - `users` - Platform users (roles: opc, publisher, admin)
 - `opc_profiles` - OPC freelancer profiles with levels (C/B/A), skills, ratings
 - `demands` - Published project demands with types, budgets, deadlines
@@ -57,6 +57,8 @@ OPC (One Person Company) matching/trading platform connecting demand publishers 
 - `deliverables` - Order deliverable submissions
 - `portfolios` - OPC portfolio/work samples
 - `notifications` - User notifications
+- `courses` - Training courses (title, category, level, price, syllabusUrl, instructor, status: draft/published/closed)
+- `enrollments` - OPC course enrollments (progressPct, paymentStatus: free/pending/paid, certIssued)
 
 ### Demand Types
 ai_education, gov_training, ai_research, party_building, livestream_media, ai_tool_dev, other

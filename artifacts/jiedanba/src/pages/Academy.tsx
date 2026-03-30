@@ -3,7 +3,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, Star, Lock, Trophy, FileText, Video,
   Download, ChevronRight, Zap, Cpu, ShieldCheck,
-  BookOpen, ArrowRight, PlayCircle, Loader2,
+  BookOpen, ArrowRight, PlayCircle, Loader2, Award,
+  CreditCard, BadgeCheck, AlertCircle,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetOpcProfile,
@@ -11,6 +12,8 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Course } from "@workspace/api-client-react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /* ─── Static Data ─────────────────────────────── */
 
@@ -96,21 +99,38 @@ function durationLabel(minutes: number) {
 
 /* ─── Course Card ────────────────────────────────── */
 
+type EnrollmentInfo = {
+  progressPct: number;
+  paymentStatus: string;
+  certIssued: boolean;
+};
+
 function CourseCard({
   course,
-  enrolledPct,
+  enrollment,
   isEnrolling,
+  isPaying,
   onEnroll,
+  onPay,
 }: {
   course: Course;
-  enrolledPct: number | null;
+  enrollment: EnrollmentInfo | null;
   isEnrolling: boolean;
+  isPaying: boolean;
   onEnroll: (courseId: number) => void;
+  onPay: (courseId: number) => void;
 }) {
   const Icon = COURSE_ICONS[course.category] ?? Cpu;
   const grad = COURSE_GRADS[course.category] ?? "from-blue-700 to-indigo-900";
   const catLabel = CATEGORY_LABELS[course.category] ?? "其他";
-  const isEnrolled = enrolledPct !== null;
+  const isEnrolled = enrollment !== null;
+  const enrolledPct = enrollment?.progressPct ?? null;
+  const paymentStatus = enrollment?.paymentStatus;
+  const certIssued = enrollment?.certIssued ?? false;
+  const coursePrice = (course as Course & { price?: number }).price ?? 0;
+  const syllabusUrl = (course as Course & { syllabusUrl?: string | null }).syllabusUrl;
+  const instructor = (course as Course & { instructor?: string | null }).instructor;
+  const needsPay = paymentStatus === "pending";
 
   return (
     <div className="group bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 border border-border/40">
@@ -120,6 +140,11 @@ function CourseCard({
         {course.badge && (
           <div className="absolute top-4 right-4 bg-primary text-white text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider">
             {course.badge}
+          </div>
+        )}
+        {certIssued && (
+          <div className="absolute top-4 left-4 bg-[#4dffb2] text-[#002112] text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider flex items-center gap-1">
+            <Award size={11} /> 已认证
           </div>
         )}
         {isEnrolled && (
@@ -133,36 +158,72 @@ function CourseCard({
         <div className="flex items-center gap-2 mb-3">
           <span className="bg-secondary/15 text-secondary text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">{catLabel}</span>
           <span className="text-muted-foreground text-xs font-medium">{durationLabel(course.durationMinutes)}</span>
+          {instructor && <span className="text-muted-foreground text-xs">· {instructor}</span>}
           {isEnrolled && <span className="ml-auto text-xs text-secondary font-bold">{enrolledPct}% 已完成</span>}
         </div>
-        <h4 className="text-lg font-bold font-display mb-2 leading-tight text-foreground">{course.title}</h4>
+        <h4 className="text-lg font-bold font-display mb-1 leading-tight text-foreground">{course.title}</h4>
         <p className="text-xs text-muted-foreground leading-relaxed mb-4 line-clamp-2">{course.description}</p>
 
-        <div className="flex items-center justify-between">
-          <div>
-            {course.rating ? (
-              <div className="flex items-center gap-1 text-xs text-secondary font-bold">
-                <Star size={12} className="fill-secondary" />
-                {course.rating} {course.learnersCount ? `(${course.learnersCount.toLocaleString()})` : ""}
-              </div>
-            ) : course.learnersCount ? (
-              <span className="text-xs text-muted-foreground">{course.learnersCount.toLocaleString()} 学员</span>
-            ) : null}
+        {needsPay && (
+          <div className="mb-3 flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+            <AlertCircle size={14} className="text-amber-500 shrink-0" />
+            <span className="text-xs text-amber-700 font-semibold">已报名，请完成支付以解锁课程</span>
           </div>
-          <button
-            onClick={() => onEnroll(course.id)}
-            disabled={isEnrolling}
-            className="text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all disabled:opacity-50"
-          >
-            {isEnrolling ? (
-              <><Loader2 size={14} className="animate-spin" /> 报名中</>
-            ) : isEnrolled ? (
-              <><PlayCircle size={14} /> 继续学习</>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {coursePrice > 0 ? (
+              <span className="text-base font-extrabold text-primary">¥{coursePrice.toFixed(0)}</span>
             ) : (
-              <>开始学习 <ArrowRight size={14} /></>
+              <span className="text-sm font-bold text-secondary">免费</span>
             )}
-          </button>
+            {syllabusUrl && (
+              <a href={syllabusUrl} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                title="下载课纲">
+                <Download size={12} /> 课纲
+              </a>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {certIssued && (
+              <div className="flex items-center gap-1 text-secondary text-xs font-bold">
+                <BadgeCheck size={14} /> 持证
+              </div>
+            )}
+            {needsPay ? (
+              <button
+                onClick={() => onPay(course.id)}
+                disabled={isPaying}
+                className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white font-bold text-xs rounded-xl hover:bg-amber-600 transition-all disabled:opacity-50"
+              >
+                {isPaying ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
+                立即支付
+              </button>
+            ) : (
+              <button
+                onClick={() => onEnroll(course.id)}
+                disabled={isEnrolling}
+                className="text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all disabled:opacity-50"
+              >
+                {isEnrolling ? (
+                  <><Loader2 size={14} className="animate-spin" /> 报名中</>
+                ) : isEnrolled ? (
+                  <><PlayCircle size={14} /> 继续学习</>
+                ) : (
+                  <>开始学习 <ArrowRight size={14} /></>
+                )}
+              </button>
+            )}
+          </div>
         </div>
+        {course.rating != null && (
+          <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-1 text-xs text-secondary font-bold">
+            <Star size={11} className="fill-secondary" />
+            {course.rating} {course.learnersCount ? `(${course.learnersCount.toLocaleString()} 学员)` : ""}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -200,10 +261,15 @@ export default function Academy() {
     { query: { enabled: !!user?.id } }
   );
 
-  const enrollmentMap = new Map(enrollments.map(e => [e.courseId, e.progressPct]));
+  const enrollmentMap = new Map(enrollments.map(e => [e.courseId, {
+    progressPct: e.progressPct,
+    paymentStatus: (e as typeof e & { paymentStatus?: string }).paymentStatus ?? "free",
+    certIssued: (e as typeof e & { certIssued?: boolean }).certIssued ?? false,
+  } as EnrollmentInfo]));
 
   const { mutateAsync: enrollCourse } = useEnrollCourse();
   const { toast } = useToast();
+  const [payingId, setPayingId] = useState<number | null>(null);
 
   const handleEnroll = async (courseId: number) => {
     if (!user?.id) {
@@ -214,12 +280,33 @@ export default function Academy() {
     try {
       await enrollCourse({ courseId, data: { userId: user.id } });
       qc.invalidateQueries({ queryKey: ["/courses/my-enrollments"] });
+      toast({ title: "报名成功", description: "已加入课程，开始学习吧" });
     } finally {
       setEnrollingId(null);
     }
   };
 
+  const handlePay = async (courseId: number) => {
+    if (!user?.id) return;
+    setPayingId(courseId);
+    try {
+      const res = await fetch(`${BASE}/api/courses/${courseId}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.id}` },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (!res.ok) throw new Error("支付失败");
+      qc.invalidateQueries({ queryKey: ["/courses/my-enrollments"] });
+      toast({ title: "支付成功", description: "恭喜！课程已解锁，开始学习吧" });
+    } catch {
+      toast({ title: "支付处理中", description: "演示模式：请联系管理员确认收款", variant: "destructive" });
+    } finally {
+      setPayingId(null);
+    }
+  };
+
   const inProgress = enrollments.filter(e => e.progressPct > 0 && e.progressPct < 100).slice(0, 2);
+  const certCount = enrollments.filter(e => (e as typeof e & { certIssued?: boolean }).certIssued).length;
 
   return (
     <div className="space-y-12">
@@ -323,9 +410,11 @@ export default function Academy() {
                   <CourseCard
                     key={course.id}
                     course={course}
-                    enrolledPct={enrollmentMap.has(course.id) ? enrollmentMap.get(course.id)! : null}
+                    enrollment={enrollmentMap.get(course.id) ?? null}
                     isEnrolling={enrollingId === course.id}
+                    isPaying={payingId === course.id}
                     onEnroll={handleEnroll}
+                    onPay={handlePay}
                   />
                 ))}
               </div>
