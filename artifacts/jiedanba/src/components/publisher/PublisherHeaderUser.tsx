@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { UserCircle, LogOut, ChevronDown, KeyRound } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { usePublisherCompanyLogo } from "@/hooks/use-publisher-profile";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 interface Props {
@@ -10,7 +11,8 @@ interface Props {
 
 export function PublisherHeaderUser({ onLogout }: Props) {
   const [, navigate] = useLocation();
-  const { nickname, avatarChar, roleLabel } = useCurrentUser();
+  const { userId, nickname, avatarChar, roleLabel } = useCurrentUser();
+  const companyLogo = usePublisherCompanyLogo(userId);
   const [open, setOpen] = useState(false);
   const [showChangePw, setShowChangePw] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -36,8 +38,10 @@ export function PublisherHeaderUser({ onLogout }: Props) {
         className="flex items-center gap-1 group"
         aria-label="用户菜单"
       >
-        <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm group-hover:bg-primary/20 transition-colors">
-          {avatarChar}
+        <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary text-sm group-hover:bg-primary/20 transition-colors overflow-hidden">
+          {companyLogo
+            ? <img src={companyLogo} alt={nickname || "logo"} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+            : avatarChar}
         </div>
         <ChevronDown
           size={14}

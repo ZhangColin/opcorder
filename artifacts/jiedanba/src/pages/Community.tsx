@@ -13,6 +13,7 @@ import {
   useListPostComments, useCreatePostComment,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePublisherCompanyLogo } from "@/hooks/use-publisher-profile";
 
 /* ─── Static sidebar data ────────────────────── */
 
@@ -499,6 +500,7 @@ export default function Community() {
 
   const { data: user }        = useGetCurrentUser();
   const { data: opcProfile }  = useGetOpcProfile(user?.id ?? 0, { query: { enabled: !!user?.id && role === "opc" } });
+  const publisherLogo         = usePublisherCompanyLogo(role === "publisher" ? user?.id : null);
   const { data: leaderboard } = useGetOpcLeaderboard({ limit: 3 });
 
   const { data: postsData, isLoading: postsLoading } = useListPosts({ sort: feedTab, ...(searchQuery ? { search: searchQuery } as any : {}) });
@@ -575,7 +577,11 @@ export default function Community() {
             </div>
             <button onClick={() => requireLogin()} className="p-2 text-blue-900 hover:bg-slate-50 rounded-full transition-colors"><Bell size={20} /></button>
             {!isGuest && user?.nickname ? (
-              <UserBadge nickname={user.nickname} role={role ?? "opc"} avatar={opcProfile?.avatar ?? null} />
+              <UserBadge
+                nickname={user.nickname}
+                role={role ?? "opc"}
+                avatar={role === "publisher" ? publisherLogo : (opcProfile?.avatar ?? null)}
+              />
             ) : isGuest ? (
               <Link href="/login">
                 <div className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-full text-sm font-bold cursor-pointer hover:bg-primary/90 transition-colors">

@@ -12,6 +12,8 @@ export const publisherProfilesTable = pgTable("publisher_profiles", {
   foundedYear: varchar("founded_year", { length: 10 }),
   website: varchar("website", { length: 500 }),
   contactEmail: varchar("contact_email", { length: 200 }),
+  creditCode: varchar("credit_code", { length: 100 }),
+  companyLogo: text("company_logo"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, Building2, MapPin, Users, Calendar, Globe,
   Mail, Phone, Pencil, Save, X, CheckCircle, Briefcase,
-  ChevronRight, PlusCircle,
+  ChevronRight, PlusCircle, Upload, Loader2, Hash,
 } from "lucide-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from "@/components/publisher/PublisherHeaderUser";
@@ -37,6 +37,8 @@ interface PublisherProfileData {
   foundedYear: string | null;
   website: string | null;
   contactEmail: string | null;
+  creditCode: string | null;
+  companyLogo: string | null;
 }
 
 function Field({ label, icon: Icon, value, placeholder }: {
@@ -77,7 +79,11 @@ export default function PublisherProfile() {
     foundedYear: "",
     website: "",
     contactEmail: "",
+    creditCode: "",
+    companyLogo: "",
   });
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const logout = () => {
     localStorage.removeItem("jdb_role");
@@ -106,6 +112,8 @@ export default function PublisherProfile() {
           foundedYear: data.foundedYear ?? "",
           website: data.website ?? "",
           contactEmail: data.contactEmail ?? "",
+          creditCode: data.creditCode ?? "",
+          companyLogo: data.companyLogo ?? "",
         });
       })
       .finally(() => setLoading(false));
@@ -165,6 +173,24 @@ export default function PublisherProfile() {
   const f = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }));
 
+  const handleLogoUpload = async (file: File) => {
+    if (!userId) return;
+    setLogoUploading(true);
+    try {
+      const reqRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${userId}` },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      const { uploadURL, objectPath } = await reqRes.json();
+      await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      const logoUrl = `${API_BASE}/api/storage${objectPath}`;
+      setForm(prev => ({ ...prev, companyLogo: logoUrl }));
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   const displayName = editing ? form.nickname : (profile?.nickname ?? localNickname ?? "发单方");
   const avatarChar = displayName.slice(0, 1).toUpperCase();
 
@@ -193,8 +219,10 @@ export default function PublisherProfile() {
           {/* Page Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
             <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center text-white text-3xl font-extrabold shadow-lg shadow-primary/20">
-                {avatarChar}
+              <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center text-white text-3xl font-extrabold shadow-lg shadow-primary/20 overflow-hidden">
+                {(editing ? form.companyLogo : profile?.companyLogo)
+                  ? <img src={editing ? form.companyLogo : profile!.companyLogo!} alt="企业logo" className="w-full h-full object-cover" />
+                  : avatarChar}
               </div>
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">发单方</p>
@@ -218,7 +246,7 @@ export default function PublisherProfile() {
               ) : (
                 <>
                   <button
-                    onClick={() => { setEditing(false); setForm({ nickname: profile?.nickname ?? "", phone: profile?.phone ?? "", companyDesc: profile?.companyDesc ?? "", location: profile?.location ?? "", industry: profile?.industry ?? "", teamSize: profile?.teamSize ?? "", foundedYear: profile?.foundedYear ?? "", website: profile?.website ?? "", contactEmail: profile?.contactEmail ?? "" }); }}
+                    onClick={() => { setEditing(false); setForm({ nickname: profile?.nickname ?? "", phone: profile?.phone ?? "", companyDesc: profile?.companyDesc ?? "", location: profile?.location ?? "", industry: profile?.industry ?? "", teamSize: profile?.teamSize ?? "", foundedYear: profile?.foundedYear ?? "", website: profile?.website ?? "", contactEmail: profile?.contactEmail ?? "", creditCode: profile?.creditCode ?? "", companyLogo: profile?.companyLogo ?? "" }); }}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
                   >
                     <X size={15} />
@@ -257,6 +285,9 @@ export default function PublisherProfile() {
                   {!editing ? (
                     <div className="space-y-5">
                       <Field label="公司名称" icon={Building2} value={profile?.nickname} />
+                      {profile?.creditCode && (
+                        <Field label="统一社会信用代码" icon={Hash} value={profile.creditCode} />
+                      )}
                       <Field label="所在地区" icon={MapPin} value={profile?.location} placeholder="未填写" />
                       <Field label="所属行业" icon={Briefcase} value={profile?.industry} placeholder="未填写" />
                       <Field label="团队规模" icon={Users} value={profile?.teamSize} placeholder="未填写" />
@@ -267,8 +298,37 @@ export default function PublisherProfile() {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {/* 企业 Logo 上传 */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">企业 Logo</label>
+                        <div
+                          className="flex items-center gap-4 p-3 bg-white border border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-primary/50 transition-colors"
+                          onClick={() => logoInputRef.current?.click()}
+                        >
+                          <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center flex-shrink-0">
+                            {form.companyLogo
+                              ? <img src={form.companyLogo} alt="logo" className="w-full h-full object-cover" />
+                              : <Building2 size={22} className="text-slate-400" />}
+                          </div>
+                          <div className="min-w-0">
+                            {logoUploading
+                              ? <span className="flex items-center gap-1.5 text-sm text-primary font-semibold"><Loader2 size={14} className="animate-spin" />上传中…</span>
+                              : <span className="flex items-center gap-1.5 text-sm text-slate-500 font-semibold"><Upload size={14} />{form.companyLogo ? "重新上传" : "点击上传图片"}</span>}
+                            <p className="text-[10px] text-slate-400 mt-0.5">支持 JPG / PNG，建议正方形</p>
+                          </div>
+                        </div>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => { const file = e.target.files?.[0]; if (file) handleLogoUpload(file); }}
+                        />
+                      </div>
+
                       {[
                         { label: "公司名称", key: "nickname" as const, placeholder: "公司/机构名称" },
+                        { label: "统一社会信用代码", key: "creditCode" as const, placeholder: "如：91440300XXXXXXXXXX" },
                         { label: "所在地区", key: "location" as const, placeholder: "如：深圳市南山区" },
                         { label: "所属行业", key: "industry" as const, placeholder: "如：AI 教育、政府培训" },
                         { label: "成立年份", key: "foundedYear" as const, placeholder: "如：2018" },

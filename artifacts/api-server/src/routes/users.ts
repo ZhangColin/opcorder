@@ -200,6 +200,8 @@ router.get("/users/:userId/publisher-profile", async (req, res) => {
       foundedYear: profile?.foundedYear ?? null,
       website: profile?.website ?? null,
       contactEmail: profile?.contactEmail ?? null,
+      creditCode: profile?.creditCode ?? null,
+      companyLogo: profile?.companyLogo ?? null,
     });
   } catch {
     res.status(500).json({ error: "Failed to fetch publisher profile" });
@@ -209,7 +211,7 @@ router.get("/users/:userId/publisher-profile", async (req, res) => {
 router.patch("/users/:userId/publisher-profile", async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const { nickname, phone, companyDesc, location, industry, teamSize, foundedYear, website, contactEmail } = req.body;
+    const { nickname, phone, companyDesc, location, industry, teamSize, foundedYear, website, contactEmail, creditCode, companyLogo } = req.body;
 
     if (nickname !== undefined || phone !== undefined) {
       const userUpdate: Record<string, unknown> = {};
@@ -226,6 +228,8 @@ router.patch("/users/:userId/publisher-profile", async (req, res) => {
     if (foundedYear  !== undefined) profileUpdate.foundedYear  = foundedYear;
     if (website      !== undefined) profileUpdate.website      = website;
     if (contactEmail !== undefined) profileUpdate.contactEmail = contactEmail;
+    if (creditCode   !== undefined) profileUpdate.creditCode   = creditCode;
+    if (companyLogo  !== undefined) profileUpdate.companyLogo  = companyLogo;
 
     const [existing] = await db.select({ userId: publisherProfilesTable.userId })
       .from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, userId)).limit(1);
@@ -253,6 +257,8 @@ router.patch("/users/:userId/publisher-profile", async (req, res) => {
       foundedYear: updatedProfile?.foundedYear ?? null,
       website: updatedProfile?.website ?? null,
       contactEmail: updatedProfile?.contactEmail ?? null,
+      creditCode: updatedProfile?.creditCode ?? null,
+      companyLogo: updatedProfile?.companyLogo ?? null,
     });
   } catch (err) {
     console.error("Update publisher profile error:", err);
