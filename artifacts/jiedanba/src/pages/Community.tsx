@@ -289,13 +289,14 @@ function CommentsPanel({ postId, userId, isGuest, onRequireLogin }: {
         <div className="space-y-3">
           {comments.map(c => (
             <div key={c.id} className="flex gap-3">
-              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
-                {(c.authorName ?? "匿名").slice(0, 1)}
-              </div>
+              <AuthorAvatar name={c.authorName ?? "匿名"} avatar={(c as any).authorAvatar} size="sm" />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-bold text-primary">{c.authorName}</span>
-                  <span className="text-[10px] text-slate-400">{new Date(c.createdAt).toLocaleDateString("zh-CN")}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${roleCls((c as any).authorRole ?? "opc")}`}>
+                    {roleLabel((c as any).authorRole ?? "opc")}
+                  </span>
+                  <span className="text-[10px] text-slate-400 ml-auto">{new Date(c.createdAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <p className="text-sm text-slate-600 mt-0.5">{c.content}</p>
               </div>
@@ -334,16 +335,28 @@ function CommentsPanel({ postId, userId, isGuest, onRequireLogin }: {
 
 type FeedTab = "latest" | "hot";
 
-function levelLabel(level: string) {
-  if (level === "A") return "A级 · 专家";
-  if (level === "B") return "B级 · 进阶";
-  return "C级 · 新手";
+function roleLabel(role: string) {
+  if (role === "publisher") return "发单方";
+  if (role === "admin") return "管理员";
+  return "OPC";
 }
 
-function levelCls(level: string) {
-  if (level === "A") return "bg-amber-100 text-amber-700";
-  if (level === "B") return "bg-blue-100 text-blue-700";
-  return "bg-slate-100 text-slate-500";
+function roleCls(role: string) {
+  if (role === "publisher") return "bg-emerald-100 text-emerald-700";
+  if (role === "admin") return "bg-amber-100 text-amber-700";
+  return "bg-primary/10 text-primary";
+}
+
+function AuthorAvatar({ name, avatar, size = "md" }: { name: string; avatar?: string | null; size?: "sm" | "md" }) {
+  const sz = size === "sm" ? "w-8 h-8 text-xs" : "w-12 h-12 text-sm";
+  const initials = (name ?? "匿").slice(0, size === "sm" ? 1 : 2);
+  return (
+    <div className={`${sz} rounded-full bg-primary/10 border-2 border-slate-50 flex items-center justify-center font-bold text-primary shrink-0 overflow-hidden`}>
+      {avatar
+        ? <img src={avatar} alt={name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+        : initials}
+    </div>
+  );
 }
 
 function formatCount(n: number) {
@@ -415,11 +428,14 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
             <>
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm shrink-0">
-                    {(post.authorName ?? "匿名").slice(0, 2)}
-                  </div>
+                  <AuthorAvatar name={post.authorName ?? "匿名"} avatar={(post as any).authorAvatar} size="sm" />
                   <div>
-                    <p className="font-bold text-sm text-primary">{post.authorName}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-bold text-sm text-primary">{post.authorName}</p>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide ${roleCls((post as any).authorRole ?? "opc")}`}>
+                        {roleLabel((post as any).authorRole ?? "opc")}
+                      </span>
+                    </div>
                     <p className="text-[10px] text-slate-400">{new Date(post.createdAt).toLocaleDateString("zh-CN")}</p>
                   </div>
                 </div>
@@ -443,11 +459,14 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
                   <div className="space-y-4">
                     {(commentsData?.items ?? []).map(c => (
                       <div key={c.id} className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs shrink-0">
-                          {(c.authorName ?? "匿").slice(0, 1)}
-                        </div>
+                        <AuthorAvatar name={c.authorName ?? "匿"} avatar={(c as any).authorAvatar} size="sm" />
                         <div className="flex-1 bg-slate-50 rounded-xl p-3">
-                          <p className="text-xs font-bold text-slate-700 mb-1">{c.authorName ?? "匿名"}</p>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <p className="text-xs font-bold text-slate-700">{c.authorName ?? "匿名"}</p>
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${roleCls((c as any).authorRole ?? "opc")}`}>
+                              {roleLabel((c as any).authorRole ?? "opc")}
+                            </span>
+                          </div>
                           <p className="text-sm text-slate-600">{c.content}</p>
                         </div>
                       </div>
@@ -690,14 +709,12 @@ export default function Community() {
               return (
                 <article key={post.id} className="bg-white rounded-2xl p-6 border border-slate-100 hover:border-slate-200 hover:shadow-md transition-all group">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 border-2 border-slate-50 flex items-center justify-center font-bold text-primary text-sm shrink-0">
-                      {(post.authorName ?? "匿名").slice(0, 2)}
-                    </div>
+                    <AuthorAvatar name={post.authorName ?? "匿名"} avatar={(post as any).authorAvatar} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-bold text-primary text-sm">{post.authorName}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${levelCls(post.authorLevel ?? "C")}`}>
-                          {levelLabel(post.authorLevel ?? "C")}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${roleCls((post as any).authorRole ?? "opc")}`}>
+                          {roleLabel((post as any).authorRole ?? "opc")}
                         </span>
                         <span className="text-xs text-slate-400 ml-auto shrink-0">
                           {new Date(post.createdAt).toLocaleDateString("zh-CN")}
