@@ -748,7 +748,7 @@ function EcosystemManagement() {
                 </div>
               </td>
               <td className="px-6 py-4 text-sm text-slate-500">{o.total_orders ?? 0}</td>
-              <td className="px-6 py-4 text-sm text-slate-500">{((o.completion_rate ?? 0) * 100).toFixed(0)}%</td>
+              <td className="px-6 py-4 text-sm text-slate-500">{(o.completion_rate ?? 0).toFixed(1)}%</td>
               <td className="px-6 py-4">
                 <div className="flex flex-wrap gap-1">
                   {(o.skill_tags ?? []).slice(0, 3).map(t => (
