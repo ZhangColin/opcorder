@@ -535,15 +535,25 @@ export default function PublisherDemandDetail() {
                   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">关于发单方</h3>
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white font-extrabold text-lg shrink-0">
-                        海
-                      </div>
-                      <div>
-                        <p className="font-bold text-foreground">海创元科技</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <BadgeCheck size={12} className="text-secondary" />
-                          <span className="text-xs text-secondary font-medium">国企认证</span>
+                      {(demand as any).publisherAvatar ? (
+                        <img
+                          src={(demand as any).publisherAvatar}
+                          alt={(demand as any).publisherName || "发单方"}
+                          className="w-12 h-12 rounded-xl object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white font-extrabold text-lg shrink-0">
+                          {((demand as any).publisherName ?? "发")?.[0]}
                         </div>
+                      )}
+                      <div>
+                        <p className="font-bold text-foreground">{(demand as any).publisherName || "发单方"}</p>
+                        {(demand as any).publisherTitle && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <BadgeCheck size={12} className="text-secondary" />
+                            <span className="text-xs text-secondary font-medium">{(demand as any).publisherTitle}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-4">发布日期：{new Date(demand.createdAt).toLocaleDateString("zh-CN")}</p>

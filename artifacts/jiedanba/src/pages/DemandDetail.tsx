@@ -105,12 +105,23 @@ export default function DemandDetail() {
 
           <div className="md:w-72 shrink-0 bg-background rounded-2xl p-6 border border-border shadow-inner">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xl">
-                {demand.publisherName?.[0] || '发'}
-              </div>
+              {(demand as any).publisherAvatar ? (
+                <img
+                  src={(demand as any).publisherAvatar}
+                  alt={demand.publisherName || "发单方"}
+                  className="w-12 h-12 rounded-xl object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xl shrink-0">
+                  {demand.publisherName?.[0] || '发'}
+                </div>
+              )}
               <div>
                 <p className="text-xs text-muted-foreground font-bold mb-1">发单方</p>
                 <p className="font-bold text-foreground">{demand.publisherName || '系统运营方'}</p>
+                {(demand as any).publisherTitle && (
+                  <p className="text-xs text-secondary font-medium mt-0.5">{(demand as any).publisherTitle}</p>
+                )}
               </div>
             </div>
             

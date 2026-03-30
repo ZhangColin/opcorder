@@ -221,6 +221,8 @@ router.get("/demands/:demandId", async (req, res) => {
         bidDeadline: demandsTable.bidDeadline,
         publisherId: demandsTable.publisherId,
         publisherName: usersTable.nickname,
+        publisherTitle: usersTable.title,
+        publisherAvatar: usersTable.avatar,
         createdAt: demandsTable.createdAt,
         updatedAt: demandsTable.updatedAt,
       })
