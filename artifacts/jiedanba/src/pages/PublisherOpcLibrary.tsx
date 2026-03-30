@@ -163,7 +163,7 @@ function OpcDetailDrawer({
                 </div>
                 <div className="p-4 text-center">
                   <p className="text-2xl font-extrabold text-green-600">
-                    {opc.completionRate != null ? `${Math.round(opc.completionRate * 100)}%` : "—"}
+                    {opc.completionRate != null ? `${Number(opc.completionRate).toFixed(1)}%` : "—"}
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">完成率</p>
                 </div>
@@ -480,7 +480,7 @@ export default function PublisherOpcLibrary() {
                     {opc.completionRate != null && (
                       <span className="flex items-center gap-1">
                         <Award size={12} className="text-green-500" />
-                        {Math.round(opc.completionRate * 100)}% 完成率
+                        {Number(opc.completionRate).toFixed(1)}% 完成率
                       </span>
                     )}
                     {opc.avgRating != null && (
