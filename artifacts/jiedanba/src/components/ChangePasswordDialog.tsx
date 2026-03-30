@@ -54,7 +54,7 @@ export function ChangePasswordDialog({ onClose }: ChangePasswordDialogProps) {
 
   return (
     <div className="fixed inset-0 z-[200] overflow-y-auto bg-black/50">
-      <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
+      <div className="flex min-h-full items-start justify-center p-4 pt-64">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 relative">
         <button
           onClick={onClose}
