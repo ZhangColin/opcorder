@@ -1,9 +1,9 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import {
   Search, Bell, Plus, Trash2, AlertCircle,
-  CheckCircle2, ChevronRight, Info, Zap, Upload, X,
+  CheckCircle2, ChevronRight, Info, Zap, Upload, X, FileText, Link2,
 } from "lucide-react";
 import { useCreateDemand, useUpdateDemand, useUpdateDemandStatus, useGetDemandById, useGetOpcLeaderboard } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
@@ -120,37 +120,124 @@ function TagSelector({
 
 /* ─── Section wrapper ─────────────────────────── */
 
-function AttachmentLinkInput({ onAdd }: { onAdd: (name: string, url: string) => void }) {
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const handleAdd = () => {
-    const n = name.trim(), u = url.trim();
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+type AttachmentItem = { name: string; url: string; size: string; type: string };
+
+function AttachmentInput({ onAdd, onUploadError }: {
+  onAdd: (att: AttachmentItem) => void;
+  onUploadError?: (msg: string) => void;
+}) {
+  const [linkName, setLinkName] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [uploading, setUploading] = useState<{ name: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLinkAdd = () => {
+    const n = linkName.trim(), u = linkUrl.trim();
     if (!n || !u) return;
     try { new URL(u); } catch { return; }
-    onAdd(n, u);
-    setName(""); setUrl("");
+    onAdd({ name: n, url: u, size: "外链", type: "link" });
+    setLinkName(""); setLinkUrl("");
   };
+
+  const uploadFiles = useCallback(async (files: FileList) => {
+    const fileArray = Array.from(files);
+    for (const file of fileArray) {
+      setUploading(prev => [...prev, { name: file.name }]);
+      try {
+        const resp = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: file.name,
+            size: file.size,
+            contentType: file.type || "application/octet-stream",
+          }),
+        });
+        if (!resp.ok) throw new Error("获取上传链接失败");
+        const { uploadURL, objectPath } = await resp.json();
+
+        const put = await fetch(uploadURL, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+        });
+        if (!put.ok) throw new Error("文件上传失败");
+
+        const servingUrl = `${API_BASE}/api/storage${objectPath}`;
+        const sizeLabel = file.size >= 1048576
+          ? `${(file.size / 1048576).toFixed(1)}MB`
+          : `${Math.max(1, Math.round(file.size / 1024))}KB`;
+        onAdd({ name: file.name, url: servingUrl, size: sizeLabel, type: file.type || "file" });
+      } catch (err: any) {
+        onUploadError?.(err?.message ?? "上传失败，请重试");
+      } finally {
+        setUploading(prev => prev.filter(u => u.name !== file.name));
+      }
+    }
+  }, [onAdd, onUploadError]);
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* ── 文件上传区 ── */}
+      <div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={e => e.target.files && e.target.files.length > 0 && uploadFiles(e.target.files)}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading.length > 0}
+          className="flex items-center gap-2 px-4 py-3 bg-blue-50 border-2 border-dashed border-blue-200 rounded-xl text-sm font-medium text-primary hover:bg-blue-100 hover:border-blue-300 transition-colors w-full justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <Upload size={16} />
+          点击选择文件上传（支持多选）
+        </button>
+        {uploading.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {uploading.map((u, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-slate-500 bg-blue-50 rounded-lg px-3 py-2">
+                <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                <span className="truncate">上传中：{u.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── 分隔线 ── */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-slate-200" />
+        <span className="text-xs text-slate-400 font-medium">或粘贴外部链接</span>
+        <div className="flex-1 h-px bg-slate-200" />
+      </div>
+
+      {/* ── 外链输入 ── */}
       <div className="flex gap-2">
         <input
           type="text"
-          value={name}
-          onChange={e => setName(e.target.value)}
+          value={linkName}
+          onChange={e => setLinkName(e.target.value)}
           placeholder="文件名称（如：需求说明.pdf）"
           className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
         <input
           type="url"
-          value={url}
-          onChange={e => setUrl(e.target.value)}
+          value={linkUrl}
+          onChange={e => setLinkUrl(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleLinkAdd()}
           placeholder="粘贴文件链接 (https://...)"
           className="flex-[2] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
         <button
           type="button"
-          onClick={handleAdd}
-          disabled={!name.trim() || !url.trim()}
+          onClick={handleLinkAdd}
+          disabled={!linkName.trim() || !linkUrl.trim()}
           className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
         >
           添加
@@ -740,22 +827,30 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 6: 参考材料（选填）── */}
-          <Section title="参考材料 / 附件" subtitle="选填：填写参考资料链接（飞书文档、Google Drive、百度网盘等）">
+          <Section title="参考材料 / 附件" subtitle="选填：上传文件或粘贴外部链接（飞书文档、Google Drive、百度网盘等）">
             {attachments.length > 0 && (
               <div className="space-y-2 mb-4">
                 {attachments.map((att, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Upload size={14} className="text-primary" />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${att.type === "link" ? "bg-secondary/10" : "bg-primary/10"}`}>
+                      {att.type === "link"
+                        ? <Link2 size={14} className="text-secondary" />
+                        : <FileText size={14} className="text-primary" />
+                      }
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-blue-900 truncate">{att.name}</p>
-                      <a href={att.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline truncate block">{att.url}</a>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-slate-400">{att.size}</span>
+                        <a href={att.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline truncate">
+                          {att.type === "link" ? att.url : "点击查看"}
+                        </a>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
-                      className="text-slate-400 hover:text-destructive transition-colors"
+                      className="text-slate-400 hover:text-destructive transition-colors shrink-0"
                     >
                       <X size={16} />
                     </button>
@@ -764,7 +859,10 @@ export default function PublisherCreateDemand() {
               </div>
             )}
 
-            <AttachmentLinkInput onAdd={(name, url) => setAttachments(prev => [...prev, { name, url, size: "外链", type: "link" }])} />
+            <AttachmentInput
+              onAdd={att => setAttachments(prev => [...prev, att])}
+              onUploadError={msg => toast({ title: "上传失败", description: msg, variant: "destructive" })}
+            />
           </Section>
 
           {/* ── Tips ── */}
