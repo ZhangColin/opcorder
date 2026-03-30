@@ -1,98 +1,50 @@
 #!/usr/bin/env node
 /**
- * Production database migration / seed script.
- * Uses a version-based strategy to decide whether to reseed.
+ * Production database migration script — SAFE, DATA-PRESERVING.
  *
- * Logic:
- *  - Read SEED_TARGET_VERSION from seed.sql (set by _seed_meta insert)
- *  - Read current version from _seed_meta table in production DB
- *  - If versions differ (or table missing) → full resync:
- *      DROP SCHEMA public CASCADE → CREATE SCHEMA public → apply seed.sql
- *  - If versions match → skip (already up to date)
+ * Uses drizzle-kit push to sync schema changes to the production database.
+ * This ONLY adds new tables / columns / indexes.
+ * It NEVER drops tables, truncates data, or reseeds.
  *
- * To force a resync on next deploy: bump the seed_version value in seed.sql
- * and append the new _seed_meta upsert at the end of seed.sql.
+ * Interactive prompts (e.g. "truncate table?") are automatically answered
+ * with the default safe choice (No / don't truncate) via stdin.
+ *
+ * To ship new schema: update lib/db/src/schema/ — changes apply on next deploy.
  */
 
-import { execSync } from "child_process";
-import { createRequire } from "module";
+import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
-import fs from "fs";
-
-const require = createRequire(import.meta.url);
-const pg = require("pg");
-const { Pool } = pg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SEED_FILE = path.resolve(__dirname, "..", "seed.sql");
+const WORKSPACE_ROOT = path.resolve(__dirname, "../../..");
 
-const SEED_TARGET_VERSION = "2";
-
-async function getCurrentVersion(pool) {
-  try {
-    const tableCheck = await pool.query(`
-      SELECT COUNT(*) AS cnt
-      FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = '_seed_meta'
-    `);
-    if (parseInt(tableCheck.rows[0].cnt, 10) === 0) return null;
-
-    const versionRow = await pool.query(
-      "SELECT value FROM _seed_meta WHERE key = 'seed_version'"
-    );
-    if (versionRow.rows.length === 0) return null;
-    return versionRow.rows[0].value;
-  } catch {
-    return null;
-  }
-}
-
-async function main() {
+function main() {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
-    console.error("[migrate] DATABASE_URL is not set — skipping migration.");
+    console.log("[migrate] DATABASE_URL is not set — skipping schema sync.");
     return;
   }
 
-  if (!fs.existsSync(SEED_FILE)) {
-    console.error(`[migrate] Seed file not found at ${SEED_FILE} — skipping.`);
-    return;
-  }
+  console.log("[migrate] Syncing database schema (additive only, data preserved)…");
 
-  const pool = new Pool({ connectionString: dbUrl });
-
-  try {
-    const currentVersion = await getCurrentVersion(pool);
-    console.log(
-      `[migrate] DB seed version: ${currentVersion ?? "(none)"} → target: ${SEED_TARGET_VERSION}`
-    );
-
-    if (currentVersion === SEED_TARGET_VERSION) {
-      console.log("[migrate] Already at target version — skipping reseed.");
-      return;
+  const result = spawnSync(
+    process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    ["--filter", "@workspace/db", "run", "push"],
+    {
+      // Send repeated newlines so any interactive prompt selects its safe default.
+      input: "\n\n\n\n\n",
+      stdio: ["pipe", "inherit", "inherit"],
+      cwd: WORKSPACE_ROOT,
+      env: { ...process.env },
     }
+  );
 
-    console.log("[migrate] Version mismatch — performing full resync …");
-    await pool.end();
-
-    execSync(
-      `psql "${dbUrl}" -v ON_ERROR_STOP=0 --quiet -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`,
-      { stdio: "inherit", shell: true }
-    );
-
-    execSync(
-      `psql "${dbUrl}" -v ON_ERROR_STOP=0 --quiet -f "${SEED_FILE}"`,
-      { stdio: "inherit", shell: true }
-    );
-
-    console.log(
-      `[migrate] ✓ Database resynced to seed version ${SEED_TARGET_VERSION}.`
-    );
-  } catch (err) {
-    console.error("[migrate] Migration error:", err.message ?? err);
-  } finally {
-    try { await pool.end(); } catch (_) {}
+  if (result.status !== 0) {
+    console.error(`[migrate] Schema sync exited with code ${result.status}.`);
+    console.error("[migrate] Server will still start. Review the output above.");
+  } else {
+    console.log("[migrate] ✓ Schema sync complete — existing data untouched.");
   }
 }
 
