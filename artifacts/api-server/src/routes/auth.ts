@@ -117,6 +117,37 @@ router.post("/auth/register", async (req, res) => {
   }
 });
 
+/* ── POST /auth/change-password ── */
+router.post("/auth/change-password", async (req, res) => {
+  try {
+    const userId = Number(req.headers["x-user-id"]);
+    if (!userId) return res.status(401).json({ error: "请先登录" });
+
+    const { oldPassword, newPassword } = req.body as { oldPassword: string; newPassword: string };
+    if (!oldPassword || !newPassword) return res.status(400).json({ error: "请填写完整信息" });
+    if (newPassword.length < 6) return res.status(400).json({ error: "新密码至少 6 位" });
+
+    const [user] = await db
+      .select({ id: usersTable.id, passwordHash: usersTable.passwordHash })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    if (!user || !user.passwordHash) return res.status(404).json({ error: "用户不存在" });
+
+    const match = await bcrypt.compare(oldPassword, user.passwordHash);
+    if (!match) return res.status(400).json({ error: "旧密码不正确，请重新输入" });
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, user.id));
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "修改失败，请稍后重试" });
+  }
+});
+
 /* ── POST /auth/forgot-password ── */
 router.post("/auth/forgot-password", async (req, res) => {
   try {

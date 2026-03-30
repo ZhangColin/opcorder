@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { UserCircle, LogOut, ChevronDown } from "lucide-react";
+import { UserCircle, LogOut, ChevronDown, KeyRound } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 interface Props {
   onLogout: () => void;
@@ -11,6 +12,7 @@ export function PublisherHeaderUser({ onLogout }: Props) {
   const [, navigate] = useLocation();
   const { nickname, avatarChar, roleLabel } = useCurrentUser();
   const [open, setOpen] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +54,13 @@ export function PublisherHeaderUser({ onLogout }: Props) {
             <UserCircle size={16} className="text-primary" />
             编辑信息
           </button>
+          <button
+            onClick={() => { setOpen(false); setShowChangePw(true); }}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors"
+          >
+            <KeyRound size={16} className="text-primary" />
+            修改密码
+          </button>
           <div className="h-px bg-slate-100 mx-3" />
           <button
             onClick={() => { setOpen(false); onLogout(); }}
@@ -62,6 +71,7 @@ export function PublisherHeaderUser({ onLogout }: Props) {
           </button>
         </div>
       )}
+      {showChangePw && <ChangePasswordDialog onClose={() => setShowChangePw(false)} />}
     </div>
   );
 }

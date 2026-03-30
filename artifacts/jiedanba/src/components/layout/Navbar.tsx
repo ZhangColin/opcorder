@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Search, Menu, ShieldCheck, UserPen, LogOut, ChevronDown, MessageSquare } from "lucide-react";
+import { Bell, Search, Menu, ShieldCheck, UserPen, LogOut, ChevronDown, MessageSquare, KeyRound } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 export function Navbar() {
   const [location, navigate] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
@@ -53,6 +55,7 @@ export function Navbar() {
   }
 
   return (
+    <>
     <nav className="fixed top-0 w-full z-50 glass-panel border-b border-border/50">
       <div className="max-w-[1920px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
 
@@ -135,6 +138,12 @@ export function Navbar() {
                     <UserPen size={15} className="shrink-0" />
                     编辑个人信息
                   </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); setShowChangePw(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
+                    <KeyRound size={15} className="shrink-0" />
+                    修改密码
+                  </button>
                   <div className="mx-4 my-1 border-t border-slate-100" />
                   <button
                     onClick={handleLogout}
@@ -153,5 +162,7 @@ export function Navbar() {
         </div>
       </div>
     </nav>
+    {showChangePw && <ChangePasswordDialog onClose={() => setShowChangePw(false)} />}
+    </>
   );
 }
