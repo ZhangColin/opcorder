@@ -5,7 +5,7 @@ import { DemandCard } from "@/components/DemandCard";
 
 export default function Home() {
   const { data: stats, isLoading: statsLoading } = useGetOverviewStats();
-  const { data: demandsResponse, isLoading: demandsLoading } = useListDemands({ limit: 4, status: 'published' });
+  const { data: demandsResponse, isLoading: demandsLoading } = useListDemands({ limit: 8, status: 'published' });
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
 
   return (
