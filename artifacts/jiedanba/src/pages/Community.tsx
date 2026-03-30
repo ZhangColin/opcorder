@@ -385,7 +385,7 @@ interface PostDetailModalProps {
 }
 
 function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalProps) {
-  const { data: commentsData } = useListPostComments({ postId });
+  const { data: commentsData } = useListPostComments(postId);
   const { mutateAsync: createComment } = useCreatePostComment();
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -397,10 +397,10 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
     if (!userId || !input.trim()) return;
     setSubmitting(true);
     try {
-      await createComment({ postId, data: { userId, content: input.trim() } });
+      await createComment({ postId, data: { authorId: userId, content: input.trim() } });
       setInput("");
       qc.invalidateQueries({ queryKey: ["/posts"] });
-      qc.invalidateQueries({ queryKey: [`/posts/${postId}/comments`] });
+      qc.invalidateQueries({ queryKey: [`/api/posts/${postId}/comments`] });
     } finally {
       setSubmitting(false);
     }
@@ -451,13 +451,13 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
               </div>
               <div className="border-t border-slate-100 pt-5">
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">
-                  评论 ({commentsData?.items?.length ?? 0})
+                  评论 ({(commentsData ?? []).length ?? 0})
                 </p>
-                {(commentsData?.items ?? []).length === 0 ? (
+                {(commentsData ?? []).length === 0 ? (
                   <p className="text-center text-slate-400 text-sm py-6">暂无评论，快来发表第一条吧</p>
                 ) : (
                   <div className="space-y-4">
-                    {(commentsData?.items ?? []).map(c => (
+                    {(commentsData ?? []).map(c => (
                       <div key={c.id} className="flex items-start gap-3">
                         <AuthorAvatar name={c.authorName ?? "匿"} avatar={(c as any).authorAvatar} size="sm" />
                         <div className="flex-1 bg-slate-50 rounded-xl p-3">
