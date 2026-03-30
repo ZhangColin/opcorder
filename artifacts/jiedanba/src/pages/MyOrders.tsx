@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import {
   useListOrders,
@@ -17,8 +17,13 @@ import {
   ExternalLink,
   Sparkles,
   ChevronRight,
+  Plus,
+  X,
+  Link2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type TabStatus = "all" | "in_progress" | "pending_acceptance" | "completed";
 
@@ -58,10 +63,99 @@ function timeAgo(d: string) {
   return formatDate(d);
 }
 
+/* ─── Reusable delivery section card ─── */
+interface DeliverySectionProps {
+  icon: ReactNode;
+  accent: "primary" | "secondary";
+  title: string;
+  subtitle: string;
+  links: string[];
+  inputValue: string;
+  uploading: boolean;
+  onInputChange: (v: string) => void;
+  onAddLink: () => void;
+  onRemoveLink: (i: number) => void;
+  onFileChange: (file: File) => void;
+}
+
+function DeliverySection({
+  icon, accent, title, subtitle,
+  links, inputValue, uploading,
+  onInputChange, onAddLink, onRemoveLink, onFileChange,
+}: DeliverySectionProps) {
+  const accentCls = accent === "primary"
+    ? { ring: "hover:border-primary", bg: "bg-primary/10 text-primary", focus: "focus:ring-primary/30 focus:border-primary", btn: "text-primary hover:bg-primary/10" }
+    : { ring: "hover:border-secondary", bg: "bg-secondary/10 text-secondary", focus: "focus:ring-secondary/30 focus:border-secondary", btn: "text-secondary hover:bg-secondary/10" };
+
+  return (
+    <div className={`border-2 border-dashed border-border ${accentCls.ring} transition-all rounded-xl p-6 flex flex-col bg-background`}>
+      {/* Header */}
+      <div className="flex flex-col items-center text-center mb-4">
+        <div className={`w-12 h-12 rounded-full ${accentCls.bg} flex items-center justify-center mb-3`}>
+          {icon}
+        </div>
+        <h4 className="font-display font-bold text-foreground mb-0.5">{title}</h4>
+        <p className="text-xs text-muted-foreground leading-relaxed">{subtitle}</p>
+      </div>
+
+      {/* Added links list */}
+      {links.length > 0 && (
+        <ul className="space-y-1.5 mb-3">
+          {links.map((url, i) => (
+            <li key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 group">
+              <Link2 size={12} className="text-muted-foreground shrink-0" />
+              <a href={url} target="_blank" rel="noopener noreferrer"
+                className="text-xs text-muted-foreground truncate flex-1 hover:underline">{url}</a>
+              <button onClick={() => onRemoveLink(i)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
+                <X size={12} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Input row */}
+      <div className="flex gap-2 mt-auto">
+        <input
+          type="url"
+          value={inputValue}
+          onChange={e => onInputChange(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onAddLink(); } }}
+          placeholder="粘贴链接后按 Enter 或点击 +"
+          className={`flex-1 text-xs border border-border rounded-lg px-3 py-2 ${accentCls.focus} outline-none transition-all bg-white`}
+        />
+        <button
+          onClick={onAddLink}
+          disabled={!inputValue.trim()}
+          title="添加链接"
+          className={`p-2 rounded-lg border border-border ${accentCls.btn} transition-colors disabled:opacity-40`}
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+
+      {/* File upload button */}
+      <label className={`mt-2 flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-border cursor-pointer text-xs font-medium ${accentCls.btn} transition-colors ${uploading ? "opacity-60 cursor-not-allowed" : "hover:bg-muted/50"}`}>
+        {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+        {uploading ? "上传中…" : "上传文件"}
+        <input type="file" className="hidden" disabled={uploading}
+          onChange={e => { const f = e.target.files?.[0]; if (f) onFileChange(f); e.target.value = ""; }} />
+      </label>
+    </div>
+  );
+}
+
 export default function MyOrders() {
   const [tab, setTab] = useState<TabStatus>("all");
-  const [codeUrl, setCodeUrl] = useState("");
-  const [docUrl, setDocUrl] = useState("");
+  // multi-link state: code/file section
+  const [codeLinks, setCodeLinks] = useState<string[]>([]);
+  const [codeInput, setCodeInput] = useState("");
+  const [uploadingCode, setUploadingCode] = useState(false);
+  // multi-link state: doc section
+  const [docLinks, setDocLinks] = useState<string[]>([]);
+  const [docInput, setDocInput] = useState("");
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const { toast } = useToast();
   const { userId } = useCurrentUser();
 
@@ -80,23 +174,60 @@ export default function MyOrders() {
   const { data: notifData } = useListNotifications({ page: 1, limit: 5 });
   const submitMutation = useSubmitDeliverable();
 
+  // add pending input value to list before submitting
+  const allCodeLinks = [...codeLinks, ...(codeInput.trim() ? [codeInput.trim()] : [])];
+  const allDocLinks  = [...docLinks,  ...(docInput.trim()  ? [docInput.trim()]  : [])];
+
+  async function uploadFile(
+    file: File,
+    section: "code" | "doc",
+    setUploading: (v: boolean) => void,
+    addLink: (url: string) => void,
+  ) {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "bin";
+      const objectPath = `/deliverables/${section}_${Date.now()}.${ext}`;
+      const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${userId}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ objectPath, contentType: file.type || "application/octet-stream" }),
+      });
+      const { uploadUrl, publicUrl } = await res.json();
+      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
+      addLink(publicUrl);
+      toast({ title: "文件上传成功" });
+    } catch {
+      toast({ title: "上传失败，请稍后重试", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const handleSubmit = async () => {
-    if (!order || (!codeUrl && !docUrl)) {
-      toast({ title: "请至少填写一个文件链接", variant: "destructive" });
+    if (!order || (allCodeLinks.length === 0 && allDocLinks.length === 0)) {
+      toast({ title: "请至少添加一个文件链接或上传文件", variant: "destructive" });
       return;
     }
+    const allLinks = [...allCodeLinks, ...allDocLinks];
+    const description = allLinks.join("\n");
     try {
       await submitMutation.mutateAsync({
         orderId: order.id,
         data: {
           title: order.milestones?.[0]?.name ?? "交付物",
-          description: `代码包: ${codeUrl || "—"}  |  文档: ${docUrl || "—"}`,
-          fileUrl: codeUrl || docUrl,
+          description,
+          fileUrl: allLinks[0],
           fileName: "交付文件",
         },
       });
-      setCodeUrl("");
-      setDocUrl("");
+      setCodeLinks([]);
+      setCodeInput("");
+      setDocLinks([]);
+      setDocInput("");
       refetchOrder();
       toast({ title: "交付物已提交", description: "发单方将在 48 小时内完成验收" });
     } catch {
@@ -262,44 +393,46 @@ export default function MyOrders() {
                   提交交付物
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Code Package */}
-                  <div className="group border-2 border-dashed border-border hover:border-primary transition-all rounded-xl p-8 flex flex-col items-center text-center bg-background hover:bg-primary/5 cursor-pointer">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <Upload size={24} />
-                    </div>
-                    <h4 className="font-display font-bold text-foreground mb-1">代码 / 文件包</h4>
-                    <p className="text-xs text-muted-foreground mb-4">ZIP、网盘链接均可</p>
-                    <input
-                      type="url"
-                      value={codeUrl}
-                      onChange={e => setCodeUrl(e.target.value)}
-                      placeholder="粘贴文件下载链接…"
-                      onClick={e => e.stopPropagation()}
-                      className="w-full text-xs border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all bg-white"
-                    />
-                  </div>
-                  {/* Tech Docs */}
-                  <div className="group border-2 border-dashed border-border hover:border-secondary transition-all rounded-xl p-8 flex flex-col items-center text-center bg-background hover:bg-secondary/5 cursor-pointer">
-                    <div className="w-14 h-14 rounded-full bg-secondary/10 text-secondary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                      <FileText size={24} />
-                    </div>
-                    <h4 className="font-display font-bold text-foreground mb-1">技术文档</h4>
-                    <p className="text-xs text-muted-foreground mb-4">PDF、DOCX、在线文档链接</p>
-                    <input
-                      type="url"
-                      value={docUrl}
-                      onChange={e => setDocUrl(e.target.value)}
-                      placeholder="粘贴文档链接…"
-                      onClick={e => e.stopPropagation()}
-                      className="w-full text-xs border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none transition-all bg-white"
-                    />
-                  </div>
+                  {/* Code / File Package */}
+                  <DeliverySection
+                    icon={<Upload size={22} />}
+                    accent="primary"
+                    title="代码 / 文件包"
+                    subtitle="ZIP、网盘链接均可"
+                    links={codeLinks}
+                    inputValue={codeInput}
+                    uploading={uploadingCode}
+                    onInputChange={setCodeInput}
+                    onAddLink={() => {
+                      const v = codeInput.trim();
+                      if (v) { setCodeLinks(l => [...l, v]); setCodeInput(""); }
+                    }}
+                    onRemoveLink={i => setCodeLinks(l => l.filter((_, idx) => idx !== i))}
+                    onFileChange={file => uploadFile(file, "code", setUploadingCode, url => setCodeLinks(l => [...l, url]))}
+                  />
+                  {/* Delivery Docs */}
+                  <DeliverySection
+                    icon={<FileText size={22} />}
+                    accent="secondary"
+                    title="交付文档"
+                    subtitle="交付有关的所有文档，不限格式，亦可打包一并提供"
+                    links={docLinks}
+                    inputValue={docInput}
+                    uploading={uploadingDoc}
+                    onInputChange={setDocInput}
+                    onAddLink={() => {
+                      const v = docInput.trim();
+                      if (v) { setDocLinks(l => [...l, v]); setDocInput(""); }
+                    }}
+                    onRemoveLink={i => setDocLinks(l => l.filter((_, idx) => idx !== i))}
+                    onFileChange={file => uploadFile(file, "doc", setUploadingDoc, url => setDocLinks(l => [...l, url]))}
+                  />
                 </div>
 
                 <div className="mt-8 flex justify-end">
                   <button
                     onClick={handleSubmit}
-                    disabled={submitMutation.isPending || (!codeUrl && !docUrl)}
+                    disabled={submitMutation.isPending || (allCodeLinks.length === 0 && allDocLinks.length === 0)}
                     className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-primary to-[#0047ab] text-white font-display font-bold rounded-xl shadow-lg hover:brightness-110 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitMutation.isPending && <Loader2 size={16} className="animate-spin" />}
