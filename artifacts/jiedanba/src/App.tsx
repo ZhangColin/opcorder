@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { useEffect } from "react";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
 import Login from "@/pages/Login";
@@ -103,11 +105,33 @@ function Router() {
   );
 }
 
+function SiteFaviconUpdater() {
+  const { data: s } = useSiteSettings();
+  useEffect(() => {
+    const favicon = s?.site_favicon;
+    const name    = s?.site_name;
+    if (favicon) {
+      let el = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+      if (!el) {
+        el = document.createElement("link");
+        el.rel = "icon";
+        document.head.appendChild(el);
+      }
+      el.href = favicon;
+    }
+    if (name) {
+      document.title = `${name} - OPC撮合交易平台`;
+    }
+  }, [s?.site_favicon, s?.site_name]);
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <SiteFaviconUpdater />
           <Router />
         </WouterRouter>
         <Toaster />

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import {
-  ShieldCheck, Eye, EyeOff, ArrowRight,
+  Eye, EyeOff, ArrowRight,
   Mail, Lock, User, Building2, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import { HelpDialog } from "@/components/HelpDialog";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
+import { SiteLogo, useSiteName } from "@/components/SiteLogo";
 
 /* ─── Types ─────────────────────────────────── */
 
@@ -58,6 +59,7 @@ export default function Auth() {
   const [regOk,    setRegOk]    = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const siteName = useSiteName();
 
   const roleCopy = ROLE_COPY[role];
 
@@ -149,10 +151,8 @@ export default function Auth() {
 
             {/* Brand */}
             <div className="absolute top-12 left-16 xl:left-24 flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                <ShieldCheck size={20} className="text-primary" strokeWidth={2.5} />
-              </div>
-              <span className="text-white font-extrabold text-xl tracking-tight font-display">接单吧</span>
+              <SiteLogo size={32} imgClassName="drop-shadow-lg" />
+              <span className="text-white font-extrabold text-xl tracking-tight font-display">{siteName}</span>
             </div>
 
             {/* Hero copy */}
@@ -192,10 +192,8 @@ export default function Auth() {
 
           {/* Mobile logo */}
           <div className="lg:hidden mb-10 flex items-center gap-3">
-            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow">
-              <ShieldCheck size={18} className="text-white" strokeWidth={2.5} />
-            </div>
-            <span className="text-primary font-extrabold text-lg tracking-tight font-display">接单吧</span>
+            <SiteLogo size={28} />
+            <span className="text-primary font-extrabold text-lg tracking-tight font-display">{siteName}</span>
           </div>
 
           <div className="w-full max-w-md bg-white p-8 md:p-10 rounded-2xl shadow-sm border border-slate-100">

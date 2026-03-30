@@ -1,23 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Search, Menu, ShieldCheck, UserPen, LogOut, ChevronDown, MessageSquare, KeyRound } from "lucide-react";
+import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, MessageSquare, KeyRound } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function useSiteSettings() {
-  return useQuery<Record<string, string>>({
-    queryKey: ["site-settings"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/site-settings`);
-      if (!res.ok) return {};
-      return res.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-}
+import { SiteLogo, useSiteName } from "@/components/SiteLogo";
 
 export function Navbar() {
   const [location, navigate] = useLocation();
@@ -26,12 +13,9 @@ export function Navbar() {
   const menuRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
-  const { data: user }     = useGetCurrentUser();
-  const { data: profile }  = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
-  const { data: siteConf } = useSiteSettings();
-
-  const siteName = siteConf?.site_name || "接单吧";
-  const siteLogo = siteConf?.site_logo || "";
+  const { data: user }    = useGetCurrentUser();
+  const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
+  const siteName = useSiteName();
 
   const name       = profile?.nickname ?? user?.nickname ?? "新用户";
   const avatar     = profile?.avatar  ?? user?.avatar   ?? "";
@@ -80,12 +64,8 @@ export function Navbar() {
         {/* Logo + links */}
         <div className="flex items-center gap-10">
           <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30 group-hover:scale-105 transition-transform duration-300 overflow-hidden shrink-0">
-              {siteLogo ? (
-                <img src={siteLogo} alt={siteName} className="w-full h-full object-contain p-0.5" />
-              ) : (
-                <ShieldCheck size={24} strokeWidth={2.5} />
-              )}
+            <div className="group-hover:scale-105 transition-transform duration-300 shrink-0">
+              <SiteLogo size={36} />
             </div>
             <span className="text-2xl font-black text-primary tracking-tight font-display">{siteName}</span>
           </Link>

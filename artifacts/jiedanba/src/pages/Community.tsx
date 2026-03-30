@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, Link } from "wouter";
+import { SiteLogo, useSiteName } from "@/components/SiteLogo";
 import {
-  ShieldCheck, Search, Bell, User, ThumbsUp, MessageSquare,
+  Search, Bell, User, ThumbsUp, MessageSquare,
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
   ArrowRight, Filter, Plus, X, Send, Loader2,
   ChevronDown, LogOut, ArrowLeft, ChevronUp,
@@ -482,8 +483,9 @@ export default function Community() {
   const [searchInput, setSearchInput]         = useState("");
   const [searchQuery, setSearchQuery]         = useState("");
 
-  const role    = localStorage.getItem("jdb_role");
-  const isGuest = !role;
+  const role     = localStorage.getItem("jdb_role");
+  const isGuest  = !role;
+  const siteName = useSiteName();
 
   const { data: user }        = useGetCurrentUser();
   const { data: leaderboard } = useGetOpcLeaderboard({ limit: 3 });
@@ -530,7 +532,10 @@ export default function Community() {
       <header className="fixed top-0 w-full z-40 bg-white/80 backdrop-blur-md shadow-sm">
         <div className="flex justify-between items-center h-16 px-6 lg:px-12 max-w-screen-2xl mx-auto">
           <Link href={role === "publisher" ? "/publisher" : "/"}>
-            <span className="text-xl font-extrabold tracking-tighter text-blue-900 font-display cursor-pointer">接单吧</span>
+            <span className="flex items-center gap-2 cursor-pointer">
+              <SiteLogo size={26} />
+              <span className="text-xl font-extrabold tracking-tighter text-blue-900 font-display">{siteName}</span>
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -831,13 +836,13 @@ export default function Community() {
 
       <footer className="bg-slate-50 border-t border-slate-200/60 py-10 px-8">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 max-w-screen-2xl mx-auto">
-          <div className="font-display font-bold text-lg text-slate-900">接单吧社区</div>
+          <div className="font-display font-bold text-lg text-slate-900">{siteName}社区</div>
           <nav className="flex flex-wrap justify-center gap-8">
             {["隐私政策", "服务条款", "社区准则", "联系支持"].map(link => (
               <a key={link} href="#" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">{link}</a>
             ))}
           </nav>
-          <div className="text-xs text-slate-400 uppercase tracking-widest">© 2026 接单吧 · OPC 专业平台</div>
+          <div className="text-xs text-slate-400 uppercase tracking-widest">© 2026 {siteName} · OPC 专业平台</div>
         </div>
       </footer>
     </div>

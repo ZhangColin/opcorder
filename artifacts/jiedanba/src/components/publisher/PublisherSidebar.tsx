@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, BarChart2, FileText,
-  PlusCircle, HelpCircle, LogOut, ShieldCheck, ClipboardList, Bell, MessageSquare,
+  PlusCircle, HelpCircle, LogOut, ClipboardList, Bell, MessageSquare,
 } from "lucide-react";
 import { HelpDialog } from "@/components/HelpDialog";
+import { SiteLogo } from "@/components/SiteLogo";
 
 interface SidebarLinkProps {
   icon: React.ElementType;
@@ -42,9 +43,7 @@ export function PublisherSidebar({ onLogout }: { onLogout: () => void }) {
       {showHelp && <HelpDialog onClose={() => setShowHelp(false)} />}
       <aside className="h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex flex-col p-4 gap-1">
         <div className="mb-6 px-2 flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
-            <ShieldCheck size={20} strokeWidth={2.5} />
-          </div>
+          <SiteLogo size={32} />
           <div>
             <h2 className="text-base font-extrabold text-blue-900 leading-tight font-display">发单方门户</h2>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest">机构专属通道</p>

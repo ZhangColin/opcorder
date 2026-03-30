@@ -1,20 +1,7 @@
-import { ShieldCheck, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function useSiteSettings() {
-  return useQuery<Record<string, string>>({
-    queryKey: ["site-settings"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/site-settings`);
-      if (!res.ok) throw new Error("获取站点设置失败");
-      return res.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-}
+import { useSiteSettings } from "@/hooks/use-site-settings";
+import { SiteLogo } from "@/components/SiteLogo";
 
 export function Footer() {
   const { data: s } = useSiteSettings();
@@ -50,7 +37,7 @@ export function Footer() {
         {/* 品牌区 */}
         <div className="col-span-1 md:col-span-1">
           <div className="flex items-center gap-2 mb-6">
-            <ShieldCheck className="text-primary" size={28} />
+            <SiteLogo size={28} />
             <span className="font-display font-bold text-2xl text-foreground">{siteName}</span>
           </div>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">

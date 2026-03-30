@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { SiteLogo, useSiteName } from "@/components/SiteLogo";
 import {
   LayoutDashboard, Users, FileText, ShoppingBag,
   Wallet, Network, GraduationCap, Shield, BarChart3,
-  TrendingUp, TrendingDown, ShieldCheck, LogOut,
+  TrendingUp, TrendingDown, LogOut,
   CheckCircle2, XCircle, AlertTriangle, Clock,
   Search, Bell, Settings, RefreshCw, Download, Eye, Ban, Check, Star,
   BookOpen, PlayCircle, Award, Flag, Megaphone,
@@ -1396,6 +1397,21 @@ function ModuleContent({ module }: { module: Module }) {
   }
 }
 
+/* ─── Sidebar Logo ───────────────────────────── */
+
+function AdminSidebarLogo() {
+  const siteName = useSiteName();
+  return (
+    <div className="flex items-center gap-3 px-2 mb-8 mt-2">
+      <SiteLogo size={30} />
+      <div>
+        <p className="text-white text-sm font-extrabold font-display leading-tight">{siteName}</p>
+        <p className="text-slate-500 text-[10px] uppercase tracking-widest font-medium">管理后台</p>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Page ────────────────────────────────────── */
 
 export default function Admin() {
@@ -1439,15 +1455,7 @@ export default function Admin() {
 
       {/* Sidebar */}
       <aside className="w-64 fixed left-0 top-0 h-screen z-50 bg-slate-900 flex flex-col p-4">
-        <div className="flex items-center gap-3 px-2 mb-8 mt-2">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
-            <ShieldCheck size={18} className="text-white" strokeWidth={2.5} />
-          </div>
-          <div>
-            <p className="text-white text-sm font-extrabold font-display leading-tight">接单吧</p>
-            <p className="text-slate-500 text-[10px] uppercase tracking-widest font-medium">管理后台</p>
-          </div>
-        </div>
+        <AdminSidebarLogo />
 
         <nav className="flex-1 flex flex-col gap-0.5">
           {NAV.map(item => (
