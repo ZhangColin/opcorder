@@ -200,22 +200,24 @@ export default function MyOrders() {
   ) {
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() ?? "bin";
-      const objectPath = `/deliverables/${section}_${Date.now()}.${ext}`;
+      const contentType = file.type || "application/octet-stream";
       const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${userId}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ objectPath, contentType: file.type || "application/octet-stream" }),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType }),
       });
-      const { uploadUrl, publicUrl } = await res.json();
-      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
-      addLink(publicUrl);
+      if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
+      const { uploadURL, objectPath } = await res.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
+      if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const fileUrl = `${BASE}/api/storage${objectPath}`;
+      addLink(fileUrl);
       toast({ title: "文件上传成功" });
-    } catch {
-      toast({ title: "上传失败，请稍后重试", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
     } finally {
       setUploading(false);
     }

@@ -1201,19 +1201,20 @@ function SiteSettingsManagement() {
   async function handleImageUpload(fieldKey: string, file: File) {
     setUploading(v => ({ ...v, [fieldKey]: true }));
     try {
-      const ext = file.name.split(".").pop() ?? "png";
-      const objectPath = `/site/${fieldKey}_${Date.now()}.${ext}`;
       const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: getAdminHeaders(),
-        body: JSON.stringify({ objectPath, contentType: file.type }),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
-      const { uploadUrl, publicUrl } = await res.json();
-      await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      setForm(v => ({ ...v, [fieldKey]: publicUrl }));
+      if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
+      const { uploadURL, objectPath } = await res.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const imageUrl = `${BASE}/api/storage${objectPath}`;
+      setForm(v => ({ ...v, [fieldKey]: imageUrl }));
       toast({ title: "图片上传成功" });
-    } catch {
-      toast({ title: "上传失败", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
     } finally {
       setUploading(v => ({ ...v, [fieldKey]: false }));
     }
