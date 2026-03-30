@@ -81,7 +81,8 @@ router.get("/posts", async (req, res) => {
       ),
       total: Number(countResult[0]?.count ?? 0),
     });
-  } catch {
+  } catch (err) {
+    console.error("List posts error:", err);
     res.status(500).json({ error: "Failed to list posts" });
   }
 });

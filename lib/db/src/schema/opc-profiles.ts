@@ -23,6 +23,7 @@ export const opcProfilesTable = pgTable("opc_profiles", {
   website: text("website"),
   yearsExp: integer("years_exp").default(0),
   wechat: varchar("wechat", { length: 100 }),
+  avatar: text("avatar"),
 });
 
 export const insertOpcProfileSchema = createInsertSchema(opcProfilesTable).omit({ id: true });
