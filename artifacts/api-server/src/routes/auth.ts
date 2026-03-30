@@ -151,7 +151,7 @@ router.post("/auth/forgot-password", async (req, res) => {
 
     /* ── 通过 Resend 发送邮件 ── */
     const { error: sendError } = await resend.emails.send({
-      from: "接单吧 <onboarding@resend.dev>",
+      from: "接单吧 <noreply@aieducenter.com>",
       to: normalizedEmail,
       subject: "【接单吧】您的临时密码",
       html: `
