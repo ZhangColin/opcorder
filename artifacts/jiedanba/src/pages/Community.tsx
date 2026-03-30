@@ -8,7 +8,7 @@ import {
   ChevronDown, LogOut, ArrowLeft, ChevronUp,
 } from "lucide-react";
 import {
-  useGetOpcLeaderboard, useGetCurrentUser,
+  useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile,
   useListPosts, useCreatePost, useTogglePostLike,
   useListPostComments, useCreatePostComment,
 } from "@workspace/api-client-react";
@@ -42,9 +42,10 @@ const SUGGESTED_TAGS = ["#VibeCoding", "#AIPrompting", "#政企数字化", "#合
 interface UserBadgeProps {
   nickname: string;
   role: string;
+  avatar?: string | null;
 }
 
-function UserBadge({ nickname, role }: UserBadgeProps) {
+function UserBadge({ nickname, role, avatar }: UserBadgeProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
@@ -73,8 +74,10 @@ function UserBadge({ nickname, role }: UserBadgeProps) {
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-2 bg-primary/8 hover:bg-primary/14 text-primary px-3 py-1.5 rounded-full transition-colors"
       >
-        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
-          {initials}
+        <div className="w-7 h-7 rounded-full overflow-hidden bg-primary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          {avatar
+            ? <img src={avatar} alt={nickname} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+            : initials}
         </div>
         <span className="text-sm font-bold max-w-[80px] truncate hidden sm:block">{nickname}</span>
         <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
@@ -82,9 +85,16 @@ function UserBadge({ nickname, role }: UserBadgeProps) {
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60">
-            <p className="text-xs font-bold text-blue-900 truncate">{nickname}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">{role === "publisher" ? "发单方账号" : "OPC 账号"}</p>
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-primary flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {avatar
+                ? <img src={avatar} alt={nickname} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                : initials}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-blue-900 truncate">{nickname}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{role === "publisher" ? "发单方账号" : "OPC 账号"}</p>
+            </div>
           </div>
           <Link href={backHref}>
             <div
@@ -488,6 +498,7 @@ export default function Community() {
   const siteName = useSiteName();
 
   const { data: user }        = useGetCurrentUser();
+  const { data: opcProfile }  = useGetOpcProfile(user?.id ?? 0, { query: { enabled: !!user?.id && role === "opc" } });
   const { data: leaderboard } = useGetOpcLeaderboard({ limit: 3 });
 
   const { data: postsData, isLoading: postsLoading } = useListPosts({ sort: feedTab, ...(searchQuery ? { search: searchQuery } as any : {}) });
@@ -564,7 +575,7 @@ export default function Community() {
             </div>
             <button onClick={() => requireLogin()} className="p-2 text-blue-900 hover:bg-slate-50 rounded-full transition-colors"><Bell size={20} /></button>
             {!isGuest && user?.nickname ? (
-              <UserBadge nickname={user.nickname} role={role ?? "opc"} />
+              <UserBadge nickname={user.nickname} role={role ?? "opc"} avatar={opcProfile?.avatar ?? null} />
             ) : isGuest ? (
               <Link href="/login">
                 <div className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-full text-sm font-bold cursor-pointer hover:bg-primary/90 transition-colors">
