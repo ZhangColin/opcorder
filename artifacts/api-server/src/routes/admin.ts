@@ -489,15 +489,27 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   footer_text:  "© 2026 接单吧 · 海创元 × 东升原点OPC社区",
   icp_number:   "",
   copyright:    "© 2026 接单吧 All Rights Reserved",
+  footer_slogan:       "引领企业数字生态转型的超级个体撮合交易平台。精准匹配，担保交易，赋能数字建设。",
+  footer_copyright:    "© 2026 海创元数字交易中心. 保留所有权利. 国资监管机构.",
+  footer_resource1_text: "API 开发文档",
+  footer_resource1_url:  "#",
+  footer_resource2_text: "OPC 认证体系",
+  footer_resource2_url:  "#",
+  footer_resource3_text: "交易保障协议",
+  footer_resource3_url:  "#",
+  footer_about1_text: "海创元生态",
+  footer_about1_url:  "#",
+  footer_about2_text: "联系客服",
+  footer_about2_url:  "#",
+  footer_about3_text: "隐私政策",
+  footer_about3_url:  "#",
 };
 
 router.get("/admin/settings", async (_req, res) => {
   try {
     const rows = await db.select().from(siteSettingsTable);
     const result: Record<string, string> = { ...DEFAULT_SETTINGS };
-    for (const row of rows) {
-      result[row.key] = row.value ?? "";
-    }
+    for (const row of rows) result[row.key] = row.value ?? "";
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -518,6 +530,26 @@ router.put("/admin/settings", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "保存站点设置失败" });
+  }
+});
+
+/* ─── PUBLIC SITE SETTINGS (no auth required, used by Footer etc.) ─── */
+
+async function loadSettings(): Promise<Record<string, string>> {
+  const rows = await db.select().from(siteSettingsTable);
+  const result: Record<string, string> = { ...DEFAULT_SETTINGS };
+  for (const row of rows) {
+    result[row.key] = row.value ?? "";
+  }
+  return result;
+}
+
+router.get("/site-settings", async (_req, res) => {
+  try {
+    res.json(await loadSettings());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取站点设置失败" });
   }
 });
 

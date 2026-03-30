@@ -1221,42 +1221,61 @@ function SiteSettingsManagement() {
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-primary" size={32} /></div>;
 
-  const textFields: { key: string; label: string; placeholder: string; hint?: string }[] = [
-    { key: "site_name",    label: "站点名称",   placeholder: "接单吧" },
-    { key: "site_subtitle",label: "站点副标题", placeholder: "OPC撮合交易平台" },
-    { key: "footer_text",  label: "页脚文字",   placeholder: "© 2026 接单吧 · 海创元 × 东升原点OPC社区" },
-    { key: "icp_number",   label: "ICP 备案号", placeholder: "粤ICP备XXXXXXXX号", hint: "填写备案号后会显示在页脚" },
-    { key: "copyright",    label: "版权声明",   placeholder: "© 2026 接单吧 All Rights Reserved" },
-  ];
-
   const imageFields: { key: string; label: string; hint: string; accept: string }[] = [
     { key: "site_logo",    label: "Logo 图标",  hint: "建议尺寸 200×60px，PNG/SVG",  accept: "image/*" },
     { key: "site_favicon", label: "Favicon",    hint: "建议尺寸 32×32px，ICO/PNG",   accept: "image/*" },
   ];
+
+  const footerLinkGroups = [
+    {
+      title: "平台资源（左侧三条链接）",
+      links: [
+        { textKey: "footer_resource1_text", urlKey: "footer_resource1_url", label: "链接 1" },
+        { textKey: "footer_resource2_text", urlKey: "footer_resource2_url", label: "链接 2" },
+        { textKey: "footer_resource3_text", urlKey: "footer_resource3_url", label: "链接 3" },
+      ],
+    },
+    {
+      title: "关于我们（右侧三条链接）",
+      links: [
+        { textKey: "footer_about1_text", urlKey: "footer_about1_url", label: "链接 1" },
+        { textKey: "footer_about2_text", urlKey: "footer_about2_url", label: "链接 2" },
+        { textKey: "footer_about3_text", urlKey: "footer_about3_url", label: "链接 3" },
+      ],
+    },
+  ];
+
+  function field(key: string, placeholder: string, className = "w-full") {
+    return (
+      <input
+        value={form[key] ?? ""}
+        onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
+        placeholder={placeholder}
+        className={`${className} border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition`}
+      />
+    );
+  }
 
   return (
     <div className="max-w-2xl">
       <SectionHeader title="站点设置" sub="配置平台品牌、页脚信息及视觉元素" />
 
       <div className="space-y-6">
-        {/* 文字配置 */}
+        {/* 基本信息 */}
         <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">基本信息</h3>
-          {textFields.map(({ key, label, placeholder, hint }) => (
+          {[
+            { key: "site_name",    label: "站点名称",   placeholder: "接单吧" },
+            { key: "site_subtitle",label: "站点副标题", placeholder: "OPC撮合交易平台" },
+          ].map(({ key, label, placeholder }) => (
             <div key={key}>
               <label className="block text-sm font-bold text-blue-900 mb-1.5">{label}</label>
-              <input
-                value={form[key] ?? ""}
-                onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
-                placeholder={placeholder}
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
-              />
-              {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+              {field(key, placeholder)}
             </div>
           ))}
         </div>
 
-        {/* 图片上传 */}
+        {/* 图片资源 */}
         <div className="bg-white rounded-2xl shadow-sm p-6 space-y-6">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">图片资源</h3>
           {imageFields.map(({ key, label, hint, accept }) => (
@@ -1282,28 +1301,67 @@ function SiteSettingsManagement() {
                       onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(key, f); }}
                     />
                   </label>
-                  {form[key] && (
-                    <input
-                      value={form[key]}
-                      onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
-                      placeholder="或直接粘贴图片 URL"
-                      className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
-                    />
-                  )}
-                  {!form[key] && (
-                    <input
-                      value=""
-                      onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
-                      placeholder="或直接粘贴图片 URL"
-                      className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
-                    />
-                  )}
+                  <input
+                    value={form[key] ?? ""}
+                    onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
+                    placeholder="或直接粘贴图片 URL"
+                    className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
+                  />
                   <p className="text-xs text-slate-400 mt-1">{hint}</p>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
+        {/* 页脚配置 */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">页脚配置</h3>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">品牌标语</label>
+            {field("footer_slogan", "引领企业数字生态转型的超级个体撮合交易平台…")}
+            <p className="text-xs text-slate-400 mt-1">显示在页脚左侧 Logo 下方</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">版权声明</label>
+            {field("footer_copyright", "© 2026 海创元数字交易中心. 保留所有权利.")}
+            <p className="text-xs text-slate-400 mt-1">显示在页脚右下角订阅区</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">ICP 备案号</label>
+            {field("icp_number", "粤ICP备XXXXXXXX号")}
+            <p className="text-xs text-slate-400 mt-1">填写后紧跟版权声明显示</p>
+          </div>
+        </div>
+
+        {/* 页脚链接 */}
+        {footerLinkGroups.map(group => (
+          <div key={group.title} className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{group.title}</h3>
+            {group.links.map(({ textKey, urlKey, label }) => (
+              <div key={textKey}>
+                <label className="block text-xs font-bold text-blue-900 mb-1.5">{label}</label>
+                <div className="flex gap-2">
+                  <input
+                    value={form[textKey] ?? ""}
+                    onChange={e => setForm(v => ({ ...v, [textKey]: e.target.value }))}
+                    placeholder="链接文字"
+                    className="w-2/5 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+                  />
+                  <input
+                    value={form[urlKey] ?? ""}
+                    onChange={e => setForm(v => ({ ...v, [urlKey]: e.target.value }))}
+                    placeholder="链接地址（如 https://… 或 #）"
+                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
 
         {/* 保存按钮 */}
         <div className="flex justify-end">
