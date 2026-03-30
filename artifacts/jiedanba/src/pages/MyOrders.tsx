@@ -25,6 +25,20 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function extractUrls(text: string): { urls: string[]; plainText: string } {
+  if (!text) return { urls: [], plainText: "" };
+  const urlRegex = /https?:\/\/[^\s|,，]+/g;
+  const urls: string[] = [];
+  const plainText = text
+    .replace(urlRegex, (match) => { urls.push(match.trim()); return ""; })
+    .replace(/代码包:\s*—\s*\|?\s*/gi, "")
+    .replace(/文档:\s*—\s*\|?\s*/gi, "")
+    .replace(/\|/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return { urls, plainText };
+}
+
 type TabStatus = "all" | "in_progress" | "pending_acceptance" | "completed";
 
 const TABS: { label: string; value: TabStatus }[] = [
@@ -447,28 +461,58 @@ export default function MyOrders() {
                       已提交记录
                     </p>
                     <div className="space-y-2">
-                      {order.deliverables.map((d: any, i: number) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-3 bg-muted/40 px-4 py-3 rounded-lg border border-border/40"
-                        >
-                          <FileText size={14} className="text-muted-foreground shrink-0" />
-                          <span className="text-sm font-medium text-foreground flex-1 truncate">
-                            {d.title}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              d.status === "approved"
-                                ? "bg-secondary/10 text-secondary"
-                                : d.status === "rejected"
-                                ? "bg-destructive/10 text-destructive"
-                                : "bg-primary/10 text-primary"
-                            }`}
+                      {order.deliverables.map((d: any, i: number) => {
+                        const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
+                        const allUrls = d.fileUrl
+                          ? [d.fileUrl, ...descUrls.filter((u: string) => u !== d.fileUrl)]
+                          : descUrls;
+                        return (
+                          <div
+                            key={i}
+                            className="bg-muted/40 px-4 py-3 rounded-lg border border-border/40"
                           >
-                            {d.status === "approved" ? "已通过" : d.status === "rejected" ? "已驳回" : "审核中"}
-                          </span>
-                        </div>
-                      ))}
+                            <div className="flex items-center gap-3">
+                              <FileText size={14} className="text-muted-foreground shrink-0" />
+                              <span className="text-sm font-medium text-foreground flex-1 truncate">
+                                {d.title}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                  d.status === "approved"
+                                    ? "bg-secondary/10 text-secondary"
+                                    : d.status === "rejected"
+                                    ? "bg-destructive/10 text-destructive"
+                                    : "bg-primary/10 text-primary"
+                                }`}
+                              >
+                                {d.status === "approved" ? "已通过" : d.status === "rejected" ? "已驳回" : "审核中"}
+                              </span>
+                            </div>
+                            {plainText && (
+                              <p className="text-xs text-muted-foreground mt-1 ml-5">{plainText}</p>
+                            )}
+                            {allUrls.length > 0 && (
+                              <div className="mt-2 ml-5 flex flex-wrap gap-2">
+                                {allUrls.map((url: string, j: number) => {
+                                  const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
+                                  return (
+                                    <a
+                                      key={j}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+                                    >
+                                      <ExternalLink size={10} />
+                                      {filename.length > 20 ? filename.slice(0, 18) + "…" : filename}
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

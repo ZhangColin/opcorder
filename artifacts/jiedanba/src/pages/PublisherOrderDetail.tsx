@@ -16,6 +16,21 @@ import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useQueryClient } from "@tanstack/react-query";
 
+/** 从文本中提取所有 URL，返回 { urls, textWithoutUrls } */
+function extractUrls(text: string): { urls: string[]; plainText: string } {
+  if (!text) return { urls: [], plainText: "" };
+  const urlRegex = /https?:\/\/[^\s|,，]+/g;
+  const urls: string[] = [];
+  const plainText = text
+    .replace(urlRegex, (match) => { urls.push(match.trim()); return ""; })
+    .replace(/代码包:\s*—\s*\|?\s*/gi, "")
+    .replace(/文档:\s*—\s*\|?\s*/gi, "")
+    .replace(/\|/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return { urls, plainText };
+}
+
 const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   in_progress:        { label: "进行中",  color: "bg-green-100 text-green-700" },
   pending_acceptance: { label: "待验收",  color: "bg-orange-100 text-orange-700" },
@@ -349,6 +364,11 @@ export default function PublisherOrderDetail() {
                       <div className="space-y-3">
                         {order.deliverables.map((d) => {
                           const dCfg = DELIVERABLE_STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
+                          const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
+                          // Deduplicate: fileUrl may already be in descUrls
+                          const allUrls = d.fileUrl
+                            ? [d.fileUrl, ...descUrls.filter(u => u !== d.fileUrl)]
+                            : descUrls;
                           return (
                             <div
                               key={d.id}
@@ -364,8 +384,31 @@ export default function PublisherOrderDetail() {
                                     {dCfg.label}
                                   </span>
                                 </div>
-                                {d.description && (
-                                  <p className="text-xs text-slate-500 leading-relaxed">{d.description}</p>
+                                {plainText && (
+                                  <p className="text-xs text-slate-500 leading-relaxed">{plainText}</p>
+                                )}
+                                {/* Clickable file links */}
+                                {allUrls.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {allUrls.map((url, i) => {
+                                      const filename = url.split("/").pop()?.split("?")[0] ?? `文件${i + 1}`;
+                                      return (
+                                        <a
+                                          key={i}
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+                                        >
+                                          <Download size={12} />
+                                          {filename.length > 24 ? filename.slice(0, 21) + "…" : filename}
+                                        </a>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {allUrls.length === 0 && !plainText && (
+                                  <p className="text-xs text-slate-400 italic">暂无附件</p>
                                 )}
                                 {d.feedback && (
                                   <p className="text-xs text-red-600 mt-2 flex items-start gap-1">
@@ -377,16 +420,6 @@ export default function PublisherOrderDetail() {
                                   提交于 {new Date(d.submittedAt).toLocaleDateString("zh-CN")}
                                 </p>
                               </div>
-                              {d.fileUrl && (
-                                <a
-                                  href={d.fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs text-primary hover:underline font-medium shrink-0 mt-1"
-                                >
-                                  <Download size={14} /> 下载
-                                </a>
-                              )}
                             </div>
                           );
                         })}
