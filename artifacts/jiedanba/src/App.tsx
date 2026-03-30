@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +19,8 @@ import PublisherOpcLibrary from "@/pages/PublisherOpcLibrary";
 import PublisherNotifications from "@/pages/PublisherNotifications";
 import PublisherFinance from "@/pages/PublisherFinance";
 import PublisherProfile from "@/pages/PublisherProfile";
+import PublisherCockpit from "@/pages/PublisherCockpit";
+import PublisherDisputes from "@/pages/PublisherDisputes";
 import Community from "@/pages/Community";
 import Auth from "@/pages/Auth";
 import DemandDetail from "@/pages/DemandDetail";
@@ -44,16 +46,58 @@ const queryClient = new QueryClient({
 /* Send stored user ID as Bearer token with every API request */
 setAuthTokenGetter(() => localStorage.getItem("jdb_user_id"));
 
-function RoleGate({ children }: { children: React.ReactNode }) {
-  const role = localStorage.getItem("jdb_role");
-  const [, navigate] = useLocation();
+/* ── 角色门卫组件 ──────────────────────────────── */
 
-  if (!role) {
-    navigate("/login");
+function getRole() {
+  return localStorage.getItem("jdb_role");
+}
+
+function roleHomePath(role: string | null): string {
+  if (role === "publisher") return "/publisher";
+  if (role === "admin")     return "/admin";
+  if (role === "opc")       return "/";
+  return "/login";
+}
+
+/** 仅限 OPC 访问；其他角色重定向到各自首页 */
+function OpcGate({ children }: { children: React.ReactNode }) {
+  const role = getRole();
+  const [, navigate] = useLocation();
+  if (role !== "opc") {
+    navigate(roleHomePath(role));
     return null;
   }
-  if (role === "publisher") {
-    navigate("/publisher");
+  return <>{children}</>;
+}
+
+/** 仅限发单方访问；其他角色重定向到各自首页 */
+function PublisherGate({ children }: { children: React.ReactNode }) {
+  const role = getRole();
+  const [, navigate] = useLocation();
+  if (role !== "publisher") {
+    navigate(roleHomePath(role));
+    return null;
+  }
+  return <>{children}</>;
+}
+
+/** 仅限管理员访问；其他角色重定向到各自首页 */
+function AdminGate({ children }: { children: React.ReactNode }) {
+  const role = getRole();
+  const [, navigate] = useLocation();
+  if (role !== "admin") {
+    navigate(roleHomePath(role));
+    return null;
+  }
+  return <>{children}</>;
+}
+
+/** 要求任意已登录用户（社区页等）；未登录重定向到登录页 */
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const role = getRole();
+  const [, navigate] = useLocation();
+  if (!role) {
+    navigate("/login");
     return null;
   }
   return <>{children}</>;
@@ -62,27 +106,65 @@ function RoleGate({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      {/* Standalone routes — no Layout */}
+      {/* 公开路由 */}
       <Route path="/login" component={Login} />
       <Route path="/auth/:role" component={Auth} />
-      <Route path="/admin" component={Admin} />
-      <Route path="/publisher" component={PublisherHome} />
-      <Route path="/publisher/demands" component={PublisherDemandList} />
-      <Route path="/publisher/demands/new" component={PublisherCreateDemand} />
-      <Route path="/publisher/demands/:id/edit" component={PublisherCreateDemand} />
-      <Route path="/publisher/demand/:id" component={PublisherDemandDetail} />
-      <Route path="/publisher/orders" component={PublisherOrderList} />
-      <Route path="/publisher/orders/:id" component={PublisherOrderDetail} />
-      <Route path="/publisher/opc-library" component={PublisherOpcLibrary} />
-      <Route path="/publisher/notifications" component={PublisherNotifications} />
-      <Route path="/publisher/finance" component={PublisherFinance} />
-      <Route path="/publisher/profile" component={PublisherProfile} />
-      <Route path="/community" component={Community} />
 
-      {/* OPC routes — role-gated, wrapped in Layout */}
+      {/* 管理员专属 */}
+      <Route path="/admin">
+        {() => <AdminGate><Admin /></AdminGate>}
+      </Route>
+
+      {/* 发单方专属路由 */}
+      <Route path="/publisher">
+        {() => <PublisherGate><PublisherHome /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/demands">
+        {() => <PublisherGate><PublisherDemandList /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/demands/new">
+        {() => <PublisherGate><PublisherCreateDemand /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/demands/:id/edit">
+        {() => <PublisherGate><PublisherCreateDemand /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/demand/:id">
+        {() => <PublisherGate><PublisherDemandDetail /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/orders">
+        {() => <PublisherGate><PublisherOrderList /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/orders/:id">
+        {() => <PublisherGate><PublisherOrderDetail /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/opc-library">
+        {() => <PublisherGate><PublisherOpcLibrary /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/notifications">
+        {() => <PublisherGate><PublisherNotifications /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/finance">
+        {() => <PublisherGate><PublisherFinance /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/profile">
+        {() => <PublisherGate><PublisherProfile /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/cockpit">
+        {() => <PublisherGate><PublisherCockpit /></PublisherGate>}
+      </Route>
+      <Route path="/publisher/disputes">
+        {() => <PublisherGate><PublisherDisputes /></PublisherGate>}
+      </Route>
+
+      {/* 社区：已登录用户均可访问 */}
+      <Route path="/community">
+        {() => <AuthGate><Community /></AuthGate>}
+      </Route>
+
+      {/* OPC 专属路由 */}
       <Route>
         {() => (
-          <RoleGate>
+          <OpcGate>
             <Layout>
               <Switch>
                 <Route path="/" component={Home} />
@@ -98,7 +180,7 @@ function Router() {
                 <Route component={NotFound} />
               </Switch>
             </Layout>
-          </RoleGate>
+          </OpcGate>
         )}
       </Route>
     </Switch>
