@@ -52,8 +52,9 @@ export default function DemandDetail() {
         toast({ title: "接单申请已提交", description: "发单方将尽快审核您的申请。" });
         setShowBidForm(false);
       },
-      onError: (err) => {
-        toast({ title: "提交失败", description: String(err), variant: "destructive" });
+      onError: (err: any) => {
+        const msg = err?.data?.error ?? err?.message ?? "请稍后重试";
+        toast({ title: "无法提交抢单申请", description: msg, variant: "destructive" });
       }
     });
   };

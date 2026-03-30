@@ -1,5 +1,5 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation, useParams } from "wouter";
 import {
   Search, Bell, Plus, Trash2, AlertCircle,
@@ -28,11 +28,19 @@ const SKILL_TAGS_OPTIONS = [
   "Web开发", "小程序开发", "Python编程", "图文设计", "品牌策划",
 ];
 
+/* 各等级OPC可接单预算上限（与后端 bids.ts 保持一致） */
+const LEVEL_BUDGET_CAP: Record<string, number> = {
+  C:   3_000,
+  B:  20_000,
+  A: 200_000,
+  any: 200_000,   // "不限"等级取最高等级上限
+};
+
 const OPC_LEVELS = [
-  { value: "any", label: "不限", desc: "任意等级OPC均可申请" },
-  { value: "C",   label: "C级 · 新手", desc: "500-3,000元任务" },
-  { value: "B",   label: "B级 · 进阶", desc: "3,000-20,000元任务" },
-  { value: "A",   label: "A级 · 专家", desc: "20,000-200,000元任务" },
+  { value: "any", label: "不限",       desc: "任意等级OPC均可申请（上限 ¥200,000）" },
+  { value: "C",   label: "C级 · 新手", desc: "预算上限 ¥3,000" },
+  { value: "B",   label: "B级 · 进阶", desc: "预算上限 ¥20,000" },
+  { value: "A",   label: "A级 · 专家", desc: "预算上限 ¥200,000" },
 ];
 
 interface Milestone {
@@ -199,6 +207,18 @@ export default function PublisherCreateDemand() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
+  /* ── 实时预算等级上限校验 ── */
+  const budgetCapError = useMemo(() => {
+    const max = Number(budgetMax);
+    if (!budgetMax || isNaN(max) || max <= 0) return "";
+    const cap = LEVEL_BUDGET_CAP[opcLevel] ?? 200_000;
+    if (max > cap) {
+      const levelLabel = opcLevel === "any" ? "当前设置" : `${opcLevel}级OPC`;
+      return `${levelLabel}接单上限为 ¥${cap.toLocaleString()}，最高预算 ¥${max.toLocaleString()} 超出限额，请降低预算或提高OPC等级要求`;
+    }
+    return "";
+  }, [opcLevel, budgetMax]);
+
   const minDeadlineDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
@@ -235,6 +255,7 @@ export default function PublisherCreateDemand() {
     if (skillTags.length === 0) e.skillTags = "请至少选择一个技能标签";
     if (!budgetMin || !budgetMax) e.budget = "请填写预算范围";
     else if (Number(budgetMin) >= Number(budgetMax)) e.budget = "预算最小值须小于最大值";
+    else if (budgetCapError) e.budget = budgetCapError;
     if (!deadline) e.deadline = "请选择交付截止日期";
     else if (deadline < minDeadlineDate) e.deadline = "截止日期须至少在今天3天后";
     if (mode === "open" && !bidDeadline) e.bidDeadline = "公开抢单模式须设置抢单截止时间";
@@ -461,23 +482,34 @@ export default function PublisherCreateDemand() {
 
             <FormField label="需求OPC等级" required>
               <div className="grid grid-cols-2 gap-3">
-                {OPC_LEVELS.map(lvl => (
-                  <button
-                    key={lvl.value}
-                    type="button"
-                    onClick={() => setOpcLevel(lvl.value)}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${
-                      opcLevel === lvl.value
-                        ? "border-primary bg-primary/5"
-                        : "border-slate-200 hover:border-primary/30 bg-white"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${opcLevel === lvl.value ? "text-primary" : "text-blue-900"}`}>
-                      {lvl.label}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">{lvl.desc}</p>
-                  </button>
-                ))}
+                {OPC_LEVELS.map(lvl => {
+                  const cap = LEVEL_BUDGET_CAP[lvl.value] ?? 200_000;
+                  const budgetNum = Number(budgetMax);
+                  const exceedsCap = budgetMax && !isNaN(budgetNum) && budgetNum > cap;
+                  const isSelected = opcLevel === lvl.value;
+                  return (
+                    <button
+                      key={lvl.value}
+                      type="button"
+                      onClick={() => setOpcLevel(lvl.value)}
+                      className={`p-4 rounded-xl border-2 text-left transition-all relative ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : exceedsCap
+                          ? "border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed"
+                          : "border-slate-200 hover:border-primary/30 bg-white"
+                      }`}
+                    >
+                      <p className={`text-sm font-bold ${isSelected ? "text-primary" : "text-blue-900"}`}>
+                        {lvl.label}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">{lvl.desc}</p>
+                      {exceedsCap && !isSelected && (
+                        <p className="text-[10px] text-destructive font-semibold mt-1">预算超出上限</p>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </FormField>
 
@@ -568,7 +600,7 @@ export default function PublisherCreateDemand() {
           {/* ── Section 4: 预算与时间 ── */}
           <Section title="预算与时间" subtitle="设置项目预算范围和交付截止日期">
 
-            <FormField label="预算范围（元）" required error={errors.budget}
+            <FormField label="预算范围（元）" required error={budgetCapError || errors.budget}
               hint="设置合理的预算区间，吸引优质OPC">
               <div className="flex items-center gap-3">
                 <div className="flex-1 relative">

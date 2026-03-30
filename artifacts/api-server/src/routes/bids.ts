@@ -8,6 +8,11 @@ import {
 
 const router: IRouter = Router();
 
+/* ── 等级管控规则（与前端 LEVEL_BUDGET_CAP 保持一致） ── */
+const LEVEL_RANK: Record<string, number> = { C: 1, B: 2, A: 3 };
+const LEVEL_BUDGET_CAP: Record<string, number> = { C: 3_000, B: 20_000, A: 200_000 };
+const LEVEL_LABEL: Record<string, string> = { C: "C级（新手）", B: "B级（进阶）", A: "A级（专家）" };
+
 router.get("/demands/:demandId/bids", async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
@@ -55,6 +60,48 @@ router.post("/demands/:demandId/bids", async (req, res) => {
       return res.status(401).json({ error: "未授权，请先登录" });
     }
 
+    /* ── 等级与预算准入校验 ── */
+    const [demand] = await db
+      .select({
+        publisherId:  demandsTable.publisherId,
+        title:        demandsTable.title,
+        opcLevel:     demandsTable.opcLevel,
+        budgetMax:    demandsTable.budgetMax,
+        status:       demandsTable.status,
+      })
+      .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (!["published", "matched"].includes(demand.status)) {
+      return res.status(400).json({ error: "该需求当前状态不接受抢单" });
+    }
+
+    const [opcProfile] = await db
+      .select({ level: opcProfilesTable.level })
+      .from(opcProfilesTable).where(eq(opcProfilesTable.userId, opcId)).limit(1);
+
+    const opcActualLevel = opcProfile?.level ?? "C";
+    const opcRank = LEVEL_RANK[opcActualLevel] ?? 1;
+
+    // 校验1（优先）：OPC等级须达到发单方要求
+    if (demand.opcLevel && demand.opcLevel !== "any") {
+      const requiredRank = LEVEL_RANK[demand.opcLevel] ?? 1;
+      if (opcRank < requiredRank) {
+        return res.status(403).json({
+          error: `此需求要求 ${LEVEL_LABEL[demand.opcLevel] ?? demand.opcLevel} 及以上，您当前为 ${LEVEL_LABEL[opcActualLevel] ?? opcActualLevel}，暂无资格抢单`,
+        });
+      }
+    }
+
+    // 校验2：需求预算不超出OPC等级上限
+    const budgetCap = LEVEL_BUDGET_CAP[opcActualLevel];
+    if (budgetCap !== undefined && demand.budgetMax > budgetCap) {
+      return res.status(403).json({
+        error: `该需求预算最高 ¥${demand.budgetMax.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
+      });
+    }
+    /* ── 校验通过，写入抢单记录 ── */
+
     const [bid] = await db.insert(bidsTable).values({
       demandId,
       opcId,
@@ -63,10 +110,6 @@ router.post("/demands/:demandId/bids", async (req, res) => {
       portfolioLinks: body.portfolioLinks || [],
       status: "pending",
     }).returning();
-
-    // 通知发布方有人抢单
-    const [demand] = await db.select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
-      .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
     if (demand?.publisherId) {
       const [opc] = await db.select({ nickname: usersTable.nickname })
         .from(usersTable).where(eq(usersTable.id, opcId)).limit(1);
