@@ -5,6 +5,7 @@ import {
   Mail, Lock, User, Building2,
   CheckCircle2, AlertCircle, Compass,
 } from "lucide-react";
+import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 
 type Tab = "login" | "register";
 type RegRole = "opc" | "publisher";
@@ -85,32 +86,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex font-body text-[#1a1c1e]">
       {/* ── Forgot Password Modal ── */}
-      {showForgot && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
-            <h3 className="text-lg font-black text-foreground mb-2">重置密码</h3>
-            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-              请联系平台客服协助重置密码：
-            </p>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <span className="font-bold text-slate-700">微信：</span>
-                <span className="text-primary font-medium">jiedanba_support</span>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <span className="font-bold text-slate-700">邮件：</span>
-                <a href="mailto:support@jiedanba.com" className="text-primary font-medium hover:underline">support@jiedanba.com</a>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowForgot(false)}
-              className="mt-6 w-full bg-primary text-white rounded-xl py-2.5 font-bold text-sm hover:bg-primary/90 transition-colors"
-            >
-              知道了
-            </button>
-          </div>
-        </div>
-      )}
+      {showForgot && <ForgotPasswordDialog onClose={() => setShowForgot(false)} />}
 
       {/* ── Left: Brand Visual ── */}
       <section className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary">
