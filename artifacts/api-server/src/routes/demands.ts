@@ -149,6 +149,23 @@ router.post("/demands", async (req, res) => {
     const body = CreateDemandBody.parse(req.body);
     const demandNo = await generateDemandNo();
 
+    /* ── attachments: Zod schema strips unknown fields, read directly from req.body ── */
+    const rawAttachments = Array.isArray(req.body.attachments) ? req.body.attachments : [];
+
+    /* ── milestones: store deadline as YYYY-MM-DD string, not ISO timestamp ── */
+    const milestones = (body.milestones || []).map(m => ({
+      ...m,
+      deadline: m.deadline
+        ? (m.deadline instanceof Date
+            ? m.deadline.toISOString().split("T")[0]
+            : String(m.deadline).split("T")[0])
+        : "",
+    }));
+
+    const authHeader = req.headers.authorization;
+    const uid = authHeader?.startsWith("Bearer ") ? parseInt(authHeader.slice(7)) : NaN;
+    const publisherId = isNaN(uid) ? 1 : uid;
+
     const [demand] = await db.insert(demandsTable).values({
       demandNo,
       title: body.title,
@@ -159,15 +176,12 @@ router.post("/demands", async (req, res) => {
       budgetMin: body.budgetMin,
       budgetMax: body.budgetMax,
       deadline: body.deadline,
-      milestones: body.milestones || [],
+      milestones,
+      attachments: rawAttachments,
       mode: body.mode as any,
       isUrgent: body.isUrgent ?? false,
       bidDeadline: body.bidDeadline ? new Date(body.bidDeadline) : null,
-      publisherId: (() => {
-        const authHeader = req.headers.authorization;
-        const uid = authHeader?.startsWith("Bearer ") ? parseInt(authHeader.slice(7)) : 1;
-        return isNaN(uid) ? 1 : uid;
-      })(),
+      publisherId,
       directedOpcIds: body.directedOpcIds || [],
       status: "draft",
     }).returning();

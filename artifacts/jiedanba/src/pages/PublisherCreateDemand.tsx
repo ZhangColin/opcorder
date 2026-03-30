@@ -319,8 +319,9 @@ export default function PublisherCreateDemand() {
         toast({ title: asDraft ? "草稿已保存" : "需求已提交审核", description: asDraft ? "您可以随时回来继续编辑" : "平台将在24小时内完成审核" });
       }
       navigate("/publisher/demands");
-    } catch {
-      toast({ title: "提交失败", description: "请稍后重试", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.data?.error ?? err?.message ?? "请稍后重试";
+      toast({ title: "提交失败", description: msg, variant: "destructive" });
     } finally {
       setSaving(false);
     }
