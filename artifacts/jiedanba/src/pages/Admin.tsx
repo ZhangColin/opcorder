@@ -2026,6 +2026,13 @@ function SiteSettingsManagement() {
 
 /* ─── Module: 等级认证审核 ─────────────────────── */
 
+interface LevelCertPastReview {
+  apply_level: "A" | "B" | "C";
+  note: string | null;
+  reviewed_at: string | null;
+  status: "rejected" | "downgraded";
+}
+
 interface LevelCertRow {
   id: number;
   title: string;
@@ -2043,6 +2050,8 @@ interface LevelCertRow {
   email: string;
   current_level: string | null;
   credit_score: number | null;
+  apply_count: number;
+  past_reviews: LevelCertPastReview[] | null;
 }
 
 const LEVEL_STATUS_LABELS: Record<string, { text: string; color: string }> = {
@@ -2052,6 +2061,18 @@ const LEVEL_STATUS_LABELS: Record<string, { text: string; color: string }> = {
   rejected:   { text: "未通过", color: "bg-red-100 text-red-700" },
 };
 
+const LEVEL_ORDER = ["newbie", "C", "B", "A"] as const;
+const LEVEL_LABELS: Record<string, string> = { newbie: "新手（未认证）", C: "C级·基础", B: "B级·进阶", A: "A级·专家" };
+const TYPE_LABELS: Record<string, string> = {
+  ai_education:     "AI 教育课程开发",
+  gov_training:     "政企 AI 培训",
+  ai_research:      "AI 研学项目",
+  party_building:   "党建数字化",
+  livestream_media: "直播与新媒体",
+  ai_tool_dev:      "AI 工具开发",
+  other:            "综合其他",
+};
+
 function LevelCertReview() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -2059,6 +2080,7 @@ function LevelCertReview() {
   const [reviewing, setReviewing] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "reviewed">("all");
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const { data = [], isLoading, refetch } = useQuery<LevelCertRow[]>({
     queryKey: ["admin-level-certs"],
@@ -2066,8 +2088,8 @@ function LevelCertReview() {
   });
 
   const reviewMut = useMutation({
-    mutationFn: ({ portfolioId, result }: { portfolioId: number; result: string }) =>
-      adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note: reviewNote }),
+    mutationFn: ({ portfolioId, result, downgradeTo }: { portfolioId: number; result: string; downgradeTo?: string }) =>
+      adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note: reviewNote, downgradeTo }),
     onSuccess: () => {
       toast({ title: "评审已提交", description: "评审结果已发送通知给OPC" });
       setReviewing(null);
@@ -2075,7 +2097,7 @@ function LevelCertReview() {
       refetch();
       qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
     },
-    onError: () => toast({ title: "提交失败", variant: "destructive" }),
+    onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
 
   const filtered = data.filter(r =>
@@ -2088,6 +2110,24 @@ function LevelCertReview() {
 
   return (
     <div>
+      {/* 封面图放大 lightbox */}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setZoomedImage(null)}>
+          <img
+            src={zoomedImage}
+            alt="封面大图"
+            className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()} />
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 rounded-full p-2"
+            onClick={() => setZoomedImage(null)}>
+            <XCircle size={24} />
+          </button>
+        </div>
+      )}
+
       <SectionHeader
         title="作品等级认证审核"
         sub={`共 ${data.length} 条申请，其中 ${pendingCount} 条待审`}
@@ -2121,16 +2161,32 @@ function LevelCertReview() {
             const isOpen = expanded === row.id;
             const isReviewing = reviewing === row.id;
             const statusInfo = LEVEL_STATUS_LABELS[row.level_apply_status];
+
+            // 计算可用审核选项
+            const currentLevelIdx = LEVEL_ORDER.indexOf(row.current_level as any ?? "newbie");
+            const applyLevelIdx = LEVEL_ORDER.indexOf(row.apply_level);
+            // 可通过：申请等级必须高于当前等级
+            const canApprove = applyLevelIdx > currentLevelIdx;
+            // 可降级通过的等级列表：apply_level-1 到 current_level+1 之间（且不为 newbie）
+            const downgradeLevels: string[] = [];
+            for (let i = currentLevelIdx + 1; i < applyLevelIdx; i++) {
+              if (LEVEL_ORDER[i] !== "newbie") downgradeLevels.push(LEVEL_ORDER[i]);
+            }
+
             return (
               <div key={row.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
                 {/* 主行 */}
                 <div
                   className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
                   onClick={() => setExpanded(isOpen ? null : row.id)}>
-                  {row.cover_image && (
-                    <img src={row.cover_image} alt="cover" className="w-14 h-14 rounded-xl object-cover shrink-0" />
-                  )}
-                  {!row.cover_image && (
+                  {row.cover_image ? (
+                    <img
+                      src={row.cover_image}
+                      alt="cover"
+                      title="点击放大"
+                      className="w-14 h-14 rounded-xl object-cover shrink-0 cursor-zoom-in hover:ring-2 hover:ring-primary/50 transition-all"
+                      onClick={e => { e.stopPropagation(); setZoomedImage(row.cover_image!); }} />
+                  ) : (
                     <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                       <ImageIcon size={20} className="text-slate-300" />
                     </div>
@@ -2138,17 +2194,25 @@ function LevelCertReview() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-blue-900 text-sm truncate">{row.title}</p>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
+                        {TYPE_LABELS[row.type] ?? row.type}
+                      </span>
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusInfo.color}`}>
                         {statusInfo.text}
                       </span>
                       <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
                         申请 {row.apply_level} 级
                       </span>
+                      {row.apply_count > 1 && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">
+                          第 {row.apply_count} 次申请
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                       <span>{row.nickname}</span>
                       <span>·</span>
-                      <span>当前等级: {row.current_level ?? "无"}</span>
+                      <span>当前等级: <span className="font-medium text-slate-600">{row.current_level ?? "新手"}</span></span>
                       <span>·</span>
                       <span>信用 {row.credit_score ?? 0}</span>
                       <span>·</span>
@@ -2170,20 +2234,78 @@ function LevelCertReview() {
                 {/* 展开详情 */}
                 {isOpen && (
                   <div className="border-t border-slate-100 px-6 py-4 space-y-4">
+                    {/* 封面大图预览 */}
+                    {row.cover_image && (
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">封面图</p>
+                        <img
+                          src={row.cover_image}
+                          alt="封面"
+                          title="点击放大"
+                          onClick={() => setZoomedImage(row.cover_image!)}
+                          className="w-full max-h-64 object-cover rounded-xl cursor-zoom-in hover:opacity-90 transition-opacity" />
+                      </div>
+                    )}
+
+                    {/* 项目类型 + 简介 */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目类型</p>
+                        <p className="text-sm text-slate-700 font-medium">{TYPE_LABELS[row.type] ?? row.type}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">申请等级</p>
+                        <p className="text-sm font-bold text-amber-700">{row.apply_level} 级 · {LEVEL_LABELS[row.apply_level]}</p>
+                      </div>
+                    </div>
+
                     <div>
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">作品简介</p>
                       <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{row.description}</p>
                     </div>
+
                     {row.project_url && (
                       <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目链接</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">作品链接 / 下载地址</p>
                         <a href={row.project_url} target="_blank" rel="noreferrer"
-                          className="text-sm text-primary underline break-all">{row.project_url}</a>
+                          className="text-sm text-primary underline break-all hover:text-primary/80 transition-colors">
+                          {row.project_url}
+                        </a>
                       </div>
                     )}
-                    {row.level_apply_note && (
+
+                    {/* 过往申请历史 */}
+                    {row.past_reviews && row.past_reviews.length > 0 && (
+                      <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 space-y-2">
+                        <p className="text-xs font-bold text-orange-700 mb-1">过往申请记录（共 {row.apply_count} 次）</p>
+                        {row.past_reviews.map((pr, i) => (
+                          <div key={i} className="border-l-2 border-orange-200 pl-3">
+                            <div className="flex items-center gap-2 text-xs text-orange-600 font-medium">
+                              <span>申请 {pr.apply_level} 级</span>
+                              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                pr.status === "rejected" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
+                              }`}>
+                                {pr.status === "rejected" ? "未通过" : "降级通过"}
+                              </span>
+                              {pr.reviewed_at && (
+                                <span className="text-slate-400">{new Date(pr.reviewed_at).toLocaleDateString("zh-CN")}</span>
+                              )}
+                            </div>
+                            {pr.note && (
+                              <p className="text-xs text-slate-600 mt-0.5">{pr.note}</p>
+                            )}
+                            {!pr.note && (
+                              <p className="text-xs text-slate-400 mt-0.5 italic">（无评审意见）</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 本次已审结果（非 pending） */}
+                    {row.level_apply_note && row.level_apply_status !== "pending" && (
                       <div className="bg-slate-50 rounded-xl px-4 py-3">
-                        <p className="text-xs font-bold text-slate-500 mb-0.5">历史评审意见</p>
+                        <p className="text-xs font-bold text-slate-500 mb-0.5">本次评审意见</p>
                         <p className="text-sm text-slate-700">{row.level_apply_note}</p>
                         {row.reviewed_at && (
                           <p className="text-[11px] text-slate-400 mt-1">评审于 {new Date(row.reviewed_at).toLocaleDateString("zh-CN")}</p>
@@ -2194,36 +2316,54 @@ function LevelCertReview() {
                     {/* 评审操作区 */}
                     {isReviewing && row.level_apply_status === "pending" && (
                       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
-                        <p className="text-sm font-bold text-amber-800">评审该作品 · 申请 {row.apply_level} 级</p>
+                        <p className="text-sm font-bold text-amber-800">
+                          评审该作品 · 申请 {row.apply_level} 级
+                          <span className="text-xs font-normal text-amber-600 ml-2">
+                            （当前等级：{row.current_level ?? "新手"}）
+                          </span>
+                        </p>
                         <textarea
                           rows={3}
                           value={reviewNote}
                           onChange={e => setReviewNote(e.target.value)}
                           placeholder="请填写评审意见（将在通知中发送给OPC，可留空）"
                           className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-300 resize-none bg-white" />
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "approved" })}
-                            disabled={reviewMut.isPending}
-                            className="py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5">
-                            <CheckCircle2 size={14} />
-                            认证通过 · 获得 {row.apply_level} 级
-                          </button>
-                          <button
-                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "downgraded" })}
-                            disabled={reviewMut.isPending}
-                            className="py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5">
-                            <Award size={14} />
-                            降级通过 · 获得 {row.apply_level === "A" ? "B级·进阶" : row.apply_level === "B" ? "C级·基础" : "新手（未认证）"}
-                          </button>
+                        <div className={`grid gap-2 ${downgradeLevels.length === 0 ? "grid-cols-2" : downgradeLevels.length === 1 ? "grid-cols-3" : "grid-cols-4"}`}>
+                          {/* 认证通过 */}
+                          {canApprove && (
+                            <button
+                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "approved" })}
+                              disabled={reviewMut.isPending}
+                              className="py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
+                              <CheckCircle2 size={14} />
+                              认证通过 · 获得 {row.apply_level} 级
+                            </button>
+                          )}
+                          {/* 降级通过（每个可降等级一个按钮） */}
+                          {downgradeLevels.map(lvl => (
+                            <button
+                              key={lvl}
+                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "downgraded", downgradeTo: lvl })}
+                              disabled={reviewMut.isPending}
+                              className="py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
+                              <Award size={14} />
+                              降级通过 · {LEVEL_LABELS[lvl] ?? lvl}
+                            </button>
+                          ))}
+                          {/* 还需努力 */}
                           <button
                             onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "rejected" })}
                             disabled={reviewMut.isPending}
-                            className="py-2.5 bg-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors flex items-center justify-center gap-1.5">
+                            className="py-2.5 bg-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
                             <XCircle size={14} />
                             还需努力
                           </button>
                         </div>
+                        {!canApprove && downgradeLevels.length === 0 && (
+                          <p className="text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2">
+                            ⚠️ 该OPC当前已是 <strong>{row.current_level}</strong> 级，申请的 {row.apply_level} 级不高于当前等级，无法通过认证（只能拒绝）。
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

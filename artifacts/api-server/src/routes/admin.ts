@@ -602,7 +602,20 @@ router.get("/admin/level-certs", async (_req, res) => {
         u.nickname,
         u.email,
         op.level AS current_level,
-        op.credit_score
+        op.credit_score,
+        (SELECT COUNT(*)::int FROM portfolios p2
+          WHERE p2.user_id = p.user_id AND p2.apply_level IS NOT NULL) AS apply_count,
+        (SELECT json_agg(json_build_object(
+            'apply_level', p2.apply_level,
+            'note', p2.level_apply_note,
+            'reviewed_at', p2.reviewed_at,
+            'status', p2.level_apply_status
+          ) ORDER BY p2.reviewed_at DESC)
+          FROM portfolios p2
+          WHERE p2.user_id = p.user_id
+            AND p2.apply_level IS NOT NULL
+            AND p2.level_apply_status IN ('rejected', 'downgraded')
+            AND p2.id != p.id) AS past_reviews
       FROM portfolios p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
@@ -621,7 +634,11 @@ router.get("/admin/level-certs", async (_req, res) => {
 router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
   try {
     const portfolioId = Number(req.params.portfolioId);
-    const { result, note } = req.body as { result: "approved" | "downgraded" | "rejected"; note?: string };
+    const { result, note, downgradeTo } = req.body as {
+      result: "approved" | "downgraded" | "rejected";
+      note?: string;
+      downgradeTo?: "A" | "B" | "C";
+    };
 
     const [portfolio] = await db.select().from(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
     if (!portfolio) return res.status(404).json({ error: "作品不存在" });
@@ -631,17 +648,36 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     const levelOrder: ("newbie" | "C" | "B" | "A")[] = ["newbie", "C", "B", "A"];
     const applyIdx = levelOrder.indexOf(applyLevel);
 
+    // 获取当前等级用于校验
+    const opcResult = await db.execute(sql`SELECT level FROM opc_profiles WHERE user_id = ${portfolio.userId}`);
+    const currentLevel = ((opcResult.rows[0] as any)?.level ?? "newbie") as string;
+    const currentIdx = levelOrder.indexOf(currentLevel as any);
+
     let grantedLevel: "newbie" | "C" | "B" | "A" = applyLevel;
     let notifTitle = "";
     let notifContent = "";
 
     if (result === "approved") {
       grantedLevel = applyLevel;
+      // 校验：通过后等级必须高于当前等级
+      if (applyIdx <= currentIdx) {
+        return res.status(400).json({ error: `OPC当前已是 ${currentLevel} 级，不能通过低于或等于当前等级的认证` });
+      }
       notifTitle = `🎉 等级认证成功 · 升至 ${applyLevel} 级`;
       notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，认证通过！您的OPC等级已升级为 ${applyLevel}级。${note ? `\n评审意见：${note}` : ""}`;
     } else if (result === "downgraded") {
-      const downIdx = Math.max(0, applyIdx - 1);
-      grantedLevel = levelOrder[downIdx];
+      // 使用前端指定的降级目标，默认降一级
+      if (downgradeTo && levelOrder.includes(downgradeTo)) {
+        grantedLevel = downgradeTo;
+      } else {
+        const downIdx = Math.max(1, applyIdx - 1); // 最低 C 级（索引 1）
+        grantedLevel = levelOrder[downIdx];
+      }
+      const grantIdx = levelOrder.indexOf(grantedLevel);
+      // 校验：降级通过后等级必须高于当前等级
+      if (grantIdx <= currentIdx) {
+        return res.status(400).json({ error: `OPC当前已是 ${currentLevel} 级，无法降级通过至 ${grantedLevel} 级` });
+      }
       notifTitle = `✅ 降级认证成功 · 获得 ${grantedLevel} 级`;
       notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，综合评估后授予 ${grantedLevel}级认证（您申请的是 ${applyLevel}级）。${note ? `\n评审意见：${note}` : ""}`;
     } else {
