@@ -4,7 +4,9 @@ import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
   Phone, MessageCircle, CheckCircle2, AlertCircle, Upload, ExternalLink, Banknote,
+  ZoomIn, ZoomOut, Crop, Loader2,
 } from "lucide-react";
+
 import {
   useGetCurrentUser,
   useGetOpcProfile,
@@ -14,6 +16,159 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PortfolioDrawer, TYPE_LABEL } from "@/components/PortfolioDrawer";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+/* ─── Image Crop Modal ─────────────────────────── */
+interface CropModalProps {
+  src: string;
+  onConfirm: (blob: Blob) => void;
+  onCancel: () => void;
+}
+
+function CropModal({ src, onConfirm, onCancel }: CropModalProps) {
+  const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const dragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 });
+
+  const CROP_SIZE = 280;
+  const PADDING = 32;
+  const MODAL_W = CROP_SIZE + PADDING * 2;
+
+  const clampOffset = useCallback((ox: number, oy: number, sc: number, natW: number, natH: number) => {
+    const rendW = natW * sc;
+    const rendH = natH * sc;
+    const maxX = Math.max(0, (rendW - CROP_SIZE) / 2);
+    const maxY = Math.max(0, (rendH - CROP_SIZE) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, ox)),
+      y: Math.max(-maxY, Math.min(maxY, oy)),
+    };
+  }, []);
+
+  const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth: nw, naturalHeight: nh } = e.currentTarget;
+    setImgNatural({ w: nw, h: nh });
+    const initScale = Math.max(CROP_SIZE / nw, CROP_SIZE / nh);
+    setScale(initScale);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const changeScale = (delta: number) => {
+    setScale(prev => {
+      const minSc = Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h);
+      const next = Math.max(minSc, Math.min(prev + delta, minSc * 5));
+      setOffset(o => clampOffset(o.x, o.y, next, imgNatural.w, imgNatural.h));
+      return next;
+    });
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    changeScale(e.deltaY < 0 ? 0.08 : -0.08);
+  };
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    dragging.current = true;
+    dragStart.current = { mx: e.clientX, my: e.clientY, ox: offset.x, oy: offset.y };
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - dragStart.current.mx;
+    const dy = e.clientY - dragStart.current.my;
+    setOffset(clampOffset(dragStart.current.ox + dx, dragStart.current.oy + dy, scale, imgNatural.w, imgNatural.h));
+  };
+  const onMouseUp = () => { dragging.current = false; };
+
+  const handleConfirm = () => {
+    const canvas = document.createElement("canvas");
+    const OUT = 512;
+    canvas.width = OUT;
+    canvas.height = OUT;
+    const ctx = canvas.getContext("2d")!;
+    const img = new Image();
+    img.onload = () => {
+      const rendW = imgNatural.w * scale;
+      const rendH = imgNatural.h * scale;
+      const imgLeft = (CROP_SIZE - rendW) / 2 + offset.x;
+      const imgTop  = (CROP_SIZE - rendH) / 2 + offset.y;
+      const ratio = OUT / CROP_SIZE;
+      ctx.drawImage(img, imgLeft * ratio, imgTop * ratio, rendW * ratio, rendH * ratio);
+      canvas.toBlob(blob => { if (blob) onConfirm(blob); }, "image/jpeg", 0.88);
+    };
+    img.src = src;
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl flex flex-col" style={{ width: MODAL_W + "px" }}>
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
+          <span className="font-bold text-slate-800 flex items-center gap-2"><Crop size={16} className="text-primary" />裁剪头像</span>
+          <button onClick={onCancel} className="text-slate-400 hover:text-slate-700 transition-colors"><X size={18} /></button>
+        </div>
+        <div className="px-8 py-5 flex flex-col items-center gap-4">
+          <p className="text-xs text-slate-400">拖拽移动图片，滚轮缩放；裁剪区域为正方形</p>
+          <div
+            className="relative select-none overflow-hidden rounded-xl border-2 border-primary/40 cursor-move bg-slate-100"
+            style={{ width: CROP_SIZE, height: CROP_SIZE }}
+            onWheel={onWheel}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+          >
+            <img
+              src={src}
+              alt="crop"
+              draggable={false}
+              onLoad={handleImgLoad}
+              style={{
+                position: "absolute",
+                width: imgNatural.w * scale,
+                height: imgNatural.h * scale,
+                left: "50%",
+                top: "50%",
+                transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+                userSelect: "none",
+              }}
+            />
+            <div className="absolute inset-0 pointer-events-none border-2 border-white/60 rounded-xl" />
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => changeScale(-0.12)} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+              <ZoomOut size={15} className="text-slate-600" />
+            </button>
+            <input
+              type="range" min={0} max={100} step={1}
+              value={Math.round(((scale - Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h)) /
+                (Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h) * 4)) * 100)}
+              onChange={e => {
+                const minSc = Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h);
+                const next = minSc + (Number(e.target.value) / 100) * minSc * 4;
+                setScale(next);
+                setOffset(o => clampOffset(o.x, o.y, next, imgNatural.w, imgNatural.h));
+              }}
+              className="w-32 accent-primary"
+            />
+            <button onClick={() => changeScale(0.12)} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+              <ZoomIn size={15} className="text-slate-600" />
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 pb-5">
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+            取消
+          </button>
+          <button onClick={handleConfirm} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-md shadow-primary/20">
+            确认裁剪
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ─── Static ─────────────────────────────────── */
 
@@ -126,10 +281,12 @@ interface EditDrawerProps {
 }
 
 function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
-  const [form, setForm]       = useState<FormState>(initial);
+  const [form, setForm]         = useState<FormState>(initial);
   const [newSkill, setNewSkill] = useState("");
-  const [status, setStatus]   = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [status, setStatus]     = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [avatarPreview, setAvatarPreview] = useState(initial.avatar);
+  const [cropSrc, setCropSrc]   = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const qc = useQueryClient();
@@ -141,39 +298,37 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
-  /* ── File upload with canvas compression ── */
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  /* ── File selected → open crop modal ── */
+  const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      alert("图片不能超过 10 MB");
-      return;
-    }
     const reader = new FileReader();
     reader.onload = ev => {
-      const img = new Image();
-      img.onload = () => {
-        /* Resize to max 600×600 and compress to JPEG */
-        const MAX = 600;
-        let { width, height } = img;
-        if (width > MAX || height > MAX) {
-          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
-          else                 { width = Math.round(width * MAX / height);  height = MAX; }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width  = width;
-        canvas.height = height;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL("image/jpeg", 0.80);
-        setAvatarPreview(compressed);
-        set("avatar", compressed);
-      };
-      img.src = ev.target?.result as string;
+      if (ev.target?.result) setCropSrc(ev.target.result as string);
     };
     reader.readAsDataURL(file);
-    /* Reset input so same file can be re-selected */
     e.target.value = "";
   }, []);
+
+  /* ── Crop confirmed → upload to storage ── */
+  const handleCropConfirm = useCallback(async (blob: Blob) => {
+    setCropSrc(null);
+    setAvatarUploading(true);
+    try {
+      const reqRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${userId}` },
+        body: JSON.stringify({ name: "avatar.jpg", size: blob.size, contentType: "image/jpeg" }),
+      });
+      const { uploadURL, objectPath } = await reqRes.json();
+      await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": "image/jpeg" } });
+      const avatarUrl = `${API_BASE}/api/storage${objectPath}`;
+      setAvatarPreview(avatarUrl);
+      set("avatar", avatarUrl);
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [userId]);
 
   /* ── Skills ── */
   const addSkill = (tag: string) => {
@@ -240,37 +395,55 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
 
           {/* ── 头像 ── */}
           <section>
+            {cropSrc && (
+              <CropModal
+                src={cropSrc}
+                onConfirm={handleCropConfirm}
+                onCancel={() => setCropSrc(null)}
+              />
+            )}
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">头像</label>
             <div className="flex items-center gap-5">
               {/* Preview */}
-              <div className="relative shrink-0 cursor-pointer" onClick={() => fileRef.current?.click()}>
+              <div
+                className="relative shrink-0 cursor-pointer"
+                onClick={() => !avatarUploading && fileRef.current?.click()}
+              >
                 <div className="w-20 h-20 rounded-2xl border-4 border-slate-100 overflow-hidden bg-primary/10 flex items-center justify-center">
-                  {avatarPreview ? (
+                  {avatarUploading ? (
+                    <Loader2 size={28} className="text-primary animate-spin" />
+                  ) : avatarPreview ? (
                     <img src={avatarPreview} alt="preview" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-3xl font-black text-primary">{form.nickname?.[0] ?? "新"}</span>
                   )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-md">
-                  <Camera size={13} className="text-white" />
-                </div>
+                {!avatarUploading && (
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-md">
+                    <Camera size={13} className="text-white" />
+                  </div>
+                )}
               </div>
 
               {/* Upload area */}
               <div className="flex-1">
                 <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp"
-                  className="hidden" onChange={handleFileChange} />
+                  className="hidden" onChange={handleFileSelected} />
 
                 <button
-                  onClick={() => fileRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-primary/30 hover:border-primary/60 bg-primary/5 hover:bg-primary/10 rounded-xl py-4 text-sm font-bold text-primary transition-colors"
+                  onClick={() => !avatarUploading && fileRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-primary/30 hover:border-primary/60 bg-primary/5 hover:bg-primary/10 rounded-xl py-4 text-sm font-bold text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Upload size={16} /> 点击上传图片
+                  {avatarUploading
+                    ? <><Loader2 size={16} className="animate-spin" />上传中…</>
+                    : <><Upload size={16} />{avatarPreview ? "重新上传" : "点击上传图片"}</>
+                  }
                 </button>
                 <p className="text-[11px] text-slate-400 mt-2 text-center">
-                  支持 JPG / PNG / WebP，最大 3 MB
+                  支持 JPG / PNG / WebP，上传后可裁剪
                 </p>
-                {avatarPreview && (
+                {avatarPreview && !avatarUploading && (
                   <button
                     onClick={() => { setAvatarPreview(""); set("avatar", ""); }}
                     className="mt-1.5 w-full text-center text-xs text-destructive hover:underline"
