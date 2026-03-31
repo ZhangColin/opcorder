@@ -3,6 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import {
   ArrowLeft, CheckCircle2, Clock, XCircle, UploadCloud, AlertCircle,
   ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag, Star, Send, Loader2,
+  Building2, MapPin, Globe, Mail, Users, CalendarDays, ChevronRight,
 } from "lucide-react";
 import {
   useGetOrderById,
@@ -323,12 +324,119 @@ function OpcReviewPanel({ orderId, onDone }: { orderId: number; onDone: () => vo
   );
 }
 
+interface PublisherProfileData {
+  companyLogo: string | null;
+  companyDesc: string | null;
+  industry: string | null;
+  location: string | null;
+  teamSize: string | null;
+  foundedYear: string | null;
+  website: string | null;
+  contactEmail: string | null;
+}
+
+function PublisherProfileModal({
+  name,
+  profile,
+  onClose,
+}: {
+  name: string;
+  profile: PublisherProfileData | null;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+        onClick={e => e.stopPropagation()}>
+        {/* 顶部 logo + 名称 */}
+        <div className="bg-gradient-to-br from-blue-50 to-slate-100 px-6 py-6 flex items-center gap-4">
+          {profile?.companyLogo ? (
+            <img src={profile.companyLogo} alt="logo" className="w-16 h-16 rounded-2xl object-cover border border-white shadow-sm shrink-0" />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+              <Building2 size={28} className="text-slate-400" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-blue-900 leading-tight">{name}</h2>
+            {profile?.industry && (
+              <p className="text-sm text-slate-500 mt-0.5">{profile.industry}</p>
+            )}
+          </div>
+        </div>
+
+        {/* 详情信息 */}
+        <div className="px-6 py-5 space-y-4">
+          {profile?.companyDesc && (
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">公司简介</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{profile.companyDesc}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            {profile?.location && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <MapPin size={14} className="text-slate-400 shrink-0" />
+                <span>{profile.location}</span>
+              </div>
+            )}
+            {profile?.teamSize && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Users size={14} className="text-slate-400 shrink-0" />
+                <span>{profile.teamSize} 人</span>
+              </div>
+            )}
+            {profile?.foundedYear && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <CalendarDays size={14} className="text-slate-400 shrink-0" />
+                <span>成立于 {profile.foundedYear}</span>
+              </div>
+            )}
+            {profile?.website && (
+              <div className="flex items-center gap-2 text-sm">
+                <Globe size={14} className="text-slate-400 shrink-0" />
+                <a href={profile.website} target="_blank" rel="noreferrer"
+                  className="text-primary underline truncate hover:text-primary/80 transition-colors">
+                  {profile.website.replace(/^https?:\/\//, "")}
+                </a>
+              </div>
+            )}
+            {profile?.contactEmail && (
+              <div className="flex items-center gap-2 text-sm text-slate-600 col-span-2">
+                <Mail size={14} className="text-slate-400 shrink-0" />
+                <span>{profile.contactEmail}</span>
+              </div>
+            )}
+          </div>
+
+          {!profile && (
+            <p className="text-sm text-slate-400 text-center py-4">该发单方暂未完善公司资料</p>
+          )}
+        </div>
+
+        <div className="border-t border-slate-100 px-6 py-4">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrderDetail() {
   const [, params] = useRoute("/orders/:id");
   const [, navigate] = useLocation();
   const id = parseInt(params?.id || "0", 10);
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [showPublisherModal, setShowPublisherModal] = useState(false);
 
   const { data: order, isLoading, refetch } = useGetOrderById(id);
 
@@ -372,6 +480,15 @@ export default function OrderDetail() {
         <ArrowLeft size={16} /> 返回订单列表
       </button>
 
+      {/* Publisher modal */}
+      {showPublisherModal && (
+        <PublisherProfileModal
+          name={order.publisherName ?? "发单方"}
+          profile={(order as any).publisherProfile ?? null}
+          onClose={() => setShowPublisherModal(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-card rounded-2xl border border-border shadow-sm p-6 flex flex-col md:flex-row justify-between gap-5">
         <div>
@@ -385,7 +502,24 @@ export default function OrderDetail() {
           </div>
           <h1 className="text-xl font-black font-display text-foreground mb-3">{order.demandTitle}</h1>
           <div className="flex flex-wrap gap-5 text-sm text-muted-foreground font-medium">
-            <span>发单方: <span className="text-foreground">{order.publisherName}</span></span>
+            {/* 发单方：logo + 名称，可点击查看详情 */}
+            <button
+              onClick={() => setShowPublisherModal(true)}
+              className="flex items-center gap-2 hover:text-foreground transition-colors group">
+              {(order as any).publisherLogo ? (
+                <img
+                  src={(order as any).publisherLogo}
+                  alt="logo"
+                  className="w-6 h-6 rounded-md object-cover border border-border group-hover:ring-2 group-hover:ring-primary/30 transition-all"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-md bg-muted border border-border flex items-center justify-center">
+                  <Building2 size={12} className="text-muted-foreground" />
+                </div>
+              )}
+              <span>发单方: <span className="text-foreground font-semibold">{order.publisherName}</span></span>
+              <ChevronRight size={13} className="text-muted-foreground group-hover:text-primary transition-colors" />
+            </button>
             <span>截止日期: <span className="text-foreground">{order.deadline ?? "—"}</span></span>
           </div>
         </div>

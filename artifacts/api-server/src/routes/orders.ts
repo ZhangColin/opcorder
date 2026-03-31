@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable } from "@workspace/db";
+import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable, publisherProfilesTable } from "@workspace/db";
 import { eq, desc, count, sql, and } from "drizzle-orm";
 import {
   ListOrdersQueryParams,
@@ -125,11 +125,23 @@ router.get("/orders/:orderId", async (req, res) => {
     const deliverables = await db.select().from(deliverablesTable).where(eq(deliverablesTable.orderId, orderId));
     const [opcUser] = await db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, order.opcId));
     const [pubUser] = await db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, order.publisherId));
+    const [pubProfile] = await db.select({
+      companyLogo: publisherProfilesTable.companyLogo,
+      companyDesc: publisherProfilesTable.companyDesc,
+      industry: publisherProfilesTable.industry,
+      location: publisherProfilesTable.location,
+      teamSize: publisherProfilesTable.teamSize,
+      foundedYear: publisherProfilesTable.foundedYear,
+      website: publisherProfilesTable.website,
+      contactEmail: publisherProfilesTable.contactEmail,
+    }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, order.publisherId));
 
     res.json({
       ...order,
       opcNickname: opcUser?.nickname,
       publisherName: pubUser?.nickname,
+      publisherLogo: pubProfile?.companyLogo ?? null,
+      publisherProfile: pubProfile ?? null,
       deliverables: deliverables.map(d => ({
         ...d,
         submittedAt: d.submittedAt.toISOString(),
