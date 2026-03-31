@@ -1,14 +1,174 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, Building2, MapPin, Users, Calendar, Globe,
   Mail, Phone, Pencil, Save, X, CheckCircle, Briefcase,
-  ChevronRight, PlusCircle, Upload, Loader2, Hash,
+  ChevronRight, PlusCircle, Upload, Loader2, Hash, ZoomIn, ZoomOut, Crop,
 } from "lucide-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from "@/components/publisher/PublisherHeaderUser";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useListDemands } from "@workspace/api-client-react";
+
+/* ─── Image Crop Modal ─── */
+interface CropModalProps {
+  src: string;
+  onConfirm: (blob: Blob) => void;
+  onCancel: () => void;
+}
+
+function CropModal({ src, onConfirm, onCancel }: CropModalProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [imgNatural, setImgNatural] = useState({ w: 1, h: 1 });
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const dragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 });
+
+  const CROP_SIZE = 280;
+  const PADDING = 32;
+  const MODAL_W = CROP_SIZE + PADDING * 2;
+
+  const clampOffset = useCallback((ox: number, oy: number, sc: number, natW: number, natH: number) => {
+    const rendW = natW * sc;
+    const rendH = natH * sc;
+    const maxX = Math.max(0, (rendW - CROP_SIZE) / 2);
+    const maxY = Math.max(0, (rendH - CROP_SIZE) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, ox)),
+      y: Math.max(-maxY, Math.min(maxY, oy)),
+    };
+  }, []);
+
+  const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth: nw, naturalHeight: nh } = e.currentTarget;
+    setImgNatural({ w: nw, h: nh });
+    const initScale = Math.max(CROP_SIZE / nw, CROP_SIZE / nh);
+    setScale(initScale);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const changeScale = (delta: number) => {
+    setScale(prev => {
+      const minSc = Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h);
+      const next = Math.max(minSc, Math.min(prev + delta, minSc * 5));
+      setOffset(o => clampOffset(o.x, o.y, next, imgNatural.w, imgNatural.h));
+      return next;
+    });
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    changeScale(e.deltaY < 0 ? 0.08 : -0.08);
+  };
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    dragging.current = true;
+    dragStart.current = { mx: e.clientX, my: e.clientY, ox: offset.x, oy: offset.y };
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - dragStart.current.mx;
+    const dy = e.clientY - dragStart.current.my;
+    setOffset(clampOffset(dragStart.current.ox + dx, dragStart.current.oy + dy, scale, imgNatural.w, imgNatural.h));
+  };
+  const onMouseUp = () => { dragging.current = false; };
+
+  const handleConfirm = () => {
+    const canvas = document.createElement("canvas");
+    const OUT = 512;
+    canvas.width = OUT;
+    canvas.height = OUT;
+    const ctx = canvas.getContext("2d")!;
+    const img = new Image();
+    img.onload = () => {
+      const rendW = imgNatural.w * scale;
+      const rendH = imgNatural.h * scale;
+      const imgLeft = (CROP_SIZE - rendW) / 2 + offset.x;
+      const imgTop  = (CROP_SIZE - rendH) / 2 + offset.y;
+      const ratio = OUT / CROP_SIZE;
+      ctx.drawImage(img, imgLeft * ratio, imgTop * ratio, rendW * ratio, rendH * ratio);
+      canvas.toBlob(blob => { if (blob) onConfirm(blob); }, "image/jpeg", 0.88);
+    };
+    img.src = src;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl flex flex-col" style={{ width: MODAL_W + "px" }}>
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
+          <span className="font-bold text-slate-800 flex items-center gap-2"><Crop size={16} className="text-primary" />裁剪企业 Logo</span>
+          <button onClick={onCancel} className="text-slate-400 hover:text-slate-700 transition-colors"><X size={18} /></button>
+        </div>
+
+        <div className="px-8 py-5 flex flex-col items-center gap-4">
+          <p className="text-xs text-slate-400">拖拽移动图片，滚轮缩放；裁剪区域为正方形</p>
+          <div
+            ref={containerRef}
+            className="relative select-none overflow-hidden rounded-xl border-2 border-primary/40 cursor-move bg-slate-100"
+            style={{ width: CROP_SIZE, height: CROP_SIZE }}
+            onWheel={onWheel}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+          >
+            <img
+              src={src}
+              alt="crop"
+              draggable={false}
+              onLoad={handleImgLoad}
+              style={{
+                position: "absolute",
+                width: imgNatural.w * scale,
+                height: imgNatural.h * scale,
+                left: "50%",
+                top: "50%",
+                transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+                userSelect: "none",
+              }}
+            />
+            <div className="absolute inset-0 pointer-events-none border-2 border-white/60 rounded-xl" />
+            <div className="absolute inset-0 pointer-events-none" style={{
+              boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.4)",
+            }} />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button onClick={() => changeScale(-0.12)} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+              <ZoomOut size={15} className="text-slate-600" />
+            </button>
+            <input
+              type="range"
+              min={0} max={100} step={1}
+              value={Math.round(((scale - Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h)) /
+                (Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h) * 4)) * 100)}
+              onChange={e => {
+                const minSc = Math.max(CROP_SIZE / imgNatural.w, CROP_SIZE / imgNatural.h);
+                const next = minSc + (Number(e.target.value) / 100) * minSc * 4;
+                setScale(next);
+                setOffset(o => clampOffset(o.x, o.y, next, imgNatural.w, imgNatural.h));
+              }}
+              className="w-32 accent-primary"
+            />
+            <button onClick={() => changeScale(0.12)} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors">
+              <ZoomIn size={15} className="text-slate-600" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-3 px-6 pb-5">
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+            取消
+          </button>
+          <button onClick={handleConfirm} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-md shadow-primary/20">
+            确认裁剪
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -83,6 +243,7 @@ export default function PublisherProfile() {
     companyLogo: "",
   });
   const [logoUploading, setLogoUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const logout = () => {
@@ -173,17 +334,27 @@ export default function PublisherProfile() {
   const f = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }));
 
-  const handleLogoUpload = async (file: File) => {
+  const handleLogoFileSelected = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      if (e.target?.result) setCropSrc(e.target.result as string);
+    };
+    reader.readAsDataURL(file);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
+    setCropSrc(null);
     if (!userId) return;
     setLogoUploading(true);
     try {
       const reqRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${userId}` },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+        body: JSON.stringify({ name: "logo.jpg", size: blob.size, contentType: "image/jpeg" }),
       });
       const { uploadURL, objectPath } = await reqRes.json();
-      await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": "image/jpeg" } });
       const logoUrl = `${API_BASE}/api/storage${objectPath}`;
       setForm(prev => ({ ...prev, companyLogo: logoUrl }));
     } finally {
@@ -196,6 +367,13 @@ export default function PublisherProfile() {
 
   return (
     <div className="flex min-h-screen bg-[#f3f3f6] text-[#1a1c1e]">
+      {cropSrc && (
+        <CropModal
+          src={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={() => { setCropSrc(null); }}
+        />
+      )}
       <PublisherSidebar onLogout={logout} />
 
       <main className="flex-1 ml-64 min-h-screen">
@@ -219,11 +397,19 @@ export default function PublisherProfile() {
           {/* Page Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
             <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center text-white text-3xl font-extrabold shadow-lg shadow-primary/20 overflow-hidden">
-                {(editing ? form.companyLogo : profile?.companyLogo)
-                  ? <img src={editing ? form.companyLogo : profile!.companyLogo!} alt="企业logo" className="w-full h-full object-cover" />
-                  : avatarChar}
-              </div>
+              {(() => {
+                const logo = editing ? form.companyLogo : profile?.companyLogo;
+                return logo
+                  ? (
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white shrink-0">
+                      <img src={logo} alt="企业logo" className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center text-white text-3xl font-extrabold shadow-lg shadow-primary/20 shrink-0">
+                      {avatarChar}
+                    </div>
+                  );
+              })()}
               <div>
                 <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">发单方</p>
                 <h1 className="text-3xl font-extrabold text-primary tracking-tight font-display">
@@ -322,7 +508,7 @@ export default function PublisherProfile() {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={e => { const file = e.target.files?.[0]; if (file) handleLogoUpload(file); }}
+                          onChange={e => { const file = e.target.files?.[0]; if (file) handleLogoFileSelected(file); }}
                         />
                       </div>
 
