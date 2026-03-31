@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 
@@ -687,6 +687,7 @@ router.get("/admin/content", async (_req, res) => {
       likesCount: postsTable.likesCount,
       commentsCount: postsTable.commentsCount,
       viewsCount: postsTable.viewsCount,
+      isFeatured: postsTable.isFeatured,
       authorId: postsTable.authorId,
       createdAt: postsTable.createdAt,
     })
@@ -706,12 +707,60 @@ router.get("/admin/content", async (_req, res) => {
   }
 });
 
+router.patch("/admin/content/:postId/feature", async (req, res) => {
+  try {
+    const id = Number(req.params.postId);
+    const { isFeatured } = req.body as { isFeatured: boolean };
+    await db.update(postsTable).set({ isFeatured }).where(eq(postsTable.id, id));
+    res.json({ ok: true, isFeatured });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "操作失败" });
+  }
+});
+
 router.delete("/admin/content/posts/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
     await db.execute(sql`DELETE FROM post_comments WHERE post_id = ${id}`);
     await db.execute(sql`DELETE FROM post_likes WHERE post_id = ${id}`);
     await db.delete(postsTable).where(eq(postsTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "删除失败" });
+  }
+});
+
+/* ─── SENSITIVE WORDS ───────────────────────────── */
+
+router.get("/admin/sensitive-words", async (_req, res) => {
+  try {
+    const words = await db.select().from(sensitiveWordsTable).orderBy(sensitiveWordsTable.createdAt);
+    res.json(words);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取敏感词失败" });
+  }
+});
+
+router.post("/admin/sensitive-words", async (req, res) => {
+  try {
+    const { word } = req.body as { word: string };
+    if (!word || !word.trim()) return res.status(400).json({ error: "敏感词不能为空" });
+    const [row] = await db.insert(sensitiveWordsTable).values({ word: word.trim().toLowerCase() }).returning();
+    res.status(201).json(row);
+  } catch (err: any) {
+    if (err?.code === "23505") return res.status(409).json({ error: "该敏感词已存在" });
+    console.error(err);
+    res.status(500).json({ error: "添加失败" });
+  }
+});
+
+router.delete("/admin/sensitive-words/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await db.delete(sensitiveWordsTable).where(eq(sensitiveWordsTable.id, id));
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

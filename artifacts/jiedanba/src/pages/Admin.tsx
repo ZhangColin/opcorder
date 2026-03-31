@@ -14,6 +14,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw,
+  Flame, Filter,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -94,21 +95,23 @@ async function adminDelete(path: string) {
 type Module =
   | "dashboard" | "users" | "demands" | "orders"
   | "finance"   | "ecosystem" | "training" | "content"
-  | "cockpit"   | "disputes"  | "settings" | "levelcert";
+  | "cockpit"   | "disputes"  | "settings" | "levelcert"
+  | "sensitivewords";
 
 const NAV: { key: Module; icon: React.ElementType; label: string }[] = [
-  { key: "dashboard",  icon: LayoutDashboard,    label: "数据看板" },
-  { key: "cockpit",    icon: BarChart3,           label: "平台驾驶舱" },
-  { key: "users",      icon: Users,              label: "用户管理" },
-  { key: "demands",    icon: FileText,            label: "需求管理" },
-  { key: "orders",     icon: ShoppingBag,         label: "订单管理" },
-  { key: "disputes",   icon: Gavel,               label: "争议管理" },
-  { key: "finance",    icon: Wallet,              label: "财务管理" },
-  { key: "ecosystem",  icon: Network,             label: "OPC 生态池" },
-  { key: "training",   icon: GraduationCap,       label: "认证培训" },
-  { key: "levelcert",  icon: Trophy,              label: "等级认证" },
-  { key: "content",    icon: Shield,              label: "内容审核" },
-  { key: "settings",   icon: SlidersHorizontal,   label: "站点设置" },
+  { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板" },
+  { key: "cockpit",        icon: BarChart3,           label: "平台驾驶舱" },
+  { key: "users",          icon: Users,              label: "用户管理" },
+  { key: "demands",        icon: FileText,            label: "需求管理" },
+  { key: "orders",         icon: ShoppingBag,         label: "订单管理" },
+  { key: "disputes",       icon: Gavel,               label: "争议管理" },
+  { key: "finance",        icon: Wallet,              label: "财务管理" },
+  { key: "ecosystem",      icon: Network,             label: "OPC 生态池" },
+  { key: "training",       icon: GraduationCap,       label: "认证培训" },
+  { key: "levelcert",      icon: Trophy,              label: "等级认证" },
+  { key: "content",        icon: Shield,              label: "内容审核" },
+  { key: "sensitivewords", icon: Flame,               label: "敏感词管理" },
+  { key: "settings",       icon: SlidersHorizontal,   label: "站点设置" },
 ];
 
 /* ─── Shared components ─────────────────────────── */
@@ -1407,6 +1410,7 @@ interface AdminPost {
   likesCount: number;
   commentsCount: number;
   viewsCount: number;
+  isFeatured: boolean;
   authorName: string;
   createdAt: string;
 }
@@ -1426,22 +1430,46 @@ function ContentReview() {
     onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
   });
 
+  const featurePost = useMutation({
+    mutationFn: ({ id, isFeatured }: { id: number; isFeatured: boolean }) =>
+      fetch(`${BASE}/api/admin/content/${id}/feature`, {
+        method: "PATCH",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ isFeatured }),
+      }).then(r => r.json()),
+    onSuccess: (_, { isFeatured }) => {
+      qc.invalidateQueries({ queryKey: ["admin-content"] });
+      toast({ title: isFeatured ? "已设为热门推荐" : "已取消热门推荐" });
+    },
+    onError: () => toast({ title: "操作失败", variant: "destructive" }),
+  });
+
+  const featuredCount = posts.filter(p => p.isFeatured).length;
+
   return (
     <div className="space-y-6">
-      <SectionHeader title="内容审核" sub="社区帖子管理、内容删除、举报处理"
+      <SectionHeader title="内容审核" sub="社区帖子管理、内容删除、点亮🔥设为热门推荐"
         action={
-          <div className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
-            <BarChart3 size={13} /> 共 {posts.length} 篇帖子
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+              <Flame size={13} /> 热门 {featuredCount} 篇
+            </div>
+            <div className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+              <BarChart3 size={13} /> 共 {posts.length} 篇
+            </div>
           </div>
         }
       />
       <TableShell headers={["编号", "帖子标题", "作者", "标签", "点赞", "评论", "发布日期", "操作"]}>
         {isLoading ? <LoadingRow cols={8} /> : posts.length === 0 ? <EmptyRow cols={8} /> :
           posts.map(p => (
-            <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
+            <tr key={p.id} className={`hover:bg-slate-50/60 transition-colors ${p.isFeatured ? "bg-orange-50/40" : ""}`}>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">#{p.id}</td>
               <td className="px-6 py-4 text-sm text-blue-900 font-medium max-w-[240px]">
-                <span className="line-clamp-1">{p.title || p.content.slice(0, 40)}</span>
+                <div className="flex items-center gap-1.5">
+                  {p.isFeatured && <Flame size={13} className="text-orange-500 shrink-0" />}
+                  <span className="line-clamp-1">{p.title || p.content.slice(0, 40)}</span>
+                </div>
               </td>
               <td className="px-6 py-4 text-sm text-slate-500">{p.authorName}</td>
               <td className="px-6 py-4">
@@ -1456,6 +1484,13 @@ function ContentReview() {
               <td className="px-6 py-4 text-xs text-slate-400">{new Date(p.createdAt).toLocaleDateString("zh-CN")}</td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => featurePost.mutate({ id: p.id, isFeatured: !p.isFeatured })}
+                    title={p.isFeatured ? "取消热门" : "设为热门"}
+                    className={`p-2 rounded-xl transition-colors ${p.isFeatured ? "bg-orange-100 text-orange-500 hover:bg-orange-200" : "hover:bg-orange-50 text-slate-400 hover:text-orange-500"}`}
+                  >
+                    <Flame size={15} />
+                  </button>
                   <button
                     onClick={() => { if (confirm("确认删除此帖子？删除后不可恢复。")) deletePost.mutate(p.id); }}
                     title="删除" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
@@ -2114,20 +2149,131 @@ function LevelCertReview() {
   );
 }
 
+/* ─── Module: 敏感词管理 ─────────────────────────── */
+
+interface SensitiveWordRow { id: number; word: string; createdAt: string; }
+
+function SensitiveWordsManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [input, setInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  const { data: words = [], isLoading } = useQuery<SensitiveWordRow[]>({
+    queryKey: ["admin-sensitive-words"],
+    queryFn: () => adminGet("/api/admin/sensitive-words"),
+  });
+
+  const addWord = useMutation({
+    mutationFn: (word: string) =>
+      fetch(`${BASE}/api/admin/sensitive-words`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ word }),
+      }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-sensitive-words"] });
+      setInput("");
+      toast({ title: "敏感词已添加" });
+    },
+    onError: (e: Error) => toast({ title: "添加失败", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteWord = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/sensitive-words/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-sensitive-words"] }); toast({ title: "敏感词已删除" }); },
+    onError: () => toast({ title: "删除失败", variant: "destructive" }),
+  });
+
+  const filtered = words.filter(w => !search || w.word.includes(search));
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="敏感词管理"
+        sub="管理社区发帖的内容过滤词库，含有敏感词的帖子将被拦截"
+        action={
+          <div className="px-3 py-1.5 bg-red-100 text-red-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <Flame size={13} /> 词库 {words.length} 个
+          </div>
+        }
+      />
+
+      <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">添加新敏感词</h3>
+        <div className="flex gap-3">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && input.trim()) addWord.mutate(input.trim()); }}
+            placeholder="输入敏感词，回车或点击添加…"
+            className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <button
+            onClick={() => { if (input.trim()) addWord.mutate(input.trim()); }}
+            disabled={addWord.isPending || !input.trim()}
+            className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {addWord.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            添加
+          </button>
+        </div>
+        <p className="text-xs text-slate-400">系统已内置黄赌毒及政治反动类敏感词，可在此继续扩充词库。发帖内容（标题+正文）含有任意敏感词时将被拦截。</p>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">当前词库</h3>
+          <div className="relative">
+            <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="搜索词库…"
+              className="pl-8 pr-4 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-40"
+            />
+          </div>
+        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10 text-slate-400"><Loader2 size={20} className="animate-spin mr-2" />加载中…</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-10 text-slate-400 text-sm">暂无敏感词</div>
+        ) : (
+          <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
+            {filtered.map(w => (
+              <span key={w.id} className="flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 text-xs font-medium px-3 py-1.5 rounded-full">
+                {w.word}
+                <button
+                  onClick={() => deleteWord.mutate(w.id)}
+                  className="ml-0.5 hover:text-red-900 transition-colors"
+                  title="删除"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
-    case "dashboard":  return <Dashboard />;
-    case "cockpit":    return <PlatformCockpit />;
-    case "users":      return <UserManagement />;
-    case "demands":    return <DemandManagement />;
-    case "orders":     return <OrderManagement />;
-    case "disputes":   return <DisputeManagement />;
-    case "finance":    return <FinanceManagement />;
-    case "ecosystem":  return <EcosystemManagement />;
-    case "training":   return <TrainingManagement />;
-    case "levelcert":  return <LevelCertReview />;
-    case "content":    return <ContentReview />;
-    case "settings":   return <SiteSettingsManagement />;
+    case "dashboard":      return <Dashboard />;
+    case "cockpit":        return <PlatformCockpit />;
+    case "users":          return <UserManagement />;
+    case "demands":        return <DemandManagement />;
+    case "orders":         return <OrderManagement />;
+    case "disputes":       return <DisputeManagement />;
+    case "finance":        return <FinanceManagement />;
+    case "ecosystem":      return <EcosystemManagement />;
+    case "training":       return <TrainingManagement />;
+    case "levelcert":      return <LevelCertReview />;
+    case "content":        return <ContentReview />;
+    case "sensitivewords": return <SensitiveWordsManagement />;
+    case "settings":       return <SiteSettingsManagement />;
   }
 }
 

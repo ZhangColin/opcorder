@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, postsTable, postLikesTable, postCommentsTable, usersTable, publisherProfilesTable } from "@workspace/db";
+import { db, postsTable, postLikesTable, postCommentsTable, usersTable, publisherProfilesTable, sensitiveWordsTable } from "@workspace/db";
 import { eq, desc, and, sql, or, ilike } from "drizzle-orm";
 import {
   ListPostsQueryParams,
@@ -29,6 +29,7 @@ function formatPost(
     likesCount: post.likesCount,
     commentsCount: post.commentsCount,
     viewsCount: post.viewsCount,
+    isFeatured: post.isFeatured,
     likedByMe,
     createdAt: post.createdAt.toISOString(),
   };
@@ -118,6 +119,13 @@ router.get("/posts/:postId", async (req, res) => {
 router.post("/posts", async (req, res) => {
   try {
     const body = CreatePostBody.parse(req.body);
+
+    const allWords = await db.select({ word: sensitiveWordsTable.word }).from(sensitiveWordsTable);
+    const text = `${body.title} ${body.content}`.toLowerCase();
+    const hit = allWords.find(({ word }) => text.includes(word));
+    if (hit) {
+      return res.status(422).json({ error: `内容包含敏感词，请修改后重新发布`, sensitiveWord: hit.word });
+    }
 
     const [post] = await db.insert(postsTable).values({
       authorId: body.authorId,

@@ -6,6 +6,7 @@ import {
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
   ArrowRight, Filter, Plus, X, Send, Loader2,
   ChevronDown, LogOut, ArrowLeft, ChevronUp,
+  ChevronLeft, ChevronRight, Flame,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile,
@@ -152,6 +153,7 @@ function NewPostModal({ userId, onClose }: { userId: number; onClose: () => void
   const [content, setContent]   = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags]         = useState<string[]>([]);
+  const [sensitiveErr, setSensitiveErr] = useState("");
   const qc = useQueryClient();
 
   const { mutateAsync: createPost, isPending } = useCreatePost();
@@ -164,9 +166,17 @@ function NewPostModal({ userId, onClose }: { userId: number; onClose: () => void
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) return;
-    await createPost({ data: { authorId: userId, title: title.trim(), content: content.trim(), tags } });
-    await qc.invalidateQueries({ queryKey: ["/posts"] });
-    onClose();
+    setSensitiveErr("");
+    try {
+      await createPost({ data: { authorId: userId, title: title.trim(), content: content.trim(), tags } });
+      await qc.invalidateQueries({ queryKey: ["/posts"] });
+      onClose();
+    } catch (e: any) {
+      const msg = e?.response?.data?.error ?? e?.message ?? "";
+      if (msg.includes("敏感词")) {
+        setSensitiveErr(msg);
+      }
+    }
   };
 
   return (
@@ -239,6 +249,14 @@ function NewPostModal({ userId, onClose }: { userId: number; onClose: () => void
           </div>
         </div>
 
+        <div className="px-6 pb-0">
+          {sensitiveErr && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-3">
+              <Flame size={15} className="shrink-0 mt-0.5 text-red-500" />
+              <span>{sensitiveErr}，请修改后重新发布。</span>
+            </div>
+          )}
+        </div>
         <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors text-sm">
             取消
@@ -512,6 +530,7 @@ export default function Community() {
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(new Set());
   const [searchInput, setSearchInput]         = useState("");
   const [searchQuery, setSearchQuery]         = useState("");
+  const [page, setPage]                       = useState(1);
 
   const role     = localStorage.getItem("jdb_role");
   const isGuest  = !role;
@@ -522,8 +541,18 @@ export default function Community() {
   const publisherLogo         = usePublisherCompanyLogo(role === "publisher" ? user?.id : null);
   const { data: leaderboard } = useGetOpcLeaderboard({ limit: 10 });
 
-  const { data: postsData, isLoading: postsLoading } = useListPosts({ sort: feedTab, ...(searchQuery ? { search: searchQuery } as any : {}) });
-  const posts = postsData?.items ?? [];
+  const PAGE_SIZE = 10;
+
+  useEffect(() => { setPage(1); }, [feedTab, searchQuery]);
+
+  const { data: postsData, isLoading: postsLoading } = useListPosts({
+    sort: feedTab,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE,
+    ...(searchQuery ? { search: searchQuery } as any : {}),
+  });
+  const posts      = postsData?.items ?? [];
+  const totalPages = Math.max(1, Math.ceil((postsData?.total ?? 0) / PAGE_SIZE));
 
   const handleSearch = (q: string) => {
     setSearchQuery(q.trim());
@@ -707,7 +736,7 @@ export default function Community() {
               };
 
               return (
-                <article key={post.id} className="bg-white rounded-2xl p-6 border border-slate-100 hover:border-slate-200 hover:shadow-md transition-all group">
+                <article key={post.id} className={`bg-white rounded-2xl p-6 border transition-all group ${(post as any).isFeatured ? "border-orange-200 hover:border-orange-300 hover:shadow-md ring-1 ring-orange-100" : "border-slate-100 hover:border-slate-200 hover:shadow-md"}`}>
                   <div className="flex items-start gap-4">
                     <AuthorAvatar name={post.authorName ?? "匿名"} avatar={(post as any).authorAvatar} size="md" />
                     <div className="flex-1 min-w-0">
@@ -716,6 +745,11 @@ export default function Community() {
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${roleCls((post as any).authorRole ?? "opc")}`}>
                           {roleLabel((post as any).authorRole ?? "opc")}
                         </span>
+                        {(post as any).isFeatured && (
+                          <span className="flex items-center gap-0.5 px-2 py-0.5 bg-orange-100 text-orange-600 rounded text-[10px] font-bold">
+                            <Flame size={10} />热门推荐
+                          </span>
+                        )}
                         <span className="text-xs text-slate-400 ml-auto shrink-0">
                           {new Date(post.createdAt).toLocaleDateString("zh-CN")}
                         </span>
@@ -777,6 +811,42 @@ export default function Community() {
                 </article>
               );
             })}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <button
+                  onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  disabled={page <= 1}
+                  className="flex items-center gap-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={15} /> 上一页
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      className={`w-9 h-9 rounded-xl text-sm font-bold transition-colors ${p === page ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                  disabled={page >= totalPages}
+                  className="flex items-center gap-1 px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  下一页 <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
+            {postsData && (
+              <p className="text-center text-xs text-slate-400">
+                第 {page} / {totalPages} 页，共 {postsData.total} 篇话题
+              </p>
+            )}
 
             {/* New post button */}
             <button

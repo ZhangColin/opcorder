@@ -10,3 +10,4 @@ export * from "./notifications";
 export * from "./posts";
 export * from "./courses";
 export * from "./site-settings";
+export * from "./sensitive-words";
