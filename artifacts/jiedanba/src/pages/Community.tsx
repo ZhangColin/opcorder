@@ -408,7 +408,7 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const qc = useQueryClient();
-  const { data: postsData } = useListPosts({ sort: "latest" });
+  const { data: postsData } = useListPosts({ sort: "latest", ...(userId ? { userId } : {}) } as any);
   const post = postsData?.items?.find(p => p.id === postId);
 
   const handleComment = async () => {
@@ -549,8 +549,9 @@ export default function Community() {
     sort: feedTab,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
+    ...(user?.id ? { userId: user.id } : {}),
     ...(searchQuery ? { search: searchQuery } as any : {}),
-  });
+  } as any);
   const posts      = postsData?.items ?? [];
   const totalPages = Math.max(1, Math.ceil((postsData?.total ?? 0) / PAGE_SIZE));
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, postsTable, postLikesTable, postCommentsTable, usersTable, publisherProfilesTable, sensitiveWordsTable } from "@workspace/db";
-import { eq, desc, and, sql, or, ilike } from "drizzle-orm";
+import { eq, desc, and, sql, or, ilike, inArray } from "drizzle-orm";
 import {
   ListPostsQueryParams,
   CreatePostBody,
@@ -81,9 +81,24 @@ router.get("/posts", async (req, res) => {
       .from(postsTable)
       .where(whereClause);
 
+    // 查当前用户在这一批帖子里点赞过哪些
+    const userId = params.userId;
+    let likedSet = new Set<number>();
+    if (userId && posts.length > 0) {
+      const postIds = posts.map(p => p.post.id);
+      const likes = await db
+        .select({ postId: postLikesTable.postId })
+        .from(postLikesTable)
+        .where(and(
+          eq(postLikesTable.userId, userId),
+          inArray(postLikesTable.postId, postIds)
+        ));
+      likedSet = new Set(likes.map(l => l.postId));
+    }
+
     res.json({
       items: posts.map(({ post, nickname, role, userAvatar, publisherLogo }) =>
-        formatPost(post, nickname ?? "匿名用户", role ?? "opc", resolveAvatar(role, userAvatar, publisherLogo))
+        formatPost(post, nickname ?? "匿名用户", role ?? "opc", resolveAvatar(role, userAvatar, publisherLogo), likedSet.has(post.id))
       ),
       total: Number(countResult[0]?.count ?? 0),
     });

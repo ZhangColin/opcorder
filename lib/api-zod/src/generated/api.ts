@@ -1031,6 +1031,7 @@ export const ListPostsQueryParams = zod.object({
   sort: zod.enum(["latest", "hot"]).default(listPostsQuerySortDefault),
   limit: zod.coerce.number().default(listPostsQueryLimitDefault),
   offset: zod.coerce.number().default(listPostsQueryOffsetDefault),
+  userId: zod.coerce.number().optional(),
 });
 
 export const ListPostsResponse = zod.object({
