@@ -724,9 +724,6 @@ export default function Profile() {
                   className="flex items-center gap-1.5 px-4 py-2 border border-primary/30 text-primary text-sm font-bold rounded-xl hover:bg-primary/5 transition-colors">
                   <Pencil size={14} /> 编辑资料
                 </button>
-                <button className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 shadow-sm">
-                  联系报价 <ChevronRight size={14} />
-                </button>
               </div>
             </div>
 
