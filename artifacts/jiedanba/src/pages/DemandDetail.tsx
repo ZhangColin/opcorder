@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File, Building2, MapPin, Globe, Mail, Users, CalendarDays, ChevronRight, X } from "lucide-react";
 import { useGetDemandById, useCreateBid } from "@workspace/api-client-react";
 import { DEMAND_TYPES, DEMAND_STATUSES, OPC_LEVELS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,93 @@ function AttachmentIcon({ type }: { type: string }) {
   if (type === "spreadsheet") return <FileSpreadsheet size={18} className="text-green-600" />;
   if (type === "archive") return <FileArchive size={18} className="text-yellow-600" />;
   return <File size={18} className="text-muted-foreground" />;
+}
+
+function PublisherModal({
+  name,
+  profile,
+  onClose,
+}: {
+  name: string;
+  profile: {
+    companyLogo?: string | null;
+    companyDesc?: string | null;
+    industry?: string | null;
+    location?: string | null;
+    teamSize?: string | null;
+    foundedYear?: string | null;
+    website?: string | null;
+    contactEmail?: string | null;
+  } | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="bg-gradient-to-br from-blue-50 to-slate-100 px-6 py-6 flex items-center gap-4">
+          {profile?.companyLogo ? (
+            <img src={profile.companyLogo} alt="logo" className="w-16 h-16 rounded-2xl object-cover border border-white shadow-sm shrink-0" />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shrink-0">
+              <Building2 size={28} className="text-slate-400" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-black text-blue-900 leading-tight">{name}</h2>
+            {profile?.industry && <p className="text-sm text-slate-500 mt-0.5">{profile.industry}</p>}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-black/10 transition-colors shrink-0">
+            <X size={18} className="text-slate-500" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {profile?.companyDesc && (
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">公司简介</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{profile.companyDesc}</p>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            {profile?.location && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <MapPin size={14} className="text-slate-400 shrink-0" /><span>{profile.location}</span>
+              </div>
+            )}
+            {profile?.teamSize && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Users size={14} className="text-slate-400 shrink-0" /><span>{profile.teamSize} 人</span>
+              </div>
+            )}
+            {profile?.foundedYear && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <CalendarDays size={14} className="text-slate-400 shrink-0" /><span>成立于 {profile.foundedYear}</span>
+              </div>
+            )}
+            {profile?.website && (
+              <div className="flex items-center gap-2 text-sm col-span-2">
+                <Globe size={14} className="text-slate-400 shrink-0" />
+                <a href={profile.website} target="_blank" rel="noreferrer"
+                  className="text-primary underline truncate hover:text-primary/80 transition-colors">
+                  {profile.website.replace(/^https?:\/\//, "")}
+                </a>
+              </div>
+            )}
+            {profile?.contactEmail && (
+              <div className="flex items-center gap-2 text-sm text-slate-600 col-span-2">
+                <Mail size={14} className="text-slate-400 shrink-0" /><span>{profile.contactEmail}</span>
+              </div>
+            )}
+          </div>
+          {!profile && <p className="text-sm text-slate-400 text-center py-4">该发单方暂未完善公司资料</p>}
+        </div>
+        <div className="border-t border-slate-100 px-6 py-4">
+          <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DemandDetail() {
@@ -24,6 +111,7 @@ export default function DemandDetail() {
 
   const [showBidForm, setShowBidForm] = useState(false);
   const [bidForm, setBidForm] = useState({ proposal: "", estimatedDays: 7, portfolioLinks: "" });
+  const [showPublisherModal, setShowPublisherModal] = useState(false);
 
   if (isLoading || !demand) {
     return <div className="animate-pulse h-96 bg-card rounded-3xl border border-border mt-8"></div>;
@@ -103,9 +191,26 @@ export default function DemandDetail() {
             </div>
           </div>
 
+          {showPublisherModal && (
+            <PublisherModal
+              name={demand.publisherName || "发单方"}
+              profile={(demand as any).publisherProfile ?? null}
+              onClose={() => setShowPublisherModal(false)}
+            />
+          )}
+
           <div className="md:w-72 shrink-0 bg-background rounded-2xl p-6 border border-border shadow-inner">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
-              {(demand as any).publisherAvatar ? (
+            <button
+              className="flex items-center gap-3 mb-6 pb-4 border-b border-border w-full text-left group hover:bg-slate-50 -mx-2 px-2 rounded-xl transition-colors"
+              onClick={() => setShowPublisherModal(true)}
+            >
+              {(demand as any).publisherLogo ? (
+                <img
+                  src={(demand as any).publisherLogo}
+                  alt={demand.publisherName || "发单方"}
+                  className="w-12 h-12 rounded-xl object-cover shrink-0 ring-2 ring-transparent group-hover:ring-primary/30 transition-all"
+                />
+              ) : (demand as any).publisherAvatar ? (
                 <img
                   src={(demand as any).publisherAvatar}
                   alt={demand.publisherName || "发单方"}
@@ -116,14 +221,15 @@ export default function DemandDetail() {
                   {demand.publisherName?.[0] || '发'}
                 </div>
               )}
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground font-bold mb-1">发单方</p>
-                <p className="font-bold text-foreground">{demand.publisherName || '系统运营方'}</p>
+                <p className="font-bold text-foreground truncate">{demand.publisherName || '系统运营方'}</p>
                 {(demand as any).publisherTitle && (
-                  <p className="text-xs text-secondary font-medium mt-0.5">{(demand as any).publisherTitle}</p>
+                  <p className="text-xs text-secondary font-medium mt-0.5 truncate">{(demand as any).publisherTitle}</p>
                 )}
               </div>
-            </div>
+              <ChevronRight size={14} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+            </button>
             
             {demand.status === 'published' && (
               <button 

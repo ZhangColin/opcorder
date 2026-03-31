@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, demandsTable, usersTable, bidsTable, notificationsTable } from "@workspace/db";
+import { db, demandsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
 import {
   ListDemandsQueryParams,
@@ -252,10 +252,23 @@ router.get("/demands/:demandId", async (req, res) => {
       return res.status(404).json({ error: "Demand not found" });
     }
 
+    const [pubProfile] = await db.select({
+      companyLogo:  publisherProfilesTable.companyLogo,
+      companyDesc:  publisherProfilesTable.companyDesc,
+      industry:     publisherProfilesTable.industry,
+      location:     publisherProfilesTable.location,
+      teamSize:     publisherProfilesTable.teamSize,
+      foundedYear:  publisherProfilesTable.foundedYear,
+      website:      publisherProfilesTable.website,
+      contactEmail: publisherProfilesTable.contactEmail,
+    }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, demand.publisherId));
+
     res.json({
       ...demand,
       typeLabel: DEMAND_TYPE_LABELS[demand.type] || demand.type,
       bidCount: 0,
+      publisherLogo:    pubProfile?.companyLogo ?? null,
+      publisherProfile: pubProfile ?? null,
       createdAt: demand.createdAt.toISOString(),
       updatedAt: demand.updatedAt.toISOString(),
       bidDeadline: demand.bidDeadline?.toISOString(),
