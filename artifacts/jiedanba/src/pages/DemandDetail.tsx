@@ -170,23 +170,41 @@ export default function DemandDetail() {
               <p className="text-muted-foreground text-sm">发单方暂未上传参考资料。</p>
             ) : (
               <ul className="space-y-3">
-                {attachments.map((file, idx) => (
-                  <li key={idx}>
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-4 p-4 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all group"
-                    >
-                      <AttachmentIcon type={file.type} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{file.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{file.size}</p>
-                      </div>
-                      <Download size={15} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                    </a>
-                  </li>
-                ))}
+                {attachments.map((file, idx) => {
+                  const hasUrl = file.url && file.url !== "#";
+                  const downloadHref = hasUrl
+                    ? `${file.url}?name=${encodeURIComponent(file.name)}`
+                    : undefined;
+                  return (
+                    <li key={idx}>
+                      {hasUrl ? (
+                        <a
+                          href={downloadHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={file.name}
+                          className="flex items-center gap-4 p-4 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all group cursor-pointer"
+                        >
+                          <AttachmentIcon type={file.type} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{file.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{file.size}</p>
+                          </div>
+                          <Download size={15} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                        </a>
+                      ) : (
+                        <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-muted/30 opacity-50 cursor-not-allowed">
+                          <AttachmentIcon type={file.type} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-foreground truncate">{file.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{file.size} · 文件暂不可下载</p>
+                          </div>
+                          <Download size={15} className="text-muted-foreground/40 shrink-0" />
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
