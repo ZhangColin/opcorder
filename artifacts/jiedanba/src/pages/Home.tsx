@@ -1,9 +1,120 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2 } from "lucide-react";
+import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy } from "lucide-react";
 import { useGetOverviewStats, useListDemands, useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
 import { DemandCard } from "@/components/DemandCard";
+import { OPC_LEVELS } from "@/lib/constants";
+
+const RANK_STYLES = [
+  { bg: "bg-amber-400",  text: "text-amber-950", border: "border-amber-300",  ring: "ring-amber-300"  },
+  { bg: "bg-slate-300",  text: "text-slate-800",  border: "border-slate-200", ring: "ring-slate-200"  },
+  { bg: "bg-orange-300", text: "text-orange-950", border: "border-orange-200",ring: "ring-orange-200" },
+];
+
+function LeaderboardModal({ onClose }: { onClose: () => void }) {
+  const { data: top10, isLoading } = useGetOpcLeaderboard({ limit: 10 });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col bg-white rounded-3xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="primary-gradient px-8 py-7 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+              <Trophy size={20} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold text-white font-display">活跃 OPC 完整榜单</h2>
+              <p className="text-white/70 text-xs font-medium mt-0.5">按活跃积分排名 · 实时更新</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {isLoading ? (
+            <div className="space-y-3 py-4">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="h-16 bg-muted/50 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              {(top10 ?? []).map((opc, idx) => {
+                const rank = idx + 1;
+                const style = RANK_STYLES[idx] ?? { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-100", ring: "ring-slate-100" };
+                const levelInfo = OPC_LEVELS[opc.level] ?? { label: opc.level, color: "text-primary" };
+                const isTop3 = idx < 3;
+
+                return (
+                  <div key={opc.id} className={`flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all ${isTop3 ? "bg-gradient-to-r from-primary/5 to-transparent border-primary/15" : "bg-slate-50/60 border-slate-100 hover:border-primary/20 hover:bg-white"}`}>
+                    {/* Rank */}
+                    <div className={`shrink-0 w-9 h-9 rounded-xl ${isTop3 ? style.bg : "bg-slate-200"} ${isTop3 ? style.text : "text-slate-500"} flex items-center justify-center font-black text-sm`}>
+                      {rank}
+                    </div>
+
+                    {/* Avatar */}
+                    <div className={`relative shrink-0 w-12 h-12 rounded-full overflow-hidden border-2 ${isTop3 ? style.border : "border-slate-200"} ${isTop3 ? `ring-2 ${style.ring}` : ""}`}>
+                      {opc.avatar ? (
+                        <img src={opc.avatar} alt={opc.nickname} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-primary/10 flex items-center justify-center text-primary font-black text-lg">
+                          {(opc.nickname ?? "O")[0]}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground text-sm truncate">{opc.nickname}</span>
+                        <span className={`shrink-0 text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-primary/10 ${levelInfo.color}`}>
+                          {levelInfo.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="flex items-center gap-1 text-xs text-amber-500 font-bold">
+                          <Star size={11} className="fill-amber-400" />
+                          {(opc.avgRating ?? 5.0).toFixed(1)}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-slate-500 font-medium">
+                          <CheckCircle2 size={11} className="text-emerald-500" />
+                          {opc.totalOrders ?? 0} 单
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Activity Score */}
+                    <div className="shrink-0 text-right">
+                      <div className={`text-lg font-black ${isTop3 ? "text-primary" : "text-slate-700"}`}>
+                        {(opc.activityScore ?? 0).toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">活跃积分</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-6 py-4 border-t border-border/50 bg-muted/30 text-center text-xs text-muted-foreground font-medium">
+          积分根据接单量、好评率、完成率综合计算 · 每日更新
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const { data: stats, isLoading: statsLoading } = useGetOverviewStats();
   const { data: currentUser } = useGetCurrentUser();
   const { data: opcProfile } = useGetOpcProfile(currentUser?.id ?? 0, {
@@ -164,12 +275,12 @@ export default function Home() {
               )}
             </div>
             
-            <Link
-              href="/community#leaderboard"
-              className="block w-full mt-8 py-3.5 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-border/60 transition-all text-center"
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="w-full mt-8 py-3.5 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-border/60 active:scale-[0.98] transition-all"
             >
               查看完整榜单
-            </Link>
+            </button>
           </div>
 
           {/* Insights Block */}
@@ -193,6 +304,8 @@ export default function Home() {
 
         </aside>
       </div>
+
+      {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} />}
     </div>
   );
 }
