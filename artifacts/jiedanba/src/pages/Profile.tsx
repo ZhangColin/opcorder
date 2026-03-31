@@ -610,7 +610,6 @@ export default function Profile() {
   useEffect(() => {
     if (new URLSearchParams(search).get("edit") === "1") {
       setEditOpen(true);
-      /* Clean up the query param without a full reload */
       window.history.replaceState(null, "", window.location.pathname);
     }
   }, [search]);
@@ -621,6 +620,27 @@ export default function Profile() {
   const { data: user }       = useGetCurrentUser();
   const { data: profile }    = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
   const { data: portfolios } = useListPortfolios({ userId: user?.id ?? 1 }, { query: { enabled: !!user?.id } });
+
+  /* Auto-open portfolio drawer when navigated here with ?portfolio={id} */
+  const [pendingPortfolioId, setPendingPortfolioId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const id = new URLSearchParams(search).get("portfolio");
+    if (id) {
+      setPendingPortfolioId(Number(id));
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [search]);
+
+  useEffect(() => {
+    if (!pendingPortfolioId || !portfolios) return;
+    const target = portfolios.find(p => p.id === pendingPortfolioId);
+    if (target) {
+      setEditingPortfolio(target);
+      setPortfolioDrawer(true);
+      setPendingPortfolioId(null);
+    }
+  }, [pendingPortfolioId, portfolios]);
 
   const level    = profile?.level ?? "C";
   const certs    = CERT_BY_LEVEL[level] ?? CERT_BY_LEVEL["C"];

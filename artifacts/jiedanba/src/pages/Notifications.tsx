@@ -145,7 +145,7 @@ function NotifCard({ n, onRead, onNavigate, onAcceptInvite, onRejectInvite, isAc
               onClick={() => onNavigate(n)}
               className="mt-2 flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
             >
-              {n.relatedType === "order" ? "查看订单" : "查看需求"}
+              {n.relatedType === "order" ? "查看订单" : n.relatedType === "portfolio" ? "前往修改作品" : "查看需求"}
               <ArrowRight size={12} />
             </button>
           )}
@@ -198,6 +198,7 @@ export default function Notifications() {
     if (n.relatedType === "order" && n.relatedId) navigate(`/orders/${n.relatedId}`);
     else if (n.relatedType === "demand" && n.relatedId) navigate(`/order-hall`);
     else if (n.relatedType === "bid" && n.relatedId) navigate(`/order-hall`);
+    else if (n.relatedType === "portfolio" && n.relatedId) navigate(`/profile?portfolio=${n.relatedId}`);
   };
 
   const handleAcceptInvite = (n: NotificationItem) => {
