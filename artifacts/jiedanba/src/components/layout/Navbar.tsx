@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, MessageSquare, KeyRound } from "lucide-react";
-import { useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
+import { useGetCurrentUser, useGetOpcProfile, useListNotifications } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
@@ -15,6 +15,8 @@ export function Navbar() {
 
   const { data: user }    = useGetCurrentUser();
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
+  const { data: notifData } = useListNotifications({ limit: 1 }, { query: { enabled: !!user?.id, refetchInterval: 30000 } });
+  const unreadCount = notifData?.unreadCount ?? 0;
   const siteName = useSiteName();
 
   const name       = profile?.nickname ?? user?.nickname ?? "新用户";
@@ -92,8 +94,12 @@ export function Navbar() {
           </button>
           <Link href="/notifications"
             className="relative w-10 h-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
-            <Bell size={20} />
-            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-white" />
+            <Bell size={20} className={unreadCount > 0 ? "text-primary" : ""} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-destructive text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center leading-none">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </Link>
 
           <div className="h-8 w-px bg-border mx-2 hidden sm:block" />

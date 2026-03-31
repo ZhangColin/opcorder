@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy } from "lucide-react";
-import { useGetOverviewStats, useListDemands, useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
+import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy, BellRing, ClipboardList } from "lucide-react";
+import { useGetOverviewStats, useListDemands, useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile, useListNotifications, useListOrders } from "@workspace/api-client-react";
 import { DemandCard } from "@/components/DemandCard";
 import { OPC_LEVELS } from "@/lib/constants";
 
@@ -115,6 +115,7 @@ function LeaderboardModal({ onClose }: { onClose: () => void }) {
 
 export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const { data: stats, isLoading: statsLoading } = useGetOverviewStats();
   const { data: currentUser } = useGetCurrentUser();
   const { data: opcProfile } = useGetOpcProfile(currentUser?.id ?? 0, {
@@ -127,9 +128,63 @@ export default function Home() {
     ...(eligibleLevel ? { eligibleLevel } : {}),
   });
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
+  const { data: notifData } = useListNotifications({ limit: 1 }, { query: { enabled: !!currentUser?.id } });
+  const { data: activeOrdersData } = useListOrders({ status: "in_progress", limit: 1 }, { query: { enabled: !!currentUser?.id } });
+
+  const unreadNotifs   = notifData?.unreadCount ?? 0;
+  const activeOrders   = activeOrdersData?.total ?? 0;
+  const showBanner     = !bannerDismissed && (unreadNotifs > 0 || activeOrders > 0) && !!currentUser;
 
   return (
     <div className="space-y-12">
+
+      {/* ── 接单提醒横幅 ── */}
+      {showBanner && (
+        <div className="relative rounded-2xl overflow-hidden border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+          <div className="flex items-center gap-4 px-5 py-4">
+            {/* 图标 */}
+            <div className="shrink-0 w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center animate-pulse">
+              <BellRing size={22} className="text-primary" />
+            </div>
+
+            {/* 内容 */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black text-primary leading-snug">
+                {activeOrders > 0 && unreadNotifs > 0
+                  ? `您有 ${activeOrders} 个进行中的订单，以及 ${unreadNotifs} 条未读消息，请及时处理！`
+                  : activeOrders > 0
+                  ? `您有 ${activeOrders} 个进行中的订单，请关注最新进展！`
+                  : `您有 ${unreadNotifs} 条未读消息，请查看！`}
+              </p>
+              <p className="text-xs text-primary/60 mt-0.5 font-medium">按时推进可提升您的信用分与好评率</p>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="shrink-0 flex items-center gap-2">
+              {activeOrders > 0 && (
+                <Link href="/orders">
+                  <button className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-colors whitespace-nowrap">
+                    <ClipboardList size={13} /> 查看订单
+                  </button>
+                </Link>
+              )}
+              {unreadNotifs > 0 && (
+                <Link href="/notifications">
+                  <button className="flex items-center gap-1.5 px-4 py-2 bg-white border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/5 transition-colors whitespace-nowrap">
+                    <BellRing size={13} /> {unreadNotifs} 条消息
+                  </button>
+                </Link>
+              )}
+              <button
+                onClick={() => setBannerDismissed(true)}
+                className="ml-1 w-7 h-7 rounded-lg flex items-center justify-center text-primary/40 hover:text-primary hover:bg-primary/10 transition-colors shrink-0">
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Big KPIs Section */}
       <section className="primary-gradient rounded-3xl p-8 lg:p-10 text-white grid grid-cols-1 md:grid-cols-3 gap-8 shadow-2xl shadow-primary/20 relative overflow-hidden">
         {/* Decorative architectural background */}
