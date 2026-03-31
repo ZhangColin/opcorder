@@ -526,7 +526,7 @@ export default function Community() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showNewPost, setShowNewPost]         = useState(false);
   const [selectedPostId, setSelectedPostId]   = useState<number | null>(null);
-  const [likedIds, setLikedIds]               = useState<Set<number>>(new Set());
+  const [postOverrides, setPostOverrides] = useState<Map<number, { liked: boolean; count: number }>>(new Map());
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(new Set());
   const [searchInput, setSearchInput]         = useState("");
   const [searchQuery, setSearchQuery]         = useState("");
@@ -570,10 +570,27 @@ export default function Community() {
   const handleLike = async (postId: number) => {
     if (requireLogin()) return;
     if (!user?.id) return;
-    const { liked } = await toggleLike({ postId, data: { userId: user.id } });
-    if (liked) setLikedIds(prev => new Set([...prev, postId]));
-    else setLikedIds(prev => { const s = new Set(prev); s.delete(postId); return s; });
-    qc.invalidateQueries({ queryKey: ["/posts"] });
+
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const cur = postOverrides.get(postId);
+    const wasLiked  = cur !== undefined ? cur.liked  : (post.likedByMe ?? false);
+    const curCount  = cur !== undefined ? cur.count  : (post.likesCount ?? 0);
+    const newLiked  = !wasLiked;
+    const newCount  = newLiked ? curCount + 1 : Math.max(0, curCount - 1);
+
+    // 乐观更新：立刻反映到 UI
+    setPostOverrides(prev => new Map(prev).set(postId, { liked: newLiked, count: newCount }));
+
+    try {
+      await toggleLike({ postId, data: { userId: user.id } });
+      // 成功后失效缓存，让服务端数据最终同步
+      qc.invalidateQueries({ queryKey: ["/posts"] });
+    } catch {
+      // 失败回滚
+      setPostOverrides(prev => new Map(prev).set(postId, { liked: wasLiked, count: curCount }));
+    }
   };
 
   return (
@@ -729,7 +746,9 @@ export default function Community() {
                 </p>
               </div>
             ) : posts.map(post => {
-              const isLiked = likedIds.has(post.id) || post.likedByMe;
+              const override = postOverrides.get(post.id);
+              const isLiked    = override !== undefined ? override.liked  : (post.likedByMe ?? false);
+              const likeCount  = override !== undefined ? override.count  : (post.likesCount ?? 0);
               const commentsOpen = expandedCommentIds.has(post.id);
 
               const toggleComments = () => {
@@ -779,7 +798,7 @@ export default function Community() {
                           className={`flex items-center gap-1.5 transition-colors ${isLiked ? "text-primary" : "hover:text-primary"}`}
                         >
                           <ThumbsUp size={16} className={isLiked ? "fill-primary" : ""} />
-                          <span className="text-xs font-medium">{formatCount(post.likesCount)}</span>
+                          <span className="text-xs font-medium">{formatCount(likeCount)}</span>
                         </button>
                         <button
                           onClick={toggleComments}
