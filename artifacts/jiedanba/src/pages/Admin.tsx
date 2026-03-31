@@ -13,7 +13,7 @@ import {
   CreditCard, Receipt, BadgeCheck, UserX, UserCheck,
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
-  Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X,
+  Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -94,7 +94,7 @@ async function adminDelete(path: string) {
 type Module =
   | "dashboard" | "users" | "demands" | "orders"
   | "finance"   | "ecosystem" | "training" | "content"
-  | "cockpit"   | "disputes"  | "settings";
+  | "cockpit"   | "disputes"  | "settings" | "levelcert";
 
 const NAV: { key: Module; icon: React.ElementType; label: string }[] = [
   { key: "dashboard",  icon: LayoutDashboard,    label: "数据看板" },
@@ -106,6 +106,7 @@ const NAV: { key: Module; icon: React.ElementType; label: string }[] = [
   { key: "finance",    icon: Wallet,              label: "财务管理" },
   { key: "ecosystem",  icon: Network,             label: "OPC 生态池" },
   { key: "training",   icon: GraduationCap,       label: "认证培训" },
+  { key: "levelcert",  icon: Trophy,              label: "等级认证" },
   { key: "content",    icon: Shield,              label: "内容审核" },
   { key: "settings",   icon: SlidersHorizontal,   label: "站点设置" },
 ];
@@ -1892,6 +1893,219 @@ function SiteSettingsManagement() {
   );
 }
 
+/* ─── Module: 等级认证审核 ─────────────────────── */
+
+interface LevelCertRow {
+  id: number;
+  title: string;
+  type: string;
+  description: string;
+  cover_image: string | null;
+  project_url: string | null;
+  apply_level: "A" | "B" | "C";
+  level_apply_status: "pending" | "approved" | "downgraded" | "rejected";
+  level_apply_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  user_id: number;
+  nickname: string;
+  email: string;
+  current_level: string | null;
+  credit_score: number | null;
+}
+
+const LEVEL_STATUS_LABELS: Record<string, { text: string; color: string }> = {
+  pending:    { text: "待审核", color: "bg-amber-100 text-amber-700" },
+  approved:   { text: "已通过", color: "bg-green-100 text-green-700" },
+  downgraded: { text: "降级通过", color: "bg-blue-100 text-blue-700" },
+  rejected:   { text: "未通过", color: "bg-red-100 text-red-700" },
+};
+
+function LevelCertReview() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [reviewing, setReviewing] = useState<number | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "reviewed">("all");
+
+  const { data = [], isLoading, refetch } = useQuery<LevelCertRow[]>({
+    queryKey: ["admin-level-certs"],
+    queryFn: () => adminGet("/api/admin/level-certs"),
+  });
+
+  const reviewMut = useMutation({
+    mutationFn: ({ portfolioId, result }: { portfolioId: number; result: string }) =>
+      adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note: reviewNote }),
+    onSuccess: () => {
+      toast({ title: "评审已提交", description: "评审结果已发送通知给OPC" });
+      setReviewing(null);
+      setReviewNote("");
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
+    },
+    onError: () => toast({ title: "提交失败", variant: "destructive" }),
+  });
+
+  const filtered = data.filter(r =>
+    filterStatus === "all" ? true :
+    filterStatus === "pending" ? r.level_apply_status === "pending" :
+    r.level_apply_status !== "pending"
+  );
+
+  const pendingCount = data.filter(r => r.level_apply_status === "pending").length;
+
+  return (
+    <div>
+      <SectionHeader
+        title="作品等级认证审核"
+        sub={`共 ${data.length} 条申请，其中 ${pendingCount} 条待审`}
+        action={
+          <div className="flex items-center gap-2">
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value as never)}
+              className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
+              <option value="all">全部</option>
+              <option value="pending">待审核</option>
+              <option value="reviewed">已审核</option>
+            </select>
+            <button onClick={() => refetch()}
+              className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+              <RefreshCw size={16} className="text-slate-500" />
+            </button>
+          </div>
+        }
+      />
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
+          <Loader2 size={18} className="animate-spin" />加载中…
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-slate-400">暂无等级认证申请</div>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map(row => {
+            const isOpen = expanded === row.id;
+            const isReviewing = reviewing === row.id;
+            const statusInfo = LEVEL_STATUS_LABELS[row.level_apply_status];
+            return (
+              <div key={row.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
+                {/* 主行 */}
+                <div
+                  className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => setExpanded(isOpen ? null : row.id)}>
+                  {row.cover_image && (
+                    <img src={row.cover_image} alt="cover" className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                  )}
+                  {!row.cover_image && (
+                    <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                      <ImageIcon size={20} className="text-slate-300" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-blue-900 text-sm truncate">{row.title}</p>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusInfo.color}`}>
+                        {statusInfo.text}
+                      </span>
+                      <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                        申请 {row.apply_level} 级
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                      <span>{row.nickname}</span>
+                      <span>·</span>
+                      <span>当前等级: {row.current_level ?? "无"}</span>
+                      <span>·</span>
+                      <span>信用 {row.credit_score ?? 0}</span>
+                      <span>·</span>
+                      <span>{new Date(row.created_at).toLocaleDateString("zh-CN")}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {row.level_apply_status === "pending" && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setReviewing(isReviewing ? null : row.id); setExpanded(row.id); setReviewNote(""); }}
+                        className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors">
+                        评审
+                      </button>
+                    )}
+                    {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                  </div>
+                </div>
+
+                {/* 展开详情 */}
+                {isOpen && (
+                  <div className="border-t border-slate-100 px-6 py-4 space-y-4">
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">作品简介</p>
+                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{row.description}</p>
+                    </div>
+                    {row.project_url && (
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目链接</p>
+                        <a href={row.project_url} target="_blank" rel="noreferrer"
+                          className="text-sm text-primary underline break-all">{row.project_url}</a>
+                      </div>
+                    )}
+                    {row.level_apply_note && (
+                      <div className="bg-slate-50 rounded-xl px-4 py-3">
+                        <p className="text-xs font-bold text-slate-500 mb-0.5">历史评审意见</p>
+                        <p className="text-sm text-slate-700">{row.level_apply_note}</p>
+                        {row.reviewed_at && (
+                          <p className="text-[11px] text-slate-400 mt-1">评审于 {new Date(row.reviewed_at).toLocaleDateString("zh-CN")}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 评审操作区 */}
+                    {isReviewing && row.level_apply_status === "pending" && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+                        <p className="text-sm font-bold text-amber-800">评审该作品 · 申请 {row.apply_level} 级</p>
+                        <textarea
+                          rows={3}
+                          value={reviewNote}
+                          onChange={e => setReviewNote(e.target.value)}
+                          placeholder="请填写评审意见（将在通知中发送给OPC，可留空）"
+                          className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-300 resize-none bg-white" />
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "approved" })}
+                            disabled={reviewMut.isPending}
+                            className="py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5">
+                            <CheckCircle2 size={14} />
+                            认证通过 · 获得 {row.apply_level} 级
+                          </button>
+                          <button
+                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "downgraded" })}
+                            disabled={reviewMut.isPending}
+                            className="py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5">
+                            <Award size={14} />
+                            降级通过 · 获得 {row.apply_level === "A" ? "B" : row.apply_level === "B" ? "C" : "C"} 级
+                          </button>
+                          <button
+                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "rejected" })}
+                            disabled={reviewMut.isPending}
+                            className="py-2.5 bg-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors flex items-center justify-center gap-1.5">
+                            <XCircle size={14} />
+                            还需努力
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
     case "dashboard":  return <Dashboard />;
@@ -1903,6 +2117,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "finance":    return <FinanceManagement />;
     case "ecosystem":  return <EcosystemManagement />;
     case "training":   return <TrainingManagement />;
+    case "levelcert":  return <LevelCertReview />;
     case "content":    return <ContentReview />;
     case "settings":   return <SiteSettingsManagement />;
   }

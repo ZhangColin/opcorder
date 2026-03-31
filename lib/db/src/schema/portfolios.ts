@@ -14,9 +14,13 @@ export const portfoliosTable = pgTable("portfolios", {
   orderId: integer("order_id"),
   rating: real("rating"),
   clientFeedback: text("client_feedback"),
+  applyLevel: varchar("apply_level", { length: 1 }),
+  levelApplyStatus: varchar("level_apply_status", { length: 20 }),
+  levelApplyNote: text("level_apply_note"),
+  reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertPortfolioSchema = createInsertSchema(portfoliosTable).omit({ id: true, createdAt: true });
+export const insertPortfolioSchema = createInsertSchema(portfoliosTable).omit({ id: true, createdAt: true, reviewedAt: true });
 export type InsertPortfolio = z.infer<typeof insertPortfolioSchema>;
 export type Portfolio = typeof portfoliosTable.$inferSelect;

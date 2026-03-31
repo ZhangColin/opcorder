@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
   X, Upload, Link2, Camera, Save, Trash2, CheckCircle2,
-  AlertCircle, ChevronDown, Image as ImageIcon,
+  AlertCircle, ChevronDown, Image as ImageIcon, Trophy,
 } from "lucide-react";
 import {
   useCreatePortfolio,
@@ -64,6 +64,19 @@ interface PortfolioDrawerProps {
 
 /* ─── Component ──────────────────────────────── */
 
+const LEVEL_OPTIONS = [
+  { value: "C", label: "C 级 — 入门认证（有真实项目经验）" },
+  { value: "B", label: "B 级 — 进阶认证（独立负责完整项目）" },
+  { value: "A", label: "A 级 — 专家认证（行业标杆项目）" },
+];
+
+const LEVEL_STATUS_LABEL: Record<string, { text: string; color: string }> = {
+  pending:    { text: "审核中",   color: "text-amber-600 bg-amber-50 border-amber-200" },
+  approved:   { text: "认证通过", color: "text-green-700 bg-green-50 border-green-200" },
+  downgraded: { text: "降级通过", color: "text-blue-700  bg-blue-50  border-blue-200"  },
+  rejected:   { text: "未通过",   color: "text-red-600   bg-red-50   border-red-200"   },
+};
+
 export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDrawerProps) {
   const [title,       setTitle]       = useState(initial?.title       ?? "");
   const [type,        setType]        = useState(initial?.type        ?? "ai_education");
@@ -72,6 +85,8 @@ export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDra
   const [coverImage,  setCoverImage]  = useState(initial?.coverImage  ?? "");
   const [imgMode,     setImgMode]     = useState<"upload" | "url">("upload");
   const [status,      setStatus]      = useState<"idle" | "saving" | "saved" | "error" | "deleting" | "confirmDelete">("idle");
+  const [applyForLevel, setApplyForLevel] = useState(!!initial?.applyLevel);
+  const [applyLevel,    setApplyLevel]    = useState(initial?.applyLevel ?? "C");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const qc      = useQueryClient();
@@ -89,6 +104,8 @@ export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDra
       setProjectUrl(initial?.projectUrl   ?? "");
       setCoverImage(initial?.coverImage   ?? "");
       setStatus("idle");
+      setApplyForLevel(!!initial?.applyLevel);
+      setApplyLevel(initial?.applyLevel ?? "C");
       /* Auto-detect mode from existing coverImage */
       if (initial?.coverImage?.startsWith("data:")) setImgMode("upload");
       else if (initial?.coverImage)                 setImgMode("url");
@@ -122,12 +139,13 @@ export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDra
       description: description.trim(),
       coverImage:  coverImage || undefined,
       projectUrl:  projectUrl.trim() || undefined,
+      applyLevel:  applyForLevel ? applyLevel : null,
     };
     try {
       if (initial?.id) {
-        await update({ portfolioId: initial.id, data: payload });
+        await update({ portfolioId: initial.id, data: payload as never });
       } else {
-        await create({ data: { ...payload, userId } });
+        await create({ data: { ...(payload as never), userId } });
       }
       await qc.invalidateQueries({ queryKey: ["/api/portfolios"] });
       setStatus("saved");
@@ -266,6 +284,58 @@ export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDra
             <input type="url" value={projectUrl} onChange={e => setProjectUrl(e.target.value)}
               placeholder="https://demo.yourproject.com"
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
+          </section>
+
+          {/* ── 等级认证申请 ── */}
+          <section className="border border-slate-200 rounded-2xl p-4 bg-gradient-to-br from-amber-50/60 to-orange-50/40">
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={applyForLevel}
+                  onChange={e => setApplyForLevel(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                  disabled={initial?.levelApplyStatus === "pending"}
+                />
+                <span className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
+                  <Trophy size={14} className="text-amber-500" />
+                  用此作品申请OPC等级认证
+                </span>
+              </label>
+              {initial?.levelApplyStatus && (
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.color}`}>
+                  {LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.text}
+                </span>
+              )}
+            </div>
+
+            {initial?.levelApplyStatus === "pending" && (
+              <p className="text-[11px] text-amber-600 bg-amber-100 rounded-lg px-3 py-2 mb-2">
+                等级申请已提交，等待平台专家评审中。评审期间无法修改等级，但可更新作品内容。
+              </p>
+            )}
+
+            {applyForLevel && initial?.levelApplyStatus !== "pending" && (
+              <div className="mt-2">
+                <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
+                <select
+                  value={applyLevel}
+                  onChange={e => setApplyLevel(e.target.value)}
+                  className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
+                  {LEVEL_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1.5">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
+              </div>
+            )}
+
+            {initial?.levelApplyNote && (
+              <div className="mt-2 bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5">
+                <p className="text-[11px] font-bold text-slate-500 mb-0.5">评审意见</p>
+                <p className="text-sm text-slate-700">{initial.levelApplyNote}</p>
+              </div>
+            )}
           </section>
 
           {/* ── Delete confirm ── */}

@@ -365,6 +365,10 @@ export interface Portfolio {
   orderId?: number;
   rating?: number;
   clientFeedback?: string;
+  applyLevel?: string | null;
+  levelApplyStatus?: string | null;
+  levelApplyNote?: string | null;
+  reviewedAt?: string | null;
   createdAt: string;
 }
 

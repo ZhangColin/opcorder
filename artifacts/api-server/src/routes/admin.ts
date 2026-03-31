@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, siteSettingsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 
@@ -576,6 +576,100 @@ router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res)
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "发证失败" });
+  }
+});
+
+/* ─── LEVEL CERT REVIEW ───────────────────────────── */
+
+router.get("/admin/level-certs", async (_req, res) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        p.id,
+        p.title,
+        p.type,
+        p.description,
+        p.cover_image,
+        p.project_url,
+        p.apply_level,
+        p.level_apply_status,
+        p.level_apply_note,
+        p.reviewed_at,
+        p.created_at,
+        u.id AS user_id,
+        u.nickname,
+        u.email,
+        op.level AS current_level,
+        op.credit_score
+      FROM portfolios p
+      JOIN users u ON u.id = p.user_id
+      LEFT JOIN opc_profiles op ON op.user_id = p.user_id
+      WHERE p.apply_level IS NOT NULL
+      ORDER BY
+        CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
+        p.created_at DESC
+    `);
+    res.json(rows.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取等级认证列表失败" });
+  }
+});
+
+router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
+  try {
+    const portfolioId = Number(req.params.portfolioId);
+    const { result, note } = req.body as { result: "approved" | "downgraded" | "rejected"; note?: string };
+
+    const [portfolio] = await db.select().from(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
+    if (!portfolio) return res.status(404).json({ error: "作品不存在" });
+    if (!portfolio.applyLevel) return res.status(400).json({ error: "该作品未发起等级申请" });
+
+    const applyLevel = portfolio.applyLevel as "A" | "B" | "C";
+    const levelOrder: ("A" | "B" | "C")[] = ["C", "B", "A"];
+    const applyIdx = levelOrder.indexOf(applyLevel);
+
+    let grantedLevel: "A" | "B" | "C" = applyLevel;
+    let notifTitle = "";
+    let notifContent = "";
+
+    if (result === "approved") {
+      grantedLevel = applyLevel;
+      notifTitle = `🎉 等级认证成功 · 升至 ${applyLevel} 级`;
+      notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，认证通过！您的OPC等级已升级为 ${applyLevel}级。${note ? `\n评审意见：${note}` : ""}`;
+    } else if (result === "downgraded") {
+      const downIdx = Math.max(0, applyIdx - 1);
+      grantedLevel = levelOrder[downIdx];
+      notifTitle = `✅ 降级认证成功 · 获得 ${grantedLevel} 级`;
+      notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，综合评估后授予 ${grantedLevel}级认证（您申请的是 ${applyLevel}级）。${note ? `\n评审意见：${note}` : ""}`;
+    } else {
+      notifTitle = `📝 等级申请评审结果：还需努力`;
+      notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，暂未达到 ${applyLevel}级认证标准，请继续积累项目经验后再次申请。${note ? `\n评审意见：${note}` : ""}`;
+    }
+
+    await db.update(portfoliosTable).set({
+      levelApplyStatus: result,
+      levelApplyNote: note ?? null,
+      reviewedAt: new Date(),
+    }).where(eq(portfoliosTable.id, portfolioId));
+
+    if (result === "approved" || result === "downgraded") {
+      await db.execute(sql`UPDATE opc_profiles SET level = ${grantedLevel} WHERE user_id = ${portfolio.userId}`);
+    }
+
+    await db.insert(notificationsTable).values({
+      userId: portfolio.userId,
+      type: "system",
+      title: notifTitle,
+      content: notifContent,
+      relatedId: portfolioId,
+      relatedType: "portfolio",
+    });
+
+    res.json({ ok: true, grantedLevel: result !== "rejected" ? grantedLevel : null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "评审操作失败" });
   }
 });
 
