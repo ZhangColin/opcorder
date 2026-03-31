@@ -628,10 +628,10 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     if (!portfolio.applyLevel) return res.status(400).json({ error: "该作品未发起等级申请" });
 
     const applyLevel = portfolio.applyLevel as "A" | "B" | "C";
-    const levelOrder: ("A" | "B" | "C")[] = ["C", "B", "A"];
+    const levelOrder: ("newbie" | "C" | "B" | "A")[] = ["newbie", "C", "B", "A"];
     const applyIdx = levelOrder.indexOf(applyLevel);
 
-    let grantedLevel: "A" | "B" | "C" = applyLevel;
+    let grantedLevel: "newbie" | "C" | "B" | "A" = applyLevel;
     let notifTitle = "";
     let notifContent = "";
 

@@ -667,7 +667,7 @@ export default function PublisherCreateDemand() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-blue-900 truncate">{opc.nickname}</p>
                             <p className="text-xs text-slate-400">
-                              {(opc as any).level === "A" ? "A级·专家" : (opc as any).level === "B" ? "B级·进阶" : "C级·新手"} &middot; 评分 {(opc as any).avgRating ?? "4.8"}
+                              {(opc as any).level === "A" ? "A级·专家" : (opc as any).level === "B" ? "B级·进阶" : (opc as any).level === "C" ? "C级·基础" : "新手·未认证"} &middot; 评分 {(opc as any).avgRating ?? "4.8"}
                             </p>
                           </div>
                           {selected && <CheckCircle2 size={16} className="text-primary shrink-0" />}

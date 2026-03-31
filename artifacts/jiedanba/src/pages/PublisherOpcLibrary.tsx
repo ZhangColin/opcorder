@@ -18,13 +18,15 @@ import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 
 const LEVEL_COLOR: Record<string, string> = {
+  newbie: "bg-gray-100 text-gray-500 border-gray-200",
   C: "bg-slate-100 text-slate-600 border-slate-200",
   B: "bg-blue-100 text-blue-700 border-blue-200",
   A: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
 const LEVEL_BADGE: Record<string, string> = {
-  C: "C级·新手",
+  newbie: "新手",
+  C: "C级·基础",
   B: "B级·进阶",
   A: "A级·专家",
 };
@@ -356,10 +358,11 @@ export default function PublisherOpcLibrary() {
             {/* Level Filter */}
             <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
               {[
-                { key: "all", label: "全部等级" },
-                { key: "C",   label: "C级·新手" },
-                { key: "B",   label: "B级·进阶" },
-                { key: "A",   label: "A级·专家" },
+                { key: "all",    label: "全部等级" },
+                { key: "A",      label: "A级·专家" },
+                { key: "B",      label: "B级·进阶" },
+                { key: "C",      label: "C级·基础" },
+                { key: "newbie", label: "新手" },
               ].map((opt) => (
                 <button
                   key={opt.key}
@@ -450,8 +453,8 @@ export default function PublisherOpcLibrary() {
                         <span className="font-bold text-foreground group-hover:text-primary transition-colors">
                           {opc.nickname}
                         </span>
-                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${LEVEL_COLOR[opc.level] ?? LEVEL_COLOR.C}`}>
-                          {opc.level}级
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${LEVEL_COLOR[opc.level] ?? LEVEL_COLOR.newbie}`}>
+                          {LEVEL_BADGE[opc.level] ?? opc.level}
                         </span>
                       </div>
                       {opc.title && (

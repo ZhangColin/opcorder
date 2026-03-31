@@ -170,7 +170,7 @@ export default function PublisherHome() {
                   ["云原生", "Docker", "安全合规"],
                 ][i] ?? ["AI 开发"];
                 const initials = (u.nickname ?? "OC").slice(0, 2);
-                const levelLabel = (u as any).level === "A" ? "Lv.A" : (u as any).level === "B" ? "Lv.B" : "Lv.C";
+                const levelLabel = (u as any).level === "A" ? "Lv.A" : (u as any).level === "B" ? "Lv.B" : (u as any).level === "C" ? "Lv.C" : "新手";
                 return (
                   <div
                     key={u.id}

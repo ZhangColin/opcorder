@@ -341,7 +341,7 @@ function UserManagement() {
                 {u.opcLevel ? (
                   <select defaultValue={u.opcLevel} onChange={e => mutate.mutate({ id: u.id, action: "setLevel", value: e.target.value })}
                     className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    {["C", "B", "A"].map(l => <option key={l} value={l}>{l}级</option>)}
+                    {[{ v: "newbie", label: "新手" }, { v: "C", label: "C级·基础" }, { v: "B", label: "B级·进阶" }, { v: "A", label: "A级·专家" }].map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
                   </select>
                 ) : <span className="text-slate-400 text-sm">—</span>}
               </td>
@@ -759,11 +759,11 @@ function EcosystemManagement() {
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
                   <select
-                    value={pendingLevel[o.id] ?? o.level ?? "C"}
+                    value={pendingLevel[o.id] ?? o.level ?? "newbie"}
                     onChange={e => setPendingLevel(prev => ({ ...prev, [o.id]: e.target.value }))}
                     className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30"
                   >
-                    {["C", "B", "A"].map(l => <option key={l} value={l}>{l}级</option>)}
+                    {[{ v: "newbie", label: "新手" }, { v: "C", label: "C级·基础" }, { v: "B", label: "B级·进阶" }, { v: "A", label: "A级·专家" }].map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
                   </select>
                   {pendingLevel[o.id] && pendingLevel[o.id] !== o.level && (
                     <button onClick={() => { mutate.mutate({ id: o.id, action: "setLevel", value: pendingLevel[o.id] }); setPendingLevel(prev => { const n = { ...prev }; delete n[o.id]; return n; }); }}
@@ -2091,7 +2091,7 @@ function LevelCertReview() {
                             disabled={reviewMut.isPending}
                             className="py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5">
                             <Award size={14} />
-                            降级通过 · 获得 {row.apply_level === "A" ? "B" : row.apply_level === "B" ? "C" : "C"} 级
+                            降级通过 · 获得 {row.apply_level === "A" ? "B级·进阶" : row.apply_level === "B" ? "C级·基础" : "新手（未认证）"}
                           </button>
                           <button
                             onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "rejected" })}

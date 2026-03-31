@@ -713,7 +713,7 @@ export default function Profile() {
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1 bg-secondary/15 text-secondary px-3 py-1 rounded-full text-xs font-bold">
                   <BadgeCheck size={12} />
-                  Lv.{level} {level === "A" ? "专家认证" : level === "B" ? "进阶认证" : "基础认证"}
+                  {level === "newbie" ? "新手 · 未认证" : `Lv.${level} ${level === "A" ? "专家认证" : level === "B" ? "进阶认证" : "基础认证"}`}
                 </span>
                 <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">
                   <ShieldCheck size={12} /> 平台认证伙伴

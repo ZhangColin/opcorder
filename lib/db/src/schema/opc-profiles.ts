@@ -3,12 +3,12 @@ import { usersTable } from "./users";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const opcLevelEnum = pgEnum("opc_level", ["C", "B", "A"]);
+export const opcLevelEnum = pgEnum("opc_level", ["newbie", "C", "B", "A"]);
 
 export const opcProfilesTable = pgTable("opc_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
-  level: opcLevelEnum("level").notNull().default("C"),
+  level: opcLevelEnum("level").notNull().default("newbie"),
   bio: text("bio"),
   skillTags: jsonb("skill_tags").$type<string[]>().notNull().default([]),
   industryTags: jsonb("industry_tags").$type<string[]>().notNull().default([]),

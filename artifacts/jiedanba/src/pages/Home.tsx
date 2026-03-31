@@ -262,7 +262,7 @@ export default function Home() {
                       <h5 className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">{opc.nickname}</h5>
                       <div className="flex items-center gap-3 mt-1.5">
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-bold">Lv.{opc.level}</span>
+                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-bold">{opc.level === "newbie" ? "新手" : `Lv.${opc.level}`}</span>
                         </div>
                         <div className="w-1 h-1 rounded-full bg-border"></div>
                         <div className="flex items-center text-xs font-bold text-secondary">

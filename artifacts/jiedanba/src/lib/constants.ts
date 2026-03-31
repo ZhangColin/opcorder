@@ -28,8 +28,9 @@ export const ORDER_STATUSES: Record<string, { label: string, color: string }> = 
 };
 
 export const OPC_LEVELS: Record<string, { label: string, color: string }> = {
-  C: { label: "新手", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  B: { label: "进阶", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  A: { label: "专家", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  newbie: { label: "新手", color: "bg-gray-100 text-gray-500 border-gray-200" },
+  C: { label: "C级·基础", color: "bg-slate-100 text-slate-700 border-slate-200" },
+  B: { label: "B级·进阶", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  A: { label: "A级·专家", color: "bg-amber-50 text-amber-700 border-amber-200" },
   any: { label: "不限", color: "bg-gray-50 text-gray-600 border-gray-200" },
 };

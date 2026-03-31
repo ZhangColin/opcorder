@@ -241,16 +241,16 @@ export default function Academy() {
   const { data: user }    = useGetCurrentUser();
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
 
-  const level    = profile?.level ?? "B";
+  const level    = profile?.level ?? "newbie";
   const credits  = profile?.creditScore ?? 4.8;
   const nickname = user?.nickname || profile?.nickname || "OPC学员";
 
-  const levelOrder  = ["C", "B", "A"];
+  const levelOrder  = ["newbie", "C", "B", "A"];
   const userIdx     = levelOrder.indexOf(level);
-  const heroProgress = level === "A" ? 100 : level === "B" ? 67 : 33;
-  const heroLabel    = `Lv.${level}`;
-  const nextLevel    = level === "A" ? "顶级认证" : level === "B" ? "A 级专家" : "B 级进阶";
-  const heroCredits  = level === "A" ? "600 / 600" : level === "B" ? "450 / 600" : "150 / 300";
+  const heroProgress = level === "A" ? 100 : level === "B" ? 75 : level === "C" ? 50 : 25;
+  const heroLabel    = level === "newbie" ? "新手" : `Lv.${level}`;
+  const nextLevel    = level === "A" ? "顶级认证" : level === "B" ? "A 级专家" : level === "C" ? "B 级进阶" : "C 级基础认证";
+  const heroCredits  = level === "A" ? "600 / 600" : level === "B" ? "450 / 600" : level === "C" ? "150 / 300" : "0 / 100";
 
   const { data: courses = [], isLoading: coursesLoading } = useListCourses(
     courseFilter !== "all" ? { category: courseFilter } : {}
@@ -497,9 +497,9 @@ export default function Academy() {
             <div className="p-5 bg-primary text-white rounded-2xl text-center">
               <p className="text-xs font-medium mb-1 text-white/70">当前认证状态</p>
               <p className="text-lg font-bold font-display mb-1">
-                {level === "A" ? "专家级架构师" : level === "B" ? "进阶级架构师" : "新手级 OPC"}
+                {level === "A" ? "专家级架构师" : level === "B" ? "进阶级架构师" : level === "C" ? "基础认证 OPC" : "新手（待认证）"}
               </p>
-              <p className="text-xs text-white/60 mb-4">Lv.{level} 认证 · {profile?.completionRate ?? 96}% 履约率</p>
+              <p className="text-xs text-white/60 mb-4">{level === "newbie" ? "新手 · 待认证" : `Lv.${level} 认证`} · {profile?.completionRate ?? 96}% 履约率</p>
               <button className="w-full py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2">
                 <Download size={14} /> 下载认证徽章
               </button>

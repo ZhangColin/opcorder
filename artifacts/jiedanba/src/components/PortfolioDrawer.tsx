@@ -86,7 +86,7 @@ export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDra
   const [imgMode,     setImgMode]     = useState<"upload" | "url">("upload");
   const [status,      setStatus]      = useState<"idle" | "saving" | "saved" | "error" | "deleting" | "confirmDelete">("idle");
   const [applyForLevel, setApplyForLevel] = useState(!!initial?.applyLevel);
-  const [applyLevel,    setApplyLevel]    = useState(initial?.applyLevel ?? "C");
+  const [applyLevel,    setApplyLevel]    = useState<string>(initial?.applyLevel ?? "C");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const qc      = useQueryClient();

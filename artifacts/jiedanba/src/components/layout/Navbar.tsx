@@ -19,8 +19,8 @@ export function Navbar() {
 
   const name       = profile?.nickname ?? user?.nickname ?? "新用户";
   const avatar     = profile?.avatar  ?? user?.avatar   ?? "";
-  const level      = profile?.level   ?? "C";
-  const levelLabel = level === "A" ? "专家" : level === "B" ? "进阶" : "新手";
+  const level      = profile?.level   ?? "newbie";
+  const levelLabel = level === "A" ? "专家认证" : level === "B" ? "进阶认证" : level === "C" ? "基础认证" : "未认证";
 
   /* Close on outside click */
   useEffect(() => {
@@ -117,7 +117,7 @@ export function Navbar() {
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-foreground leading-none">{name}</span>
                 <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider mt-1">
-                  Lv. {level} {levelLabel}
+                  {level === "newbie" ? "新手 · 未认证" : `Lv.${level} ${levelLabel}`}
                 </span>
               </div>
               <ChevronDown
@@ -131,7 +131,7 @@ export function Navbar() {
               <div className="absolute right-0 top-[calc(100%+8px)] w-48 bg-white rounded-2xl shadow-xl border border-border/40 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <p className="text-xs font-bold text-blue-900 truncate">{name}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Lv. {level} · {levelLabel}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{level === "newbie" ? "新手 · 未认证" : `Lv.${level} · ${levelLabel}`}</p>
                 </div>
                 <div className="py-1.5">
                   <button

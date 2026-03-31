@@ -62,7 +62,7 @@ export default function OpcIncome() {
           <Banknote className="text-secondary" /> 收入结算
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          查看历史结算记录与待结算金额 · {profile?.nickname ?? user?.nickname ?? "OPC"} {profile?.level ?? "B"}级账户
+          查看历史结算记录与待结算金额 · {profile?.nickname ?? user?.nickname ?? "OPC"} {profile?.level === "newbie" ? "（新手·待认证）" : `${profile?.level ?? ""}级`}账户
         </p>
       </div>
 
