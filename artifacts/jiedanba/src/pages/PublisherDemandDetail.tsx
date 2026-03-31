@@ -5,6 +5,7 @@ import {
   Search, Bell, Star, BadgeCheck, Calendar,
   Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
+  FileText, Download, FileImage, FileSpreadsheet, FileArchive, File,
 } from "lucide-react";
 import {
   useGetDemandById,
@@ -42,6 +43,13 @@ const OPC_LEVEL_COLOR: Record<string, string> = {
   B: "bg-blue-100 text-blue-700",
   A: "bg-amber-100 text-amber-700",
 };
+
+function AttachmentIcon({ type }: { type: string }) {
+  if (type?.startsWith("image") || type === "image") return <FileImage size={18} className="text-blue-500" />;
+  if (type?.includes("sheet") || type === "spreadsheet") return <FileSpreadsheet size={18} className="text-green-600" />;
+  if (type?.includes("zip") || type?.includes("rar") || type === "archive") return <FileArchive size={18} className="text-yellow-600" />;
+  return <File size={18} className="text-slate-400" />;
+}
 
 function StarRating({ score }: { score: number }) {
   return (
@@ -184,7 +192,7 @@ export default function PublisherDemandDetail() {
                     <h1 className="text-2xl font-extrabold text-primary tracking-tight mb-3 font-display leading-tight">
                       {demand.title}
                     </h1>
-                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-3">{demand.description}</p>
+                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">{demand.description}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-slate-400 mb-1">预算区间</p>
@@ -218,8 +226,56 @@ export default function PublisherDemandDetail() {
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left: Bid Applications */}
+                {/* Left: Content + Bid Applications */}
                 <div className="lg:col-span-2 space-y-8">
+
+                  {/* ── 需求详细说明 ── */}
+                  <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
+                    <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2 font-display">
+                      <FileText size={16} /> 需求详细说明
+                    </h3>
+                    <div className="text-sm text-slate-600 leading-relaxed space-y-2">
+                      {(demand.description || "").split('\n').map((para, i) => (
+                        <p key={i}>{para}</p>
+                      ))}
+                    </div>
+                  </section>
+
+                  {/* ── 附件资料 ── */}
+                  {(() => {
+                    const attachments: Array<{ name: string; size: string; type: string; url: string }> =
+                      (demand as any).attachments?.length ? (demand as any).attachments : [];
+                    return (
+                      <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
+                        <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2 font-display">
+                          <Download size={16} /> 附件资料
+                        </h3>
+                        {attachments.length === 0 ? (
+                          <p className="text-sm text-slate-400">暂无上传附件</p>
+                        ) : (
+                          <ul className="space-y-3">
+                            {attachments.map((file, idx) => (
+                              <li key={idx}>
+                                <a
+                                  href={file.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                                >
+                                  <AttachmentIcon type={file.type} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-sm text-slate-700 truncate group-hover:text-primary transition-colors">{file.name}</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">{file.size}</p>
+                                  </div>
+                                  <Download size={14} className="text-slate-400 group-hover:text-primary transition-colors shrink-0" />
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </section>
+                    );
+                  })()}
 
                   {/* Pending Bids */}
                   <section>
