@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, demandsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable } from "@workspace/db";
+import { db, demandsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
 import {
   ListDemandsQueryParams,
@@ -355,6 +355,135 @@ router.post("/demands/:demandId/invite", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: "Failed to send invite" });
+  }
+});
+
+/* ── OPC responds to a directed invite ──────────────────── */
+router.post("/demands/:demandId/invite/respond", async (req, res) => {
+  try {
+    const demandId = parseInt(req.params.demandId);
+    const { opcId, action, notificationId } = req.body as {
+      opcId: number;
+      action: "accept" | "reject";
+      notificationId?: number;
+    };
+
+    if (!opcId || !action) {
+      return res.status(400).json({ error: "opcId and action required" });
+    }
+
+    const [demand] = await db
+      .select()
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+
+    if (action === "reject") {
+      if (notificationId) {
+        await db
+          .update(notificationsTable)
+          .set({ isRead: true })
+          .where(eq(notificationsTable.id, notificationId));
+      }
+      return res.json({ success: true, action: "rejected" });
+    }
+
+    /* action === "accept" */
+    /* 1. 创建 bid（若尚未抢单） */
+    const [existingBid] = await db
+      .select({ id: bidsTable.id, status: bidsTable.status })
+      .from(bidsTable)
+      .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.opcId, opcId)))
+      .limit(1);
+
+    let bidId: number;
+    if (existingBid) {
+      bidId = existingBid.id;
+    } else {
+      const [newBid] = await db
+        .insert(bidsTable)
+        .values({
+          demandId,
+          opcId,
+          proposal: "接受定向邀约",
+          estimatedDays: 30,
+          portfolioLinks: [],
+          status: "pending",
+        })
+        .returning({ id: bidsTable.id });
+      bidId = newBid.id;
+    }
+
+    /* 2. 接受 bid，生成订单 */
+    await db
+      .update(bidsTable)
+      .set({ status: "accepted" })
+      .where(eq(bidsTable.id, bidId));
+
+    const now = new Date();
+    const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const seq = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
+    const orderNo = `ORD-${ym}-${seq}`;
+    const amount = demand.budgetMax;
+
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        orderNo,
+        demandId: demand.id,
+        opcId,
+        publisherId: demand.publisherId,
+        amount,
+        opcShare: amount * 0.6,
+        publisherShare: amount * 0.3,
+        platformFee: amount * 0.1,
+        status: "in_progress",
+        milestones: demand.milestones || [],
+        deadline: demand.deadline,
+      })
+      .returning({ id: ordersTable.id });
+
+    /* 3. 更新需求状态，其余 bid 标为 rejected */
+    await db
+      .update(demandsTable)
+      .set({ status: "matched", updatedAt: new Date() })
+      .where(eq(demandsTable.id, demandId));
+
+    await db
+      .update(bidsTable)
+      .set({ status: "rejected" })
+      .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.status, "pending")));
+
+    /* 4. 给发单方发通知 */
+    const [opc] = await db
+      .select({ nickname: usersTable.nickname })
+      .from(usersTable)
+      .where(eq(usersTable.id, opcId))
+      .limit(1);
+
+    await db.insert(notificationsTable).values({
+      userId: demand.publisherId,
+      type: "order_created",
+      title: "OPC 已接受邀约",
+      content: `OPC「${opc?.nickname ?? "未知"}」已接受您的定向邀约并承接「${demand.title}」，订单已自动生成。`,
+      relatedId: order.id,
+      relatedType: "order",
+    });
+
+    /* 5. 标记邀约通知为已读 */
+    if (notificationId) {
+      await db
+        .update(notificationsTable)
+        .set({ isRead: true })
+        .where(eq(notificationsTable.id, notificationId));
+    }
+
+    res.json({ success: true, action: "accepted", orderId: order.id });
+  } catch (error) {
+    console.error("invite respond error:", error);
+    res.status(500).json({ error: "操作失败，请重试" });
   }
 });
 

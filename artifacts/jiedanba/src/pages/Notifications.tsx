@@ -8,11 +8,13 @@ import {
   useListNotifications,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
-  useUpdateBidStatus,
 } from "@workspace/api-client-react";
 import type { Notification as NotificationItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentUser } from "@/hooks/use-current-user";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const NOTIF_TYPE_CFG: Record<
   string,
@@ -161,11 +163,11 @@ export default function Notifications() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { userId } = useCurrentUser();
 
   const { data, refetch } = useListNotifications({ limit: 100 });
   const markRead = useMarkNotificationRead();
   const { mutate: markAllRead } = useMarkAllNotificationsRead();
-  const updateBid = useUpdateBidStatus();
 
   const notifications: NotificationItem[] = data?.items ?? [];
   const unreadCount = data?.unreadCount ?? 0;
@@ -201,48 +203,41 @@ export default function Notifications() {
     else if (n.relatedType === "portfolio" && n.relatedId) navigate(`/profile?portfolio=${n.relatedId}`);
   };
 
-  const handleAcceptInvite = (n: NotificationItem) => {
-    if (!n.relatedId) return;
+  const respondInvite = async (n: NotificationItem, action: "accept" | "reject") => {
+    if (!n.relatedId || !userId) return;
     setActingId(n.id);
-    updateBid.mutate(
-      { bidId: n.relatedId, data: { status: "accepted" } },
-      {
-        onSuccess: () => {
-          toast({ title: "已接受邀约", description: "订单已创建，请及时跟进。" });
-          if (!n.isRead) markRead.mutate({ notificationId: n.id });
-          qc.invalidateQueries({ queryKey: ["/api/notifications"] });
-          qc.invalidateQueries({ queryKey: ["/api/orders"] });
-          setActingId(null);
-          refetch();
-        },
-        onError: () => {
-          toast({ title: "操作失败", variant: "destructive" });
-          setActingId(null);
-        },
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/demands/${n.relatedId}/invite/respond`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userId}`,
+          },
+          body: JSON.stringify({ opcId: userId, action, notificationId: n.id }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "操作失败");
+
+      if (action === "accept") {
+        toast({ title: "已接受邀约", description: "订单已创建，请及时跟进。" });
+        qc.invalidateQueries({ queryKey: ["/api/orders"] });
+      } else {
+        toast({ title: "已婉拒邀约" });
       }
-    );
+      qc.invalidateQueries({ queryKey: ["/api/notifications"] });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
+    } finally {
+      setActingId(null);
+    }
   };
 
-  const handleRejectInvite = (n: NotificationItem) => {
-    if (!n.relatedId) return;
-    setActingId(n.id);
-    updateBid.mutate(
-      { bidId: n.relatedId, data: { status: "rejected" } },
-      {
-        onSuccess: () => {
-          toast({ title: "已婉拒邀约" });
-          if (!n.isRead) markRead.mutate({ notificationId: n.id });
-          qc.invalidateQueries({ queryKey: ["/api/notifications"] });
-          setActingId(null);
-          refetch();
-        },
-        onError: () => {
-          toast({ title: "操作失败", variant: "destructive" });
-          setActingId(null);
-        },
-      }
-    );
-  };
+  const handleAcceptInvite = (n: NotificationItem) => respondInvite(n, "accept");
+  const handleRejectInvite = (n: NotificationItem) => respondInvite(n, "reject");
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
