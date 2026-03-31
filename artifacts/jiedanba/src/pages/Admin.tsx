@@ -14,7 +14,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw,
-  Flame, Filter,
+  Flame, Filter, ShieldCheck,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -1418,6 +1418,7 @@ interface AdminPost {
 function ContentReview() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [previewPost, setPreviewPost] = useState<AdminPost | null>(null);
 
   const { data: posts = [], isLoading } = useQuery<AdminPost[]>({
     queryKey: ["admin-content"],
@@ -1426,7 +1427,11 @@ function ContentReview() {
 
   const deletePost = useMutation({
     mutationFn: (id: number) => adminDelete(`/api/admin/content/posts/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-content"] }); toast({ title: "帖子已删除" }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-content"] });
+      setPreviewPost(null);
+      toast({ title: "帖子已删除" });
+    },
     onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
   });
 
@@ -1437,8 +1442,9 @@ function ContentReview() {
         headers: getAdminHeaders(),
         body: JSON.stringify({ isFeatured }),
       }).then(r => r.json()),
-    onSuccess: (_, { isFeatured }) => {
+    onSuccess: (data, { id, isFeatured }) => {
       qc.invalidateQueries({ queryKey: ["admin-content"] });
+      if (previewPost?.id === id) setPreviewPost(prev => prev ? { ...prev, isFeatured } : prev);
       toast({ title: isFeatured ? "已设为热门推荐" : "已取消热门推荐" });
     },
     onError: () => toast({ title: "操作失败", variant: "destructive" }),
@@ -1447,8 +1453,85 @@ function ContentReview() {
   const featuredCount = posts.filter(p => p.isFeatured).length;
 
   return (
+    <>
+      {/* ── Full-text Preview Modal ── */}
+      {previewPost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={e => { if (e.target === e.currentTarget) setPreviewPost(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-start justify-between p-6 border-b border-slate-100 gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  {previewPost.isFeatured && (
+                    <span className="flex items-center gap-0.5 px-2 py-0.5 bg-orange-100 text-orange-600 rounded text-[10px] font-bold shrink-0">
+                      <Flame size={10} /> 热门推荐
+                    </span>
+                  )}
+                  <span className="font-mono text-xs text-slate-400">#{previewPost.id}</span>
+                </div>
+                <h3 className="text-lg font-extrabold text-blue-900 leading-snug">{previewPost.title}</h3>
+                <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                  <span>作者：<span className="font-bold text-slate-600">{previewPost.authorName}</span></span>
+                  <span>{new Date(previewPost.createdAt).toLocaleString("zh-CN")}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewPost(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-full transition-colors shrink-0"
+              >
+                <X size={18} className="text-slate-400" />
+              </button>
+            </div>
+
+            {/* Tags */}
+            {previewPost.tags?.length > 0 && (
+              <div className="px-6 pt-4 flex flex-wrap gap-2">
+                {previewPost.tags.map(t => (
+                  <span key={t} className="text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1 rounded-full">{t}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{previewPost.content}</p>
+            </div>
+
+            {/* Stats + Actions */}
+            <div className="p-6 border-t border-slate-100 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 text-xs text-slate-400">
+                <span>👍 {previewPost.likesCount}</span>
+                <span>💬 {previewPost.commentsCount}</span>
+                <span>👁 {previewPost.viewsCount}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => featurePost.mutate({ id: previewPost.id, isFeatured: !previewPost.isFeatured })}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                    previewPost.isFeatured
+                      ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
+                      : "bg-slate-100 text-slate-500 hover:bg-orange-50 hover:text-orange-600"
+                  }`}
+                >
+                  <Flame size={14} /> {previewPost.isFeatured ? "取消热门" : "设为热门"}
+                </button>
+                <button
+                  onClick={() => { if (confirm("确认删除此帖子？删除后不可恢复。")) deletePost.mutate(previewPost.id); }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                >
+                  <Trash2 size={14} /> 删除帖子
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div className="space-y-6">
-      <SectionHeader title="内容审核" sub="社区帖子管理、内容删除、点亮🔥设为热门推荐"
+      <SectionHeader title="内容审核" sub="社区帖子管理、点击标题查看全文、点亮🔥设为热门推荐"
         action={
           <div className="flex items-center gap-2">
             <div className="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
@@ -1466,10 +1549,14 @@ function ContentReview() {
             <tr key={p.id} className={`hover:bg-slate-50/60 transition-colors ${p.isFeatured ? "bg-orange-50/40" : ""}`}>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">#{p.id}</td>
               <td className="px-6 py-4 text-sm text-blue-900 font-medium max-w-[240px]">
-                <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPreviewPost(p)}
+                  className="flex items-center gap-1.5 text-left hover:text-primary transition-colors group"
+                  title="点击查看全文"
+                >
                   {p.isFeatured && <Flame size={13} className="text-orange-500 shrink-0" />}
-                  <span className="line-clamp-1">{p.title || p.content.slice(0, 40)}</span>
-                </div>
+                  <span className="line-clamp-1 group-hover:underline underline-offset-2">{p.title || p.content.slice(0, 40)}</span>
+                </button>
               </td>
               <td className="px-6 py-4 text-sm text-slate-500">{p.authorName}</td>
               <td className="px-6 py-4">
@@ -1503,6 +1590,7 @@ function ContentReview() {
         }
       </TableShell>
     </div>
+    </>
   );
 }
 
