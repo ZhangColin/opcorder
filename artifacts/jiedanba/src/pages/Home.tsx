@@ -1,11 +1,20 @@
 import { Link } from "wouter";
 import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2 } from "lucide-react";
-import { useGetOverviewStats, useListDemands, useGetOpcLeaderboard } from "@workspace/api-client-react";
+import { useGetOverviewStats, useListDemands, useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
 import { DemandCard } from "@/components/DemandCard";
 
 export default function Home() {
   const { data: stats, isLoading: statsLoading } = useGetOverviewStats();
-  const { data: demandsResponse, isLoading: demandsLoading } = useListDemands({ limit: 8, status: 'published' });
+  const { data: currentUser } = useGetCurrentUser();
+  const { data: opcProfile } = useGetOpcProfile(currentUser?.id ?? 0, {
+    query: { enabled: !!currentUser?.id },
+  });
+  const eligibleLevel = opcProfile?.level as "C" | "B" | "A" | undefined;
+  const { data: demandsResponse, isLoading: demandsLoading } = useListDemands({
+    limit: 8,
+    status: 'published',
+    ...(eligibleLevel ? { eligibleLevel } : {}),
+  });
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
 
   return (
@@ -155,9 +164,12 @@ export default function Home() {
               )}
             </div>
             
-            <button className="w-full mt-8 py-3.5 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-border/60 transition-all">
+            <Link
+              href="/community#leaderboard"
+              className="block w-full mt-8 py-3.5 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-border/60 transition-all text-center"
+            >
               查看完整榜单
-            </button>
+            </Link>
           </div>
 
           {/* Insights Block */}

@@ -520,7 +520,7 @@ export default function Community() {
   const { data: user }        = useGetCurrentUser();
   const { data: opcProfile }  = useGetOpcProfile(user?.id ?? 0, { query: { enabled: !!user?.id && role === "opc" } });
   const publisherLogo         = usePublisherCompanyLogo(role === "publisher" ? user?.id : null);
-  const { data: leaderboard } = useGetOpcLeaderboard({ limit: 3 });
+  const { data: leaderboard } = useGetOpcLeaderboard({ limit: 10 });
 
   const { data: postsData, isLoading: postsLoading } = useListPosts({ sort: feedTab, ...(searchQuery ? { search: searchQuery } as any : {}) });
   const posts = postsData?.items ?? [];
@@ -840,12 +840,12 @@ export default function Community() {
               </button>
             </section>
 
-            <section className="bg-white rounded-2xl p-6 border border-slate-100">
+            <section id="leaderboard" className="bg-white rounded-2xl p-6 border border-slate-100">
               <h2 className="font-extrabold text-foreground flex items-center gap-2 mb-5 text-sm">
-                <Trophy size={16} className="text-amber-400 fill-amber-400" /> 本月贡献榜
+                <Trophy size={16} className="text-amber-400 fill-amber-400" /> 本月贡献榜 · 完整排名
               </h2>
               <div className="space-y-4">
-                {(leaderboard ?? []).slice(0, 3).map((u, i) => {
+                {(leaderboard ?? []).map((u, i) => {
                   const mock = LEADERBOARD_MOCK[i];
                   const initials = (u.nickname ?? "OC").slice(0, 2);
                   return (

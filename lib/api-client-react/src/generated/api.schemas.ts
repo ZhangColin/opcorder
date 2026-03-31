@@ -524,6 +524,7 @@ export type ListDemandsParams = {
   maxBudget?: number;
   search?: string;
   deadlineFilter?: "24h" | "week" | "month";
+  eligibleLevel?: "C" | "B" | "A";
   page?: number;
   limit?: number;
   sortBy?: ListDemandsSortBy;

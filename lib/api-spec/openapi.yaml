@@ -199,6 +199,12 @@ paths:
           schema:
             type: string
             enum: ["24h", "week", "month"]
+        - name: eligibleLevel
+          in: query
+          description: Show demands where requiredLevel matches this level OR is "any"
+          schema:
+            type: string
+            enum: [C, B, A]
       responses:
         "200":
           description: Demands list

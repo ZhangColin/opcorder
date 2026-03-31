@@ -60,6 +60,11 @@ router.get("/demands", async (req, res) => {
     if (params.opcLevel && params.opcLevel !== "any") conditions.push(eq(demandsTable.opcLevel, params.opcLevel));
     if (params.minBudget) conditions.push(gte(demandsTable.budgetMax, params.minBudget));
     if (params.maxBudget) conditions.push(lte(demandsTable.budgetMin, params.maxBudget));
+    if (params.eligibleLevel) {
+      conditions.push(
+        sql`(${demandsTable.opcLevel} = ${params.eligibleLevel} OR ${demandsTable.opcLevel} = 'any')`
+      );
+    }
     if (params.search) conditions.push(ilike(demandsTable.title, `%${params.search}%`));
     if (params.publisherId) conditions.push(eq(demandsTable.publisherId, params.publisherId));
     if (params.deadlineFilter) {
