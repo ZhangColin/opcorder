@@ -47,11 +47,18 @@ router.get("/posts", async (req, res) => {
     const offset = params.offset ?? 0;
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
 
-    const orderBy = params.sort === "hot" ? desc(postsTable.likesCount) : desc(postsTable.createdAt);
+    const isHot = params.sort === "hot";
+    const orderBy = isHot ? desc(postsTable.createdAt) : desc(postsTable.createdAt);
 
     const searchCondition = search
       ? or(ilike(postsTable.title, `%${search}%`), ilike(postsTable.content, `%${search}%`))
       : undefined;
+
+    const featuredCondition = isHot ? eq(postsTable.isFeatured, true) : undefined;
+
+    const whereClause = searchCondition && featuredCondition
+      ? and(featuredCondition, searchCondition)
+      : featuredCondition ?? searchCondition;
 
     const posts = await db
       .select({
@@ -64,7 +71,7 @@ router.get("/posts", async (req, res) => {
       .from(postsTable)
       .leftJoin(usersTable, eq(postsTable.authorId, usersTable.id))
       .leftJoin(publisherProfilesTable, eq(postsTable.authorId, publisherProfilesTable.userId))
-      .where(searchCondition)
+      .where(whereClause)
       .orderBy(orderBy)
       .limit(limit)
       .offset(offset);
@@ -72,7 +79,7 @@ router.get("/posts", async (req, res) => {
     const countResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(postsTable)
-      .where(searchCondition);
+      .where(whereClause);
 
     res.json({
       items: posts.map(({ post, nickname, role, userAvatar, publisherLogo }) =>
