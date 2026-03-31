@@ -523,6 +523,7 @@ export type ListDemandsParams = {
   minBudget?: number;
   maxBudget?: number;
   search?: string;
+  deadlineFilter?: "24h" | "week" | "month";
   page?: number;
   limit?: number;
   sortBy?: ListDemandsSortBy;

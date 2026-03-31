@@ -62,6 +62,19 @@ router.get("/demands", async (req, res) => {
     if (params.maxBudget) conditions.push(lte(demandsTable.budgetMin, params.maxBudget));
     if (params.search) conditions.push(ilike(demandsTable.title, `%${params.search}%`));
     if (params.publisherId) conditions.push(eq(demandsTable.publisherId, params.publisherId));
+    if (params.deadlineFilter) {
+      const now = new Date();
+      let cutoff: Date;
+      if (params.deadlineFilter === "24h") {
+        cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      } else if (params.deadlineFilter === "week") {
+        cutoff = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      } else {
+        cutoff = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
+      conditions.push(gte(demandsTable.bidDeadline, now));
+      conditions.push(lte(demandsTable.bidDeadline, cutoff));
+    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

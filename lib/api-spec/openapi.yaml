@@ -194,6 +194,11 @@ paths:
             type: string
             enum: [newest, deadline, budget_high, budget_low]
             default: newest
+        - name: deadlineFilter
+          in: query
+          schema:
+            type: string
+            enum: ["24h", "week", "month"]
       responses:
         "200":
           description: Demands list

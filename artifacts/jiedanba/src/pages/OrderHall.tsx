@@ -205,8 +205,9 @@ export default function OrderHall() {
       sortBy: "newest",
       type: selectedTypes.length === 1 ? selectedTypes[0] : undefined,
       opcLevel: selectedLevel || undefined,
-      budgetMin: budgetMin ? Number(budgetMin) : undefined,
-      budgetMax: budgetMax ? Number(budgetMax) : undefined,
+      minBudget: budgetMin ? Number(budgetMin) : undefined,
+      maxBudget: budgetMax ? Number(budgetMax) : undefined,
+      deadlineFilter: (deadline || undefined) as ListDemandsParams["deadlineFilter"],
     } as ListDemandsParams);
   };
 

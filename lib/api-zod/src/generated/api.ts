@@ -172,6 +172,7 @@ export const ListDemandsQueryParams = zod.object({
   maxBudget: zod.coerce.number().optional(),
   search: zod.coerce.string().optional(),
   publisherId: zod.coerce.number().optional(),
+  deadlineFilter: zod.enum(["24h", "week", "month"]).optional(),
   page: zod.coerce.number().default(listDemandsQueryPageDefault),
   limit: zod.coerce.number().default(listDemandsQueryLimitDefault),
   sortBy: zod
