@@ -8,7 +8,7 @@ export const opcLevelEnum = pgEnum("opc_level", ["newbie", "C", "B", "A"]);
 export const opcProfilesTable = pgTable("opc_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
-  level: opcLevelEnum("level").notNull().default("newbie"),
+  level: opcLevelEnum("level").notNull().$defaultFn(() => "newbie"),
   bio: text("bio"),
   skillTags: jsonb("skill_tags").$type<string[]>().notNull().default([]),
   industryTags: jsonb("industry_tags").$type<string[]>().notNull().default([]),
