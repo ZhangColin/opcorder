@@ -13,7 +13,7 @@ import {
   CreditCard, Receipt, BadgeCheck, UserX, UserCheck,
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
-  Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy,
+  Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -491,6 +491,14 @@ function DemandManagement() {
                     <button onClick={() => mutate.mutate({ id: d.id, action: "removeUrgent" })}
                       title="取消紧急" className="p-2 rounded-xl hover:bg-slate-100 text-amber-500 transition-colors">
                       <Flag size={15} />
+                    </button>
+                  )}
+                  {d.status === "published" && (
+                    <button
+                      onClick={() => { if (confirm(`确认将需求「${d.title}」退回到草稿编辑模式？发单方将需要重新提交审核。`)) mutate.mutate({ id: d.id, action: "revertToDraft" }); }}
+                      title="退回编辑"
+                      className="p-2 rounded-xl hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
+                      <RotateCcw size={15} />
                     </button>
                   )}
                   {d.status !== "closed" && d.status !== "completed" && (

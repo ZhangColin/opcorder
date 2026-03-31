@@ -181,6 +181,8 @@ router.patch("/admin/demands/:id", async (req, res) => {
       await db.update(demandsTable).set({ isUrgent: false }).where(eq(demandsTable.id, id));
     } else if (action === "forceClose") {
       await db.update(demandsTable).set({ status: "closed" }).where(eq(demandsTable.id, id));
+    } else if (action === "revertToDraft") {
+      await db.update(demandsTable).set({ status: "draft" }).where(eq(demandsTable.id, id));
     } else {
       return res.status(400).json({ error: "无效操作" });
     }
