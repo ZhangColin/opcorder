@@ -56,10 +56,11 @@ function compressImage(file: File, maxPx = 900, quality = 0.82): Promise<string>
 /* ─── Props ──────────────────────────────────── */
 
 interface PortfolioDrawerProps {
-  open:    boolean;
-  onClose: () => void;
-  userId:  number;
-  initial?: Portfolio | null;
+  open:          boolean;
+  onClose:       () => void;
+  userId:        number;
+  initial?:      Portfolio | null;
+  currentLevel?: string;
 }
 
 /* ─── Component ──────────────────────────────── */
@@ -77,7 +78,7 @@ const LEVEL_STATUS_LABEL: Record<string, { text: string; color: string }> = {
   rejected:   { text: "未通过",   color: "text-red-600   bg-red-50   border-red-200"   },
 };
 
-export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDrawerProps) {
+export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }: PortfolioDrawerProps) {
   const [title,       setTitle]       = useState(initial?.title       ?? "");
   const [type,        setType]        = useState(initial?.type        ?? "ai_education");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -315,20 +316,38 @@ export function PortfolioDrawer({ open, onClose, userId, initial }: PortfolioDra
               </p>
             )}
 
-            {applyForLevel && initial?.levelApplyStatus !== "pending" && (
-              <div className="mt-2">
-                <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
-                <select
-                  value={applyLevel}
-                  onChange={e => setApplyLevel(e.target.value)}
-                  className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
-                  {LEVEL_OPTIONS.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-slate-500 mt-1.5">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
-              </div>
-            )}
+            {applyForLevel && initial?.levelApplyStatus !== "pending" && (() => {
+              const levelOrder = ["newbie", "C", "B", "A"];
+              const currentIdx = currentLevel ? levelOrder.indexOf(currentLevel) : -1;
+              const applyIdx   = levelOrder.indexOf(applyLevel);
+              const alreadyHas = currentLevel && applyLevel === currentLevel;
+              const alreadyHigher = currentLevel && currentIdx > applyIdx && applyIdx >= 0;
+              const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+              return (
+                <div className="mt-2">
+                  <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
+                  <select
+                    value={applyLevel}
+                    onChange={e => setApplyLevel(e.target.value)}
+                    className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
+                    {LEVEL_OPTIONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  {alreadyHas ? (
+                    <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-1.5">
+                      ℹ️ 您目前已持有 {LEVEL_NAME[applyLevel] ?? applyLevel} 认证，无需重复申请。如需提升，请选择更高等级。
+                    </p>
+                  ) : alreadyHigher ? (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5">
+                      ⚠️ 您当前等级（{LEVEL_NAME[currentLevel!] ?? currentLevel}）已高于所选等级，无需降级申请。
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 mt-1.5">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {initial?.levelApplyNote && (
               <div className="mt-2 bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5">
