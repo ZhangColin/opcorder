@@ -4,7 +4,8 @@ import {
   CheckCircle2, Star, Lock, Trophy, FileText, Video,
   Download, ChevronRight, Zap, Cpu, ShieldCheck,
   BookOpen, ArrowRight, PlayCircle, Loader2, Award,
-  CreditCard, BadgeCheck, AlertCircle,
+  CreditCard, BadgeCheck, AlertCircle, X, Clock,
+  Users, GraduationCap,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetOpcProfile,
@@ -97,13 +98,160 @@ function durationLabel(minutes: number) {
   return h > 0 ? `${h} 小时${m > 0 ? ` ${m} 分` : ""}` : `${m} 分钟`;
 }
 
-/* ─── Course Card ────────────────────────────────── */
+/* ─── Shared Types ───────────────────────────────── */
 
 type EnrollmentInfo = {
   progressPct: number;
   paymentStatus: string;
   certIssued: boolean;
 };
+
+/* ─── Course Detail Modal ────────────────────────── */
+
+const LEVEL_LABELS: Record<string, string> = { C: "C 级·新手", B: "B 级·进阶", A: "A 级·专家" };
+
+function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, isEnrolling, isPaying }: {
+  course: Course;
+  enrollment: EnrollmentInfo | null;
+  onClose: () => void;
+  onEnroll: (id: number) => void;
+  onPay: (id: number) => void;
+  isEnrolling: boolean;
+  isPaying: boolean;
+}) {
+  const Icon = COURSE_ICONS[course.category] ?? Cpu;
+  const grad = COURSE_GRADS[course.category] ?? "from-blue-700 to-indigo-900";
+  const catLabel = CATEGORY_LABELS[course.category] ?? "其他";
+  const coursePrice = (course as Course & { price?: number }).price ?? 0;
+  const syllabusUrl = (course as Course & { syllabusUrl?: string | null }).syllabusUrl;
+  const instructor = (course as Course & { instructor?: string | null }).instructor;
+  const reqLevel = (course as Course & { requiredLevel?: string | null }).requiredLevel;
+  const isEnrolled = enrollment !== null;
+  const certIssued = enrollment?.certIssued ?? false;
+  const needsPay = enrollment?.paymentStatus === "pending";
+
+  const getFileLabel = (url: string) => {
+    const ext = url.split(".").pop()?.toLowerCase() ?? "";
+    const map: Record<string, string> = {
+      pdf: "PDF 文档", doc: "Word 文档", docx: "Word 文档",
+      ppt: "PPT 演示", pptx: "PPT 演示", xls: "Excel 表格", xlsx: "Excel 表格",
+    };
+    return map[ext] ?? "课纲文件";
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className={`relative h-48 bg-gradient-to-br ${grad} flex items-center justify-center overflow-hidden rounded-t-2xl`}>
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "20px 20px" }} />
+          <Icon size={72} className="text-white/40" />
+          {course.badge && (
+            <div className="absolute top-4 right-14 bg-primary text-white text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider">
+              {course.badge}
+            </div>
+          )}
+          {certIssued && (
+            <div className="absolute top-4 left-4 bg-[#4dffb2] text-[#002112] text-[10px] font-bold px-2.5 py-1 rounded flex items-center gap-1">
+              <Award size={11} /> 已认证
+            </div>
+          )}
+          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-7 space-y-5">
+          <div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="bg-secondary/15 text-secondary text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">{catLabel}</span>
+              {reqLevel && reqLevel !== "any" && (
+                <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-100">
+                  需 {LEVEL_LABELS[reqLevel] ?? reqLevel}
+                </span>
+              )}
+              {course.isRequired && (
+                <span className="bg-red-50 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded border border-red-100">必修</span>
+              )}
+            </div>
+            <h2 className="text-2xl font-extrabold font-display text-foreground leading-tight">{course.title}</h2>
+          </div>
+
+          <div className="flex items-center gap-6 text-sm text-muted-foreground flex-wrap">
+            <span className="flex items-center gap-1.5"><Clock size={14} /> {durationLabel(course.durationMinutes)}</span>
+            {instructor && <span className="flex items-center gap-1.5"><GraduationCap size={14} /> {instructor}</span>}
+            {course.learnersCount ? <span className="flex items-center gap-1.5"><Users size={14} /> {course.learnersCount.toLocaleString()} 学员</span> : null}
+            {course.rating != null && (
+              <span className="flex items-center gap-1.5 text-secondary font-bold">
+                <Star size={14} className="fill-secondary" /> {course.rating}
+              </span>
+            )}
+          </div>
+
+          {course.description && (
+            <div className="bg-muted/40 rounded-xl p-4 text-sm text-foreground leading-relaxed">
+              {course.description}
+            </div>
+          )}
+
+          {syllabusUrl && (
+            <div className="border border-border rounded-xl p-4">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">课纲资料</p>
+              <a
+                href={syllabusUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 p-3 bg-primary/5 hover:bg-primary/10 border border-primary/15 rounded-xl transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <FileText size={20} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">{getFileLabel(syllabusUrl)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">点击下载课纲文件</p>
+                </div>
+                <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+              </a>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div>
+              {coursePrice > 0 ? (
+                <p className="text-2xl font-extrabold text-primary">¥{coursePrice.toFixed(0)}</p>
+              ) : (
+                <p className="text-lg font-bold text-secondary">免费</p>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {needsPay ? (
+                <button
+                  onClick={() => onPay(course.id)}
+                  disabled={isPaying}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white font-bold text-sm rounded-xl hover:bg-amber-600 transition-all disabled:opacity-50"
+                >
+                  {isPaying ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                  立即支付
+                </button>
+              ) : (
+                <button
+                  onClick={() => onEnroll(course.id)}
+                  disabled={isEnrolling}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50"
+                >
+                  {isEnrolling ? <Loader2 size={14} className="animate-spin" /> :
+                   isEnrolled ? <PlayCircle size={14} /> : <ArrowRight size={14} />}
+                  {isEnrolling ? "处理中…" : isEnrolled ? "继续学习" : "立即报名"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Course Card ────────────────────────────────── */
 
 function CourseCard({
   course,
@@ -112,6 +260,7 @@ function CourseCard({
   isPaying,
   onEnroll,
   onPay,
+  onViewDetail,
 }: {
   course: Course;
   enrollment: EnrollmentInfo | null;
@@ -119,6 +268,7 @@ function CourseCard({
   isPaying: boolean;
   onEnroll: (courseId: number) => void;
   onPay: (courseId: number) => void;
+  onViewDetail: (course: Course) => void;
 }) {
   const Icon = COURSE_ICONS[course.category] ?? Cpu;
   const grad = COURSE_GRADS[course.category] ?? "from-blue-700 to-indigo-900";
@@ -134,7 +284,10 @@ function CourseCard({
 
   return (
     <div className="group bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 border border-border/40">
-      <div className={`relative h-44 bg-gradient-to-br ${grad} flex items-center justify-center overflow-hidden`}>
+      <button
+        className={`relative h-44 w-full bg-gradient-to-br ${grad} flex items-center justify-center overflow-hidden cursor-pointer`}
+        onClick={() => onViewDetail(course)}
+      >
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "20px 20px" }} />
         <Icon size={52} className="text-white/50 group-hover:scale-110 transition-transform duration-500" />
         {course.badge && (
@@ -152,7 +305,7 @@ function CourseCard({
             <div className="h-full bg-[#4dffb2] transition-all" style={{ width: `${enrolledPct}%` }} />
           </div>
         )}
-      </div>
+      </button>
 
       <div className="p-6">
         <div className="flex items-center gap-2 mb-3">
@@ -161,7 +314,9 @@ function CourseCard({
           {instructor && <span className="text-muted-foreground text-xs">· {instructor}</span>}
           {isEnrolled && <span className="ml-auto text-xs text-secondary font-bold">{enrolledPct}% 已完成</span>}
         </div>
-        <h4 className="text-lg font-bold font-display mb-1 leading-tight text-foreground">{course.title}</h4>
+        <button className="text-left w-full" onClick={() => onViewDetail(course)}>
+          <h4 className="text-lg font-bold font-display mb-1 leading-tight text-foreground hover:text-primary transition-colors">{course.title}</h4>
+        </button>
         <p className="text-xs text-muted-foreground leading-relaxed mb-4 line-clamp-2">{course.description}</p>
 
         {needsPay && (
@@ -179,11 +334,12 @@ function CourseCard({
               <span className="text-sm font-bold text-secondary">免费</span>
             )}
             {syllabusUrl && (
-              <a href={syllabusUrl} target="_blank" rel="noreferrer"
+              <button
+                onClick={() => onViewDetail(course)}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                title="下载课纲">
+                title="查看课程详情">
                 <Download size={12} /> 课纲
-              </a>
+              </button>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -236,6 +392,7 @@ type CourseFilter = "all" | "tech" | "strategy" | "compliance" | "operations";
 export default function Academy() {
   const [courseFilter, setCourseFilter] = useState<CourseFilter>("all");
   const [enrollingId, setEnrollingId]   = useState<number | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const qc = useQueryClient();
 
   const { data: user }    = useGetCurrentUser();
@@ -310,6 +467,18 @@ export default function Academy() {
 
   return (
     <div className="space-y-12">
+
+      {selectedCourse && (
+        <CourseDetailModal
+          course={selectedCourse}
+          enrollment={(enrollmentMap.get(selectedCourse.id) as EnrollmentInfo | undefined) ?? null}
+          onClose={() => setSelectedCourse(null)}
+          onEnroll={(id) => { handleEnroll(id); setSelectedCourse(null); }}
+          onPay={(id) => { handlePay(id); setSelectedCourse(null); }}
+          isEnrolling={enrollingId === selectedCourse.id}
+          isPaying={payingId === selectedCourse.id}
+        />
+      )}
 
       {/* HERO */}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-[#0047ab] p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-8">
@@ -410,11 +579,12 @@ export default function Academy() {
                   <CourseCard
                     key={course.id}
                     course={course}
-                    enrollment={enrollmentMap.get(course.id) ?? null}
+                    enrollment={(enrollmentMap.get(course.id) as EnrollmentInfo | undefined) ?? null}
                     isEnrolling={enrollingId === course.id}
                     isPaying={payingId === course.id}
                     onEnroll={handleEnroll}
                     onPay={handlePay}
+                    onViewDetail={setSelectedCourse}
                   />
                 ))}
               </div>

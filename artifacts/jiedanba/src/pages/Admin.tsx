@@ -1030,8 +1030,10 @@ function CourseModal({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">课纲文件（PDF/DOCX）</label>
-            <input ref={r => { fileRef.current = r; }} type="file" accept=".pdf,.doc,.docx" className="hidden"
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">课纲文件（PDF / Word / PPT / Excel）</label>
+            <input ref={r => { fileRef.current = r; }} type="file"
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.key,.pages,.numbers,.odp,.odt,.ods"
+              className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleSyllabusUpload(f); }} />
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => fileRef.current?.click()}
