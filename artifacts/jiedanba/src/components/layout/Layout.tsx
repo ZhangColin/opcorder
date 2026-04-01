@@ -17,7 +17,7 @@ export function Layout({ children }: { children: ReactNode }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="flex-1 pt-24 pb-16 px-6 lg:px-10 max-w-[1920px] mx-auto w-full"
+          className="flex-1 pt-20 sm:pt-24 pb-10 px-4 sm:px-6 lg:px-10 max-w-[1920px] mx-auto w-full"
         >
           {children}
         </motion.main>

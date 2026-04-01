@@ -136,57 +136,59 @@ export default function Home() {
   const showBanner     = !bannerDismissed && (unreadNotifs > 0 || activeOrders > 0) && !!currentUser;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-6 md:space-y-10">
 
       {/* ── 接单提醒横幅 ── */}
       {showBanner && (
-        <div className="relative rounded-2xl overflow-hidden border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
-          <div className="flex items-center gap-4 px-5 py-4">
-            {/* 图标 */}
-            <div className="shrink-0 w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center animate-pulse">
-              <BellRing size={22} className="text-primary" />
-            </div>
+        <div className="relative rounded-2xl overflow-hidden border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+          {/* Close button */}
+          <button
+            onClick={() => setBannerDismissed(true)}
+            className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center text-primary/40 hover:text-primary hover:bg-primary/10 transition-colors z-10">
+            <X size={14} />
+          </button>
 
-            {/* 内容 */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-primary leading-snug">
-                {activeOrders > 0 && unreadNotifs > 0
-                  ? `您有 ${activeOrders} 个进行中的订单，以及 ${unreadNotifs} 条未读消息，请及时处理！`
-                  : activeOrders > 0
-                  ? `您有 ${activeOrders} 个进行中的订单，请关注最新进展！`
-                  : `您有 ${unreadNotifs} 条未读消息，请查看！`}
-              </p>
-              <p className="text-xs text-primary/60 mt-0.5 font-medium">按时推进可提升您的信用分与好评率</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-4 pr-10 sm:pr-5">
+            {/* 图标 + 文字 */}
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="shrink-0 w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center animate-pulse mt-0.5">
+                <BellRing size={20} className="text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-primary leading-snug">
+                  {activeOrders > 0 && unreadNotifs > 0
+                    ? `您有 ${activeOrders} 个进行中的订单，以及 ${unreadNotifs} 条未读消息，请及时处理！`
+                    : activeOrders > 0
+                    ? `您有 ${activeOrders} 个进行中的订单，请关注最新进展！`
+                    : `您有 ${unreadNotifs} 条未读消息，请查看！`}
+                </p>
+                <p className="text-xs text-primary/60 mt-0.5 font-medium">按时推进可提升您的信用分与好评率</p>
+              </div>
             </div>
 
             {/* 操作按钮 */}
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="flex items-center gap-2 pl-[52px] sm:pl-0 sm:shrink-0">
               {activeOrders > 0 && (
                 <Link href="/orders">
-                  <button className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-colors whitespace-nowrap">
+                  <button className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-colors whitespace-nowrap">
                     <ClipboardList size={13} /> 查看订单
                   </button>
                 </Link>
               )}
               {unreadNotifs > 0 && (
                 <Link href="/notifications">
-                  <button className="flex items-center gap-1.5 px-4 py-2 bg-white border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/5 transition-colors whitespace-nowrap">
+                  <button className="flex items-center gap-1.5 px-3 py-2 bg-white border border-primary/30 text-primary text-xs font-bold rounded-xl hover:bg-primary/5 transition-colors whitespace-nowrap">
                     <BellRing size={13} /> {unreadNotifs} 条消息
                   </button>
                 </Link>
               )}
-              <button
-                onClick={() => setBannerDismissed(true)}
-                className="ml-1 w-7 h-7 rounded-lg flex items-center justify-center text-primary/40 hover:text-primary hover:bg-primary/10 transition-colors shrink-0">
-                <X size={15} />
-              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Big KPIs Section */}
-      <section className="primary-gradient rounded-3xl p-8 lg:p-10 text-white grid grid-cols-1 md:grid-cols-3 gap-8 shadow-2xl shadow-primary/20 relative overflow-hidden">
+      <section className="primary-gradient rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 text-white grid grid-cols-3 md:grid-cols-3 gap-4 md:gap-8 shadow-2xl shadow-primary/20 relative overflow-hidden">
         {/* Decorative architectural background */}
         <div className="absolute inset-0 opacity-15 pointer-events-none mix-blend-overlay">
           <img 
@@ -198,53 +200,53 @@ export default function Home() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"></div>
         
         <div className="relative z-10 flex flex-col justify-center md:border-r border-white/20 md:pr-8">
-          <div className="flex items-center gap-2 text-primary-foreground/70 text-sm font-bold uppercase tracking-widest mb-3">
-            <Zap size={16} /> 累计结算金额
+          <div className="flex items-center gap-1.5 text-primary-foreground/70 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-2 md:mb-3">
+            <Zap size={13} className="shrink-0" /> <span className="truncate">累计结算</span>
           </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-4xl lg:text-5xl font-black tracking-tighter font-display">
+          <div className="flex items-baseline gap-1.5 md:gap-3 flex-wrap">
+            <span className="text-xl md:text-4xl lg:text-5xl font-black tracking-tighter font-display">
               {statsLoading ? "..." : `¥${(stats?.totalPayout ?? 0).toLocaleString()}`}
             </span>
-            <span className="text-accent flex items-center text-sm font-bold bg-accent/10 px-2 py-1 rounded-md">
-              <TrendingUp size={14} className="mr-1" />+{statsLoading ? "0" : (stats?.payoutGrowth ?? 0).toFixed(1)}%
+            <span className="text-accent flex items-center text-[10px] md:text-sm font-bold bg-accent/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-md">
+              <TrendingUp size={11} className="mr-0.5 md:mr-1" />+{statsLoading ? "0" : (stats?.payoutGrowth ?? 0).toFixed(1)}%
             </span>
           </div>
-          <p className="text-white/60 text-sm mt-3 font-medium">企业级资金托管，安全合规的支付保障。</p>
+          <p className="hidden md:block text-white/60 text-sm mt-3 font-medium">企业级资金托管，安全合规的支付保障。</p>
         </div>
         
         <div className="relative z-10 flex flex-col justify-center md:border-r border-white/20 md:pr-8 pl-0 md:pl-4">
-          <div className="flex items-center gap-2 text-primary-foreground/70 text-sm font-bold uppercase tracking-widest mb-3">
-            <Award size={16} /> 活跃 OPC
+          <div className="flex items-center gap-1.5 text-primary-foreground/70 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-2 md:mb-3">
+            <Award size={13} className="shrink-0" /> <span className="truncate">活跃 OPC</span>
           </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-4xl lg:text-5xl font-black tracking-tighter font-display">
+          <div className="flex items-baseline gap-1.5 md:gap-3 flex-wrap">
+            <span className="text-xl md:text-4xl lg:text-5xl font-black tracking-tighter font-display">
               {statsLoading ? "..." : `${stats?.activeOpcs ?? 0}`}
             </span>
-            <span className="bg-white/20 text-white text-[10px] px-2 py-1 rounded border border-white/30 uppercase tracking-tighter font-bold">
+            <span className="bg-white/20 text-white text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 md:py-1 rounded border border-white/30 uppercase tracking-tighter font-bold">
               已认证
             </span>
           </div>
-          <p className="text-white/60 text-sm mt-3 font-medium">经过严格筛选的超级个体生态池。</p>
+          <p className="hidden md:block text-white/60 text-sm mt-3 font-medium">经过严格筛选的超级个体生态池。</p>
         </div>
         
         <div className="relative z-10 flex flex-col justify-center pl-0 md:pl-4">
-          <div className="flex items-center gap-2 text-primary-foreground/70 text-sm font-bold uppercase tracking-widest mb-3">
-            <Activity size={16} /> 本月订单数
+          <div className="flex items-center gap-1.5 text-primary-foreground/70 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-2 md:mb-3">
+            <Activity size={13} className="shrink-0" /> <span className="truncate">本月订单</span>
           </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-4xl lg:text-5xl font-black tracking-tighter font-display">
+          <div className="flex items-baseline gap-1.5 md:gap-3 flex-wrap">
+            <span className="text-xl md:text-4xl lg:text-5xl font-black tracking-tighter font-display">
               {statsLoading ? "..." : (stats?.monthlyOrders ?? 0)}
             </span>
-            <span className="bg-accent text-accent-foreground text-[10px] px-2 py-1 rounded font-bold">
-              高频流转
+            <span className="bg-accent text-accent-foreground text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 md:py-1 rounded font-bold">
+              高频
             </span>
           </div>
-          <p className="text-white/60 text-sm mt-3 font-medium">高效精准的数字化任务撮合与交付。</p>
+          <p className="hidden md:block text-white/60 text-sm mt-3 font-medium">高效精准的数字化任务撮合与交付。</p>
         </div>
       </section>
 
       {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-12 gap-10">
+      <div className="grid grid-cols-12 gap-6 lg:gap-10">
         
         {/* Left Column: Recommended Demands */}
         <section className="col-span-12 lg:col-span-8 space-y-6">
@@ -284,8 +286,8 @@ export default function Home() {
         <aside className="col-span-12 lg:col-span-4 space-y-8">
           
           {/* Leaderboard */}
-          <div className="bg-card rounded-3xl shadow-lg shadow-black/5 border border-border p-8">
-            <div className="flex items-center justify-between mb-8">
+          <div className="bg-card rounded-2xl md:rounded-3xl shadow-lg shadow-black/5 border border-border p-5 md:p-8">
+            <div className="flex items-center justify-between mb-5 md:mb-8">
               <h3 className="text-xl font-black text-foreground font-display">活跃 OPC 榜单</h3>
               <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
                 <Award size={20} />
@@ -339,7 +341,7 @@ export default function Home() {
           </div>
 
           {/* Insights Block */}
-          <div className="bg-secondary rounded-3xl p-8 text-white relative overflow-hidden group shadow-lg shadow-secondary/20">
+          <div className="bg-secondary rounded-2xl md:rounded-3xl p-5 md:p-8 text-white relative overflow-hidden group shadow-lg shadow-secondary/20">
             <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-all duration-700"></div>
             <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-black/20 rounded-full blur-2xl"></div>
             
