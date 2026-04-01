@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, coursesTable, enrollmentsTable } from "@workspace/db";
+import { db, coursesTable, enrollmentsTable, learningResourcesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import {
   ListCoursesQueryParams,
@@ -132,6 +132,16 @@ router.post("/courses/:courseId/pay", async (req, res) => {
     res.json({ ok: true, message: "支付成功（演示模式）" });
   } catch {
     res.status(500).json({ error: "支付失败" });
+  }
+});
+
+router.get("/learning-resources", async (_req, res) => {
+  try {
+    const rows = await db.select().from(learningResourcesTable)
+      .orderBy(learningResourcesTable.sortOrder, learningResourcesTable.createdAt);
+    res.json(rows);
+  } catch {
+    res.status(500).json({ error: "获取学习资源失败" });
   }
 });
 

@@ -1409,6 +1409,206 @@ function TrainingManagement() {
   );
 }
 
+/* ─── Module: 学习资源管理 ───────────────────────── */
+
+interface LearningResource {
+  id: number;
+  title: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize: number | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
+function formatBytes(bytes: number | null) {
+  if (!bytes) return "";
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${bytes} B`;
+}
+
+function fileTypeLabel(ft: string) {
+  if (ft === "pdf") return "PDF 文档";
+  if (ft === "docx" || ft === "doc") return "Word 文档";
+  if (ft === "mp4" || ft === "video") return "视频";
+  if (ft === "pptx" || ft === "ppt") return "PPT";
+  if (ft === "xlsx" || ft === "xls") return "Excel";
+  return ft.toUpperCase();
+}
+
+function ResourceManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [addOpen, setAddOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState({ title: "", fileUrl: "", fileType: "file", fileSize: 0, sortOrder: 0 });
+
+  const { data: resources = [], isLoading } = useQuery<LearningResource[]>({
+    queryKey: ["admin-learning-resources"],
+    queryFn: () => adminGet("/api/admin/learning-resources"),
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (data: typeof form) => adminPost("/api/admin/learning-resources", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-learning-resources"] });
+      toast({ title: "资源已添加" });
+      setAddOpen(false);
+      setForm({ title: "", fileUrl: "", fileType: "file", fileSize: 0, sortOrder: 0 });
+    },
+    onError: (e: Error) => toast({ title: "添加失败", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/learning-resources/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-learning-resources"] });
+      toast({ title: "资源已删除" });
+    },
+    onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
+  });
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...Object.fromEntries(Object.entries(getAdminHeaders()).filter(([k]) => k !== "Content-Type")) },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!reqRes.ok) throw new Error("上传请求失败");
+      const { uploadURL, objectPath } = await reqRes.json();
+      await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      const url = `${BASE}/api/storage${objectPath}`;
+      const ext = file.name.split(".").pop()?.toLowerCase() || "file";
+      setForm(f => ({ ...f, fileUrl: url, fileType: ext, fileSize: file.size }));
+      toast({ title: "文件上传成功" });
+    } catch (e: unknown) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="mt-10">
+      <SectionHeader
+        title="学习资源"
+        sub="管理展示在 OPC 学习中心的下载资料和视频"
+        action={
+          <button onClick={() => setAddOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={16} /> 添加资源
+          </button>
+        }
+      />
+
+      {isLoading ? (
+        <div className="text-center py-12 text-muted-foreground">加载中...</div>
+      ) : resources.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground bg-white rounded-2xl border border-border/40">
+          <BookOpen size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">暂无学习资源，点击「添加资源」开始配置</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {resources.map(r => (
+            <div key={r.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-border/40 hover:bg-muted/20 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                  {r.fileType === "mp4" || r.fileType === "video"
+                    ? <PlayCircle size={20} className="text-green-500" />
+                    : r.fileType === "pdf"
+                    ? <FileText size={20} className="text-red-500" />
+                    : <FileText size={20} className="text-blue-500" />}
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-foreground">{r.title}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
+                    {fileTypeLabel(r.fileType)}{r.fileSize ? ` · ${formatBytes(r.fileSize)}` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <a href={r.fileUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                  <Download size={16} />
+                </a>
+                <button
+                  onClick={() => deleteMutation.mutate(r.id)}
+                  className="text-muted-foreground hover:text-red-500 transition-colors"
+                  disabled={deleteMutation.isPending}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {addOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setAddOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-extrabold text-blue-900">添加学习资源</h3>
+              <button onClick={() => setAddOpen(false)}><X size={20} className="text-muted-foreground" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">资源名称 *</label>
+                <input
+                  className="mt-1.5 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  placeholder="如：A 级认证考核指南"
+                  value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">上传文件</label>
+                <div className="mt-1.5">
+                  {form.fileUrl ? (
+                    <div className="flex items-center gap-2 p-2 bg-muted/40 rounded-lg">
+                      <FileText size={14} className="text-primary shrink-0" />
+                      <span className="text-xs text-foreground flex-1 truncate">{form.fileType.toUpperCase()} · {formatBytes(form.fileSize)}</span>
+                      <button onClick={() => setForm(f => ({ ...f, fileUrl: "", fileType: "file", fileSize: 0 }))} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                    </div>
+                  ) : (
+                    <label className={`flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:bg-muted/30 transition-colors ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
+                      {uploading ? <Loader2 size={24} className="animate-spin text-primary" /> : <Upload size={24} className="text-muted-foreground" />}
+                      <span className="text-xs text-muted-foreground">{uploading ? "上传中..." : "点击选择文件（PDF、DOCX、MP4 等）"}</span>
+                      <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+                    </label>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">排序权重</label>
+                <input
+                  type="number"
+                  className="mt-1.5 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  placeholder="0"
+                  value={form.sortOrder}
+                  onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setAddOpen(false)} className="flex-1 border border-border rounded-xl py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted/30 transition-colors">取消</button>
+              <button
+                onClick={() => addMutation.mutate(form)}
+                disabled={!form.title || !form.fileUrl || addMutation.isPending}
+                className="flex-1 bg-primary text-white rounded-xl py-2.5 text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {addMutation.isPending ? "保存中..." : "保存"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Module: 内容审核 ─────────────────────────── */
 
 interface AdminPost {
@@ -2506,7 +2706,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "disputes":       return <DisputeManagement />;
     case "finance":        return <FinanceManagement />;
     case "ecosystem":      return <EcosystemManagement />;
-    case "training":       return <TrainingManagement />;
+    case "training":       return <><TrainingManagement /><ResourceManagement /></>;
     case "levelcert":      return <LevelCertReview />;
     case "content":        return <ContentReview />;
     case "sensitivewords": return <SensitiveWordsManagement />;

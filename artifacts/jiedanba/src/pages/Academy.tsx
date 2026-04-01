@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
-  CheckCircle2, Star, Lock, Trophy, FileText, Video,
+  CheckCircle2, Star, Lock, Trophy, FileText,
   Download, ChevronRight, Zap, Cpu, ShieldCheck,
   BookOpen, ArrowRight, PlayCircle, Loader2, Award,
   CreditCard, BadgeCheck, AlertCircle, X, Clock,
@@ -11,7 +11,7 @@ import {
   useGetCurrentUser, useGetOpcProfile,
   useListCourses, useListMyEnrollments, useEnrollCourse,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Course } from "@workspace/api-client-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -60,11 +60,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   operations: "运营",
 };
 
-const RESOURCES = [
-  { icon: FileText, color: "text-red-500", name: "A 级认证考核指南（官方版）", meta: "PDF 文档 · 2.4 MB", action: <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors" /> },
-  { icon: FileText, color: "text-blue-500", name: "大模型架构与权重全景概览", meta: "DOCX · 1.1 MB", action: <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors" /> },
-  { icon: Video, color: "text-green-500", name: "工作坊录播：GPU 推理优化实战", meta: "MP4 视频 · 145 MB", action: <PlayCircle size={18} className="text-muted-foreground group-hover:text-primary transition-colors" /> },
-];
 
 const ASSESSMENTS = [
   { day: "10", month: "APR", title: "A 级最终认证考核", detail: "10:00 · 远程监考", urgent: true },
@@ -398,6 +393,17 @@ export default function Academy() {
   const { data: user }    = useGetCurrentUser();
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
 
+  const { data: learningResources = [] } = useQuery<{
+    id: number; title: string; fileUrl: string; fileType: string; fileSize: number | null;
+  }[]>({
+    queryKey: ["learning-resources"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/learning-resources`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const level    = profile?.level ?? "newbie";
   const credits  = profile?.creditScore ?? 4.8;
   const nickname = user?.nickname || profile?.nickname || "OPC学员";
@@ -594,23 +600,47 @@ export default function Academy() {
           {/* Technical Resources */}
           <section>
             <h2 className="text-2xl font-extrabold font-display mb-6 text-primary">学习资源</h2>
-            <div className="space-y-3">
-              {RESOURCES.map((r, i) => {
-                const Icon = r.icon;
-                return (
-                  <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-border/40 hover:bg-muted/30 transition-colors group cursor-pointer">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center ${r.color}`}><Icon size={20} /></div>
-                      <div>
-                        <p className="font-bold text-sm text-foreground">{r.name}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">{r.meta}</p>
+            {learningResources.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-white rounded-2xl border border-border/40">
+                <BookOpen size={32} className="mb-3 opacity-30" />
+                <p className="text-sm">暂无学习资源</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {learningResources.map(r => {
+                  const isVideo = r.fileType === "mp4" || r.fileType === "video";
+                  const isPdf = r.fileType === "pdf";
+                  const Icon = isVideo ? PlayCircle : FileText;
+                  const iconColor = isVideo ? "text-green-500" : isPdf ? "text-red-500" : "text-blue-500";
+                  const typeLabel = isVideo ? "视频" : isPdf ? "PDF 文档" : r.fileType.toUpperCase();
+                  const sizeLabel = r.fileSize
+                    ? r.fileSize >= 1024 * 1024
+                      ? ` · ${(r.fileSize / 1024 / 1024).toFixed(1)} MB`
+                      : ` · ${(r.fileSize / 1024).toFixed(0)} KB`
+                    : "";
+                  return (
+                    <a
+                      key={r.id}
+                      href={r.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-4 bg-white rounded-xl border border-border/40 hover:bg-muted/30 transition-colors group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center ${iconColor}`}><Icon size={20} /></div>
+                        <div>
+                          <p className="font-bold text-sm text-foreground">{r.title}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">{typeLabel}{sizeLabel}</p>
+                        </div>
                       </div>
-                    </div>
-                    {r.action}
-                  </div>
-                );
-              })}
-            </div>
+                      {isVideo
+                        ? <PlayCircle size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                        : <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </div>
 

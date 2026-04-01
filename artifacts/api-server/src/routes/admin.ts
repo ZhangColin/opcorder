@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 
@@ -875,6 +875,68 @@ router.get("/site-settings", async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取站点设置失败" });
+  }
+});
+
+/* ─── LEARNING RESOURCES ─────────────────────────── */
+
+router.get("/admin/learning-resources", async (_req, res) => {
+  try {
+    const rows = await db.select().from(learningResourcesTable).orderBy(learningResourcesTable.sortOrder, learningResourcesTable.createdAt);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取学习资源失败" });
+  }
+});
+
+router.post("/admin/learning-resources", async (req, res) => {
+  try {
+    const { title, fileUrl, fileType, fileSize, sortOrder } = req.body as Record<string, unknown>;
+    if (!title || !fileUrl) {
+      res.status(400).json({ error: "标题和文件地址为必填项" });
+      return;
+    }
+    const [row] = await db.insert(learningResourcesTable).values({
+      title: String(title),
+      fileUrl: String(fileUrl),
+      fileType: fileType ? String(fileType) : "file",
+      fileSize: fileSize != null ? Number(fileSize) : null,
+      sortOrder: sortOrder != null ? Number(sortOrder) : 0,
+    }).returning();
+    res.status(201).json(row);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "创建学习资源失败" });
+  }
+});
+
+router.put("/admin/learning-resources/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { title, fileUrl, fileType, fileSize, sortOrder } = req.body as Record<string, unknown>;
+    await db.update(learningResourcesTable).set({
+      title: String(title || ""),
+      fileUrl: String(fileUrl || ""),
+      fileType: fileType ? String(fileType) : "file",
+      fileSize: fileSize != null ? Number(fileSize) : null,
+      sortOrder: sortOrder != null ? Number(sortOrder) : 0,
+    }).where(eq(learningResourcesTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "更新学习资源失败" });
+  }
+});
+
+router.delete("/admin/learning-resources/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await db.delete(learningResourcesTable).where(eq(learningResourcesTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "删除学习资源失败" });
   }
 });
 

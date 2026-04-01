@@ -40,6 +40,16 @@ export const enrollmentsTable = pgTable("enrollments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const learningResourcesTable = pgTable("learning_resources", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 300 }).notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileType: varchar("file_type", { length: 50 }).notNull().default("file"),
+  fileSize: integer("file_size"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertEnrollmentSchema = createInsertSchema(enrollmentsTable).omit({ id: true, createdAt: true, completedAt: true, certIssuedAt: true });
 export const insertCourseSchema = createInsertSchema(coursesTable).omit({ id: true, createdAt: true, updatedAt: true, learnersCount: true });
 
@@ -47,3 +57,4 @@ export type InsertEnrollment = z.infer<typeof insertEnrollmentSchema>;
 export type InsertCourse = z.infer<typeof insertCourseSchema>;
 export type Course = typeof coursesTable.$inferSelect;
 export type Enrollment = typeof enrollmentsTable.$inferSelect;
+export type LearningResource = typeof learningResourcesTable.$inferSelect;
