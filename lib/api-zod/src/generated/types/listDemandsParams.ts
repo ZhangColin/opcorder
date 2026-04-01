@@ -5,6 +5,8 @@
  * JieDanBa OPC Matching Platform API
  * OpenAPI spec version: 1.0.0
  */
+import type { ListDemandsDeadlineFilter } from "./listDemandsDeadlineFilter";
+import type { ListDemandsEligibleLevel } from "./listDemandsEligibleLevel";
 import type { ListDemandsOpcLevel } from "./listDemandsOpcLevel";
 import type { ListDemandsSortBy } from "./listDemandsSortBy";
 import type { ListDemandsStatus } from "./listDemandsStatus";
@@ -19,4 +21,9 @@ export type ListDemandsParams = {
   page?: number;
   limit?: number;
   sortBy?: ListDemandsSortBy;
+  deadlineFilter?: ListDemandsDeadlineFilter;
+  /**
+   * Show demands where requiredLevel matches this level OR is "any"
+   */
+  eligibleLevel?: ListDemandsEligibleLevel;
 };

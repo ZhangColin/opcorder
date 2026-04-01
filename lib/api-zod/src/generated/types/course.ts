@@ -7,6 +7,7 @@
  */
 import type { CourseCategory } from "./courseCategory";
 import type { CourseRequiredLevel } from "./courseRequiredLevel";
+import type { CourseStatus } from "./courseStatus";
 
 export interface Course {
   id: number;
@@ -19,5 +20,10 @@ export interface Course {
   rating?: number;
   learnersCount?: number;
   isRequired: boolean;
+  status?: CourseStatus;
+  price?: number;
+  syllabusUrl?: string | null;
+  instructor?: string | null;
+  maxEnrollments?: number | null;
   createdAt: Date;
 }

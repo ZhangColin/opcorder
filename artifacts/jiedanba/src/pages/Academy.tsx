@@ -122,10 +122,10 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, isEnr
   const Icon = COURSE_ICONS[course.category] ?? Cpu;
   const grad = COURSE_GRADS[course.category] ?? "from-blue-700 to-indigo-900";
   const catLabel = CATEGORY_LABELS[course.category] ?? "其他";
-  const coursePrice = (course as Course & { price?: number }).price ?? 0;
-  const syllabusUrl = (course as Course & { syllabusUrl?: string | null }).syllabusUrl;
-  const instructor = (course as Course & { instructor?: string | null }).instructor;
-  const reqLevel = (course as Course & { requiredLevel?: string | null }).requiredLevel;
+  const coursePrice = course.price ?? 0;
+  const syllabusUrl = course.syllabusUrl;
+  const instructor = course.instructor;
+  const reqLevel = course.requiredLevel;
   const isEnrolled = enrollment !== null;
   const certIssued = enrollment?.certIssued ?? false;
   const needsPay = enrollment?.paymentStatus === "pending";
@@ -277,9 +277,9 @@ function CourseCard({
   const enrolledPct = enrollment?.progressPct ?? null;
   const paymentStatus = enrollment?.paymentStatus;
   const certIssued = enrollment?.certIssued ?? false;
-  const coursePrice = (course as Course & { price?: number }).price ?? 0;
-  const syllabusUrl = (course as Course & { syllabusUrl?: string | null }).syllabusUrl;
-  const instructor = (course as Course & { instructor?: string | null }).instructor;
+  const coursePrice = course.price ?? 0;
+  const syllabusUrl = course.syllabusUrl;
+  const instructor = course.instructor;
   const needsPay = paymentStatus === "pending";
 
   return (

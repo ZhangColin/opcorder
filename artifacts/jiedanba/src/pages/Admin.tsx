@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
@@ -908,8 +908,15 @@ function CourseModal({
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const fileRef = { current: null as HTMLInputElement | null };
+  const prevOpen = useRef(false);
 
-  useEffect(() => { if (open) setForm(initialForm); }, [open, initialForm]);
+  useEffect(() => {
+    if (open && !prevOpen.current) {
+      setForm(initialForm);
+    }
+    prevOpen.current = open;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open) return null;
 

@@ -365,10 +365,6 @@ export interface Portfolio {
   orderId?: number;
   rating?: number;
   clientFeedback?: string;
-  applyLevel?: string | null;
-  levelApplyStatus?: string | null;
-  levelApplyNote?: string | null;
-  reviewedAt?: string | null;
   createdAt: string;
 }
 
@@ -479,6 +475,14 @@ export const CourseRequiredLevel = {
   A: "A",
 } as const;
 
+export type CourseStatus = (typeof CourseStatus)[keyof typeof CourseStatus];
+
+export const CourseStatus = {
+  draft: "draft",
+  published: "published",
+  closed: "closed",
+} as const;
+
 export interface Course {
   id: number;
   title: string;
@@ -490,6 +494,11 @@ export interface Course {
   rating?: number;
   learnersCount?: number;
   isRequired: boolean;
+  status?: CourseStatus;
+  price?: number;
+  syllabusUrl?: string | null;
+  instructor?: string | null;
+  maxEnrollments?: number | null;
   createdAt: string;
 }
 
@@ -523,11 +532,14 @@ export type ListDemandsParams = {
   minBudget?: number;
   maxBudget?: number;
   search?: string;
-  deadlineFilter?: "24h" | "week" | "month";
-  eligibleLevel?: "C" | "B" | "A";
   page?: number;
   limit?: number;
   sortBy?: ListDemandsSortBy;
+  deadlineFilter?: ListDemandsDeadlineFilter;
+  /**
+   * Show demands where requiredLevel matches this level OR is "any"
+   */
+  eligibleLevel?: ListDemandsEligibleLevel;
 };
 
 export type ListDemandsStatus =
@@ -562,6 +574,24 @@ export const ListDemandsSortBy = {
   deadline: "deadline",
   budget_high: "budget_high",
   budget_low: "budget_low",
+} as const;
+
+export type ListDemandsDeadlineFilter =
+  (typeof ListDemandsDeadlineFilter)[keyof typeof ListDemandsDeadlineFilter];
+
+export const ListDemandsDeadlineFilter = {
+  "24h": "24h",
+  week: "week",
+  month: "month",
+} as const;
+
+export type ListDemandsEligibleLevel =
+  (typeof ListDemandsEligibleLevel)[keyof typeof ListDemandsEligibleLevel];
+
+export const ListDemandsEligibleLevel = {
+  C: "C",
+  B: "B",
+  A: "A",
 } as const;
 
 export type UpdateDemandStatusBodyStatus =
