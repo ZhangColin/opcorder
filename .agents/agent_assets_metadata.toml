@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Tt1D0ubob7lF7glOysbpq"
+uri = "file://screenshots/接单吧_页面截图.tar.gz"
+type = "unspecified"
+title = "接单吧_页面截图.tar.gz（23张，1.9MB）"
