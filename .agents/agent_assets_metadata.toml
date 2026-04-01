@@ -6,3 +6,9 @@ id = "Tt1D0ubob7lF7glOysbpq"
 uri = "file://screenshots/接单吧_页面截图.tar.gz"
 type = "unspecified"
 title = "接单吧_页面截图.tar.gz（23张，1.9MB）"
+
+[[outputs]]
+id = "YR0J6iwyLT_EV2n_q7oe4"
+uri = "file://scripts/截图脚本_本地运行.tar.gz"
+type = "unspecified"
+title = "截图脚本（在您自己电脑上运行）"
