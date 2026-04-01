@@ -35,6 +35,7 @@ import OpcIncome from "@/pages/OpcIncome";
 import SettlementAccount from "@/pages/SettlementAccount";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -104,12 +105,38 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/* ── 临时截图辅助路由 (开发专用) ──────────────────── */
+function SetAuthHelper() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const uid  = params.get("uid");
+    const role = params.get("role");
+    const nick = params.get("nick");
+    const to   = params.get("to") || "/";
+    if (uid && role && nick) {
+      localStorage.setItem("jdb_user_id", uid);
+      localStorage.setItem("jdb_role", role);
+      localStorage.setItem("jdb_nickname", nick);
+    } else {
+      localStorage.removeItem("jdb_user_id");
+      localStorage.removeItem("jdb_role");
+      localStorage.removeItem("jdb_nickname");
+    }
+    navigate(to);
+  }, []);
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
       {/* 公开路由 */}
       <Route path="/login" component={Login} />
       <Route path="/auth/:role" component={Auth} />
+
+      {/* 开发专用：截图辅助认证路由 */}
+      <Route path="/set-auth" component={SetAuthHelper} />
 
       {/* 管理员专属 */}
       <Route path="/admin">

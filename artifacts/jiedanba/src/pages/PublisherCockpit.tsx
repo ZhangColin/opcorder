@@ -9,7 +9,7 @@ import {
   HelpCircle, LogOut, Search, Bell,
   Wallet, Lock, Clock, CreditCard, TrendingUp, Download,
   BarChart3, Gavel, Zap, ArrowDownLeft, Landmark, Percent,
-  MoreHorizontal, Gauge,
+  MoreHorizontal, Gauge, ShieldCheck,
   Menu,
 } from "lucide-react";
 
