@@ -157,10 +157,8 @@ function Router() {
         {() => <PublisherGate><PublisherDisputes /></PublisherGate>}
       </Route>
 
-      {/* 社区：已登录用户均可访问 */}
-      <Route path="/community">
-        {() => <AuthGate><Community /></AuthGate>}
-      </Route>
+      {/* 社区：游客也可访问 */}
+      <Route path="/community" component={Community} />
 
       {/* OPC 专属路由 */}
       <Route>
