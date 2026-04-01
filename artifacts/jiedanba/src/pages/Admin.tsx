@@ -1417,6 +1417,7 @@ interface LearningResource {
   fileUrl: string;
   fileType: string;
   fileSize: number | null;
+  description: string | null;
   sortOrder: number;
   createdAt: string;
 }
@@ -1437,12 +1438,95 @@ function fileTypeLabel(ft: string) {
   return ft.toUpperCase();
 }
 
+type ResourceForm = { title: string; fileUrl: string; fileType: string; fileSize: number; description: string; sortOrder: number };
+const EMPTY_RESOURCE_FORM: ResourceForm = { title: "", fileUrl: "", fileType: "file", fileSize: 0, description: "", sortOrder: 0 };
+
+function ResourceModal({
+  open, title: modalTitle, form, setForm, uploading, onUpload, onClose, onSave, saving, disableSave,
+}: {
+  open: boolean; title: string; form: ResourceForm; setForm: React.Dispatch<React.SetStateAction<ResourceForm>>;
+  uploading: boolean; onUpload: (f: File) => void; onClose: () => void; onSave: () => void; saving: boolean; disableSave: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-extrabold text-blue-900">{modalTitle}</h3>
+          <button onClick={onClose}><X size={20} className="text-muted-foreground" /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">资源名称 *</label>
+            <input
+              className="mt-1.5 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="如：A 级认证考核指南"
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">简介说明</label>
+            <textarea
+              className="mt-1.5 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+              placeholder="一句话描述该资源的内容和用途（可选）"
+              rows={2}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">文件</label>
+            <div className="mt-1.5">
+              {form.fileUrl ? (
+                <div className="flex items-center gap-2 p-2 bg-muted/40 rounded-lg">
+                  <FileText size={14} className="text-primary shrink-0" />
+                  <span className="text-xs text-foreground flex-1 truncate">{form.fileType.toUpperCase()}{form.fileSize ? ` · ${formatBytes(form.fileSize)}` : ""}</span>
+                  <button onClick={() => setForm(f => ({ ...f, fileUrl: "", fileType: "file", fileSize: 0 }))} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                </div>
+              ) : (
+                <label className={`flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:bg-muted/30 transition-colors ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
+                  {uploading ? <Loader2 size={24} className="animate-spin text-primary" /> : <Upload size={24} className="text-muted-foreground" />}
+                  <span className="text-xs text-muted-foreground">{uploading ? "上传中..." : "点击选择文件（PDF、DOCX、MP4 等）"}</span>
+                  <input type="file" className="hidden" onChange={e => e.target.files?.[0] && onUpload(e.target.files[0])} />
+                </label>
+              )}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">排序权重</label>
+            <input
+              type="number"
+              className="mt-1.5 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="0（数值越小越靠前）"
+              value={form.sortOrder}
+              onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
+            />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 border border-border rounded-xl py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted/30 transition-colors">取消</button>
+          <button
+            onClick={onSave}
+            disabled={disableSave || saving}
+            className="flex-1 bg-primary text-white rounded-xl py-2.5 text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {saving ? "保存中..." : "保存"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ResourceManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<LearningResource | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState({ title: "", fileUrl: "", fileType: "file", fileSize: 0, sortOrder: 0 });
+  const [addForm, setAddForm] = useState<ResourceForm>(EMPTY_RESOURCE_FORM);
+  const [editForm, setEditForm] = useState<ResourceForm>(EMPTY_RESOURCE_FORM);
 
   const { data: resources = [], isLoading } = useQuery<LearningResource[]>({
     queryKey: ["admin-learning-resources"],
@@ -1450,14 +1534,24 @@ function ResourceManagement() {
   });
 
   const addMutation = useMutation({
-    mutationFn: (data: typeof form) => adminPost("/api/admin/learning-resources", data),
+    mutationFn: (data: ResourceForm) => adminPost("/api/admin/learning-resources", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-learning-resources"] });
       toast({ title: "资源已添加" });
       setAddOpen(false);
-      setForm({ title: "", fileUrl: "", fileType: "file", fileSize: 0, sortOrder: 0 });
+      setAddForm(EMPTY_RESOURCE_FORM);
     },
     onError: (e: Error) => toast({ title: "添加失败", description: e.message, variant: "destructive" }),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: ResourceForm }) => adminPut(`/api/admin/learning-resources/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-learning-resources"] });
+      toast({ title: "资源已更新" });
+      setEditTarget(null);
+    },
+    onError: (e: Error) => toast({ title: "更新失败", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -1469,7 +1563,12 @@ function ResourceManagement() {
     onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
   });
 
-  const handleFileUpload = async (file: File) => {
+  const openEdit = (r: LearningResource) => {
+    setEditTarget(r);
+    setEditForm({ title: r.title, fileUrl: r.fileUrl, fileType: r.fileType, fileSize: r.fileSize ?? 0, description: r.description ?? "", sortOrder: r.sortOrder });
+  };
+
+  const makeUploadHandler = (setForm: React.Dispatch<React.SetStateAction<ResourceForm>>) => async (file: File) => {
     setUploading(true);
     try {
       const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
@@ -1497,7 +1596,7 @@ function ResourceManagement() {
         title="学习资源"
         sub="管理展示在 OPC 学习中心的下载资料和视频"
         action={
-          <button onClick={() => setAddOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+          <button onClick={() => { setAddForm(EMPTY_RESOURCE_FORM); setAddOpen(true); }} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
             <Plus size={16} /> 添加资源
           </button>
         }
@@ -1514,25 +1613,29 @@ function ResourceManagement() {
         <div className="space-y-3">
           {resources.map(r => (
             <div key={r.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-border/40 hover:bg-muted/20 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   {r.fileType === "mp4" || r.fileType === "video"
                     ? <PlayCircle size={20} className="text-green-500" />
                     : r.fileType === "pdf"
                     ? <FileText size={20} className="text-red-500" />
                     : <FileText size={20} className="text-blue-500" />}
                 </div>
-                <div>
-                  <p className="font-bold text-sm text-foreground">{r.title}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
-                    {fileTypeLabel(r.fileType)}{r.fileSize ? ` · ${formatBytes(r.fileSize)}` : ""}
+                <div className="min-w-0">
+                  <p className="font-bold text-sm text-foreground truncate">{r.title}</p>
+                  {r.description && <p className="text-xs text-muted-foreground mt-0.5 truncate">{r.description}</p>}
+                  <p className="text-[10px] text-muted-foreground/70 uppercase tracking-widest mt-0.5">
+                    {fileTypeLabel(r.fileType)}{r.fileSize ? ` · ${formatBytes(r.fileSize)}` : ""} · 排序 {r.sortOrder}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0 ml-4">
                 <a href={r.fileUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                   <Download size={16} />
                 </a>
+                <button onClick={() => openEdit(r)} className="text-muted-foreground hover:text-blue-500 transition-colors">
+                  <Edit2 size={16} />
+                </button>
                 <button
                   onClick={() => deleteMutation.mutate(r.id)}
                   className="text-muted-foreground hover:text-red-500 transition-colors"
@@ -1546,65 +1649,31 @@ function ResourceManagement() {
         </div>
       )}
 
-      {addOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setAddOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-extrabold text-blue-900">添加学习资源</h3>
-              <button onClick={() => setAddOpen(false)}><X size={20} className="text-muted-foreground" /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">资源名称 *</label>
-                <input
-                  className="mt-1.5 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  placeholder="如：A 级认证考核指南"
-                  value={form.title}
-                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">上传文件</label>
-                <div className="mt-1.5">
-                  {form.fileUrl ? (
-                    <div className="flex items-center gap-2 p-2 bg-muted/40 rounded-lg">
-                      <FileText size={14} className="text-primary shrink-0" />
-                      <span className="text-xs text-foreground flex-1 truncate">{form.fileType.toUpperCase()} · {formatBytes(form.fileSize)}</span>
-                      <button onClick={() => setForm(f => ({ ...f, fileUrl: "", fileType: "file", fileSize: 0 }))} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
-                    </div>
-                  ) : (
-                    <label className={`flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:bg-muted/30 transition-colors ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
-                      {uploading ? <Loader2 size={24} className="animate-spin text-primary" /> : <Upload size={24} className="text-muted-foreground" />}
-                      <span className="text-xs text-muted-foreground">{uploading ? "上传中..." : "点击选择文件（PDF、DOCX、MP4 等）"}</span>
-                      <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
-                    </label>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">排序权重</label>
-                <input
-                  type="number"
-                  className="mt-1.5 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  placeholder="0"
-                  value={form.sortOrder}
-                  onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setAddOpen(false)} className="flex-1 border border-border rounded-xl py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted/30 transition-colors">取消</button>
-              <button
-                onClick={() => addMutation.mutate(form)}
-                disabled={!form.title || !form.fileUrl || addMutation.isPending}
-                className="flex-1 bg-primary text-white rounded-xl py-2.5 text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {addMutation.isPending ? "保存中..." : "保存"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResourceModal
+        open={addOpen}
+        title="添加学习资源"
+        form={addForm}
+        setForm={setAddForm}
+        uploading={uploading}
+        onUpload={makeUploadHandler(setAddForm)}
+        onClose={() => setAddOpen(false)}
+        onSave={() => addMutation.mutate(addForm)}
+        saving={addMutation.isPending}
+        disableSave={!addForm.title || !addForm.fileUrl}
+      />
+
+      <ResourceModal
+        open={!!editTarget}
+        title="编辑学习资源"
+        form={editForm}
+        setForm={setEditForm}
+        uploading={uploading}
+        onUpload={makeUploadHandler(setEditForm)}
+        onClose={() => setEditTarget(null)}
+        onSave={() => editTarget && editMutation.mutate({ id: editTarget.id, data: editForm })}
+        saving={editMutation.isPending}
+        disableSave={!editForm.title || !editForm.fileUrl}
+      />
     </div>
   );
 }

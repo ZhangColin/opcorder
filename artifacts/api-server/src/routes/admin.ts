@@ -892,7 +892,7 @@ router.get("/admin/learning-resources", async (_req, res) => {
 
 router.post("/admin/learning-resources", async (req, res) => {
   try {
-    const { title, fileUrl, fileType, fileSize, sortOrder } = req.body as Record<string, unknown>;
+    const { title, fileUrl, fileType, fileSize, description, sortOrder } = req.body as Record<string, unknown>;
     if (!title || !fileUrl) {
       res.status(400).json({ error: "标题和文件地址为必填项" });
       return;
@@ -902,6 +902,7 @@ router.post("/admin/learning-resources", async (req, res) => {
       fileUrl: String(fileUrl),
       fileType: fileType ? String(fileType) : "file",
       fileSize: fileSize != null ? Number(fileSize) : null,
+      description: description != null && String(description).trim() ? String(description).trim() : null,
       sortOrder: sortOrder != null ? Number(sortOrder) : 0,
     }).returning();
     res.status(201).json(row);
@@ -914,12 +915,13 @@ router.post("/admin/learning-resources", async (req, res) => {
 router.put("/admin/learning-resources/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { title, fileUrl, fileType, fileSize, sortOrder } = req.body as Record<string, unknown>;
+    const { title, fileUrl, fileType, fileSize, description, sortOrder } = req.body as Record<string, unknown>;
     await db.update(learningResourcesTable).set({
       title: String(title || ""),
       fileUrl: String(fileUrl || ""),
       fileType: fileType ? String(fileType) : "file",
       fileSize: fileSize != null ? Number(fileSize) : null,
+      description: description != null ? String(description) : null,
       sortOrder: sortOrder != null ? Number(sortOrder) : 0,
     }).where(eq(learningResourcesTable.id, id));
     res.json({ ok: true });

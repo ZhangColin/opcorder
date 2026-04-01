@@ -46,6 +46,7 @@ export const learningResourcesTable = pgTable("learning_resources", {
   fileUrl: text("file_url").notNull(),
   fileType: varchar("file_type", { length: 50 }).notNull().default("file"),
   fileSize: integer("file_size"),
+  description: text("description"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

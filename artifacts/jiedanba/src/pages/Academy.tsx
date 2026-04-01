@@ -394,7 +394,7 @@ export default function Academy() {
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
 
   const { data: learningResources = [] } = useQuery<{
-    id: number; title: string; fileUrl: string; fileType: string; fileSize: number | null;
+    id: number; title: string; fileUrl: string; fileType: string; fileSize: number | null; description: string | null;
   }[]>({
     queryKey: ["learning-resources"],
     queryFn: async () => {
@@ -630,7 +630,8 @@ export default function Academy() {
                         <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center ${iconColor}`}><Icon size={20} /></div>
                         <div>
                           <p className="font-bold text-sm text-foreground">{r.title}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">{typeLabel}{sizeLabel}</p>
+                          {r.description && <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{r.description}</p>}
+                          <p className="text-[10px] text-muted-foreground/70 uppercase tracking-widest mt-0.5">{typeLabel}{sizeLabel}</p>
                         </div>
                       </div>
                       {isVideo
