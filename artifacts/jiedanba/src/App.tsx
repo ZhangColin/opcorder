@@ -32,6 +32,7 @@ import Portfolios from "@/pages/Portfolios";
 import Academy from "@/pages/Academy";
 import Notifications from "@/pages/Notifications";
 import OpcIncome from "@/pages/OpcIncome";
+import SettlementAccount from "@/pages/SettlementAccount";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 const queryClient = new QueryClient({
@@ -177,6 +178,7 @@ function Router() {
                 <Route path="/academy" component={Academy} />
                 <Route path="/notifications" component={Notifications} />
                 <Route path="/income" component={OpcIncome} />
+                <Route path="/settlement-account" component={SettlementAccount} />
                 <Route component={NotFound} />
               </Switch>
             </Layout>

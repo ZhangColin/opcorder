@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, MessageSquare, KeyRound } from "lucide-react";
+import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, MessageSquare, KeyRound, Landmark } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile, useListNotifications } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
@@ -151,6 +151,12 @@ export function Navbar() {
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
                     <KeyRound size={15} className="shrink-0" />
                     修改密码
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate("/settlement-account"); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
+                    <Landmark size={15} className="shrink-0" />
+                    结算账户
                   </button>
                   <div className="mx-4 my-1 border-t border-slate-100" />
                   <button

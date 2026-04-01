@@ -12,6 +12,7 @@ import authRouter from "./auth";
 import postsRouter from "./posts";
 import coursesRouter from "./courses";
 import adminRouter from "./admin";
+import settlementAccountsRouter from "./settlement-accounts";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(notificationsRouter);
 router.use(postsRouter);
 router.use(coursesRouter);
 router.use(adminRouter);
+router.use(settlementAccountsRouter);
 
 export default router;
