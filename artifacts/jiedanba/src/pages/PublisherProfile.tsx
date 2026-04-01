@@ -4,6 +4,7 @@ import {
   ArrowLeft, Building2, MapPin, Users, Calendar, Globe,
   Mail, Phone, Pencil, Save, X, CheckCircle, Briefcase,
   ChevronRight, PlusCircle, Upload, Loader2, Hash, ZoomIn, ZoomOut, Crop,
+  Menu,
 } from "lucide-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from "@/components/publisher/PublisherHeaderUser";
@@ -246,6 +247,8 @@ export default function PublisherProfile() {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const logout = () => {
     localStorage.removeItem("jdb_role");
     localStorage.removeItem("jdb_user_id");
@@ -374,11 +377,18 @@ export default function PublisherProfile() {
           onCancel={() => { setCropSrc(null); }}
         />
       )}
-      <PublisherSidebar onLogout={logout} />
+      <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 ml-64 min-h-screen">
+      <main className="flex-1 md:ml-64 min-h-screen">
         {/* Top bar */}
-        <header className="fixed top-0 right-0 left-64 z-40 bg-white/80 backdrop-blur-md shadow-sm flex justify-between items-center px-8 py-3">
+        <header className="fixed top-0 right-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="md:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
+            <Menu size={20} />
+          </button>
+
           <div className="flex items-center gap-2 text-sm">
             <button onClick={() => navigate("/publisher")} className="text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
               <ArrowLeft size={14} />

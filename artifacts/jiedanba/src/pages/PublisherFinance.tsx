@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import {
   ArrowLeft, TrendingUp, CreditCard, Clock, CheckCircle2,
   BarChart2, DollarSign, FileText, AlertCircle,
+  Menu,
 } from "lucide-react";
 import { useListOrders } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
@@ -69,6 +70,8 @@ export default function PublisherFinance() {
     ? completedOrders.filter(o => o.rating).reduce((s, o) => s + (o.rating ?? 0), 0) / completedOrders.filter(o => o.rating).length
     : 0;
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const logout = () => {
     localStorage.removeItem("jdb_role");
     navigate("/login");
@@ -76,10 +79,16 @@ export default function PublisherFinance() {
 
   return (
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
-      <PublisherSidebar onLogout={logout} />
+      <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 ml-64 min-h-screen">
-        <header className="fixed top-0 right-0 left-64 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center justify-between px-8 py-3">
+      <main className="flex-1 md:ml-64 min-h-screen">
+        <header className="fixed top-0 right-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="md:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
+            <Menu size={20} />
+          </button>
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate("/publisher")}
@@ -94,7 +103,7 @@ export default function PublisherFinance() {
           </div>
         </header>
 
-        <div className="pt-20 pb-16 px-8 max-w-[1280px] mx-auto space-y-8">
+        <div className="pt-16 pb-16 px-4 md:px-8 max-w-[1280px] mx-auto space-y-8">
 
           {isLoading ? (
             <div className="flex items-center justify-center h-64 text-slate-400">

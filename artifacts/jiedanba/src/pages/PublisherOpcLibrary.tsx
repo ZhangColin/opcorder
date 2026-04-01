@@ -5,6 +5,7 @@ import {
   Search, Bell, Users, Star, BadgeCheck,
   ChevronRight, X, ExternalLink, Zap, AlertCircle,
   Award, TrendingUp, Clock, Send, ChevronDown,
+  Menu,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard,
@@ -296,6 +297,8 @@ export default function PublisherOpcLibrary() {
   const { userId: publisherId, nickname } = useCurrentUser();
   const { data: opcs = [], isLoading } = useGetOpcLeaderboard({ limit: 100 });
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const logout = () => {
     localStorage.removeItem("jdb_role");
     navigate("/login");
@@ -316,15 +319,22 @@ export default function PublisherOpcLibrary() {
 
   return (
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
-      <PublisherSidebar onLogout={logout} />
+      <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       {selectedOpcId !== null && (
         <OpcDetailDrawer opcId={selectedOpcId} publisherId={publisherId || undefined} onClose={() => setSelectedOpcId(null)} />
       )}
 
-      <main className="flex-1 ml-64 min-h-screen">
+      <main className="flex-1 md:ml-64 min-h-screen">
         {/* Top bar */}
-        <header className="fixed top-0 right-0 left-64 z-40 bg-white/80 backdrop-blur-md shadow-sm flex justify-between items-center px-8 py-3">
+        <header className="fixed top-0 right-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="md:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
+            <Menu size={20} />
+          </button>
+
           <div className="relative w-full max-w-md">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input

@@ -10,6 +10,7 @@ import {
   Wallet, Lock, Clock, CreditCard, TrendingUp, Download,
   BarChart3, Gavel, Zap, ArrowDownLeft, Landmark, Percent,
   MoreHorizontal, Gauge,
+  Menu,
 } from "lucide-react";
 
 /* ─── Static data (shared with OPC Cockpit) ─────── */
@@ -35,30 +36,38 @@ const TRANSACTIONS = [
 
 /* ─── Sidebar ─────────────────────────────────── */
 
-function Sidebar({ onLogout }: { onLogout: () => void }) {
+function Sidebar({ onLogout, mobileOpen = false, onMobileClose }: { onLogout: () => void; mobileOpen?: boolean; onMobileClose?: () => void }) {
   const [showHelp, setShowHelp] = useState(false);
-  return (
+
+  const navItems = [
+    { icon: LayoutDashboard, label: "工作台",    href: "/publisher" },
+    { icon: FileText,        label: "我的需求",  href: "/publisher/demands" },
+    { icon: Users,           label: "OPC 人才库", href: "/publisher/opc-library" },
+    { icon: Gauge,           label: "驾驶舱",    href: "/publisher/cockpit", active: true },
+    { icon: Gavel,           label: "争议处理",  href: "/publisher/disputes" },
+  ];
+
+  const inner = (closeOnNav?: () => void) => (
     <>
       {showHelp && <HelpDialog onClose={() => setShowHelp(false)} />}
-      <aside className="h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex flex-col p-4 gap-1">
-      <div className="mb-6 px-2 flex items-center gap-3">
-        <SiteLogo size={32} />
-        <div>
-          <h2 className="text-base font-extrabold text-blue-900 leading-tight font-display">发单方门户</h2>
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest">机构专属通道</p>
+      <div className="mb-6 px-2 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <SiteLogo size={32} />
+          <div>
+            <h2 className="text-base font-extrabold text-blue-900 leading-tight font-display">发单方门户</h2>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest">机构专属通道</p>
+          </div>
         </div>
+        {closeOnNav && (
+          <button onClick={closeOnNav} className="md:hidden w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200">
+            ✕
+          </button>
+        )}
       </div>
-
       <nav className="flex-1 flex flex-col gap-0.5">
-        {[
-          { icon: LayoutDashboard, label: "工作台",    href: "/publisher" },
-          { icon: FileText,        label: "我的需求",  href: "/publisher/demands" },
-          { icon: Users,           label: "OPC 人才库", href: "/publisher/opc-library" },
-          { icon: Gauge,           label: "驾驶舱",    href: "/publisher/cockpit", active: true },
-          { icon: Gavel,           label: "争议处理",  href: "/publisher/disputes" },
-        ].map(item => (
+        {navItems.map(item => (
           <Link key={item.label} href={item.href}>
-            <div className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 cursor-pointer ${
+            <div onClick={closeOnNav} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 cursor-pointer ${
               item.active ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-primary"
             }`}>
               <item.icon size={18} />
@@ -67,28 +76,35 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
           </Link>
         ))}
       </nav>
-
-      <Link href="/publisher/demand/1">
-        <div className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer">
+      <Link href="/publisher/demands/new">
+        <div onClick={closeOnNav} className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer">
           <PlusCircle size={16} /> 发布新需求
         </div>
       </Link>
-
       <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5">
-        <button
-          onClick={() => setShowHelp(true)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-primary hover:bg-primary/5 transition-all"
-        >
+        <button onClick={() => setShowHelp(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-primary hover:bg-primary/5 transition-all">
           <HelpCircle size={18} /> 帮助中心
         </button>
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors"
-        >
+        <button onClick={() => { closeOnNav?.(); onLogout(); }} className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors">
           <LogOut size={18} /> 退出登录
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="hidden md:flex h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1">
+        {inner()}
+      </aside>
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onMobileClose} />
+          <aside className="absolute left-0 top-0 h-full w-64 bg-slate-50 border-r border-slate-200 flex flex-col p-4 gap-1 animate-in slide-in-from-left duration-300 shadow-2xl">
+            {inner(onMobileClose)}
+          </aside>
+        </div>
+      )}
     </>
   );
 }
@@ -99,6 +115,8 @@ export default function PublisherCockpit() {
   const [, navigate] = useLocation();
   const { } = useCurrentUser();
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const logout = () => {
     localStorage.removeItem("jdb_role");
     navigate("/login");
@@ -106,11 +124,14 @@ export default function PublisherCockpit() {
 
   return (
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
-      <Sidebar onLogout={logout} />
+      <Sidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 ml-64 min-h-screen">
+      <main className="flex-1 md:ml-64 min-h-screen">
         {/* Top bar */}
-        <header className="fixed top-0 right-0 left-64 z-40 bg-white/80 backdrop-blur-md shadow-sm flex justify-between items-center px-8 py-3">
+        <header className="fixed top-0 right-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
+          <button onClick={() => setSidebarOpen(true)} className="md:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
+            <Menu size={20} />
+          </button>
           <div className="relative w-full max-w-md">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -129,7 +150,7 @@ export default function PublisherCockpit() {
         </header>
 
         {/* Body */}
-        <div className="pt-24 px-8 pb-12 space-y-8">
+        <div className="pt-16 px-4 md:px-8 pb-12 space-y-8">
 
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
