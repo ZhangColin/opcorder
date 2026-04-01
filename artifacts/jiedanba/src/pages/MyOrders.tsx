@@ -572,7 +572,7 @@ export default function MyOrders() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-white/60">OPC 分成比例</span>
-                      <span className="font-bold text-[#4dffb2]">× 60%</span>
+                      <span className="font-bold text-[#4dffb2]">× 90%</span>
                     </div>
                   </div>
 

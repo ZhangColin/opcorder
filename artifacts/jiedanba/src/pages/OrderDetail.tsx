@@ -526,7 +526,7 @@ export default function OrderDetail() {
         <div className="bg-muted/50 rounded-xl border border-border p-5 text-left md:text-right min-w-[160px]">
           <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-1">我的分成</p>
           <p className="text-3xl font-black text-secondary">
-            ¥{(order.opcShare ?? order.amount * 0.6).toLocaleString()}
+            ¥{(order.opcShare ?? order.amount * 0.9).toLocaleString()}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             订单总额 ¥{order.amount.toLocaleString()}

@@ -121,7 +121,7 @@ async function triggerSettlementCheck(orderId: number) {
       const opcId       = Number(order.opc_id);
       const publisherId = Number(order.publisher_id);
       const amount      = Number(order.amount ?? 0);
-      const opcShare    = Number(order.opc_share ?? amount * 0.6);
+      const opcShare    = Number(order.opc_share ?? amount * 0.9);
 
       await db.insert(notificationsTable).values({
         userId: opcId,

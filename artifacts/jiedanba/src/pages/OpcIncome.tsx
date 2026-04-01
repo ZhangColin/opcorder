@@ -35,12 +35,12 @@ export default function OpcIncome() {
   const { data: pendingOrders } = useListOrders({ opcId, status: "pending_acceptance", limit: 200 });
 
   const totalEarned = (completedOrders?.items ?? []).reduce(
-    (sum, o) => sum + (o.opcShare ?? o.amount * 0.6), 0
+    (sum, o) => sum + (o.opcShare ?? o.amount * 0.9), 0
   );
   const pendingEarnings = [
     ...(activeOrders?.items ?? []),
     ...(pendingOrders?.items ?? []),
-  ].reduce((sum, o) => sum + (o.opcShare ?? o.amount * 0.6), 0);
+  ].reduce((sum, o) => sum + (o.opcShare ?? o.amount * 0.9), 0);
 
   const completedCount = completedOrders?.total ?? 0;
   const totalCount = allOrders?.total ?? 0;
@@ -101,8 +101,7 @@ export default function OpcIncome() {
       <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
         <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
         <p className="text-sm text-amber-800">
-          结算规则：验收通过后 3 个工作日内到账，OPC分成比例约为订单金额的
-          <strong> 50%–70%</strong>（C级50%，B级60%，A级70%）。平台服务费10%，发单方保留余额。
+          结算规则：验收通过后3个工作日内到账，OPC分成比例为订单金额的<strong> 90%</strong>，平台服务费10%。
         </p>
       </div>
 
@@ -122,7 +121,7 @@ export default function OpcIncome() {
         ) : (
           <div className="divide-y divide-border">
             {orders.map((o) => {
-              const myShare = o.opcShare ?? o.amount * 0.6;
+              const myShare = o.opcShare ?? o.amount * 0.9;
               const sc = STATUS_CFG[o.status] ?? STATUS_CFG.in_progress;
               const typeLabel = DEMAND_TYPES[o.demandType ?? ""] ?? "其他";
               return (

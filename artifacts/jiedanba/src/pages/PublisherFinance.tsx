@@ -222,7 +222,7 @@ export default function PublisherFinance() {
 
               {/* Platform fee note */}
               <p className="text-xs text-slate-400 text-center">
-                平台服务费按订单金额 10% 计算。OPC 分成 60% · 发单方 30% · 平台 10%。
+                平台服务费按订单金额 10% 计算。OPC 分成 90% · 平台 10%。
                 结算周期：订单完成后 3 个工作日内到账。
               </p>
             </>

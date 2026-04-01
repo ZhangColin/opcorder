@@ -145,8 +145,8 @@ router.patch("/bids/:bidId/status", async (req, res) => {
       const [demand] = await db.select().from(demandsTable).where(eq(demandsTable.id, updated.demandId));
       if (demand) {
         const amount = demand.budgetMax;
-        const opcShare = amount * 0.6;
-        const publisherShare = amount * 0.3;
+        const opcShare = amount * 0.9;
+        const publisherShare = 0;
         const platformFee = amount * 0.1;
 
         const now = new Date();
