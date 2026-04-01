@@ -529,7 +529,7 @@ export default function MyOrders() {
                   <h3 className="font-display font-bold text-xl text-foreground">订单已完成 🎉</h3>
                   <p className="text-muted-foreground text-sm mt-1">
                     结算金额{" "}
-                    <span className="text-secondary font-black">¥{order.opcShare?.toLocaleString()}</span>{" "}
+                    <span className="text-secondary font-black">¥{Math.round(order.amount * 0.9).toLocaleString()}</span>{" "}
                     已打入账户，感谢您的优质交付！
                   </p>
                 </div>
@@ -554,7 +554,7 @@ export default function MyOrders() {
                   <div className="flex items-baseline gap-1 mb-1">
                     <span className="text-xl font-bold text-white/80">¥</span>
                     <span className="text-5xl font-extrabold tracking-tighter">
-                      {order.opcShare?.toLocaleString()}
+                      {Math.round(order.amount * 0.9).toLocaleString()}
                     </span>
                   </div>
                   <p className="text-white/50 text-sm mb-8 font-medium">OPC 税前到账估算</p>

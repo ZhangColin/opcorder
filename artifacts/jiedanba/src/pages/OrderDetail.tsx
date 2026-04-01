@@ -526,7 +526,7 @@ export default function OrderDetail() {
         <div className="bg-muted/50 rounded-xl border border-border p-5 text-left md:text-right min-w-[160px]">
           <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-1">我的分成</p>
           <p className="text-3xl font-black text-secondary">
-            ¥{(order.opcShare ?? order.amount * 0.9).toLocaleString()}
+            ¥{Math.round(order.amount * 0.9).toLocaleString()}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             订单总额 ¥{order.amount.toLocaleString()}
@@ -641,7 +641,7 @@ export default function OrderDetail() {
             <div>
               <p className="font-bold text-green-800">订单已完成，结算已触发</p>
               <p className="text-sm text-green-700 mt-0.5">
-                您的分成 ¥{(order.opcShare ?? 0).toLocaleString()} 将在 3 个工作日内到账。
+                您的分成 ¥{Math.round(order.amount * 0.9).toLocaleString()} 将在 3 个工作日内到账。
               </p>
               {order.rating && (
                 <div className="flex items-center gap-1 mt-1">
