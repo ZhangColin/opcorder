@@ -25,7 +25,7 @@ const DEMAND_TYPES: Record<string, string> = {
 
 export default function OpcIncome() {
   const { data: user } = useGetCurrentUser();
-  const opcId = Number(localStorage.getItem("jdb_user_id") ?? 0) || undefined;
+  const opcId = user?.id || undefined;
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, {
     query: { enabled: !!user?.id },
   });

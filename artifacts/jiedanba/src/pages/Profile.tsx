@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { getAccessToken } from "@/lib/auth";
 import { Link, useSearch } from "wouter";
 import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
@@ -317,7 +318,7 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
     try {
       const reqRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${userId}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
         body: JSON.stringify({ name: "avatar.jpg", size: blob.size, contentType: "image/jpeg" }),
       });
       const { uploadURL, objectPath } = await reqRes.json();

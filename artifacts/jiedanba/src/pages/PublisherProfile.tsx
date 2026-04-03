@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { clearSession } from "@/lib/auth";
+import { clearSession, getAccessToken } from "@/lib/auth";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, Building2, MapPin, Users, Calendar, Globe,
@@ -260,7 +260,7 @@ export default function PublisherProfile() {
     if (!userId) return;
     setLoading(true);
     fetch(`${API_BASE}/api/users/${userId}/publisher-profile`, {
-      headers: { Authorization: `Bearer ${userId}` },
+      headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
     })
       .then(r => r.json())
       .then((data: PublisherProfileData) => {
@@ -314,7 +314,7 @@ export default function PublisherProfile() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${userId}`,
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
         },
         body: JSON.stringify(form),
       });
@@ -352,7 +352,7 @@ export default function PublisherProfile() {
     try {
       const reqRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${userId}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
         body: JSON.stringify({ name: "logo.jpg", size: blob.size, contentType: "image/jpeg" }),
       });
       const { uploadURL, objectPath } = await reqRes.json();

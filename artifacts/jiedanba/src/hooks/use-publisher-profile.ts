@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getAccessToken } from "@/lib/auth";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -14,7 +15,7 @@ export function usePublisherCompanyLogo(userId: number | null | undefined): stri
   useEffect(() => {
     if (!userId) return;
     fetch(`${API_BASE}/api/users/${userId}/publisher-profile`, {
-      headers: { Authorization: `Bearer ${userId}` },
+      headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
     })
       .then(r => r.ok ? r.json() : null)
       .then((data: PublisherProfileBasic | null) => {

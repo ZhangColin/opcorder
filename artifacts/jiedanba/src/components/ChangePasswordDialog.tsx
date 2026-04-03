@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getAccessToken } from "@/lib/auth";
 import { Lock, Eye, EyeOff, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -18,8 +19,6 @@ export function ChangePasswordDialog({ onClose }: ChangePasswordDialogProps) {
   const [error,   setError]   = useState("");
   const [success, setSuccess] = useState(false);
 
-  const userId = localStorage.getItem("jdb_user_id");
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -35,7 +34,7 @@ export function ChangePasswordDialog({ onClose }: ChangePasswordDialogProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": userId ?? "",
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
         },
         body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }),
       });

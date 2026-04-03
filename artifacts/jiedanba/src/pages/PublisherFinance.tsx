@@ -6,7 +6,7 @@ import {
   BarChart2, DollarSign, FileText, AlertCircle,
   Menu,
 } from "lucide-react";
-import { useListOrders } from "@workspace/api-client-react";
+import { useListOrders, useGetCurrentUser } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 
 function StatCard({
@@ -56,7 +56,8 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function PublisherFinance() {
   const [, navigate] = useLocation();
-  const publisherId = Number(localStorage.getItem("jdb_user_id") ?? 0) || undefined;
+  const { data: currentUser } = useGetCurrentUser();
+  const publisherId = currentUser?.id || undefined;
   const { data, isLoading } = useListOrders({ publisherId, limit: 200 });
   const orders = data?.items ?? [];
   const myOrders = orders;

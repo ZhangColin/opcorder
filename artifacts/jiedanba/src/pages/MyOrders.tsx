@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { getAccessToken } from "@/lib/auth";
 import { Link } from "wouter";
 import {
   useListOrders,
@@ -204,7 +205,7 @@ export default function MyOrders() {
       const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${userId}`,
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name: file.name, size: file.size, contentType }),

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { getAccessToken } from "@/lib/auth";
 import {
   Bell, Check, CheckCheck, Package, Zap, FileCheck, AlertCircle,
   MessageSquare, Info, ArrowRight, Clock,
@@ -213,7 +214,7 @@ export default function Notifications() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${userId}`,
+            Authorization: `Bearer ${getAccessToken() ?? ""}`,
           },
           body: JSON.stringify({ opcId: userId, action, notificationId: n.id }),
         }
