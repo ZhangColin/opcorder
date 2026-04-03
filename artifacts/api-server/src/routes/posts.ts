@@ -1,12 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, postsTable, postLikesTable, postCommentsTable, usersTable, publisherProfilesTable, sensitiveWordsTable } from "@workspace/db";
 import { eq, desc, and, sql, or, ilike, inArray } from "drizzle-orm";
-import {
-  ListPostsQueryParams,
-  CreatePostBody,
-  TogglePostLikeBody,
-  CreatePostCommentBody,
-} from "@workspace/api-zod";
+import { ListPostsQueryParams } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -40,6 +36,7 @@ function resolveAvatar(role: string | null, userAvatar: string | null, publisher
   return userAvatar ?? null;
 }
 
+/* Public — community feed is accessible without login */
 router.get("/posts", async (req, res) => {
   try {
     const params = ListPostsQueryParams.parse(req.query);
@@ -81,7 +78,6 @@ router.get("/posts", async (req, res) => {
       .from(postsTable)
       .where(whereClause);
 
-    // 查当前用户在这一批帖子里点赞过哪些
     const userId = params.userId;
     let likedSet = new Set<number>();
     if (userId && posts.length > 0) {
@@ -108,6 +104,7 @@ router.get("/posts", async (req, res) => {
   }
 });
 
+/* Public — single post readable without login */
 router.get("/posts/:postId", async (req, res) => {
   try {
     const postId = parseInt(req.params.postId);
@@ -138,68 +135,7 @@ router.get("/posts/:postId", async (req, res) => {
   }
 });
 
-router.post("/posts", async (req, res) => {
-  try {
-    const body = CreatePostBody.parse(req.body);
-
-    const allWords = await db.select({ word: sensitiveWordsTable.word }).from(sensitiveWordsTable);
-    const text = `${body.title} ${body.content}`.toLowerCase();
-    const hit = allWords.find(({ word }) => text.includes(word));
-    if (hit) {
-      return res.status(422).json({ error: `内容包含敏感词，请修改后重新发布`, sensitiveWord: hit.word });
-    }
-
-    const [post] = await db.insert(postsTable).values({
-      authorId: body.authorId,
-      title: body.title,
-      content: body.content,
-      tags: body.tags ?? [],
-    }).returning();
-
-    const [userRow] = await db
-      .select({ nickname: usersTable.nickname, role: usersTable.role, userAvatar: usersTable.avatar, publisherLogo: publisherProfilesTable.companyLogo })
-      .from(usersTable)
-      .leftJoin(publisherProfilesTable, eq(usersTable.id, publisherProfilesTable.userId))
-      .where(eq(usersTable.id, body.authorId));
-
-    res.status(201).json(formatPost(post, userRow?.nickname ?? "匿名用户", userRow?.role ?? "opc", resolveAvatar(userRow?.role ?? null, userRow?.userAvatar ?? null, userRow?.publisherLogo ?? null)));
-  } catch {
-    res.status(500).json({ error: "Failed to create post" });
-  }
-});
-
-router.post("/posts/:postId/like", async (req, res) => {
-  try {
-    const postId = parseInt(req.params.postId);
-    const body = TogglePostLikeBody.parse(req.body);
-
-    const existing = await db.select().from(postLikesTable)
-      .where(and(eq(postLikesTable.postId, postId), eq(postLikesTable.userId, body.userId)));
-
-    let liked: boolean;
-
-    if (existing.length > 0) {
-      await db.delete(postLikesTable)
-        .where(and(eq(postLikesTable.postId, postId), eq(postLikesTable.userId, body.userId)));
-      await db.update(postsTable)
-        .set({ likesCount: sql`GREATEST(0, ${postsTable.likesCount} - 1)` })
-        .where(eq(postsTable.id, postId));
-      liked = false;
-    } else {
-      await db.insert(postLikesTable).values({ postId, userId: body.userId });
-      await db.update(postsTable)
-        .set({ likesCount: sql`${postsTable.likesCount} + 1` })
-        .where(eq(postsTable.id, postId));
-      liked = true;
-    }
-
-    const [updated] = await db.select().from(postsTable).where(eq(postsTable.id, postId));
-    res.json({ liked, likesCount: updated?.likesCount ?? 0 });
-  } catch {
-    res.status(500).json({ error: "Failed to toggle like" });
-  }
-});
-
+/* Public — comments readable without login */
 router.get("/posts/:postId/comments", async (req, res) => {
   try {
     const postId = parseInt(req.params.postId);
@@ -232,15 +168,87 @@ router.get("/posts/:postId/comments", async (req, res) => {
   }
 });
 
-router.post("/posts/:postId/comments", async (req, res) => {
+router.post("/posts", requireAuth, async (req, res) => {
+  try {
+    const { title, content, tags } = req.body as { title?: unknown; content?: unknown; tags?: unknown };
+    if (!title || typeof title !== "string" || !content || typeof content !== "string") {
+      return res.status(400).json({ error: "标题和内容不能为空" });
+    }
+
+    const allWords = await db.select({ word: sensitiveWordsTable.word }).from(sensitiveWordsTable);
+    const text = `${title} ${content}`.toLowerCase();
+    const hit = allWords.find(({ word }) => text.includes(word));
+    if (hit) {
+      return res.status(422).json({ error: `内容包含敏感词，请修改后重新发布`, sensitiveWord: hit.word });
+    }
+
+    const authorId = req.user!.id;
+
+    const [post] = await db.insert(postsTable).values({
+      authorId,
+      title,
+      content,
+      tags: Array.isArray(tags) ? tags : [],
+    }).returning();
+
+    const [userRow] = await db
+      .select({ nickname: usersTable.nickname, role: usersTable.role, userAvatar: usersTable.avatar, publisherLogo: publisherProfilesTable.companyLogo })
+      .from(usersTable)
+      .leftJoin(publisherProfilesTable, eq(usersTable.id, publisherProfilesTable.userId))
+      .where(eq(usersTable.id, authorId));
+
+    res.status(201).json(formatPost(post, userRow?.nickname ?? "匿名用户", userRow?.role ?? "opc", resolveAvatar(userRow?.role ?? null, userRow?.userAvatar ?? null, userRow?.publisherLogo ?? null)));
+  } catch {
+    res.status(500).json({ error: "Failed to create post" });
+  }
+});
+
+router.post("/posts/:postId/like", requireAuth, async (req, res) => {
   try {
     const postId = parseInt(req.params.postId);
-    const body = CreatePostCommentBody.parse(req.body);
+    if (isNaN(postId)) return res.status(400).json({ error: "Invalid postId" });
+    const userId = req.user!.id;
+
+    const existing = await db.select().from(postLikesTable)
+      .where(and(eq(postLikesTable.postId, postId), eq(postLikesTable.userId, userId)));
+
+    let liked: boolean;
+
+    if (existing.length > 0) {
+      await db.delete(postLikesTable)
+        .where(and(eq(postLikesTable.postId, postId), eq(postLikesTable.userId, userId)));
+      await db.update(postsTable)
+        .set({ likesCount: sql`GREATEST(0, ${postsTable.likesCount} - 1)` })
+        .where(eq(postsTable.id, postId));
+      liked = false;
+    } else {
+      await db.insert(postLikesTable).values({ postId, userId });
+      await db.update(postsTable)
+        .set({ likesCount: sql`${postsTable.likesCount} + 1` })
+        .where(eq(postsTable.id, postId));
+      liked = true;
+    }
+
+    const [updated] = await db.select().from(postsTable).where(eq(postsTable.id, postId));
+    res.json({ liked, likesCount: updated?.likesCount ?? 0 });
+  } catch {
+    res.status(500).json({ error: "Failed to toggle like" });
+  }
+});
+
+router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
+  try {
+    const postId = parseInt(req.params.postId);
+    const { content } = req.body as { content?: unknown };
+    if (!content || typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ error: "评论内容不能为空" });
+    }
+    const authorId = req.user!.id;
 
     const [comment] = await db.insert(postCommentsTable).values({
       postId,
-      authorId: body.authorId,
-      content: body.content,
+      authorId,
+      content,
     }).returning();
 
     await db.update(postsTable)
@@ -251,7 +259,7 @@ router.post("/posts/:postId/comments", async (req, res) => {
       .select({ nickname: usersTable.nickname, role: usersTable.role, userAvatar: usersTable.avatar, publisherLogo: publisherProfilesTable.companyLogo })
       .from(usersTable)
       .leftJoin(publisherProfilesTable, eq(usersTable.id, publisherProfilesTable.userId))
-      .where(eq(usersTable.id, body.authorId));
+      .where(eq(usersTable.id, authorId));
 
     res.status(201).json({
       id: comment.id,

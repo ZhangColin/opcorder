@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
+import { clearSession } from "@/lib/auth";
 import {
   LayoutDashboard, Users, FileText, ShoppingBag,
   Wallet, Network, GraduationCap, Shield, BarChart3,
@@ -2829,9 +2830,7 @@ export default function Admin() {
   const adminNickname = localStorage.getItem("jdb_nickname") ?? "管理员";
 
   function handleLogout() {
-    localStorage.removeItem("jdb_user_id");
-    localStorage.removeItem("jdb_role");
-    localStorage.removeItem("jdb_nickname");
+    clearSession();
     toast({ title: "已退出登录" });
     navigate("/login");
   }

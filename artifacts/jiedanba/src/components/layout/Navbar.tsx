@@ -5,6 +5,7 @@ import { useGetCurrentUser, useGetOpcProfile, useListNotifications } from "@work
 import { useQueryClient } from "@tanstack/react-query";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
+import { callLogout } from "@/lib/auth";
 
 export function Navbar() {
   const [location, navigate] = useLocation();
@@ -58,11 +59,11 @@ export function Navbar() {
     navigate("/profile?edit=1");
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     setMenuOpen(false);
     setMobileOpen(false);
-    localStorage.removeItem("jdb_role");
-    localStorage.removeItem("jdb_user_id");
+    const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+    await callLogout(apiBase);
     qc.clear();
     navigate("/login");
   }

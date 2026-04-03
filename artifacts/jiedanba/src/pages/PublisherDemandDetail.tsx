@@ -92,7 +92,7 @@ export default function PublisherDemandDetail() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const logout = () => {
-    localStorage.removeItem("jdb_role");
+    clearSession();
     navigate("/login");
   };
 

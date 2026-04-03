@@ -1,11 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, coursesTable, enrollmentsTable, learningResourcesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import {
-  ListCoursesQueryParams,
-  EnrollCourseBody,
-  ListMyEnrollmentsQueryParams,
-} from "@workspace/api-zod";
+import { ListCoursesQueryParams } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -45,6 +42,7 @@ function formatEnrollment(e: typeof enrollmentsTable.$inferSelect, course?: type
   };
 }
 
+/* Public — course catalog visible without login */
 router.get("/courses", async (req, res) => {
   try {
     const params = ListCoursesQueryParams.parse(req.query);
@@ -65,15 +63,15 @@ router.get("/courses", async (req, res) => {
   }
 });
 
-router.get("/courses/my-enrollments", async (req, res) => {
+router.get("/courses/my-enrollments", requireAuth, async (req, res) => {
   try {
-    const params = ListMyEnrollmentsQueryParams.parse(req.query);
+    const userId = req.user!.id;
 
     const rows = await db
       .select({ enrollment: enrollmentsTable, course: coursesTable })
       .from(enrollmentsTable)
       .leftJoin(coursesTable, eq(enrollmentsTable.courseId, coursesTable.id))
-      .where(eq(enrollmentsTable.userId, params.userId));
+      .where(eq(enrollmentsTable.userId, userId));
 
     res.json(rows.map(({ enrollment, course }) => formatEnrollment(enrollment, course)));
   } catch {
@@ -81,16 +79,16 @@ router.get("/courses/my-enrollments", async (req, res) => {
   }
 });
 
-router.post("/courses/:courseId/enroll", async (req, res) => {
+router.post("/courses/:courseId/enroll", requireAuth, async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
-    const body = EnrollCourseBody.parse(req.body);
+    const userId = req.user!.id;
 
     const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, courseId));
     if (!course) return res.status(404).json({ error: "课程不存在" });
 
     const existing = await db.select().from(enrollmentsTable)
-      .where(and(eq(enrollmentsTable.courseId, courseId), eq(enrollmentsTable.userId, body.userId)));
+      .where(and(eq(enrollmentsTable.courseId, courseId), eq(enrollmentsTable.userId, userId)));
 
     if (existing.length > 0) {
       return res.json(formatEnrollment(existing[0], course));
@@ -100,7 +98,7 @@ router.post("/courses/:courseId/enroll", async (req, res) => {
 
     const [enrollment] = await db.insert(enrollmentsTable).values({
       courseId,
-      userId: body.userId,
+      userId,
       progressPct: 0,
       paymentStatus: paymentStatus as "free" | "pending" | "paid",
     }).returning();
@@ -115,10 +113,10 @@ router.post("/courses/:courseId/enroll", async (req, res) => {
   }
 });
 
-router.post("/courses/:courseId/pay", async (req, res) => {
+router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
-    const { userId } = req.body as { userId: number };
+    const userId = req.user!.id;
 
     const [enrollment] = await db.select().from(enrollmentsTable)
       .where(and(eq(enrollmentsTable.courseId, courseId), eq(enrollmentsTable.userId, userId)));
@@ -135,6 +133,7 @@ router.post("/courses/:courseId/pay", async (req, res) => {
   }
 });
 
+/* Public — learning resources list */
 router.get("/learning-resources", async (_req, res) => {
   try {
     const rows = await db.select().from(learningResourcesTable)

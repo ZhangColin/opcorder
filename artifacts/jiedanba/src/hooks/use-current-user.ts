@@ -1,7 +1,11 @@
+import { getStoredUser, getUserIdFromToken } from "@/lib/auth";
+
 export function useCurrentUser() {
-  const userId = parseInt(localStorage.getItem("jdb_user_id") ?? "0") || 0;
-  const nickname = localStorage.getItem("jdb_nickname") ?? "";
-  const role = localStorage.getItem("jdb_role") ?? "";
+  const storedUser = getStoredUser();
+
+  const userId = storedUser?.id ?? getUserIdFromToken() ?? 0;
+  const nickname = storedUser?.nickname ?? localStorage.getItem("jdb_nickname") ?? "";
+  const role = storedUser?.role ?? localStorage.getItem("jdb_role") ?? "";
 
   const avatarChar = nickname ? nickname.charAt(0) : "?";
   const roleLabel =

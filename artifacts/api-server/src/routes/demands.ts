@@ -9,6 +9,7 @@ import {
   UpdateDemandBody,
   UpdateDemandStatusBody,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -46,9 +47,8 @@ async function generateDemandNo(): Promise<string> {
   return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
-router.get("/demands", async (req, res) => {
+router.get("/demands", requireAuth, async (req, res) => {
   try {
-    // Use safeParse so unknown enum values (e.g. status="open") fall back to undefined instead of 500
     const result = ListDemandsQueryParams.safeParse(req.query);
     const params = result.success
       ? result.data
@@ -128,7 +128,6 @@ router.get("/demands", async (req, res) => {
       .limit(limit)
       .offset(offset);
 
-    /* ── Get real bid counts for all returned demands ── */
     const demandIds = demands.map(d => d.id);
     let bidCountMap: Record<number, number> = {};
     if (demandIds.length > 0) {
@@ -162,15 +161,13 @@ router.get("/demands", async (req, res) => {
   }
 });
 
-router.post("/demands", async (req, res) => {
+router.post("/demands", requireAuth, async (req, res) => {
   try {
     const body = CreateDemandBody.parse(req.body);
     const demandNo = await generateDemandNo();
 
-    /* ── attachments: Zod schema strips unknown fields, read directly from req.body ── */
     const rawAttachments = Array.isArray(req.body.attachments) ? req.body.attachments : [];
 
-    /* ── milestones: store deadline as YYYY-MM-DD string, not ISO timestamp ── */
     const milestones = (body.milestones || []).map(m => ({
       ...m,
       deadline: m.deadline
@@ -180,9 +177,7 @@ router.post("/demands", async (req, res) => {
         : "",
     }));
 
-    const authHeader = req.headers.authorization;
-    const uid = authHeader?.startsWith("Bearer ") ? parseInt(authHeader.slice(7)) : NaN;
-    const publisherId = isNaN(uid) ? 1 : uid;
+    const publisherId = req.user!.id;
 
     const [demand] = await db.insert(demandsTable).values({
       demandNo,
@@ -216,7 +211,7 @@ router.post("/demands", async (req, res) => {
   }
 });
 
-router.get("/demands/:demandId", async (req, res) => {
+router.get("/demands/:demandId", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const [demand] = await db
@@ -278,7 +273,7 @@ router.get("/demands/:demandId", async (req, res) => {
   }
 });
 
-router.put("/demands/:demandId", async (req, res) => {
+router.put("/demands/:demandId", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const body = UpdateDemandBody.parse(req.body);
@@ -308,7 +303,7 @@ router.put("/demands/:demandId", async (req, res) => {
   }
 });
 
-router.patch("/demands/:demandId/status", async (req, res) => {
+router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const body = UpdateDemandStatusBody.parse(req.body);
@@ -329,8 +324,7 @@ router.patch("/demands/:demandId/status", async (req, res) => {
   }
 });
 
-/* ── Invite OPC to a demand ──────────────────────────── */
-router.post("/demands/:demandId/invite", async (req, res) => {
+router.post("/demands/:demandId/invite", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const { opcId, publisherId } = req.body as { opcId: number; publisherId: number };
@@ -358,8 +352,7 @@ router.post("/demands/:demandId/invite", async (req, res) => {
   }
 });
 
-/* ── OPC responds to a directed invite ──────────────────── */
-router.post("/demands/:demandId/invite/respond", async (req, res) => {
+router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const { opcId, action, notificationId } = req.body as {
@@ -390,8 +383,6 @@ router.post("/demands/:demandId/invite/respond", async (req, res) => {
       return res.json({ success: true, action: "rejected" });
     }
 
-    /* action === "accept" */
-    /* 1. 创建 bid（若尚未抢单） */
     const [existingBid] = await db
       .select({ id: bidsTable.id, status: bidsTable.status })
       .from(bidsTable)
@@ -416,7 +407,6 @@ router.post("/demands/:demandId/invite/respond", async (req, res) => {
       bidId = newBid.id;
     }
 
-    /* 2. 接受 bid，生成订单 */
     await db
       .update(bidsTable)
       .set({ status: "accepted" })
@@ -445,7 +435,6 @@ router.post("/demands/:demandId/invite/respond", async (req, res) => {
       })
       .returning({ id: ordersTable.id });
 
-    /* 3. 更新需求状态，其余 bid 标为 rejected */
     await db
       .update(demandsTable)
       .set({ status: "matched", updatedAt: new Date() })
@@ -456,7 +445,6 @@ router.post("/demands/:demandId/invite/respond", async (req, res) => {
       .set({ status: "rejected" })
       .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.status, "pending")));
 
-    /* 4. 给发单方发通知 */
     const [opc] = await db
       .select({ nickname: usersTable.nickname })
       .from(usersTable)
@@ -472,7 +460,6 @@ router.post("/demands/:demandId/invite/respond", async (req, res) => {
       relatedType: "order",
     });
 
-    /* 5. 标记邀约通知为已读 */
     if (notificationId) {
       await db
         .update(notificationsTable)

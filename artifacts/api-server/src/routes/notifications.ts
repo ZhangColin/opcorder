@@ -1,29 +1,18 @@
 import { Router, type IRouter } from "express";
 import { db, notificationsTable } from "@workspace/db";
 import { eq, and, desc, count } from "drizzle-orm";
-import {
-  ListNotificationsQueryParams,
-} from "@workspace/api-zod";
+import { ListNotificationsQueryParams } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
-function getAuthUserId(req: any): number {
-  const authHeader = req.headers.authorization as string | undefined;
-  const uid = authHeader?.startsWith("Bearer ") ? parseInt(authHeader.slice(7)) : NaN;
-  return isNaN(uid) ? 0 : uid;
-}
-
-router.get("/notifications", async (req, res) => {
+router.get("/notifications", requireAuth, async (req, res) => {
   try {
     const params = ListNotificationsQueryParams.parse(req.query);
-    const userId = getAuthUserId(req);
+    const userId = req.user!.id;
     const page = params.page ?? 1;
     const limit = params.limit ?? 20;
     const offset = (page - 1) * limit;
-
-    if (!userId) {
-      return res.json({ items: [], total: 0, unreadCount: 0, page, limit });
-    }
 
     const conditions = [eq(notificationsTable.userId, userId)];
     if (params.unreadOnly) conditions.push(eq(notificationsTable.isRead, false));
@@ -59,7 +48,7 @@ router.get("/notifications", async (req, res) => {
   }
 });
 
-router.patch("/notifications/:notificationId/read", async (req, res) => {
+router.patch("/notifications/:notificationId/read", requireAuth, async (req, res) => {
   try {
     const notificationId = parseInt(req.params.notificationId);
     const [updated] = await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, notificationId)).returning();
@@ -72,10 +61,9 @@ router.patch("/notifications/:notificationId/read", async (req, res) => {
   }
 });
 
-router.post("/notifications/read-all", async (req, res) => {
+router.post("/notifications/read-all", requireAuth, async (req, res) => {
   try {
-    const userId = getAuthUserId(req);
-    if (!userId) return res.json({ count: 0 });
+    const userId = req.user!.id;
     const result = await db.update(notificationsTable).set({ isRead: true }).where(
       and(eq(notificationsTable.userId, userId), eq(notificationsTable.isRead, false))
     ).returning();

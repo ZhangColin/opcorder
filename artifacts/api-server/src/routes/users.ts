@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, opcProfilesTable, publisherProfilesTable } from "@workspace/db";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { GetOpcLeaderboardQueryParams, UpdateOpcProfileBody } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -35,21 +36,11 @@ async function buildProfileResponse(userId: number) {
   return profile;
 }
 
-router.get("/users/me", async (req, res) => {
+router.get("/users/me", requireAuth, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    const userId     = authHeader?.startsWith("Bearer ")
-      ? parseInt(authHeader.slice(7), 10)
-      : NaN;
-
-    let user;
-    if (!isNaN(userId) && userId > 0) {
-      [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    } else {
-      [user] = await db.select().from(usersTable).where(eq(usersTable.role, "opc")).orderBy(asc(usersTable.id)).limit(1);
-    }
-
-    if (!user) return res.status(404).json({ error: "No user found" });
+    const userId = req.user!.id;
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ error: "用户不存在" });
     res.json({
       id:        user.id,
       nickname:  user.nickname,
@@ -65,6 +56,7 @@ router.get("/users/me", async (req, res) => {
   }
 });
 
+/* Public — OPC rankings shown on landing/public pages */
 router.get("/users/opc-leaderboard", async (req, res) => {
   try {
     const { limit } = GetOpcLeaderboardQueryParams.parse(req.query);
@@ -96,7 +88,7 @@ router.get("/users/opc-leaderboard", async (req, res) => {
   }
 });
 
-router.get("/users/:userId", async (req, res) => {
+router.get("/users/:userId", requireAuth, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
@@ -115,7 +107,7 @@ router.get("/users/:userId", async (req, res) => {
   }
 });
 
-router.get("/users/:userId/opc-profile", async (req, res) => {
+router.get("/users/:userId/opc-profile", requireAuth, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const profile = await buildProfileResponse(userId);
@@ -126,12 +118,16 @@ router.get("/users/:userId/opc-profile", async (req, res) => {
   }
 });
 
-router.put("/users/:userId/opc-profile", async (req, res) => {
+router.put("/users/:userId/opc-profile", requireAuth, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
+
+    if (req.user!.id !== userId) {
+      return res.status(403).json({ error: "无权修改他人资料" });
+    }
+
     const body = UpdateOpcProfileBody.parse(req.body);
 
-    /* ── Ensure OPC profile row exists (create if missing) ── */
     const [existing] = await db
       .select({ id: opcProfilesTable.id })
       .from(opcProfilesTable)
@@ -142,7 +138,6 @@ router.put("/users/:userId/opc-profile", async (req, res) => {
       await db.insert(opcProfilesTable).values({ userId });
     }
 
-    /* ── Update opc_profiles fields ── */
     const profileUpdate: Record<string, unknown> = {};
     if (body.bio          !== undefined) profileUpdate.bio          = body.bio;
     if (body.skillTags    !== undefined) profileUpdate.skillTags    = body.skillTags;
@@ -157,7 +152,6 @@ router.put("/users/:userId/opc-profile", async (req, res) => {
       await db.update(opcProfilesTable).set(profileUpdate).where(eq(opcProfilesTable.userId, userId));
     }
 
-    /* ── Update users fields (nickname, avatar, phone) ── */
     const userUpdate: Record<string, unknown> = {};
     if (body.nickname !== undefined) userUpdate.nickname = body.nickname;
     if (body.avatar   !== undefined) userUpdate.avatar   = body.avatar;
@@ -176,9 +170,7 @@ router.put("/users/:userId/opc-profile", async (req, res) => {
   }
 });
 
-/* ─── Publisher Profile ───────────────────────────────────────────────────── */
-
-router.get("/users/:userId/publisher-profile", async (req, res) => {
+router.get("/users/:userId/publisher-profile", requireAuth, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const [user] = await db.select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone })
@@ -208,9 +200,14 @@ router.get("/users/:userId/publisher-profile", async (req, res) => {
   }
 });
 
-router.patch("/users/:userId/publisher-profile", async (req, res) => {
+router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
+
+    if (req.user!.id !== userId) {
+      return res.status(403).json({ error: "无权修改他人资料" });
+    }
+
     const { nickname, phone, companyDesc, location, industry, teamSize, foundedYear, website, contactEmail, creditCode, companyLogo } = req.body;
 
     if (nickname !== undefined || phone !== undefined) {

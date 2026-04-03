@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useEffect } from "react";
+import { getValidAccessToken } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
@@ -45,8 +46,10 @@ const queryClient = new QueryClient({
   },
 });
 
-/* Send stored user ID as Bearer token with every API request */
-setAuthTokenGetter(() => localStorage.getItem("jdb_user_id"));
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+/* Send the JWT access token with every API request; auto-refresh when near expiry */
+setAuthTokenGetter(() => getValidAccessToken(API_BASE));
 
 /* ── 角色门卫组件 ──────────────────────────────── */
 
@@ -105,25 +108,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/* ── 临时截图辅助路由 (开发专用) ──────────────────── */
+/* ── 截图辅助路由 (开发专用) — clears session and redirects ──── */
 function SetAuthHelper() {
   const [, navigate] = useLocation();
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const uid  = params.get("uid");
-    const role = params.get("role");
-    const nick = params.get("nick");
-    const to   = params.get("to") || "/";
-    if (uid && role && nick) {
-      localStorage.setItem("jdb_user_id", uid);
-      localStorage.setItem("jdb_role", role);
-      localStorage.setItem("jdb_nickname", nick);
-    } else {
-      localStorage.removeItem("jdb_user_id");
-      localStorage.removeItem("jdb_role");
-      localStorage.removeItem("jdb_nickname");
-    }
-    navigate(to);
+    const to = params.get("to") || "/login";
+    import("@/lib/auth").then(({ clearSession }) => {
+      clearSession();
+      navigate(to);
+    });
   }, []);
   return null;
 }

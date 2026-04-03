@@ -5,15 +5,15 @@ import {
   CreateBidBody,
   UpdateBidStatusBody,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
-/* ── 等级管控规则（与前端 LEVEL_BUDGET_CAP 保持一致） ── */
 const LEVEL_RANK: Record<string, number> = { C: 1, B: 2, A: 3 };
 const LEVEL_BUDGET_CAP: Record<string, number> = { C: 3_000, B: 20_000, A: 200_000 };
 const LEVEL_LABEL: Record<string, string> = { C: "C级（新手）", B: "B级（进阶）", A: "A级（专家）" };
 
-router.get("/demands/:demandId/bids", async (req, res) => {
+router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const bids = await db
@@ -46,21 +46,12 @@ router.get("/demands/:demandId/bids", async (req, res) => {
   }
 });
 
-router.post("/demands/:demandId/bids", async (req, res) => {
+router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const body = CreateBidBody.parse(req.body);
+    const opcId = req.user!.id;
 
-    const authHeader = req.headers.authorization;
-    const opcId = authHeader?.startsWith("Bearer ")
-      ? parseInt(authHeader.slice(7), 10)
-      : NaN;
-
-    if (isNaN(opcId) || opcId <= 0) {
-      return res.status(401).json({ error: "未授权，请先登录" });
-    }
-
-    /* ── 等级与预算准入校验 ── */
     const [demand] = await db
       .select({
         publisherId:  demandsTable.publisherId,
@@ -83,7 +74,6 @@ router.post("/demands/:demandId/bids", async (req, res) => {
     const opcActualLevel = opcProfile?.level ?? "C";
     const opcRank = LEVEL_RANK[opcActualLevel] ?? 1;
 
-    // 校验1（优先）：OPC等级须达到发单方要求
     if (demand.opcLevel && demand.opcLevel !== "any") {
       const requiredRank = LEVEL_RANK[demand.opcLevel] ?? 1;
       if (opcRank < requiredRank) {
@@ -93,14 +83,12 @@ router.post("/demands/:demandId/bids", async (req, res) => {
       }
     }
 
-    // 校验2：需求预算不超出OPC等级上限
     const budgetCap = LEVEL_BUDGET_CAP[opcActualLevel];
     if (budgetCap !== undefined && demand.budgetMax > budgetCap) {
       return res.status(403).json({
         error: `该需求预算最高 ¥${demand.budgetMax.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
       });
     }
-    /* ── 校验通过，写入抢单记录 ── */
 
     const [bid] = await db.insert(bidsTable).values({
       demandId,
@@ -110,6 +98,7 @@ router.post("/demands/:demandId/bids", async (req, res) => {
       portfolioLinks: body.portfolioLinks || [],
       status: "pending",
     }).returning();
+
     if (demand?.publisherId) {
       const [opc] = await db.select({ nickname: usersTable.nickname })
         .from(usersTable).where(eq(usersTable.id, opcId)).limit(1);
@@ -132,7 +121,7 @@ router.post("/demands/:demandId/bids", async (req, res) => {
   }
 });
 
-router.patch("/bids/:bidId/status", async (req, res) => {
+router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
   try {
     const bidId = parseInt(req.params.bidId);
     const body = UpdateBidStatusBody.parse(req.body);

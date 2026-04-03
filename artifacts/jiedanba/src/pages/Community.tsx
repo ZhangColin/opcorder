@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
+import { clearSession } from "@/lib/auth";
 import {
   Search, Bell, User, ThumbsUp, MessageSquare,
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
@@ -61,8 +62,7 @@ function UserBadge({ nickname, role, avatar }: UserBadgeProps) {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("jdb_user_id");
-    localStorage.removeItem("jdb_role");
+    clearSession();
     navigate("/login");
   };
 

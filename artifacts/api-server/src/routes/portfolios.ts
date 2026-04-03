@@ -6,6 +6,7 @@ import {
   CreatePortfolioBody,
   UpdatePortfolioBody,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -20,6 +21,7 @@ function formatPortfolio(p: typeof portfoliosTable.$inferSelect) {
   };
 }
 
+/* Public — viewing portfolios requires no auth (OPC showcase) */
 router.get("/portfolios", async (req, res) => {
   try {
     const params = ListPortfoliosQueryParams.parse(req.query);
@@ -34,9 +36,14 @@ router.get("/portfolios", async (req, res) => {
   }
 });
 
-router.post("/portfolios", async (req, res) => {
+router.post("/portfolios", requireAuth, async (req, res) => {
   try {
     const body = CreatePortfolioBody.parse(req.body);
+
+    if (req.user!.id !== body.userId) {
+      return res.status(403).json({ error: "无权为他人创建作品集" });
+    }
+
     const extra = req.body as Record<string, unknown>;
     const applyLevel = extra.applyLevel ? String(extra.applyLevel) : null;
 
@@ -57,9 +64,21 @@ router.post("/portfolios", async (req, res) => {
   }
 });
 
-router.put("/portfolios/:portfolioId", async (req, res) => {
+router.put("/portfolios/:portfolioId", requireAuth, async (req, res) => {
   try {
     const portfolioId = parseInt(req.params.portfolioId);
+
+    const [existing] = await db
+      .select({ userId: portfoliosTable.userId })
+      .from(portfoliosTable)
+      .where(eq(portfoliosTable.id, portfolioId))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ error: "作品集不存在" });
+    if (req.user!.id !== existing.userId) {
+      return res.status(403).json({ error: "无权修改他人作品集" });
+    }
+
     const body = UpdatePortfolioBody.parse(req.body);
     const extra = req.body as Record<string, unknown>;
 
@@ -86,9 +105,21 @@ router.put("/portfolios/:portfolioId", async (req, res) => {
   }
 });
 
-router.delete("/portfolios/:portfolioId", async (req, res) => {
+router.delete("/portfolios/:portfolioId", requireAuth, async (req, res) => {
   try {
     const portfolioId = parseInt(req.params.portfolioId);
+
+    const [existing] = await db
+      .select({ userId: portfoliosTable.userId })
+      .from(portfoliosTable)
+      .where(eq(portfoliosTable.id, portfolioId))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ error: "作品集不存在" });
+    if (req.user!.id !== existing.userId) {
+      return res.status(403).json({ error: "无权删除他人作品集" });
+    }
+
     await db.delete(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
     res.status(204).send();
   } catch (error) {

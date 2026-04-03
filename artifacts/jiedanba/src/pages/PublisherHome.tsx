@@ -56,9 +56,7 @@ export default function PublisherHome() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const logout = () => {
-    localStorage.removeItem("jdb_role");
-    localStorage.removeItem("jdb_user_id");
-    localStorage.removeItem("jdb_nickname");
+    clearSession();
     navigate("/login");
   };
 

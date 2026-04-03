@@ -7,6 +7,7 @@ import {
 import { HelpDialog } from "@/components/HelpDialog";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
+import { storeSession } from "@/lib/auth";
 
 /* ─── Types ─────────────────────────────────── */
 
@@ -118,9 +119,7 @@ export default function Auth() {
         return;
       }
 
-      localStorage.setItem("jdb_role",     data.role ?? role);
-      localStorage.setItem("jdb_user_id",  String(data.id));
-      localStorage.setItem("jdb_nickname", data.nickname ?? "");
+      storeSession(data);
       const dest = data.role === "admin" ? "/admin" : data.role === "opc" ? "/" : "/publisher";
       navigate(dest);
     } catch {

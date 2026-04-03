@@ -7,10 +7,11 @@ import {
   AcceptOrderBody,
   RejectDeliveryBody,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
-router.get("/orders", async (req, res) => {
+router.get("/orders", requireAuth, async (req, res) => {
   try {
     const params = ListOrdersQueryParams.parse(req.query);
     const page = params.page ?? 1;
@@ -88,7 +89,7 @@ router.get("/orders", async (req, res) => {
   }
 });
 
-router.get("/orders/:orderId", async (req, res) => {
+router.get("/orders/:orderId", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
     const [order] = await db
@@ -154,7 +155,7 @@ router.get("/orders/:orderId", async (req, res) => {
   }
 });
 
-router.post("/orders/:orderId/deliverables", async (req, res) => {
+router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
     const body = SubmitDeliverableBody.parse(req.body);
@@ -183,7 +184,7 @@ router.post("/orders/:orderId/deliverables", async (req, res) => {
   }
 });
 
-router.post("/orders/:orderId/accept", async (req, res) => {
+router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
     const body = AcceptOrderBody.parse(req.body);
@@ -227,7 +228,7 @@ router.post("/orders/:orderId/accept", async (req, res) => {
   }
 });
 
-router.post("/orders/:orderId/reject", async (req, res) => {
+router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
     const body = RejectDeliveryBody.parse(req.body);
@@ -287,7 +288,7 @@ router.post("/orders/:orderId/reject", async (req, res) => {
   }
 });
 
-router.post("/orders/:orderId/opc-review", async (req, res) => {
+router.post("/orders/:orderId/opc-review", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
     const { rating, comment } = req.body as { rating?: unknown; comment?: string };

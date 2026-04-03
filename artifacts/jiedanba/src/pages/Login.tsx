@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
+import { storeSession, clearSession } from "@/lib/auth";
 
 type Tab = "login" | "register";
 type RegRole = "opc" | "publisher";
@@ -48,10 +49,12 @@ export default function Login() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败，请重试"); return; }
-      localStorage.setItem("jdb_role",     data.role);
-      localStorage.setItem("jdb_user_id",  String(data.id));
-      localStorage.setItem("jdb_nickname", data.nickname ?? "");
-      const dest = data.role === "admin" ? "/admin" : data.role === "opc" ? "/" : "/publisher";
+      storeSession({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: data.user,
+      });
+      const dest = data.user.role === "admin" ? "/admin" : data.user.role === "opc" ? "/" : "/publisher";
       navigate(dest);
     } catch {
       setError("网络错误，请稍后重试");
@@ -375,9 +378,7 @@ export default function Login() {
           {/* Guest entry */}
           <button
             onClick={() => {
-              localStorage.removeItem("jdb_role");
-              localStorage.removeItem("jdb_user_id");
-              localStorage.removeItem("jdb_nickname");
+              clearSession();
               navigate("/community");
             }}
             className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm font-semibold hover:border-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all"
