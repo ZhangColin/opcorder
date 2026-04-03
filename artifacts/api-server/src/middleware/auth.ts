@@ -29,7 +29,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   try {
-    const payload = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload;
+    const payload = jwt.verify(token, getJwtSecret(), { algorithms: ["HS256"] }) as jwt.JwtPayload;
     const userId = typeof payload.sub === "string" ? parseInt(payload.sub, 10) : Number(payload.sub);
     if (!userId || isNaN(userId)) {
       return res.status(401).json({ error: "无效的登录凭证" });
