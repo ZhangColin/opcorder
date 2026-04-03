@@ -2,9 +2,9 @@ import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setOn401Handler } from "@workspace/api-client-react";
 import { useEffect } from "react";
-import { getValidAccessToken, clearSession } from "@/lib/auth";
+import { getValidAccessToken, clearSession, refreshAccessToken } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
@@ -50,6 +50,16 @@ const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /* Send the JWT access token with every API request; auto-refresh when near expiry */
 setAuthTokenGetter(() => getValidAccessToken(API_BASE));
+
+/* On 401: force-refresh the token once and retry; clear session + redirect to login on failure */
+setOn401Handler(async () => {
+  const newToken = await refreshAccessToken(API_BASE);
+  if (!newToken) {
+    clearSession();
+    window.location.href = import.meta.env.BASE_URL.replace(/\/$/, "") + "/login";
+  }
+  return newToken;
+});
 
 /* ── 角色门卫组件 ──────────────────────────────── */
 

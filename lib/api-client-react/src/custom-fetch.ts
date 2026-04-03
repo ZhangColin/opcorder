@@ -17,6 +17,9 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+/** Called when a request receives a 401 response.  Should attempt a token
+ *  refresh and return the new access token, or null on failure. */
+let _on401: (() => Promise<string | null>) | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -39,6 +42,15 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a handler called when any request receives a 401 response.
+ * The handler should refresh the token and return the new access token,
+ * or return null if refresh failed (the original 401 error is then thrown).
+ */
+export function setOn401Handler(handler: (() => Promise<string | null>) | null): void {
+  _on401 = handler;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -358,6 +370,22 @@ export async function customFetch<T = unknown>(
   const requestInfo = { method, url: resolveUrl(input) };
 
   const response = await fetch(input, { ...init, method, headers });
+
+  // On 401 — try to refresh the token once and retry the original request
+  if (response.status === 401 && _on401) {
+    const newToken = await _on401();
+    if (newToken) {
+      const retryHeaders = new Headers(headers);
+      retryHeaders.set("authorization", `Bearer ${newToken}`);
+      const retryResponse = await fetch(input, { ...init, method, headers: retryHeaders });
+      if (!retryResponse.ok) {
+        const errorData = await parseErrorBody(retryResponse, method);
+        throw new ApiError(retryResponse, errorData, requestInfo);
+      }
+      return (await parseSuccessBody(retryResponse, responseType, requestInfo)) as T;
+    }
+    // Refresh failed — fall through to throw the original 401
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
