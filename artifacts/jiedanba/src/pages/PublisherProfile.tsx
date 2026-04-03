@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { clearSession } from "@/lib/auth";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, Building2, MapPin, Users, Calendar, Globe,

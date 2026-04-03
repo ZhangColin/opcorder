@@ -114,13 +114,14 @@ export default function Auth() {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败，请重试"); return; }
 
-      if (data.role === "admin" && role !== "admin") {
+      const userRole = data.user?.role ?? data.role;
+      if (userRole === "admin" && role !== "admin") {
         setError("此账号为管理员账号，请通过管理后台专属入口登录");
         return;
       }
 
       storeSession(data);
-      const dest = data.role === "admin" ? "/admin" : data.role === "opc" ? "/" : "/publisher";
+      const dest = userRole === "admin" ? "/admin" : userRole === "opc" ? "/" : "/publisher";
       navigate(dest);
     } catch {
       setError("网络错误，请稍后重试");

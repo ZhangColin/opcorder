@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { clearSession } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
 import {
   Search, Bell, PlusCircle, Filter,

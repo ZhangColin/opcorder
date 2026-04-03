@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { clearSession } from "@/lib/auth";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, TrendingUp, CreditCard, Clock, CheckCircle2,

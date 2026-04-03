@@ -1,4 +1,5 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { clearSession } from "@/lib/auth";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import {

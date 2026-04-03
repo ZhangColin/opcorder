@@ -1,4 +1,5 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { clearSession } from "@/lib/auth";
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
