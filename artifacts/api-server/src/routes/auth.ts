@@ -208,21 +208,14 @@ router.post("/auth/logout", async (req, res) => {
 
     if (token) {
       try {
-        const payload = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload;
+        /* Accept expired tokens but still verify the signature — prevents forged tokens
+           from revoking other users' sessions. */
+        const payload = jwt.verify(token, getJwtSecret(), { ignoreExpiration: true }) as jwt.JwtPayload;
         const userId = typeof payload.sub === "string" ? parseInt(payload.sub, 10) : Number(payload.sub);
         if (userId && !isNaN(userId)) {
           await db.delete(refreshTokensTable).where(eq(refreshTokensTable.userId, userId));
         }
-      } catch {
-        /* expired token is fine — still delete by extracting sub without verifying exp */
-        try {
-          const payload = jwt.decode(token) as jwt.JwtPayload | null;
-          const userId = payload?.sub ? parseInt(payload.sub, 10) : NaN;
-          if (!isNaN(userId) && userId > 0) {
-            await db.delete(refreshTokensTable).where(eq(refreshTokensTable.userId, userId));
-          }
-        } catch { /* ignore */ }
-      }
+      } catch { /* invalid signature — nothing to revoke */ }
     }
 
     res.json({ ok: true });
