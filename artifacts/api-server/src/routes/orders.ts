@@ -18,10 +18,18 @@ router.get("/orders", requireAuth, async (req, res) => {
     const limit = params.limit ?? 20;
     const offset = (page - 1) * limit;
 
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
     const conditions = [];
     if (params.status) conditions.push(eq(ordersTable.status, params.status as any));
-    if (params.publisherId) conditions.push(eq(ordersTable.publisherId, params.publisherId));
-    if (params.opcId) conditions.push(eq(ordersTable.opcId, params.opcId));
+    if (userRole === "admin") {
+      if (params.publisherId) conditions.push(eq(ordersTable.publisherId, params.publisherId));
+      if (params.opcId) conditions.push(eq(ordersTable.opcId, params.opcId));
+    } else if (userRole === "publisher") {
+      conditions.push(eq(ordersTable.publisherId, userId));
+    } else {
+      conditions.push(eq(ordersTable.opcId, userId));
+    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -121,6 +129,12 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
+    }
+
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    if (userRole !== "admin" && order.opcId !== userId && order.publisherId !== userId) {
+      return res.status(403).json({ error: "无权查看他人订单" });
     }
 
     const deliverables = await db.select().from(deliverablesTable).where(eq(deliverablesTable.orderId, orderId));

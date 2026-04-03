@@ -51,6 +51,15 @@ router.get("/notifications", requireAuth, async (req, res) => {
 router.patch("/notifications/:notificationId/read", requireAuth, async (req, res) => {
   try {
     const notificationId = parseInt(req.params.notificationId);
+    const userId = req.user!.id;
+
+    const [existing] = await db.select({ userId: notificationsTable.userId })
+      .from(notificationsTable)
+      .where(eq(notificationsTable.id, notificationId));
+
+    if (!existing) return res.status(404).json({ error: "通知不存在" });
+    if (existing.userId !== userId) return res.status(403).json({ error: "无权操作他人通知" });
+
     const [updated] = await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, notificationId)).returning();
     res.json({
       ...updated,
