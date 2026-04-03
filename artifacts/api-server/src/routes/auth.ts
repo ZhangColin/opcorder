@@ -1,12 +1,50 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import { Resend } from "resend";
-import { db, usersTable, opcProfilesTable } from "@workspace/db";
+import { db, usersTable, opcProfilesTable, refreshTokensTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { requireAuth } from "../middleware/auth";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const router: IRouter = Router();
+
+const JWT_EXPIRY_SECONDS = 2 * 60 * 60;
+const REFRESH_TOKEN_DAYS = 7;
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET environment variable is not set");
+  return secret;
+}
+
+function signAccessToken(userId: number, role: string): string {
+  return jwt.sign(
+    { sub: String(userId), role },
+    getJwtSecret(),
+    { algorithm: "HS256", expiresIn: JWT_EXPIRY_SECONDS }
+  );
+}
+
+function hashToken(raw: string): string {
+  return crypto.createHash("sha256").update(raw).digest("hex");
+}
+
+function generateRefreshToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+async function upsertRefreshToken(userId: number, tokenHash: string, expiresAt: Date): Promise<void> {
+  await db
+    .insert(refreshTokensTable)
+    .values({ userId, tokenHash, expiresAt })
+    .onConflictDoUpdate({
+      target: refreshTokensTable.userId,
+      set: { tokenHash, expiresAt, createdAt: new Date() },
+    });
+}
 
 router.post("/auth/login", async (req, res) => {
   try {
@@ -46,14 +84,23 @@ router.post("/auth/login", async (req, res) => {
       return res.status(403).json({ error: "该账号已被停用，请联系管理员" });
     }
 
+    const accessToken = signAccessToken(user.id, user.role);
+    const rawRefreshToken = generateRefreshToken();
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+    await upsertRefreshToken(user.id, hashToken(rawRefreshToken), expiresAt);
+
     res.json({
-      id:        user.id,
-      nickname:  user.nickname,
-      email:     user.email,
-      avatar:    user.avatar,
-      role:      user.role,
-      status:    user.status,
-      createdAt: user.createdAt.toISOString(),
+      accessToken,
+      refreshToken: rawRefreshToken,
+      user: {
+        id:        user.id,
+        nickname:  user.nickname,
+        email:     user.email,
+        avatar:    user.avatar,
+        role:      user.role,
+        status:    user.status,
+        createdAt: user.createdAt.toISOString(),
+      },
     });
   } catch (err) {
     console.error(err);
@@ -99,7 +146,6 @@ router.post("/auth/register", async (req, res) => {
       role: role as "opc" | "publisher",
     }).returning();
 
-    /* ── Auto-create OPC profile row for OPC registrants ── */
     if (role === "opc") {
       await db.insert(opcProfilesTable).values({ userId: user.id });
     }
@@ -117,12 +163,78 @@ router.post("/auth/register", async (req, res) => {
   }
 });
 
-/* ── POST /auth/change-password ── */
-router.post("/auth/change-password", async (req, res) => {
+router.post("/auth/refresh", async (req, res) => {
   try {
-    const userId = Number(req.headers["x-user-id"]);
-    if (!userId) return res.status(401).json({ error: "请先登录" });
+    const { refreshToken } = req.body as { refreshToken?: string };
+    if (!refreshToken) {
+      return res.status(400).json({ error: "缺少 refreshToken" });
+    }
 
+    const tokenHash = hashToken(refreshToken);
+    const now = new Date();
+
+    const [row] = await db
+      .select()
+      .from(refreshTokensTable)
+      .where(eq(refreshTokensTable.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!row || row.expiresAt < now) {
+      return res.status(401).json({ error: "登录已过期，请重新登录" });
+    }
+
+    const [user] = await db
+      .select({ id: usersTable.id, role: usersTable.role, status: usersTable.status })
+      .from(usersTable)
+      .where(eq(usersTable.id, row.userId))
+      .limit(1);
+
+    if (!user || user.status !== "active") {
+      return res.status(401).json({ error: "账号已停用，请联系管理员" });
+    }
+
+    const accessToken = signAccessToken(user.id, user.role);
+    res.json({ accessToken });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "刷新失败，请重新登录" });
+  }
+});
+
+router.post("/auth/logout", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (token) {
+      try {
+        const payload = jwt.verify(token, getJwtSecret()) as jwt.JwtPayload;
+        const userId = typeof payload.sub === "string" ? parseInt(payload.sub, 10) : Number(payload.sub);
+        if (userId && !isNaN(userId)) {
+          await db.delete(refreshTokensTable).where(eq(refreshTokensTable.userId, userId));
+        }
+      } catch {
+        /* expired token is fine — still delete by extracting sub without verifying exp */
+        try {
+          const payload = jwt.decode(token) as jwt.JwtPayload | null;
+          const userId = payload?.sub ? parseInt(payload.sub, 10) : NaN;
+          if (!isNaN(userId) && userId > 0) {
+            await db.delete(refreshTokensTable).where(eq(refreshTokensTable.userId, userId));
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "登出失败" });
+  }
+});
+
+router.post("/auth/change-password", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
     const { oldPassword, newPassword } = req.body as { oldPassword: string; newPassword: string };
     if (!oldPassword || !newPassword) return res.status(400).json({ error: "请填写完整信息" });
     if (newPassword.length < 6) return res.status(400).json({ error: "新密码至少 6 位" });
@@ -148,7 +260,6 @@ router.post("/auth/change-password", async (req, res) => {
   }
 });
 
-/* ── POST /auth/forgot-password ── */
 router.post("/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body as { email: string };
@@ -171,7 +282,6 @@ router.post("/auth/forgot-password", async (req, res) => {
       return res.status(400).json({ error: "该账号未设置密码，请联系管理员" });
     }
 
-    /* ── 生成临时随机密码并更新数据库 ── */
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     const tempPassword = Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
     const newHash = await bcrypt.hash(tempPassword, 10);
@@ -180,7 +290,6 @@ router.post("/auth/forgot-password", async (req, res) => {
       .set({ passwordHash: newHash })
       .where(eq(usersTable.id, user.id));
 
-    /* ── 通过 Resend 发送邮件 ── */
     const { error: sendError } = await resend.emails.send({
       from: "接单吧 <noreply@aieducenter.com>",
       to: normalizedEmail,
