@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useEffect } from "react";
-import { getValidAccessToken } from "@/lib/auth";
+import { getValidAccessToken, clearSession } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
@@ -53,7 +53,14 @@ setAuthTokenGetter(() => getValidAccessToken(API_BASE));
 
 /* ── 角色门卫组件 ──────────────────────────────── */
 
-function getRole() {
+/** 返回存储的角色。若 access token 不是合法 JWT 格式（遗留旧整数 ID），
+ *  则清除 session 返回 null，强制重新登录。 */
+function getRole(): string | null {
+  const token = localStorage.getItem("jdb_user_id");
+  if (token && token.split(".").length !== 3) {
+    clearSession();
+    return null;
+  }
   return localStorage.getItem("jdb_role");
 }
 

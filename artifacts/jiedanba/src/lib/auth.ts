@@ -116,7 +116,14 @@ export async function getValidAccessToken(apiBase: string): Promise<string | nul
   if (!token) return null;
 
   const exp = getTokenExpiry(token);
-  if (exp !== null && exp - Date.now() < 5 * 60 * 1000) {
+
+  // Token is not a valid JWT (e.g. leftover legacy integer ID) — try refresh or clear
+  if (exp === null) {
+    return refreshAccessToken(apiBase);
+  }
+
+  // Token is within 5 minutes of expiry — proactive refresh
+  if (exp - Date.now() < 5 * 60 * 1000) {
     return refreshAccessToken(apiBase);
   }
 
