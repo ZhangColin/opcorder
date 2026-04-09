@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter, setOn401Handler } from "@workspace/api-client-react";
 import { useEffect } from "react";
-import { getValidAccessToken, clearSession, refreshAccessToken } from "@/lib/auth";
+import { getValidAccessToken, clearSession, refreshAccessToken, isTokenExpiredSync, getRefreshToken } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
@@ -71,11 +71,20 @@ setOn401Handler(async () => {
 
 /* ── 角色门卫组件 ──────────────────────────────── */
 
-/** 返回存储的角色。若 access token 不是合法 JWT 格式（遗留旧整数 ID），
- *  则清除 session 返回 null，强制重新登录。 */
+/**
+ * 返回存储的角色。
+ * - token 不是合法 JWT → 清除 session，返回 null
+ * - token 已过期且没有 refresh token → 清除 session，返回 null（立即跳登录）
+ * - token 已过期但有 refresh token → 仍返回角色，让后台刷新流程处理
+ */
 function getRole(): string | null {
   const token = localStorage.getItem("jdb_user_id");
-  if (token && token.split(".").length !== 3) {
+  if (!token) return null;
+  if (token.split(".").length !== 3) {
+    clearSession();
+    return null;
+  }
+  if (isTokenExpiredSync() && !getRefreshToken()) {
     clearSession();
     return null;
   }
@@ -131,6 +140,42 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return null;
   }
   return <>{children}</>;
+}
+
+/**
+ * 后台 session 守卫：挂载时 + 每次窗口重新激活时检测 token 有效性。
+ * 若刷新失败（双 token 均过期），立即硬跳转到登录页。
+ */
+function SessionWatcher() {
+  useEffect(() => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    let checking = false;
+
+    const check = async () => {
+      if (checking) return;
+      const role = localStorage.getItem("jdb_role");
+      if (!role) return; // 未登录，无需检测
+
+      checking = true;
+      try {
+        const token = await getValidAccessToken(API_BASE);
+        if (!token) {
+          clearSession();
+          window.location.href = base + "/login";
+        }
+      } finally {
+        checking = false;
+      }
+    };
+
+    check(); // 页面加载时检测一次
+
+    const onFocus = () => check(); // 用户切换回标签页时检测
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  return null;
 }
 
 /* ── 截图辅助路由 (开发专用) — clears session and redirects ──── */
@@ -258,6 +303,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <SessionWatcher />
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <SiteFaviconUpdater />
           <Router />

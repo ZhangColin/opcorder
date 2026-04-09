@@ -130,6 +130,20 @@ export async function getValidAccessToken(apiBase: string): Promise<string | nul
   return token;
 }
 
+/**
+ * Synchronously check whether the current access token is clearly expired.
+ * Returns true if: no token, invalid JWT format, or past its exp claim.
+ * Returns false if the token has no exp claim (treat as non-expiring).
+ */
+export function isTokenExpiredSync(): boolean {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!token) return true;
+  if (token.split(".").length !== 3) return true;
+  const exp = getTokenExpiry(token);
+  if (exp === null) return false;
+  return Date.now() > exp;
+}
+
 export async function callLogout(apiBase: string): Promise<void> {
   const token = getAccessToken();
   try {
