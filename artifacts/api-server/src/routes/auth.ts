@@ -6,6 +6,7 @@ import { Resend } from "resend";
 import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
+import { logger } from "../lib/logger";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -41,18 +42,27 @@ async function loadWelcomeEmailSettings() {
   return result;
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS): string {
   const bodyHtml = s.welcome_email_body
     .split("\n")
     .map(line => line.trim())
     .filter(Boolean)
-    .map(line => `<p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">${line}</p>`)
+    .map(line => `<p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">${escapeHtml(line)}</p>`)
     .join("");
 
   const qrBlock = s.wechat_group_qr
     ? `<div style="margin:24px 0;text-align:center;">
-        <p style="color:#6b7280;font-size:14px;margin:0 0 12px;">${s.welcome_email_group_tip}</p>
-        <img src="${s.wechat_group_qr}" alt="微信入群二维码" width="240"
+        <p style="color:#6b7280;font-size:14px;margin:0 0 12px;">${escapeHtml(s.welcome_email_group_tip)}</p>
+        <img src="${escapeHtml(s.wechat_group_qr)}" alt="微信入群二维码" width="240"
              style="border-radius:12px;border:1px solid #e5e7eb;display:inline-block;" />
       </div>`
     : "";
@@ -66,7 +76,7 @@ function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS): 
           </div>
           <span style="font-weight:900;font-size:20px;color:#0047ab;">接单吧</span>
         </div>
-        <h2 style="font-size:22px;font-weight:800;color:#1a1c1e;margin:0 0 16px;">您好，${nickname} 👋</h2>
+        <h2 style="font-size:22px;font-weight:800;color:#1a1c1e;margin:0 0 16px;">您好，${escapeHtml(nickname)} 👋</h2>
         ${bodyHtml}
         ${qrBlock}
         <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:16px 0 0;">
@@ -236,7 +246,7 @@ router.post("/auth/register", async (req, res) => {
           html: buildWelcomeEmail(user.nickname, s),
         });
       } catch (err) {
-        console.warn("Welcome email failed to send:", err);
+        logger.warn({ err }, "Welcome email failed to send");
       }
     })();
   } catch (err) {
