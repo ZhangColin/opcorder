@@ -61,7 +61,7 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS): string {
+function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS, qrSrc?: string): string {
   const bodyHtml = s.welcome_email_body
     .split("\n")
     .map(line => line.trim())
@@ -69,11 +69,10 @@ function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS): 
     .map(line => `<p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">${escapeHtml(line)}</p>`)
     .join("");
 
-  const qrAbsUrl = toAbsoluteUrl(s.wechat_group_qr);
-  const qrBlock = qrAbsUrl
+  const qrBlock = qrSrc
     ? `<div style="margin:24px 0;text-align:center;">
         <p style="color:#6b7280;font-size:14px;margin:0 0 12px;">${escapeHtml(s.welcome_email_group_tip)}</p>
-        <img src="${escapeHtml(qrAbsUrl)}" alt="微信入群二维码" width="240"
+        <img src="${qrSrc}" alt="微信入群二维码" width="240"
              style="border-radius:12px;border:1px solid #e5e7eb;display:inline-block;" />
       </div>`
     : "";
@@ -250,11 +249,49 @@ router.post("/auth/register", async (req, res) => {
     (async () => {
       try {
         const s = await loadWelcomeEmailSettings();
+
+        // Try to embed QR code as inline attachment (CID) so it works in all email clients
+        const QR_CID = "jdb_wechat_qr";
+        let qrSrc: string | undefined;
+        const attachments: Array<{
+          filename: string;
+          content: string;
+          content_type: string;
+          content_id: string;
+          disposition: "inline";
+        }> = [];
+
+        const qrAbsUrl = toAbsoluteUrl(s.wechat_group_qr);
+        if (qrAbsUrl) {
+          try {
+            const imgRes = await fetch(qrAbsUrl);
+            if (imgRes.ok) {
+              const buf = Buffer.from(await imgRes.arrayBuffer());
+              const contentType = imgRes.headers.get("content-type") || "image/png";
+              attachments.push({
+                filename: "wechat_qr.png",
+                content: buf.toString("base64"),
+                content_type: contentType,
+                content_id: QR_CID,
+                disposition: "inline",
+              });
+              qrSrc = `cid:${QR_CID}`;
+            } else {
+              logger.warn({ status: imgRes.status, url: qrAbsUrl }, "QR image fetch returned non-OK, falling back to URL");
+              qrSrc = qrAbsUrl;
+            }
+          } catch (fetchErr) {
+            logger.warn({ err: fetchErr }, "QR image fetch failed, falling back to URL");
+            qrSrc = qrAbsUrl;
+          }
+        }
+
         const { error: sendError } = await resend.emails.send({
           from: "接单吧 <noreply@aieducenter.com>",
           to: normalizedEmail,
           subject: s.welcome_email_subject,
-          html: buildWelcomeEmail(user.nickname, s),
+          html: buildWelcomeEmail(user.nickname, s, qrSrc),
+          ...(attachments.length ? { attachments } : {}),
         });
         if (sendError) {
           logger.warn({ err: sendError }, "Welcome email failed to send");
