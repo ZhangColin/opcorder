@@ -51,12 +51,20 @@ const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 /* Send the JWT access token with every API request; auto-refresh when near expiry */
 setAuthTokenGetter(() => getValidAccessToken(API_BASE));
 
-/* On 401: force-refresh the token once and retry; clear session + redirect to login on failure */
+/* On 401: force-refresh the token once and retry; clear session + redirect to login on failure.
+   Exception: on public browsing pages (e.g. /community), silently fail instead of redirecting. */
+const PUBLIC_PAGES = ["/community"];
+
 setOn401Handler(async () => {
   const newToken = await refreshAccessToken(API_BASE);
   if (!newToken) {
-    clearSession();
-    window.location.href = import.meta.env.BASE_URL.replace(/\/$/, "") + "/login";
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const path = window.location.pathname.slice(base.length) || "/";
+    const isPublicPage = PUBLIC_PAGES.some(p => path === p || path.startsWith(p + "/"));
+    if (!isPublicPage) {
+      clearSession();
+      window.location.href = base + "/login";
+    }
   }
   return newToken;
 });

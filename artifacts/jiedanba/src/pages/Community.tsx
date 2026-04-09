@@ -536,7 +536,7 @@ export default function Community() {
   const isGuest  = !role;
   const siteName = useSiteName();
 
-  const { data: user }        = useGetCurrentUser();
+  const { data: user }        = useGetCurrentUser({ query: { enabled: !isGuest } });
   const { data: opcProfile }  = useGetOpcProfile(user?.id ?? 0, { query: { enabled: !!user?.id && role === "opc" } });
   const publisherLogo         = usePublisherCompanyLogo(role === "publisher" ? user?.id : null);
   const { data: leaderboard } = useGetOpcLeaderboard({ limit: 10 });
