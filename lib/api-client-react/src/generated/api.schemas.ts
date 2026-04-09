@@ -70,7 +70,15 @@ export interface OpcProfile {
 }
 
 export interface UpdateOpcProfileInput {
+  nickname?: string;
+  avatar?: string | null;
+  phone?: string | null;
   bio?: string;
+  title?: string;
+  location?: string;
+  website?: string | null;
+  yearsExp?: number;
+  wechat?: string;
   skillTags?: string[];
   industryTags?: string[];
 }

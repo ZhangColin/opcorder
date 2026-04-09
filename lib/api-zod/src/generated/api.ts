@@ -116,7 +116,15 @@ export const UpdateOpcProfileParams = zod.object({
 });
 
 export const UpdateOpcProfileBody = zod.object({
+  nickname: zod.string().optional(),
+  avatar: zod.string().nullable().optional(),
+  phone: zod.string().nullable().optional(),
   bio: zod.string().optional(),
+  title: zod.string().optional(),
+  location: zod.string().optional(),
+  website: zod.string().nullable().optional(),
+  yearsExp: zod.number().optional(),
+  wechat: zod.string().optional(),
   skillTags: zod.array(zod.string()).optional(),
   industryTags: zod.array(zod.string()).optional(),
 });
