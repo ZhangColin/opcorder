@@ -250,16 +250,8 @@ router.post("/auth/register", async (req, res) => {
       try {
         const s = await loadWelcomeEmailSettings();
 
-        // Try to embed QR code as inline attachment (CID) so it works in all email clients
-        const QR_CID = "jdb_wechat_qr";
+        // Embed QR code as base64 data URI for maximum email client compatibility
         let qrSrc: string | undefined;
-        const attachments: Array<{
-          filename: string;
-          content: string;
-          content_type: string;
-          content_id: string;
-          disposition: "inline";
-        }> = [];
 
         const qrAbsUrl = toAbsoluteUrl(s.wechat_group_qr);
         if (qrAbsUrl) {
@@ -268,21 +260,12 @@ router.post("/auth/register", async (req, res) => {
             if (imgRes.ok) {
               const buf = Buffer.from(await imgRes.arrayBuffer());
               const contentType = imgRes.headers.get("content-type") || "image/png";
-              attachments.push({
-                filename: "wechat_qr.png",
-                content: buf.toString("base64"),
-                content_type: contentType,
-                content_id: QR_CID,
-                disposition: "inline",
-              });
-              qrSrc = `cid:${QR_CID}`;
+              qrSrc = `data:${contentType};base64,${buf.toString("base64")}`;
             } else {
-              logger.warn({ status: imgRes.status, url: qrAbsUrl }, "QR image fetch returned non-OK, falling back to URL");
-              qrSrc = qrAbsUrl;
+              logger.warn({ status: imgRes.status, url: qrAbsUrl }, "QR image fetch returned non-OK, skipping QR in email");
             }
           } catch (fetchErr) {
-            logger.warn({ err: fetchErr }, "QR image fetch failed, falling back to URL");
-            qrSrc = qrAbsUrl;
+            logger.warn({ err: fetchErr }, "QR image fetch failed, skipping QR in email");
           }
         }
 
@@ -291,7 +274,6 @@ router.post("/auth/register", async (req, res) => {
           to: normalizedEmail,
           subject: s.welcome_email_subject,
           html: buildWelcomeEmail(user.nickname, s, qrSrc),
-          ...(attachments.length ? { attachments } : {}),
         });
         if (sendError) {
           logger.warn({ err: sendError }, "Welcome email failed to send");
