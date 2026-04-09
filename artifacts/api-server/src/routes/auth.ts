@@ -3,13 +3,80 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { Resend } from "resend";
-import { db, usersTable, opcProfilesTable, refreshTokensTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable } from "@workspace/db";
+import { eq, inArray } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const router: IRouter = Router();
+
+/* ── Welcome email helpers ─────────────────────────────── */
+
+const WELCOME_EMAIL_KEYS = [
+  "welcome_email_subject",
+  "welcome_email_body",
+  "welcome_email_group_tip",
+  "wechat_group_qr",
+] as const;
+
+const WELCOME_EMAIL_DEFAULTS: Record<(typeof WELCOME_EMAIL_KEYS)[number], string> = {
+  welcome_email_subject:   "【接单吧】欢迎加入 OPC 撮合交易平台",
+  welcome_email_body:      "欢迎加入接单吧！我们是专注 OPC 超级个体的撮合交易平台，更多功能正在持续开发与上线中，敬请期待。",
+  welcome_email_group_tip: "扫码加入官方微信交流群，与更多 OPC 伙伴一起交流成长：",
+  wechat_group_qr:         "",
+};
+
+async function loadWelcomeEmailSettings() {
+  const rows = await db
+    .select({ key: siteSettingsTable.key, value: siteSettingsTable.value })
+    .from(siteSettingsTable)
+    .where(inArray(siteSettingsTable.key, [...WELCOME_EMAIL_KEYS]));
+
+  const result = { ...WELCOME_EMAIL_DEFAULTS };
+  for (const row of rows) {
+    const k = row.key as (typeof WELCOME_EMAIL_KEYS)[number];
+    if (k in result) result[k] = row.value ?? result[k];
+  }
+  return result;
+}
+
+function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS): string {
+  const bodyHtml = s.welcome_email_body
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => `<p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">${line}</p>`)
+    .join("");
+
+  const qrBlock = s.wechat_group_qr
+    ? `<div style="margin:24px 0;text-align:center;">
+        <p style="color:#6b7280;font-size:14px;margin:0 0 12px;">${s.welcome_email_group_tip}</p>
+        <img src="${s.wechat_group_qr}" alt="微信入群二维码" width="240"
+             style="border-radius:12px;border:1px solid #e5e7eb;display:inline-block;" />
+      </div>`
+    : "";
+
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9f9fc;">
+      <div style="background:white;border-radius:16px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+          <div style="background:#0047ab;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+            <span style="color:white;font-weight:900;font-size:18px;">接</span>
+          </div>
+          <span style="font-weight:900;font-size:20px;color:#0047ab;">接单吧</span>
+        </div>
+        <h2 style="font-size:22px;font-weight:800;color:#1a1c1e;margin:0 0 16px;">您好，${nickname} 👋</h2>
+        ${bodyHtml}
+        ${qrBlock}
+        <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:16px 0 0;">
+          此邮件由系统自动发送，请勿回复。
+        </p>
+      </div>
+      <p style="text-align:center;color:#c4c4c4;font-size:12px;margin:16px 0 0;">© 2026 接单吧 · OPC撮合交易平台</p>
+    </div>
+  `;
+}
 
 const JWT_EXPIRY_SECONDS = 2 * 60 * 60;
 const REFRESH_TOKEN_DAYS = 7;
@@ -157,6 +224,21 @@ router.post("/auth/register", async (req, res) => {
       role:      user.role,
       createdAt: user.createdAt.toISOString(),
     });
+
+    // Fire-and-forget: send welcome email (failure does not affect registration)
+    (async () => {
+      try {
+        const s = await loadWelcomeEmailSettings();
+        await resend.emails.send({
+          from: "接单吧 <noreply@aieducenter.com>",
+          to: normalizedEmail,
+          subject: s.welcome_email_subject,
+          html: buildWelcomeEmail(user.nickname, s),
+        });
+      } catch (err) {
+        console.warn("Welcome email failed to send:", err);
+      }
+    })();
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "注册失败，请稍后重试" });

@@ -2238,6 +2238,68 @@ function SiteSettingsManagement() {
           ))}
         </div>
 
+        {/* 注册欢迎邮件 */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">注册欢迎邮件</h3>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">邮件主题</label>
+            {field("welcome_email_subject", "【接单吧】欢迎加入 OPC 撮合交易平台")}
+            <p className="text-xs text-slate-400 mt-1">收件人看到的邮件标题</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">正文内容</label>
+            <textarea
+              value={form["welcome_email_body"] ?? ""}
+              onChange={e => setForm(v => ({ ...v, welcome_email_body: e.target.value }))}
+              rows={4}
+              placeholder="欢迎加入接单吧！…"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition resize-y"
+            />
+            <p className="text-xs text-slate-400 mt-1">支持换行，每段独立渲染为一行文字</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">入群引导语</label>
+            {field("welcome_email_group_tip", "扫码加入官方微信交流群，与更多 OPC 伙伴一起交流成长：")}
+            <p className="text-xs text-slate-400 mt-1">显示在二维码图片上方（二维码为空时不显示）</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-2">微信入群二维码</label>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+                {form["wechat_group_qr"] ? (
+                  <img src={form["wechat_group_qr"]} alt="微信入群二维码" className="w-full h-full object-contain p-1" />
+                ) : (
+                  <ImageIcon size={22} className="text-slate-300" />
+                )}
+              </div>
+              <div className="flex-1">
+                <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition-colors ${
+                  uploading["wechat_group_qr"] ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-primary/10 text-primary hover:bg-primary/20"
+                }`}>
+                  {uploading["wechat_group_qr"] ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {uploading["wechat_group_qr"] ? "上传中…" : "上传图片"}
+                  <input
+                    type="file" accept="image/*" className="hidden"
+                    disabled={uploading["wechat_group_qr"]}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload("wechat_group_qr", f); }}
+                  />
+                </label>
+                <input
+                  value={form["wechat_group_qr"] ?? ""}
+                  onChange={e => setForm(v => ({ ...v, wechat_group_qr: e.target.value }))}
+                  placeholder="或直接粘贴图片 URL"
+                  className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
+                />
+                <p className="text-xs text-slate-400 mt-1">上传后新注册用户的欢迎邮件中将自动显示此二维码</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 页脚配置 */}
         <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">页脚配置</h3>

@@ -828,6 +828,10 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   footer_about2_url:  "#",
   footer_about3_text: "隐私政策",
   footer_about3_url:  "#",
+  welcome_email_subject:   "【接单吧】欢迎加入 OPC 撮合交易平台",
+  welcome_email_body:      "欢迎加入接单吧！我们是专注 OPC 超级个体的撮合交易平台，更多功能正在持续开发与上线中，敬请期待。",
+  welcome_email_group_tip: "扫码加入官方微信交流群，与更多 OPC 伙伴一起交流成长：",
+  wechat_group_qr:         "",
 };
 
 router.get("/admin/settings", async (_req, res) => {
