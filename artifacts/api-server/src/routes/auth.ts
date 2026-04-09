@@ -239,12 +239,15 @@ router.post("/auth/register", async (req, res) => {
     (async () => {
       try {
         const s = await loadWelcomeEmailSettings();
-        await resend.emails.send({
+        const { error: sendError } = await resend.emails.send({
           from: "接单吧 <noreply@aieducenter.com>",
           to: normalizedEmail,
           subject: s.welcome_email_subject,
           html: buildWelcomeEmail(user.nickname, s),
         });
+        if (sendError) {
+          logger.warn({ err: sendError }, "Welcome email failed to send");
+        }
       } catch (err) {
         logger.warn({ err }, "Welcome email failed to send");
       }
