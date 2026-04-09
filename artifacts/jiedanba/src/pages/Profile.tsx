@@ -346,7 +346,7 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
   const handleSave = async () => {
     setStatus("saving");
     try {
-      await save({
+      const updatedProfile = await save({
         userId,
         data: {
           nickname:     form.nickname,
@@ -361,10 +361,8 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
           wechat:       form.wechat,
         },
       });
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["/api/users/me"] }),
-        qc.invalidateQueries({ queryKey: [`/api/users/${userId}/opc-profile`] }),
-      ]);
+      qc.setQueryData([`/api/users/${userId}/opc-profile`], updatedProfile);
+      qc.invalidateQueries({ queryKey: ["/api/users/me"] });
       setStatus("saved");
       setTimeout(() => { setStatus("idle"); onClose(); }, 800);
     } catch {

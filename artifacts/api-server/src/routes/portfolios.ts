@@ -39,16 +39,13 @@ router.get("/portfolios", async (req, res) => {
 router.post("/portfolios", requireAuth, async (req, res) => {
   try {
     const body = CreatePortfolioBody.parse(req.body);
-
-    if (req.user!.id !== body.userId) {
-      return res.status(403).json({ error: "无权为他人创建作品集" });
-    }
+    const userId = req.user!.id;
 
     const extra = req.body as Record<string, unknown>;
     const applyLevel = extra.applyLevel ? String(extra.applyLevel) : null;
 
     const [portfolio] = await db.insert(portfoliosTable).values({
-      userId: body.userId,
+      userId,
       title: body.title,
       type: body.type,
       coverImage: body.coverImage,
