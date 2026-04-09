@@ -42,6 +42,16 @@ async function loadWelcomeEmailSettings() {
   return result;
 }
 
+/** Resolve a potentially relative URL to an absolute URL using the known site domain. */
+function toAbsoluteUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  const domain = (process.env.SITE_URL || "").trim()
+    || `https://${(process.env.REPLIT_DOMAINS || "").split(",")[0].trim()}`;
+  if (domain && url.startsWith("/")) return `${domain}${url}`;
+  return url;
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -59,10 +69,11 @@ function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS): 
     .map(line => `<p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">${escapeHtml(line)}</p>`)
     .join("");
 
-  const qrBlock = s.wechat_group_qr
+  const qrAbsUrl = toAbsoluteUrl(s.wechat_group_qr);
+  const qrBlock = qrAbsUrl
     ? `<div style="margin:24px 0;text-align:center;">
         <p style="color:#6b7280;font-size:14px;margin:0 0 12px;">${escapeHtml(s.welcome_email_group_tip)}</p>
-        <img src="${escapeHtml(s.wechat_group_qr)}" alt="微信入群二维码" width="240"
+        <img src="${escapeHtml(qrAbsUrl)}" alt="微信入群二维码" width="240"
              style="border-radius:12px;border:1px solid #e5e7eb;display:inline-block;" />
       </div>`
     : "";
