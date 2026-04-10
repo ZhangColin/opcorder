@@ -130,6 +130,9 @@ router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
       .where(and(eq(enrollmentsTable.courseId, courseId), eq(enrollmentsTable.userId, userId)));
 
     if (!enrollment) return res.status(404).json({ error: "未找到报名记录" });
+    if (enrollment.paymentStatus === "paid") {
+      return res.status(409).json({ error: "该课程已完成支付，无需重复支付" });
+    }
 
     const businessOrderNo = `JDB-${enrollment.id}-${Date.now()}`;
     const amountFen = Math.round((course.price ?? 0) * 100);

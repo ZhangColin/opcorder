@@ -129,6 +129,8 @@ function PaymentModal({
     if (paid) return;
 
     const poll = async () => {
+      // Immediate first poll for faster feedback (e.g. near-instant payments)
+      // then repeats every 5s via interval
       const token = getAccessToken();
       try {
         const res = await fetch(`${BASE}/api/courses/${data.courseId}/payment-status`, {
@@ -158,6 +160,7 @@ function PaymentModal({
       }
     };
 
+    poll(); // immediate first check for faster feedback
     intervalRef.current = setInterval(poll, 5000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
