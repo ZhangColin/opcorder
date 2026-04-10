@@ -609,7 +609,7 @@ export default function Academy() {
     setEnrollingId(courseId);
     try {
       const result = await enrollCourse({ courseId, data: { userId: user.id } });
-      qc.invalidateQueries({ queryKey: ["/courses/my-enrollments"] });
+      qc.invalidateQueries({ queryKey: ["/api/courses/my-enrollments"] });
       const ps = (result as typeof result & { paymentStatus?: string }).paymentStatus;
       if (ps === "pending") {
         setSelectedCourse(null);
@@ -629,7 +629,7 @@ export default function Academy() {
   };
 
   const handlePaymentPaid = () => {
-    qc.invalidateQueries({ queryKey: ["/courses/my-enrollments"] });
+    qc.invalidateQueries({ queryKey: ["/api/courses/my-enrollments"] });
     toast({ title: "支付成功！", description: "课程已解锁，开始学习吧" });
   };
 
