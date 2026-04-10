@@ -76,7 +76,7 @@ export async function createPaymentOrder(params: CreatePaymentParams): Promise<P
   });
 
   const json = await resp.json() as { code: number | string; message: string; data: PaymentOrder };
-  if (json.code !== 0) {
+  if (json.code !== 0 && json.code !== 200) {
     throw new Error(`支付服务错误: ${json.message} (${json.code})`);
   }
   return json.data;
@@ -91,7 +91,7 @@ export async function queryPaymentStatus(paymentOrderNo: string): Promise<Paymen
   });
 
   const json = await resp.json() as { code: number | string; message: string; data: PaymentOrder };
-  if (json.code !== 0) {
+  if (json.code !== 0 && json.code !== 200) {
     throw new Error(`支付查询错误: ${json.message} (${json.code})`);
   }
   return json.data;
