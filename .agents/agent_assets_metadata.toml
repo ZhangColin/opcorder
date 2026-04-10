@@ -12,3 +12,9 @@ id = "YR0J6iwyLT_EV2n_q7oe4"
 uri = "file://scripts/截图脚本_本地运行.tar.gz"
 type = "unspecified"
 title = "截图脚本（在您自己电脑上运行）"
+
+[[outputs]]
+id = "1eAa92G3dH0CdI3yrUgE3"
+uri = "file://exports/users_export.csv"
+type = "table"
+title = "接单吧用户数据导出 (648条)"
