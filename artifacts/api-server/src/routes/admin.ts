@@ -6,6 +6,48 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildBulkEmail(nickname: string, body: string): string {
+  const bodyHtml = body
+    .split("\n")
+    .map(line => line.trim())
+    .map(line =>
+      line
+        ? `<p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">${escapeHtml(line)}</p>`
+        : `<p style="margin:0 0 12px;">&nbsp;</p>`
+    )
+    .join("");
+
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9f9fc;">
+      <div style="background:white;border-radius:16px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+          <div style="background:#0047ab;width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;">
+            <span style="color:white;font-weight:900;font-size:18px;line-height:1;">接</span>
+          </div>
+          <span style="display:inline-block;vertical-align:middle;font-weight:900;font-size:20px;color:#0047ab;margin-left:10px;">接单吧</span>
+        </div>
+        <h2 style="font-size:22px;font-weight:800;color:#1a1c1e;margin:0 0 20px;">您好，${escapeHtml(nickname)} 👋</h2>
+        <div style="border-left:3px solid #0047ab;padding-left:16px;margin-bottom:24px;">
+          ${bodyHtml}
+        </div>
+        <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:16px 0 0;border-top:1px solid #f3f4f6;padding-top:16px;">
+          此邮件由系统自动发送，请勿直接回复。
+        </p>
+      </div>
+      <p style="text-align:center;color:#c4c4c4;font-size:12px;margin:16px 0 0;">© 2026 接单吧 · OPC撮合交易平台</p>
+    </div>
+  `;
+}
+
 const router: IRouter = Router();
 
 router.use("/admin", requireAdmin);
@@ -631,7 +673,7 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
           from: FROM,
           to: r.email,
           subject: subject.trim(),
-          html: `<div style="font-family:sans-serif;max-width:600px;margin:auto">${body.trim().replace(/\n/g, "<br/>")}</div>`,
+          html: buildBulkEmail(r.nickname ?? r.email, body.trim()),
         });
         if (error) { failed++; console.error("bulk email error", r.email, error); }
         else { sent++; }
