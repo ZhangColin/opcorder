@@ -2,6 +2,9 @@ import { Router, type IRouter } from "express";
 import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const router: IRouter = Router();
 
@@ -578,6 +581,67 @@ router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res)
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "发证失败" });
+  }
+});
+
+/* ─── BULK EMAIL ────────────────────────────────── */
+
+router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    const { subject, body, filterNames, filterPaymentStatus } = req.body as {
+      subject?: string;
+      body?: string;
+      filterNames?: string;
+      filterPaymentStatus?: string;
+    };
+
+    if (!subject?.trim() || !body?.trim()) {
+      return res.status(400).json({ error: "邮件主题和正文不能为空" });
+    }
+
+    const rows = await db.execute(sql`
+      SELECT e.id, e.payment_status, u.nickname, u.email
+      FROM enrollments e
+      JOIN users u ON u.id = e.user_id
+      WHERE e.course_id = ${courseId}
+    `);
+    let list = rows.rows as Array<{ id: number; payment_status: string; nickname: string; email: string }>;
+
+    if (filterPaymentStatus && filterPaymentStatus !== "all") {
+      list = list.filter(r => r.payment_status === filterPaymentStatus);
+    }
+
+    if (filterNames?.trim()) {
+      const names = filterNames.split(",").map(n => n.trim().toLowerCase()).filter(Boolean);
+      list = list.filter(r => names.some(n => r.nickname?.toLowerCase().includes(n)));
+    }
+
+    if (list.length === 0) {
+      return res.json({ sent: 0, failed: 0, message: "没有符合条件的学员" });
+    }
+
+    let sent = 0;
+    let failed = 0;
+    const FROM = "接单吧 <noreply@aieducenter.com>";
+
+    await Promise.allSettled(
+      list.map(async (r) => {
+        const { error } = await resend.emails.send({
+          from: FROM,
+          to: r.email,
+          subject: subject.trim(),
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:auto">${body.trim().replace(/\n/g, "<br/>")}</div>`,
+        });
+        if (error) { failed++; console.error("bulk email error", r.email, error); }
+        else { sent++; }
+      })
+    );
+
+    res.json({ sent, failed, total: list.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "群发邮件失败" });
   }
 });
 

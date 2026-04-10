@@ -9,7 +9,7 @@ import {
   TrendingUp, TrendingDown, LogOut,
   CheckCircle2, XCircle, AlertTriangle, Clock,
   Search, Bell, Settings, RefreshCw, Download, Eye, Ban, Check, Star,
-  BookOpen, PlayCircle, Award, Flag, Megaphone,
+  BookOpen, PlayCircle, Award, Flag, Megaphone, Mail,
   Activity, ArrowUpRight, ArrowDownRight, Zap,
   CreditCard, Receipt, BadgeCheck, UserX, UserCheck,
   Gavel, AlertCircle, Loader2, Trash2,
@@ -1091,9 +1091,112 @@ function CourseModal({
   );
 }
 
+function BulkEmailModal({ courseId, onClose }: { courseId: number; onClose: () => void }) {
+  const { toast } = useToast();
+  const [subject, setSubject]             = useState("");
+  const [body, setBody]                   = useState("");
+  const [filterNames, setFilterNames]     = useState("");
+  const [filterStatus, setFilterStatus]   = useState("all");
+
+  const sendMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}/api/admin/training/courses/${courseId}/bulk-email`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ subject, body, filterNames, filterPaymentStatus: filterStatus }),
+      }).then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "发送失败");
+        return data;
+      }),
+    onSuccess: (data) => {
+      toast({ title: `群发完成：成功 ${data.sent} 封${data.failed > 0 ? `，失败 ${data.failed} 封` : ""}` });
+      onClose();
+    },
+    onError: (e: Error) => toast({ title: "发送失败", description: e.message, variant: "destructive" }),
+  });
+
+  const canSend = subject.trim().length > 0 && body.trim().length > 0 && !sendMutation.isPending;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Mail size={18} className="text-primary" /> 群发邮件</h3>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X size={18} /></button>
+        </div>
+
+        <div className="p-6 space-y-4 overflow-y-auto">
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">邮件主题 <span className="text-red-500">*</span></label>
+            <input
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              placeholder="请输入邮件主题"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">邮件正文 <span className="text-red-500">*</span></label>
+            <textarea
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              placeholder="请输入邮件正文内容…"
+              rows={6}
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition resize-none"
+            />
+          </div>
+
+          <div className="border-t border-slate-100 pt-4 space-y-3">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">过滤条件（不填即发送全部）</p>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">学员名称</label>
+              <input
+                value={filterNames}
+                onChange={e => setFilterNames(e.target.value)}
+                placeholder="多个名称用逗号隔开，如：张三,李四"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">支付状态</label>
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+              >
+                <option value="all">全部</option>
+                <option value="paid">已支付</option>
+                <option value="pending">待支付</option>
+                <option value="free">免费</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-slate-500 hover:bg-slate-100 transition-colors">取消</button>
+          <button
+            onClick={() => sendMutation.mutate()}
+            disabled={!canSend}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {sendMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+            {sendMutation.isPending ? "发送中…" : "发送邮件"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [showBulkEmail, setShowBulkEmail] = useState(false);
 
   const { data: enrollments = [], isLoading } = useQuery<CourseEnrollment[]>({
     queryKey: ["admin-course-enrollments", course.id],
@@ -1117,6 +1220,8 @@ function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: ()
   });
 
   return (
+    <>
+      {showBulkEmail && <BulkEmailModal courseId={course.id} onClose={() => setShowBulkEmail(false)} />}
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
@@ -1124,7 +1229,15 @@ function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: ()
             <h2 className="text-xl font-bold text-slate-800">报名管理 · {course.title}</h2>
             <p className="text-sm text-slate-500 mt-0.5">共 {enrollments.length} 人报名</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X size={18} /></button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowBulkEmail(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary rounded-xl text-sm font-bold hover:bg-primary/20 transition-colors"
+            >
+              <Mail size={15} /> 群发邮件
+            </button>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X size={18} /></button>
+          </div>
         </div>
         <div className="overflow-auto flex-1">
           <table className="w-full text-sm">
@@ -1199,6 +1312,7 @@ function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: ()
         </div>
       </div>
     </div>
+    </>
   );
 }
 
