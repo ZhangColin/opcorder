@@ -77,6 +77,34 @@ router.get("/courses/my-enrollments", requireAuth, async (req, res) => {
       .leftJoin(coursesTable, eq(enrollmentsTable.courseId, coursesTable.id))
       .where(eq(enrollmentsTable.userId, userId));
 
+    // Fallback: for any pending enrollment with a paymentOrderNo, query the
+    // payment service in the background and update DB if already paid.
+    // This covers cases where the callback never arrived or the user closed
+    // the payment modal before confirmation came through.
+    const pendingRows = rows.filter(
+      ({ enrollment }) =>
+        enrollment.paymentStatus === "pending" && enrollment.paymentOrderNo,
+    );
+    if (pendingRows.length > 0) {
+      await Promise.allSettled(
+        pendingRows.map(async ({ enrollment }) => {
+          try {
+            const order = await queryPaymentStatus(enrollment.paymentOrderNo!);
+            if (order.status === "PAID") {
+              await db
+                .update(enrollmentsTable)
+                .set({ paymentStatus: "paid" })
+                .where(eq(enrollmentsTable.id, enrollment.id));
+              // Reflect in-memory so this request's response shows the updated status
+              enrollment.paymentStatus = "paid";
+            }
+          } catch {
+            // Non-fatal: silent — will be retried on next page load
+          }
+        }),
+      );
+    }
+
     res.json(rows.map(({ enrollment, course }) => formatEnrollment(enrollment, course)));
   } catch {
     res.status(500).json({ error: "Failed to get enrollments" });

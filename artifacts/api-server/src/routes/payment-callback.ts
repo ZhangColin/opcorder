@@ -14,10 +14,13 @@ const router: IRouter = Router();
  * paid courses for free.
  */
 router.post("/payment/callback", async (req, res) => {
+  // Log every inbound callback so we can verify delivery in production logs
+  console.log("[payment-callback] received", JSON.stringify(req.body));
   try {
     const { businessOrderNo } = req.body as { businessOrderNo?: string };
 
     if (!businessOrderNo) {
+      console.warn("[payment-callback] missing businessOrderNo");
       return res.status(400).json({ code: 1, message: "缺少 businessOrderNo" });
     }
 
