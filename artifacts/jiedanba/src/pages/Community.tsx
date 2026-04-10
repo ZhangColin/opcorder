@@ -17,6 +17,24 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { usePublisherCompanyLogo } from "@/hooks/use-publisher-profile";
 
+/* ─── Contact info detection ─────────────────── */
+
+const CONTACT_PATTERNS: Array<{ re: RegExp; label: string }> = [
+  { re: /1[3-9]\d{9}/, label: "手机号" },
+  { re: /微信|weixin|wechat|wx[：:\s]\S+|vx[：:\s]\S+|v信/, label: "微信" },
+  { re: /qq[：:\s]\d{5,11}/i, label: "QQ号" },
+  { re: /\S+@\S+\.\S+/, label: "邮箱" },
+  { re: /https?:\/\/|www\.\S+\.\S+/, label: "网址" },
+  { re: /加我|加群|私信|私聊|私下联系|扫码|加v|扫一扫/, label: "引导私下联系" },
+];
+
+function detectContactInfo(text: string): string | null {
+  for (const { re, label } of CONTACT_PATTERNS) {
+    if (re.test(text)) return label;
+  }
+  return null;
+}
+
 /* ─── Static sidebar data ────────────────────── */
 
 const ANNOUNCEMENTS = [
@@ -284,15 +302,24 @@ function CommentsPanel({ postId, userId, isGuest, onRequireLogin }: {
   onRequireLogin: () => void;
 }) {
   const [text, setText] = useState("");
+  const [contactErr, setContactErr] = useState<string | null>(null);
   const qc = useQueryClient();
   const { data: comments = [], isLoading } = useListPostComments(postId);
   const { mutateAsync: createComment, isPending } = useCreatePostComment();
 
+  const handleChange = (val: string) => {
+    setText(val);
+    setContactErr(val.trim() ? detectContactInfo(val) : null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !userId) return;
+    const hit = detectContactInfo(text.trim());
+    if (hit) { setContactErr(hit); return; }
     await createComment({ postId, data: { authorId: userId, content: text.trim() } });
     setText("");
+    setContactErr(null);
     qc.invalidateQueries({ queryKey: [`/api/posts/${postId}/comments`] });
     qc.invalidateQueries({ queryKey: ["/posts"] });
   };
@@ -328,22 +355,29 @@ function CommentsPanel({ postId, userId, isGuest, onRequireLogin }: {
           登录后发表评论
         </button>
       ) : (
-        <form onSubmit={handleSubmit} className="flex gap-2 items-center">
-          <input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="发表评论…"
-            className="flex-1 text-sm px-3 py-2 border border-slate-200 rounded-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-            maxLength={300}
-          />
-          <button
-            type="submit"
-            disabled={isPending || !text.trim()}
-            className="p-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors disabled:opacity-40"
-          >
-            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-          </button>
-        </form>
+        <div className="space-y-1">
+          {contactErr && (
+            <p className="text-xs text-red-500 font-medium px-1">⚠️ 禁止在回复中留下{contactErr}等联系方式，请修改后重试</p>
+          )}
+          <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+            <input
+              value={text}
+              onChange={e => handleChange(e.target.value)}
+              placeholder="发表评论…"
+              className={`flex-1 text-sm px-3 py-2 border rounded-full focus:ring-2 outline-none transition-colors ${
+                contactErr ? "border-red-400 focus:ring-red-200 focus:border-red-400" : "border-slate-200 focus:ring-primary/20 focus:border-primary"
+              }`}
+              maxLength={300}
+            />
+            <button
+              type="submit"
+              disabled={isPending || !text.trim() || !!contactErr}
+              className="p-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors disabled:opacity-40"
+            >
+              {isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+            </button>
+          </form>
+        </div>
       )}
     </div>
   );
@@ -407,16 +441,25 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
   const { mutateAsync: createComment } = useCreatePostComment();
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [modalContactErr, setModalContactErr] = useState<string | null>(null);
   const qc = useQueryClient();
   const { data: postsData } = useListPosts({ sort: "latest", ...(userId ? { userId } : {}) } as any);
   const post = postsData?.items?.find(p => p.id === postId);
 
+  const handleModalInputChange = (val: string) => {
+    setInput(val);
+    setModalContactErr(val.trim() ? detectContactInfo(val) : null);
+  };
+
   const handleComment = async () => {
     if (!userId || !input.trim()) return;
+    const hit = detectContactInfo(input.trim());
+    if (hit) { setModalContactErr(hit); return; }
     setSubmitting(true);
     try {
       await createComment({ postId, data: { authorId: userId, content: input.trim() } });
       setInput("");
+      setModalContactErr(null);
       qc.invalidateQueries({ queryKey: ["/posts"] });
       qc.invalidateQueries({ queryKey: [`/api/posts/${postId}/comments`] });
     } finally {
@@ -498,21 +541,28 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
           )}
         </div>
         {!isGuest && (
-          <div className="p-4 border-t border-slate-100 flex items-center gap-3">
+          <div className="p-4 border-t border-slate-100 space-y-1">
+            {modalContactErr && (
+              <p className="text-xs text-red-500 font-medium px-1">⚠️ 禁止在回复中留下{modalContactErr}等联系方式，请修改后重试</p>
+            )}
+            <div className="flex items-center gap-3">
             <input
-              className="flex-1 bg-slate-100 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              className={`flex-1 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+                modalContactErr ? "bg-red-50 border border-red-300 focus:ring-red-200" : "bg-slate-100 focus:ring-primary/30"
+              }`}
               placeholder="发表评论…"
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={e => handleModalInputChange(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
             />
             <button
               onClick={handleComment}
-              disabled={submitting || !input.trim()}
+              disabled={submitting || !input.trim() || !!modalContactErr}
               className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-primary/90 transition-colors"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>
+            </div>
           </div>
         )}
       </div>

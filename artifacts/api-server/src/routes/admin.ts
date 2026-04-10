@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
+import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 
@@ -761,6 +761,47 @@ router.delete("/admin/content/posts/:id", async (req, res) => {
     await db.execute(sql`DELETE FROM post_comments WHERE post_id = ${id}`);
     await db.execute(sql`DELETE FROM post_likes WHERE post_id = ${id}`);
     await db.delete(postsTable).where(eq(postsTable.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "删除失败" });
+  }
+});
+
+router.get("/admin/content/comments", async (_req, res) => {
+  try {
+    const comments = await db
+      .select({
+        id: postCommentsTable.id,
+        postId: postCommentsTable.postId,
+        content: postCommentsTable.content,
+        authorId: postCommentsTable.authorId,
+        createdAt: postCommentsTable.createdAt,
+        postTitle: postsTable.title,
+        authorName: usersTable.nickname,
+      })
+      .from(postCommentsTable)
+      .leftJoin(postsTable, eq(postCommentsTable.postId, postsTable.id))
+      .leftJoin(usersTable, eq(postCommentsTable.authorId, usersTable.id))
+      .orderBy(desc(postCommentsTable.createdAt))
+      .limit(200);
+
+    res.json(comments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取评论列表失败" });
+  }
+});
+
+router.delete("/admin/content/comments/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [comment] = await db.select({ postId: postCommentsTable.postId }).from(postCommentsTable).where(eq(postCommentsTable.id, id)).limit(1);
+    if (!comment) return res.status(404).json({ error: "评论不存在" });
+    await db.delete(postCommentsTable).where(eq(postCommentsTable.id, id));
+    await db.update(postsTable)
+      .set({ commentsCount: sql`GREATEST(0, ${postsTable.commentsCount} - 1)` })
+      .where(eq(postsTable.id, comment.postId));
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

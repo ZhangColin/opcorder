@@ -1694,14 +1694,30 @@ interface AdminPost {
   createdAt: string;
 }
 
+interface AdminComment {
+  id: number;
+  postId: number;
+  postTitle: string | null;
+  authorName: string | null;
+  content: string;
+  createdAt: string;
+}
+
 function ContentReview() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [previewPost, setPreviewPost] = useState<AdminPost | null>(null);
+  const [contentTab, setContentTab] = useState<"posts" | "comments">("posts");
 
   const { data: posts = [], isLoading } = useQuery<AdminPost[]>({
     queryKey: ["admin-content"],
     queryFn: () => adminGet("/api/admin/content"),
+  });
+
+  const { data: comments = [], isLoading: commentsLoading } = useQuery<AdminComment[]>({
+    queryKey: ["admin-content-comments"],
+    queryFn: () => adminGet("/api/admin/content/comments"),
+    enabled: contentTab === "comments",
   });
 
   const deletePost = useMutation({
@@ -1712,6 +1728,16 @@ function ContentReview() {
       toast({ title: "帖子已删除" });
     },
     onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteComment = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/content/comments/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-content-comments"] });
+      qc.invalidateQueries({ queryKey: ["admin-content"] });
+      toast({ title: "回复已删除" });
+    },
+    onError: () => toast({ title: "删除失败", variant: "destructive" }),
   });
 
   const featurePost = useMutation({
@@ -1810,7 +1836,7 @@ function ContentReview() {
       )}
 
     <div className="space-y-6">
-      <SectionHeader title="内容审核" sub="社区帖子管理、点击标题查看全文、点亮🔥设为热门推荐"
+      <SectionHeader title="内容审核" sub="管理社区帖子和回复，点亮🔥设为热门推荐"
         action={
           <div className="flex items-center gap-2">
             <div className="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
@@ -1822,52 +1848,96 @@ function ContentReview() {
           </div>
         }
       />
-      <TableShell headers={["编号", "帖子标题", "作者", "标签", "点赞", "评论", "发布日期", "操作"]}>
-        {isLoading ? <LoadingRow cols={8} /> : posts.length === 0 ? <EmptyRow cols={8} /> :
-          posts.map(p => (
-            <tr key={p.id} className={`hover:bg-slate-50/60 transition-colors ${p.isFeatured ? "bg-orange-50/40" : ""}`}>
-              <td className="px-6 py-4 font-mono text-xs text-slate-400">#{p.id}</td>
-              <td className="px-6 py-4 text-sm text-blue-900 font-medium max-w-[240px]">
-                <button
-                  onClick={() => setPreviewPost(p)}
-                  className="flex items-center gap-1.5 text-left hover:text-primary transition-colors group"
-                  title="点击查看全文"
-                >
-                  {p.isFeatured && <Flame size={13} className="text-orange-500 shrink-0" />}
-                  <span className="line-clamp-1 group-hover:underline underline-offset-2">{p.title || p.content.slice(0, 40)}</span>
-                </button>
-              </td>
-              <td className="px-6 py-4 text-sm text-slate-500">{p.authorName}</td>
-              <td className="px-6 py-4">
-                <div className="flex flex-wrap gap-1">
-                  {(p.tags ?? []).slice(0, 2).map(t => (
-                    <span key={t} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full">{t}</span>
-                  ))}
-                </div>
-              </td>
-              <td className="px-6 py-4 text-sm text-slate-500">{p.likesCount ?? 0}</td>
-              <td className="px-6 py-4 text-sm text-slate-500">{p.commentsCount ?? 0}</td>
-              <td className="px-6 py-4 text-xs text-slate-400">{new Date(p.createdAt).toLocaleDateString("zh-CN")}</td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-1">
+
+      {/* Tab switcher */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setContentTab("posts")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${contentTab === "posts" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        >
+          帖子
+        </button>
+        <button
+          onClick={() => setContentTab("comments")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${contentTab === "comments" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+        >
+          回复管理
+        </button>
+      </div>
+
+      {contentTab === "posts" ? (
+        <TableShell headers={["编号", "帖子标题", "作者", "标签", "点赞", "评论", "发布日期", "操作"]}>
+          {isLoading ? <LoadingRow cols={8} /> : posts.length === 0 ? <EmptyRow cols={8} /> :
+            posts.map(p => (
+              <tr key={p.id} className={`hover:bg-slate-50/60 transition-colors ${p.isFeatured ? "bg-orange-50/40" : ""}`}>
+                <td className="px-6 py-4 font-mono text-xs text-slate-400">#{p.id}</td>
+                <td className="px-6 py-4 text-sm text-blue-900 font-medium max-w-[240px]">
                   <button
-                    onClick={() => featurePost.mutate({ id: p.id, isFeatured: !p.isFeatured })}
-                    title={p.isFeatured ? "取消热门" : "设为热门"}
-                    className={`p-2 rounded-xl transition-colors ${p.isFeatured ? "bg-orange-100 text-orange-500 hover:bg-orange-200" : "hover:bg-orange-50 text-slate-400 hover:text-orange-500"}`}
+                    onClick={() => setPreviewPost(p)}
+                    className="flex items-center gap-1.5 text-left hover:text-primary transition-colors group"
+                    title="点击查看全文"
                   >
-                    <Flame size={15} />
+                    {p.isFeatured && <Flame size={13} className="text-orange-500 shrink-0" />}
+                    <span className="line-clamp-1 group-hover:underline underline-offset-2">{p.title || p.content.slice(0, 40)}</span>
                   </button>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-500">{p.authorName}</td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {(p.tags ?? []).slice(0, 2).map(t => (
+                      <span key={t} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full">{t}</span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-500">{p.likesCount ?? 0}</td>
+                <td className="px-6 py-4 text-sm text-slate-500">{p.commentsCount ?? 0}</td>
+                <td className="px-6 py-4 text-xs text-slate-400">{new Date(p.createdAt).toLocaleDateString("zh-CN")}</td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => featurePost.mutate({ id: p.id, isFeatured: !p.isFeatured })}
+                      title={p.isFeatured ? "取消热门" : "设为热门"}
+                      className={`p-2 rounded-xl transition-colors ${p.isFeatured ? "bg-orange-100 text-orange-500 hover:bg-orange-200" : "hover:bg-orange-50 text-slate-400 hover:text-orange-500"}`}
+                    >
+                      <Flame size={15} />
+                    </button>
+                    <button
+                      onClick={() => { if (confirm("确认删除此帖子？删除后不可恢复。")) deletePost.mutate(p.id); }}
+                      title="删除" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          }
+        </TableShell>
+      ) : (
+        <TableShell headers={["编号", "所属帖子", "评论者", "回复内容", "发布日期", "操作"]}>
+          {commentsLoading ? <LoadingRow cols={6} /> : comments.length === 0 ? <EmptyRow cols={6} /> :
+            comments.map(c => (
+              <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
+                <td className="px-6 py-4 font-mono text-xs text-slate-400">#{c.id}</td>
+                <td className="px-6 py-4 text-sm text-blue-900 font-medium max-w-[180px]">
+                  <span className="line-clamp-1">{c.postTitle ?? `帖子#${c.postId}`}</span>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-500">{c.authorName ?? "—"}</td>
+                <td className="px-6 py-4 text-sm text-slate-700 max-w-[280px]">
+                  <span className="line-clamp-2">{c.content}</span>
+                </td>
+                <td className="px-6 py-4 text-xs text-slate-400">{new Date(c.createdAt).toLocaleDateString("zh-CN")}</td>
+                <td className="px-6 py-4">
                   <button
-                    onClick={() => { if (confirm("确认删除此帖子？删除后不可恢复。")) deletePost.mutate(p.id); }}
+                    onClick={() => { if (confirm("确认删除此回复？删除后不可恢复。")) deleteComment.mutate(c.id); }}
                     title="删除" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
                     <Trash2 size={15} />
                   </button>
-                </div>
-              </td>
-            </tr>
-          ))
-        }
-      </TableShell>
+                </td>
+              </tr>
+            ))
+          }
+        </TableShell>
+      )}
     </div>
     </>
   );
