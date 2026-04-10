@@ -203,6 +203,8 @@ router.post("/courses/:courseId/payment-status", requireAuth, async (req, res) =
 
     const order = await queryPaymentStatus(enrollment.paymentOrderNo);
 
+    console.log(`[payment-status route] enrollmentId=${enrollment.id} order.status=${JSON.stringify(order.status)} fullOrder=${JSON.stringify(order)}`);
+
     if (order.status === "PAID") {
       await db.update(enrollmentsTable)
         .set({ paymentStatus: "paid" })

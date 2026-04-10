@@ -91,8 +91,14 @@ export async function queryPaymentStatus(paymentOrderNo: string): Promise<Paymen
   });
 
   const json = await resp.json() as { code: number | string; message: string; data: PaymentOrder };
+  console.log(`[queryPaymentStatus] orderNo=${paymentOrderNo} httpStatus=${resp.status} code=${json.code} message=${json.message} rawData=${JSON.stringify(json.data)}`);
   if (json.code !== 0 && json.code !== 200) {
     throw new Error(`支付查询错误: ${json.message} (${json.code})`);
+  }
+  // Normalise status to uppercase so comparisons work regardless of what the
+  // payment provider sends (e.g. "paid", "Paid", "SUCCESS", "success", "PAID")
+  if (json.data && typeof json.data.status === "string") {
+    json.data.status = json.data.status.toUpperCase();
   }
   return json.data;
 }
