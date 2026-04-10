@@ -1,63 +1,74 @@
 import { Router, type IRouter } from "express";
 import { db, enrollmentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { queryPaymentStatus } from "../lib/payment";
+import { PAYMENT_STATUS } from "../lib/payment";
 
 const router: IRouter = Router();
 
 /**
- * Async payment notification from payment service.
- * No session auth required (called by payment provider), but we NEVER
- * trust the `status` field from the request body. We always re-query the
- * payment provider server-to-server to confirm the true status before
- * updating the enrollment. This prevents forged callbacks from unlocking
- * paid courses for free.
+ * Async payment notification from the payment provider.
+ * No session auth required — this is called server-to-server.
+ *
+ * The request body IS the PaymentOrderResponse directly (same shape as
+ * the data field in query/create responses). Key fields:
+ *   paymentOrderNo — payment provider's order number (our FK in enrollments)
+ *   status         — integer: 1=待支付 2=已支付 3=支付失败 4=已取消 5=已过期
+ *
+ * We look up the enrollment by paymentOrderNo (not by parsing businessOrderNo)
+ * and update it if status === 2 (paid). Idempotent — safe to receive multiple times.
  */
 router.post("/payment/callback", async (req, res) => {
-  // Log every inbound callback so we can verify delivery in production logs
-  console.log("[payment-callback] received", JSON.stringify(req.body));
+  const body = req.body as {
+    paymentOrderNo?: string;
+    businessOrderNo?: string;
+    status?: number;
+    statusName?: string;
+    paidAt?: string | null;
+  };
+
+  console.log(`[payment-callback] received paymentOrderNo=${body.paymentOrderNo} businessOrderNo=${body.businessOrderNo} status=${body.status}(${body.statusName}) paidAt=${body.paidAt}`);
+
   try {
-    const { businessOrderNo } = req.body as { businessOrderNo?: string };
+    const { paymentOrderNo, status } = body;
 
-    if (!businessOrderNo) {
-      console.warn("[payment-callback] missing businessOrderNo");
-      return res.status(400).json({ code: 1, message: "缺少 businessOrderNo" });
+    if (!paymentOrderNo) {
+      console.warn("[payment-callback] missing paymentOrderNo");
+      return res.status(200).send(); // always 200 so provider doesn't retry
     }
 
-    const match = businessOrderNo.match(/^JDB-(\d+)-\d+$/);
-    if (!match) {
-      return res.status(400).json({ code: 1, message: "无效的订单号格式" });
-    }
-
-    const enrollmentId = parseInt(match[1]);
-    const [enrollment] = await db.select().from(enrollmentsTable)
-      .where(eq(enrollmentsTable.id, enrollmentId));
+    // Find enrollment by paymentOrderNo
+    const [enrollment] = await db
+      .select()
+      .from(enrollmentsTable)
+      .where(eq(enrollmentsTable.paymentOrderNo, paymentOrderNo));
 
     if (!enrollment) {
-      return res.json({ code: 0, message: "success" });
+      console.warn(`[payment-callback] no enrollment found for paymentOrderNo=${paymentOrderNo}`);
+      return res.status(200).send();
     }
 
+    // Idempotent: already marked paid
     if (enrollment.paymentStatus === "paid") {
-      return res.json({ code: 0, message: "success" });
+      console.log(`[payment-callback] enrollment ${enrollment.id} already paid, skipping`);
+      return res.status(200).send();
     }
 
-    if (!enrollment.paymentOrderNo) {
-      return res.json({ code: 0, message: "success" });
-    }
-
-    /* Server-to-server verification — never trust the callback body's status */
-    const order = await queryPaymentStatus(enrollment.paymentOrderNo);
-
-    if (order.status === "PAID") {
-      await db.update(enrollmentsTable)
+    // status === 2 means paid
+    if (status === PAYMENT_STATUS.PAID) {
+      await db
+        .update(enrollmentsTable)
         .set({ paymentStatus: "paid" })
-        .where(eq(enrollmentsTable.id, enrollmentId));
+        .where(eq(enrollmentsTable.id, enrollment.id));
+      console.log(`[payment-callback] enrollment ${enrollment.id} marked paid`);
+    } else {
+      console.log(`[payment-callback] enrollment ${enrollment.id} status=${status} — no update`);
     }
 
-    res.json({ code: 0, message: "success" });
+    res.status(200).send();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "回调处理失败";
-    res.status(500).json({ code: 1, message: msg });
+    console.error(`[payment-callback] error: ${msg}`);
+    res.status(200).send(); // always 200 — provider does not retry anyway
   }
 });
 

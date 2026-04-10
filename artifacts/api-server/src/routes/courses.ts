@@ -3,7 +3,7 @@ import { db, coursesTable, enrollmentsTable, learningResourcesTable } from "@wor
 import { eq, and, sql } from "drizzle-orm";
 import { ListCoursesQueryParams } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
-import { createPaymentOrder, queryPaymentStatus } from "../lib/payment";
+import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
 
 const router: IRouter = Router();
 
@@ -90,7 +90,7 @@ router.get("/courses/my-enrollments", requireAuth, async (req, res) => {
         pendingRows.map(async ({ enrollment }) => {
           try {
             const order = await queryPaymentStatus(enrollment.paymentOrderNo!);
-            if (order.status === "PAID") {
+            if (order.status === PAYMENT_STATUS.PAID) {
               await db
                 .update(enrollmentsTable)
                 .set({ paymentStatus: "paid" })
@@ -203,19 +203,19 @@ router.post("/courses/:courseId/payment-status", requireAuth, async (req, res) =
 
     const order = await queryPaymentStatus(enrollment.paymentOrderNo);
 
-    console.log(`[payment-status route] enrollmentId=${enrollment.id} order.status=${JSON.stringify(order.status)} fullOrder=${JSON.stringify(order)}`);
+    console.log(`[payment-status route] enrollmentId=${enrollment.id} status=${order.status}(${order.statusName}) paidAt=${order.paidAt}`);
 
-    if (order.status === "PAID") {
+    if (order.status === PAYMENT_STATUS.PAID) {
       await db.update(enrollmentsTable)
         .set({ paymentStatus: "paid" })
         .where(eq(enrollmentsTable.id, enrollment.id));
     }
 
-    const terminalStatuses = ["PAID", "FAILED", "CANCELLED", "EXPIRED"];
     res.json({
       status: order.status,
-      paid: order.status === "PAID",
-      terminal: terminalStatuses.includes(order.status),
+      statusName: order.statusName,
+      paid: order.status === PAYMENT_STATUS.PAID,
+      terminal: TERMINAL_STATUSES.includes(order.status),
       paidAt: order.paidAt,
     });
   } catch (err: unknown) {
