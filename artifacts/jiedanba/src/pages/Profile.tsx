@@ -293,7 +293,15 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
   const qc = useQueryClient();
   const { mutateAsync: save } = useUpdateOpcProfile();
 
-  /* reset when drawer opens */
+  /* Sync form with latest profile data every time the drawer opens */
+  useEffect(() => {
+    if (open) {
+      setForm(initial);
+      setAvatarPreview(initial.avatar);
+      setStatus("idle");
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const openKey = open ? "open" : "closed";
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>

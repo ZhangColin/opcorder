@@ -1,21 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db, settlementAccountsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
-function getUserId(req: Parameters<Parameters<typeof router.get>[1]>[0]): number | null {
-  const authHeader = req.headers.authorization;
-  const id = authHeader?.startsWith("Bearer ")
-    ? parseInt(authHeader.slice(7), 10)
-    : NaN;
-  return isNaN(id) || id <= 0 ? null : id;
-}
-
 /* GET /api/opc/settlement-account — 获取当前 OPC 的结算账户 */
-router.get("/opc/settlement-account", async (req, res) => {
-  const userId = getUserId(req);
-  if (!userId) return res.status(401).json({ error: "未授权，请先登录" });
+router.get("/opc/settlement-account", requireAuth, async (req, res) => {
+  const userId = req.user!.id;
 
   const rows = await db
     .select()
@@ -27,9 +19,8 @@ router.get("/opc/settlement-account", async (req, res) => {
 });
 
 /* PUT /api/opc/settlement-account — 创建或更新结算账户 */
-router.put("/opc/settlement-account", async (req, res) => {
-  const userId = getUserId(req);
-  if (!userId) return res.status(401).json({ error: "未授权，请先登录" });
+router.put("/opc/settlement-account", requireAuth, async (req, res) => {
+  const userId = req.user!.id;
 
   const {
     companyName,
