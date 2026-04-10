@@ -13,6 +13,7 @@ import postsRouter from "./posts";
 import coursesRouter from "./courses";
 import adminRouter from "./admin";
 import settlementAccountsRouter from "./settlement-accounts";
+import paymentCallbackRouter from "./payment-callback";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(postsRouter);
 router.use(coursesRouter);
 router.use(adminRouter);
 router.use(settlementAccountsRouter);
+router.use(paymentCallbackRouter);
 
 export default router;

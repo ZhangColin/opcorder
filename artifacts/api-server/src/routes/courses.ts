@@ -3,8 +3,11 @@ import { db, coursesTable, enrollmentsTable, learningResourcesTable } from "@wor
 import { eq, and, sql } from "drizzle-orm";
 import { ListCoursesQueryParams } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
+import { createPaymentOrder, queryPaymentStatus } from "../lib/payment";
 
 const router: IRouter = Router();
+
+const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
 function formatCourse(c: typeof coursesTable.$inferSelect) {
   return {
@@ -35,6 +38,7 @@ function formatEnrollment(e: typeof enrollmentsTable.$inferSelect, course?: type
     progressPct: e.progressPct,
     completedAt: e.completedAt?.toISOString() ?? null,
     paymentStatus: e.paymentStatus,
+    paymentOrderNo: e.paymentOrderNo ?? null,
     certIssued: e.certIssued,
     certIssuedAt: e.certIssuedAt?.toISOString() ?? null,
     createdAt: e.createdAt.toISOString(),
@@ -113,7 +117,49 @@ router.post("/courses/:courseId/enroll", requireAuth, async (req, res) => {
   }
 });
 
+/* Create real payment order */
 router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const userId = req.user!.id;
+
+    const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, courseId));
+    if (!course) return res.status(404).json({ error: "课程不存在" });
+
+    const [enrollment] = await db.select().from(enrollmentsTable)
+      .where(and(eq(enrollmentsTable.courseId, courseId), eq(enrollmentsTable.userId, userId)));
+
+    if (!enrollment) return res.status(404).json({ error: "未找到报名记录" });
+
+    const businessOrderNo = `JDB-${enrollment.id}-${Date.now()}`;
+    const amountFen = Math.round((course.price ?? 0) * 100);
+
+    const order = await createPaymentOrder({
+      businessOrderNo,
+      amount: amountFen,
+      subject: `课程购买-${course.title}`,
+      body: course.description ?? course.title,
+      notifyUrl: NOTIFY_URL,
+    });
+
+    await db.update(enrollmentsTable)
+      .set({ paymentOrderNo: order.paymentOrderNo })
+      .where(eq(enrollmentsTable.id, enrollment.id));
+
+    res.json({
+      qrCodeUrl: order.qrCodeUrl,
+      paymentOrderNo: order.paymentOrderNo,
+      amount: course.price ?? 0,
+      subject: `课程购买-${course.title}`,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "支付创建失败";
+    res.status(500).json({ error: msg });
+  }
+});
+
+/* Poll payment status */
+router.post("/courses/:courseId/payment-status", requireAuth, async (req, res) => {
   try {
     const courseId = parseInt(req.params.courseId);
     const userId = req.user!.id;
@@ -122,14 +168,26 @@ router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
       .where(and(eq(enrollmentsTable.courseId, courseId), eq(enrollmentsTable.userId, userId)));
 
     if (!enrollment) return res.status(404).json({ error: "未找到报名记录" });
+    if (!enrollment.paymentOrderNo) return res.status(400).json({ error: "尚未创建支付订单" });
 
-    await db.update(enrollmentsTable)
-      .set({ paymentStatus: "paid" })
-      .where(eq(enrollmentsTable.id, enrollment.id));
+    const order = await queryPaymentStatus(enrollment.paymentOrderNo);
 
-    res.json({ ok: true, message: "支付成功（演示模式）" });
-  } catch {
-    res.status(500).json({ error: "支付失败" });
+    if (order.status === "PAID") {
+      await db.update(enrollmentsTable)
+        .set({ paymentStatus: "paid" })
+        .where(eq(enrollmentsTable.id, enrollment.id));
+    }
+
+    const terminalStatuses = ["PAID", "FAILED", "CANCELLED", "EXPIRED"];
+    res.json({
+      status: order.status,
+      paid: order.status === "PAID",
+      terminal: terminalStatuses.includes(order.status),
+      paidAt: order.paidAt,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "查询失败";
+    res.status(500).json({ error: msg });
   }
 });
 

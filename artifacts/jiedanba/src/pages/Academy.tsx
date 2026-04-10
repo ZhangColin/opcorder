@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, Star, Lock, Trophy, FileText,
-  Download, ChevronRight, Zap, Cpu, ShieldCheck,
+  Download, Zap, Cpu, ShieldCheck,
   BookOpen, ArrowRight, PlayCircle, Loader2, Award,
   CreditCard, BadgeCheck, AlertCircle, X, Clock,
-  Users, GraduationCap,
+  Users, GraduationCap, CheckCircle,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetOpcProfile,
@@ -13,6 +13,8 @@ import {
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Course } from "@workspace/api-client-react";
+import { QRCodeSVG } from "qrcode.react";
+import { getAccessToken } from "@/lib/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -60,7 +62,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   operations: "运营",
 };
 
-
 const ASSESSMENTS = [
   { day: "10", month: "APR", title: "A 级最终认证考核", detail: "10:00 · 远程监考", urgent: true },
   { day: "25", month: "APR", title: "提示词大师工坊",   detail: "14:30 · Zoom 直播", urgent: false },
@@ -101,6 +102,121 @@ type EnrollmentInfo = {
   certIssued: boolean;
 };
 
+type PaymentModalData = {
+  courseId: number;
+  courseName: string;
+  qrCodeUrl: string;
+  paymentOrderNo: string;
+  amount: number;
+};
+
+/* ─── Payment Modal ──────────────────────────────── */
+
+function PaymentModal({
+  data,
+  onClose,
+  onPaid,
+}: {
+  data: PaymentModalData;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [paid, setPaid] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (paid) return;
+
+    const poll = async () => {
+      const token = getAccessToken();
+      try {
+        const res = await fetch(`${BASE}/api/courses/${data.courseId}/payment-status`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!res.ok) return;
+        const result = await res.json() as { paid: boolean; terminal: boolean };
+        if (result.paid) {
+          setPaid(true);
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          setTimeout(() => {
+            setClosing(true);
+            setTimeout(() => {
+              onPaid();
+              onClose();
+            }, 500);
+          }, 2000);
+        } else if (result.terminal) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+        }
+      } catch {
+        // silent
+      }
+    };
+
+    intervalRef.current = setInterval(poll, 5000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [data.courseId, data.paymentOrderNo, paid]);
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity ${closing ? "opacity-0" : "opacity-100"}`}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {paid ? (
+          <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-5">
+              <CheckCircle size={44} className="text-green-500" />
+            </div>
+            <h3 className="text-2xl font-extrabold font-display text-foreground mb-2">支付成功！</h3>
+            <p className="text-sm text-muted-foreground">课程已解锁，即将为您跳转…</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border/40">
+              <div>
+                <h3 className="text-base font-bold text-foreground leading-tight line-clamp-1">{data.courseName}</h3>
+                <p className="text-2xl font-extrabold text-primary mt-0.5">¥{data.amount.toFixed(0)}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center text-muted-foreground transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex flex-col items-center py-6 px-6 space-y-4">
+              <div className="p-3 bg-white border-2 border-border rounded-xl">
+                <QRCodeSVG value={data.qrCodeUrl} size={200} />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-sm font-semibold text-foreground">请使用微信或支付宝扫码支付</p>
+                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                  <Loader2 size={12} className="animate-spin" />
+                  等待支付确认中…
+                </p>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 text-center">
+                支付完成后页面将自动更新 · 订单号 {data.paymentOrderNo}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Course Detail Modal ────────────────────────── */
 
 const LEVEL_LABELS: Record<string, string> = { C: "C 级·新手", B: "B 级·进阶", A: "A 级·专家" };
@@ -124,6 +240,7 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, isEnr
   const isEnrolled = enrollment !== null;
   const certIssued = enrollment?.certIssued ?? false;
   const needsPay = enrollment?.paymentStatus === "pending";
+  const isPaid = enrollment?.paymentStatus === "paid" || enrollment?.paymentStatus === "free";
 
   const getFileLabel = (url: string) => {
     const ext = url.split(".").pop()?.toLowerCase() ?? "";
@@ -227,15 +344,22 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, isEnr
                   {isPaying ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
                   立即支付
                 </button>
+              ) : isPaid && isEnrolled ? (
+                <button
+                  onClick={onClose}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-muted/70 transition-all"
+                >
+                  <X size={14} />
+                  关闭
+                </button>
               ) : (
                 <button
                   onClick={() => onEnroll(course.id)}
                   disabled={isEnrolling}
                   className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50"
                 >
-                  {isEnrolling ? <Loader2 size={14} className="animate-spin" /> :
-                   isEnrolled ? <PlayCircle size={14} /> : <ArrowRight size={14} />}
-                  {isEnrolling ? "处理中…" : isEnrolled ? "继续学习" : "立即报名"}
+                  {isEnrolling ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+                  {isEnrolling ? "处理中…" : "立即报名"}
                 </button>
               )}
             </div>
@@ -276,6 +400,7 @@ function CourseCard({
   const syllabusUrl = course.syllabusUrl;
   const instructor = course.instructor;
   const needsPay = paymentStatus === "pending";
+  const isPaid = paymentStatus === "paid" || paymentStatus === "free";
 
   return (
     <div className="group bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 border border-border/40">
@@ -352,6 +477,13 @@ function CourseCard({
                 {isPaying ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
                 立即支付
               </button>
+            ) : isEnrolled && isPaid ? (
+              <button
+                onClick={() => onViewDetail(course)}
+                className="text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all"
+              >
+                <PlayCircle size={14} /> 继续学习
+              </button>
             ) : (
               <button
                 onClick={() => onEnroll(course.id)}
@@ -360,8 +492,6 @@ function CourseCard({
               >
                 {isEnrolling ? (
                   <><Loader2 size={14} className="animate-spin" /> 报名中</>
-                ) : isEnrolled ? (
-                  <><PlayCircle size={14} /> 继续学习</>
                 ) : (
                   <>开始学习 <ArrowRight size={14} /></>
                 )}
@@ -387,7 +517,9 @@ type CourseFilter = "all" | "tech" | "strategy" | "compliance" | "operations";
 export default function Academy() {
   const [courseFilter, setCourseFilter] = useState<CourseFilter>("all");
   const [enrollingId, setEnrollingId]   = useState<number | null>(null);
+  const [payingId, setPayingId]         = useState<number | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [paymentModal, setPaymentModal] = useState<PaymentModalData | null>(null);
   const qc = useQueryClient();
 
   const { data: user }    = useGetCurrentUser();
@@ -405,7 +537,6 @@ export default function Academy() {
   });
 
   const level    = profile?.level ?? "newbie";
-  const credits  = profile?.creditScore ?? 4.8;
   const nickname = user?.nickname || profile?.nickname || "OPC学员";
 
   const levelOrder  = ["newbie", "C", "B", "A"];
@@ -432,7 +563,40 @@ export default function Academy() {
 
   const { mutateAsync: enrollCourse } = useEnrollCourse();
   const { toast } = useToast();
-  const [payingId, setPayingId] = useState<number | null>(null);
+
+  /* Open payment QR modal */
+  const initiatePayment = async (courseId: number) => {
+    if (!user?.id) return;
+    setPayingId(courseId);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${BASE}/api/courses/${courseId}/pay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        toast({ title: "支付创建失败", description: err.error ?? "请稍后重试", variant: "destructive" });
+        return;
+      }
+      const data = await res.json() as { qrCodeUrl: string; paymentOrderNo: string; amount: number; subject: string };
+      const course = courses.find(c => c.id === courseId);
+      setPaymentModal({
+        courseId,
+        courseName: course?.title ?? data.subject,
+        qrCodeUrl: data.qrCodeUrl,
+        paymentOrderNo: data.paymentOrderNo,
+        amount: data.amount,
+      });
+    } catch {
+      toast({ title: "网络错误", description: "无法连接支付服务，请检查网络", variant: "destructive" });
+    } finally {
+      setPayingId(null);
+    }
+  };
 
   const handleEnroll = async (courseId: number) => {
     if (!user?.id) {
@@ -441,46 +605,52 @@ export default function Academy() {
     }
     setEnrollingId(courseId);
     try {
-      await enrollCourse({ courseId, data: { userId: user.id } });
+      const result = await enrollCourse({ courseId, data: { userId: user.id } });
       qc.invalidateQueries({ queryKey: ["/courses/my-enrollments"] });
-      toast({ title: "报名成功", description: "已加入课程，开始学习吧" });
+      const ps = (result as typeof result & { paymentStatus?: string }).paymentStatus;
+      if (ps === "pending") {
+        setSelectedCourse(null);
+        await initiatePayment(courseId);
+      } else {
+        toast({ title: "报名成功", description: "已加入课程，开始学习吧" });
+        setSelectedCourse(null);
+      }
     } finally {
       setEnrollingId(null);
     }
   };
 
   const handlePay = async (courseId: number) => {
-    if (!user?.id) return;
-    setPayingId(courseId);
-    try {
-      const res = await fetch(`${BASE}/api/courses/${courseId}/pay`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.id}` },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      if (!res.ok) throw new Error("支付失败");
-      qc.invalidateQueries({ queryKey: ["/courses/my-enrollments"] });
-      toast({ title: "支付成功", description: "恭喜！课程已解锁，开始学习吧" });
-    } catch {
-      toast({ title: "支付处理中", description: "演示模式：请联系管理员确认收款", variant: "destructive" });
-    } finally {
-      setPayingId(null);
-    }
+    setSelectedCourse(null);
+    await initiatePayment(courseId);
+  };
+
+  const handlePaymentPaid = () => {
+    qc.invalidateQueries({ queryKey: ["/courses/my-enrollments"] });
+    toast({ title: "支付成功！", description: "课程已解锁，开始学习吧" });
   };
 
   const inProgress = enrollments.filter(e => e.progressPct > 0 && e.progressPct < 100).slice(0, 2);
-  const certCount = enrollments.filter(e => (e as typeof e & { certIssued?: boolean }).certIssued).length;
 
   return (
     <div className="space-y-12">
+
+      {/* Payment Modal */}
+      {paymentModal && (
+        <PaymentModal
+          data={paymentModal}
+          onClose={() => setPaymentModal(null)}
+          onPaid={handlePaymentPaid}
+        />
+      )}
 
       {selectedCourse && (
         <CourseDetailModal
           course={selectedCourse}
           enrollment={(enrollmentMap.get(selectedCourse.id) as EnrollmentInfo | undefined) ?? null}
           onClose={() => setSelectedCourse(null)}
-          onEnroll={(id) => { handleEnroll(id); setSelectedCourse(null); }}
-          onPay={(id) => { handlePay(id); setSelectedCourse(null); }}
+          onEnroll={(id) => { handleEnroll(id); }}
+          onPay={(id) => { handlePay(id); }}
           isEnrolling={enrollingId === selectedCourse.id}
           isPaying={payingId === selectedCourse.id}
         />

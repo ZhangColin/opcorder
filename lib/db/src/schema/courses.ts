@@ -35,6 +35,7 @@ export const enrollmentsTable = pgTable("enrollments", {
   progressPct: integer("progress_pct").notNull().default(0),
   completedAt: timestamp("completed_at"),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("free"),
+  paymentOrderNo: varchar("payment_order_no", { length: 100 }),
   certIssued: boolean("cert_issued").notNull().default(false),
   certIssuedAt: timestamp("cert_issued_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
