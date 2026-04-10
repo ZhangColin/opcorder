@@ -4,7 +4,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { Resend } from "resend";
 import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { logger } from "../lib/logger";
 
@@ -135,20 +135,30 @@ async function upsertRefreshToken(userId: number, tokenHash: string, expiresAt: 
 
 router.post("/auth/login", async (req, res) => {
   try {
-    const { email, password, role } = req.body as {
-      email: string;
+    const { identifier, email: emailField, password, role } = req.body as {
+      identifier?: string;
+      email?: string;
       password: string;
       role?: string;
     };
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "请填写邮箱和密码" });
+    // Support both new `identifier` field and legacy `email` field
+    const rawIdentifier = (identifier || emailField || "").trim();
+
+    if (!rawIdentifier || !password) {
+      return res.status(400).json({ error: "请填写账号和密码" });
     }
 
+    // Determine if identifier is email or phone
+    const isEmail = rawIdentifier.includes("@");
     const [user] = await db
       .select()
       .from(usersTable)
-      .where(eq(usersTable.email, email.toLowerCase().trim()))
+      .where(
+        isEmail
+          ? eq(usersTable.email, rawIdentifier.toLowerCase())
+          : eq(usersTable.phone, rawIdentifier)
+      )
       .limit(1);
 
     if (!user || !user.passwordHash) {
@@ -197,14 +207,15 @@ router.post("/auth/login", async (req, res) => {
 
 router.post("/auth/register", async (req, res) => {
   try {
-    const { nickname, email, password, role } = req.body as {
+    const { nickname, email, password, role, phone } = req.body as {
       nickname: string;
       email: string;
       password: string;
       role: string;
+      phone: string;
     };
 
-    if (!nickname || !email || !password || !role) {
+    if (!nickname || !email || !password || !role || !phone) {
       return res.status(400).json({ error: "请填写完整的注册信息" });
     }
     if (!["opc", "publisher"].includes(role)) {
@@ -215,20 +226,33 @@ router.post("/auth/register", async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const [existing] = await db
+    const normalizedPhone = phone.trim();
+
+    const [existingEmail] = await db
       .select({ id: usersTable.id })
       .from(usersTable)
       .where(eq(usersTable.email, normalizedEmail))
       .limit(1);
 
-    if (existing) {
+    if (existingEmail) {
       return res.status(409).json({ error: "该邮箱已被注册，请直接登录" });
+    }
+
+    const [existingPhone] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.phone, normalizedPhone))
+      .limit(1);
+
+    if (existingPhone) {
+      return res.status(409).json({ error: "该手机号已被注册，请直接登录" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const [user] = await db.insert(usersTable).values({
       nickname: nickname.trim(),
       email: normalizedEmail,
+      phone: normalizedPhone,
       passwordHash,
       role: role as "opc" | "publisher",
     }).returning();

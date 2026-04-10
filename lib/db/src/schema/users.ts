@@ -1,6 +1,7 @@
-import { pgTable, serial, text, varchar, timestamp, pgEnum, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, timestamp, pgEnum, unique, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { sql } from "drizzle-orm";
 
 export const userRoleEnum = pgEnum("user_role", ["opc", "publisher", "admin"]);
 export const userStatusEnum = pgEnum("user_status", ["active", "suspended", "banned"]);
@@ -18,6 +19,7 @@ export const usersTable = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   unique("users_email_key").on(t.email),
+  uniqueIndex("users_phone_unique_nn").on(t.phone).where(sql`phone IS NOT NULL AND phone <> ''`),
 ]);
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true });

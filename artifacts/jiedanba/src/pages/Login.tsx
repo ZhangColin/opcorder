@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   Eye, EyeOff, ArrowRight,
   Mail, Lock, User, Building2,
-  CheckCircle2, AlertCircle, Compass,
+  CheckCircle2, AlertCircle, Compass, Phone,
 } from "lucide-react";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
@@ -18,10 +18,11 @@ export default function Login() {
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<Tab>("login");
 
-  const [email,    setEmail]    = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [name,     setName]     = useState("");
+  const [phone,    setPhone]    = useState("");
   const [regRole,  setRegRole]  = useState<RegRole>("opc");
   const [showPw,   setShowPw]   = useState(false);
   const [showPw2,  setShowPw2]  = useState(false);
@@ -33,19 +34,19 @@ export default function Login() {
 
   const switchTab = (t: Tab) => {
     setTab(t); setError(""); setRegOk(false);
-    setEmail(""); setPassword(""); setPassword2(""); setName("");
+    setIdentifier(""); setPassword(""); setPassword2(""); setName(""); setPhone("");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!email.trim() || !password) { setError("请填写邮箱和密码"); return; }
+    if (!identifier.trim() || !password) { setError("请填写账号和密码"); return; }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "登录失败，请重试"); return; }
@@ -66,16 +67,17 @@ export default function Login() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!name.trim())        { setError("请填写姓名"); return; }
-    if (!email.trim())       { setError("请填写邮箱"); return; }
-    if (password.length < 6) { setError("密码至少 6 位"); return; }
+    if (!name.trim())         { setError("请填写姓名"); return; }
+    if (!phone.trim())        { setError("请填写手机号"); return; }
+    if (!identifier.trim())   { setError("请填写邮箱"); return; }
+    if (password.length < 6)  { setError("密码至少 6 位"); return; }
     if (password !== password2) { setError("两次密码不一致"); return; }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: name.trim(), email: email.trim().toLowerCase(), password, role: regRole }),
+        body: JSON.stringify({ nickname: name.trim(), email: identifier.trim().toLowerCase(), phone: phone.trim(), password, role: regRole }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "注册失败，请重试"); return; }
@@ -190,15 +192,15 @@ export default function Login() {
           {tab === "login" && (
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">邮箱</label>
+                <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">邮箱 / 手机号</label>
                 <div className="relative">
                   <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="name@enterprise.com"
-                    autoComplete="email"
+                    type="text"
+                    value={identifier}
+                    onChange={e => setIdentifier(e.target.value)}
+                    placeholder="邮箱或手机号"
+                    autoComplete="username"
                     className="w-full pl-11 pr-4 py-3.5 bg-slate-100 rounded-xl border-none focus:ring-2 focus:ring-primary/30 outline-none placeholder:text-slate-400 text-sm"
                   />
                 </div>
@@ -288,13 +290,28 @@ export default function Login() {
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">手机号 <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="13800138000"
+                    autoComplete="tel"
+                    className="w-full pl-11 pr-4 py-3.5 bg-slate-100 rounded-xl border-none focus:ring-2 focus:ring-primary/30 outline-none placeholder:text-slate-400 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">邮箱</label>
                 <div className="relative">
                   <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    value={identifier}
+                    onChange={e => setIdentifier(e.target.value)}
                     placeholder="name@enterprise.com"
                     autoComplete="email"
                     className="w-full pl-11 pr-4 py-3.5 bg-slate-100 rounded-xl border-none focus:ring-2 focus:ring-primary/30 outline-none placeholder:text-slate-400 text-sm"
