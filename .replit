@@ -31,3 +31,4 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
+PAYMENT_APP_ID = "P5D95AW5HOZFDVH1672QIODY0GZCDDCP"
