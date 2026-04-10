@@ -15,7 +15,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw,
-  Flame, Filter, ShieldCheck,
+  Flame, Filter, ShieldCheck, Lock, EyeOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -2430,6 +2430,108 @@ function SiteSettingsManagement() {
             {saveMutation.isPending ? "保存中…" : "保存设置"}
           </button>
         </div>
+
+        {/* 修改密码 */}
+        <ChangePasswordCard />
+      </div>
+    </div>
+  );
+}
+
+function ChangePasswordCard() {
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword]         = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent]         = useState(false);
+  const [showNew, setShowNew]                 = useState(false);
+
+  const changePwd = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}/api/admin/change-password`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }).then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "修改失败");
+        return data;
+      }),
+    onSuccess: () => {
+      toast({ title: "密码已修改成功" });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+    onError: (e: Error) => toast({ title: "修改失败", description: e.message, variant: "destructive" }),
+  });
+
+  const mismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
+  const canSubmit = currentPassword.length > 0 && newPassword.length >= 6 && newPassword === confirmPassword && !changePwd.isPending;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5 border-t-4 border-amber-400">
+      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+        <Lock size={14} /> 修改登录密码
+      </h3>
+
+      <div>
+        <label className="block text-sm font-bold text-blue-900 mb-1.5">当前密码</label>
+        <div className="relative">
+          <input
+            type={showCurrent ? "text" : "password"}
+            value={currentPassword}
+            onChange={e => setCurrentPassword(e.target.value)}
+            placeholder="请输入当前密码"
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+          />
+          <button type="button" onClick={() => setShowCurrent(v => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-bold text-blue-900 mb-1.5">新密码</label>
+        <div className="relative">
+          <input
+            type={showNew ? "text" : "password"}
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            placeholder="至少6位"
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+          />
+          <button type="button" onClick={() => setShowNew(v => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-bold text-blue-900 mb-1.5">确认新密码</label>
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={e => setConfirmPassword(e.target.value)}
+          placeholder="再次输入新密码"
+          className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 bg-slate-50 transition ${
+            mismatch ? "border-red-400 focus:ring-red-200" : "border-slate-200 focus:ring-primary/30"
+          }`}
+        />
+        {mismatch && <p className="text-xs text-red-500 mt-1">两次密码不一致</p>}
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => changePwd.mutate()}
+          disabled={!canSubmit}
+          className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 disabled:opacity-50 transition-colors"
+        >
+          {changePwd.isPending ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
+          {changePwd.isPending ? "修改中…" : "确认修改密码"}
+        </button>
       </div>
     </div>
   );

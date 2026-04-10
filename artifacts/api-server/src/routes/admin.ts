@@ -809,6 +809,32 @@ router.delete("/admin/content/comments/:id", async (req, res) => {
   }
 });
 
+/* ─── CHANGE PASSWORD ───────────────────────────── */
+
+router.post("/admin/change-password", async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "请填写当前密码和新密码" });
+    if (newPassword.length < 6) return res.status(400).json({ error: "新密码至少6位" });
+
+    const userId = req.user!.id;
+    const [user] = await db.select({ passwordHash: usersTable.passwordHash }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ error: "用户不存在" });
+
+    const { compare, hash } = await import("bcryptjs");
+    const valid = await compare(currentPassword, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: "当前密码错误" });
+
+    const newHash = await hash(newPassword, 10);
+    await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, userId));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "修改密码失败" });
+  }
+});
+
 /* ─── SENSITIVE WORDS ───────────────────────────── */
 
 router.get("/admin/sensitive-words", async (_req, res) => {
