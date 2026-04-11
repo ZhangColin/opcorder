@@ -62,8 +62,6 @@ router.get("/users/opc-leaderboard", async (req, res) => {
     const { limit } = GetOpcLeaderboardQueryParams.parse(req.query);
     const profiles = await db
       .select({
-        id:             opcProfilesTable.id,
-        userId:         opcProfilesTable.userId,
         nickname:       usersTable.nickname,
         avatar:         usersTable.avatar,
         level:          opcProfilesTable.level,

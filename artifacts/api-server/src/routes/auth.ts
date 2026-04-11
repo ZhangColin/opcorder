@@ -2,11 +2,21 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { rateLimit } from "express-rate-limit";
 import { Resend } from "resend";
 import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { logger } from "../lib/logger";
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "登录尝试过于频繁，请15分钟后重试" },
+  skipSuccessfulRequests: true,
+});
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -133,7 +143,7 @@ async function upsertRefreshToken(userId: number, tokenHash: string, expiresAt: 
     });
 }
 
-router.post("/auth/login", async (req, res) => {
+router.post("/auth/login", loginLimiter, async (req, res) => {
   try {
     const { identifier, email: emailField, password, role } = req.body as {
       identifier?: string;
@@ -403,6 +413,8 @@ router.post("/auth/change-password", requireAuth, async (req, res) => {
 });
 
 router.post("/auth/forgot-password", async (req, res) => {
+  const UNIFIED_MESSAGE = { success: true, message: "如果该邮箱已注册，我们已向其发送了临时密码，请查收邮件" };
+
   try {
     const { email } = req.body as { email: string };
     if (!email || !email.trim()) {
@@ -416,12 +428,9 @@ router.post("/auth/forgot-password", async (req, res) => {
       .where(eq(usersTable.email, normalizedEmail))
       .limit(1);
 
-    if (!user) {
-      return res.status(404).json({ error: "该邮箱未注册，请检查邮箱地址是否正确" });
-    }
-
-    if (!user.passwordHash) {
-      return res.status(400).json({ error: "该账号未设置密码，请联系管理员" });
+    if (!user || !user.passwordHash) {
+      await new Promise((r) => setTimeout(r, 500 + Math.random() * 500));
+      return res.json(UNIFIED_MESSAGE);
     }
 
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -465,13 +474,14 @@ router.post("/auth/forgot-password", async (req, res) => {
 
     if (sendError) {
       console.error("Resend error:", sendError);
-      return res.status(500).json({ error: "邮件发送失败，请稍后重试" });
     }
 
-    res.json({ success: true, message: "临时密码已发送至您的邮箱，请查收" });
+    await new Promise((r) => setTimeout(r, 500 + Math.random() * 500));
+    return res.json(UNIFIED_MESSAGE);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "操作失败，请稍后重试" });
+    await new Promise((r) => setTimeout(r, 500 + Math.random() * 500));
+    return res.json(UNIFIED_MESSAGE);
   }
 });
 

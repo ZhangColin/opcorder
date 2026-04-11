@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin
+
+Allow: /
+
+Sitemap: https://www.opcorder.com/sitemap.xml

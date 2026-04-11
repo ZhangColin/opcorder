@@ -2,10 +2,11 @@ import { Router, type IRouter } from "express";
 import { db, ordersTable, usersTable, opcProfilesTable } from "@workspace/db";
 import { eq, sql, count } from "drizzle-orm";
 import { GetOverviewStatsResponse } from "@workspace/api-zod";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 
-router.get("/stats/overview", async (_req, res) => {
+router.get("/stats/overview", requireAuth, async (_req, res) => {
   try {
     const [orderStats] = await db.select({
       totalOrders: count(),
