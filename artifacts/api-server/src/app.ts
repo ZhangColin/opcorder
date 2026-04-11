@@ -29,6 +29,8 @@ const corsOptions: cors.CorsOptions = {
 
 const app: Express = express();
 
+app.disable("x-powered-by");
+
 app.use(
   pinoHttp({
     logger,
@@ -75,6 +77,12 @@ app.use(
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.removeHeader("X-Cloud-Trace-Context");
+  res.removeHeader("Server");
+  next();
+});
 
 app.use("/api", router);
 
