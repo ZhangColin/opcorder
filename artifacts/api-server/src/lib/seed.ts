@@ -121,8 +121,26 @@ const OPC_SEED_DATA: OpcSeedEntry[] = [
   },
 ];
 
+const CLEANUP_ACCOUNTS = [
+  "test_sec_audit@example.com",
+];
+
 export async function runSeed(): Promise<void> {
   logger.info("Running startup seed check...");
+
+  for (const email of CLEANUP_ACCOUNTS) {
+    try {
+      const deleted = await db
+        .delete(usersTable)
+        .where(eq(usersTable.email, email))
+        .returning({ id: usersTable.id });
+      if (deleted.length > 0) {
+        logger.info({ email }, "Removed disallowed account");
+      }
+    } catch (err) {
+      logger.warn({ email, err }, "Cleanup skipped");
+    }
+  }
 
   for (const entry of OPC_SEED_DATA) {
     try {
