@@ -90,6 +90,7 @@ export interface CreatePaymentParams {
   amount: number;
   subject: string;
   body?: string;
+  businessName: string;
   notifyUrl: string;
 }
 
@@ -99,7 +100,7 @@ export async function createPaymentOrder(params: CreatePaymentParams): Promise<P
     amount: params.amount,
     subject: params.subject,
     body: params.body ?? params.subject,
-    businessName: "接单吧",
+    businessName: params.businessName,
     notifyUrl: params.notifyUrl,
   });
 

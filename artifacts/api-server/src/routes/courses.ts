@@ -170,6 +170,7 @@ router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
       amount: amountFen,
       subject: `课程购买-${course.title}`,
       body: course.description ?? course.title,
+      businessName: "课程培训",
       notifyUrl: NOTIFY_URL,
     });
 
