@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter, setOn401Handler } from "@workspace/api-client-react";
 import { useEffect } from "react";
-import { getValidAccessToken, clearSession, refreshAccessToken, isTokenExpiredSync, getRefreshToken, storeSession } from "@/lib/auth";
+import { getValidAccessToken, clearSession, refreshAccessToken, isTokenExpiredSync, getRefreshToken } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
@@ -178,45 +178,12 @@ function SessionWatcher() {
   return null;
 }
 
-/* ── 截图辅助路由 (开发专用) — clears session and redirects ──── */
-function SetAuthHelper() {
-  const [, navigate] = useLocation();
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const to = params.get("to") || "/login";
-    import("@/lib/auth").then(({ clearSession }) => {
-      clearSession();
-      navigate(to);
-    });
-  }, []);
-  return null;
-}
-
-/* ── 截图注入路由 (临时) — injects session then renders target page ──── */
-function DevSnap() {
-  const params = new URLSearchParams(window.location.search);
-  const t  = params.get("t")  ?? "";
-  const rt = params.get("rt") ?? "";
-  const uStr = params.get("u") ?? "";
-  const p  = params.get("p")  ?? "";
-  const m  = params.get("m")  ?? "";
-  if (t && uStr) {
-    try { storeSession({ accessToken: t, refreshToken: rt, user: JSON.parse(decodeURIComponent(uStr)) }); } catch { /**/ }
-  }
-  if (p === "admin") return <Admin initialModule={(m || "dashboard") as import("@/pages/Admin").Module} />;
-  return <div style={{padding:40,color:"#888"}}>DevSnap: pass ?p=admin&m=MODULE</div>;
-}
-
 function Router() {
   return (
     <Switch>
       {/* 公开路由 */}
       <Route path="/login" component={Login} />
       <Route path="/auth/:role" component={Auth} />
-
-      {/* 开发专用：截图辅助认证路由 */}
-      <Route path="/set-auth" component={SetAuthHelper} />
-      <Route path="/dev-snap" component={DevSnap} />
 
       {/* 管理员专属 */}
       <Route path="/admin">

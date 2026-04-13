@@ -200,6 +200,42 @@ function EmptyRow({ cols, text }: { cols: number; text?: string }) {
   );
 }
 
+function AdminPagination({ page, pageSize, total, onPage }: {
+  page: number; pageSize: number; total: number; onPage: (p: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (totalPages <= 1) return null;
+  const pages: number[] = [];
+  const start = Math.max(1, page - 2);
+  const end   = Math.min(totalPages, page + 2);
+  for (let i = start; i <= end; i++) pages.push(i);
+  return (
+    <div className="flex items-center justify-between mt-4 px-1">
+      <p className="text-xs text-slate-400">共 {total} 条，第 {page}/{totalPages} 页</p>
+      <div className="flex items-center gap-1">
+        <button
+          disabled={page <= 1}
+          onClick={() => onPage(page - 1)}
+          className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-40 transition-colors">
+          ‹ 上一页
+        </button>
+        {pages.map(p => (
+          <button key={p} onClick={() => onPage(p)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${p === page ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {p}
+          </button>
+        ))}
+        <button
+          disabled={page >= totalPages}
+          onClick={() => onPage(page + 1)}
+          className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-40 transition-colors">
+          下一页 ›
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Module: 数据看板 ─────────────────────────── */
 
 interface AdminStats {
@@ -294,15 +330,21 @@ interface AdminUser {
   totalOrders: number | null;
 }
 
+interface PagedResp<T> { data: T[]; total: number; page: number; pageSize: number; }
+
 function UserManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [filter, setFilter] = useState("all");
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: users = [], isLoading } = useQuery<AdminUser[]>({
-    queryKey: ["admin-users", filter],
-    queryFn: () => adminGet(`/api/admin/users?role=${filter === "all" ? "" : filter}`),
+  const { data: resp, isLoading } = useQuery<PagedResp<AdminUser>>({
+    queryKey: ["admin-users", filter, q, page],
+    queryFn: () => adminGet(`/api/admin/users?role=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
   });
+  const users = resp?.data ?? [];
 
   const mutate = useMutation({
     mutationFn: ({ id, action, value }: { id: number; action: string; value?: string }) =>
@@ -322,13 +364,22 @@ function UserManagement() {
   return (
     <div className="space-y-6">
       <SectionHeader title="用户管理" sub="OPC 账户审核、角色权限配置、认证等级调整、封禁/解封" />
-      <div className="flex gap-3 mb-2">
+      <div className="flex items-center gap-3 flex-wrap">
         {FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)}
+          <button key={f} onClick={() => { setFilter(f); setPage(1); }}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${filter === f ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {FILTER_LABELS[f]}
           </button>
         ))}
+        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索用户名/邮箱…"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+          </div>
+          <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+        </form>
       </div>
       <TableShell headers={["用户", "邮箱", "手机号", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={9} /> : users.length === 0 ? <EmptyRow cols={9} /> :
@@ -383,6 +434,7 @@ function UserManagement() {
           ))
         }
       </TableShell>
+      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
     </div>
   );
 }
@@ -408,11 +460,15 @@ function DemandManagement() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [filter, setFilter] = useState("all");
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: demands = [], isLoading } = useQuery<AdminDemand[]>({
-    queryKey: ["admin-demands", filter],
-    queryFn: () => adminGet(`/api/admin/demands?status=${filter === "all" ? "" : filter}`),
+  const { data: resp, isLoading } = useQuery<PagedResp<AdminDemand>>({
+    queryKey: ["admin-demands", filter, q, page],
+    queryFn: () => adminGet(`/api/admin/demands?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
   });
+  const demands = resp?.data ?? [];
 
   const mutate = useMutation({
     mutationFn: ({ id, action }: { id: number; action: string }) =>
@@ -447,13 +503,22 @@ function DemandManagement() {
   return (
     <div className="space-y-6">
       <SectionHeader title="需求管理" sub="需求审核、状态变更、强制关闭、紧急标记" />
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         {STATUS_FILTERS.map(f => (
-          <button key={f.val} onClick={() => setFilter(f.val)}
+          <button key={f.val} onClick={() => { setFilter(f.val); setPage(1); }}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${filter === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {f.label}
           </button>
         ))}
+        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索标题/需求编号…"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+          </div>
+          <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+        </form>
       </div>
       <TableShell headers={["需求标题", "编号", "发单方", "预算", "创建日期", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={7} /> : demands.length === 0 ? <EmptyRow cols={7} /> :
@@ -519,6 +584,7 @@ function DemandManagement() {
           ))
         }
       </TableShell>
+      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
     </div>
   );
 }
@@ -544,11 +610,15 @@ function OrderManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [filter, setFilter] = useState("all");
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: orders = [], isLoading } = useQuery<AdminOrder[]>({
-    queryKey: ["admin-orders", filter],
-    queryFn: () => adminGet(`/api/admin/orders?status=${filter === "all" ? "" : filter}`),
+  const { data: resp, isLoading } = useQuery<PagedResp<AdminOrder>>({
+    queryKey: ["admin-orders", filter, q, page],
+    queryFn: () => adminGet(`/api/admin/orders?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
   });
+  const orders = resp?.data ?? [];
 
   const mutate = useMutation({
     mutationFn: ({ id, action }: { id: number; action: string }) =>
@@ -578,13 +648,22 @@ function OrderManagement() {
   return (
     <div className="space-y-6">
       <SectionHeader title="订单管理" sub="订单全生命周期跟踪、争议介入、强制结算" />
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {STATUS_FILTERS.map(f => (
-          <button key={f.val} onClick={() => setFilter(f.val)}
+          <button key={f.val} onClick={() => { setFilter(f.val); setPage(1); }}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${filter === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {f.label}
           </button>
         ))}
+        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索订单号…"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-40" />
+          </div>
+          <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+        </form>
       </div>
       <TableShell headers={["订单号", "关联需求", "OPC", "金额", "里程碑", "已进行", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={8} /> : orders.length === 0 ? <EmptyRow cols={8} /> :
@@ -633,6 +712,7 @@ function OrderManagement() {
           ))
         }
       </TableShell>
+      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
     </div>
   );
 }
@@ -655,12 +735,18 @@ interface FinanceData {
     publisherName: string;
     createdAt: string;
   }>;
+  transactionsTotal: number;
+  transactionsPage: number;
+  transactionsPageSize: number;
 }
 
 function FinanceManagement() {
+  const [txStatus, setTxStatus] = useState("all");
+  const [page, setPage] = useState(1);
+
   const { data, isLoading } = useQuery<FinanceData>({
-    queryKey: ["admin-finance"],
-    queryFn: () => adminGet("/api/admin/finance"),
+    queryKey: ["admin-finance", txStatus, page],
+    queryFn: () => adminGet(`/api/admin/finance?status=${txStatus === "all" ? "" : txStatus}&page=${page}&pageSize=20`),
   });
 
   const stats = data ? [
@@ -678,18 +764,33 @@ function FinanceManagement() {
   }[s] ?? "bg-slate-100 text-slate-500");
   const statusCN: Record<string, string> = { completed: "已完成", in_progress: "进行中", pending_acceptance: "待验收", closed: "已关闭", disputed: "争议中" };
 
+  const TX_FILTERS = [
+    { val: "all", label: "全部" }, { val: "completed", label: "已完成" },
+    { val: "in_progress", label: "进行中" }, { val: "pending_acceptance", label: "待验收" },
+    { val: "disputed", label: "争议中" },
+  ];
+
   return (
     <div className="space-y-6">
       <SectionHeader title="财务管理" sub="分成结算报表、资金流水、对账报表" />
-      {isLoading ? (
+      {isLoading && !data ? (
         <div className="flex items-center justify-center py-16"><Loader2 size={32} className="animate-spin text-primary" /></div>
       ) : (
         <>
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
             {stats.map(s => <StatCard key={s.label} {...s} />)}
           </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {TX_FILTERS.map(f => (
+              <button key={f.val} onClick={() => { setTxStatus(f.val); setPage(1); }}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${txStatus === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
           <TableShell headers={["订单号", "OPC 接单方", "发单方", "订单金额", "OPC 分润", "平台费", "日期", "状态"]}>
-            {(data?.transactions ?? []).length === 0 ? <EmptyRow cols={8} /> :
+            {isLoading ? <LoadingRow cols={8} /> :
+              (data?.transactions ?? []).length === 0 ? <EmptyRow cols={8} /> :
               data?.transactions.map(t => (
                 <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
                   <td className="px-6 py-4 font-mono text-xs font-bold text-primary">{t.orderNo}</td>
@@ -704,6 +805,12 @@ function FinanceManagement() {
               ))
             }
           </TableShell>
+          <AdminPagination
+            page={data?.transactionsPage ?? page}
+            pageSize={data?.transactionsPageSize ?? 20}
+            total={data?.transactionsTotal ?? 0}
+            onPage={setPage}
+          />
         </>
       )}
     </div>
@@ -729,11 +836,16 @@ interface OpcEcoItem {
 function EcosystemManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [levelFilter, setLevelFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
-  const { data: opcs = [], isLoading } = useQuery<OpcEcoItem[]>({
-    queryKey: ["admin-ecosystem"],
-    queryFn: () => adminGet("/api/admin/ecosystem"),
+  const { data: resp, isLoading } = useQuery<PagedResp<OpcEcoItem>>({
+    queryKey: ["admin-ecosystem", q, levelFilter, page],
+    queryFn: () => adminGet(`/api/admin/ecosystem?q=${encodeURIComponent(q)}&level=${levelFilter === "all" ? "" : levelFilter}&page=${page}&pageSize=20`),
   });
+  const opcs = resp?.data ?? [];
 
   const mutate = useMutation({
     mutationFn: ({ id, action, value }: { id: number; action: string; value?: string | number }) =>
@@ -744,13 +856,35 @@ function EcosystemManagement() {
 
   const [pendingLevel, setPendingLevel] = useState<Record<number, string>>({});
 
+  const LEVEL_FILTERS = [
+    { val: "all", label: "全部" }, { val: "A", label: "A 级" },
+    { val: "B", label: "B 级" }, { val: "C", label: "C 级" }, { val: "newbie", label: "新手" },
+  ];
+
   return (
     <div className="space-y-6">
       <SectionHeader title="OPC 生态池管理" sub="能力标签管理、信用分调整、升降级审批、生态池数据统计" />
       <div className="grid grid-cols-3 gap-5">
-        <StatCard label="生态池总 OPC" value={opcs.length.toString()} icon={Users} />
+        <StatCard label="生态池总 OPC" value={(resp?.total ?? 0).toString()} icon={Users} />
         <StatCard label="A 级 OPC" value={opcs.filter(o => o.level === "A").length.toString()} icon={ArrowUpRight} />
         <StatCard label="信用分预警 (<3.5)" value={opcs.filter(o => (o.credit_score ?? 5) < 3.5).length.toString()} icon={AlertCircle} accent />
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {LEVEL_FILTERS.map(f => (
+          <button key={f.val} onClick={() => { setLevelFilter(f.val); setPage(1); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${levelFilter === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {f.label}
+          </button>
+        ))}
+        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索用户名/邮箱…"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+          </div>
+          <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+        </form>
       </div>
       <TableShell headers={["OPC", "等级", "信用分", "完成订单", "完成率", "技能标签", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={8} /> : opcs.length === 0 ? <EmptyRow cols={8} /> :
@@ -818,6 +952,7 @@ function EcosystemManagement() {
           ))
         }
       </TableShell>
+      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
     </div>
   );
 }
@@ -848,6 +983,9 @@ interface AdminCourse {
 
 interface TrainingData {
   courses: AdminCourse[];
+  coursesTotal: number;
+  coursesPage: number;
+  coursesPageSize: number;
   totalEnrollments: number;
   totalPassed: number;
   totalCerts: number;
@@ -1324,10 +1462,15 @@ function TrainingManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editCourse, setEditCourse] = useState<AdminCourse | null>(null);
   const [enrollCourse, setEnrollCourse] = useState<AdminCourse | null>(null);
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [courseStatus, setCourseStatus] = useState("all");
+  const [courseLevel, setCourseLevel] = useState("all");
+  const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery<TrainingData>({
-    queryKey: ["admin-training"],
-    queryFn: () => adminGet("/api/admin/training"),
+    queryKey: ["admin-training", q, courseStatus, courseLevel, page],
+    queryFn: () => adminGet(`/api/admin/training?q=${encodeURIComponent(q)}&status=${courseStatus === "all" ? "" : courseStatus}&level=${courseLevel === "all" ? "" : courseLevel}&page=${page}&pageSize=20`),
   });
 
   const createMutation = useMutation({
@@ -1385,6 +1528,15 @@ function TrainingManagement() {
 
   const courses = data?.courses ?? [];
 
+  const COURSE_STATUS_FILTERS = [
+    { val: "all", label: "全部" }, { val: "published", label: "开放中" },
+    { val: "draft", label: "草稿" }, { val: "closed", label: "已结课" },
+  ];
+  const COURSE_LEVEL_FILTERS = [
+    { val: "all", label: "全部等级" }, { val: "C", label: "C 级" },
+    { val: "B", label: "B 级" }, { val: "A", label: "A 级" },
+  ];
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -1403,6 +1555,31 @@ function TrainingManagement() {
         <StatCard label="总报名人次" value={(data?.totalEnrollments ?? 0).toString()} icon={Users} />
         <StatCard label="证书已发放" value={(data?.totalCerts ?? 0).toString()} icon={Award} accent />
         <StatCard label="课程收入(元)" value={(data?.totalRevenue ?? 0).toFixed(0)} icon={DollarSign} />
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {COURSE_STATUS_FILTERS.map(f => (
+          <button key={f.val} onClick={() => { setCourseStatus(f.val); setPage(1); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${courseStatus === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {f.label}
+          </button>
+        ))}
+        <span className="text-slate-200">|</span>
+        {COURSE_LEVEL_FILTERS.map(f => (
+          <button key={f.val} onClick={() => { setCourseLevel(f.val); setPage(1); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${courseLevel === f.val ? "bg-secondary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {f.label}
+          </button>
+        ))}
+        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索课程名称…"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+          </div>
+          <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+        </form>
       </div>
 
       <TableShell headers={["课程名称", "分类", "等级", "讲师", "时长", "价格", "状态", "报名/发证", "操作"]}>
@@ -1497,6 +1674,7 @@ function TrainingManagement() {
           ))
         }
       </TableShell>
+      <AdminPagination page={page} pageSize={data?.coursesPageSize ?? 20} total={data?.coursesTotal ?? 0} onPage={setPage} />
 
       <CourseModal
         open={modalOpen}
@@ -1824,17 +2002,25 @@ function ContentReview() {
   const { toast } = useToast();
   const [previewPost, setPreviewPost] = useState<AdminPost | null>(null);
   const [contentTab, setContentTab] = useState<"posts" | "comments">("posts");
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [page, setPage] = useState(1);
+  const [cPage, setCPage] = useState(1);
+  const [cQ, setCQ] = useState("");
+  const [cQInput, setCQInput] = useState("");
 
-  const { data: posts = [], isLoading } = useQuery<AdminPost[]>({
-    queryKey: ["admin-content"],
-    queryFn: () => adminGet("/api/admin/content"),
+  const { data: postsResp, isLoading } = useQuery<PagedResp<AdminPost>>({
+    queryKey: ["admin-content", q, page],
+    queryFn: () => adminGet(`/api/admin/content?q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
   });
+  const posts = postsResp?.data ?? [];
 
-  const { data: comments = [], isLoading: commentsLoading } = useQuery<AdminComment[]>({
-    queryKey: ["admin-content-comments"],
-    queryFn: () => adminGet("/api/admin/content/comments"),
+  const { data: commentsResp, isLoading: commentsLoading } = useQuery<PagedResp<AdminComment>>({
+    queryKey: ["admin-content-comments", cQ, cPage],
+    queryFn: () => adminGet(`/api/admin/content/comments?q=${encodeURIComponent(cQ)}&page=${cPage}&pageSize=20`),
     enabled: contentTab === "comments",
   });
+  const comments = commentsResp?.data ?? [];
 
   const deletePost = useMutation({
     mutationFn: (id: number) => adminDelete(`/api/admin/content/posts/${id}`),
@@ -1875,7 +2061,6 @@ function ContentReview() {
 
   return (
     <>
-      {/* ── Full-text Preview Modal ── */}
       {previewPost && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
@@ -1959,29 +2144,53 @@ function ContentReview() {
               <Flame size={13} /> 热门 {featuredCount} 篇
             </div>
             <div className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
-              <BarChart3 size={13} /> 共 {posts.length} 篇
+              <BarChart3 size={13} /> 共 {postsResp?.total ?? posts.length} 篇
             </div>
           </div>
         }
       />
 
       {/* Tab switcher */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-        <button
-          onClick={() => setContentTab("posts")}
-          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${contentTab === "posts" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-        >
-          帖子
-        </button>
-        <button
-          onClick={() => setContentTab("comments")}
-          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${contentTab === "comments" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-        >
-          回复管理
-        </button>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => setContentTab("posts")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${contentTab === "posts" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            帖子
+          </button>
+          <button
+            onClick={() => setContentTab("comments")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${contentTab === "comments" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            回复管理
+          </button>
+        </div>
+        {contentTab === "posts" ? (
+          <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索标题/内容…"
+                className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+            </div>
+            <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+            {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          </form>
+        ) : (
+          <form onSubmit={e => { e.preventDefault(); setCQ(cQInput); setCPage(1); }} className="flex items-center gap-1 ml-auto">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={cQInput} onChange={e => setCQInput(e.target.value)} placeholder="搜索回复内容…"
+                className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+            </div>
+            <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+            {cQ && <button type="button" onClick={() => { setCQ(""); setCQInput(""); setCPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          </form>
+        )}
       </div>
 
       {contentTab === "posts" ? (
+        <>
         <TableShell headers={["编号", "帖子标题", "作者", "标签", "点赞", "评论", "发布日期", "操作"]}>
           {isLoading ? <LoadingRow cols={8} /> : posts.length === 0 ? <EmptyRow cols={8} /> :
             posts.map(p => (
@@ -2028,7 +2237,10 @@ function ContentReview() {
             ))
           }
         </TableShell>
+        <AdminPagination page={page} pageSize={postsResp?.pageSize ?? 20} total={postsResp?.total ?? 0} onPage={setPage} />
+        </>
       ) : (
+        <>
         <TableShell headers={["编号", "所属帖子", "评论者", "回复内容", "发布日期", "操作"]}>
           {commentsLoading ? <LoadingRow cols={6} /> : comments.length === 0 ? <EmptyRow cols={6} /> :
             comments.map(c => (
@@ -2053,6 +2265,8 @@ function ContentReview() {
             ))
           }
         </TableShell>
+        <AdminPagination page={cPage} pageSize={commentsResp?.pageSize ?? 20} total={commentsResp?.total ?? 0} onPage={setCPage} />
+        </>
       )}
     </div>
     </>
@@ -2708,13 +2922,15 @@ function LevelCertReview() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "reviewed">("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [page, setPage] = useState(1);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
-  const { data = [], isLoading, refetch } = useQuery<LevelCertRow[]>({
-    queryKey: ["admin-level-certs"],
-    queryFn: () => adminGet("/api/admin/level-certs"),
+  const { data: resp, isLoading, refetch } = useQuery<PagedResp<LevelCertRow>>({
+    queryKey: ["admin-level-certs", filterStatus, page],
+    queryFn: () => adminGet(`/api/admin/level-certs?status=${filterStatus === "all" ? "" : filterStatus}&page=${page}&pageSize=20`),
   });
+  const filtered = resp?.data ?? [];
 
   const reviewMut = useMutation({
     mutationFn: ({ portfolioId, result, downgradeTo }: { portfolioId: number; result: string; downgradeTo?: string }) =>
@@ -2729,13 +2945,7 @@ function LevelCertReview() {
     onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
 
-  const filtered = data.filter(r =>
-    filterStatus === "all" ? true :
-    filterStatus === "pending" ? r.level_apply_status === "pending" :
-    r.level_apply_status !== "pending"
-  );
-
-  const pendingCount = data.filter(r => r.level_apply_status === "pending").length;
+  const pendingCount = filtered.filter(r => r.level_apply_status === "pending").length;
 
   return (
     <div>
@@ -2759,16 +2969,19 @@ function LevelCertReview() {
 
       <SectionHeader
         title="作品等级认证审核"
-        sub={`共 ${data.length} 条申请，其中 ${pendingCount} 条待审`}
+        sub={`共 ${resp?.total ?? 0} 条申请，当前页 ${pendingCount} 条待审`}
         action={
           <div className="flex items-center gap-2">
             <select
               value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value as never)}
+              onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
               className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
               <option value="all">全部</option>
               <option value="pending">待审核</option>
               <option value="reviewed">已审核</option>
+              <option value="approved">已通过</option>
+              <option value="downgraded">降级通过</option>
+              <option value="rejected">未通过</option>
             </select>
             <button onClick={() => refetch()}
               className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
@@ -3002,6 +3215,7 @@ function LevelCertReview() {
           })}
         </div>
       )}
+      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
     </div>
   );
 }

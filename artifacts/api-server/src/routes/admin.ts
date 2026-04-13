@@ -52,6 +52,12 @@ const router: IRouter = Router();
 
 router.use("/admin", requireAdmin);
 
+function paginate(query: Record<string, string | string[] | undefined>, defaultSize = 20) {
+  const page = Math.max(1, parseInt(String(query.page ?? 1)) || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize ?? defaultSize)) || defaultSize));
+  return { page, pageSize, offset: (page - 1) * pageSize };
+}
+
 /* ─── STATS ──────────────────────────────────────── */
 
 router.get("/admin/stats", async (_req, res) => {
@@ -103,6 +109,7 @@ router.get("/admin/stats", async (_req, res) => {
 router.get("/admin/users", async (req, res) => {
   try {
     const { role, status, q } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
 
     const conditions = [];
     if (role && role !== "all") conditions.push(eq(usersTable.role, role as "opc" | "publisher" | "admin"));
@@ -111,6 +118,10 @@ router.get("/admin/users", async (req, res) => {
       ilike(usersTable.nickname, `%${q}%`),
       ilike(usersTable.email, `%${q}%`)
     ));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await db.select({ total: count() }).from(usersTable).where(where);
 
     const users = await db.select({
       id: usersTable.id,
@@ -123,9 +134,9 @@ router.get("/admin/users", async (req, res) => {
       createdAt: usersTable.createdAt,
     })
       .from(usersTable)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(where)
       .orderBy(desc(usersTable.createdAt))
-      .limit(100);
+      .limit(pageSize).offset(offset);
 
     const withOpcProfiles = await Promise.all(users.map(async (u) => {
       if (u.role !== "opc") return { ...u, opcLevel: null, creditScore: null, totalOrders: null };
@@ -140,7 +151,7 @@ router.get("/admin/users", async (req, res) => {
       };
     }));
 
-    res.json(withOpcProfiles);
+    res.json({ data: withOpcProfiles, total: Number(total), page, pageSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取用户列表失败" });
@@ -176,10 +187,18 @@ router.patch("/admin/users/:id", async (req, res) => {
 router.get("/admin/demands", async (req, res) => {
   try {
     const { status, q } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
 
     const conditions = [];
     if (status && status !== "all") conditions.push(eq(demandsTable.status, status as "pending_review" | "published" | "in_progress" | "completed" | "closed" | "matched" | "draft" | "pending_acceptance"));
-    if (q) conditions.push(ilike(demandsTable.title, `%${q}%`));
+    if (q) conditions.push(or(
+      ilike(demandsTable.title, `%${q}%`),
+      ilike(demandsTable.demandNo, `%${q}%`),
+    ));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await db.select({ total: count() }).from(demandsTable).where(where);
 
     const demands = await db.select({
       id: demandsTable.id,
@@ -195,9 +214,9 @@ router.get("/admin/demands", async (req, res) => {
       deadline: demandsTable.deadline,
     })
       .from(demandsTable)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(where)
       .orderBy(desc(demandsTable.createdAt))
-      .limit(100);
+      .limit(pageSize).offset(offset);
 
     const withPublisher = await Promise.all(demands.map(async (d) => {
       const [pub] = await db.select({ nickname: usersTable.nickname })
@@ -205,7 +224,7 @@ router.get("/admin/demands", async (req, res) => {
       return { ...d, publisherName: pub?.nickname ?? "—" };
     }));
 
-    res.json(withPublisher);
+    res.json({ data: withPublisher, total: Number(total), page, pageSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取需求列表失败" });
@@ -244,10 +263,16 @@ router.patch("/admin/demands/:id", async (req, res) => {
 
 router.get("/admin/orders", async (req, res) => {
   try {
-    const { status } = req.query as Record<string, string>;
+    const { status, q } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
 
     const conditions = [];
     if (status && status !== "all") conditions.push(eq(ordersTable.status, status as "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed"));
+    if (q) conditions.push(ilike(ordersTable.orderNo, `%${q}%`));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await db.select({ total: count() }).from(ordersTable).where(where);
 
     const orders = await db.select({
       id: ordersTable.id,
@@ -263,9 +288,9 @@ router.get("/admin/orders", async (req, res) => {
       milestones: ordersTable.milestones,
     })
       .from(ordersTable)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(where)
       .orderBy(desc(ordersTable.createdAt))
-      .limit(100);
+      .limit(pageSize).offset(offset);
 
     const enriched = await Promise.all(orders.map(async (o) => {
       const [opc] = await db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, o.opcId)).limit(1);
@@ -290,7 +315,7 @@ router.get("/admin/orders", async (req, res) => {
       };
     }));
 
-    res.json(enriched);
+    res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取订单列表失败" });
@@ -321,8 +346,11 @@ router.patch("/admin/orders/:id", async (req, res) => {
 
 /* ─── FINANCE ─────────────────────────────────────── */
 
-router.get("/admin/finance", async (_req, res) => {
+router.get("/admin/finance", async (req, res) => {
   try {
+    const { status } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
+
     const [totals] = await db.select({
       totalAmount: sql<number>`COALESCE(SUM(${ordersTable.amount}), 0)`,
       totalPlatformFee: sql<number>`COALESCE(SUM(${ordersTable.platformFee}), 0)`,
@@ -335,6 +363,12 @@ router.get("/admin/finance", async (_req, res) => {
       or(eq(ordersTable.status, "in_progress"), eq(ordersTable.status, "pending_acceptance"))
     );
 
+    const txConditions = [];
+    if (status && status !== "all") txConditions.push(eq(ordersTable.status, status as "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed"));
+    const txWhere = txConditions.length > 0 ? and(...txConditions) : undefined;
+
+    const [{ total: txTotal }] = await db.select({ total: count() }).from(ordersTable).where(txWhere);
+
     const recentOrders = await db.select({
       id: ordersTable.id,
       orderNo: ordersTable.orderNo,
@@ -345,7 +379,7 @@ router.get("/admin/finance", async (_req, res) => {
       opcId: ordersTable.opcId,
       publisherId: ordersTable.publisherId,
       createdAt: ordersTable.createdAt,
-    }).from(ordersTable).orderBy(desc(ordersTable.createdAt)).limit(20);
+    }).from(ordersTable).where(txWhere).orderBy(desc(ordersTable.createdAt)).limit(pageSize).offset(offset);
 
     const transactions = await Promise.all(recentOrders.map(async (o) => {
       const [opc] = await db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, o.opcId)).limit(1);
@@ -359,6 +393,9 @@ router.get("/admin/finance", async (_req, res) => {
       opcShare: Number(totals.totalOpcShare) || 0,
       pendingEscrow: Number(pendingAmount.val) || 0,
       transactions,
+      transactionsTotal: Number(txTotal),
+      transactionsPage: page,
+      transactionsPageSize: pageSize,
     });
   } catch (err) {
     console.error(err);
@@ -368,8 +405,22 @@ router.get("/admin/finance", async (_req, res) => {
 
 /* ─── ECOSYSTEM (OPC POOL) ─────────────────────────── */
 
-router.get("/admin/ecosystem", async (_req, res) => {
+router.get("/admin/ecosystem", async (req, res) => {
   try {
+    const { q, level } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
+
+    const qFilter  = q     ? sql`AND (u.nickname ILIKE ${'%' + q + '%'} OR u.email ILIKE ${'%' + q + '%'})` : sql``;
+    const lvFilter = (level && level !== "all") ? sql`AND p.level = ${level}` : sql``;
+
+    const [countRow] = (await db.execute(sql`
+      SELECT COUNT(*)::int AS total
+      FROM users u
+      LEFT JOIN opc_profiles p ON p.user_id = u.id
+      WHERE u.role = 'opc'
+      ${qFilter} ${lvFilter}
+    `)).rows as Array<{ total: number }>;
+
     const opcs = await db.execute(sql`
       SELECT
         u.id,
@@ -387,11 +438,12 @@ router.get("/admin/ecosystem", async (_req, res) => {
       FROM users u
       LEFT JOIN opc_profiles p ON p.user_id = u.id
       WHERE u.role = 'opc'
+      ${qFilter} ${lvFilter}
       ORDER BY p.credit_score DESC NULLS LAST
-      LIMIT 100
+      LIMIT ${pageSize} OFFSET ${offset}
     `);
 
-    res.json(opcs.rows);
+    res.json({ data: opcs.rows, total: Number(countRow?.total ?? 0), page, pageSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取生态池数据失败" });
@@ -424,8 +476,20 @@ router.patch("/admin/ecosystem/:userId", async (req, res) => {
 
 /* ─── TRAINING ─────────────────────────────────────── */
 
-router.get("/admin/training", async (_req, res) => {
+router.get("/admin/training", async (req, res) => {
   try {
+    const { q, status: courseStatus, level } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
+
+    const qFilter = q ? sql`AND c.title ILIKE ${'%' + q + '%'}` : sql``;
+    const statusFilter = (courseStatus && courseStatus !== "all") ? sql`AND c.status = ${courseStatus}` : sql``;
+    const levelFilter = (level && level !== "all") ? sql`AND c.required_level = ${level}` : sql``;
+
+    const [countRow] = (await db.execute(sql`
+      SELECT COUNT(*)::int AS total FROM courses c
+      WHERE 1=1 ${qFilter} ${statusFilter} ${levelFilter}
+    `)).rows as Array<{ total: number }>;
+
     const rows = await db.execute(sql`
       SELECT
         c.id,
@@ -450,8 +514,10 @@ router.get("/admin/training", async (_req, res) => {
         COALESCE(SUM(CASE WHEN e.payment_status = 'paid' THEN c.price ELSE 0 END), 0) AS total_revenue
       FROM courses c
       LEFT JOIN enrollments e ON e.course_id = c.id
+      WHERE 1=1 ${qFilter} ${statusFilter} ${levelFilter}
       GROUP BY c.id
       ORDER BY c.created_at DESC
+      LIMIT ${pageSize} OFFSET ${offset}
     `);
 
     const statsRows = await db.execute(sql`
@@ -466,6 +532,9 @@ router.get("/admin/training", async (_req, res) => {
 
     res.json({
       courses: rows.rows,
+      coursesTotal: Number(countRow?.total ?? 0),
+      coursesPage: page,
+      coursesPageSize: pageSize,
       totalEnrollments: Number(enrollStats?.total_enrollments ?? 0),
       totalPassed: Number(enrollStats?.total_passed ?? 0),
       totalCerts: Number(enrollStats?.total_certs ?? 0),
@@ -690,8 +759,23 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
 
 /* ─── LEVEL CERT REVIEW ───────────────────────────── */
 
-router.get("/admin/level-certs", async (_req, res) => {
+router.get("/admin/level-certs", async (req, res) => {
   try {
+    const { status } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
+
+    const statusClause = (status && status !== "all")
+      ? (status === "reviewed"
+          ? sql`AND p.level_apply_status != 'pending'`
+          : sql`AND p.level_apply_status = ${status}`)
+      : sql``;
+
+    const [countRow] = (await db.execute(sql`
+      SELECT COUNT(*)::int AS total
+      FROM portfolios p
+      WHERE p.apply_level IS NOT NULL ${statusClause}
+    `)).rows as Array<{ total: number }>;
+
     const rows = await db.execute(sql`
       SELECT
         p.id,
@@ -726,12 +810,13 @@ router.get("/admin/level-certs", async (_req, res) => {
       FROM portfolios p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
-      WHERE p.apply_level IS NOT NULL
+      WHERE p.apply_level IS NOT NULL ${statusClause}
       ORDER BY
         CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
         p.created_at DESC
+      LIMIT ${pageSize} OFFSET ${offset}
     `);
-    res.json(rows.rows);
+    res.json({ data: rows.rows, total: Number(countRow?.total ?? 0), page, pageSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取等级认证列表失败" });
@@ -820,8 +905,20 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
 
 /* ─── CONTENT REVIEW ──────────────────────────────── */
 
-router.get("/admin/content", async (_req, res) => {
+router.get("/admin/content", async (req, res) => {
   try {
+    const { q } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
+
+    const conditions = [];
+    if (q) conditions.push(or(
+      ilike(postsTable.title, `%${q}%`),
+      ilike(postsTable.content, `%${q}%`),
+    ));
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await db.select({ total: count() }).from(postsTable).where(where);
+
     const posts = await db.select({
       id: postsTable.id,
       title: postsTable.title,
@@ -835,15 +932,16 @@ router.get("/admin/content", async (_req, res) => {
       createdAt: postsTable.createdAt,
     })
       .from(postsTable)
+      .where(where)
       .orderBy(desc(postsTable.createdAt))
-      .limit(50);
+      .limit(pageSize).offset(offset);
 
     const enriched = await Promise.all(posts.map(async (p) => {
       const [author] = await db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, p.authorId)).limit(1);
       return { ...p, authorName: author?.nickname ?? "—" };
     }));
 
-    res.json(enriched);
+    res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取内容列表失败" });
@@ -875,8 +973,17 @@ router.delete("/admin/content/posts/:id", async (req, res) => {
   }
 });
 
-router.get("/admin/content/comments", async (_req, res) => {
+router.get("/admin/content/comments", async (req, res) => {
   try {
+    const { q } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
+
+    const conditions = [];
+    if (q) conditions.push(ilike(postCommentsTable.content, `%${q}%`));
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await db.select({ total: count() }).from(postCommentsTable).where(where);
+
     const comments = await db
       .select({
         id: postCommentsTable.id,
@@ -888,12 +995,13 @@ router.get("/admin/content/comments", async (_req, res) => {
         authorName: usersTable.nickname,
       })
       .from(postCommentsTable)
+      .where(where)
       .leftJoin(postsTable, eq(postCommentsTable.postId, postsTable.id))
       .leftJoin(usersTable, eq(postCommentsTable.authorId, usersTable.id))
       .orderBy(desc(postCommentsTable.createdAt))
-      .limit(200);
+      .limit(pageSize).offset(offset);
 
-    res.json(comments);
+    res.json({ data: comments, total: Number(total), page, pageSize });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取评论列表失败" });
