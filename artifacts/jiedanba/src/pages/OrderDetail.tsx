@@ -3,8 +3,9 @@ import { useRoute, useLocation } from "wouter";
 import {
   ArrowLeft, CheckCircle2, Clock, XCircle, UploadCloud, AlertCircle,
   ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag, Star, Send, Loader2,
-  Building2, MapPin, Globe, Mail, Users, CalendarDays, ChevronRight,
+  Building2, MapPin, Globe, Mail, Users, CalendarDays, ChevronRight, Link2,
 } from "lucide-react";
+
 import {
   useGetOrderById,
   useSubmitDeliverable,
@@ -13,6 +14,20 @@ import type { Milestone, Deliverable } from "@workspace/api-client-react";
 import { ORDER_STATUSES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function extractUrls(text: string): { urls: string[]; plainText: string } {
+  if (!text) return { urls: [], plainText: "" };
+  const urlRegex = /https?:\/\/[^\s|,，]+/g;
+  const urls: string[] = [];
+  const plainText = text
+    .replace(urlRegex, (match) => { urls.push(match.trim()); return ""; })
+    .replace(/\|/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return { urls, plainText };
+}
 
 const MS_STATUS_CFG = {
   pending:   { label: "待提交", icon: Clock,       cls: "bg-amber-100 text-amber-700" },
@@ -202,16 +217,28 @@ function MilestoneCard({
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">本节点交付记录</p>
               {msDelivs.map((d) => {
                 const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
+                const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
+                const allUrls = d.fileUrl
+                  ? [d.fileUrl, ...descUrls.filter(u => u !== d.fileUrl)]
+                  : descUrls;
                 return (
                   <div key={d.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-background border border-border">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground">{d.title}</p>
-                      {d.description && <p className="text-xs text-muted-foreground mt-0.5">{d.description}</p>}
-                      {d.fileUrl && (
-                        <a href={d.fileUrl} target="_blank" rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary font-bold mt-1 hover:underline">
-                          <ExternalLink size={11} /> 查看附件
-                        </a>
+                      {plainText && <p className="text-xs text-muted-foreground mt-0.5">{plainText}</p>}
+                      {allUrls.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {allUrls.map((url, j) => {
+                            const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
+                            return (
+                              <a key={j} href={url} target="_blank" rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
+                                <Link2 size={10} />
+                                {filename.length > 20 ? filename.slice(0, 18) + "…" : filename}
+                              </a>
+                            );
+                          })}
+                        </div>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
                         {new Date(d.submittedAt).toLocaleString("zh-CN")}
@@ -280,7 +307,7 @@ function OpcReviewPanel({ orderId, onDone }: { orderId: number; onDone: () => vo
     if (rating === 0) { toast({ title: "请选择评分", variant: "destructive" }); return; }
     setLoading(true);
     try {
-      const res = await fetch(`/api/orders/${orderId}/opc-review`, {
+      const res = await fetch(`${BASE}/api/orders/${orderId}/opc-review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -576,6 +603,55 @@ export default function OrderDetail() {
               onRefetch={onRefetch}
             />
           ))}
+
+          {/* Show deliverables that were submitted without a milestone binding */}
+          {unlinkedDelivs.length > 0 && (
+            <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <FileText size={13} /> 整体交付记录
+              </p>
+              <div className="space-y-2">
+                {unlinkedDelivs.map((d) => {
+                  const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
+                  const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
+                  const allUrls = d.fileUrl
+                    ? [d.fileUrl, ...descUrls.filter(u => u !== d.fileUrl)]
+                    : descUrls;
+                  return (
+                    <div key={d.id} className="flex items-start justify-between gap-3 p-4 rounded-xl bg-background border border-border">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-foreground text-sm">{d.title}</p>
+                        {plainText && <p className="text-xs text-muted-foreground mt-0.5">{plainText}</p>}
+                        {d.feedback && d.status === "rejected" && (
+                          <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+                            打回原因：{d.feedback}
+                          </div>
+                        )}
+                        {allUrls.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {allUrls.map((url, j) => {
+                              const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
+                              return (
+                                <a key={j} href={url} target="_blank" rel="noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
+                                  <Link2 size={10} />
+                                  {filename.length > 22 ? filename.slice(0, 20) + "…" : filename}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                          {new Date(d.submittedAt).toLocaleString("zh-CN")}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${dc.cls}`}>{dc.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-card rounded-2xl border border-border shadow-sm p-6">

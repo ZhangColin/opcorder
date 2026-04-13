@@ -403,7 +403,7 @@ export default function MyOrders() {
               </section>
             )}
 
-            {/* Deliverable Submission */}
+            {/* Deliverable Submission — only while in_progress */}
             {order && order.status === "in_progress" && (
               <section className="bg-white rounded-2xl p-8 shadow-sm border border-border/50">
                 <h3 className="font-display font-extrabold text-xl text-foreground mb-6">
@@ -456,69 +456,70 @@ export default function MyOrders() {
                     提交最终交付物
                   </button>
                 </div>
+              </section>
+            )}
 
-                {/* Previous deliverables */}
-                {order.deliverables && order.deliverables.length > 0 && (
-                  <div className="mt-6">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                      已提交记录
-                    </p>
-                    <div className="space-y-2">
-                      {order.deliverables.map((d: any, i: number) => {
-                        const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
-                        const allUrls = d.fileUrl
-                          ? [d.fileUrl, ...descUrls.filter((u: string) => u !== d.fileUrl)]
-                          : descUrls;
-                        return (
-                          <div
-                            key={i}
-                            className="bg-muted/40 px-4 py-3 rounded-lg border border-border/40"
-                          >
-                            <div className="flex items-center gap-3">
-                              <FileText size={14} className="text-muted-foreground shrink-0" />
-                              <span className="text-sm font-medium text-foreground flex-1 truncate">
-                                {d.title}
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                                  d.status === "approved"
-                                    ? "bg-secondary/10 text-secondary"
-                                    : d.status === "rejected"
-                                    ? "bg-destructive/10 text-destructive"
-                                    : "bg-primary/10 text-primary"
-                                }`}
-                              >
-                                {d.status === "approved" ? "已通过" : d.status === "rejected" ? "已驳回" : "审核中"}
-                              </span>
-                            </div>
-                            {plainText && (
-                              <p className="text-xs text-muted-foreground mt-1 ml-5">{plainText}</p>
-                            )}
-                            {allUrls.length > 0 && (
-                              <div className="mt-2 ml-5 flex flex-wrap gap-2">
-                                {allUrls.map((url: string, j: number) => {
-                                  const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
-                                  return (
-                                    <a
-                                      key={j}
-                                      href={url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
-                                    >
-                                      <ExternalLink size={10} />
-                                      {filename.length > 20 ? filename.slice(0, 18) + "…" : filename}
-                                    </a>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+            {/* Submitted deliverables — visible for in_progress AND pending_acceptance */}
+            {order && (order.status === "in_progress" || order.status === "pending_acceptance") &&
+              order.deliverables && order.deliverables.length > 0 && (
+              <section className="bg-white rounded-2xl p-8 shadow-sm border border-border/50">
+                {order.status === "pending_acceptance" && (
+                  <div className="flex items-center gap-3 mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <CheckCircle2 size={20} className="text-amber-600 shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-amber-800">交付物已提交，等待发单方验收</p>
+                      <p className="text-xs text-amber-700 mt-0.5">发单方将在 48 小时内完成验收，请保持关注通知。</p>
                     </div>
                   </div>
                 )}
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                  已提交记录
+                </p>
+                <div className="space-y-2">
+                  {order.deliverables.map((d: any, i: number) => {
+                    const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
+                    const allUrls = d.fileUrl
+                      ? [d.fileUrl, ...descUrls.filter((u: string) => u !== d.fileUrl)]
+                      : descUrls;
+                    return (
+                      <div key={i} className="bg-muted/40 px-4 py-3 rounded-lg border border-border/40">
+                        <div className="flex items-center gap-3">
+                          <FileText size={14} className="text-muted-foreground shrink-0" />
+                          <span className="text-sm font-medium text-foreground flex-1 truncate">
+                            {d.title}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                            d.status === "approved"
+                              ? "bg-secondary/10 text-secondary"
+                              : d.status === "rejected"
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-primary/10 text-primary"
+                          }`}>
+                            {d.status === "approved" ? "已通过" : d.status === "rejected" ? "已驳回" : "审核中"}
+                          </span>
+                        </div>
+                        {plainText && (
+                          <p className="text-xs text-muted-foreground mt-1 ml-5">{plainText}</p>
+                        )}
+                        {allUrls.length > 0 && (
+                          <div className="mt-2 ml-5 flex flex-wrap gap-2">
+                            {allUrls.map((url: string, j: number) => {
+                              const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
+                              return (
+                                <a key={j} href={url} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+                                >
+                                  <ExternalLink size={10} />
+                                  {filename.length > 20 ? filename.slice(0, 18) + "…" : filename}
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
             )}
 
