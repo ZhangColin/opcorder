@@ -268,7 +268,11 @@ router.get("/admin/orders", async (req, res) => {
 
     const conditions = [];
     if (status && status !== "all") conditions.push(eq(ordersTable.status, status as "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed"));
-    if (q) conditions.push(ilike(ordersTable.orderNo, `%${q}%`));
+    if (q) conditions.push(or(
+      ilike(ordersTable.orderNo, `%${q}%`),
+      sql`${ordersTable.demandId} IN (SELECT id FROM demands WHERE title ILIKE ${`%${q}%`})`,
+      sql`${ordersTable.opcId} IN (SELECT id FROM users WHERE nickname ILIKE ${`%${q}%`})`,
+    ));
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -914,6 +918,7 @@ router.get("/admin/content", async (req, res) => {
     if (q) conditions.push(or(
       ilike(postsTable.title, `%${q}%`),
       ilike(postsTable.content, `%${q}%`),
+      sql`${postsTable.authorId} IN (SELECT id FROM users WHERE nickname ILIKE ${`%${q}%`})`,
     ));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -979,7 +984,10 @@ router.get("/admin/content/comments", async (req, res) => {
     const { page, pageSize, offset } = paginate(req.query);
 
     const conditions = [];
-    if (q) conditions.push(ilike(postCommentsTable.content, `%${q}%`));
+    if (q) conditions.push(or(
+      ilike(postCommentsTable.content, `%${q}%`),
+      sql`${postCommentsTable.authorId} IN (SELECT id FROM users WHERE nickname ILIKE ${`%${q}%`})`,
+    ));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [{ total }] = await db.select({ total: count() }).from(postCommentsTable).where(where);

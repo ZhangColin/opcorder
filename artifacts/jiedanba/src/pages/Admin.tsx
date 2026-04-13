@@ -236,6 +236,21 @@ function AdminPagination({ page, pageSize, total, onPage }: {
   );
 }
 
+/* ─── Shared hook: admin list state ─────────────── */
+
+function useAdminListState<F extends string = string>(defaultFilter: F = "" as F) {
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [filter, setFilter] = useState<F>(defaultFilter);
+  const [page, setPage] = useState(1);
+
+  const commitSearch = () => { setQ(qInput); setPage(1); };
+  const clearSearch = () => { setQ(""); setQInput(""); setPage(1); };
+  const applyFilter = (f: F) => { setFilter(f); setPage(1); };
+
+  return { q, qInput, setQInput, filter, page, setPage, commitSearch, clearSearch, applyFilter };
+}
+
 /* ─── Module: 数据看板 ─────────────────────────── */
 
 interface AdminStats {
@@ -335,14 +350,13 @@ interface PagedResp<T> { data: T[]; total: number; page: number; pageSize: numbe
 function UserManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [filter, setFilter] = useState("all");
-  const [q, setQ] = useState("");
-  const [qInput, setQInput] = useState("");
-  const [page, setPage] = useState(1);
+  const { q, qInput, setQInput, page, setPage, commitSearch, clearSearch } = useAdminListState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminUser>>({
-    queryKey: ["admin-users", filter, q, page],
-    queryFn: () => adminGet(`/api/admin/users?role=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
+    queryKey: ["admin-users", roleFilter, statusFilter, q, page],
+    queryFn: () => adminGet(`/api/admin/users?role=${roleFilter === "all" ? "" : roleFilter}&status=${statusFilter === "all" ? "" : statusFilter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
   });
   const users = resp?.data ?? [];
 
@@ -353,8 +367,10 @@ function UserManagement() {
     onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
-  const FILTERS = ["all", "opc", "publisher"];
-  const FILTER_LABELS: Record<string, string> = { all: "全部", opc: "OPC", publisher: "发单方" };
+  const ROLE_FILTERS = ["all", "opc", "publisher"];
+  const ROLE_LABELS: Record<string, string> = { all: "全部角色", opc: "OPC", publisher: "发单方" };
+  const STATUS_FILTERS = ["all", "active", "suspended"];
+  const STATUS_LABELS: Record<string, string> = { all: "全部状态", active: "正常", suspended: "封禁" };
 
   const roleLabel = (r: string) => ({ opc: "OPC", publisher: "发单方", admin: "管理员" }[r] ?? r);
   const roleColor = (r: string) => ({ opc: "bg-secondary/10 text-secondary", publisher: "bg-primary/10 text-primary", admin: "bg-purple-100 text-purple-700" }[r] ?? "bg-slate-100 text-slate-500");
@@ -365,20 +381,27 @@ function UserManagement() {
     <div className="space-y-6">
       <SectionHeader title="用户管理" sub="OPC 账户审核、角色权限配置、认证等级调整、封禁/解封" />
       <div className="flex items-center gap-3 flex-wrap">
-        {FILTERS.map(f => (
-          <button key={f} onClick={() => { setFilter(f); setPage(1); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${filter === f ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-            {FILTER_LABELS[f]}
+        {ROLE_FILTERS.map(f => (
+          <button key={f} onClick={() => { setRoleFilter(f); setPage(1); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${roleFilter === f ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {ROLE_LABELS[f]}
           </button>
         ))}
-        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+        <div className="w-px h-4 bg-slate-200" />
+        {STATUS_FILTERS.map(s => (
+          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${statusFilter === s ? (s === "suspended" ? "bg-red-500 text-white" : "bg-green-600 text-white") : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {STATUS_LABELS[s]}
+          </button>
+        ))}
+        <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索用户名/邮箱…"
               className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
           </div>
           <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
-          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
       <TableShell headers={["用户", "邮箱", "手机号", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
@@ -658,8 +681,8 @@ function OrderManagement() {
         <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索订单号…"
-              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-40" />
+            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索订单号/需求/OPC…"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
           </div>
           <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
           {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
@@ -2170,7 +2193,7 @@ function ContentReview() {
           <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
             <div className="relative">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索标题/内容…"
+              <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索标题/内容/作者…"
                 className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
             </div>
             <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
@@ -2180,7 +2203,7 @@ function ContentReview() {
           <form onSubmit={e => { e.preventDefault(); setCQ(cQInput); setCPage(1); }} className="flex items-center gap-1 ml-auto">
             <div className="relative">
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={cQInput} onChange={e => setCQInput(e.target.value)} placeholder="搜索回复内容…"
+              <input value={cQInput} onChange={e => setCQInput(e.target.value)} placeholder="搜索回复内容/作者…"
                 className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
             </div>
             <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
@@ -2362,27 +2385,25 @@ function PlatformCockpit() {
 
 /* ─── Module: 争议管理 ──────────────────────────── */
 
+type DisputeOrder = {
+  id: number; orderNo: string; status: string; amount: number;
+  opcName: string; publisherName: string; demandTitle: string;
+  daysSinceCreated: number; createdAt: string;
+  totalMilestones: number; completedMilestones: number;
+};
+
 function DisputeManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: orders = [], isLoading } = useQuery<Array<{
-    id: number; orderNo: string; status: string; amount: number;
-    opcName: string; publisherName: string; demandTitle: string;
-    daysSinceCreated: number; createdAt: string;
-    totalMilestones: number; completedMilestones: number;
-  }>>({
+  const { data: disputedResp, isLoading } = useQuery<PagedResp<DisputeOrder>>({
     queryKey: ["admin-orders-disputed"],
-    queryFn: () => adminGet("/api/admin/orders?status=disputed"),
+    queryFn: () => adminGet("/api/admin/orders?status=disputed&pageSize=200"),
   });
 
-  const allOrders = useQuery<Array<{
-    id: number; orderNo: string; status: string; amount: number;
-    opcName: string; publisherName: string; demandTitle: string;
-    daysSinceCreated: number; createdAt: string;
-  }>>({
+  const allOrdersResp = useQuery<PagedResp<DisputeOrder>>({
     queryKey: ["admin-orders-all-for-dispute"],
-    queryFn: () => adminGet("/api/admin/orders"),
+    queryFn: () => adminGet("/api/admin/orders?pageSize=200"),
   });
 
   const mutate = useMutation({
@@ -2397,8 +2418,7 @@ function DisputeManagement() {
     onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
-  const disputed = orders.filter(o => o.status === "disputed");
-  const allDisputed = allOrders.data?.filter(o => o.status === "disputed") ?? disputed;
+  const allDisputed = disputedResp?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -2460,9 +2480,9 @@ function DisputeManagement() {
           <p className="text-xs text-slate-400">（进行中的订单可被标记为争议）</p>
         </div>
         <TableShell headers={["订单编号", "需求标题", "金额", "状态", "操作"]}>
-          {allOrders.isLoading ? <LoadingRow cols={5} /> :
-            (allOrders.data ?? []).filter(o => o.status === "in_progress").length === 0 ? <EmptyRow cols={5} /> :
-            (allOrders.data ?? []).filter(o => o.status === "in_progress").map(o => (
+          {allOrdersResp.isLoading ? <LoadingRow cols={5} /> :
+            (allOrdersResp.data?.data ?? []).filter(o => o.status === "in_progress").length === 0 ? <EmptyRow cols={5} /> :
+            (allOrdersResp.data?.data ?? []).filter(o => o.status === "in_progress").map(o => (
               <tr key={o.id} className="hover:bg-slate-50/60 transition-colors">
                 <td className="px-6 py-4 font-mono text-xs text-slate-400">{o.orderNo}</td>
                 <td className="px-6 py-4 text-sm font-bold text-blue-900 max-w-[200px]">
