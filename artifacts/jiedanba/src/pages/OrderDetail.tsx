@@ -163,11 +163,19 @@ function MilestoneCard({
   onRefetch: () => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const status = ms.status ?? "pending";
+
+  // Use 1-based index as the milestone ID (JSONB milestones don't have their own id)
+  const msDelivs = deliverables.filter((d) => d.milestoneId === index + 1);
+
+  // Derive milestone status from its deliverables, not from ms.status (which is undefined in JSONB)
+  const status =
+    msDelivs.some((d) => d.status === "approved") ? "completed" :
+    msDelivs.some((d) => d.status === "submitted") ? "submitted" :
+    msDelivs.some((d) => d.status === "rejected") ? "rejected" :
+    "pending";
+
   const cfg = MS_STATUS_CFG[status as keyof typeof MS_STATUS_CFG] ?? MS_STATUS_CFG.pending;
   const Icon = cfg.icon;
-
-  const msDelivs = deliverables.filter((d) => d.milestoneId === ms.id);
   const canSubmit = orderStatus === "in_progress" && (status === "pending" || status === "rejected");
   const latestRejected = msDelivs.find((d) => d.status === "rejected");
   const rejectedCount = msDelivs.filter((d) => d.status === "rejected").length;
@@ -253,7 +261,7 @@ function MilestoneCard({
 
           {canSubmit && (
             <EmptyDelivForm
-              milestoneId={ms.id}
+              milestoneId={index + 1}
               milestoneLabel={ms.name}
               orderId={orderId}
               onSuccess={onRefetch}

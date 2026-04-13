@@ -231,14 +231,23 @@ export default function MyOrders() {
     }
     const allLinks = [...allCodeLinks, ...allDocLinks];
     const description = allLinks.join("\n");
+
+    // Find first milestone not yet submitted (1-based index = milestoneId)
+    const submittedMsIds = new Set(
+      order.deliverables?.filter((d: any) => d.milestoneId != null).map((d: any) => d.milestoneId) ?? []
+    );
+    const currentMsIdx = (order.milestones ?? []).findIndex((_: any, i: number) => !submittedMsIds.has(i + 1));
+    const effectiveMsIdx = currentMsIdx >= 0 ? currentMsIdx : 0;
+
     try {
       await submitMutation.mutateAsync({
         orderId: order.id,
         data: {
-          title: order.milestones?.[0]?.name ?? "交付物",
+          title: order.milestones?.[effectiveMsIdx]?.name ?? "交付物",
           description,
           fileUrl: allLinks[0],
           fileName: "交付文件",
+          milestoneId: order.milestones?.length ? effectiveMsIdx + 1 : undefined,
         },
       });
       setCodeLinks([]);
@@ -379,27 +388,38 @@ export default function MyOrders() {
                   </div>
                 </div>
 
-                {/* Current Milestone Info */}
-                {order.milestones?.[0] && (
-                  <div className="mt-4 p-5 bg-muted/50 rounded-xl flex items-start gap-4 border border-border/40">
-                    <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
-                      <Clock size={18} />
-                    </div>
-                    <div>
-                      <p className="font-display font-bold text-foreground">
-                        当前里程碑：{order.milestones[0].name}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                        {order.milestones[0].deliverableDesc}
-                        {order.milestones[0].deadline && (
-                          <span className="ml-2 font-bold text-primary">
-                            · 截止 {formatDate(order.milestones[0].deadline)}
-                          </span>
+                {/* Current Milestone Info — find first milestone without a submitted deliverable */}
+                {(() => {
+                  const submittedIds = new Set(
+                    order.deliverables?.filter((d: any) => d.milestoneId != null).map((d: any) => d.milestoneId) ?? []
+                  );
+                  const activeMsIdx = (order.milestones ?? []).findIndex((_: any, i: number) => !submittedIds.has(i + 1));
+                  const ms = order.milestones?.[activeMsIdx >= 0 ? activeMsIdx : 0];
+                  const allDone = activeMsIdx === -1 && (order.milestones?.length ?? 0) > 0;
+                  if (!ms) return null;
+                  return (
+                    <div className="mt-4 p-5 bg-muted/50 rounded-xl flex items-start gap-4 border border-border/40">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${allDone ? "bg-secondary/10 text-secondary" : "bg-secondary/10 text-secondary"}`}>
+                        {allDone ? <CheckCircle2 size={18} /> : <Clock size={18} />}
+                      </div>
+                      <div>
+                        <p className="font-display font-bold text-foreground">
+                          {allDone ? "全部里程碑已提交" : `当前里程碑：${ms.name}`}
+                        </p>
+                        {!allDone && (
+                          <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+                            {ms.deliverableDesc}
+                            {ms.deadline && (
+                              <span className="ml-2 font-bold text-primary">
+                                · 截止 {formatDate(ms.deadline)}
+                              </span>
+                            )}
+                          </p>
                         )}
-                      </p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </section>
             )}
 
