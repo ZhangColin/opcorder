@@ -285,6 +285,7 @@ interface AdminUser {
   id: number;
   nickname: string;
   email: string;
+  phone: string | null;
   role: string;
   status: string;
   createdAt: string;
@@ -329,7 +330,7 @@ function UserManagement() {
           </button>
         ))}
       </div>
-      <TableShell headers={["用户", "邮箱", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
+      <TableShell headers={["用户", "邮箱", "手机号", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={8} /> : users.length === 0 ? <EmptyRow cols={8} /> :
           users.map(u => (
             <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">

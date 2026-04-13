@@ -116,6 +116,7 @@ router.get("/admin/users", async (req, res) => {
       id: usersTable.id,
       nickname: usersTable.nickname,
       email: usersTable.email,
+      phone: usersTable.phone,
       role: usersTable.role,
       status: usersTable.status,
       avatar: usersTable.avatar,
