@@ -29,6 +29,23 @@ function extractUrls(text: string): { urls: string[]; plainText: string } {
   return { urls, plainText };
 }
 
+// Return only human-readable text from a description, stripping all file references.
+function extractDescriptionText(description: string | null | undefined): string {
+  if (!description) return "";
+  return description
+    .split("\n")
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return false;
+      if (t.startsWith("/api/") || t.startsWith("http://") || t.startsWith("https://")) return false;
+      if (t.indexOf("\t") >= 0) return false;
+      return true;
+    })
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // Returns a human-readable label for a storage/external URL.
 function friendlyUrl(url: string): string {
   if (!url) return "文件";
@@ -272,7 +289,7 @@ function MilestoneCard({
               {msDelivs.map((d) => {
                 const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
                 const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
-                const plainText = extractUrls(d.description ?? "").plainText;
+                const plainText = extractDescriptionText(d.description);
                 return (
                   <div key={d.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-background border border-border">
                     <div className="flex-1 min-w-0">
@@ -679,7 +696,7 @@ export default function OrderDetail() {
                 {unlinkedDelivs.map((d) => {
                   const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
                   const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
-                  const plainText2 = extractUrls(d.description ?? "").plainText;
+                  const plainText2 = extractDescriptionText(d.description);
                   return (
                     <div key={d.id} className="flex items-start justify-between gap-3 p-4 rounded-xl bg-background border border-border">
                       <div className="flex-1 min-w-0">

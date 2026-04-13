@@ -33,6 +33,60 @@ function extractUrls(text: string): { urls: string[]; plainText: string } {
   return { urls, plainText };
 }
 
+function extractDescriptionText(description: string | null | undefined): string {
+  if (!description) return "";
+  return description
+    .split("\n")
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return false;
+      if (t.startsWith("/api/") || t.startsWith("http://") || t.startsWith("https://")) return false;
+      if (t.indexOf("\t") >= 0) return false;
+      return true;
+    })
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function friendlyUrl(url: string): string {
+  if (!url) return "文件";
+  if (url.includes("/api/storage/objects/uploads/") || url.includes("/storage/objects/uploads/")) return "";
+  const last = url.split("?")[0].split("/").pop() || "";
+  return last.length > 30 ? last.slice(0, 28) + "…" : last;
+}
+
+function parseDelivFiles(
+  description: string | null | undefined,
+  fileUrl?: string | null,
+  fileName?: string | null,
+): { url: string; label: string }[] {
+  const files: { url: string; label: string }[] = [];
+  if (description) {
+    for (const line of description.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const tabIdx = trimmed.indexOf("\t");
+      if (tabIdx >= 0) {
+        const url = trimmed.slice(0, tabIdx).trim();
+        const name = trimmed.slice(tabIdx + 1).trim();
+        if (url) files.push({ url, label: name || friendlyUrl(url) });
+      } else if (trimmed.startsWith("/api/") || trimmed.startsWith("http")) {
+        files.push({ url: trimmed, label: friendlyUrl(trimmed) });
+      }
+    }
+  }
+  if (fileUrl && !files.find(f => f.url === fileUrl)) {
+    const label = fileName && fileName !== "交付文件" ? fileName : friendlyUrl(fileUrl);
+    files.unshift({ url: fileUrl, label });
+  }
+  let storageIdx = 1;
+  for (const f of files) {
+    if (!f.label) { f.label = `已上传文件 ${storageIdx++}`; }
+  }
+  return files;
+}
+
 const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   in_progress:        { label: "进行中",  color: "bg-green-100 text-green-700" },
   pending_acceptance: { label: "待验收",  color: "bg-orange-100 text-orange-700" },
@@ -375,11 +429,8 @@ export default function PublisherOrderDetail() {
                       <div className="space-y-3">
                         {order.deliverables.map((d) => {
                           const dCfg = DELIVERABLE_STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
-                          const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
-                          // Deduplicate: fileUrl may already be in descUrls
-                          const allUrls = d.fileUrl
-                            ? [d.fileUrl, ...descUrls.filter(u => u !== d.fileUrl)]
-                            : descUrls;
+                          const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
+                          const plainText = extractDescriptionText(d.description);
                           return (
                             <div
                               key={d.id}
@@ -399,26 +450,23 @@ export default function PublisherOrderDetail() {
                                   <p className="text-xs text-slate-500 leading-relaxed">{plainText}</p>
                                 )}
                                 {/* Clickable file links */}
-                                {allUrls.length > 0 && (
+                                {delivFiles.length > 0 && (
                                   <div className="mt-2 flex flex-wrap gap-2">
-                                    {allUrls.map((url, i) => {
-                                      const filename = url.split("/").pop()?.split("?")[0] ?? `文件${i + 1}`;
-                                      return (
-                                        <a
-                                          key={i}
-                                          href={url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
-                                        >
-                                          <Download size={12} />
-                                          {filename.length > 24 ? filename.slice(0, 21) + "…" : filename}
-                                        </a>
-                                      );
-                                    })}
+                                    {delivFiles.map((f, i) => (
+                                      <a
+                                        key={i}
+                                        href={f.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+                                      >
+                                        <Download size={12} />
+                                        {f.label.length > 24 ? f.label.slice(0, 21) + "…" : f.label}
+                                      </a>
+                                    ))}
                                   </div>
                                 )}
-                                {allUrls.length === 0 && !plainText && (
+                                {delivFiles.length === 0 && !plainText && (
                                   <p className="text-xs text-slate-400 italic">暂无附件</p>
                                 )}
                                 {d.feedback && (

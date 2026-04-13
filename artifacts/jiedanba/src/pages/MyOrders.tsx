@@ -40,6 +40,22 @@ function extractUrls(text: string): { urls: string[]; plainText: string } {
   return { urls, plainText };
 }
 
+function extractDescriptionText(description: string | null | undefined): string {
+  if (!description) return "";
+  return description
+    .split("\n")
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return false;
+      if (t.startsWith("/api/") || t.startsWith("http://") || t.startsWith("https://")) return false;
+      if (t.indexOf("\t") >= 0) return false;
+      return true;
+    })
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function friendlyUrl(url: string): string {
   if (!url) return "文件";
   if (url.includes("/api/storage/objects/uploads/") || url.includes("/storage/objects/uploads/")) return "";
@@ -559,7 +575,7 @@ export default function MyOrders() {
                 <div className="space-y-2">
                   {order.deliverables.map((d: any, i: number) => {
                     const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
-                    const plainText = extractUrls(d.description ?? "").plainText;
+                    const plainText = extractDescriptionText(d.description);
                     return (
                       <div key={i} className="bg-muted/40 px-4 py-3 rounded-lg border border-border/40">
                         <div className="flex items-center gap-3">
