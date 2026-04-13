@@ -40,6 +40,44 @@ function extractUrls(text: string): { urls: string[]; plainText: string } {
   return { urls, plainText };
 }
 
+function friendlyUrl(url: string): string {
+  if (!url) return "文件";
+  if (url.includes("/api/storage/objects/uploads/") || url.includes("/storage/objects/uploads/")) return "";
+  const last = url.split("?")[0].split("/").pop() || "";
+  return last.length > 30 ? last.slice(0, 28) + "…" : last;
+}
+
+function parseDelivFiles(
+  description: string | null | undefined,
+  fileUrl?: string | null,
+  fileName?: string | null,
+): { url: string; label: string }[] {
+  const files: { url: string; label: string }[] = [];
+  if (description) {
+    for (const line of description.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const tabIdx = trimmed.indexOf("\t");
+      if (tabIdx >= 0) {
+        const url = trimmed.slice(0, tabIdx).trim();
+        const name = trimmed.slice(tabIdx + 1).trim();
+        if (url) files.push({ url, label: name || friendlyUrl(url) });
+      } else if (trimmed.startsWith("/api/") || trimmed.startsWith("http")) {
+        files.push({ url: trimmed, label: friendlyUrl(trimmed) });
+      }
+    }
+  }
+  if (fileUrl && !files.find(f => f.url === fileUrl)) {
+    const label = fileName && fileName !== "交付文件" ? fileName : friendlyUrl(fileUrl);
+    files.unshift({ url: fileUrl, label });
+  }
+  let storageIdx = 1;
+  for (const f of files) {
+    if (!f.label) { f.label = `已上传文件 ${storageIdx++}`; }
+  }
+  return files;
+}
+
 type TabStatus = "all" | "in_progress" | "pending_acceptance" | "completed";
 
 const TABS: { label: string; value: TabStatus }[] = [
@@ -85,6 +123,7 @@ interface DeliverySectionProps {
   title: string;
   subtitle: string;
   links: string[];
+  fileNames: Record<string, string>;
   inputValue: string;
   uploading: boolean;
   onInputChange: (v: string) => void;
@@ -95,7 +134,7 @@ interface DeliverySectionProps {
 
 function DeliverySection({
   icon, accent, title, subtitle,
-  links, inputValue, uploading,
+  links, fileNames, inputValue, uploading,
   onInputChange, onAddLink, onRemoveLink, onFileChange,
 }: DeliverySectionProps) {
   const accentCls = accent === "primary"
@@ -116,17 +155,20 @@ function DeliverySection({
       {/* Added links list */}
       {links.length > 0 && (
         <ul className="space-y-1.5 mb-3">
-          {links.map((url, i) => (
-            <li key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 group">
-              <Link2 size={12} className="text-muted-foreground shrink-0" />
-              <a href={url} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-muted-foreground truncate flex-1 hover:underline">{url}</a>
-              <button onClick={() => onRemoveLink(i)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
-                <X size={12} />
-              </button>
-            </li>
-          ))}
+          {links.map((url, i) => {
+            const label = fileNames[url] || url;
+            return (
+              <li key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 group">
+                <Link2 size={12} className="text-muted-foreground shrink-0" />
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground truncate flex-1 hover:underline">{label}</a>
+                <button onClick={() => onRemoveLink(i)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
+                  <X size={12} />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -167,10 +209,12 @@ export default function MyOrders() {
   const [codeLinks, setCodeLinks] = useState<string[]>([]);
   const [codeInput, setCodeInput] = useState("");
   const [uploadingCode, setUploadingCode] = useState(false);
+  const [codeFileNames, setCodeFileNames] = useState<Record<string, string>>({});
   // multi-link state: doc section
   const [docLinks, setDocLinks] = useState<string[]>([]);
   const [docInput, setDocInput] = useState("");
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docFileNames, setDocFileNames] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { userId } = useCurrentUser();
 
@@ -198,6 +242,7 @@ export default function MyOrders() {
     section: "code" | "doc",
     setUploading: (v: boolean) => void,
     addLink: (url: string) => void,
+    recordName: (url: string, name: string) => void,
   ) {
     setUploading(true);
     try {
@@ -216,6 +261,7 @@ export default function MyOrders() {
       if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
       const fileUrl = `${BASE}/api/storage${objectPath}`;
       addLink(fileUrl);
+      recordName(fileUrl, file.name);
       toast({ title: "文件上传成功" });
     } catch (e) {
       toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
@@ -230,7 +276,12 @@ export default function MyOrders() {
       return;
     }
     const allLinks = [...allCodeLinks, ...allDocLinks];
-    const description = allLinks.join("\n");
+    const allNames = { ...codeFileNames, ...docFileNames };
+    // Build description with original filenames embedded (url\tname pairs)
+    const description = allLinks
+      .map(url => allNames[url] ? `${url}\t${allNames[url]}` : url)
+      .join("\n");
+    const firstRealName = allLinks.map(u => allNames[u]).find(n => !!n);
 
     // Find first milestone not yet submitted (1-based index = milestoneId)
     const submittedMsIds = new Set(
@@ -246,14 +297,16 @@ export default function MyOrders() {
           title: order.milestones?.[effectiveMsIdx]?.name ?? "交付物",
           description,
           fileUrl: allLinks[0],
-          fileName: "交付文件",
+          fileName: firstRealName ?? "交付文件",
           milestoneId: order.milestones?.length ? effectiveMsIdx + 1 : undefined,
         },
       });
       setCodeLinks([]);
       setCodeInput("");
+      setCodeFileNames({});
       setDocLinks([]);
       setDocInput("");
+      setDocFileNames({});
       refetchOrder();
       toast({ title: "交付物已提交", description: "发单方将在 48 小时内完成验收" });
     } catch {
@@ -437,6 +490,7 @@ export default function MyOrders() {
                     title="代码 / 文件包"
                     subtitle="ZIP、网盘链接均可"
                     links={codeLinks}
+                    fileNames={codeFileNames}
                     inputValue={codeInput}
                     uploading={uploadingCode}
                     onInputChange={setCodeInput}
@@ -445,7 +499,10 @@ export default function MyOrders() {
                       if (v) { setCodeLinks(l => [...l, v]); setCodeInput(""); }
                     }}
                     onRemoveLink={i => setCodeLinks(l => l.filter((_, idx) => idx !== i))}
-                    onFileChange={file => uploadFile(file, "code", setUploadingCode, url => setCodeLinks(l => [...l, url]))}
+                    onFileChange={file => uploadFile(file, "code", setUploadingCode,
+                      url => setCodeLinks(l => [...l, url]),
+                      (url, name) => setCodeFileNames(m => ({ ...m, [url]: name })),
+                    )}
                   />
                   {/* Delivery Docs */}
                   <DeliverySection
@@ -454,6 +511,7 @@ export default function MyOrders() {
                     title="交付文档"
                     subtitle="交付有关的所有文档，不限格式，亦可打包一并提供"
                     links={docLinks}
+                    fileNames={docFileNames}
                     inputValue={docInput}
                     uploading={uploadingDoc}
                     onInputChange={setDocInput}
@@ -462,7 +520,10 @@ export default function MyOrders() {
                       if (v) { setDocLinks(l => [...l, v]); setDocInput(""); }
                     }}
                     onRemoveLink={i => setDocLinks(l => l.filter((_, idx) => idx !== i))}
-                    onFileChange={file => uploadFile(file, "doc", setUploadingDoc, url => setDocLinks(l => [...l, url]))}
+                    onFileChange={file => uploadFile(file, "doc", setUploadingDoc,
+                      url => setDocLinks(l => [...l, url]),
+                      (url, name) => setDocFileNames(m => ({ ...m, [url]: name })),
+                    )}
                   />
                 </div>
 
@@ -497,10 +558,8 @@ export default function MyOrders() {
                 </p>
                 <div className="space-y-2">
                   {order.deliverables.map((d: any, i: number) => {
-                    const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
-                    const allUrls = d.fileUrl
-                      ? [d.fileUrl, ...descUrls.filter((u: string) => u !== d.fileUrl)]
-                      : descUrls;
+                    const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
+                    const plainText = extractUrls(d.description ?? "").plainText;
                     return (
                       <div key={i} className="bg-muted/40 px-4 py-3 rounded-lg border border-border/40">
                         <div className="flex items-center gap-3">
@@ -521,19 +580,16 @@ export default function MyOrders() {
                         {plainText && (
                           <p className="text-xs text-muted-foreground mt-1 ml-5">{plainText}</p>
                         )}
-                        {allUrls.length > 0 && (
+                        {delivFiles.length > 0 && (
                           <div className="mt-2 ml-5 flex flex-wrap gap-2">
-                            {allUrls.map((url: string, j: number) => {
-                              const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
-                              return (
-                                <a key={j} href={url} target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
-                                >
-                                  <ExternalLink size={10} />
-                                  {filename.length > 20 ? filename.slice(0, 18) + "…" : filename}
-                                </a>
-                              );
-                            })}
+                            {delivFiles.map((f, j) => (
+                              <a key={j} href={f.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+                              >
+                                <ExternalLink size={10} />
+                                {f.label.length > 22 ? f.label.slice(0, 20) + "…" : f.label}
+                              </a>
+                            ))}
                           </div>
                         )}
                       </div>

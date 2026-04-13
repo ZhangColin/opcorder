@@ -29,6 +29,52 @@ function extractUrls(text: string): { urls: string[]; plainText: string } {
   return { urls, plainText };
 }
 
+// Returns a human-readable label for a storage/external URL.
+function friendlyUrl(url: string): string {
+  if (!url) return "文件";
+  if (url.includes("/api/storage/objects/uploads/") || url.includes("/storage/objects/uploads/")) return "";
+  const last = url.split("?")[0].split("/").pop() || "";
+  return last.length > 30 ? last.slice(0, 28) + "…" : last;
+}
+
+// Parse deliverable description into { url, label } pairs.
+// Supports both old format (one path per line) and new format (path\toriginalName).
+function parseDelivFiles(
+  description: string | null | undefined,
+  fileUrl?: string | null,
+  fileName?: string | null,
+): { url: string; label: string }[] {
+  const files: { url: string; label: string }[] = [];
+
+  if (description) {
+    for (const line of description.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const tabIdx = trimmed.indexOf("\t");
+      if (tabIdx >= 0) {
+        const url = trimmed.slice(0, tabIdx).trim();
+        const name = trimmed.slice(tabIdx + 1).trim();
+        if (url) files.push({ url, label: name || friendlyUrl(url) });
+      } else if (trimmed.startsWith("/api/") || trimmed.startsWith("http")) {
+        files.push({ url: trimmed, label: friendlyUrl(trimmed) });
+      }
+    }
+  }
+
+  // Always include fileUrl (the primary file) if not already listed
+  if (fileUrl && !files.find(f => f.url === fileUrl)) {
+    const label = fileName && fileName !== "交付文件" ? fileName : friendlyUrl(fileUrl);
+    files.unshift({ url: fileUrl, label });
+  }
+
+  // Number any unlabelled storage files ("" label from friendlyUrl)
+  let storageIdx = 1;
+  for (const f of files) {
+    if (!f.label) { f.label = `已上传文件 ${storageIdx++}`; }
+  }
+  return files;
+}
+
 const MS_STATUS_CFG = {
   pending:   { label: "待提交", icon: Clock,       cls: "bg-amber-100 text-amber-700" },
   submitted: { label: "审核中", icon: Clock,       cls: "bg-blue-100  text-blue-700"  },
@@ -225,27 +271,22 @@ function MilestoneCard({
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">本节点交付记录</p>
               {msDelivs.map((d) => {
                 const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
-                const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
-                const allUrls = d.fileUrl
-                  ? [d.fileUrl, ...descUrls.filter(u => u !== d.fileUrl)]
-                  : descUrls;
+                const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
+                const plainText = extractUrls(d.description ?? "").plainText;
                 return (
                   <div key={d.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-background border border-border">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground">{d.title}</p>
                       {plainText && <p className="text-xs text-muted-foreground mt-0.5">{plainText}</p>}
-                      {allUrls.length > 0 && (
+                      {delivFiles.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {allUrls.map((url, j) => {
-                            const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
-                            return (
-                              <a key={j} href={url} target="_blank" rel="noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
-                                <Link2 size={10} />
-                                {filename.length > 20 ? filename.slice(0, 18) + "…" : filename}
-                              </a>
-                            );
-                          })}
+                          {delivFiles.map((f, j) => (
+                            <a key={j} href={f.url} target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
+                              <Link2 size={10} />
+                              {f.label.length > 22 ? f.label.slice(0, 20) + "…" : f.label}
+                            </a>
+                          ))}
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
@@ -503,8 +544,16 @@ export default function OrderDetail() {
   const unlinkedDelivs = (order.deliverables ?? []).filter((d) => !d.milestoneId);
   const canSubmitGeneral = order.status === "in_progress" && !hasMilestones;
 
-  const msCompletedCount = (order.milestones ?? []).filter((m) => m.status === "approved").length;
+  // Compute milestone progress from actual deliverables (ms.status is undefined in JSONB)
   const msTotal = (order.milestones ?? []).length;
+  const msCompletedCount = (order.milestones ?? []).filter((_, i) => {
+    const msDelivs = (order.deliverables ?? []).filter(d => d.milestoneId === i + 1);
+    return msDelivs.some(d => d.status === "approved");
+  }).length;
+  const msInReviewCount = (order.milestones ?? []).filter((_, i) => {
+    const msDelivs = (order.deliverables ?? []).filter(d => d.milestoneId === i + 1);
+    return !msDelivs.some(d => d.status === "approved") && msDelivs.some(d => d.status === "submitted");
+  }).length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -577,12 +626,20 @@ export default function OrderDetail() {
               <Flag size={16} className="text-primary" /> 里程碑进度
             </h2>
             <span className="text-sm font-bold text-muted-foreground">
-              {msCompletedCount} / {msTotal} 已完成
+              {msCompletedCount > 0
+                ? `${msCompletedCount} / ${msTotal} 已完成`
+                : msInReviewCount > 0
+                ? `${msInReviewCount} / ${msTotal} 审核中`
+                : `0 / ${msTotal} 待提交`}
             </span>
           </div>
           <div className="flex gap-1 h-2">
-            {(order.milestones ?? []).map((m, i) => {
-              const s = m.status ?? "pending";
+            {(order.milestones ?? []).map((_, i) => {
+              const msDelivs = (order.deliverables ?? []).filter(d => d.milestoneId === i + 1);
+              const s = msDelivs.some(d => d.status === "approved") ? "approved"
+                : msDelivs.some(d => d.status === "submitted") ? "submitted"
+                : msDelivs.some(d => d.status === "rejected") ? "rejected"
+                : "pending";
               const bg = s === "approved" ? "bg-green-500" : s === "submitted" ? "bg-blue-400" : s === "rejected" ? "bg-red-400" : "bg-muted";
               return <div key={i} className={`flex-1 rounded-full ${bg} transition-all`} />;
             })}
@@ -621,32 +678,27 @@ export default function OrderDetail() {
               <div className="space-y-2">
                 {unlinkedDelivs.map((d) => {
                   const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
-                  const { urls: descUrls, plainText } = extractUrls(d.description ?? "");
-                  const allUrls = d.fileUrl
-                    ? [d.fileUrl, ...descUrls.filter(u => u !== d.fileUrl)]
-                    : descUrls;
+                  const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
+                  const plainText2 = extractUrls(d.description ?? "").plainText;
                   return (
                     <div key={d.id} className="flex items-start justify-between gap-3 p-4 rounded-xl bg-background border border-border">
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-foreground text-sm">{d.title}</p>
-                        {plainText && <p className="text-xs text-muted-foreground mt-0.5">{plainText}</p>}
+                        {plainText2 && <p className="text-xs text-muted-foreground mt-0.5">{plainText2}</p>}
                         {d.feedback && d.status === "rejected" && (
                           <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
                             打回原因：{d.feedback}
                           </div>
                         )}
-                        {allUrls.length > 0 && (
+                        {delivFiles.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {allUrls.map((url, j) => {
-                              const filename = url.split("/").pop()?.split("?")[0] ?? `文件${j + 1}`;
-                              return (
-                                <a key={j} href={url} target="_blank" rel="noreferrer"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
-                                  <Link2 size={10} />
-                                  {filename.length > 22 ? filename.slice(0, 20) + "…" : filename}
-                                </a>
-                              );
-                            })}
+                            {delivFiles.map((f, j) => (
+                              <a key={j} href={f.url} target="_blank" rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
+                                <Link2 size={10} />
+                                {f.label.length > 22 ? f.label.slice(0, 20) + "…" : f.label}
+                              </a>
+                            ))}
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-1.5">

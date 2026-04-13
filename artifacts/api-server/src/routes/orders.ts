@@ -184,8 +184,30 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
       status: "submitted",
     }).returning();
 
+    // Only mark pending_acceptance when all milestones have been submitted.
+    // If the order has milestones and this deliverable is for a specific one,
+    // check whether every milestone now has at least one deliverable.
+    let newStatus: string = "pending_acceptance";
+    if (body.milestoneId != null) {
+      const [ord] = await db
+        .select({ milestones: ordersTable.milestones })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId));
+
+      if (ord?.milestones && Array.isArray(ord.milestones) && ord.milestones.length > 0) {
+        const allDelivs = await db
+          .select({ milestoneId: deliverablesTable.milestoneId })
+          .from(deliverablesTable)
+          .where(eq(deliverablesTable.orderId, orderId));
+
+        const coveredIds = new Set(allDelivs.filter(d => d.milestoneId != null).map(d => d.milestoneId));
+        const allCovered = (ord.milestones as any[]).every((_: any, i: number) => coveredIds.has(i + 1));
+        newStatus = allCovered ? "pending_acceptance" : "in_progress";
+      }
+    }
+
     await db.update(ordersTable).set({
-      status: "pending_acceptance",
+      status: newStatus,
       updatedAt: new Date(),
     }).where(eq(ordersTable.id, orderId));
 
