@@ -5,7 +5,7 @@ import {
   Download, Zap, Cpu, ShieldCheck,
   BookOpen, ArrowRight, PlayCircle, Loader2, Award,
   CreditCard, BadgeCheck, AlertCircle, X, Clock,
-  Users, GraduationCap, CheckCircle,
+  Users, GraduationCap, CheckCircle, Eye, ExternalLink,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetOpcProfile,
@@ -220,18 +220,79 @@ function PaymentModal({
   );
 }
 
+/* ─── Doc Preview Modal ──────────────────────────── */
+
+function getDocPreviewUrl(rawUrl: string): string {
+  const absolute = rawUrl.startsWith("http") ? rawUrl : new URL(rawUrl, window.location.href).href;
+  const ext = rawUrl.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  const officeExts = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"];
+  if (officeExts.includes(ext)) {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(absolute)}&embedded=true`;
+  }
+  return absolute;
+}
+
+function DocPreviewModal({ url, onClose }: { url: string; onClose: () => void }) {
+  const previewUrl = getDocPreviewUrl(url);
+  const filename = url.split("/").pop()?.split("?")[0] ?? "document";
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const isOffice = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(ext);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
+      <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText size={18} className="text-primary shrink-0" />
+          <span className="text-sm font-semibold text-foreground truncate">{filename}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-muted hover:bg-muted/70 rounded-lg transition-colors text-foreground"
+          >
+            <ExternalLink size={12} /> 新标签页打开
+          </a>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center text-muted-foreground transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        <iframe
+          src={previewUrl}
+          className="w-full h-full border-0"
+          title="文档预览"
+          allow="fullscreen"
+        />
+      </div>
+      {isOffice && (
+        <p className="text-center text-[10px] text-white/40 py-1.5 bg-black/90 shrink-0">
+          通过 Google Docs 在线渲染预览 · 需要网络连接
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ─── Course Detail Modal ────────────────────────── */
 
 const LEVEL_LABELS: Record<string, string> = { C: "C 级·新手", B: "B 级·进阶", A: "A 级·专家" };
 
-function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, isEnrolling, isPaying }: {
+function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onPreviewDoc, isEnrolling, isPaying, isLoggedIn }: {
   course: Course;
   enrollment: EnrollmentInfo | null;
   onClose: () => void;
   onEnroll: (id: number) => void;
   onPay: (id: number) => void;
+  onPreviewDoc: (url: string) => void;
   isEnrolling: boolean;
   isPaying: boolean;
+  isLoggedIn: boolean;
 }) {
   const Icon = COURSE_ICONS[course.category] ?? Cpu;
   const grad = COURSE_GRADS[course.category] ?? "from-blue-700 to-indigo-900";
@@ -311,21 +372,33 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, isEnr
           {syllabusUrl && (
             <div className="border border-border rounded-xl p-4">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">课纲资料</p>
-              <a
-                href={syllabusUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-3 p-3 bg-primary/5 hover:bg-primary/10 border border-primary/15 rounded-xl transition-colors group"
-              >
+              <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/15 rounded-xl">
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                   <FileText size={20} className="text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">{getFileLabel(syllabusUrl)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">点击下载课纲文件</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">课程大纲与学习资料</p>
                 </div>
-                <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-              </a>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => onPreviewDoc(syllabusUrl)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+                    title="在浏览器中预览"
+                  >
+                    <Eye size={13} /> 预览
+                  </button>
+                  <a
+                    href={syllabusUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-foreground text-xs font-semibold rounded-lg hover:bg-muted/70 transition-colors"
+                    title="下载文件"
+                  >
+                    <Download size={13} /> 下载
+                  </a>
+                </div>
+              </div>
             </div>
           )}
 
@@ -338,7 +411,14 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, isEnr
               )}
             </div>
             <div className="flex items-center gap-3">
-              {needsPay ? (
+              {!isLoggedIn ? (
+                <a
+                  href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/login`}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition-all"
+                >
+                  <ArrowRight size={14} /> 登录后报名
+                </a>
+              ) : needsPay ? (
                 <button
                   onClick={() => onPay(course.id)}
                   disabled={isPaying}
@@ -523,6 +603,7 @@ export default function Academy() {
   const [payingId, setPayingId]         = useState<number | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [paymentModal, setPaymentModal] = useState<PaymentModalData | null>(null);
+  const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const { data: user }    = useGetCurrentUser();
@@ -638,6 +719,11 @@ export default function Academy() {
   return (
     <div className="space-y-12">
 
+      {/* Doc Preview Modal */}
+      {docPreviewUrl && (
+        <DocPreviewModal url={docPreviewUrl} onClose={() => setDocPreviewUrl(null)} />
+      )}
+
       {/* Payment Modal */}
       {paymentModal && (
         <PaymentModal
@@ -654,8 +740,10 @@ export default function Academy() {
           onClose={() => setSelectedCourse(null)}
           onEnroll={(id) => { handleEnroll(id); }}
           onPay={(id) => { handlePay(id); }}
+          onPreviewDoc={(url) => { setSelectedCourse(null); setDocPreviewUrl(url); }}
           isEnrolling={enrollingId === selectedCourse.id}
           isPaying={payingId === selectedCourse.id}
+          isLoggedIn={!!user}
         />
       )}
 
