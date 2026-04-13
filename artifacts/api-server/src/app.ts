@@ -8,17 +8,22 @@ import { logger } from "./lib/logger";
 const ALLOWED_ORIGINS = [
   "https://www.opcorder.com",
   "https://opcorder.com",
-  ...(process.env["NODE_ENV"] !== "production"
-    ? ["http://localhost:5173", "http://localhost:3000"]
-    : []),
 ];
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (process.env["NODE_ENV"] !== "production") return true;
+  if (origin.endsWith(".replit.dev") || origin.endsWith(".repl.co")) return true;
+  return false;
+}
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      callback(null, false);
     }
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
