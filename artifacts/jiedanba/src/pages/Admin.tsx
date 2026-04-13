@@ -200,19 +200,44 @@ function EmptyRow({ cols, text }: { cols: number; text?: string }) {
   );
 }
 
-function AdminPagination({ page, pageSize, total, onPage }: {
-  page: number; pageSize: number; total: number; onPage: (p: number) => void;
+function AdminPagination({ page, pageSize, total, onPage, onPageSize }: {
+  page: number; pageSize: number; total: number;
+  onPage: (p: number) => void; onPageSize?: (s: number) => void;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  if (totalPages <= 1) return null;
   const pages: number[] = [];
   const start = Math.max(1, page - 2);
   const end   = Math.min(totalPages, page + 2);
   for (let i = start; i <= end; i++) pages.push(i);
   return (
-    <div className="flex items-center justify-between mt-4 px-1">
-      <p className="text-xs text-slate-400">共 {total} 条，第 {page}/{totalPages} 页</p>
+    <div className="flex items-center justify-between mt-4 px-1 flex-wrap gap-2">
+      <div className="flex items-center gap-2 text-xs text-slate-400">
+        <span>共 <b className="text-slate-600">{total}</b> 条</span>
+        <span>·</span>
+        <span>第 <b className="text-slate-600">{page}</b> / <b className="text-slate-600">{totalPages}</b> 页</span>
+        {onPageSize && (
+          <>
+            <span>·</span>
+            <label className="flex items-center gap-1">
+              每页
+              <select
+                value={pageSize}
+                onChange={e => { onPageSize(Number(e.target.value)); }}
+                className="border border-slate-200 rounded-lg px-1.5 py-0.5 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 bg-white">
+                {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              条
+            </label>
+          </>
+        )}
+      </div>
       <div className="flex items-center gap-1">
+        <button
+          disabled={page <= 1}
+          onClick={() => onPage(1)}
+          className="px-2 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-40 transition-colors">
+          «
+        </button>
         <button
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
@@ -231,6 +256,12 @@ function AdminPagination({ page, pageSize, total, onPage }: {
           className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-40 transition-colors">
           下一页 ›
         </button>
+        <button
+          disabled={page >= totalPages}
+          onClick={() => onPage(totalPages)}
+          className="px-2 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-40 transition-colors">
+          »
+        </button>
       </div>
     </div>
   );
@@ -238,19 +269,21 @@ function AdminPagination({ page, pageSize, total, onPage }: {
 
 /* ─── Shared hook: admin list state ─────────────── */
 
-function useAdminListState<F extends string = string>(defaultFilter: F = "" as F, defaultLevel = "all") {
+function useAdminListState<F extends string = string>(defaultFilter: F = "" as F, defaultLevel = "all", defaultPageSize = 10) {
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
   const [filter, setFilter] = useState<F>(defaultFilter);
   const [level, setLevel] = useState(defaultLevel);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeRaw] = useState(defaultPageSize);
 
   const commitSearch = () => { setQ(qInput); setPage(1); };
   const clearSearch = () => { setQ(""); setQInput(""); setPage(1); };
   const applyFilter = (f: F) => { setFilter(f); setPage(1); };
   const applyLevel = (l: string) => { setLevel(l); setPage(1); };
+  const setPageSize = (s: number) => { setPageSizeRaw(s); setPage(1); };
 
-  return { q, qInput, setQInput, filter, level, page, setPage, commitSearch, clearSearch, applyFilter, applyLevel };
+  return { q, qInput, setQInput, filter, level, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter, applyLevel };
 }
 
 /* ─── Module: 数据看板 ─────────────────────────── */
@@ -352,13 +385,13 @@ interface PagedResp<T> { data: T[]; total: number; page: number; pageSize: numbe
 function UserManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { q, qInput, setQInput, page, setPage, commitSearch, clearSearch } = useAdminListState("all");
+  const { q, qInput, setQInput, page, pageSize, setPage, setPageSize, commitSearch, clearSearch } = useAdminListState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminUser>>({
-    queryKey: ["admin-users", roleFilter, statusFilter, q, page],
-    queryFn: () => adminGet(`/api/admin/users?role=${roleFilter === "all" ? "" : roleFilter}&status=${statusFilter === "all" ? "" : statusFilter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
+    queryKey: ["admin-users", roleFilter, statusFilter, q, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/users?role=${roleFilter === "all" ? "" : roleFilter}&status=${statusFilter === "all" ? "" : statusFilter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`),
   });
   const users = resp?.data ?? [];
 
@@ -459,7 +492,7 @@ function UserManagement() {
           ))
         }
       </TableShell>
-      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
+      <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
     </div>
   );
 }
@@ -484,11 +517,11 @@ function DemandManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const { q, qInput, setQInput, filter, page, setPage, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
+  const { q, qInput, setQInput, filter, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminDemand>>({
-    queryKey: ["admin-demands", filter, q, page],
-    queryFn: () => adminGet(`/api/admin/demands?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
+    queryKey: ["admin-demands", filter, q, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/demands?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`),
   });
   const demands = resp?.data ?? [];
 
@@ -606,7 +639,7 @@ function DemandManagement() {
           ))
         }
       </TableShell>
-      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
+      <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
     </div>
   );
 }
@@ -631,11 +664,11 @@ interface AdminOrder {
 function OrderManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { q, qInput, setQInput, filter, page, setPage, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
+  const { q, qInput, setQInput, filter, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminOrder>>({
-    queryKey: ["admin-orders", filter, q, page],
-    queryFn: () => adminGet(`/api/admin/orders?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
+    queryKey: ["admin-orders", filter, q, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/orders?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`),
   });
   const orders = resp?.data ?? [];
 
@@ -731,7 +764,7 @@ function OrderManagement() {
           ))
         }
       </TableShell>
-      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
+      <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
     </div>
   );
 }
@@ -760,11 +793,11 @@ interface FinanceData {
 }
 
 function FinanceManagement() {
-  const { filter: txStatus, page, setPage, applyFilter } = useAdminListState("all");
+  const { filter: txStatus, page, pageSize, setPage, setPageSize, applyFilter } = useAdminListState("all");
 
   const { data, isLoading } = useQuery<FinanceData>({
-    queryKey: ["admin-finance", txStatus, page],
-    queryFn: () => adminGet(`/api/admin/finance?status=${txStatus === "all" ? "" : txStatus}&page=${page}&pageSize=20`),
+    queryKey: ["admin-finance", txStatus, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/finance?status=${txStatus === "all" ? "" : txStatus}&page=${page}&pageSize=${pageSize}`),
   });
 
   const stats = data ? [
@@ -823,12 +856,7 @@ function FinanceManagement() {
               ))
             }
           </TableShell>
-          <AdminPagination
-            page={data?.transactionsPage ?? page}
-            pageSize={data?.transactionsPageSize ?? 20}
-            total={data?.transactionsTotal ?? 0}
-            onPage={setPage}
-          />
+          <AdminPagination page={page} pageSize={pageSize} total={data?.transactionsTotal ?? 0} onPage={setPage} onPageSize={setPageSize} />
         </>
       )}
     </div>
@@ -854,11 +882,11 @@ interface OpcEcoItem {
 function EcosystemManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { q, qInput, setQInput, level: levelFilter, page, setPage, commitSearch, clearSearch, applyLevel } = useAdminListState("all", "all");
+  const { q, qInput, setQInput, level: levelFilter, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyLevel } = useAdminListState("all", "all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<OpcEcoItem>>({
-    queryKey: ["admin-ecosystem", q, levelFilter, page],
-    queryFn: () => adminGet(`/api/admin/ecosystem?q=${encodeURIComponent(q)}&level=${levelFilter === "all" ? "" : levelFilter}&page=${page}&pageSize=20`),
+    queryKey: ["admin-ecosystem", q, levelFilter, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/ecosystem?q=${encodeURIComponent(q)}&level=${levelFilter === "all" ? "" : levelFilter}&page=${page}&pageSize=${pageSize}`),
   });
   const opcs = resp?.data ?? [];
 
@@ -967,7 +995,7 @@ function EcosystemManagement() {
           ))
         }
       </TableShell>
-      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
+      <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
     </div>
   );
 }
@@ -1477,11 +1505,11 @@ function TrainingManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editCourse, setEditCourse] = useState<AdminCourse | null>(null);
   const [enrollCourse, setEnrollCourse] = useState<AdminCourse | null>(null);
-  const { q, qInput, setQInput, filter: courseStatus, level: courseLevel, page, setPage, commitSearch, clearSearch, applyFilter: applyStatus, applyLevel } = useAdminListState("all", "all");
+  const { q, qInput, setQInput, filter: courseStatus, level: courseLevel, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter: applyStatus, applyLevel } = useAdminListState("all", "all");
 
   const { data, isLoading } = useQuery<TrainingData>({
-    queryKey: ["admin-training", q, courseStatus, courseLevel, page],
-    queryFn: () => adminGet(`/api/admin/training?q=${encodeURIComponent(q)}&status=${courseStatus === "all" ? "" : courseStatus}&level=${courseLevel === "all" ? "" : courseLevel}&page=${page}&pageSize=20`),
+    queryKey: ["admin-training", q, courseStatus, courseLevel, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/training?q=${encodeURIComponent(q)}&status=${courseStatus === "all" ? "" : courseStatus}&level=${courseLevel === "all" ? "" : courseLevel}&page=${page}&pageSize=${pageSize}`),
   });
 
   const createMutation = useMutation({
@@ -1685,7 +1713,7 @@ function TrainingManagement() {
           ))
         }
       </TableShell>
-      <AdminPagination page={page} pageSize={data?.coursesPageSize ?? 20} total={data?.coursesTotal ?? 0} onPage={setPage} />
+      <AdminPagination page={page} pageSize={pageSize} total={data?.coursesTotal ?? 0} onPage={setPage} onPageSize={setPageSize} />
 
       <CourseModal
         open={modalOpen}
@@ -2016,19 +2044,23 @@ function ContentReview() {
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeRaw] = useState(10);
   const [cPage, setCPage] = useState(1);
+  const [cPageSize, setCPageSizeRaw] = useState(10);
   const [cQ, setCQ] = useState("");
   const [cQInput, setCQInput] = useState("");
+  const setPageSize = (s: number) => { setPageSizeRaw(s); setPage(1); };
+  const setCPageSize = (s: number) => { setCPageSizeRaw(s); setCPage(1); };
 
   const { data: postsResp, isLoading } = useQuery<PagedResp<AdminPost>>({
-    queryKey: ["admin-content", q, page],
-    queryFn: () => adminGet(`/api/admin/content?q=${encodeURIComponent(q)}&page=${page}&pageSize=20`),
+    queryKey: ["admin-content", q, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/content?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`),
   });
   const posts = postsResp?.data ?? [];
 
   const { data: commentsResp, isLoading: commentsLoading } = useQuery<PagedResp<AdminComment>>({
-    queryKey: ["admin-content-comments", cQ, cPage],
-    queryFn: () => adminGet(`/api/admin/content/comments?q=${encodeURIComponent(cQ)}&page=${cPage}&pageSize=20`),
+    queryKey: ["admin-content-comments", cQ, cPage, cPageSize],
+    queryFn: () => adminGet(`/api/admin/content/comments?q=${encodeURIComponent(cQ)}&page=${cPage}&pageSize=${cPageSize}`),
     enabled: contentTab === "comments",
   });
   const comments = commentsResp?.data ?? [];
@@ -2248,7 +2280,7 @@ function ContentReview() {
             ))
           }
         </TableShell>
-        <AdminPagination page={page} pageSize={postsResp?.pageSize ?? 20} total={postsResp?.total ?? 0} onPage={setPage} />
+        <AdminPagination page={page} pageSize={pageSize} total={postsResp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
         </>
       ) : (
         <>
@@ -2276,7 +2308,7 @@ function ContentReview() {
             ))
           }
         </TableShell>
-        <AdminPagination page={cPage} pageSize={commentsResp?.pageSize ?? 20} total={commentsResp?.total ?? 0} onPage={setCPage} />
+        <AdminPagination page={cPage} pageSize={cPageSize} total={commentsResp?.total ?? 0} onPage={setCPage} onPageSize={setCPageSize} />
         </>
       )}
     </div>
@@ -2932,11 +2964,13 @@ function LevelCertReview() {
   const [reviewNote, setReviewNote] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeRaw] = useState(10);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const setPageSize = (s: number) => { setPageSizeRaw(s); setPage(1); };
 
   const { data: resp, isLoading, refetch } = useQuery<PagedResp<LevelCertRow>>({
-    queryKey: ["admin-level-certs", filterStatus, page],
-    queryFn: () => adminGet(`/api/admin/level-certs?status=${filterStatus === "all" ? "" : filterStatus}&page=${page}&pageSize=20`),
+    queryKey: ["admin-level-certs", filterStatus, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/level-certs?status=${filterStatus === "all" ? "" : filterStatus}&page=${page}&pageSize=${pageSize}`),
   });
   const filtered = resp?.data ?? [];
 
@@ -3223,7 +3257,7 @@ function LevelCertReview() {
           })}
         </div>
       )}
-      <AdminPagination page={page} pageSize={resp?.pageSize ?? 20} total={resp?.total ?? 0} onPage={setPage} />
+      <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
     </div>
   );
 }
