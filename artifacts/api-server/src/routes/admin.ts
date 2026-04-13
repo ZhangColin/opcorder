@@ -535,6 +535,10 @@ router.get("/admin/training", async (req, res) => {
     const enrollStats = (statsRows.rows as Array<Record<string, unknown>>)[0];
 
     res.json({
+      data: rows.rows,
+      total: Number(countRow?.total ?? 0),
+      page,
+      pageSize,
       courses: rows.rows,
       coursesTotal: Number(countRow?.total ?? 0),
       coursesPage: page,

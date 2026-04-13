@@ -238,17 +238,19 @@ function AdminPagination({ page, pageSize, total, onPage }: {
 
 /* ─── Shared hook: admin list state ─────────────── */
 
-function useAdminListState<F extends string = string>(defaultFilter: F = "" as F) {
+function useAdminListState<F extends string = string>(defaultFilter: F = "" as F, defaultLevel = "all") {
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
   const [filter, setFilter] = useState<F>(defaultFilter);
+  const [level, setLevel] = useState(defaultLevel);
   const [page, setPage] = useState(1);
 
   const commitSearch = () => { setQ(qInput); setPage(1); };
   const clearSearch = () => { setQ(""); setQInput(""); setPage(1); };
   const applyFilter = (f: F) => { setFilter(f); setPage(1); };
+  const applyLevel = (l: string) => { setLevel(l); setPage(1); };
 
-  return { q, qInput, setQInput, filter, page, setPage, commitSearch, clearSearch, applyFilter };
+  return { q, qInput, setQInput, filter, level, page, setPage, commitSearch, clearSearch, applyFilter, applyLevel };
 }
 
 /* ─── Module: 数据看板 ─────────────────────────── */
@@ -482,10 +484,7 @@ function DemandManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [filter, setFilter] = useState("all");
-  const [q, setQ] = useState("");
-  const [qInput, setQInput] = useState("");
-  const [page, setPage] = useState(1);
+  const { q, qInput, setQInput, filter, page, setPage, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminDemand>>({
     queryKey: ["admin-demands", filter, q, page],
@@ -528,19 +527,19 @@ function DemandManagement() {
       <SectionHeader title="需求管理" sub="需求审核、状态变更、强制关闭、紧急标记" />
       <div className="flex items-center gap-2 flex-wrap">
         {STATUS_FILTERS.map(f => (
-          <button key={f.val} onClick={() => { setFilter(f.val); setPage(1); }}
+          <button key={f.val} onClick={() => applyFilter(f.val)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${filter === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {f.label}
           </button>
         ))}
-        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+        <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索标题/需求编号…"
               className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
           </div>
           <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
-          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
       <TableShell headers={["需求标题", "编号", "发单方", "预算", "创建日期", "状态", "操作"]}>
@@ -632,10 +631,7 @@ interface AdminOrder {
 function OrderManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [filter, setFilter] = useState("all");
-  const [q, setQ] = useState("");
-  const [qInput, setQInput] = useState("");
-  const [page, setPage] = useState(1);
+  const { q, qInput, setQInput, filter, page, setPage, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminOrder>>({
     queryKey: ["admin-orders", filter, q, page],
@@ -673,19 +669,19 @@ function OrderManagement() {
       <SectionHeader title="订单管理" sub="订单全生命周期跟踪、争议介入、强制结算" />
       <div className="flex items-center gap-2 flex-wrap">
         {STATUS_FILTERS.map(f => (
-          <button key={f.val} onClick={() => { setFilter(f.val); setPage(1); }}
+          <button key={f.val} onClick={() => applyFilter(f.val)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${filter === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {f.label}
           </button>
         ))}
-        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+        <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索订单号/需求/OPC…"
               className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
           </div>
           <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
-          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
       <TableShell headers={["订单号", "关联需求", "OPC", "金额", "里程碑", "已进行", "状态", "操作"]}>
@@ -764,8 +760,7 @@ interface FinanceData {
 }
 
 function FinanceManagement() {
-  const [txStatus, setTxStatus] = useState("all");
-  const [page, setPage] = useState(1);
+  const { filter: txStatus, page, setPage, applyFilter } = useAdminListState("all");
 
   const { data, isLoading } = useQuery<FinanceData>({
     queryKey: ["admin-finance", txStatus, page],
@@ -805,7 +800,7 @@ function FinanceManagement() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {TX_FILTERS.map(f => (
-              <button key={f.val} onClick={() => { setTxStatus(f.val); setPage(1); }}
+              <button key={f.val} onClick={() => applyFilter(f.val)}
                 className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${txStatus === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
                 {f.label}
               </button>
@@ -859,10 +854,7 @@ interface OpcEcoItem {
 function EcosystemManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [q, setQ] = useState("");
-  const [qInput, setQInput] = useState("");
-  const [levelFilter, setLevelFilter] = useState("all");
-  const [page, setPage] = useState(1);
+  const { q, qInput, setQInput, level: levelFilter, page, setPage, commitSearch, clearSearch, applyLevel } = useAdminListState("all", "all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<OpcEcoItem>>({
     queryKey: ["admin-ecosystem", q, levelFilter, page],
@@ -894,19 +886,19 @@ function EcosystemManagement() {
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         {LEVEL_FILTERS.map(f => (
-          <button key={f.val} onClick={() => { setLevelFilter(f.val); setPage(1); }}
+          <button key={f.val} onClick={() => applyLevel(f.val)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${levelFilter === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {f.label}
           </button>
         ))}
-        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+        <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索用户名/邮箱…"
               className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
           </div>
           <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
-          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
       <TableShell headers={["OPC", "等级", "信用分", "完成订单", "完成率", "技能标签", "状态", "操作"]}>
@@ -1485,11 +1477,7 @@ function TrainingManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editCourse, setEditCourse] = useState<AdminCourse | null>(null);
   const [enrollCourse, setEnrollCourse] = useState<AdminCourse | null>(null);
-  const [q, setQ] = useState("");
-  const [qInput, setQInput] = useState("");
-  const [courseStatus, setCourseStatus] = useState("all");
-  const [courseLevel, setCourseLevel] = useState("all");
-  const [page, setPage] = useState(1);
+  const { q, qInput, setQInput, filter: courseStatus, level: courseLevel, page, setPage, commitSearch, clearSearch, applyFilter: applyStatus, applyLevel } = useAdminListState("all", "all");
 
   const { data, isLoading } = useQuery<TrainingData>({
     queryKey: ["admin-training", q, courseStatus, courseLevel, page],
@@ -1582,26 +1570,26 @@ function TrainingManagement() {
 
       <div className="flex items-center gap-2 flex-wrap">
         {COURSE_STATUS_FILTERS.map(f => (
-          <button key={f.val} onClick={() => { setCourseStatus(f.val); setPage(1); }}
+          <button key={f.val} onClick={() => applyStatus(f.val)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${courseStatus === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {f.label}
           </button>
         ))}
         <span className="text-slate-200">|</span>
         {COURSE_LEVEL_FILTERS.map(f => (
-          <button key={f.val} onClick={() => { setCourseLevel(f.val); setPage(1); }}
+          <button key={f.val} onClick={() => applyLevel(f.val)}
             className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${courseLevel === f.val ? "bg-secondary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
             {f.label}
           </button>
         ))}
-        <form onSubmit={e => { e.preventDefault(); setQ(qInput); setPage(1); }} className="flex items-center gap-1 ml-auto">
+        <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索课程名称…"
               className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
           </div>
           <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
-          {q && <button type="button" onClick={() => { setQ(""); setQInput(""); setPage(1); }} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
 
