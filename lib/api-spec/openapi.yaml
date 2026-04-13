@@ -977,7 +977,26 @@ components:
     UpdateOpcProfileInput:
       type: object
       properties:
+        nickname:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
         bio:
+          type: string
+        title:
+          type: string
+        location:
+          type: string
+        website:
+          type: string
+          nullable: true
+        yearsExp:
+          type: number
+        wechat:
           type: string
         skillTags:
           type: array

@@ -117,12 +117,12 @@ export const UpdateOpcProfileParams = zod.object({
 
 export const UpdateOpcProfileBody = zod.object({
   nickname: zod.string().optional(),
-  avatar: zod.string().nullable().optional(),
-  phone: zod.string().nullable().optional(),
+  avatar: zod.string().nullish(),
+  phone: zod.string().nullish(),
   bio: zod.string().optional(),
   title: zod.string().optional(),
   location: zod.string().optional(),
-  website: zod.string().nullable().optional(),
+  website: zod.string().nullish(),
   yearsExp: zod.number().optional(),
   wechat: zod.string().optional(),
   skillTags: zod.array(zod.string()).optional(),
@@ -269,18 +269,18 @@ export const CreateDemandBody = zod.object({
   opcLevel: zod.enum(["C", "B", "A", "any"]),
   budgetMin: zod.number(),
   budgetMax: zod.number(),
-  deadline: zod.date(),
+  deadline: zod.coerce.date(),
   milestones: zod
     .array(
       zod.object({
         name: zod.string(),
-        deadline: zod.date(),
+        deadline: zod.coerce.date(),
         deliverableDesc: zod.string().optional(),
       }),
     )
     .optional(),
   mode: zod.enum(["open", "directed"]),
-  bidDeadline: zod.date().optional(),
+  bidDeadline: zod.coerce.date().optional(),
   isUrgent: zod.boolean().default(createDemandBodyIsUrgentDefault),
   directedOpcIds: zod.array(zod.number()).optional(),
 });
@@ -361,17 +361,17 @@ export const UpdateDemandBody = zod.object({
   opcLevel: zod.enum(["C", "B", "A", "any"]).optional(),
   budgetMin: zod.number().optional(),
   budgetMax: zod.number().optional(),
-  deadline: zod.date().optional(),
+  deadline: zod.coerce.date().optional(),
   milestones: zod
     .array(
       zod.object({
         name: zod.string(),
-        deadline: zod.date(),
+        deadline: zod.coerce.date(),
         deliverableDesc: zod.string().optional(),
       }),
     )
     .optional(),
-  bidDeadline: zod.date().optional(),
+  bidDeadline: zod.coerce.date().optional(),
   isUrgent: zod.boolean().optional(),
 });
 
