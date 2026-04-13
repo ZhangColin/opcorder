@@ -14,6 +14,7 @@ import coursesRouter from "./courses";
 import adminRouter from "./admin";
 import settlementAccountsRouter from "./settlement-accounts";
 import paymentCallbackRouter from "./payment-callback";
+import downloadRouter from "./download";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(coursesRouter);
 router.use(adminRouter);
 router.use(settlementAccountsRouter);
 router.use(paymentCallbackRouter);
+router.use(downloadRouter);
 
 export default router;

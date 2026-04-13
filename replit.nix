@@ -1,5 +1,7 @@
 {pkgs}: {
   deps = [
+    pkgs.chromium
+    pkgs.source-han-sans
     pkgs.alsa-lib
     pkgs.expat
     pkgs.mesa

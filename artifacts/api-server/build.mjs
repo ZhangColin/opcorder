@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, cp, mkdir } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -29,6 +29,10 @@ async function buildAll() {
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
       "*.node",
+      "@swc/helpers",
+      "md-to-pdf",
+      "puppeteer",
+      "puppeteer-core",
       "sharp",
       "better-sqlite3",
       "sqlite3",
@@ -120,7 +124,21 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   });
 }
 
-buildAll().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+async function copyAssets() {
+  const srcAssetsDir = path.resolve(artifactDir, "src/assets");
+  const distAssetsDir = path.resolve(artifactDir, "dist/assets");
+  try {
+    await mkdir(distAssetsDir, { recursive: true });
+    await cp(srcAssetsDir, distAssetsDir, { recursive: true });
+    console.log("Assets copied to dist/assets");
+  } catch (err) {
+    console.warn("Could not copy assets:", err.message);
+  }
+}
+
+buildAll()
+  .then(() => copyAssets())
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
