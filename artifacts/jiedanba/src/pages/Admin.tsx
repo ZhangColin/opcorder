@@ -331,7 +331,7 @@ function UserManagement() {
         ))}
       </div>
       <TableShell headers={["用户", "邮箱", "手机号", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
-        {isLoading ? <LoadingRow cols={8} /> : users.length === 0 ? <EmptyRow cols={8} /> :
+        {isLoading ? <LoadingRow cols={9} /> : users.length === 0 ? <EmptyRow cols={9} /> :
           users.map(u => (
             <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
               <td className="px-6 py-4">
@@ -341,6 +341,7 @@ function UserManagement() {
                 </div>
               </td>
               <td className="px-6 py-4 text-xs text-slate-400">{u.email || "—"}</td>
+              <td className="px-6 py-4 text-xs text-slate-400">{u.phone || "—"}</td>
               <td className="px-6 py-4"><StatusBadge label={roleLabel(u.role)} color={roleColor(u.role)} /></td>
               <td className="px-6 py-4">
                 {u.opcLevel ? (
