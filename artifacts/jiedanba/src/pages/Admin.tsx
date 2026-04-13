@@ -93,7 +93,7 @@ async function adminDelete(path: string) {
 
 /* ─── Types ──────────────────────────────────────── */
 
-type Module =
+export type Module =
   | "dashboard" | "users" | "demands" | "orders"
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
@@ -3151,8 +3151,8 @@ function AdminSidebarLogo() {
 
 /* ─── Page ────────────────────────────────────── */
 
-export default function Admin() {
-  const [active, setActive] = useState<Module>("dashboard");
+export default function Admin({ initialModule }: { initialModule?: Module } = {}) {
+  const [active, setActive] = useState<Module>(initialModule ?? "dashboard");
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
