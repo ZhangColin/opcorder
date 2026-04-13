@@ -18,3 +18,9 @@ id = "1eAa92G3dH0CdI3yrUgE3"
 uri = "file://exports/users_export.csv"
 type = "table"
 title = "接单吧用户数据导出 (648条)"
+
+[[outputs]]
+id = "lHOgBclMQBsruCl7JedWf"
+uri = "file://OPC操作手册.md"
+type = "text"
+title = "OPC操作手册 - 接单吧平台用户指南"
