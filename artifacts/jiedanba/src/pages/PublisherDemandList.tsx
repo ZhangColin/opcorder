@@ -513,7 +513,7 @@ export default function PublisherDemandList() {
         description="关闭后该需求将无法恢复，OPC 无法再查看或报名。"
         confirmLabel="确认关闭"
         cancelLabel="取消"
-        confirmDestructive
+        confirmVariant="destructive"
         onConfirm={doClose}
         onCancel={() => setPendingCloseId(null)}
       />

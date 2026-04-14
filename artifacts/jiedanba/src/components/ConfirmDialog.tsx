@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,7 @@ interface ConfirmDialogProps {
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  confirmDestructive?: boolean;
+  confirmVariant?: "default" | "destructive";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -26,12 +27,26 @@ export function ConfirmDialog({
   description,
   confirmLabel = "确认",
   cancelLabel = "取消",
-  confirmDestructive = false,
+  confirmVariant = "default",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const confirmedRef = useRef(false);
+
+  const handleConfirm = () => {
+    confirmedRef.current = true;
+    onConfirm();
+  };
+
+  const handleOpenChange = (v: boolean) => {
+    if (!v && !confirmedRef.current) {
+      onCancel();
+    }
+    if (!v) confirmedRef.current = false;
+  };
+
   return (
-    <AlertDialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent className="max-w-sm rounded-2xl p-6">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-base font-extrabold text-blue-900">
@@ -51,9 +66,9 @@ export function ConfirmDialog({
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={handleConfirm}
             className={
-              confirmDestructive
+              confirmVariant === "destructive"
                 ? "rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 border-0"
                 : "rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600 border-0"
             }
