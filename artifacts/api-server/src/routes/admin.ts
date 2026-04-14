@@ -3,6 +3,7 @@ import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTab
 import { eq, desc, count, sql, and, ilike, or, asc } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
+import { ReviewDemandPaymentBody } from "@workspace/api-zod";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -1583,11 +1584,12 @@ router.get("/admin/demand-payments", async (req, res) => {
 router.patch("/admin/demand-payments/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { action, rejectReason } = req.body as { action: string; rejectReason?: string };
 
-    if (!["confirm", "reject"].includes(action)) {
-      return res.status(400).json({ error: "无效操作" });
+    const parsed = ReviewDemandPaymentBody.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "请求参数无效", details: parsed.error.flatten().fieldErrors });
     }
+    const { action, rejectReason } = parsed.data;
 
     const [payment] = await db
       .select({
@@ -1618,6 +1620,10 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
     // Only publish if demand is still pending_payment
     if (action === "confirm" && demand.status !== "pending_payment") {
       return res.status(409).json({ error: "需求当前状态不允许发布" });
+    }
+
+    if (action === "reject" && (!rejectReason || !rejectReason.trim())) {
+      return res.status(400).json({ error: "拒绝操作必须填写原因" });
     }
 
     const adminId = req.user!.id;

@@ -8,6 +8,7 @@ import {
   GetDemandByIdResponse,
   UpdateDemandBody,
   UpdateDemandStatusBody,
+  CreateDemandPaymentInput,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
 
@@ -354,33 +355,12 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
 router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
-    const { method, receiptUrl, paymentNote } = req.body as {
-      method: "online" | "offline";
-      receiptUrl?: string;
-      paymentNote?: string;
-    };
 
-    if (!method || !["online", "offline"].includes(method)) {
-      return res.status(400).json({ error: "method must be 'online' or 'offline'" });
+    const parsed = CreateDemandPaymentInput.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "请求参数无效", details: parsed.error.flatten().fieldErrors });
     }
-
-    // Validate receiptUrl: allow internal storage paths (/api/storage/...) or absolute https/http URLs
-    // This prevents stored XSS via javascript:/data: scheme URLs submitted by publishers
-    if (receiptUrl) {
-      const trimmed = receiptUrl.trim();
-      const isInternalStorage = /^\/[^/].*\/api\/storage\//i.test(trimmed) || trimmed.startsWith("/api/storage/");
-      if (!isInternalStorage) {
-        let parsedUrl: URL;
-        try {
-          parsedUrl = new URL(trimmed);
-        } catch {
-          return res.status(400).json({ error: "receiptUrl 格式无效" });
-        }
-        if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-          return res.status(400).json({ error: "receiptUrl 只允许 https 或 http 协议" });
-        }
-      }
-    }
+    const { method, receiptUrl, paymentNote } = parsed.data;
 
     const [demand] = await db
       .select({ status: demandsTable.status, publisherId: demandsTable.publisherId, budget: demandsTable.budget })
