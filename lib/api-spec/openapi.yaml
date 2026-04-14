@@ -891,7 +891,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DemandPayment"
+                nullable: true
+                oneOf:
+                  - $ref: "#/components/schemas/DemandPayment"
         "404":
           description: Demand not found
     post:

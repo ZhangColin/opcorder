@@ -364,16 +364,21 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "method must be 'online' or 'offline'" });
     }
 
-    // Validate receiptUrl: only allow https:// or http:// schemes to prevent stored XSS
+    // Validate receiptUrl: allow internal storage paths (/api/storage/...) or absolute https/http URLs
+    // This prevents stored XSS via javascript:/data: scheme URLs submitted by publishers
     if (receiptUrl) {
-      let parsedUrl: URL;
-      try {
-        parsedUrl = new URL(receiptUrl.trim());
-      } catch {
-        return res.status(400).json({ error: "receiptUrl 格式无效" });
-      }
-      if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-        return res.status(400).json({ error: "receiptUrl 只允许 https 或 http 协议" });
+      const trimmed = receiptUrl.trim();
+      const isInternalStorage = /^\/[^/].*\/api\/storage\//i.test(trimmed) || trimmed.startsWith("/api/storage/");
+      if (!isInternalStorage) {
+        let parsedUrl: URL;
+        try {
+          parsedUrl = new URL(trimmed);
+        } catch {
+          return res.status(400).json({ error: "receiptUrl 格式无效" });
+        }
+        if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+          return res.status(400).json({ error: "receiptUrl 只允许 https 或 http 协议" });
+        }
       }
     }
 
