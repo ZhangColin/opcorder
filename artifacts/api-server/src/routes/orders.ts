@@ -184,30 +184,18 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
       status: "submitted",
     }).returning();
 
-    // Only mark pending_acceptance when all milestones have been submitted.
-    // If the order has milestones and this deliverable is for a specific one,
-    // check whether every milestone now has at least one deliverable.
-    let newStatus: string = "pending_acceptance";
-    if (body.milestoneId != null) {
-      const [ord] = await db
-        .select({ milestones: ordersTable.milestones })
-        .from(ordersTable)
-        .where(eq(ordersTable.id, orderId));
-
-      if (ord?.milestones && Array.isArray(ord.milestones) && ord.milestones.length > 0) {
-        const allDelivs = await db
-          .select({ milestoneId: deliverablesTable.milestoneId })
-          .from(deliverablesTable)
-          .where(eq(deliverablesTable.orderId, orderId));
-
-        const coveredIds = new Set(allDelivs.filter(d => d.milestoneId != null).map(d => d.milestoneId));
-        const allCovered = (ord.milestones as any[]).every((_: any, i: number) => coveredIds.has(i + 1));
-        newStatus = allCovered ? "pending_acceptance" : "in_progress";
-      }
+    // For milestone orders: order ALWAYS stays in_progress; per-milestone review drives completion.
+    // For non-milestone orders: order transitions to pending_acceptance when submitted.
+    let newStatus: string = "in_progress";
+    if (body.milestoneId == null) {
+      // No milestone — single deliverable submission, go to pending_acceptance
+      newStatus = "pending_acceptance";
     }
+    // For milestone orders we keep in_progress (removed the "all covered" → pending_acceptance logic
+    // because per-milestone review now drives order completion, not a global accept).
 
     await db.update(ordersTable).set({
-      status: newStatus,
+      status: newStatus as any,
       updatedAt: new Date(),
     }).where(eq(ordersTable.id, orderId));
 
@@ -220,6 +208,203 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
   }
 });
 
+/* ─── Per-milestone accept ─────────────────────── */
+router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    const milestoneId = parseInt(req.params.milestoneId); // 1-based
+    const milestoneIdx = milestoneId - 1; // 0-based for JSONB array
+
+    const { rating, comment } = req.body as { rating?: number; comment?: string };
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.publisherId !== req.user!.id && req.user!.role !== "admin") {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    const milestones = (order.milestones ?? []) as Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>;
+    if (milestoneIdx < 0 || milestoneIdx >= milestones.length) {
+      return res.status(400).json({ error: "里程碑不存在" });
+    }
+
+    // Find the submitted deliverable for this milestone
+    const [submittedDeliv] = await db
+      .select()
+      .from(deliverablesTable)
+      .where(and(
+        eq(deliverablesTable.orderId, orderId),
+        eq(deliverablesTable.milestoneId, milestoneId),
+        eq(deliverablesTable.status, "submitted"),
+      ))
+      .orderBy(desc(deliverablesTable.submittedAt))
+      .limit(1);
+
+    if (!submittedDeliv) {
+      return res.status(400).json({ error: "该里程碑没有待审核的交付物" });
+    }
+
+    // Mark the deliverable as approved
+    await db.update(deliverablesTable).set({
+      status: "approved",
+    }).where(eq(deliverablesTable.id, submittedDeliv.id));
+
+    // Update the milestone JSONB status to 'approved'
+    await db.execute(
+      sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},status}'`)}, '"approved"'::jsonb), updated_at = NOW() WHERE id = ${orderId}`
+    );
+
+    // Re-fetch milestones to check if all are approved
+    const [freshOrder] = await db.select({ milestones: ordersTable.milestones }).from(ordersTable).where(eq(ordersTable.id, orderId));
+    const freshMilestones = (freshOrder?.milestones ?? []) as Array<{ status?: string }>;
+    const allApproved = freshMilestones.length > 0 && freshMilestones.every(m => m.status === "approved");
+
+    let finalOrder;
+    if (allApproved) {
+      // All milestones approved → complete the order
+      const updateData: Record<string, unknown> = {
+        status: "completed",
+        updatedAt: new Date(),
+      };
+      if (rating && rating >= 1 && rating <= 5) updateData.rating = rating;
+      if (comment) updateData.reviewComment = comment;
+
+      const [updated] = await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, orderId)).returning();
+      finalOrder = updated;
+
+      // Complete the demand
+      await db.update(demandsTable).set({
+        status: "completed",
+        updatedAt: new Date(),
+      }).where(eq(demandsTable.id, updated.demandId));
+
+      // Update OPC avg rating
+      const opcOrders = await db.select({ rating: ordersTable.rating })
+        .from(ordersTable)
+        .where(eq(ordersTable.opcId, updated.opcId));
+      const ratings = opcOrders.filter(o => o.rating).map(o => o.rating!);
+      const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+      await db.update(opcProfilesTable).set({
+        avgRating,
+        totalOrders: opcOrders.length,
+      }).where(eq(opcProfilesTable.userId, updated.opcId));
+    } else {
+      const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+      finalOrder = updated;
+    }
+
+    res.json({
+      ...finalOrder,
+      allCompleted: allApproved,
+      createdAt: finalOrder.createdAt.toISOString(),
+      updatedAt: finalOrder.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    console.error("milestone accept error", error);
+    res.status(500).json({ error: "操作失败" });
+  }
+});
+
+/* ─── Per-milestone reject ─────────────────────── */
+router.post("/orders/:orderId/milestones/:milestoneId/reject", requireAuth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    const milestoneId = parseInt(req.params.milestoneId); // 1-based
+    const milestoneIdx = milestoneId - 1; // 0-based for JSONB array
+
+    const { reason } = req.body as { reason?: string };
+    if (!reason?.trim()) return res.status(400).json({ error: "请填写打回原因" });
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.publisherId !== req.user!.id && req.user!.role !== "admin") {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    const milestones = (order.milestones ?? []) as Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>;
+    if (milestoneIdx < 0 || milestoneIdx >= milestones.length) {
+      return res.status(400).json({ error: "里程碑不存在" });
+    }
+
+    // Find the submitted deliverable for this milestone
+    const [submittedDeliv] = await db
+      .select()
+      .from(deliverablesTable)
+      .where(and(
+        eq(deliverablesTable.orderId, orderId),
+        eq(deliverablesTable.milestoneId, milestoneId),
+        eq(deliverablesTable.status, "submitted"),
+      ))
+      .orderBy(desc(deliverablesTable.submittedAt))
+      .limit(1);
+
+    if (!submittedDeliv) {
+      return res.status(400).json({ error: "该里程碑没有待审核的交付物" });
+    }
+
+    // Mark the deliverable as rejected with feedback
+    await db.update(deliverablesTable).set({
+      status: "rejected",
+      feedback: reason.trim(),
+    }).where(eq(deliverablesTable.id, submittedDeliv.id));
+
+    // Update the milestone JSONB status to 'rejected'
+    await db.execute(
+      sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},status}'`)}, '"rejected"'::jsonb), updated_at = NOW() WHERE id = ${orderId}`
+    );
+
+    // Count total rejected deliverables for THIS milestone
+    const [{ rejCount }] = await db
+      .select({ rejCount: count() })
+      .from(deliverablesTable)
+      .where(and(
+        eq(deliverablesTable.orderId, orderId),
+        eq(deliverablesTable.milestoneId, milestoneId),
+        eq(deliverablesTable.status, "rejected"),
+      ));
+
+    const MAX_REVISIONS = 3;
+    const milestoneRejections = Number(rejCount);
+    const newOrderStatus = milestoneRejections >= MAX_REVISIONS ? "disputed" : "in_progress";
+
+    const [updated] = await db.update(ordersTable).set({
+      status: newOrderStatus as any,
+      updatedAt: new Date(),
+    }).where(eq(ordersTable.id, orderId)).returning();
+
+    if (newOrderStatus === "disputed") {
+      await db.insert(notificationsTable).values({
+        userId: updated.opcId,
+        type: "dispute_raised",
+        title: "订单已进入争议流程",
+        content: `您的订单里程碑「${milestones[milestoneIdx]?.name ?? ""}」返工次数达到上限（${MAX_REVISIONS}次），已自动转入争议处理流程，平台将在48小时内介入调解。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
+      await db.insert(notificationsTable).values({
+        userId: updated.publisherId,
+        type: "dispute_raised",
+        title: "订单已进入争议流程",
+        content: `里程碑「${milestones[milestoneIdx]?.name ?? ""}」返工次数已达上限（${MAX_REVISIONS}次），已自动转入争议处理流程，平台将在48小时内介入调解。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
+    }
+
+    res.json({
+      ...updated,
+      milestoneRejections,
+      autoDisputed: newOrderStatus === "disputed",
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    console.error("milestone reject error", error);
+    res.status(500).json({ error: "操作失败" });
+  }
+});
+
+/* ─── Global accept (non-milestone orders only) ─── */
 router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
@@ -231,6 +416,14 @@ router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
     };
     if (body.rating) updateData.rating = body.rating;
     if (body.comment) updateData.reviewComment = body.comment;
+
+    // Also mark all currently-submitted deliverables as approved
+    await db.update(deliverablesTable).set({
+      status: "approved",
+    }).where(and(
+      eq(deliverablesTable.orderId, orderId),
+      eq(deliverablesTable.status, "submitted"),
+    ));
 
     const [updated] = await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, orderId)).returning();
 
@@ -264,6 +457,7 @@ router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
   }
 });
 
+/* ─── Global reject (non-milestone orders only) ─── */
 router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);

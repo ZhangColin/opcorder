@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { clearSession } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   Search, Bell, ArrowLeft, CheckCircle2, Clock,
   XCircle, Star, AlertCircle, Zap, FileText, Download,
-  ChevronRight, Trophy, RefreshCw,
+  ChevronRight, Trophy, RefreshCw, Loader2,
   Menu,
 } from "lucide-react";
 import {
@@ -16,7 +15,9 @@ import {
 import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /** 从文本中提取所有 URL，返回 { urls, textWithoutUrls } */
 function extractUrls(text: string): { urls: string[]; plainText: string } {
@@ -139,19 +140,39 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
+/** Derive milestone status from deliverables (same as OPC view logic) */
+function getMilestoneStatus(
+  milestoneIndex: number,
+  deliverables: Array<{ milestoneId?: number | null; status: string }>,
+): "pending" | "submitted" | "approved" | "rejected" {
+  const msDelivs = deliverables.filter(d => d.milestoneId === milestoneIndex + 1);
+  if (msDelivs.some(d => d.status === "approved")) return "approved";
+  if (msDelivs.some(d => d.status === "submitted")) return "submitted";
+  if (msDelivs.some(d => d.status === "rejected")) return "rejected";
+  return "pending";
+}
+
 export default function PublisherOrderDetail() {
   const [, navigate] = useLocation();
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id ?? "0", 10);
   const qc = useQueryClient();
-  // useCurrentUser() destructure removed
 
+  // Global accept/reject state (non-milestone orders only)
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [rating, setRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
-
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+
+  // Per-milestone accept state
+  const [acceptMilestoneId, setAcceptMilestoneId] = useState<number | null>(null);
+  const [milestoneAcceptRating, setMilestoneAcceptRating] = useState(0);
+  const [milestoneAcceptComment, setMilestoneAcceptComment] = useState("");
+
+  // Per-milestone reject state
+  const [rejectMilestoneId, setRejectMilestoneId] = useState<number | null>(null);
+  const [milestoneRejectReason, setMilestoneRejectReason] = useState("");
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -174,6 +195,62 @@ export default function PublisherOrderDetail() {
     await qc.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
     await qc.invalidateQueries({ queryKey: ["/api/orders"] });
   };
+
+  // Per-milestone accept mutation
+  const milestoneAcceptMutation = useMutation({
+    mutationFn: async ({ msId, rt, cm }: { msId: number; rt: number; cm: string }) => {
+      const res = await fetch(`${BASE}/api/orders/${orderId}/milestones/${msId}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ...(rt > 0 ? { rating: rt } : {}),
+          ...(cm.trim() ? { comment: cm.trim() } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error ?? "操作失败");
+      }
+      return res.json();
+    },
+    onSuccess: async () => {
+      await invalidate();
+      setAcceptMilestoneId(null);
+      setMilestoneAcceptRating(0);
+      setMilestoneAcceptComment("");
+      setActionSuccess("里程碑已通过审核。");
+    },
+    onError: (e: Error) => {
+      setActionError(e.message || "操作失败，请稍后重试");
+    },
+  });
+
+  // Per-milestone reject mutation
+  const milestoneRejectMutation = useMutation({
+    mutationFn: async ({ msId, reason }: { msId: number; reason: string }) => {
+      const res = await fetch(`${BASE}/api/orders/${orderId}/milestones/${msId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error ?? "操作失败");
+      }
+      return res.json();
+    },
+    onSuccess: async () => {
+      await invalidate();
+      setRejectMilestoneId(null);
+      setMilestoneRejectReason("");
+      setActionSuccess("已打回该里程碑，OPC 可重新提交。");
+    },
+    onError: (e: Error) => {
+      setActionError(e.message || "操作失败，请稍后重试");
+    },
+  });
 
   const handleAccept = async () => {
     setActionError(null);
@@ -214,10 +291,19 @@ export default function PublisherOrderDetail() {
     ? (ORDER_STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500" })
     : { label: "", color: "" };
 
-  const canAccept = order?.status === "pending_acceptance";
+  const hasMilestones = (order?.milestones ?? []).length > 0;
+  const deliverables = order?.deliverables ?? [];
 
-  const approvedMilestones = (order?.milestones ?? []).filter((m) => m.status === "approved").length;
+  // Derive milestone statuses from deliverables
+  const milestoneStatuses = (order?.milestones ?? []).map((_, i) =>
+    getMilestoneStatus(i, deliverables)
+  );
+
+  const approvedMilestones = milestoneStatuses.filter(s => s === "approved").length;
   const totalMilestones = (order?.milestones ?? []).length;
+
+  // Global accept/reject banner only for non-milestone orders
+  const canAccept = order?.status === "pending_acceptance" && !hasMilestones;
 
   return (
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
@@ -226,7 +312,6 @@ export default function PublisherOrderDetail() {
       <main className="flex-1 md:ml-64 min-h-screen">
         {/* Top bar */}
         <header className="fixed top-0 right-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
-          {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
             className="md:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
@@ -294,15 +379,15 @@ export default function PublisherOrderDetail() {
                 </div>
               )}
 
-              {/* Pending acceptance banner */}
-              {order.status === "pending_acceptance" && (
+              {/* Pending acceptance banner (non-milestone orders only) */}
+              {order.status === "pending_acceptance" && !hasMilestones && (
                 <div className="mb-6 bg-orange-50 border border-orange-200 rounded-2xl p-6 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
                       <Zap size={18} className="text-orange-600" />
                     </div>
                     <div>
-                      <p className="font-bold text-orange-800">OPC 已提交全部交付物，等待您确认验收</p>
+                      <p className="font-bold text-orange-800">OPC 已提交交付物，等待您确认验收</p>
                       <p className="text-xs text-orange-600 mt-0.5">若7个自然日内未操作，系统将自动确认验收</p>
                     </div>
                   </div>
@@ -359,44 +444,54 @@ export default function PublisherOrderDetail() {
                         </span>
                       </div>
 
-                      {/* Progress bar */}
+                      {/* Progress bar derived from deliverables */}
                       <div className="mb-8">
                         <div className="flex gap-1">
-                          {order.milestones.map((m, i) => (
-                            <div
-                              key={i}
-                              className={`h-2 flex-1 rounded-full ${
-                                m.status === "approved"
-                                  ? "bg-green-400"
-                                  : m.status === "submitted"
-                                  ? "bg-amber-400"
-                                  : m.status === "rejected"
-                                  ? "bg-red-300"
-                                  : "bg-slate-200"
-                              }`}
-                            />
-                          ))}
+                          {order.milestones.map((_, i) => {
+                            const st = milestoneStatuses[i] ?? "pending";
+                            return (
+                              <div
+                                key={i}
+                                className={`h-2 flex-1 rounded-full ${
+                                  st === "approved"
+                                    ? "bg-green-400"
+                                    : st === "submitted"
+                                    ? "bg-amber-400"
+                                    : st === "rejected"
+                                    ? "bg-red-300"
+                                    : "bg-slate-200"
+                                }`}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
 
                       <div className="space-y-4">
                         {order.milestones.map((m, i) => {
-                          const mCfg = MILESTONE_STATUS_CONFIG[m.status ?? "pending"] ?? MILESTONE_STATUS_CONFIG.pending;
+                          const msStatus = milestoneStatuses[i] ?? "pending";
+                          const mCfg = MILESTONE_STATUS_CONFIG[msStatus] ?? MILESTONE_STATUS_CONFIG.pending;
                           const MIcon = mCfg.icon;
+                          const msId = i + 1; // 1-based
+                          const msDelivs = deliverables.filter(d => d.milestoneId === msId);
+                          const latestRejected = msDelivs.find(d => d.status === "rejected");
+                          const isRejectOpen = rejectMilestoneId === msId;
+                          const isAcceptOpen = acceptMilestoneId === msId;
+
                           return (
                             <div
                               key={i}
                               className={`rounded-xl border p-5 ${
-                                m.status === "submitted"
+                                msStatus === "submitted"
                                   ? "border-amber-200 bg-amber-50"
-                                  : m.status === "approved"
+                                  : msStatus === "approved"
                                   ? "border-green-100 bg-green-50"
-                                  : m.status === "rejected"
+                                  : msStatus === "rejected"
                                   ? "border-red-100 bg-red-50"
                                   : "border-slate-100 bg-slate-50"
                               }`}
                             >
-                              <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center justify-between gap-4 flex-wrap">
                                 <div className="flex items-center gap-3">
                                   <div className={`w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-sm ${mCfg.color}`}>
                                     <MIcon size={16} />
@@ -408,10 +503,159 @@ export default function PublisherOrderDetail() {
                                     </p>
                                   </div>
                                 </div>
-                                <span className={`text-xs font-bold ${mCfg.color}`}>{mCfg.label}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs font-bold ${mCfg.color}`}>{mCfg.label}</span>
+                                  {/* Per-milestone action buttons (only when status is 'submitted') */}
+                                  {msStatus === "submitted" && order.status !== "completed" && order.status !== "disputed" && (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setActionError(null);
+                                          setAcceptMilestoneId(isAcceptOpen ? null : msId);
+                                          setRejectMilestoneId(null);
+                                          setMilestoneAcceptRating(0);
+                                          setMilestoneAcceptComment("");
+                                        }}
+                                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+                                      >
+                                        <CheckCircle2 size={13} /> 通过
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setActionError(null);
+                                          setRejectMilestoneId(isRejectOpen ? null : msId);
+                                          setAcceptMilestoneId(null);
+                                          setMilestoneRejectReason("");
+                                        }}
+                                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
+                                      >
+                                        <XCircle size={13} /> 打回
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
+
                               {m.deliverableDesc && (
                                 <p className="text-xs text-slate-500 mt-3 pl-11">{m.deliverableDesc}</p>
+                              )}
+
+                              {/* Inline accept confirmation */}
+                              {isAcceptOpen && (
+                                <div className="mt-4 pl-11 border-t border-amber-200 pt-4 space-y-3">
+                                  <p className="text-sm font-bold text-green-700">确认通过该里程碑？</p>
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1.5">评分（可选，若这是最后一个里程碑将保存为最终评分）</p>
+                                    <StarPicker value={milestoneAcceptRating} onChange={setMilestoneAcceptRating} />
+                                  </div>
+                                  <textarea
+                                    rows={2}
+                                    placeholder="评价意见（可选）…"
+                                    value={milestoneAcceptComment}
+                                    onChange={e => setMilestoneAcceptComment(e.target.value)}
+                                    className="w-full text-xs rounded-lg border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      disabled={milestoneAcceptMutation.isPending}
+                                      onClick={() => milestoneAcceptMutation.mutate({
+                                        msId,
+                                        rt: milestoneAcceptRating,
+                                        cm: milestoneAcceptComment,
+                                      })}
+                                      className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                                    >
+                                      {milestoneAcceptMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                                      确认通过
+                                    </button>
+                                    <button
+                                      onClick={() => { setAcceptMilestoneId(null); setActionError(null); }}
+                                      className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                                    >
+                                      取消
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Inline reject form */}
+                              {isRejectOpen && (
+                                <div className="mt-4 pl-11 border-t border-red-200 pt-4 space-y-3">
+                                  <p className="text-sm font-bold text-red-700">填写打回原因</p>
+                                  <textarea
+                                    rows={3}
+                                    placeholder="请说明哪些内容需要修改…"
+                                    value={milestoneRejectReason}
+                                    onChange={e => setMilestoneRejectReason(e.target.value)}
+                                    className="w-full text-xs rounded-lg border border-red-200 bg-white px-3 py-2 focus:ring-2 focus:ring-red-200 outline-none resize-none"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      disabled={milestoneRejectMutation.isPending || !milestoneRejectReason.trim()}
+                                      onClick={() => milestoneRejectMutation.mutate({
+                                        msId,
+                                        reason: milestoneRejectReason,
+                                      })}
+                                      className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                                    >
+                                      {milestoneRejectMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
+                                      确认打回
+                                    </button>
+                                    <button
+                                      onClick={() => { setRejectMilestoneId(null); setActionError(null); }}
+                                      className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                                    >
+                                      取消
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Latest rejected feedback display */}
+                              {msStatus === "rejected" && latestRejected?.feedback && !isRejectOpen && !isAcceptOpen && (
+                                <div className="mt-3 pl-11 flex items-start gap-1.5 text-xs text-red-600">
+                                  <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                                  <span>打回原因：{latestRejected.feedback}</span>
+                                </div>
+                              )}
+
+                              {/* Submitted deliverables for this milestone */}
+                              {msDelivs.length > 0 && !isAcceptOpen && !isRejectOpen && (
+                                <div className="mt-3 pl-11 space-y-2">
+                                  {msDelivs.map(d => {
+                                    const dCfg = DELIVERABLE_STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
+                                    const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
+                                    const plainText = extractDescriptionText(d.description);
+                                    return (
+                                      <div key={d.id} className="flex items-start gap-3 p-3 rounded-lg bg-white border border-slate-100 text-xs">
+                                        <FileText size={14} className="text-primary shrink-0 mt-0.5" />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-bold text-foreground">{d.title}</span>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${dCfg.color}`}>{dCfg.label}</span>
+                                          </div>
+                                          {plainText && <p className="text-slate-500 mt-0.5">{plainText}</p>}
+                                          {delivFiles.length > 0 && (
+                                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                              {delivFiles.map((f, j) => (
+                                                <a
+                                                  key={j}
+                                                  href={f.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 text-primary font-bold hover:bg-primary/20 transition-colors"
+                                                >
+                                                  <Download size={10} />
+                                                  {f.label.length > 20 ? f.label.slice(0, 18) + "…" : f.label}
+                                                </a>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               )}
                             </div>
                           );
@@ -420,14 +664,14 @@ export default function PublisherOrderDetail() {
                     </section>
                   )}
 
-                  {/* Deliverables */}
-                  {order.deliverables && order.deliverables.length > 0 && (
+                  {/* Deliverables (non-milestone orders) */}
+                  {!hasMilestones && deliverables.length > 0 && (
                     <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
                       <h2 className="text-base font-bold text-primary font-display flex items-center gap-2 mb-6">
                         <FileText size={16} /> 交付物列表
                       </h2>
                       <div className="space-y-3">
-                        {order.deliverables.map((d) => {
+                        {deliverables.map((d) => {
                           const dCfg = DELIVERABLE_STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
                           const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
                           const plainText = extractDescriptionText(d.description);
@@ -449,7 +693,6 @@ export default function PublisherOrderDetail() {
                                 {plainText && (
                                   <p className="text-xs text-slate-500 leading-relaxed">{plainText}</p>
                                 )}
-                                {/* Clickable file links */}
                                 {delivFiles.length > 0 && (
                                   <div className="mt-2 flex flex-wrap gap-2">
                                     {delivFiles.map((f, i) => (
@@ -487,13 +730,12 @@ export default function PublisherOrderDetail() {
                   )}
 
                   {/* Empty state when no milestones or deliverables */}
-                  {(!order.milestones || order.milestones.length === 0) &&
-                    (!order.deliverables || order.deliverables.length === 0) && (
-                      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center text-slate-400">
-                        <Clock size={44} className="mx-auto mb-3 text-slate-200" />
-                        <p className="font-medium">项目正在推进中</p>
-                        <p className="text-xs mt-1">OPC 提交里程碑交付物后将在此显示</p>
-                      </div>
+                  {!hasMilestones && deliverables.length === 0 && (
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center text-slate-400">
+                      <Clock size={44} className="mx-auto mb-3 text-slate-200" />
+                      <p className="font-medium">项目正在推进中</p>
+                      <p className="text-xs mt-1">OPC 提交交付物后将在此显示</p>
+                    </div>
                   )}
                 </div>
 
@@ -565,7 +807,7 @@ export default function PublisherOrderDetail() {
                     </div>
                   )}
 
-                  {/* Action Buttons */}
+                  {/* Action Buttons (non-milestone orders only) */}
                   {canAccept && (
                     <div className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6 space-y-3">
                       <h3 className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-2 flex items-center gap-1">
@@ -600,7 +842,7 @@ export default function PublisherOrderDetail() {
                 </div>
               </div>
 
-              {/* ── Accept Modal ── */}
+              {/* ── Accept Modal (non-milestone orders) ── */}
               {showAcceptModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
                   <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8">
@@ -655,7 +897,7 @@ export default function PublisherOrderDetail() {
                 </div>
               )}
 
-              {/* ── Reject Modal ── */}
+              {/* ── Reject Modal (non-milestone orders) ── */}
               {showRejectModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
                   <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8">
