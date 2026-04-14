@@ -1,6 +1,6 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { clearSession } from "@/lib/auth";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import {
   Search, Bell, Star, BadgeCheck, Calendar,
@@ -14,6 +14,7 @@ import {
   useGetDemandPayment,
   useListBidsForDemand,
   useSubmitDemandPayment,
+  usePollDemandPaymentStatus,
   useUpdateBidStatus,
   useUpdateDemandStatus,
 } from "@workspace/api-client-react";
@@ -94,6 +95,10 @@ export default function PublisherDemandDetail() {
   const [paymentNote, setPaymentNote] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
   const [receiptUploading, setReceiptUploading] = useState(false);
+  const [onlineQrUrl, setOnlineQrUrl] = useState<string | null>(null);
+  const [onlinePaymentId, setOnlinePaymentId] = useState<number | null>(null);
+  const [onlinePaid, setOnlinePaid] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
@@ -111,6 +116,7 @@ export default function PublisherDemandDetail() {
   const updateBidStatus = useUpdateBidStatus();
   const updateDemandStatus = useUpdateDemandStatus();
   const submitPaymentMutation = useSubmitDemandPayment();
+  const pollPaymentStatus = usePollDemandPaymentStatus();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -183,17 +189,62 @@ export default function PublisherDemandDetail() {
     }
   };
 
+  // Poll online payment status every 3 seconds while QR is shown
+  useEffect(() => {
+    if (!onlineQrUrl || onlinePaid) return;
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const result = await pollPaymentStatus.mutateAsync({ demandId });
+        if (result.paid || result.confirmed) {
+          setOnlinePaid(true);
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+          await refetchDemand();
+          await refetchPayment();
+          toast({ title: "✅ 保证金已到账", description: "需求已自动发布，OPC 现在可以看到并投标" });
+        } else if (result.terminal) {
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+          toast({ title: "支付未完成", description: `支付状态：${result.statusName ?? "已结束"}`, variant: "destructive" });
+          setOnlineQrUrl(null);
+          setOnlinePaymentId(null);
+        }
+      } catch {
+        // Silent - just try again next interval
+      }
+    }, 3000);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, [onlineQrUrl, onlinePaid, demandId]);
+
   const handleSubmitPayment = async () => {
     try {
+      if (paymentMethod === "online") {
+        // Create real payment order → get QR code
+        const result = await submitPaymentMutation.mutateAsync({
+          demandId,
+          data: { method: "online", paymentNote: paymentNote.trim() || undefined },
+        });
+        if (result.qrCodeUrl) {
+          setOnlineQrUrl(result.qrCodeUrl);
+          setOnlinePaymentId(result.id);
+          setOnlinePaid(false);
+        } else {
+          toast({ title: "创建支付订单失败", description: "未收到二维码，请稍后重试", variant: "destructive" });
+        }
+        return;
+      }
+
+      // Offline flow
       const body: { method: "online" | "offline"; receiptUrl?: string; paymentNote?: string } = {
-        method: paymentMethod,
+        method: "offline",
       };
       if (receiptUrl.trim()) body.receiptUrl = receiptUrl.trim();
       if (paymentNote.trim()) body.paymentNote = paymentNote.trim();
 
       await submitPaymentMutation.mutateAsync({ demandId, data: body });
       await refetchPayment();
-      toast({ title: "保证金缴费凭证已提交", description: "请等待平台审核确认，确认后需求将自动发布" });
+      toast({ title: "缴费凭证已提交", description: "请等待平台审核确认，确认后需求将自动发布" });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "请稍后重试";
       toast({ title: "提交失败", description: msg, variant: "destructive" });
@@ -476,35 +527,59 @@ export default function PublisherDemandDetail() {
                                 </div>
                               </div>
 
-                              {/* Online payment: QR code placeholder + confirm button */}
+                              {/* Online payment: real QR code + auto polling */}
                               {paymentMethod === "online" && (
                                 <div className="border border-slate-200 rounded-xl p-4 space-y-4">
-                                  <div className="text-center space-y-2">
-                                    <div className="w-32 h-32 mx-auto bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs">
-                                      <CreditCard size={28} className="mb-1 text-slate-300" />
-                                      <span>支付二维码</span>
-                                      <span className="text-[10px]">（即将上线）</span>
+                                  {onlinePaid ? (
+                                    <div className="text-center py-6 space-y-2">
+                                      <CheckCircle2 size={40} className="mx-auto text-emerald-500" />
+                                      <p className="font-semibold text-emerald-700">保证金已到账！</p>
+                                      <p className="text-xs text-slate-500">需求已自动发布，正在刷新页面…</p>
                                     </div>
-                                    <p className="text-xs text-slate-500">扫码支付功能即将开放。扫码完成后点击下方按钮通知平台核实。</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
-                                    <textarea
-                                      value={paymentNote}
-                                      onChange={e => setPaymentNote(e.target.value)}
-                                      placeholder="如支付流水号、支付渠道等"
-                                      rows={2}
-                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
-                                    />
-                                  </div>
-                                  <button
-                                    onClick={handleSubmitPayment}
-                                    disabled={submitPaymentMutation.isPending}
-                                    className="w-full flex items-center justify-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
-                                  >
-                                    <CheckCircle2 size={14} />
-                                    {submitPaymentMutation.isPending ? "提交中…" : "我已完成支付，通知平台核实"}
-                                  </button>
+                                  ) : onlineQrUrl ? (
+                                    <div className="text-center space-y-3">
+                                      <p className="text-xs font-medium text-slate-600">扫描二维码完成支付</p>
+                                      <div className="w-44 h-44 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white">
+                                        <img src={onlineQrUrl} alt="支付二维码" className="w-full h-full object-contain" />
+                                      </div>
+                                      <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
+                                        <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                        <span>等待支付确认中，支付完成后自动发布…</span>
+                                      </div>
+                                      <button
+                                        onClick={() => { setOnlineQrUrl(null); setOnlinePaymentId(null); }}
+                                        className="text-xs text-slate-400 hover:text-slate-600 underline"
+                                      >
+                                        取消，重新生成
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="text-center space-y-1.5">
+                                        <CreditCard size={24} className="mx-auto text-slate-400" />
+                                        <p className="text-sm font-medium text-slate-700">扫码支付保证金</p>
+                                        <p className="text-xs text-slate-500">点击下方按钮生成专属支付二维码，扫码完成后自动确认到账并发布需求</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
+                                        <textarea
+                                          value={paymentNote}
+                                          onChange={e => setPaymentNote(e.target.value)}
+                                          placeholder="如支付流水号、支付渠道等"
+                                          rows={2}
+                                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                                        />
+                                      </div>
+                                      <button
+                                        onClick={handleSubmitPayment}
+                                        disabled={submitPaymentMutation.isPending}
+                                        className="w-full flex items-center justify-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                                      >
+                                        <CreditCard size={14} />
+                                        {submitPaymentMutation.isPending ? "生成中…" : "生成支付二维码"}
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               )}
 

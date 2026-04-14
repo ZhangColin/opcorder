@@ -58,6 +58,9 @@ import type {
   PostListResponse,
   RejectDeliveryBody,
   ReviewDemandPaymentBody,
+  DemandPaymentStatusResponse,
+  RefundDemandPaymentBody,
+  RefundDemandPaymentResponse,
   TogglePostLike200,
   TogglePostLikeBody,
   UpdateBidStatusBody,
@@ -3439,4 +3442,149 @@ export const useReviewDemandPayment = <
   TContext
 > => {
   return useMutation(getReviewDemandPaymentMutationOptions(options));
+};
+
+// POST /api/demands/{demandId}/payment-status
+export const getPollDemandPaymentStatusUrl = (demandId: number) =>
+  `/api/demands/${demandId}/payment-status`;
+
+export const pollDemandPaymentStatus = (
+  demandId: number,
+  options?: SecondParameter<typeof customFetch>,
+): Promise<DemandPaymentStatusResponse> => {
+  return customFetch<DemandPaymentStatusResponse>(getPollDemandPaymentStatusUrl(demandId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getPollDemandPaymentStatusMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pollDemandPaymentStatus>>,
+    TError,
+    { demandId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof pollDemandPaymentStatus>>,
+  TError,
+  { demandId: number },
+  TContext
+> => {
+  const mutationKey = ["pollDemandPaymentStatus"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof pollDemandPaymentStatus>>,
+    { demandId: number }
+  > = (props) => {
+    const { demandId } = props ?? {};
+    return pollDemandPaymentStatus(demandId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const usePollDemandPaymentStatus = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pollDemandPaymentStatus>>,
+    TError,
+    { demandId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof pollDemandPaymentStatus>>,
+  TError,
+  { demandId: number },
+  TContext
+> => {
+  return useMutation(getPollDemandPaymentStatusMutationOptions(options));
+};
+
+// POST /api/admin/demand-payments/{paymentId}/refund
+export const getRefundDemandPaymentUrl = (paymentId: number) =>
+  `/api/admin/demand-payments/${paymentId}/refund`;
+
+export const refundDemandPayment = (
+  paymentId: number,
+  refundDemandPaymentBody: BodyType<RefundDemandPaymentBody>,
+  options?: SecondParameter<typeof customFetch>,
+): Promise<RefundDemandPaymentResponse> => {
+  return customFetch<RefundDemandPaymentResponse>(getRefundDemandPaymentUrl(paymentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(refundDemandPaymentBody),
+  });
+};
+
+export const getRefundDemandPaymentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refundDemandPayment>>,
+    TError,
+    { paymentId: number; data: BodyType<RefundDemandPaymentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof refundDemandPayment>>,
+  TError,
+  { paymentId: number; data: BodyType<RefundDemandPaymentBody> },
+  TContext
+> => {
+  const mutationKey = ["refundDemandPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof refundDemandPayment>>,
+    { paymentId: number; data: BodyType<RefundDemandPaymentBody> }
+  > = (props) => {
+    const { paymentId, data } = props ?? {};
+    return refundDemandPayment(paymentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useRefundDemandPayment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refundDemandPayment>>,
+    TError,
+    { paymentId: number; data: BodyType<RefundDemandPaymentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof refundDemandPayment>>,
+  TError,
+  { paymentId: number; data: BodyType<RefundDemandPaymentBody> },
+  TContext
+> => {
+  return useMutation(getRefundDemandPaymentMutationOptions(options));
 };

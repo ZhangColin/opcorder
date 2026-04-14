@@ -4,6 +4,7 @@ import { eq, desc, count, sql, and, ilike, or, asc } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
 import { ReviewDemandPaymentBody } from "@workspace/api-zod";
+import { createRefund } from "../lib/payment";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -1695,6 +1696,75 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "操作失败" });
+  }
+});
+
+/* ─── DEMAND DEPOSIT REFUND ───────────────────── */
+
+router.post("/admin/demand-payments/:id/refund", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { reason } = req.body as { reason?: string };
+    const refundReason = reason?.trim() || "需求保证金退款";
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(eq(demandPaymentsTable.id, id))
+      .limit(1);
+
+    if (!payment) return res.status(404).json({ error: "保证金记录不存在" });
+    if (payment.status !== "confirmed") {
+      return res.status(409).json({ error: "只有已确认的保证金可以退款" });
+    }
+    if (!payment.paymentOrderNo) {
+      return res.status(400).json({ error: "该记录无在线支付订单号，无法自动退款，请手动处理" });
+    }
+    if (payment.refundedAt) {
+      return res.status(409).json({ error: "该保证金已经退款" });
+    }
+
+    const amountFen = Math.round((payment.amount ?? 0) * 100);
+    const businessOrderNo = `REFUND-${payment.id}-${Date.now()}`;
+
+    const refundResult = await createRefund({
+      paymentOrderNo: payment.paymentOrderNo,
+      amount: amountFen,
+      reason: refundReason,
+      businessOrderNo,
+    });
+
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx.update(demandPaymentsTable).set({
+        status: "refunded",
+        refundOrderNo: refundResult.refundOrderNo,
+        refundedAt: now,
+      }).where(eq(demandPaymentsTable.id, id));
+
+      const [demand] = await tx
+        .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+        .from(demandsTable)
+        .where(eq(demandsTable.id, payment.demandId))
+        .limit(1);
+
+      if (demand?.publisherId) {
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId,
+          type: "system",
+          title: "保证金已退款",
+          content: `您的需求「${demand.title}」的保证金已成功退款，原因：${refundReason}。`,
+          relatedId: payment.demandId,
+          relatedType: "demand",
+        });
+      }
+    });
+
+    res.json({ success: true, refundOrderNo: refundResult.refundOrderNo, refundedAt: now.toISOString() });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "退款失败";
+    console.error("[admin-demand-refund] error:", err);
+    res.status(500).json({ error: msg });
   }
 });
 

@@ -14,7 +14,7 @@ import {
   CreditCard, Receipt, BadgeCheck, UserX, UserCheck,
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
-  Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw,
+  Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -4049,6 +4049,9 @@ interface PaymentRow {
   createdAt: string;
   demandTitle?: string | null;
   publisherName?: string | null;
+  paymentOrderNo?: string | null;
+  refundOrderNo?: string | null;
+  refundedAt?: string | null;
 }
 
 function DepositPaymentManagement() {
@@ -4059,6 +4062,8 @@ function DepositPaymentManagement() {
   const [rejectNote, setRejectNote] = useState("");
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [refundingId, setRefundingId] = useState<number | null>(null);
+  const [refundNote, setRefundNote] = useState("");
 
   const queryKey = ["admin-demand-payments", statusFilter];
   const { data: payments = [], isLoading } = useQuery<PaymentRow[]>({
@@ -4092,6 +4097,22 @@ function DepositPaymentManagement() {
       setExpandedId(null);
     } catch (e: any) {
       toast({ title: "操作失败", description: e.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRefund = async (paymentId: number) => {
+    setActionLoading(paymentId);
+    try {
+      await adminPost(`/api/admin/demand-payments/${paymentId}/refund`, { reason: refundNote.trim() || "管理员退款" });
+      toast({ title: "退款已发起", description: "退款将在1-3个工作日内到账" });
+      qc.invalidateQueries({ queryKey });
+      setRefundingId(null);
+      setRefundNote("");
+      setExpandedId(null);
+    } catch (e: any) {
+      toast({ title: "退款失败", description: e.message, variant: "destructive" });
     } finally {
       setActionLoading(null);
     }
@@ -4241,9 +4262,58 @@ function DepositPaymentManagement() {
                     )}
 
                     {payment.status === "confirmed" && payment.confirmedAt && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-1">
                         <p className="text-xs font-bold text-emerald-600 mb-1">确认时间</p>
                         <p className="text-sm text-emerald-700">{new Date(payment.confirmedAt).toLocaleString("zh-CN")}</p>
+                        {payment.paymentOrderNo && (
+                          <p className="text-xs text-slate-500">支付订单号：{payment.paymentOrderNo}</p>
+                        )}
+                        {payment.refundOrderNo && (
+                          <p className="text-xs text-slate-500">退款订单号：{payment.refundOrderNo}</p>
+                        )}
+                        {payment.refundedAt && (
+                          <p className="text-xs text-slate-500">退款时间：{new Date(payment.refundedAt).toLocaleString("zh-CN")}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {payment.status === "confirmed" && payment.method === "online" && !payment.refundOrderNo && (
+                      <div className="pt-2">
+                        {refundingId === payment.id ? (
+                          <div className="space-y-3 border border-orange-200 rounded-xl p-3 bg-orange-50">
+                            <p className="text-xs font-bold text-orange-700">发起退款（在线支付订单）</p>
+                            <textarea
+                              value={refundNote}
+                              onChange={e => setRefundNote(e.target.value)}
+                              placeholder={'退款原因（选填，留空默认"管理员退款"）'}
+                              rows={2}
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-200 focus:border-orange-400 outline-none resize-none bg-white"
+                            />
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => handleRefund(payment.id)}
+                                disabled={actionLoading === payment.id}
+                                className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                              >
+                                {actionLoading === payment.id ? <Loader2 size={14} className="animate-spin" /> : <Undo2 size={14} />}
+                                确认退款
+                              </button>
+                              <button
+                                onClick={() => { setRefundingId(null); setRefundNote(""); }}
+                                className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setRefundingId(payment.id)}
+                            className="flex items-center gap-2 border border-orange-300 text-orange-700 bg-orange-50 hover:bg-orange-100 px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+                          >
+                            <Undo2 size={14} /> 发起退款
+                          </button>
+                        )}
                       </div>
                     )}
 

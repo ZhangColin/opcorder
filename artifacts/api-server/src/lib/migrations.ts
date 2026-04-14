@@ -138,5 +138,38 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 002 failed in production: ${err}`);
   }
 
+  // Migration 003a: add 'refunded' value to demand_payment_status enum (CRITICAL)
+  // Required for the payment API refund flow
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'rejected';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 003a: could not add refunded enum value");
+    if (!isDev) throw new Error(`Migration 003a failed in production: ${err}`);
+  }
+
+  // Migration 003b: add payment_order_no column for tracking online payment orders
+  try {
+    await db.execute(sql`
+      ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS payment_order_no varchar(100)
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 003b: could not add payment_order_no column");
+    if (!isDev) throw new Error(`Migration 003b failed in production: ${err}`);
+  }
+
+  // Migration 003c: add refund tracking columns
+  try {
+    await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_order_no varchar(100)`);
+    await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refunded_at timestamp`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 003c: could not add refund tracking columns");
+    if (!isDev) throw new Error(`Migration 003c failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

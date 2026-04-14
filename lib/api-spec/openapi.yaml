@@ -920,6 +920,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/DemandPayment"
 
+  /demands/{demandId}/payment-status:
+    post:
+      operationId: pollDemandPaymentStatus
+      tags: [demands]
+      summary: Poll online payment status for a demand deposit (publisher only)
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Current payment status from payment provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandPaymentStatusResponse"
+        "404":
+          description: No online payment order found
+
   /admin/demand-payments:
     get:
       operationId: listDemandPayments
@@ -973,6 +994,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DemandPayment"
+
+  /admin/demand-payments/{paymentId}/refund:
+    post:
+      operationId: refundDemandPayment
+      tags: [admin]
+      summary: Refund a confirmed demand deposit payment (online payments only)
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Reason for refund
+      responses:
+        "200":
+          description: Refund initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  refundOrderNo:
+                    type: string
+                  refundedAt:
+                    type: string
+                    format: date-time
+        "400":
+          description: No paymentOrderNo on record (offline payment, cannot auto-refund)
+        "409":
+          description: Payment not in confirmed state or already refunded
 
 components:
   schemas:
@@ -1329,8 +1390,10 @@ components:
           type: integer
         demandTitle:
           type: string
+          nullable: true
         publisherName:
           type: string
+          nullable: true
         amount:
           type: number
         method:
@@ -1338,16 +1401,38 @@ components:
           enum: [online, offline]
         status:
           type: string
-          enum: [pending, confirmed, rejected]
+          enum: [pending, confirmed, rejected, refunded]
+        paymentOrderNo:
+          type: string
+          nullable: true
+          description: Payment provider order number (online payments only)
+        qrCodeUrl:
+          type: string
+          nullable: true
+          description: QR code URL returned at payment creation (online only, not persisted)
         receiptUrl:
           type: string
+          nullable: true
         paymentNote:
           type: string
+          nullable: true
         rejectReason:
           type: string
+          nullable: true
+        confirmedBy:
+          type: integer
+          nullable: true
         confirmedAt:
           type: string
           format: date-time
+          nullable: true
+        refundOrderNo:
+          type: string
+          nullable: true
+        refundedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -1358,6 +1443,30 @@ components:
         - method
         - status
         - createdAt
+
+    DemandPaymentStatusResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: "Payment provider status code: 1=待支付 2=已支付 3=支付失败 4=已取消 5=已过期"
+        statusName:
+          type: string
+        paid:
+          type: boolean
+        terminal:
+          type: boolean
+        confirmed:
+          type: boolean
+          description: true when demand is published (payment confirmed in our system)
+        paidAt:
+          type: string
+          nullable: true
+      required:
+        - status
+        - paid
+        - terminal
+        - confirmed
 
     AdminDemandPaymentRow:
       allOf:

@@ -1220,12 +1220,16 @@ export const DemandPayment = zod.object({
   demandId: zod.number(),
   amount: zod.number(),
   method: zod.enum(["online", "offline"]),
-  status: zod.enum(["pending", "confirmed", "rejected"]),
+  status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
+  paymentOrderNo: zod.string().nullable().optional(),
+  qrCodeUrl: zod.string().nullable().optional(),
   receiptUrl: zod.string().nullable().optional(),
   paymentNote: zod.string().nullable().optional(),
   rejectReason: zod.string().nullable().optional(),
   confirmedBy: zod.number().nullable().optional(),
   confirmedAt: zod.string().nullable().optional(),
+  refundOrderNo: zod.string().nullable().optional(),
+  refundedAt: zod.string().nullable().optional(),
   createdAt: zod.string(),
 });
 
@@ -1241,4 +1245,13 @@ export const ListDemandPaymentsResponse = zod.array(AdminDemandPaymentRow);
 export const ReviewDemandPaymentBody = zod.object({
   action: zod.enum(["confirm", "reject"]),
   rejectReason: zod.string().optional(),
+});
+
+export const DemandPaymentStatusResponse = zod.object({
+  status: zod.number(),
+  statusName: zod.string().optional(),
+  paid: zod.boolean(),
+  terminal: zod.boolean(),
+  confirmed: zod.boolean(),
+  paidAt: zod.string().nullable().optional(),
 });

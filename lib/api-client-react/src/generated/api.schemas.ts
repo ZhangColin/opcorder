@@ -758,6 +758,7 @@ export const DemandPaymentStatus = {
   pending: "pending",
   confirmed: "confirmed",
   rejected: "rejected",
+  refunded: "refunded",
 } as const;
 
 export interface DemandPayment {
@@ -766,11 +767,15 @@ export interface DemandPayment {
   amount: number;
   method: DemandPaymentMethod;
   status: DemandPaymentStatus;
+  paymentOrderNo?: string | null;
+  qrCodeUrl?: string | null;
   receiptUrl?: string | null;
   paymentNote?: string | null;
   rejectReason?: string | null;
   confirmedBy?: number | null;
   confirmedAt?: string | null;
+  refundOrderNo?: string | null;
+  refundedAt?: string | null;
   createdAt: string;
 }
 
@@ -788,6 +793,25 @@ export interface CreateDemandPaymentInput {
 export interface ReviewDemandPaymentBody {
   action: "confirm" | "reject";
   rejectReason?: string;
+}
+
+export interface DemandPaymentStatusResponse {
+  status: number;
+  statusName?: string;
+  paid: boolean;
+  terminal: boolean;
+  confirmed: boolean;
+  paidAt?: string | null;
+}
+
+export interface RefundDemandPaymentBody {
+  reason?: string;
+}
+
+export interface RefundDemandPaymentResponse {
+  success: boolean;
+  refundOrderNo: string;
+  refundedAt: string;
 }
 
 export type ListDemandPaymentsParams = {

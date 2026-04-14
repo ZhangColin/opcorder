@@ -11,6 +11,9 @@ import {
   CreateDemandPaymentInput,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
+import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
+
+const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
 const router: IRouter = Router();
 
@@ -378,21 +381,61 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
 
     // Enforce: only one active pending payment at a time
     const [existing] = await db
-      .select({ id: demandPaymentsTable.id })
+      .select({ id: demandPaymentsTable.id, paymentOrderNo: demandPaymentsTable.paymentOrderNo })
       .from(demandPaymentsTable)
       .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "pending")))
       .limit(1);
     if (existing) {
-      return res.status(409).json({ error: "已有待审核的缴费凭证，请等待管理员确认" });
+      return res.status(409).json({ error: "已有待处理的保证金支付，请等待完成或联系管理员" });
     }
 
-    // Amount is derived server-side from demand budget
+    // Amount is derived server-side from demand budget (in yuan, API expects fen)
     const amount = demand.budget ?? 0;
 
+    if (method === "online") {
+      // Create a real payment order via the payment API
+      const businessOrderNo = `DEPOSIT-${demandId}-${Date.now()}`;
+      const amountFen = Math.round(amount * 100);
+
+      const [demandRow] = await db
+        .select({ title: demandsTable.title })
+        .from(demandsTable)
+        .where(eq(demandsTable.id, demandId))
+        .limit(1);
+
+      const order = await createPaymentOrder({
+        businessOrderNo,
+        amount: amountFen,
+        subject: `需求保证金-${demandRow?.title ?? demandId}`,
+        body: `需求保证金`,
+        businessName: "需求保证金",
+        notifyUrl: NOTIFY_URL,
+      });
+
+      const [payment] = await db.insert(demandPaymentsTable).values({
+        demandId,
+        amount,
+        method: "online",
+        status: "pending",
+        paymentOrderNo: order.paymentOrderNo,
+        paymentNote: paymentNote?.trim() || null,
+      }).returning();
+
+      return res.status(201).json({
+        ...payment,
+        qrCodeUrl: order.qrCodeUrl,
+        paymentOrderNo: order.paymentOrderNo,
+        confirmedAt: payment.confirmedAt?.toISOString() ?? null,
+        refundedAt: payment.refundedAt?.toISOString() ?? null,
+        createdAt: payment.createdAt.toISOString(),
+      });
+    }
+
+    // Offline: manual receipt upload flow
     const [payment] = await db.insert(demandPaymentsTable).values({
       demandId,
       amount,
-      method,
+      method: "offline",
       status: "pending",
       receiptUrl: receiptUrl?.trim() || null,
       paymentNote: paymentNote?.trim() || null,
@@ -401,11 +444,84 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
     res.status(201).json({
       ...payment,
       confirmedAt: payment.confirmedAt?.toISOString() ?? null,
+      refundedAt: payment.refundedAt?.toISOString() ?? null,
       createdAt: payment.createdAt.toISOString(),
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "缴费提交失败" });
+  }
+});
+
+/* Poll online payment status for a demand deposit */
+router.post("/demands/:demandId/payment-status", requireAuth, async (req, res) => {
+  try {
+    const demandId = parseInt(req.params.demandId);
+
+    const [demand] = await db
+      .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (demand.publisherId !== req.user!.id) return res.status(403).json({ error: "无权操作" });
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.method, "online")))
+      .orderBy(desc(demandPaymentsTable.createdAt))
+      .limit(1);
+
+    if (!payment) return res.status(404).json({ error: "尚未创建在线支付订单" });
+    if (!payment.paymentOrderNo) return res.status(400).json({ error: "支付订单号缺失" });
+
+    // Already confirmed — no need to poll
+    if (payment.status === "confirmed") {
+      return res.json({ status: PAYMENT_STATUS.PAID, paid: true, terminal: true, confirmed: true });
+    }
+
+    const order = await queryPaymentStatus(payment.paymentOrderNo);
+
+    console.log(`[demand-payment-status] demandId=${demandId} paymentId=${payment.id} status=${order.status}(${order.statusName}) paidAt=${order.paidAt}`);
+
+    if (order.status === PAYMENT_STATUS.PAID) {
+      // Auto-confirm: publish demand when payment is confirmed
+      const now = new Date();
+      await db.transaction(async (tx) => {
+        await tx.update(demandPaymentsTable).set({
+          status: "confirmed",
+          confirmedAt: now,
+        }).where(eq(demandPaymentsTable.id, payment.id));
+
+        await tx.update(demandsTable).set({
+          status: "published",
+          updatedAt: now,
+        }).where(eq(demandsTable.id, demandId));
+
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId,
+          type: "system",
+          title: "保证金已到账，需求已发布",
+          content: `您的需求「${demand.title}」的保证金已到账确认，需求现已在需求大厅公开发布，OPC可以查看并投标。`,
+          relatedId: demandId,
+          relatedType: "demand",
+        });
+      });
+    }
+
+    res.json({
+      status: order.status,
+      statusName: order.statusName,
+      paid: order.status === PAYMENT_STATUS.PAID,
+      terminal: TERMINAL_STATUSES.includes(order.status as 2 | 3 | 4 | 5),
+      confirmed: order.status === PAYMENT_STATUS.PAID,
+      paidAt: order.paidAt,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "查询失败";
+    res.status(500).json({ error: msg });
   }
 });
 

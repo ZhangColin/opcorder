@@ -133,3 +133,38 @@ export async function queryPaymentStatus(paymentOrderNo: string): Promise<Paymen
   }
   return json.data;
 }
+
+export interface RefundResult {
+  refundOrderNo: string;
+  status: string;
+  amount: number;
+}
+
+export interface CreateRefundParams {
+  paymentOrderNo: string;
+  amount: number;
+  reason: string;
+  businessOrderNo: string;
+}
+
+export async function createRefund(params: CreateRefundParams): Promise<RefundResult> {
+  const bodyStr = JSON.stringify({
+    paymentOrderNo: params.paymentOrderNo,
+    amount: params.amount,
+    reason: params.reason,
+    businessOrderNo: params.businessOrderNo,
+  });
+
+  const resp = await fetch(`${BASE_URL}/api/v1/refunds`, {
+    method: "POST",
+    headers: buildHeaders(bodyStr),
+    body: bodyStr,
+  });
+
+  const json = await resp.json() as { code: number | string; message: string; data: RefundResult };
+  console.log(`[createRefund] paymentOrderNo=${params.paymentOrderNo} httpStatus=${resp.status} code=${json.code} message=${json.message}`);
+  if (json.code !== 0 && json.code !== 200) {
+    throw new Error(`退款申请失败: ${json.message} (${json.code})`);
+  }
+  return json.data;
+}
