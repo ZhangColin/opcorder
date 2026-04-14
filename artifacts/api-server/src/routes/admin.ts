@@ -1588,6 +1588,7 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
         id: demandPaymentsTable.id,
         demandId: demandPaymentsTable.demandId,
         amount: demandPaymentsTable.amount,
+        status: demandPaymentsTable.status,
       })
       .from(demandPaymentsTable)
       .where(eq(demandPaymentsTable.id, id))
@@ -1595,19 +1596,32 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
 
     if (!payment) return res.status(404).json({ error: "缴费记录不存在" });
 
+    // State guard: only allow transitions from pending state
+    if (payment.status !== "pending") {
+      return res.status(409).json({ error: "该缴费记录已处理，不可重复审核" });
+    }
+
     const [demand] = await db
-      .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+      .select({ publisherId: demandsTable.publisherId, title: demandsTable.title, status: demandsTable.status })
       .from(demandsTable)
       .where(eq(demandsTable.id, payment.demandId))
       .limit(1);
 
     if (!demand) return res.status(404).json({ error: "关联需求不存在" });
 
+    // Only publish if demand is still pending_payment
+    if (action === "confirm" && demand.status !== "pending_payment") {
+      return res.status(409).json({ error: "需求当前状态不允许发布" });
+    }
+
+    const adminId = req.user!.id;
+
     if (action === "confirm") {
       const now = new Date();
       await db.update(demandPaymentsTable).set({
         status: "confirmed",
         confirmedAt: now,
+        confirmedBy: adminId,
       }).where(eq(demandPaymentsTable.id, id));
 
       await db.update(demandsTable).set({

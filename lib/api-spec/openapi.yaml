@@ -1367,7 +1367,7 @@ components:
           enum: [online, offline]
         receiptUrl:
           type: string
-          description: URL of payment receipt screenshot or proof
+          description: Absolute https/http URL or internal storage path (/api/storage/...) of payment receipt screenshot or proof
         paymentNote:
           type: string
       required:
