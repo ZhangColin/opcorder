@@ -13,4 +13,5 @@ export const BidApplicationStatus = {
   pending: "pending",
   accepted: "accepted",
   rejected: "rejected",
+  withdrawn: "withdrawn",
 } as const;
