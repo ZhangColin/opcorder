@@ -19,13 +19,15 @@ const isDev = process.env["NODE_ENV"] !== "production";
 export async function runMigrations(): Promise<void> {
   logger.info("Running startup data migrations...");
 
-  // Migration 001a: add demands.budget column
+  // Migration 001a: add demands.budget column (CRITICAL)
+  // All demand read/write paths now reference this column; fail fast if it cannot be added
   try {
     await db.execute(sql`
       ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget real NOT NULL DEFAULT 0
     `);
   } catch (err) {
     logger.warn({ err }, "Migration 001a: could not add budget column");
+    if (!isDev) throw new Error(`Migration 001a failed in production: ${err}`);
   }
 
   // Migration 001a2: set DEFAULT 0 on legacy budget_min/budget_max (transition guard
