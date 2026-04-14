@@ -33,6 +33,7 @@ import Portfolios from "@/pages/Portfolios";
 import Academy from "@/pages/Academy";
 import Notifications from "@/pages/Notifications";
 import OpcIncome from "@/pages/OpcIncome";
+import OpcMyBids from "@/pages/OpcMyBids";
 import SettlementAccount from "@/pages/SettlementAccount";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
@@ -250,6 +251,7 @@ function Router() {
                 <Route path="/portfolios" component={Portfolios} />
                 <Route path="/notifications" component={Notifications} />
                 <Route path="/income" component={OpcIncome} />
+                <Route path="/my-bids" component={OpcMyBids} />
                 <Route path="/settlement-account" component={SettlementAccount} />
                 <Route component={NotFound} />
               </Switch>

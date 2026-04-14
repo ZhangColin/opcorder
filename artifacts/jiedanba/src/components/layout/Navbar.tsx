@@ -46,6 +46,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/",           label: "首页" },
     { href: "/order-hall", label: "订单大厅" },
+    { href: "/my-bids",    label: "我的申请" },
     { href: "/orders",     label: "我的订单" },
     { href: "/academy",    label: "培训进阶" },
     { href: "/profile",    label: "个人中心" },

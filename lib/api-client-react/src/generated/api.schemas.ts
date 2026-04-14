@@ -264,6 +264,7 @@ export const BidApplicationStatus = {
   pending: "pending",
   accepted: "accepted",
   rejected: "rejected",
+  withdrawn: "withdrawn",
 } as const;
 
 export interface BidApplication {
@@ -280,6 +281,27 @@ export interface BidApplication {
   portfolioLinks?: string[];
   status: BidApplicationStatus;
   createdAt: string;
+}
+
+export interface MyBidItem {
+  id: number;
+  demandId: number;
+  demandTitle: string;
+  demandStatus: string;
+  demandBudget: number;
+  demandDeadline?: string;
+  proposal: string;
+  estimatedDays?: number;
+  portfolioLinks?: string[];
+  status: BidApplicationStatus;
+  createdAt: string;
+}
+
+export type GetMyBidsResponse = MyBidItem[];
+
+export interface WithdrawBidResponse {
+  id: number;
+  status: BidApplicationStatus;
 }
 
 export interface CreateBidInput {

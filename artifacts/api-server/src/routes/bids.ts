@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   CreateBidBody,
   UpdateBidStatusBody,
@@ -12,6 +12,69 @@ const router: IRouter = Router();
 const LEVEL_RANK: Record<string, number> = { C: 1, B: 2, A: 3 };
 const LEVEL_BUDGET_CAP: Record<string, number> = { C: 3_000, B: 20_000, A: 200_000 };
 const LEVEL_LABEL: Record<string, string> = { C: "C级（新手）", B: "B级（进阶）", A: "A级（专家）" };
+
+/* GET /bids/my — returns all bids for the current OPC user with demand info */
+router.get("/bids/my", requireAuth, async (req, res) => {
+  try {
+    const opcId = req.user!.id;
+    const bids = await db
+      .select({
+        id: bidsTable.id,
+        demandId: bidsTable.demandId,
+        demandTitle: demandsTable.title,
+        demandStatus: demandsTable.status,
+        demandBudget: demandsTable.budget,
+        demandDeadline: demandsTable.deadline,
+        proposal: bidsTable.proposal,
+        estimatedDays: bidsTable.estimatedDays,
+        portfolioLinks: bidsTable.portfolioLinks,
+        status: bidsTable.status,
+        createdAt: bidsTable.createdAt,
+      })
+      .from(bidsTable)
+      .leftJoin(demandsTable, eq(bidsTable.demandId, demandsTable.id))
+      .where(eq(bidsTable.opcId, opcId))
+      .orderBy(desc(bidsTable.createdAt));
+
+    res.json(bids.map(b => ({
+      ...b,
+      demandDeadline: b.demandDeadline?.toISOString() ?? null,
+      createdAt: b.createdAt.toISOString(),
+    })));
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch my bids" });
+  }
+});
+
+/* PATCH /bids/:bidId/withdraw — OPC withdraws their own pending bid */
+router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
+  try {
+    const bidId = parseInt(req.params.bidId);
+    const opcId = req.user!.id;
+
+    const [bid] = await db
+      .select({ id: bidsTable.id, opcId: bidsTable.opcId, status: bidsTable.status })
+      .from(bidsTable)
+      .where(eq(bidsTable.id, bidId))
+      .limit(1);
+
+    if (!bid) return res.status(404).json({ error: "申请记录不存在" });
+    if (bid.opcId !== opcId) return res.status(403).json({ error: "无权撤消他人的申请" });
+    if (bid.status !== "pending") {
+      return res.status(400).json({ error: `当前申请状态「${bid.status}」无法撤消，仅「申请中」状态可撤消` });
+    }
+
+    const [updated] = await db
+      .update(bidsTable)
+      .set({ status: "withdrawn" as any })
+      .where(eq(bidsTable.id, bidId))
+      .returning();
+
+    res.json({ id: updated.id, status: updated.status });
+  } catch (error) {
+    res.status(500).json({ error: "撤消申请失败" });
+  }
+});
 
 router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {

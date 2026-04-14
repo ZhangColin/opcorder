@@ -552,6 +552,36 @@ export const UpdateBidStatusBody = zod.object({
   status: zod.enum(["accepted", "rejected"]),
 });
 
+/**
+ * @summary Get current OPC's own bids
+ */
+export const GetMyBidsResponseItem = zod.object({
+  id: zod.number(),
+  demandId: zod.number(),
+  demandTitle: zod.string(),
+  demandStatus: zod.string(),
+  demandBudget: zod.number(),
+  demandDeadline: zod.date().optional(),
+  proposal: zod.string(),
+  estimatedDays: zod.number().optional(),
+  portfolioLinks: zod.array(zod.string()).optional(),
+  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
+  createdAt: zod.date(),
+});
+export const GetMyBidsResponse = zod.array(GetMyBidsResponseItem);
+
+/**
+ * @summary Withdraw a bid (OPC only, pending status only)
+ */
+export const WithdrawBidParams = zod.object({
+  bidId: zod.coerce.number(),
+});
+
+export const WithdrawBidResponse = zod.object({
+  id: zod.number(),
+  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
+});
+
 export const UpdateBidStatusResponse = zod.object({
   id: zod.number(),
   demandId: zod.number(),

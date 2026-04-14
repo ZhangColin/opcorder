@@ -216,6 +216,19 @@ router.post("/demands", requireAuth, async (req, res) => {
 router.get("/demands/:demandId", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
+
+    // OPC access control: if OPC has a rejected or withdrawn bid for this demand, deny access
+    if (req.user!.role === "opc") {
+      const [existingBid] = await db
+        .select({ status: bidsTable.status })
+        .from(bidsTable)
+        .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.opcId, req.user!.id)))
+        .limit(1);
+      if (existingBid && (existingBid.status === "rejected" || existingBid.status === ("withdrawn" as any))) {
+        return res.status(403).json({ error: "您的申请已被婉拒或已撤消，无法查看该需求详情" });
+      }
+    }
+
     const [demand] = await db
       .select({
         id: demandsTable.id,

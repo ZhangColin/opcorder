@@ -61,6 +61,8 @@ import type {
   DemandPaymentStatusResponse,
   RefundDemandPaymentBody,
   RefundDemandPaymentResponse,
+  GetMyBidsResponse,
+  WithdrawBidResponse,
   TogglePostLike200,
   TogglePostLikeBody,
   UpdateBidStatusBody,
@@ -3587,4 +3589,124 @@ export const useRefundDemandPayment = <
   TContext
 > => {
   return useMutation(getRefundDemandPaymentMutationOptions(options));
+};
+
+// GET /api/bids/my
+export const getGetMyBidsUrl = () => `/api/bids/my`;
+
+export const getMyBids = (
+  options?: SecondParameter<typeof customFetch>,
+  signal?: AbortSignal,
+): Promise<GetMyBidsResponse> => {
+  return customFetch<GetMyBidsResponse>(getGetMyBidsUrl(), {
+    ...options,
+    method: "GET",
+    signal,
+  });
+};
+
+export const getGetMyBidsQueryKey = () => ["getMyBids"] as const;
+
+export const getGetMyBidsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyBids>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyBids>>, TError, TData>>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryOptions<Awaited<ReturnType<typeof getMyBids>>, TError, TData> => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetMyBidsQueryKey();
+  return {
+    queryKey,
+    queryFn: ({ signal }) => getMyBids(requestOptions, signal),
+    ...queryOptions,
+  };
+};
+
+export type GetMyBidsQueryResult = NonNullable<Awaited<ReturnType<typeof getMyBids>>>;
+export type GetMyBidsQueryError = ErrorType<unknown>;
+
+export function useGetMyBids<
+  TData = Awaited<ReturnType<typeof getMyBids>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyBids>>, TError, TData>>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetMyBidsQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+  query.queryKey = queryOptions.queryKey as DataTag<QueryKey, TData, TError>;
+  return query;
+}
+
+// PATCH /api/bids/:bidId/withdraw
+export const getWithdrawBidUrl = (bidId: number) => `/api/bids/${bidId}/withdraw`;
+
+export const withdrawBid = (
+  bidId: number,
+  options?: SecondParameter<typeof customFetch>,
+): Promise<WithdrawBidResponse> => {
+  return customFetch<WithdrawBidResponse>(getWithdrawBidUrl(bidId), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getWithdrawBidMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof withdrawBid>>,
+    TError,
+    { bidId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof withdrawBid>>,
+  TError,
+  { bidId: number },
+  TContext
+> => {
+  const mutationKey = ["withdrawBid"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof withdrawBid>>,
+    { bidId: number }
+  > = (props) => {
+    const { bidId } = props ?? {};
+    return withdrawBid(bidId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useWithdrawBid = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof withdrawBid>>,
+    TError,
+    { bidId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof withdrawBid>>,
+  TError,
+  { bidId: number },
+  TContext
+> => {
+  return useMutation(getWithdrawBidMutationOptions(options));
 };

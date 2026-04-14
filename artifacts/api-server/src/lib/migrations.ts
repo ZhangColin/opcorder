@@ -171,5 +171,19 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 003c failed in production: ${err}`);
   }
 
+  // Migration 004a: add 'withdrawn' value to bid_status enum (CRITICAL)
+  // Required for OPC to withdraw their own pending bids
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE bid_status ADD VALUE IF NOT EXISTS 'withdrawn' AFTER 'rejected';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 004a: could not add withdrawn enum value to bid_status");
+    if (!isDev) throw new Error(`Migration 004a failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

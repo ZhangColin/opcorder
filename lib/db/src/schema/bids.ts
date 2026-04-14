@@ -4,7 +4,7 @@ import { usersTable } from "./users";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const bidStatusEnum = pgEnum("bid_status", ["pending", "accepted", "rejected"]);
+export const bidStatusEnum = pgEnum("bid_status", ["pending", "accepted", "rejected", "withdrawn"]);
 
 export const bidsTable = pgTable("bids", {
   id: serial("id").primaryKey(),
