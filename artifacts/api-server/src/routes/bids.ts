@@ -66,13 +66,18 @@ router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
       return res.status(400).json({ error: `当前申请状态「${bid.status}」无法撤消，仅「申请中」状态可撤消` });
     }
 
-    const [updated] = await db
+    // Atomic update: only succeeds if status is still 'pending' at write time (prevents race condition)
+    const rows = await db
       .update(bidsTable)
       .set({ status: "withdrawn" })
-      .where(eq(bidsTable.id, bidId))
+      .where(and(eq(bidsTable.id, bidId), eq(bidsTable.opcId, opcId), eq(bidsTable.status, "pending")))
       .returning();
 
-    res.json({ id: updated.id, status: updated.status });
+    if (rows.length === 0) {
+      return res.status(409).json({ error: "申请状态已发生变化（可能已被审核），撤消失败" });
+    }
+
+    res.json({ id: rows[0].id, status: rows[0].status });
   } catch (error) {
     res.status(500).json({ error: "撤消申请失败" });
   }
