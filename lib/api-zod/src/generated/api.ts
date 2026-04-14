@@ -558,15 +558,15 @@ export const UpdateBidStatusBody = zod.object({
 export const GetMyBidsResponseItem = zod.object({
   id: zod.number(),
   demandId: zod.number(),
-  demandTitle: zod.string(),
-  demandStatus: zod.string(),
-  demandBudget: zod.number(),
-  demandDeadline: zod.date().optional(),
+  demandTitle: zod.string().nullable(),
+  demandStatus: zod.string().nullable(),
+  demandBudget: zod.number().nullable(),
+  demandDeadline: zod.string().nullable().optional(),
   proposal: zod.string(),
-  estimatedDays: zod.number().optional(),
-  portfolioLinks: zod.array(zod.string()).optional(),
+  estimatedDays: zod.number().nullable().optional(),
+  portfolioLinks: zod.array(zod.string()).nullable().optional(),
   status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
-  createdAt: zod.date(),
+  createdAt: zod.string(),
 });
 export const GetMyBidsResponse = zod.array(GetMyBidsResponseItem);
 

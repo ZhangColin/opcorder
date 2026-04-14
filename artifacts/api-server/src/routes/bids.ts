@@ -51,7 +51,8 @@ router.get("/bids/my", requireAuth, async (req, res) => {
 router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
   if (req.user!.role !== "opc") return res.status(403).json({ error: "仅OPC可撤消申请" });
   try {
-    const bidId = parseInt(req.params.bidId);
+    const bidId = parseInt(req.params.bidId, 10);
+    if (isNaN(bidId) || bidId <= 0) return res.status(400).json({ error: "无效的申请ID" });
     const opcId = req.user!.id;
 
     const [bid] = await db

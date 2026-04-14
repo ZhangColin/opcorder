@@ -286,13 +286,13 @@ export interface BidApplication {
 export interface MyBidItem {
   id: number;
   demandId: number;
-  demandTitle: string;
-  demandStatus: string;
-  demandBudget: number;
-  demandDeadline?: string;
+  demandTitle: string | null;
+  demandStatus: string | null;
+  demandBudget: number | null;
+  demandDeadline?: string | null;
   proposal: string;
-  estimatedDays?: number;
-  portfolioLinks?: string[];
+  estimatedDays?: number | null;
+  portfolioLinks?: string[] | null;
   status: BidApplicationStatus;
   createdAt: string;
 }
