@@ -166,14 +166,12 @@ export interface CreateRefundParams {
 export async function createRefund(params: CreateRefundParams): Promise<RefundResult> {
   const bodyObj = {
     paymentOrderNo: params.paymentOrderNo,
-    amount: params.amount,
+    refundAmount: params.amount,
     reason: params.reason,
     businessOrderNo: params.businessOrderNo,
     needAudit: params.needAudit ?? false,
   };
   const bodyStr = JSON.stringify(bodyObj);
-
-  console.log(`[createRefund] request body:`, JSON.stringify(bodyObj));
 
   const resp = await fetch(`${BASE_URL}/api/v1/refunds`, {
     method: "POST",
@@ -181,12 +179,8 @@ export async function createRefund(params: CreateRefundParams): Promise<RefundRe
     body: bodyStr,
   });
 
-  const rawText = await resp.text();
-  console.log(`[createRefund] paymentOrderNo=${params.paymentOrderNo} httpStatus=${resp.status} rawResponse=${rawText}`);
-
-  let json: { code: number | string; message: string; data: RefundResult };
-  try { json = JSON.parse(rawText); } catch { throw new Error(`退款申请失败: 响应解析错误`); }
-
+  const json = await resp.json() as { code: number | string; message: string; data: RefundResult };
+  console.log(`[createRefund] paymentOrderNo=${params.paymentOrderNo} httpStatus=${resp.status} code=${json.code} message=${json.message} refundOrderNo=${json.data?.refundOrderNo}`);
   if (json.code !== 0 && json.code !== 200) {
     throw new Error(`退款申请失败: ${json.message} (${json.code})`);
   }
