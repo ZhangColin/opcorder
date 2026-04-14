@@ -19,7 +19,7 @@ const isDev = process.env["NODE_ENV"] !== "production";
 export async function runMigrations(): Promise<void> {
   logger.info("Running startup data migrations...");
 
-  // Migration 001a: add demands.budget column (non-critical — falls back to legacy columns)
+  // Migration 001a: add demands.budget column
   try {
     await db.execute(sql`
       ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget real NOT NULL DEFAULT 0
@@ -28,21 +28,17 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 001a: could not add budget column");
   }
 
-  // Migration 001a2: set DEFAULT 0 on legacy budget_min/budget_max so inserts that
-  // omit these columns (new code path) do not violate NOT NULL constraints.
-  // NOTE: These columns are kept for backward-compatibility during the transition window.
-  // Once rollout is validated and data integrity confirmed, a follow-up Migration 002
-  // should DROP COLUMN budget_min and DROP COLUMN budget_max to complete the cleanup.
+  // Migration 001a2: set DEFAULT 0 on legacy budget_min/budget_max (transition guard
+  // so they don't fail NOT NULL if somehow still referenced before 002 runs)
   try {
     await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_min SET DEFAULT 0`);
     await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_max SET DEFAULT 0`);
   } catch (err) {
-    // Safe to ignore — columns may already have defaults or may not exist on fresh DBs
+    // Columns may already have defaults or may not exist — safe to ignore
     logger.warn({ err }, "Migration 001a2: could not set defaults on legacy budget columns");
   }
 
   // Migration 001b: add pending_payment to demand status enum (CRITICAL)
-  // The pending_payment → confirmed deposit flow depends on this enum value existing
   try {
     await db.execute(sql`
       DO $$ BEGIN
@@ -56,7 +52,6 @@ export async function runMigrations(): Promise<void> {
   }
 
   // Migration 001c: create payment method/status enums (CRITICAL)
-  // demand_payments table DDL references these types
   try {
     await db.execute(sql`
       DO $$ BEGIN
@@ -76,7 +71,6 @@ export async function runMigrations(): Promise<void> {
   }
 
   // Migration 001d: create demand_payments table (CRITICAL)
-  // All deposit payment routes depend on this table existing
   try {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS demand_payments (
@@ -102,7 +96,7 @@ export async function runMigrations(): Promise<void> {
   }
 
   // Migration 001e: backfill demands.budget from budget_max for any rows still at 0
-  // Non-critical: missing rows simply show 0 until publisher edits the demand
+  // Runs before 002 (column drop) to ensure data is preserved
   try {
     const result = await db.execute(
       sql`UPDATE demands SET budget = budget_max WHERE (budget IS NULL OR budget = 0) AND budget_max > 0`
@@ -112,7 +106,21 @@ export async function runMigrations(): Promise<void> {
       logger.info({ count }, "Migration 001e: backfilled budget from budget_max");
     }
   } catch (err) {
-    logger.warn({ err }, "Migration 001e: budget backfill skipped");
+    // budget_max may already be gone (002 ran) — safe to ignore
+    logger.warn({ err }, "Migration 001e: budget backfill skipped (columns may already be dropped)");
+  }
+
+  // Migration 002: drop legacy budget_min / budget_max columns
+  // Runs after 001e backfill so no data is lost. Drizzle schema no longer
+  // references these columns; dropping them aligns the physical DB with the schema.
+  // Uses IF EXISTS so this is safe to re-run on subsequent boots.
+  try {
+    await db.execute(sql`ALTER TABLE demands DROP COLUMN IF EXISTS budget_min`);
+    await db.execute(sql`ALTER TABLE demands DROP COLUMN IF EXISTS budget_max`);
+    logger.info("Migration 002: dropped legacy budget_min and budget_max columns");
+  } catch (err) {
+    logger.warn({ err }, "Migration 002: could not drop legacy budget columns");
+    if (!isDev) throw new Error(`Migration 002 failed in production: ${err}`);
   }
 
   logger.info("Startup data migrations complete.");
