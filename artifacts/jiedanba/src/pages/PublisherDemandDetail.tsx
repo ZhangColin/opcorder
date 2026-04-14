@@ -7,17 +7,19 @@ import {
   Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
   FileText, Download, FileImage, FileSpreadsheet, FileArchive, File,
-  Menu,
+  Menu, Edit2, Send, X,
 } from "lucide-react";
 import {
   useGetDemandById,
   useListBidsForDemand,
   useUpdateBidStatus,
+  useUpdateDemandStatus,
 } from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
   ai_education: "AI 教育",
@@ -70,17 +72,18 @@ function StarRating({ score }: { score: number }) {
 
 export default function PublisherDemandDetail() {
   const [, navigate] = useLocation();
-  // useCurrentUser() destructure removed
   const params = useParams<{ id: string }>();
   const demandId = parseInt(params.id ?? "0", 10);
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const [confirmingBidId, setConfirmingBidId] = useState<number | null>(null);
   const [rejectingBidId, setRejectingBidId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [demandActionLoading, setDemandActionLoading] = useState(false);
 
-  const { data: demand, isLoading: demandLoading } = useGetDemandById(demandId, {
+  const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
   });
 
@@ -89,12 +92,40 @@ export default function PublisherDemandDetail() {
   });
 
   const updateBidStatus = useUpdateBidStatus();
+  const updateDemandStatus = useUpdateDemandStatus();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const logout = () => {
     clearSession();
     navigate("/login");
+  };
+
+  const handleSubmitReview = async () => {
+    setDemandActionLoading(true);
+    try {
+      await updateDemandStatus.mutateAsync({ demandId, data: { status: "pending_review" } });
+      toast({ title: "已提交审核", description: "平台将在24小时内完成审核" });
+      refetchDemand();
+    } catch {
+      toast({ title: "操作失败", description: "请稍后重试", variant: "destructive" });
+    } finally {
+      setDemandActionLoading(false);
+    }
+  };
+
+  const handleCloseDemand = async () => {
+    if (!confirm("确认关闭该需求？关闭后OPC无法继续抢单")) return;
+    setDemandActionLoading(true);
+    try {
+      await updateDemandStatus.mutateAsync({ demandId, data: { status: "closed" } });
+      toast({ title: "需求已关闭" });
+      refetchDemand();
+    } catch {
+      toast({ title: "操作失败", description: "请稍后重试", variant: "destructive" });
+    } finally {
+      setDemandActionLoading(false);
+    }
   };
 
   const handleConfirm = async (bidId: number) => {
@@ -227,6 +258,59 @@ export default function PublisherDemandDetail() {
                     ))}
                   </div>
                 )}
+
+                {/* Rejection reason banner */}
+                {(demand as any).rejectionReason && demand.status === "draft" && (
+                  <div className="mt-5 pt-5 border-t border-red-100">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <XCircle size={15} className="text-red-500 shrink-0" />
+                        <p className="text-sm font-extrabold text-red-700">审核不通过 · 请根据以下原因修改后重新提交</p>
+                      </div>
+                      <p className="text-sm text-red-800 leading-relaxed whitespace-pre-wrap pl-5">
+                        {(demand as any).rejectionReason}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Demand actions */}
+                {(() => {
+                  const canEdit = ["draft", "pending_review"].includes(demand.status);
+                  const canSubmit = demand.status === "draft";
+                  const canClose = ["published", "pending_review", "matched"].includes(demand.status);
+                  if (!canEdit && !canClose) return null;
+                  return (
+                    <div className="mt-5 pt-5 border-t border-slate-100 flex items-center gap-3 flex-wrap">
+                      {canSubmit && (
+                        <button
+                          onClick={handleSubmitReview}
+                          disabled={demandActionLoading}
+                          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm shadow-primary/20"
+                        >
+                          <Send size={14} />
+                          {demandActionLoading ? "提交中…" : "提交审核"}
+                        </button>
+                      )}
+                      {canEdit && (
+                        <Link href={`/publisher/demands/${demandId}/edit`}>
+                          <button className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+                            <Edit2 size={14} /> 编辑需求
+                          </button>
+                        </Link>
+                      )}
+                      {canClose && (
+                        <button
+                          onClick={handleCloseDemand}
+                          disabled={demandActionLoading}
+                          className="flex items-center gap-2 text-slate-400 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-destructive disabled:opacity-50 transition-colors"
+                        >
+                          <X size={14} /> 关闭需求
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {actionError && (

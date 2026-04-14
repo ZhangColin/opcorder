@@ -93,9 +93,15 @@ function DemandCard({
                 <Zap size={10} /> 紧急
               </span>
             )}
-            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${statusInfo.cls}`}>
-              {statusInfo.label}
-            </span>
+            {demand.status === "draft" && (demand as any).rejectionReason ? (
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 flex items-center gap-1">
+                <X size={9} /> 审核不通过
+              </span>
+            ) : (
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${statusInfo.cls}`}>
+                {statusInfo.label}
+              </span>
+            )}
           </div>
 
           {/* Title */}
@@ -110,6 +116,14 @@ function DemandCard({
           <p className="text-sm text-slate-500 line-clamp-2 mb-3">
             {demand.description}
           </p>
+
+          {/* Rejection reason hint */}
+          {demand.status === "draft" && (demand as any).rejectionReason && (
+            <div className="flex items-start gap-1.5 mb-3 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+              <AlertCircle size={12} className="text-red-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600 line-clamp-2">{(demand as any).rejectionReason}</p>
+            </div>
+          )}
 
           {/* Skill tags */}
           {(demand.skillTags as string[])?.length > 0 && (
@@ -428,7 +442,7 @@ export default function PublisherDemandList() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: "草稿", desc: "已保存，未提交审核", cls: "bg-slate-100 text-slate-500" },
+                { label: "草稿", desc: "已保存或审核不通过退回，可编辑后重新提交", cls: "bg-slate-100 text-slate-500" },
                 { label: "待审核", desc: "已提交，等待平台审核（24h）", cls: "bg-amber-50 text-amber-700 border border-amber-200" },
                 { label: "招募中", desc: "审核通过，OPC可以抢单", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
                 { label: "进行中", desc: "已匹配OPC，正在执行", cls: "bg-indigo-50 text-indigo-700 border border-indigo-200" },

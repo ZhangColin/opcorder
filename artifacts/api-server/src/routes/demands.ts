@@ -310,6 +310,7 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
 
     const [updated] = await db.update(demandsTable).set({
       status: body.status as any,
+      ...(body.status === "pending_review" ? { rejectionReason: null } : {}),
       updatedAt: new Date(),
     }).where(eq(demandsTable.id, demandId)).returning();
 
