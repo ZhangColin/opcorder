@@ -1622,43 +1622,47 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
 
     const adminId = req.user!.id;
 
-    if (action === "confirm") {
-      const now = new Date();
-      await db.update(demandPaymentsTable).set({
-        status: "confirmed",
-        confirmedAt: now,
-        confirmedBy: adminId,
-      }).where(eq(demandPaymentsTable.id, id));
+    // Wrap payment status update, demand status update, and notification in a transaction
+    // to ensure atomicity — partial updates cannot leave payment/demand in inconsistent state
+    await db.transaction(async (tx) => {
+      if (action === "confirm") {
+        const now = new Date();
+        await tx.update(demandPaymentsTable).set({
+          status: "confirmed",
+          confirmedAt: now,
+          confirmedBy: adminId,
+        }).where(eq(demandPaymentsTable.id, id));
 
-      await db.update(demandsTable).set({
-        status: "published",
-        updatedAt: now,
-      }).where(eq(demandsTable.id, payment.demandId));
+        await tx.update(demandsTable).set({
+          status: "published",
+          updatedAt: now,
+        }).where(eq(demandsTable.id, payment.demandId));
 
-      await db.insert(notificationsTable).values({
-        userId: demand.publisherId,
-        type: "system",
-        title: "保证金已到账，需求已发布",
-        content: `您的需求「${demand.title}」的保证金已到账确认，需求现已在需求大厅公开发布，OPC可以查看并投标。`,
-        relatedId: payment.demandId,
-        relatedType: "demand",
-      });
-    } else {
-      const reasonText = rejectReason?.trim() ?? "保证金信息有误，请重新提交";
-      await db.update(demandPaymentsTable).set({
-        status: "rejected",
-        rejectReason: reasonText,
-      }).where(eq(demandPaymentsTable.id, id));
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId,
+          type: "system",
+          title: "保证金已到账，需求已发布",
+          content: `您的需求「${demand.title}」的保证金已到账确认，需求现已在需求大厅公开发布，OPC可以查看并投标。`,
+          relatedId: payment.demandId,
+          relatedType: "demand",
+        });
+      } else {
+        const reasonText = rejectReason?.trim() ?? "保证金信息有误，请重新提交";
+        await tx.update(demandPaymentsTable).set({
+          status: "rejected",
+          rejectReason: reasonText,
+        }).where(eq(demandPaymentsTable.id, id));
 
-      await db.insert(notificationsTable).values({
-        userId: demand.publisherId,
-        type: "system",
-        title: "保证金审核未通过",
-        content: `您的需求「${demand.title}」的保证金审核未通过。原因：${reasonText}。请在需求详情页重新提交缴费凭证。`,
-        relatedId: payment.demandId,
-        relatedType: "demand",
-      });
-    }
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId,
+          type: "system",
+          title: "保证金审核未通过",
+          content: `您的需求「${demand.title}」的保证金审核未通过。原因：${reasonText}。请在需求详情页重新提交缴费凭证。`,
+          relatedId: payment.demandId,
+          relatedType: "demand",
+        });
+      }
+    });
 
     const [updated] = await db
       .select({
