@@ -3144,17 +3144,58 @@ export function useListMyEnrollments<
 
 /* ─── Demand Payment Endpoints ─────────────────────────── */
 
-// POST /demands/:demandId/payment
+// POST /api/demands/{demandId}/payment
+export const getSubmitDemandPaymentUrl = (demandId: number) =>
+  `/api/demands/${demandId}/payment`;
+
 export const submitDemandPayment = (
   demandId: number,
   createDemandPaymentInput: BodyType<CreateDemandPaymentInput>,
-) => {
-  return customFetch<DemandPayment>({
-    url: `/demands/${demandId}/payment`,
+  options?: SecondParameter<typeof customFetch>,
+): Promise<DemandPayment> => {
+  return customFetch<DemandPayment>(getSubmitDemandPaymentUrl(demandId), {
+    ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: createDemandPaymentInput,
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createDemandPaymentInput),
   });
+};
+
+export const getSubmitDemandPaymentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDemandPayment>>,
+    TError,
+    { demandId: number; data: BodyType<CreateDemandPaymentInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitDemandPayment>>,
+  TError,
+  { demandId: number; data: BodyType<CreateDemandPaymentInput> },
+  TContext
+> => {
+  const mutationKey = ["submitDemandPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitDemandPayment>>,
+    { demandId: number; data: BodyType<CreateDemandPaymentInput> }
+  > = (props) => {
+    const { demandId, data } = props ?? {};
+    return submitDemandPayment(demandId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
 };
 
 export const useSubmitDemandPayment = <
@@ -3167,33 +3208,32 @@ export const useSubmitDemandPayment = <
     { demandId: number; data: BodyType<CreateDemandPaymentInput> },
     TContext
   >;
+  request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof submitDemandPayment>>,
   TError,
   { demandId: number; data: BodyType<CreateDemandPaymentInput> },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof submitDemandPayment>>,
-    { demandId: number; data: BodyType<CreateDemandPaymentInput> }
-  > = (props) => {
-    const { demandId, data } = props ?? {};
-    return submitDemandPayment(demandId, data);
-  };
-  return useMutation({ mutationFn, ...mutationOptions });
+  return useMutation(getSubmitDemandPaymentMutationOptions(options));
 };
 
-// GET /demands/:demandId/payment
-export const getDemandPayment = (demandId: number) => {
-  return customFetch<DemandPayment | null>({
-    url: `/demands/${demandId}/payment`,
+// GET /api/demands/{demandId}/payment
+export const getGetDemandPaymentUrl = (demandId: number) =>
+  `/api/demands/${demandId}/payment`;
+
+export const getDemandPayment = (
+  demandId: number,
+  options?: SecondParameter<typeof customFetch>,
+): Promise<DemandPayment | null> => {
+  return customFetch<DemandPayment | null>(getGetDemandPaymentUrl(demandId), {
+    ...options,
     method: "GET",
   });
 };
 
 export const getGetDemandPaymentQueryKey = (demandId: number) =>
-  [`/demands/${demandId}/payment`] as const;
+  [`/api/demands/${demandId}/payment`] as const;
 
 export const getGetDemandPaymentQueryOptions = <
   TData = Awaited<ReturnType<typeof getDemandPayment>>,
@@ -3206,15 +3246,25 @@ export const getGetDemandPaymentQueryOptions = <
       TError,
       TData
     >;
+    request?: SecondParameter<typeof customFetch>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
   const queryKey =
     queryOptions?.queryKey ?? getGetDemandPaymentQueryKey(demandId);
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof getDemandPayment>>
-  > = () => getDemandPayment(demandId);
-  return { queryKey, queryFn, enabled: !!demandId, ...queryOptions };
+  > = ({ signal }) => getDemandPayment(demandId, { signal, ...requestOptions });
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!demandId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDemandPayment>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
 };
 
 export const useGetDemandPayment = <
@@ -3228,6 +3278,7 @@ export const useGetDemandPayment = <
       TError,
       TData
     >;
+    request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getGetDemandPaymentQueryOptions(demandId, options);
@@ -3237,18 +3288,32 @@ export const useGetDemandPayment = <
   return { ...query, queryKey: queryOptions.queryKey };
 };
 
-// GET /admin/demand-payments
-export const listDemandPayments = (params?: ListDemandPaymentsParams) => {
-  return customFetch<AdminDemandPaymentRow[]>({
-    url: `/admin/demand-payments`,
+// GET /api/admin/demand-payments
+export const getListDemandPaymentsUrl = (params?: ListDemandPaymentsParams) => {
+  const normalizedParams = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value.toString());
+    }
+  });
+  const str = normalizedParams.toString();
+  return str.length > 0
+    ? `/api/admin/demand-payments?${str}`
+    : `/api/admin/demand-payments`;
+};
+
+export const listDemandPayments = (
+  params?: ListDemandPaymentsParams,
+  options?: SecondParameter<typeof customFetch>,
+): Promise<AdminDemandPaymentRow[]> => {
+  return customFetch<AdminDemandPaymentRow[]>(getListDemandPaymentsUrl(params), {
+    ...options,
     method: "GET",
-    params,
   });
 };
 
-export const getListDemandPaymentsQueryKey = (
-  params?: ListDemandPaymentsParams,
-) => [`/admin/demand-payments`, ...(params ? [params] : [])] as const;
+export const getListDemandPaymentsQueryKey = (params?: ListDemandPaymentsParams) =>
+  [`/api/admin/demand-payments`, ...(params ? [params] : [])] as const;
 
 export const getListDemandPaymentsQueryOptions = <
   TData = Awaited<ReturnType<typeof listDemandPayments>>,
@@ -3261,15 +3326,24 @@ export const getListDemandPaymentsQueryOptions = <
       TError,
       TData
     >;
+    request?: SecondParameter<typeof customFetch>;
   },
 ) => {
-  const { query: queryOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions } = options ?? {};
   const queryKey =
     queryOptions?.queryKey ?? getListDemandPaymentsQueryKey(params);
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof listDemandPayments>>
-  > = () => listDemandPayments(params);
-  return { queryKey, queryFn, ...queryOptions };
+  > = ({ signal }) => listDemandPayments(params, { signal, ...requestOptions });
+  return {
+    queryKey,
+    queryFn,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDemandPayments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
 };
 
 export const useListDemandPayments = <
@@ -3283,6 +3357,7 @@ export const useListDemandPayments = <
       TError,
       TData
     >;
+    request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
   const queryOptions = getListDemandPaymentsQueryOptions(params, options);
@@ -3292,17 +3367,58 @@ export const useListDemandPayments = <
   return { ...query, queryKey: queryOptions.queryKey };
 };
 
-// PATCH /admin/demand-payments/:paymentId
+// PATCH /api/admin/demand-payments/{paymentId}
+export const getReviewDemandPaymentUrl = (paymentId: number) =>
+  `/api/admin/demand-payments/${paymentId}`;
+
 export const reviewDemandPayment = (
   paymentId: number,
   reviewDemandPaymentBody: BodyType<ReviewDemandPaymentBody>,
-) => {
-  return customFetch<DemandPayment>({
-    url: `/admin/demand-payments/${paymentId}`,
+  options?: SecondParameter<typeof customFetch>,
+): Promise<DemandPayment> => {
+  return customFetch<DemandPayment>(getReviewDemandPaymentUrl(paymentId), {
+    ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    data: reviewDemandPaymentBody,
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reviewDemandPaymentBody),
   });
+};
+
+export const getReviewDemandPaymentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviewDemandPayment>>,
+    TError,
+    { paymentId: number; data: BodyType<ReviewDemandPaymentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reviewDemandPayment>>,
+  TError,
+  { paymentId: number; data: BodyType<ReviewDemandPaymentBody> },
+  TContext
+> => {
+  const mutationKey = ["reviewDemandPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviewDemandPayment>>,
+    { paymentId: number; data: BodyType<ReviewDemandPaymentBody> }
+  > = (props) => {
+    const { paymentId, data } = props ?? {};
+    return reviewDemandPayment(paymentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
 };
 
 export const useReviewDemandPayment = <
@@ -3315,19 +3431,12 @@ export const useReviewDemandPayment = <
     { paymentId: number; data: BodyType<ReviewDemandPaymentBody> },
     TContext
   >;
+  request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof reviewDemandPayment>>,
   TError,
   { paymentId: number; data: BodyType<ReviewDemandPaymentBody> },
   TContext
 > => {
-  const { mutation: mutationOptions } = options ?? {};
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof reviewDemandPayment>>,
-    { paymentId: number; data: BodyType<ReviewDemandPaymentBody> }
-  > = (props) => {
-    const { paymentId, data } = props ?? {};
-    return reviewDemandPayment(paymentId, data);
-  };
-  return useMutation({ mutationFn, ...mutationOptions });
+  return useMutation(getReviewDemandPaymentMutationOptions(options));
 };

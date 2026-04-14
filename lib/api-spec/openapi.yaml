@@ -875,6 +875,25 @@ paths:
                   $ref: "#/components/schemas/EnrollmentWithCourse"
 
   /demands/{demandId}/payment:
+    get:
+      operationId: getDemandPayment
+      tags: [demands]
+      summary: Get the pending deposit payment for a demand (publisher or admin only)
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment record, or null if none submitted yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandPayment"
+        "404":
+          description: Demand not found
     post:
       operationId: submitDemandPayment
       tags: [demands]
