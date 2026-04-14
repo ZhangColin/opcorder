@@ -301,7 +301,7 @@ export type GetMyBidsResponse = MyBidItem[];
 
 export interface WithdrawBidResponse {
   id: number;
-  status: BidApplicationStatus;
+  status: "withdrawn";
 }
 
 export interface CreateBidInput {

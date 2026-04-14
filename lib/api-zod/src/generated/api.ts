@@ -579,7 +579,7 @@ export const WithdrawBidParams = zod.object({
 
 export const WithdrawBidResponse = zod.object({
   id: zod.number(),
-  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
+  status: zod.literal("withdrawn"),
 });
 
 export const UpdateBidStatusResponse = zod.object({
