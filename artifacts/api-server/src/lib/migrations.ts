@@ -2,17 +2,24 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 
+const isDev = process.env["NODE_ENV"] !== "production";
+
 /**
  * Deterministic startup data migrations.
  * Each migration is idempotent (safe to run on every boot).
  * Migrations run in order before seed data initialization.
  * Add new migrations at the bottom — never remove existing ones.
+ *
+ * Error policy:
+ *   - Non-critical (backward-compat only): warn and continue in all environments
+ *   - Critical (enum/table creation that feature paths depend on):
+ *       dev  → warn and continue (allows iteration without crashing)
+ *       prod → re-throw to fail fast before traffic is accepted
  */
 export async function runMigrations(): Promise<void> {
   logger.info("Running startup data migrations...");
 
-  // Migration 001a: add demands.budget column and relax legacy budget_min/budget_max constraints
-  // (consolidated from budgetMin/budgetMax to a single budget field)
+  // Migration 001a: add demands.budget column (non-critical — falls back to legacy columns)
   try {
     await db.execute(sql`
       ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget real NOT NULL DEFAULT 0
@@ -34,7 +41,8 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 001a2: could not set defaults on legacy budget columns");
   }
 
-  // Migration 001b: add pending_payment to demand status enum if missing
+  // Migration 001b: add pending_payment to demand status enum (CRITICAL)
+  // The pending_payment → confirmed deposit flow depends on this enum value existing
   try {
     await db.execute(sql`
       DO $$ BEGIN
@@ -44,10 +52,11 @@ export async function runMigrations(): Promise<void> {
     `);
   } catch (err) {
     logger.warn({ err }, "Migration 001b: could not add pending_payment enum value");
+    if (!isDev) throw new Error(`Migration 001b failed in production: ${err}`);
   }
 
-  // Migration 001c: create payment method/status enums if not exist
-  // These match the Drizzle pgEnum definitions in demand-payments.ts
+  // Migration 001c: create payment method/status enums (CRITICAL)
+  // demand_payments table DDL references these types
   try {
     await db.execute(sql`
       DO $$ BEGIN
@@ -63,11 +72,11 @@ export async function runMigrations(): Promise<void> {
     `);
   } catch (err) {
     logger.warn({ err }, "Migration 001c: could not create payment enum types");
+    if (!isDev) throw new Error(`Migration 001c failed in production: ${err}`);
   }
 
-  // Migration 001d: create demand_payments table if not exists
-  // Column types match the Drizzle schema in lib/db/src/schema/demand-payments.ts
-  // amount: real (Drizzle real), method/status: pgEnum types
+  // Migration 001d: create demand_payments table (CRITICAL)
+  // All deposit payment routes depend on this table existing
   try {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS demand_payments (
@@ -89,9 +98,11 @@ export async function runMigrations(): Promise<void> {
     `);
   } catch (err) {
     logger.warn({ err }, "Migration 001d: could not create demand_payments table");
+    if (!isDev) throw new Error(`Migration 001d failed in production: ${err}`);
   }
 
   // Migration 001e: backfill demands.budget from budget_max for any rows still at 0
+  // Non-critical: missing rows simply show 0 until publisher edits the demand
   try {
     const result = await db.execute(
       sql`UPDATE demands SET budget = budget_max WHERE (budget IS NULL OR budget = 0) AND budget_max > 0`
