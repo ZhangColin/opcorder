@@ -7,7 +7,7 @@ import {
   Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
   FileText, Download, FileImage, FileSpreadsheet, FileArchive, File,
-  Menu, Edit2, Send, X,
+  Menu, Edit2, Send, X, Undo2,
 } from "lucide-react";
 import {
   useGetDemandById,
@@ -114,8 +114,22 @@ export default function PublisherDemandDetail() {
     }
   };
 
+  const handleWithdrawDemand = async () => {
+    if (!confirm("确认撤回审核？撤回后需求将变回草稿状态，可重新编辑后提交")) return;
+    setDemandActionLoading(true);
+    try {
+      await updateDemandStatus.mutateAsync({ demandId, data: { status: "draft" } });
+      toast({ title: "已撤回", description: "需求已变回草稿，可重新编辑后提交审核" });
+      refetchDemand();
+    } catch {
+      toast({ title: "操作失败", description: "请稍后重试", variant: "destructive" });
+    } finally {
+      setDemandActionLoading(false);
+    }
+  };
+
   const handleCloseDemand = async () => {
-    if (!confirm("确认关闭该需求？关闭后OPC无法继续抢单")) return;
+    if (!confirm("确认关闭该需求？关闭后将无法恢复")) return;
     setDemandActionLoading(true);
     try {
       await updateDemandStatus.mutateAsync({ demandId, data: { status: "closed" } });
@@ -276,13 +290,12 @@ export default function PublisherDemandDetail() {
 
                 {/* Demand actions */}
                 {(() => {
-                  const canEdit = ["draft", "pending_review"].includes(demand.status);
-                  const canSubmit = demand.status === "draft";
-                  const canClose = ["published", "pending_review", "matched"].includes(demand.status);
-                  if (!canEdit && !canClose) return null;
+                  const isDraft = demand.status === "draft";
+                  const isPendingReview = demand.status === "pending_review";
+                  if (!isDraft && !isPendingReview) return null;
                   return (
                     <div className="mt-5 pt-5 border-t border-slate-100 flex items-center gap-3 flex-wrap">
-                      {canSubmit && (
+                      {isDraft && (
                         <button
                           onClick={handleSubmitReview}
                           disabled={demandActionLoading}
@@ -292,14 +305,23 @@ export default function PublisherDemandDetail() {
                           {demandActionLoading ? "提交中…" : "提交审核"}
                         </button>
                       )}
-                      {canEdit && (
+                      {isDraft && (
                         <Link href={`/publisher/demands/${demandId}/edit`}>
                           <button className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
                             <Edit2 size={14} /> 编辑需求
                           </button>
                         </Link>
                       )}
-                      {canClose && (
+                      {isPendingReview && (
+                        <button
+                          onClick={handleWithdrawDemand}
+                          disabled={demandActionLoading}
+                          className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-100 disabled:opacity-50 transition-colors border border-amber-200"
+                        >
+                          <Undo2 size={14} /> {demandActionLoading ? "撤回中…" : "撤回审核"}
+                        </button>
+                      )}
+                      {isDraft && (
                         <button
                           onClick={handleCloseDemand}
                           disabled={demandActionLoading}

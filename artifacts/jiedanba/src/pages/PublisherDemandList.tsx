@@ -5,7 +5,7 @@ import {
   Search, Bell, PlusCircle, Filter,
   Eye, Edit2, X, Zap, ChevronRight, Clock, CheckCircle2,
   FileText, MoreHorizontal, AlertCircle, RefreshCw,
-  Menu,
+  Menu, Undo2,
 } from "lucide-react";
 import { useListDemands, useUpdateDemandStatus } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
@@ -53,10 +53,12 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
 function DemandCard({
   demand,
   onPublish,
+  onWithdraw,
   onClose,
 }: {
   demand: any;
   onPublish: (id: number) => void;
+  onWithdraw: (id: number) => void;
   onClose: (id: number) => void;
 }) {
   const [, navigate] = useLocation();
@@ -66,9 +68,12 @@ function DemandCard({
     ? `¥${Number(demand.budgetMin).toLocaleString()} - ¥${Number(demand.budgetMax).toLocaleString()}`
     : "面议";
 
-  const canEdit = ["draft", "pending_review"].includes(demand.status);
-  const canPublish = demand.status === "draft";
-  const canClose = ["published", "open", "pending_review"].includes(demand.status);
+  const isDraft = demand.status === "draft";
+  const isPendingReview = demand.status === "pending_review";
+  const canEdit = isDraft;
+  const canPublish = isDraft;
+  const canWithdraw = isPendingReview;
+  const canClose = isDraft;
 
   const deadlineDate = demand.deadline ? new Date(demand.deadline) : null;
   const daysLeft = deadlineDate
@@ -186,6 +191,14 @@ function DemandCard({
               <CheckCircle2 size={13} /> 提交审核
             </button>
           )}
+          {canWithdraw && (
+            <button
+              onClick={() => onWithdraw(demand.id)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors whitespace-nowrap border border-amber-200"
+            >
+              <Undo2 size={13} /> 撤回审核
+            </button>
+          )}
           {canClose && (
             <button
               onClick={() => onClose(demand.id)}
@@ -237,8 +250,19 @@ export default function PublisherDemandList() {
     }
   };
 
+  const handleWithdraw = async (id: number) => {
+    if (!confirm("确认撤回审核？撤回后需求将变回草稿状态，可重新编辑后提交")) return;
+    try {
+      await updateStatus.mutateAsync({ demandId: id, data: { status: "draft" } });
+      toast({ title: "已撤回", description: "需求已变回草稿，可重新编辑后提交审核" });
+      refetch();
+    } catch {
+      toast({ title: "操作失败", description: "请稍后重试", variant: "destructive" });
+    }
+  };
+
   const handleClose = async (id: number) => {
-    if (!confirm("确认关闭该需求？关闭后OPC无法继续抢单")) return;
+    if (!confirm("确认关闭该需求？关闭后将无法恢复")) return;
     try {
       await updateStatus.mutateAsync({ demandId: id, data: { status: "closed" } });
       toast({ title: "需求已关闭" });
@@ -391,6 +415,7 @@ export default function PublisherDemandList() {
                   key={demand.id}
                   demand={demand}
                   onPublish={handlePublish}
+                  onWithdraw={handleWithdraw}
                   onClose={handleClose}
                 />
               ))}
