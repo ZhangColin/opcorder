@@ -67,7 +67,7 @@ export function DemandCard({ demand }: { demand: Demand }) {
           <span className="block text-muted-foreground text-[10px] uppercase font-bold tracking-widest mb-1">项目预算</span>
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-black text-secondary">
-              ¥{(demand as any).budget?.toLocaleString() ?? demand.budgetMin?.toLocaleString() ?? "面议"}
+              ¥{demand.budget.toLocaleString()}
             </span>
           </div>
         </div>

@@ -324,19 +324,18 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
 router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
-    const { amount, method, receiptUrl, paymentNote } = req.body as {
-      amount: number;
+    const { method, receiptUrl, paymentNote } = req.body as {
       method: "online" | "offline";
       receiptUrl?: string;
       paymentNote?: string;
     };
 
-    if (!amount || !method) {
-      return res.status(400).json({ error: "amount and method are required" });
+    if (!method || !["online", "offline"].includes(method)) {
+      return res.status(400).json({ error: "method must be 'online' or 'offline'" });
     }
 
     const [demand] = await db
-      .select({ status: demandsTable.status, publisherId: demandsTable.publisherId })
+      .select({ status: demandsTable.status, publisherId: demandsTable.publisherId, budget: demandsTable.budget })
       .from(demandsTable)
       .where(eq(demandsTable.id, demandId))
       .limit(1);
@@ -349,13 +348,26 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "无权操作" });
     }
 
+    // Enforce: only one active pending payment at a time
+    const [existing] = await db
+      .select({ id: demandPaymentsTable.id })
+      .from(demandPaymentsTable)
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "pending")))
+      .limit(1);
+    if (existing) {
+      return res.status(409).json({ error: "已有待审核的缴费凭证，请等待管理员确认" });
+    }
+
+    // Amount is derived server-side from demand budget
+    const amount = demand.budget ?? 0;
+
     const [payment] = await db.insert(demandPaymentsTable).values({
       demandId,
       amount,
-      method: method as any,
+      method,
       status: "pending",
-      receiptUrl: receiptUrl ?? null,
-      paymentNote: paymentNote ?? null,
+      receiptUrl: receiptUrl?.trim() || null,
+      paymentNote: paymentNote?.trim() || null,
     }).returning();
 
     res.status(201).json({
@@ -372,6 +384,18 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
 router.get("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
+
+    // Ownership check: only the demand publisher or an admin may view payment records
+    const [demand] = await db
+      .select({ publisherId: demandsTable.publisherId })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (req.user!.role !== "admin" && demand.publisherId !== req.user!.id) {
+      return res.status(403).json({ error: "无权查看" });
+    }
 
     const [payment] = await db
       .select()

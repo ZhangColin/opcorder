@@ -90,8 +90,13 @@ export default function PublisherDemandDetail() {
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("offline");
   const [paymentNote, setPaymentNote] = useState("");
+  const [receiptUrl, setReceiptUrl] = useState("");
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
-  const [existingPayment, setExistingPayment] = useState<any>(null);
+  const [existingPayment, setExistingPayment] = useState<{
+    id: number; demandId: number; amount: number; method: string;
+    status: string; receiptUrl?: string | null; paymentNote?: string | null;
+    rejectReason?: string | null; confirmedAt?: string | null; createdAt: string;
+  } | null>(null);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
@@ -170,10 +175,8 @@ export default function PublisherDemandDetail() {
     setPaymentSubmitting(true);
     try {
       const token = localStorage.getItem("jdb_user_id");
-      const body: Record<string, any> = {
-        amount: (demand as any)?.budget ?? 0,
-        method: paymentMethod,
-      };
+      const body: { method: string; receiptUrl?: string; paymentNote?: string } = { method: paymentMethod };
+      if (receiptUrl.trim()) body.receiptUrl = receiptUrl.trim();
       if (paymentNote.trim()) body.paymentNote = paymentNote.trim();
 
       const res = await fetch(`${BASE}/api/demands/${demandId}/payment`, {
@@ -188,8 +191,9 @@ export default function PublisherDemandDetail() {
       if (!res.ok) throw new Error(data.error ?? "缴费提交失败");
       setExistingPayment(data);
       toast({ title: "保证金缴费凭证已提交", description: "请等待平台审核确认，确认后需求将自动发布" });
-    } catch (err: any) {
-      toast({ title: "提交失败", description: err.message ?? "请稍后重试", variant: "destructive" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "请稍后重试";
+      toast({ title: "提交失败", description: msg, variant: "destructive" });
     } finally {
       setPaymentSubmitting(false);
     }
@@ -306,7 +310,7 @@ export default function PublisherDemandDetail() {
                   <div className="text-right shrink-0">
                     <p className="text-xs text-slate-400 mb-1">预算金额</p>
                     <p className="text-2xl font-extrabold text-primary">
-                      ¥{(demand as any).budget?.toLocaleString() ?? "面议"}
+                      ¥{demand.budget?.toLocaleString() ?? "面议"}
                     </p>
                     <p className="text-xs text-slate-400 mt-1 flex items-center justify-end gap-1">
                       <Calendar size={12} />
@@ -398,7 +402,7 @@ export default function PublisherDemandDetail() {
                               <p className="text-sm font-bold text-orange-800">需缴纳保证金后需求才会发布</p>
                             </div>
                             <p className="text-xs text-orange-700 leading-relaxed">
-                              您的需求已通过审核。请按以下方式缴纳保证金 <span className="font-bold">¥{((demand as any).budget ?? 0).toLocaleString()}</span>，
+                              您的需求已通过审核。请按以下方式缴纳保证金 <span className="font-bold">¥{demand.budget.toLocaleString()}</span>，
                               平台确认到账后需求将自动发布至需求大厅。
                             </p>
                           </div>
@@ -423,6 +427,29 @@ export default function PublisherDemandDetail() {
                             </div>
                           )}
 
+                          {/* Bank account / payment info */}
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">收款账号信息</p>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <p className="text-xs text-slate-400 mb-0.5">开户行</p>
+                                <p className="font-medium text-slate-700">招商银行</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-400 mb-0.5">账户名</p>
+                                <p className="font-medium text-slate-700">接单吧平台运营</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-xs text-slate-400 mb-0.5">账号</p>
+                                <p className="font-mono font-bold text-slate-800 text-base tracking-wider">6225 8888 8888 8888</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-xs text-slate-400 mb-0.5">转账备注（必填）</p>
+                                <p className="font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded-lg text-xs">需求编号: {demand.demandNo}</p>
+                              </div>
+                            </div>
+                          </div>
+
                           {(!existingPayment || existingPayment.status === "rejected") && (
                             <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
                               <p className="text-sm font-bold text-slate-700">提交缴费凭证</p>
@@ -446,11 +473,21 @@ export default function PublisherDemandDetail() {
                                 </div>
                               </div>
                               <div>
+                                <p className="text-xs text-slate-500 mb-2">转账截图或凭证链接（选填）</p>
+                                <input
+                                  type="url"
+                                  value={receiptUrl}
+                                  onChange={e => setReceiptUrl(e.target.value)}
+                                  placeholder="https://… 粘贴截图外链或凭证图片链接"
+                                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                />
+                              </div>
+                              <div>
                                 <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
                                 <textarea
                                   value={paymentNote}
                                   onChange={e => setPaymentNote(e.target.value)}
-                                  placeholder="如填写转账流水号、支付截图链接等"
+                                  placeholder="如转账流水号、支付渠道等"
                                   rows={2}
                                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
                                 />

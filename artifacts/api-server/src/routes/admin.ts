@@ -1561,7 +1561,7 @@ router.get("/admin/demand-payments", async (req, res) => {
       .from(demandPaymentsTable)
       .leftJoin(demandsTable, eq(demandPaymentsTable.demandId, demandsTable.id))
       .leftJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
-      .where(status ? eq(demandPaymentsTable.status, status as any) : undefined)
+      .where(status && status !== "all" ? eq(demandPaymentsTable.status, status as "pending" | "confirmed" | "rejected") : undefined)
       .orderBy(desc(demandPaymentsTable.createdAt));
 
     res.json(rows.map(r => ({

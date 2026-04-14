@@ -83,7 +83,7 @@ function MarketplaceCard({ demand }: { demand: Demand }) {
           <div className="text-right shrink-0 ml-2">
             <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-0.5">预算</span>
             <span className="block text-lg font-extrabold text-primary tracking-tight leading-none">
-              ¥{((demand as any).budget ?? demand.budgetMin ?? 0).toLocaleString()}
+              ¥{demand.budget.toLocaleString()}
             </span>
           </div>
         </div>
@@ -160,7 +160,7 @@ function MarketplaceListRow({ demand }: { demand: Demand }) {
         ))}
       </div>
       <div className="shrink-0 text-right">
-        <span className="block text-lg font-extrabold text-primary leading-none">¥{((demand as any).budget ?? demand.budgetMin ?? 0).toLocaleString()}</span>
+        <span className="block text-lg font-extrabold text-primary leading-none">¥{demand.budget.toLocaleString()}</span>
         <span className="text-[10px] text-muted-foreground">起</span>
       </div>
       <span className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">

@@ -847,9 +847,7 @@ interface AdminDemand {
   title: string;
   status: string;
   mode: string;
-  budget?: number;
-  budgetMin?: number;
-  budgetMax?: number;
+  budget: number;
   isUrgent: boolean;
   createdAt: string;
   publisherName: string;
@@ -1049,7 +1047,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
-                <p className="font-bold text-blue-900">¥{(d.budget ?? d.budgetMin ?? 0).toLocaleString()}</p>
+                <p className="font-bold text-blue-900">¥{d.budget.toLocaleString()}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">交付截止</p>
@@ -1191,7 +1189,7 @@ function DemandManagement() {
               </td>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">{d.demandNo}</td>
               <td className="px-6 py-4 text-sm text-slate-500">{d.publisherName}</td>
-              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{(d.budget ?? d.budgetMin ?? 0).toLocaleString()}</td>
+              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{d.budget.toLocaleString()}</td>
               <td className="px-6 py-4 text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</td>
               <td className="px-6 py-4"><StatusBadge label={statusCN[d.status] ?? d.status} color={statusColor(d.status)} /></td>
               <td className="px-6 py-4">
