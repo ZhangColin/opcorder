@@ -1201,7 +1201,16 @@ export const ListMyEnrollmentsResponse = zod.array(
 
 export const CreateDemandPaymentInput = zod.object({
   method: zod.enum(["online", "offline"]),
-  receiptUrl: zod.string().url().optional(),
+  receiptUrl: zod.string()
+    .refine(
+      (v) => {
+        // Accept internal storage paths (set by Replit object storage upload flow)
+        if (/^\/.*\/api\/storage\//i.test(v) || v.startsWith("/api/storage/")) return true;
+        try { const u = new URL(v); return u.protocol === "https:" || u.protocol === "http:"; } catch { return false; }
+      },
+      { message: "receiptUrl must be an absolute https/http URL or an internal /api/storage/... path" }
+    )
+    .optional(),
   paymentNote: zod.string().optional(),
 });
 
