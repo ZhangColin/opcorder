@@ -292,7 +292,7 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
+                  enum: [draft, pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
                 reason:
                   type: string
               required:

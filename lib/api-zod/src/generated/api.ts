@@ -437,6 +437,7 @@ export const UpdateDemandStatusParams = zod.object({
 
 export const UpdateDemandStatusBody = zod.object({
   status: zod.enum([
+    "draft",
     "pending_review",
     "published",
     "matched",

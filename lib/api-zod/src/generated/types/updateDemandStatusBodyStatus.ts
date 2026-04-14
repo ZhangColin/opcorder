@@ -10,6 +10,7 @@ export type UpdateDemandStatusBodyStatus =
   (typeof UpdateDemandStatusBodyStatus)[keyof typeof UpdateDemandStatusBodyStatus];
 
 export const UpdateDemandStatusBodyStatus = {
+  draft: "draft",
   pending_review: "pending_review",
   published: "published",
   matched: "matched",
