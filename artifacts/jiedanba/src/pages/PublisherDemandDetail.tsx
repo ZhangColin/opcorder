@@ -91,13 +91,14 @@ export default function PublisherDemandDetail() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
 
   // Payment state
-  const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("offline");
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("online");
   const [paymentNote, setPaymentNote] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [onlineQrUrl, setOnlineQrUrl] = useState<string | null>(null);
   const [onlinePaymentId, setOnlinePaymentId] = useState<number | null>(null);
   const [onlinePaid, setOnlinePaid] = useState(false);
+  const [qrGenerating, setQrGenerating] = useState(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
@@ -217,21 +218,46 @@ export default function PublisherDemandDetail() {
     };
   }, [onlineQrUrl, onlinePaid, demandId]);
 
+  const handleGenerateQr = async () => {
+    setQrGenerating(true);
+    try {
+      const result = await submitPaymentMutation.mutateAsync({
+        demandId,
+        data: { method: "online" },
+      });
+      if (result.qrCodeUrl) {
+        setOnlineQrUrl(result.qrCodeUrl);
+        setOnlinePaymentId(result.id);
+        setOnlinePaid(false);
+      } else {
+        toast({ title: "创建支付订单失败", description: "未收到二维码，请稍后重试", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "生成支付二维码失败", description: "请稍后重试", variant: "destructive" });
+    } finally {
+      setQrGenerating(false);
+    }
+  };
+
+  // Auto-generate QR when demand is in pending_payment state and online mode is active
+  useEffect(() => {
+    if (
+      demand?.status === "pending_payment" &&
+      paymentMethod === "online" &&
+      !onlineQrUrl &&
+      !onlinePaid &&
+      !qrGenerating &&
+      !submitPaymentMutation.isPending
+    ) {
+      handleGenerateQr();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demand?.status, paymentMethod]);
+
   const handleSubmitPayment = async () => {
     try {
       if (paymentMethod === "online") {
-        // Create real payment order → get QR code
-        const result = await submitPaymentMutation.mutateAsync({
-          demandId,
-          data: { method: "online", paymentNote: paymentNote.trim() || undefined },
-        });
-        if (result.qrCodeUrl) {
-          setOnlineQrUrl(result.qrCodeUrl);
-          setOnlinePaymentId(result.id);
-          setOnlinePaid(false);
-        } else {
-          toast({ title: "创建支付订单失败", description: "未收到二维码，请稍后重试", variant: "destructive" });
-        }
+        await handleGenerateQr();
         return;
       }
 
@@ -459,19 +485,6 @@ export default function PublisherDemandDetail() {
                             </p>
                           </div>
 
-                          {existingPayment && existingPayment.status === "pending" && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Clock size={14} className="text-blue-600" />
-                                <p className="text-sm font-bold text-blue-800">缴费凭证已提交，等待平台确认</p>
-                              </div>
-                              <p className="text-xs text-blue-600">
-                                提交时间：{new Date(existingPayment.createdAt).toLocaleString("zh-CN")}
-                                {existingPayment.paymentNote && ` · 备注：${existingPayment.paymentNote}`}
-                              </p>
-                            </div>
-                          )}
-
                           {existingPayment && existingPayment.status === "rejected" && (
                             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                               <p className="text-sm font-bold text-red-700 mb-1">缴费凭证审核未通过</p>
@@ -479,113 +492,100 @@ export default function PublisherDemandDetail() {
                             </div>
                           )}
 
-                          {/* Bank account / payment info */}
-                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">收款账号信息</p>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div>
-                                <p className="text-xs text-slate-400 mb-0.5">开户行</p>
-                                <p className="font-medium text-slate-700">招商银行</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-400 mb-0.5">账户名</p>
-                                <p className="font-medium text-slate-700">接单吧平台运营</p>
-                              </div>
-                              <div className="col-span-2">
-                                <p className="text-xs text-slate-400 mb-0.5">账号</p>
-                                <p className="font-mono font-bold text-slate-800 text-base tracking-wider">6225 8888 8888 8888</p>
-                              </div>
-                              <div className="col-span-2">
-                                <p className="text-xs text-slate-400 mb-0.5">转账备注（必填）</p>
-                                <p className="font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded-lg text-xs">需求编号: {demand.demandNo}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {(!existingPayment || existingPayment.status === "rejected") && (
-                            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
-                              <p className="text-sm font-bold text-slate-700">提交缴费凭证</p>
-
-                              {/* Payment method tabs */}
-                              <div>
-                                <p className="text-xs text-slate-500 mb-2">缴费方式</p>
-                                <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-                                  {(["offline", "online"] as const).map(m => (
-                                    <button
-                                      key={m}
-                                      type="button"
-                                      onClick={() => setPaymentMethod(m)}
-                                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        paymentMethod === m
-                                          ? "bg-white text-primary shadow-sm"
-                                          : "text-slate-500 hover:text-slate-700"
-                                      }`}
-                                    >
-                                      {m === "offline" ? "🏦 线下转账" : "📱 扫码支付"}
-                                    </button>
-                                  ))}
+                          {/* Bank account / payment info — only shown in offline mode */}
+                          {paymentMethod === "offline" && (
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">收款账号信息</p>
+                              <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <p className="text-xs text-slate-400 mb-0.5">开户行</p>
+                                  <p className="font-medium text-slate-700">招商银行</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-400 mb-0.5">账户名</p>
+                                  <p className="font-medium text-slate-700">接单吧平台运营</p>
+                                </div>
+                                <div className="col-span-2">
+                                  <p className="text-xs text-slate-400 mb-0.5">账号</p>
+                                  <p className="font-mono font-bold text-slate-800 text-base tracking-wider">6225 8888 8888 8888</p>
+                                </div>
+                                <div className="col-span-2">
+                                  <p className="text-xs text-slate-400 mb-0.5">转账备注（必填）</p>
+                                  <p className="font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded-lg text-xs">需求编号: {demand.demandNo}</p>
                                 </div>
                               </div>
+                            </div>
+                          )}
 
-                              {/* Online payment: real QR code + auto polling */}
+                          {/* Payment form: show whenever demand is pending_payment and not yet paid online */}
+                          {!onlinePaid && (
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+                              {/* Payment method tabs */}
+                              <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+                                {(["online", "offline"] as const).map(m => (
+                                  <button
+                                    key={m}
+                                    type="button"
+                                    onClick={() => {
+                                      setPaymentMethod(m);
+                                      if (m === "online") {
+                                        setOnlineQrUrl(null);
+                                        setOnlinePaymentId(null);
+                                      }
+                                    }}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                      paymentMethod === m
+                                        ? "bg-white text-primary shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                    }`}
+                                  >
+                                    {m === "online" ? "📱 扫码支付" : "🏦 线下转账"}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* ── Online: QR code ── */}
                               {paymentMethod === "online" && (
-                                <div className="border border-slate-200 rounded-xl p-4 space-y-4">
-                                  {onlinePaid ? (
-                                    <div className="text-center py-6 space-y-2">
-                                      <CheckCircle2 size={40} className="mx-auto text-emerald-500" />
-                                      <p className="font-semibold text-emerald-700">保证金已到账！</p>
-                                      <p className="text-xs text-slate-500">需求已自动发布，正在刷新页面…</p>
+                                <div className="text-center space-y-3">
+                                  {qrGenerating || submitPaymentMutation.isPending ? (
+                                    <div className="py-8 space-y-2">
+                                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                                      <p className="text-xs text-slate-500">正在生成支付二维码…</p>
                                     </div>
                                   ) : onlineQrUrl ? (
-                                    <div className="text-center space-y-3">
-                                      <p className="text-xs font-medium text-slate-600">扫描二维码完成支付</p>
-                                      <div className="w-44 h-44 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white">
+                                    <>
+                                      <p className="text-xs font-medium text-slate-600">扫描二维码完成支付 · ¥{demand.budget.toLocaleString()}</p>
+                                      <div className="w-48 h-48 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white p-2">
                                         <img src={onlineQrUrl} alt="支付二维码" className="w-full h-full object-contain" />
                                       </div>
                                       <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
                                         <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                        <span>等待支付确认中，支付完成后自动发布…</span>
+                                        <span>等待支付确认中，到账后需求自动发布…</span>
                                       </div>
                                       <button
-                                        onClick={() => { setOnlineQrUrl(null); setOnlinePaymentId(null); }}
+                                        onClick={() => { setOnlineQrUrl(null); setOnlinePaymentId(null); handleGenerateQr(); }}
                                         className="text-xs text-slate-400 hover:text-slate-600 underline"
                                       >
-                                        取消，重新生成
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <div className="text-center space-y-1.5">
-                                        <CreditCard size={24} className="mx-auto text-slate-400" />
-                                        <p className="text-sm font-medium text-slate-700">扫码支付保证金</p>
-                                        <p className="text-xs text-slate-500">点击下方按钮生成专属支付二维码，扫码完成后自动确认到账并发布需求</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
-                                        <textarea
-                                          value={paymentNote}
-                                          onChange={e => setPaymentNote(e.target.value)}
-                                          placeholder="如支付流水号、支付渠道等"
-                                          rows={2}
-                                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
-                                        />
-                                      </div>
-                                      <button
-                                        onClick={handleSubmitPayment}
-                                        disabled={submitPaymentMutation.isPending}
-                                        className="w-full flex items-center justify-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
-                                      >
-                                        <CreditCard size={14} />
-                                        {submitPaymentMutation.isPending ? "生成中…" : "生成支付二维码"}
+                                        刷新二维码
                                       </button>
                                     </>
+                                  ) : (
+                                    <div className="py-6 space-y-2">
+                                      <div className="w-8 h-8 border-2 border-slate-200 border-t-primary rounded-full animate-spin mx-auto" />
+                                      <p className="text-xs text-slate-400">正在准备支付…</p>
+                                    </div>
                                   )}
                                 </div>
                               )}
 
-                              {/* Offline payment: receipt upload + note */}
+                              {/* ── Offline: receipt upload ── */}
                               {paymentMethod === "offline" && (
                                 <>
+                                  {existingPayment && existingPayment.status === "pending" && existingPayment.method === "offline" && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+                                      已提交线下凭证，等待平台确认 · 如需切换扫码支付，点击上方"扫码支付"
+                                    </div>
+                                  )}
                                   <div>
                                     <p className="text-xs text-slate-500 mb-2">上传转账截图 / 凭证（推荐）</p>
                                     {receiptUrl ? (
@@ -630,16 +630,6 @@ export default function PublisherDemandDetail() {
                                         )}
                                       </label>
                                     )}
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
-                                    <textarea
-                                      value={paymentNote}
-                                      onChange={e => setPaymentNote(e.target.value)}
-                                      placeholder="如转账流水号、支付渠道等"
-                                      rows={2}
-                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
-                                    />
                                   </div>
                                   <button
                                     onClick={handleSubmitPayment}

@@ -397,14 +397,21 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "无权操作" });
     }
 
-    // Enforce: only one active pending payment at a time
+    // For online payments: cancel any existing pending payment first (offline or stale online)
+    // For offline payments: block if there's already a pending one
     const [existing] = await db
-      .select({ id: demandPaymentsTable.id, paymentOrderNo: demandPaymentsTable.paymentOrderNo })
+      .select({ id: demandPaymentsTable.id, method: demandPaymentsTable.method })
       .from(demandPaymentsTable)
       .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "pending")))
+      .orderBy(desc(demandPaymentsTable.createdAt))
       .limit(1);
     if (existing) {
-      return res.status(409).json({ error: "已有待处理的保证金支付，请等待完成或联系管理员" });
+      if (method === "online") {
+        // Cancel the old pending payment so we can create a fresh online one
+        await db.delete(demandPaymentsTable).where(eq(demandPaymentsTable.id, existing.id));
+      } else {
+        return res.status(409).json({ error: "已有待处理的保证金支付，请等待完成或联系管理员" });
+      }
     }
 
     // Amount is derived server-side from demand budget (in yuan, API expects fen)
