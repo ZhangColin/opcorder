@@ -1556,6 +1556,8 @@ router.get("/admin/demand-payments", async (req, res) => {
         demandId: demandPaymentsTable.demandId,
         demandTitle: demandsTable.title,
         publisherName: usersTable.nickname,
+        publisherEmail: usersTable.email,
+        publisherPhone: usersTable.phone,
         amount: demandPaymentsTable.amount,
         method: demandPaymentsTable.method,
         status: demandPaymentsTable.status,

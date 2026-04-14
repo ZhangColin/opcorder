@@ -241,19 +241,22 @@ export default function PublisherDemandDetail() {
   };
 
   // Auto-generate QR when demand is in pending_payment state and online mode is active
+  // Skip if there's already an offline voucher pending review
   useEffect(() => {
+    const offlinePending = existingPayment?.method === "offline" && existingPayment?.status === "pending";
     if (
       demand?.status === "pending_payment" &&
       paymentMethod === "online" &&
       !onlineQrUrl &&
       !onlinePaid &&
       !qrGenerating &&
-      !submitPaymentMutation.isPending
+      !submitPaymentMutation.isPending &&
+      !offlinePending
     ) {
       handleGenerateQr();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demand?.status, paymentMethod]);
+  }, [demand?.status, paymentMethod, existingPayment?.status, existingPayment?.method]);
 
   const handleSubmitPayment = async () => {
     try {
@@ -518,8 +521,29 @@ export default function PublisherDemandDetail() {
                             </div>
                           )}
 
-                          {/* Payment form: show whenever demand is pending_payment and not yet paid online */}
-                          {!onlinePaid && (
+                          {/* If offline voucher already submitted and pending review → show waiting state */}
+                          {existingPayment?.method === "offline" && existingPayment?.status === "pending" ? (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                                <p className="text-sm font-bold text-blue-800">凭证已提交，等待平台审核</p>
+                              </div>
+                              <p className="text-xs text-blue-700">平台确认收款后需求将自动发布至需求大厅，请耐心等待。</p>
+                              {existingPayment.receiptUrl && (
+                                <div>
+                                  <p className="text-xs text-blue-600 font-medium mb-1.5">已提交凭证：</p>
+                                  <a href={existingPayment.receiptUrl} target="_blank" rel="noopener noreferrer">
+                                    <img
+                                      src={existingPayment.receiptUrl}
+                                      alt="缴费凭证"
+                                      className="max-h-40 rounded-xl border border-blue-200 object-contain bg-white hover:opacity-90 transition-opacity cursor-zoom-in"
+                                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                    />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          ) : !onlinePaid && (
                             <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
                               {/* Payment method tabs */}
                               <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
@@ -582,11 +606,6 @@ export default function PublisherDemandDetail() {
                               {/* ── Offline: receipt upload ── */}
                               {paymentMethod === "offline" && (
                                 <>
-                                  {existingPayment && existingPayment.status === "pending" && existingPayment.method === "offline" && (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
-                                      已提交线下凭证，等待平台确认 · 如需切换扫码支付，点击上方"扫码支付"
-                                    </div>
-                                  )}
                                   <div>
                                     <p className="text-xs text-slate-500 mb-2">上传转账截图 / 凭证（推荐）</p>
                                     {receiptUrl ? (

@@ -4049,6 +4049,8 @@ interface PaymentRow {
   createdAt: string;
   demandTitle?: string | null;
   publisherName?: string | null;
+  publisherEmail?: string | null;
+  publisherPhone?: string | null;
   paymentOrderNo?: string | null;
   refundOrderNo?: string | null;
   refundedAt?: string | null;
@@ -4202,6 +4204,29 @@ function DepositPaymentManagement() {
 
                 {isExpanded && (
                   <div className="border-t border-slate-100 px-6 py-5 space-y-4">
+                    {/* Publisher info */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">发布方信息</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-slate-400 mb-0.5">姓名 / 昵称</p>
+                          <p className="text-sm font-medium text-slate-800">{payment.publisherName ?? "—"}</p>
+                        </div>
+                        {payment.publisherPhone && (
+                          <div>
+                            <p className="text-xs text-slate-400 mb-0.5">手机号</p>
+                            <p className="text-sm font-medium text-slate-800">{payment.publisherPhone}</p>
+                          </div>
+                        )}
+                        {payment.publisherEmail && (
+                          <div className="col-span-2">
+                            <p className="text-xs text-slate-400 mb-0.5">邮箱</p>
+                            <p className="text-sm font-medium text-slate-800">{payment.publisherEmail}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">需求ID</p>
