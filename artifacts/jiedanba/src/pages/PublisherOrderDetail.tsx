@@ -209,8 +209,8 @@ export default function PublisherOrderDetail() {
         }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as any).error ?? "操作失败");
+        const err: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "操作失败");
       }
       return res.json();
     },
@@ -236,8 +236,8 @@ export default function PublisherOrderDetail() {
         body: JSON.stringify({ reason }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as any).error ?? "操作失败");
+        const err: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "操作失败");
       }
       return res.json();
     },

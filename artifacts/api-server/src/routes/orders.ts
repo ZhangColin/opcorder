@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable, publisherProfilesTable } from "@workspace/db";
 import { eq, desc, count, sql, and } from "drizzle-orm";
+
+type OrderStatus = "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed";
+
 import {
   ListOrdersQueryParams,
   SubmitDeliverableBody,
@@ -184,18 +187,20 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
       status: "submitted",
     }).returning();
 
-    // For milestone orders: order ALWAYS stays in_progress; per-milestone review drives completion.
-    // For non-milestone orders: order transitions to pending_acceptance when submitted.
-    let newStatus: string = "in_progress";
-    if (body.milestoneId == null) {
-      // No milestone — single deliverable submission, go to pending_acceptance
-      newStatus = "pending_acceptance";
-    }
-    // For milestone orders we keep in_progress (removed the "all covered" → pending_acceptance logic
-    // because per-milestone review now drives order completion, not a global accept).
+    // Load the order to check whether it has milestones (not derived from the request body,
+    // which is an untrusted signal for this invariant).
+    const [ord] = await db
+      .select({ milestones: ordersTable.milestones })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+
+    // Milestone orders ALWAYS stay in_progress — per-milestone review drives completion.
+    // Non-milestone orders transition to pending_acceptance on submission.
+    const hasMilestones = Array.isArray(ord?.milestones) && ord.milestones.length > 0;
+    const newStatus: OrderStatus = hasMilestones ? "in_progress" : "pending_acceptance";
 
     await db.update(ordersTable).set({
-      status: newStatus as any,
+      status: newStatus,
       updatedAt: new Date(),
     }).where(eq(ordersTable.id, orderId));
 
@@ -365,10 +370,10 @@ router.post("/orders/:orderId/milestones/:milestoneId/reject", requireAuth, asyn
 
     const MAX_REVISIONS = 3;
     const milestoneRejections = Number(rejCount);
-    const newOrderStatus = milestoneRejections >= MAX_REVISIONS ? "disputed" : "in_progress";
+    const newOrderStatus: OrderStatus = milestoneRejections >= MAX_REVISIONS ? "disputed" : "in_progress";
 
     const [updated] = await db.update(ordersTable).set({
-      status: newOrderStatus as any,
+      status: newOrderStatus,
       updatedAt: new Date(),
     }).where(eq(ordersTable.id, orderId)).returning();
 
@@ -480,10 +485,10 @@ router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
       ));
 
     const MAX_REVISIONS = 3;
-    const newStatus = Number(rejectionCount) >= MAX_REVISIONS ? "disputed" : "in_progress";
+    const newStatus: OrderStatus = Number(rejectionCount) >= MAX_REVISIONS ? "disputed" : "in_progress";
 
     const [updated] = await db.update(ordersTable).set({
-      status: newStatus as any,
+      status: newStatus,
       updatedAt: new Date(),
     }).where(eq(ordersTable.id, orderId)).returning();
 
