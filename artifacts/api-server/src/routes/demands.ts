@@ -224,7 +224,7 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
         .from(bidsTable)
         .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.opcId, req.user!.id)))
         .limit(1);
-      if (existingBid && (existingBid.status === "rejected" || existingBid.status === ("withdrawn" as any))) {
+      if (existingBid && (existingBid.status === "rejected" || existingBid.status === "withdrawn")) {
         return res.status(403).json({ error: "您的申请已被婉拒或已撤消，无法查看该需求详情" });
       }
     }

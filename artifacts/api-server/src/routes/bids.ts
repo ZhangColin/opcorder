@@ -66,7 +66,7 @@ router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
 
     const [updated] = await db
       .update(bidsTable)
-      .set({ status: "withdrawn" as any })
+      .set({ status: "withdrawn" })
       .where(eq(bidsTable.id, bidId))
       .returning();
 
