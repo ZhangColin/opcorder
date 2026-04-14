@@ -1761,6 +1761,7 @@ router.post("/admin/demands/:id/approve-refund", requireAdmin, async (req, res) 
         amount: amountFen,
         reason: payment.refundReason ?? "需求保证金退款",
         businessOrderNo,
+        notifyUrl: "https://www.opcorder.com/api/payment/refund-callback",
         needAudit: false,
       });
 

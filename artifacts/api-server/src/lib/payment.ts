@@ -160,17 +160,19 @@ export interface CreateRefundParams {
   amount: number;
   reason: string;
   businessOrderNo: string;
+  notifyUrl?: string;
   needAudit?: boolean;
 }
 
 export async function createRefund(params: CreateRefundParams): Promise<RefundResult> {
-  const bodyObj = {
+  const bodyObj: Record<string, unknown> = {
     paymentOrderNo: params.paymentOrderNo,
     refundAmount: params.amount,
     reason: params.reason,
     businessOrderNo: params.businessOrderNo,
     needAudit: params.needAudit ?? false,
   };
+  if (params.notifyUrl) bodyObj.notifyUrl = params.notifyUrl;
   const bodyStr = JSON.stringify(bodyObj);
 
   const resp = await fetch(`${BASE_URL}/api/v1/refunds`, {
