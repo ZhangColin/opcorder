@@ -869,6 +869,21 @@ interface AdminDemand {
   deadline: string;
 }
 
+interface AdminDemandPayment {
+  id: number;
+  method: "online" | "offline";
+  status: string;
+  amount: number;
+  paymentOrderNo: string | null;
+  refundOrderNo: string | null;
+  refundReason: string | null;
+  refundRequestedAt: string | null;
+  refundRejectReason: string | null;
+  refundReceiptUrl: string | null;
+  refundedAt: string | null;
+  receiptUrl: string | null;
+}
+
 interface AdminDemandDetail extends AdminDemand {
   description: string;
   type: string;
@@ -880,6 +895,7 @@ interface AdminDemandDetail extends AdminDemand {
   publisherEmail: string | null;
   publisherPhone: string | null;
   rejectionReason: string | null;
+  payment: AdminDemandPayment | null;
 }
 
 const DEMAND_TYPE_CN: Record<string, string> = {
@@ -911,6 +927,63 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
     onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
+  // Refund management
+  const [showRefundRejectForm, setShowRefundRejectForm] = useState(false);
+  const [refundRejectReason, setRefundRejectReason] = useState("");
+  const [showOfflineRefundForm, setShowOfflineRefundForm] = useState(false);
+  const [offlineRefundReceiptUrl, setOfflineRefundReceiptUrl] = useState("");
+  const [offlineRefundUploading, setOfflineRefundUploading] = useState(false);
+
+  const approveRefundMut = useMutation({
+    mutationFn: () => adminPost(`/api/admin/demands/${id}/approve-refund`, {}),
+    onSuccess: () => { toast({ title: "退款已批准" }); refetch(); qc.invalidateQueries({ queryKey: ["admin-demands"] }); },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const rejectRefundMut = useMutation({
+    mutationFn: (reason: string) => adminPost(`/api/admin/demands/${id}/reject-refund`, { reason }),
+    onSuccess: () => {
+      toast({ title: "退款已拒绝" });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-demands"] });
+      setShowRefundRejectForm(false);
+      setRefundRejectReason("");
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const confirmOfflineRefundMut = useMutation({
+    mutationFn: (refundReceiptUrl: string) => adminPost(`/api/admin/demands/${id}/confirm-offline-refund`, { refundReceiptUrl }),
+    onSuccess: () => {
+      toast({ title: "线下退款已确认" });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-demands"] });
+      setShowOfflineRefundForm(false);
+      setOfflineRefundReceiptUrl("");
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const handleRefundReceiptUpload = async (file: File) => {
+    setOfflineRefundUploading(true);
+    try {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!reqRes.ok) throw new Error("上传请求失败");
+      const { uploadURL, objectPath } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error("上传失败");
+      setOfflineRefundReceiptUrl(`${BASE}/api/storage${objectPath}`);
+      toast({ title: "凭证上传成功" });
+    } catch (e: any) {
+      toast({ title: "上传失败", description: e.message, variant: "destructive" });
+    } finally {
+      setOfflineRefundUploading(false);
+    }
+  };
+
   // Inline send-email form state
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
@@ -941,6 +1014,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
     draft: "草稿", pending_review: "待审核", pending_payment: "待缴保证金", published: "已发布",
     matched: "已匹配", in_progress: "进行中", pending_acceptance: "待验收",
     completed: "已完成", closed: "已关闭",
+    refund_pending: "退款审核中", refunding: "退款中", refunded: "已退款",
   };
 
   const inputCls = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 bg-white transition";
@@ -1008,7 +1082,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                     <RotateCcw size={13} /> 退回编辑
                   </button>
                 )}
-                {d.status !== "closed" && d.status !== "completed" && (
+                {d.status !== "closed" && d.status !== "completed" && d.status !== "refund_pending" && d.status !== "refunding" && d.status !== "refunded" && (
                   <button
                     onClick={() => { if (confirm("确认强制关闭此需求？")) actionMut.mutate({ action: "forceClose" }); }}
                     disabled={actionMut.isPending}
@@ -1017,9 +1091,35 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                     <XCircle size={13} /> 强制关闭
                   </button>
                 )}
+                {d.status === "refund_pending" && (
+                  <>
+                    <button
+                      onClick={() => { if (confirm("确认批准此退款申请？将向发布方发起退款。")) approveRefundMut.mutate(); }}
+                      disabled={approveRefundMut.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                      {approveRefundMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={13} />} 批准退款
+                    </button>
+                    <button
+                      onClick={() => { setShowRefundRejectForm(v => !v); setShowRejectForm(false); }}
+                      disabled={rejectRefundMut.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                      <XCircle size={13} /> 拒绝退款
+                    </button>
+                  </>
+                )}
+                {d.status === "refunding" && d.payment?.method === "offline" && (
+                  <button
+                    onClick={() => setShowOfflineRefundForm(v => !v)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors"
+                  >
+                    <CheckCircle2 size={13} /> 确认线下退款
+                  </button>
+                )}
               </div>
             )}
-            {/* ── Reject inline form ── */}
+            {/* ── Reject review inline form ── */}
             {showRejectForm && (
               <div className="px-6 py-4 bg-red-50 border-b border-red-100 space-y-2">
                 <p className="text-xs font-bold text-red-700">填写审核不通过原因</p>
@@ -1038,6 +1138,55 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-red-700 transition-colors"
                   >
                     {actionMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />} 确认不通过
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* ── Reject refund inline form ── */}
+            {showRefundRejectForm && (
+              <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 space-y-2">
+                <p className="text-xs font-bold text-orange-700">填写拒绝退款原因（将通过站内信和邮件通知发单方）</p>
+                <textarea
+                  value={refundRejectReason}
+                  onChange={e => setRefundRejectReason(e.target.value)}
+                  placeholder="请说明拒绝退款的原因…"
+                  rows={2}
+                  className="w-full border border-orange-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-200 bg-white resize-none"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowRefundRejectForm(false)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">取消</button>
+                  <button
+                    onClick={() => { if (refundRejectReason.trim()) rejectRefundMut.mutate(refundRejectReason.trim()); }}
+                    disabled={!refundRejectReason.trim() || rejectRefundMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-red-700 transition-colors"
+                  >
+                    {rejectRefundMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />} 确认拒绝退款
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* ── Offline refund confirmation form ── */}
+            {showOfflineRefundForm && (
+              <div className="px-6 py-4 bg-emerald-50 border-b border-emerald-100 space-y-2">
+                <p className="text-xs font-bold text-emerald-700">上传线下退款凭证以确认退款完成</p>
+                {offlineRefundReceiptUrl ? (
+                  <img src={offlineRefundReceiptUrl} alt="退款凭证" className="max-h-32 rounded-xl border border-emerald-200" />
+                ) : (
+                  <label className="flex items-center gap-2 cursor-pointer border-2 border-dashed border-emerald-200 rounded-xl px-4 py-3 hover:bg-emerald-100/50 transition-colors">
+                    {offlineRefundUploading ? <Loader2 size={14} className="animate-spin text-emerald-500" /> : <Upload size={14} className="text-emerald-500" />}
+                    <span className="text-xs text-emerald-700">{offlineRefundUploading ? "上传中…" : "点击上传凭证图片"}</span>
+                    <input type="file" accept="image/*" className="hidden" disabled={offlineRefundUploading}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleRefundReceiptUpload(f); }} />
+                  </label>
+                )}
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => { setShowOfflineRefundForm(false); setOfflineRefundReceiptUrl(""); }} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">取消</button>
+                  <button
+                    onClick={() => { if (offlineRefundReceiptUrl) confirmOfflineRefundMut.mutate(offlineRefundReceiptUrl); }}
+                    disabled={!offlineRefundReceiptUrl || confirmOfflineRefundMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-emerald-700 transition-colors"
+                  >
+                    {confirmOfflineRefundMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} 确认退款完成
                   </button>
                 </div>
               </div>
@@ -1217,6 +1366,69 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 </div>
               </div>
             )}
+
+            {/* ── Refund info ── */}
+            {d.payment && ["refund_pending", "refunding", "refunded"].includes(d.status) && (
+              <div className="border border-orange-200 rounded-xl p-4 bg-orange-50/50">
+                <p className="text-xs font-bold text-orange-600 mb-3 uppercase tracking-wider">退款信息</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-400 w-20 shrink-0">退款状态</span>
+                    <span className={`font-bold ${d.status === "refunded" ? "text-emerald-600" : "text-orange-600"}`}>
+                      {statusCN[d.status] ?? d.status}
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-400 w-20 shrink-0">支付方式</span>
+                    <span className="font-bold text-blue-900">{d.payment.method === "online" ? "在线支付" : "线下转账"}</span>
+                  </div>
+                  {d.payment.amount != null && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-400 w-20 shrink-0">退款金额</span>
+                      <span className="font-bold text-blue-900">¥{(d.payment.amount / 100).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {d.payment.refundReason && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-400 w-20 shrink-0">退款原因</span>
+                      <span className="text-slate-700">{d.payment.refundReason}</span>
+                    </div>
+                  )}
+                  {d.payment.refundRequestedAt && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-400 w-20 shrink-0">申请时间</span>
+                      <span className="text-slate-700">{new Date(d.payment.refundRequestedAt).toLocaleString("zh-CN")}</span>
+                    </div>
+                  )}
+                  {d.payment.refundRejectReason && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-400 w-20 shrink-0">拒绝原因</span>
+                      <span className="text-red-600">{d.payment.refundRejectReason}</span>
+                    </div>
+                  )}
+                  {d.payment.refundOrderNo && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-400 w-20 shrink-0">退款单号</span>
+                      <span className="font-mono text-xs text-slate-700 break-all">{d.payment.refundOrderNo}</span>
+                    </div>
+                  )}
+                  {d.payment.refundedAt && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-400 w-20 shrink-0">退款完成时间</span>
+                      <span className="text-emerald-600 font-bold">{new Date(d.payment.refundedAt).toLocaleString("zh-CN")}</span>
+                    </div>
+                  )}
+                  {d.payment.refundReceiptUrl && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-slate-400 w-20 shrink-0">退款凭证</span>
+                      <a href={d.payment.refundReceiptUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline text-xs break-all">
+                        查看凭证
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           </div>
         )}
@@ -1260,6 +1472,7 @@ function DemandManagement() {
     draft: "草稿", pending_review: "待审核", pending_payment: "待缴保证金", published: "已发布",
     matched: "已匹配", in_progress: "进行中", pending_acceptance: "待验收",
     completed: "已完成", closed: "已关闭",
+    refund_pending: "退款审核中", refunding: "退款中", refunded: "已退款",
   };
   const statusColor = (s: string) => ({
     pending_review: "bg-amber-100 text-amber-700",

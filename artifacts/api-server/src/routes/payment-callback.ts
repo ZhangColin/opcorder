@@ -1,7 +1,10 @@
 import { Router, type IRouter } from "express";
-import { db, enrollmentsTable, demandPaymentsTable, demandsTable, notificationsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, enrollmentsTable, demandPaymentsTable, demandsTable, notificationsTable, usersTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { PAYMENT_STATUS } from "../lib/payment";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const router: IRouter = Router();
 
@@ -122,6 +125,90 @@ router.post("/payment/callback", async (req, res) => {
     const msg = err instanceof Error ? err.message : "回调处理失败";
     console.error(`[payment-callback] error: ${msg}`);
     res.status(200).send(); // always 200 — provider does not retry anyway
+  }
+});
+
+/**
+ * Async refund result notification from the payment provider.
+ * Called when a refund transitions to a terminal state.
+ * Body contains: { refundOrderNo, status ("SUCCESS"/"FAILED"), amount }
+ */
+router.post("/payment/refund-callback", async (req, res) => {
+  const body = req.body as {
+    refundOrderNo?: string;
+    status?: string;
+    amount?: number;
+  };
+
+  console.log(`[refund-callback] received refundOrderNo=${body.refundOrderNo} status=${body.status}`);
+
+  try {
+    const { refundOrderNo, status } = body;
+    if (!refundOrderNo) {
+      console.warn("[refund-callback] missing refundOrderNo");
+      return res.status(200).send();
+    }
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(eq(demandPaymentsTable.refundOrderNo, refundOrderNo))
+      .limit(1);
+
+    if (!payment) {
+      console.warn(`[refund-callback] no payment found for refundOrderNo=${refundOrderNo}`);
+      return res.status(200).send();
+    }
+
+    if (payment.status === "refunded") {
+      console.log(`[refund-callback] payment ${payment.id} already refunded, skipping`);
+      return res.status(200).send();
+    }
+
+    const statusUpper = (status ?? "").toUpperCase();
+    if (statusUpper === "SUCCESS" || statusUpper === "REFUNDED") {
+      const now = new Date();
+      const [demand] = await db
+        .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+        .from(demandsTable)
+        .where(eq(demandsTable.id, payment.demandId))
+        .limit(1);
+
+      await db.transaction(async (tx) => {
+        await tx.update(demandPaymentsTable).set({ status: "refunded", refundedAt: now })
+          .where(eq(demandPaymentsTable.id, payment.id));
+        await tx.update(demandsTable).set({ status: "refunded", updatedAt: now })
+          .where(eq(demandsTable.id, payment.demandId));
+
+        if (demand?.publisherId) {
+          await tx.insert(notificationsTable).values({
+            userId: demand.publisherId, type: "system",
+            title: "保证金已退款成功",
+            content: `您的需求「${demand.title}」的保证金已成功退还，请确认到账情况。`,
+            relatedId: payment.demandId, relatedType: "demand",
+          });
+
+          const [pub] = await tx.select({ nickname: usersTable.nickname, email: usersTable.email })
+            .from(usersTable).where(eq(usersTable.id, demand.publisherId)).limit(1);
+          if (pub?.email) {
+            await resend.emails.send({
+              from: "接单吧 <noreply@opcorder.com>", to: pub.email,
+              subject: `保证金已退款 — 需求「${demand.title}」`,
+              html: `<p>您好，${pub.nickname ?? pub.email}，</p><p>您的需求「${demand.title}」的保证金已成功退还，请确认到账情况。如有问题请联系平台客服。</p><p>— 接单吧团队</p>`,
+            }).catch(() => {});
+          }
+        }
+      });
+      console.log(`[refund-callback] payment ${payment.id} marked refunded`);
+    } else {
+      console.log(`[refund-callback] payment ${payment.id} refund status=${status} — no terminal update`);
+    }
+
+    res.status(200).send();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "退款回调处理失败";
+    console.error(`[refund-callback] error: ${msg}`);
+    res.status(200).send();
   }
 });
 

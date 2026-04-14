@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 
 export const demandPaymentMethodEnum = pgEnum("demand_payment_method", ["online", "offline"]);
 
-export const demandPaymentStatusEnum = pgEnum("demand_payment_status", ["pending", "confirmed", "rejected", "refunded"]);
+export const demandPaymentStatusEnum = pgEnum("demand_payment_status", ["pending", "confirmed", "rejected", "refund_pending", "refunding", "refunded"]);
 
 export const demandPaymentsTable = pgTable("demand_payments", {
   id: serial("id").primaryKey(),
@@ -22,6 +22,10 @@ export const demandPaymentsTable = pgTable("demand_payments", {
   confirmedAt: timestamp("confirmed_at"),
   refundOrderNo: varchar("refund_order_no", { length: 100 }),
   refundedAt: timestamp("refunded_at"),
+  refundReason: text("refund_reason"),
+  refundRequestedAt: timestamp("refund_requested_at"),
+  refundRejectReason: text("refund_reject_reason"),
+  refundReceiptUrl: text("refund_receipt_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

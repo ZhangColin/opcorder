@@ -8,8 +8,9 @@ import {
   Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
   FileText, Download, FileImage, FileSpreadsheet, FileArchive, File,
-  Menu, Edit2, Send, X, Undo2, CreditCard, Upload,
+  Menu, Edit2, Send, X, Undo2, CreditCard, Upload, RotateCcw, Loader2,
 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import {
   useGetDemandById,
   useGetDemandPayment,
@@ -44,8 +45,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   matched:            { label: "已匹配",   color: "bg-purple-100 text-purple-700" },
   in_progress:        { label: "进行中",   color: "bg-green-100 text-green-700" },
   pending_acceptance: { label: "待验收",   color: "bg-orange-100 text-orange-700" },
-  completed:          { label: "已完成",   color: "bg-emerald-100 text-emerald-700" },
-  closed:             { label: "已关闭",   color: "bg-red-100 text-red-600" },
+  completed:          { label: "已完成",     color: "bg-emerald-100 text-emerald-700" },
+  closed:             { label: "已关闭",     color: "bg-red-100 text-red-600" },
+  refund_pending:     { label: "退款审核中", color: "bg-purple-100 text-purple-700" },
+  refunding:          { label: "退款中",     color: "bg-indigo-100 text-indigo-700" },
+  refunded:           { label: "已退款",     color: "bg-slate-100 text-slate-600" },
 };
 
 const OPC_LEVEL_COLOR: Record<string, string> = {
@@ -90,6 +94,8 @@ export default function PublisherDemandDetail() {
   const [demandActionLoading, setDemandActionLoading] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [refundReason, setRefundReason] = useState("");
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("online");
@@ -169,6 +175,26 @@ export default function PublisherDemandDetail() {
   };
 
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const requestRefundMut = useMutation({
+    mutationFn: async (reason: string) => {
+      const res = await fetch(`${BASE}/api/demands/${demandId}/request-refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reason.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "申请退款失败");
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "退款申请已提交", description: "管理员将在1-3个工作日内审核" });
+      setShowRefundDialog(false);
+      setRefundReason("");
+      refetchDemand();
+    },
+    onError: (e: Error) => toast({ title: "申请退款失败", description: e.message, variant: "destructive" }),
+  });
 
   const handleReceiptUpload = async (file: File) => {
     setReceiptUploading(true);
@@ -756,6 +782,95 @@ export default function PublisherDemandDetail() {
                       </section>
                     );
                   })()}
+
+                  {/* ── Refund button (for published demands) ── */}
+                  {demand.status === "published" && (
+                    <div className="mt-5 pt-5 border-t border-slate-100 flex items-center justify-end">
+                      <button
+                        onClick={() => setShowRefundDialog(true)}
+                        className="flex items-center gap-1.5 text-slate-400 text-sm hover:text-slate-600 hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <RotateCcw size={13} /> 申请退款
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ── Refund status banners ── */}
+                  {demand.status === "refund_pending" && (
+                    <div className="mt-5 pt-5 border-t border-slate-100">
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
+                        <RotateCcw size={18} className="text-purple-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-bold text-purple-800">退款申请审核中</p>
+                          <p className="text-xs text-purple-700 mt-1 leading-relaxed">
+                            您的退款申请已提交，平台将在1-3个工作日内审核。审核结果将通过站内信和邮件通知您。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {demand.status === "refunding" && (
+                    <div className="mt-5 pt-5 border-t border-slate-100">
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-start gap-3">
+                        <Loader2 size={18} className="text-indigo-500 shrink-0 mt-0.5 animate-spin" />
+                        <div>
+                          <p className="text-sm font-bold text-indigo-800">退款处理中</p>
+                          <p className="text-xs text-indigo-700 mt-1 leading-relaxed">
+                            退款已获批准，正在处理中。预计1-5个工作日到账，到账后将通过站内信和邮件通知您。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {demand.status === "refunded" && (
+                    <div className="mt-5 pt-5 border-t border-slate-100">
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+                        <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-bold text-emerald-800">保证金已退款</p>
+                          <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                            保证金已成功退还，请确认到账情况。如有问题请联系平台客服。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Refund request dialog ── */}
+                  {showRefundDialog && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setShowRefundDialog(false)}>
+                      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 mb-4">
+                          <RotateCcw size={18} className="text-slate-500" />
+                          <h3 className="font-bold text-slate-800">申请退款</h3>
+                        </div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">
+                          确认后，所有 OPC 投标将自动退回，需求变为退款审核中，等待管理员审核。
+                        </p>
+                        <div className="mb-4">
+                          <label className="text-xs font-bold text-slate-500 block mb-1.5">退款原因（可选）</label>
+                          <textarea
+                            value={refundReason}
+                            onChange={e => setRefundReason(e.target.value)}
+                            placeholder="请说明申请退款的原因…"
+                            rows={2}
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setShowRefundDialog(false)} className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                          <button
+                            onClick={() => requestRefundMut.mutate(refundReason)}
+                            disabled={requestRefundMut.isPending}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-slate-700 text-white rounded-xl text-sm font-bold hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                          >
+                            {requestRefundMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                            确认申请退款
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Pending Bids */}
                   <section>

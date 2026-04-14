@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
-import { eq, desc, count, sql, and, ilike, or, asc } from "drizzle-orm";
+import { eq, desc, count, sql, and, ilike, or, asc, inArray } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
 import { ReviewDemandPaymentBody } from "@workspace/api-zod";
@@ -242,11 +242,31 @@ router.get("/admin/demands/:id", async (req, res) => {
       email: usersTable.email,
       phone: usersTable.phone,
     }).from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
+
+    const [payment] = await db.select().from(demandPaymentsTable)
+      .where(eq(demandPaymentsTable.demandId, id))
+      .orderBy(desc(demandPaymentsTable.createdAt))
+      .limit(1);
+
     res.json({
       ...d,
       publisherName: pub?.nickname ?? "—",
       publisherEmail: pub?.email ?? null,
       publisherPhone: pub?.phone ?? null,
+      payment: payment ? {
+        id: payment.id,
+        method: payment.method,
+        status: payment.status,
+        amount: payment.amount,
+        paymentOrderNo: payment.paymentOrderNo,
+        refundOrderNo: payment.refundOrderNo,
+        refundReason: payment.refundReason,
+        refundRequestedAt: payment.refundRequestedAt?.toISOString() ?? null,
+        refundRejectReason: payment.refundRejectReason,
+        refundReceiptUrl: payment.refundReceiptUrl,
+        refundedAt: payment.refundedAt?.toISOString() ?? null,
+        receiptUrl: payment.receiptUrl,
+      } : null,
     });
   } catch (err) {
     console.error(err);
@@ -1701,71 +1721,244 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
   }
 });
 
-/* ─── DEMAND DEPOSIT REFUND ───────────────────── */
+/* ─── DEMAND DEPOSIT REFUND WORKFLOW ───────────────────── */
 
-router.post("/admin/demand-payments/:id/refund", async (req, res) => {
+/** Admin approves a publisher's refund request */
+router.post("/admin/demands/:id/approve-refund", requireAdmin, async (req, res) => {
   try {
-    const id = Number(req.params.id);
-    const { reason } = req.body as { reason?: string };
-    const refundReason = reason?.trim() || "需求保证金退款";
+    const demandId = Number(req.params.id);
+
+    const [demand] = await db
+      .select()
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (demand.status !== "refund_pending") {
+      return res.status(409).json({ error: "该需求当前不处于退款审核中" });
+    }
 
     const [payment] = await db
       .select()
       .from(demandPaymentsTable)
-      .where(eq(demandPaymentsTable.id, id))
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "refund_pending")))
       .limit(1);
 
-    if (!payment) return res.status(404).json({ error: "保证金记录不存在" });
-    if (payment.status !== "confirmed") {
-      return res.status(409).json({ error: "只有已确认的保证金可以退款" });
-    }
-    if (!payment.paymentOrderNo) {
-      return res.status(400).json({ error: "该记录无在线支付订单号，无法自动退款，请手动处理" });
-    }
-    if (payment.refundedAt) {
-      return res.status(409).json({ error: "该保证金已经退款" });
+    if (!payment) return res.status(404).json({ error: "未找到退款审核中的保证金记录" });
+
+    const now = new Date();
+
+    if (payment.method === "online") {
+      if (!payment.paymentOrderNo) {
+        return res.status(400).json({ error: "在线支付记录缺少订单号，无法发起退款" });
+      }
+      const amountFen = Math.round((payment.amount ?? 0) * 100);
+      const businessOrderNo = `REFUND-${payment.id}-${Date.now()}`;
+
+      const refundResult = await createRefund({
+        paymentOrderNo: payment.paymentOrderNo,
+        amount: amountFen,
+        reason: payment.refundReason ?? "需求保证金退款",
+        businessOrderNo,
+        needAudit: false,
+      });
+
+      await db.transaction(async (tx) => {
+        await tx.update(demandPaymentsTable).set({
+          status: "refunding",
+          refundOrderNo: refundResult.refundOrderNo,
+        }).where(eq(demandPaymentsTable.id, payment.id));
+
+        await tx.update(demandsTable).set({ status: "refunding", updatedAt: now })
+          .where(eq(demandsTable.id, demandId));
+
+        const [pub] = await tx.select({ nickname: usersTable.nickname, email: usersTable.email })
+          .from(usersTable).where(eq(usersTable.id, demand.publisherId)).limit(1);
+
+        if (demand.publisherId) {
+          await tx.insert(notificationsTable).values({
+            userId: demand.publisherId, type: "system",
+            title: "退款申请已通过，退款处理中",
+            content: `您对需求「${demand.title}」的退款申请已获批准，退款正在处理中，预计1-5个工作日到账，请耐心等待。`,
+            relatedId: demandId, relatedType: "demand",
+          });
+        }
+        if (pub?.email) {
+          await resend.emails.send({
+            from: "接单吧 <noreply@opcorder.com>", to: pub.email,
+            subject: `退款处理中 — 需求「${demand.title}」`,
+            html: buildBulkEmail(pub.nickname ?? pub.email, `您申请的需求「${demand.title}」保证金退款申请已获批准，退款正在处理中，预计1-5个工作日到账，请耐心等待。`),
+          }).catch(() => {});
+        }
+      });
+
+      return res.json({ success: true, refundOrderNo: refundResult.refundOrderNo });
     }
 
-    const amountFen = Math.round((payment.amount ?? 0) * 100);
-    const businessOrderNo = `REFUND-${payment.id}-${Date.now()}`;
+    // Offline payment — just move to refunding, admin will upload receipt later
+    await db.transaction(async (tx) => {
+      await tx.update(demandPaymentsTable).set({ status: "refunding" })
+        .where(eq(demandPaymentsTable.id, payment.id));
+      await tx.update(demandsTable).set({ status: "refunding", updatedAt: now })
+        .where(eq(demandsTable.id, demandId));
 
-    const refundResult = await createRefund({
-      paymentOrderNo: payment.paymentOrderNo,
-      amount: amountFen,
-      reason: refundReason,
-      businessOrderNo,
+      const [pub] = await tx.select({ nickname: usersTable.nickname, email: usersTable.email })
+        .from(usersTable).where(eq(usersTable.id, demand.publisherId)).limit(1);
+
+      if (demand.publisherId) {
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId, type: "system",
+          title: "退款申请已通过，等待线下退款",
+          content: `您对需求「${demand.title}」的退款申请已获批准，工作人员将通过线下方式退还保证金，请留意后续通知。`,
+          relatedId: demandId, relatedType: "demand",
+        });
+      }
+      if (pub?.email) {
+        await resend.emails.send({
+          from: "接单吧 <noreply@opcorder.com>", to: pub.email,
+          subject: `退款已批准 — 需求「${demand.title}」`,
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您申请的需求「${demand.title}」保证金退款申请已获批准，工作人员将通过线下方式退还保证金，请留意后续通知。`),
+        }).catch(() => {});
+      }
     });
+
+    res.json({ success: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "操作失败";
+    console.error("[admin-approve-refund] error:", err);
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** Admin rejects a publisher's refund request */
+router.post("/admin/demands/:id/reject-refund", requireAdmin, async (req, res) => {
+  try {
+    const demandId = Number(req.params.id);
+    const { reason } = req.body as { reason?: string };
+    if (!reason?.trim()) return res.status(400).json({ error: "请填写拒绝原因" });
+
+    const [demand] = await db
+      .select()
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (demand.status !== "refund_pending") {
+      return res.status(409).json({ error: "该需求当前不处于退款审核中" });
+    }
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "refund_pending")))
+      .limit(1);
+
+    if (!payment) return res.status(404).json({ error: "未找到退款审核中的保证金记录" });
+
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx.update(demandPaymentsTable).set({
+        status: "confirmed",
+        refundRejectReason: reason.trim(),
+      }).where(eq(demandPaymentsTable.id, payment.id));
+
+      await tx.update(demandsTable).set({ status: "published", updatedAt: now })
+        .where(eq(demandsTable.id, demandId));
+
+      const [pub] = await tx.select({ nickname: usersTable.nickname, email: usersTable.email })
+        .from(usersTable).where(eq(usersTable.id, demand.publisherId)).limit(1);
+
+      if (demand.publisherId) {
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId, type: "system",
+          title: "退款申请未通过",
+          content: `您对需求「${demand.title}」的退款申请未获批准。原因：${reason.trim()}。如有疑问请联系平台客服。`,
+          relatedId: demandId, relatedType: "demand",
+        });
+      }
+      if (pub?.email) {
+        await resend.emails.send({
+          from: "接单吧 <noreply@opcorder.com>", to: pub.email,
+          subject: `退款申请未通过 — 需求「${demand.title}」`,
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您申请的需求「${demand.title}」保证金退款申请未获批准。\n\n拒绝原因：${reason.trim()}\n\n如有疑问，请联系平台客服。`),
+        }).catch(() => {});
+      }
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "操作失败";
+    console.error("[admin-reject-refund] error:", err);
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** Admin confirms an offline refund by uploading a receipt */
+router.post("/admin/demands/:id/confirm-offline-refund", requireAdmin, async (req, res) => {
+  try {
+    const demandId = Number(req.params.id);
+    const { refundReceiptUrl } = req.body as { refundReceiptUrl?: string };
+    if (!refundReceiptUrl?.trim()) return res.status(400).json({ error: "请上传退款凭证" });
+
+    const [demand] = await db
+      .select()
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (demand.status !== "refunding") {
+      return res.status(409).json({ error: "该需求当前不处于退款中状态" });
+    }
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "refunding")))
+      .limit(1);
+
+    if (!payment) return res.status(404).json({ error: "未找到退款中的保证金记录" });
+    if (payment.method !== "offline") {
+      return res.status(400).json({ error: "只有线下支付的退款才需要手动确认" });
+    }
 
     const now = new Date();
     await db.transaction(async (tx) => {
       await tx.update(demandPaymentsTable).set({
         status: "refunded",
-        refundOrderNo: refundResult.refundOrderNo,
+        refundReceiptUrl: refundReceiptUrl.trim(),
         refundedAt: now,
-      }).where(eq(demandPaymentsTable.id, id));
+      }).where(eq(demandPaymentsTable.id, payment.id));
 
-      const [demand] = await tx
-        .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
-        .from(demandsTable)
-        .where(eq(demandsTable.id, payment.demandId))
-        .limit(1);
+      await tx.update(demandsTable).set({ status: "refunded", updatedAt: now })
+        .where(eq(demandsTable.id, demandId));
 
-      if (demand?.publisherId) {
+      const [pub] = await tx.select({ nickname: usersTable.nickname, email: usersTable.email })
+        .from(usersTable).where(eq(usersTable.id, demand.publisherId)).limit(1);
+
+      if (demand.publisherId) {
         await tx.insert(notificationsTable).values({
-          userId: demand.publisherId,
-          type: "system",
+          userId: demand.publisherId, type: "system",
           title: "保证金已退款",
-          content: `您的需求「${demand.title}」的保证金已成功退款，原因：${refundReason}。`,
-          relatedId: payment.demandId,
-          relatedType: "demand",
+          content: `您的需求「${demand.title}」的保证金已成功退还，请确认到账情况。如有问题请联系平台客服。`,
+          relatedId: demandId, relatedType: "demand",
         });
+      }
+      if (pub?.email) {
+        await resend.emails.send({
+          from: "接单吧 <noreply@opcorder.com>", to: pub.email,
+          subject: `保证金已退款 — 需求「${demand.title}」`,
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${demand.title}」的保证金已成功退还，请确认到账情况。如有问题请联系平台客服。`),
+        }).catch(() => {});
       }
     });
 
-    res.json({ success: true, refundOrderNo: refundResult.refundOrderNo, refundedAt: now.toISOString() });
+    res.json({ success: true, refundedAt: now.toISOString() });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "退款失败";
-    console.error("[admin-demand-refund] error:", err);
+    const msg = err instanceof Error ? err.message : "操作失败";
+    console.error("[admin-confirm-offline-refund] error:", err);
     res.status(500).json({ error: msg });
   }
 });

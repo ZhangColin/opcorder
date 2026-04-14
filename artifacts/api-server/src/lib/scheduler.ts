@@ -5,9 +5,20 @@ import {
   deliverableStatusEnum,
   ordersTable,
   notificationsTable,
+  demandPaymentsTable,
+  usersTable,
 } from "@workspace/db";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { queryRefundStatus } from "./payment";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+function buildSimpleEmail(nickname: string, body: string): string {
+  const escaped = body.replace(/\n/g, "<br>");
+  return `<div style="font-family:sans-serif;max-width:600px;margin:0 auto"><p>您好，${nickname}，</p><p>${escaped}</p><p>— 接单吧团队</p></div>`;
+}
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
@@ -149,6 +160,84 @@ async function triggerSettlementCheck(orderId: number) {
 }
 
 /* ─────────────────────────────────────────────────
+   JOB 3: Poll online refund status
+   For demands with status=refunding + online payment, periodically
+   query the payment service for the refund result.
+   ───────────────────────────────────────────────── */
+async function pollOnlineRefundStatus() {
+  try {
+    const refundingPayments = await db
+      .select({
+        id: demandPaymentsTable.id,
+        demandId: demandPaymentsTable.demandId,
+        refundOrderNo: demandPaymentsTable.refundOrderNo,
+        method: demandPaymentsTable.method,
+      })
+      .from(demandPaymentsTable)
+      .where(and(
+        eq(demandPaymentsTable.status, "refunding"),
+        eq(demandPaymentsTable.method, "online"),
+      ));
+
+    for (const p of refundingPayments) {
+      if (!p.refundOrderNo) continue;
+      try {
+        const result = await queryRefundStatus(p.refundOrderNo);
+        const statusUpper = (result.status ?? "").toUpperCase();
+
+        if (statusUpper === "SUCCESS" || statusUpper === "REFUNDED") {
+          const now = new Date();
+          const [demand] = await db
+            .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+            .from(demandsTable)
+            .where(eq(demandsTable.id, p.demandId))
+            .limit(1);
+
+          await db.transaction(async (tx) => {
+            await tx.update(demandPaymentsTable).set({
+              status: "refunded",
+              refundedAt: now,
+            }).where(eq(demandPaymentsTable.id, p.id));
+
+            await tx.update(demandsTable).set({ status: "refunded", updatedAt: now })
+              .where(eq(demandsTable.id, p.demandId));
+
+            if (demand?.publisherId) {
+              await tx.insert(notificationsTable).values({
+                userId: demand.publisherId, type: "system",
+                title: "保证金已退款成功",
+                content: `您的需求「${demand?.title}」的保证金已成功退还，请确认到账情况。`,
+                relatedId: p.demandId, relatedType: "demand",
+              });
+
+              const [pub] = await tx.select({ nickname: usersTable.nickname, email: usersTable.email })
+                .from(usersTable).where(eq(usersTable.id, demand.publisherId)).limit(1);
+              if (pub?.email) {
+                await resend.emails.send({
+                  from: "接单吧 <noreply@opcorder.com>", to: pub.email,
+                  subject: `保证金已退款 — 需求「${demand?.title}」`,
+                  html: buildSimpleEmail(pub.nickname ?? pub.email, `您的需求「${demand?.title}」的保证金已成功退还，请确认到账情况。如有问题请联系平台客服。`),
+                }).catch(() => {});
+              }
+            }
+          });
+
+          logger.info({ paymentId: p.id, demandId: p.demandId, refundOrderNo: p.refundOrderNo }, "Online refund confirmed via polling");
+        } else if (statusUpper === "FAILED" || statusUpper === "FAIL") {
+          logger.warn({ paymentId: p.id, refundOrderNo: p.refundOrderNo, status: result.status }, "Online refund failed via polling");
+        } else {
+          logger.info({ paymentId: p.id, refundOrderNo: p.refundOrderNo, status: result.status }, "Online refund still processing");
+        }
+      } catch (innerErr) {
+        logger.error({ err: innerErr, paymentId: p.id, refundOrderNo: p.refundOrderNo }, "Failed to query refund status");
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "pollOnlineRefundStatus job failed");
+  }
+}
+
+/* ─────────────────────────────────────────────────
    Start all scheduled jobs
    ───────────────────────────────────────────────── */
 export function startScheduler() {
@@ -160,5 +249,8 @@ export function startScheduler() {
   autoAcceptStaleDeliverables();
   setInterval(autoAcceptStaleDeliverables, HOUR_MS);
 
-  logger.info("Background scheduler started (48h auto-convert every 15min, 7-day auto-accept every 1h)");
+  pollOnlineRefundStatus();
+  setInterval(pollOnlineRefundStatus, 5 * 60 * 1000); // every 5 min
+
+  logger.info("Background scheduler started (48h auto-convert every 15min, 7-day auto-accept every 1h, refund poll every 5min)");
 }

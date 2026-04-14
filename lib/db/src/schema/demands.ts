@@ -10,7 +10,8 @@ export const demandTypeEnum = pgEnum("demand_type", [
 
 export const demandStatusEnum = pgEnum("demand_status", [
   "draft", "pending_review", "pending_payment", "published", "matched",
-  "in_progress", "pending_acceptance", "completed", "closed"
+  "in_progress", "pending_acceptance", "completed", "closed",
+  "refund_pending", "refunding", "refunded"
 ]);
 
 export const demandModeEnum = pgEnum("demand_mode", ["open", "directed"]);

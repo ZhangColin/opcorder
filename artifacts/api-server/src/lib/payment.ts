@@ -136,8 +136,23 @@ export async function queryPaymentStatus(paymentOrderNo: string): Promise<Paymen
 
 export interface RefundResult {
   refundOrderNo: string;
-  status: string;
+  status: string;   // e.g. "PROCESSING", "SUCCESS", "FAILED"
   amount: number;
+}
+
+export async function queryRefundStatus(refundOrderNo: string): Promise<RefundResult> {
+  const body = "";
+  const resp = await fetch(`${BASE_URL}/api/v1/refunds/${refundOrderNo}/query`, {
+    method: "POST",
+    headers: buildHeaders(body),
+    body,
+  });
+  const json = await resp.json() as { code: number | string; message: string; data: RefundResult };
+  console.log(`[queryRefundStatus] refundOrderNo=${refundOrderNo} httpStatus=${resp.status} code=${json.code} status=${json.data?.status}`);
+  if (json.code !== 0 && json.code !== 200) {
+    throw new Error(`退款查询失败: ${json.message} (${json.code})`);
+  }
+  return json.data;
 }
 
 export interface CreateRefundParams {
@@ -145,6 +160,7 @@ export interface CreateRefundParams {
   amount: number;
   reason: string;
   businessOrderNo: string;
+  needAudit?: boolean;
 }
 
 export async function createRefund(params: CreateRefundParams): Promise<RefundResult> {
@@ -153,6 +169,7 @@ export async function createRefund(params: CreateRefundParams): Promise<RefundRe
     amount: params.amount,
     reason: params.reason,
     businessOrderNo: params.businessOrderNo,
+    needAudit: params.needAudit ?? false,
   });
 
   const resp = await fetch(`${BASE_URL}/api/v1/refunds`, {

@@ -733,4 +733,83 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
   }
 });
 
+/* ─── PUBLISHER REQUEST REFUND ──────────────────────────── */
+
+router.post("/demands/:demandId/request-refund", requireAuth, async (req, res) => {
+  try {
+    const demandId = Number(req.params.demandId);
+    const userId = (req as any).user?.id;
+    const { reason } = req.body as { reason?: string };
+
+    const [demand] = await db
+      .select()
+      .from(demandsTable)
+      .where(and(eq(demandsTable.id, demandId), eq(demandsTable.publisherId, userId)))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在或无权操作" });
+    if (demand.status !== "published") {
+      return res.status(409).json({ error: "只有已发布且未确定 OPC 的需求才能申请退款" });
+    }
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "confirmed")))
+      .limit(1);
+
+    if (!payment) return res.status(400).json({ error: "未找到已确认的保证金记录，无法申请退款" });
+
+    const acceptedBid = await db
+      .select({ id: bidsTable.id })
+      .from(bidsTable)
+      .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.status, "accepted")))
+      .limit(1);
+
+    if (acceptedBid.length > 0) {
+      return res.status(409).json({ error: "已有 OPC 被确定承接，无法申请退款" });
+    }
+
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx.update(demandPaymentsTable).set({
+        status: "refund_pending",
+        refundReason: reason?.trim() || null,
+        refundRequestedAt: now,
+      }).where(eq(demandPaymentsTable.id, payment.id));
+
+      await tx.update(demandsTable).set({
+        status: "refund_pending",
+        updatedAt: now,
+      }).where(eq(demandsTable.id, demandId));
+
+      const pendingBids = await tx
+        .select({ id: bidsTable.id, opcId: bidsTable.opcId })
+        .from(bidsTable)
+        .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.status, "pending")));
+
+      if (pendingBids.length > 0) {
+        await tx.update(bidsTable).set({ status: "rejected" })
+          .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.status, "pending")));
+
+        await tx.insert(notificationsTable).values(
+          pendingBids.map(b => ({
+            userId: b.opcId,
+            type: "system" as const,
+            title: "投标已退回",
+            content: `您对需求「${demand.title}」的投标已因发单方申请退款而自动退回，感谢您的理解。`,
+            relatedId: demandId,
+            relatedType: "demand",
+          }))
+        );
+      }
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[request-refund] error:", err);
+    res.status(500).json({ error: "申请退款失败，请重试" });
+  }
+});
+
 export default router;
