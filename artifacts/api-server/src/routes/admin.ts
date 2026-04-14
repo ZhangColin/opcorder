@@ -1542,6 +1542,12 @@ router.get("/admin/demand-payments", async (req, res) => {
   try {
     const { status } = req.query as { status?: string };
 
+    const VALID_PAYMENT_STATUSES = ["all", "pending", "confirmed", "rejected"] as const;
+    type PaymentStatus = "pending" | "confirmed" | "rejected";
+    if (status && !VALID_PAYMENT_STATUSES.includes(status as typeof VALID_PAYMENT_STATUSES[number])) {
+      return res.status(400).json({ error: `status 参数无效，允许值：${VALID_PAYMENT_STATUSES.join(", ")}` });
+    }
+
     const rows = await db
       .select({
         id: demandPaymentsTable.id,
@@ -1560,7 +1566,7 @@ router.get("/admin/demand-payments", async (req, res) => {
       .from(demandPaymentsTable)
       .leftJoin(demandsTable, eq(demandPaymentsTable.demandId, demandsTable.id))
       .leftJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
-      .where(status && status !== "all" ? eq(demandPaymentsTable.status, status as "pending" | "confirmed" | "rejected") : undefined)
+      .where(status && status !== "all" ? eq(demandPaymentsTable.status, status as PaymentStatus) : undefined)
       .orderBy(desc(demandPaymentsTable.createdAt));
 
     res.json(rows.map(r => ({
