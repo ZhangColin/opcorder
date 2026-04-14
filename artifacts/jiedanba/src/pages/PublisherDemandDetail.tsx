@@ -1,6 +1,7 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { clearSession } from "@/lib/auth";
 import { useState, useEffect, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useLocation, Link } from "wouter";
 import {
   Search, Bell, Star, BadgeCheck, Calendar,
@@ -555,8 +556,8 @@ export default function PublisherDemandDetail() {
                                   ) : onlineQrUrl ? (
                                     <>
                                       <p className="text-xs font-medium text-slate-600">扫描二维码完成支付 · ¥{demand.budget.toLocaleString()}</p>
-                                      <div className="w-48 h-48 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white p-2">
-                                        <img src={onlineQrUrl} alt="支付二维码" className="w-full h-full object-contain" />
+                                      <div className="w-52 h-52 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white p-3">
+                                        <QRCodeSVG value={onlineQrUrl} size={192} />
                                       </div>
                                       <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
                                         <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
