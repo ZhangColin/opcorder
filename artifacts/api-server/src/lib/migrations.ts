@@ -22,7 +22,10 @@ export async function runMigrations(): Promise<void> {
   }
 
   // Migration 001a2: set DEFAULT 0 on legacy budget_min/budget_max so inserts that
-  // omit these columns (new code path) do not violate NOT NULL constraints
+  // omit these columns (new code path) do not violate NOT NULL constraints.
+  // NOTE: These columns are kept for backward-compatibility during the transition window.
+  // Once rollout is validated and data integrity confirmed, a follow-up Migration 002
+  // should DROP COLUMN budget_min and DROP COLUMN budget_max to complete the cleanup.
   try {
     await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_min SET DEFAULT 0`);
     await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_max SET DEFAULT 0`);
