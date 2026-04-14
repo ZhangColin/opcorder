@@ -15,7 +15,7 @@ export async function runMigrations(): Promise<void> {
   // (consolidated from budgetMin/budgetMax to a single budget field)
   try {
     await db.execute(sql`
-      ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget integer NOT NULL DEFAULT 0
+      ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget real NOT NULL DEFAULT 0
     `);
   } catch (err) {
     logger.warn({ err }, "Migration 001a: could not add budget column");
