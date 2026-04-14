@@ -171,6 +171,62 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 003c failed in production: ${err}`);
   }
 
+  // Migration 003d: add refund status values to demand_status enum (CRITICAL)
+  // Required for the refund flow on the demands table
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'completed';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'refunding' AFTER 'refund_pending';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'refunding';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 003d: could not add refund status values to demand_status");
+    if (!isDev) throw new Error(`Migration 003d failed in production: ${err}`);
+  }
+
+  // Migration 003e: add refund_pending and refunding to demand_payment_status enum (CRITICAL)
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'rejected';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refunding' AFTER 'refund_pending';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 003e: could not add refund_pending/refunding to demand_payment_status");
+    if (!isDev) throw new Error(`Migration 003e failed in production: ${err}`);
+  }
+
+  // Migration 003f: add refund detail columns to demand_payments table (CRITICAL)
+  try {
+    await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_reason text`);
+    await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_requested_at timestamp`);
+    await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_reject_reason text`);
+    await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_receipt_url text`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 003f: could not add refund detail columns to demand_payments");
+    if (!isDev) throw new Error(`Migration 003f failed in production: ${err}`);
+  }
+
   // Migration 004a: add 'withdrawn' value to bid_status enum (CRITICAL)
   // Required for OPC to withdraw their own pending bids
   try {
