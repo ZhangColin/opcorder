@@ -4025,6 +4025,7 @@ interface PaymentRow {
   amount: number;
   method: string;
   status: string;
+  receiptUrl?: string | null;
   paymentNote?: string | null;
   rejectReason?: string | null;
   confirmedAt?: string | null;
@@ -4181,6 +4182,32 @@ function DepositPaymentManagement() {
                         <p className="text-sm text-slate-700">{new Date(payment.createdAt).toLocaleString("zh-CN")}</p>
                       </div>
                     </div>
+
+                    {payment.receiptUrl && (
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">缴费凭证</p>
+                        {/\.(jpg|jpeg|png|gif|webp)$/i.test(payment.receiptUrl) ? (
+                          <div className="mt-1">
+                            <a href={payment.receiptUrl} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={payment.receiptUrl}
+                                alt="缴费凭证截图"
+                                className="max-h-48 rounded-xl border border-slate-200 object-contain bg-slate-50 hover:opacity-90 transition-opacity cursor-zoom-in"
+                              />
+                            </a>
+                          </div>
+                        ) : (
+                          <a
+                            href={payment.receiptUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary underline break-all"
+                          >
+                            {payment.receiptUrl}
+                          </a>
+                        )}
+                      </div>
+                    )}
 
                     {payment.paymentNote && (
                       <div>

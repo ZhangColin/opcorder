@@ -81,7 +81,7 @@ async function seed() {
       demandNo: "JDB-202603-0001", title: "AI教育课程体系开发",
       type: "ai_education", description: "为某市教育局开发K12阶段AI教育课程体系，包含教学大纲、课件、实践案例，共6个模块。需要有AI教育行业经验，熟悉课程设计方法论。",
       skillTags: ["课件制作", "教案设计", "AI应用开发", "PPT设计"],
-      opcLevel: "A", budgetMin: 50000, budgetMax: 80000,
+      opcLevel: "A", budget: 65000,
       deadline: "2026-05-15",
       milestones: [
         { name: "课程大纲设计", deadline: "2026-04-10", deliverableDesc: "完成6模块课程大纲" },
@@ -96,7 +96,7 @@ async function seed() {
       demandNo: "JDB-202603-0002", title: "政企AI培训方案设计与授课",
       type: "gov_training", description: "为某区政府部门设计AI应用培训方案，包含理论课程和实操环节。培训对象为政府工作人员，需通俗易懂。共2天培训，含课件+现场授课。",
       skillTags: ["教案设计", "PPT设计", "AI应用开发", "提示词工程"],
-      opcLevel: "B", budgetMin: 15000, budgetMax: 25000,
+      opcLevel: "B", budget: 20000,
       deadline: "2026-04-20",
       milestones: [
         { name: "培训方案设计", deadline: "2026-04-08", deliverableDesc: "完成培训大纲和日程安排" },
@@ -110,7 +110,7 @@ async function seed() {
       demandNo: "JDB-202603-0003", title: "AI研学基地宣传视频制作",
       type: "ai_research", description: "为原点AI研学基地制作3分钟宣传视频，包含基地介绍、课程亮点、学员体验等内容。需要前期策划脚本+拍摄+后期剪辑。",
       skillTags: ["视频剪辑", "短视频制作", "文案撰写"],
-      opcLevel: "B", budgetMin: 8000, budgetMax: 15000,
+      opcLevel: "B", budget: 12000,
       deadline: "2026-04-25",
       milestones: [
         { name: "脚本策划", deadline: "2026-04-10", deliverableDesc: "完成视频脚本和分镜" },
@@ -124,7 +124,7 @@ async function seed() {
       demandNo: "JDB-202603-0004", title: "党建AI应用小程序开发",
       type: "party_building", description: "开发一款党建学习AI助手小程序，支持知识问答、学习计划推荐、在线测试等功能。需要有小程序开发经验和AI集成能力。",
       skillTags: ["小程序开发", "AI应用开发", "Web开发"],
-      opcLevel: "A", budgetMin: 80000, budgetMax: 120000,
+      opcLevel: "A", budget: 100000,
       deadline: "2026-06-30",
       milestones: [
         { name: "需求分析与原型", deadline: "2026-04-30", deliverableDesc: "完成需求文档和原型设计" },
@@ -139,7 +139,7 @@ async function seed() {
       demandNo: "JDB-202603-0005", title: "企业直播带货方案策划",
       type: "livestream_media", description: "为某电商企业策划AI赋能的直播带货方案，包含直播脚本、话术设计、AI工具配置方案。需了解直播行业和AI工具应用。",
       skillTags: ["直播运营", "文案撰写", "AI应用开发", "短视频制作"],
-      opcLevel: "B", budgetMin: 10000, budgetMax: 20000,
+      opcLevel: "B", budget: 15000,
       deadline: "2026-04-18",
       milestones: [
         { name: "方案策划", deadline: "2026-04-10", deliverableDesc: "完成直播方案全案" },
@@ -153,7 +153,7 @@ async function seed() {
       demandNo: "JDB-202603-0006", title: "AI智能客服系统定制开发",
       type: "ai_tool_dev", description: "为企业客户定制AI智能客服系统，支持多轮对话、知识库管理、工单生成。需要LLM集成经验和Web开发能力。",
       skillTags: ["AI应用开发", "Web开发", "提示词工程", "数据处理"],
-      opcLevel: "A", budgetMin: 60000, budgetMax: 100000,
+      opcLevel: "A", budget: 80000,
       deadline: "2026-06-15",
       milestones: [
         { name: "系统设计", deadline: "2026-04-20", deliverableDesc: "完成系统架构设计和技术方案" },
@@ -168,7 +168,7 @@ async function seed() {
       demandNo: "JDB-202603-0007", title: "社区运营数据分析报告",
       type: "other", description: "对OPC社区过去6个月的运营数据进行分析，产出数据分析报告，包含用户活跃度、订单转化率、收入趋势等分析维度。",
       skillTags: ["数据处理", "PPT设计", "文案撰写"],
-      opcLevel: "C", budgetMin: 3000, budgetMax: 5000,
+      opcLevel: "C", budget: 4000,
       deadline: "2026-04-12",
       milestones: [],
       mode: "open", status: "published", isUrgent: false,
@@ -179,7 +179,7 @@ async function seed() {
       demandNo: "JDB-202603-0008", title: "AI提示词工程培训课件开发",
       type: "ai_education", description: "开发一套AI提示词工程培训课件（8学时），面向OPC社区成员。内容需涵盖提示词基础、高级技巧、实际应用案例。",
       skillTags: ["课件制作", "提示词工程", "教案设计", "PPT设计"],
-      opcLevel: "B", budgetMin: 12000, budgetMax: 18000,
+      opcLevel: "B", budget: 15000,
       deadline: "2026-04-28",
       milestones: [
         { name: "课程大纲", deadline: "2026-04-15", deliverableDesc: "完成课程大纲和教学目标" },

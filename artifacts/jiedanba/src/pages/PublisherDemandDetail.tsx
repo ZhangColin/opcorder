@@ -93,6 +93,7 @@ export default function PublisherDemandDetail() {
   const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("offline");
   const [paymentNote, setPaymentNote] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
+  const [receiptUploading, setReceiptUploading] = useState(false);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
@@ -156,6 +157,29 @@ export default function PublisherDemandDetail() {
       toast({ title: "操作失败", description: "请稍后重试", variant: "destructive" });
     } finally {
       setDemandActionLoading(false);
+    }
+  };
+
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleReceiptUpload = async (file: File) => {
+    setReceiptUploading(true);
+    try {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!reqRes.ok) throw new Error("上传请求失败");
+      const { uploadURL, objectPath } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error("文件上传失败");
+      setReceiptUrl(`${BASE}/api/storage${objectPath}`);
+      toast({ title: "截图上传成功", description: "已附加到缴费凭证" });
+    } catch (err: unknown) {
+      toast({ title: "上传失败", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setReceiptUploading(false);
     }
   };
 
@@ -452,30 +476,85 @@ export default function PublisherDemandDetail() {
                                 </div>
                               </div>
 
-                              {/* Online payment: QR code placeholder */}
+                              {/* Online payment: QR code placeholder + confirm button */}
                               {paymentMethod === "online" && (
-                                <div className="border border-slate-200 rounded-xl p-4 text-center space-y-2">
-                                  <div className="w-32 h-32 mx-auto bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs">
-                                    <CreditCard size={28} className="mb-1 text-slate-300" />
-                                    <span>支付二维码</span>
-                                    <span className="text-[10px]">（即将上线）</span>
+                                <div className="border border-slate-200 rounded-xl p-4 space-y-4">
+                                  <div className="text-center space-y-2">
+                                    <div className="w-32 h-32 mx-auto bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs">
+                                      <CreditCard size={28} className="mb-1 text-slate-300" />
+                                      <span>支付二维码</span>
+                                      <span className="text-[10px]">（即将上线）</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500">扫码支付功能即将开放。扫码完成后点击下方按钮通知平台核实。</p>
                                   </div>
-                                  <p className="text-xs text-slate-500">扫码支付功能即将开放，目前请选择线下转账。</p>
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
+                                    <textarea
+                                      value={paymentNote}
+                                      onChange={e => setPaymentNote(e.target.value)}
+                                      placeholder="如支付流水号、支付渠道等"
+                                      rows={2}
+                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={handleSubmitPayment}
+                                    disabled={submitPaymentMutation.isPending}
+                                    className="w-full flex items-center justify-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                                  >
+                                    <CheckCircle2 size={14} />
+                                    {submitPaymentMutation.isPending ? "提交中…" : "我已完成支付，通知平台核实"}
+                                  </button>
                                 </div>
                               )}
 
-                              {/* Offline payment: receipt URL + note */}
+                              {/* Offline payment: receipt upload + note */}
                               {paymentMethod === "offline" && (
                                 <>
                                   <div>
-                                    <p className="text-xs text-slate-500 mb-2">转账截图或凭证链接（选填）</p>
-                                    <input
-                                      type="url"
-                                      value={receiptUrl}
-                                      onChange={e => setReceiptUrl(e.target.value)}
-                                      placeholder="https://… 粘贴截图外链或凭证图片链接"
-                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                                    />
+                                    <p className="text-xs text-slate-500 mb-2">上传转账截图 / 凭证（推荐）</p>
+                                    {receiptUrl ? (
+                                      <div className="relative">
+                                        <img
+                                          src={receiptUrl}
+                                          alt="缴费凭证"
+                                          className="max-h-48 rounded-xl border border-slate-200 object-contain w-full bg-slate-50"
+                                          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => setReceiptUrl("")}
+                                          className="absolute top-2 right-2 bg-white/90 border border-slate-200 rounded-full p-1 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                        >
+                                          <X size={12} />
+                                        </button>
+                                        <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
+                                          <CheckCircle2 size={12} /> 截图已上传
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition-colors ${receiptUploading ? "border-primary/40 bg-primary/5" : "border-slate-200 hover:border-primary/40 hover:bg-slate-50"}`}>
+                                        <input
+                                          type="file"
+                                          accept="image/*,.pdf"
+                                          className="hidden"
+                                          onChange={e => e.target.files?.[0] && handleReceiptUpload(e.target.files[0])}
+                                          disabled={receiptUploading}
+                                        />
+                                        {receiptUploading ? (
+                                          <>
+                                            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                            <span className="text-xs text-primary font-medium">上传中…</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Upload size={20} className="text-slate-400" />
+                                            <span className="text-xs text-slate-500 font-medium">点击上传转账截图</span>
+                                            <span className="text-[11px] text-slate-400">支持 JPG / PNG / PDF</span>
+                                          </>
+                                        )}
+                                      </label>
+                                    )}
                                   </div>
                                   <div>
                                     <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
@@ -489,7 +568,7 @@ export default function PublisherDemandDetail() {
                                   </div>
                                   <button
                                     onClick={handleSubmitPayment}
-                                    disabled={submitPaymentMutation.isPending}
+                                    disabled={submitPaymentMutation.isPending || receiptUploading}
                                     className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
                                   >
                                     <Upload size={14} />
