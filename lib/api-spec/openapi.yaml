@@ -1359,6 +1359,11 @@ components:
         - status
         - createdAt
 
+    AdminDemandPaymentRow:
+      allOf:
+        - $ref: "#/components/schemas/DemandPayment"
+      description: DemandPayment row augmented with demand/publisher context for admin views
+
     CreateDemandPaymentInput:
       type: object
       properties:
