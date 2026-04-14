@@ -700,10 +700,145 @@ interface AdminDemand {
   deadline: string;
 }
 
+interface AdminDemandDetail extends AdminDemand {
+  description: string;
+  type: string;
+  skillTags: string[];
+  opcLevel: string;
+  milestones: Array<{ name: string; deadline: string; deliverableDesc?: string }>;
+  attachments: Array<{ name: string; url: string; type: string }>;
+  bidDeadline: string | null;
+}
+
+const DEMAND_TYPE_CN: Record<string, string> = {
+  ai_education: "AI教育", gov_training: "政务培训", ai_research: "AI研究",
+  party_building: "党建", livestream_media: "直播媒体", ai_tool_dev: "AI工具开发", other: "其他",
+};
+
+function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
+  const { data: d, isLoading } = useQuery<AdminDemandDetail>({
+    queryKey: ["admin-demand-detail", id],
+    queryFn: () => adminGet(`/api/admin/demands/${id}`),
+  });
+
+  const statusCN: Record<string, string> = {
+    draft: "草稿", pending_review: "待审核", published: "已发布",
+    matched: "已匹配", in_progress: "进行中", pending_acceptance: "待验收",
+    completed: "已完成", closed: "已关闭",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-xl bg-white shadow-2xl flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-base font-extrabold text-blue-900">需求详情</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X size={18} /></button>
+        </div>
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center"><Loader2 size={24} className="animate-spin text-primary" /></div>
+        ) : !d ? (
+          <div className="flex-1 flex items-center justify-center text-sm text-slate-400">加载失败</div>
+        ) : (
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div>
+              <div className="flex items-start gap-2 flex-wrap">
+                <h3 className="text-lg font-extrabold text-blue-900 leading-tight">{d.title}</h3>
+                {d.isUrgent && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded-full">紧急</span>}
+              </div>
+              <p className="text-xs text-slate-400 mt-1 font-mono">{d.demandNo}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">状态</p>
+                <p className="font-bold text-blue-900">{statusCN[d.status] ?? d.status}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">发布模式</p>
+                <p className="font-bold text-blue-900">{d.mode === "open" ? "公开抢单" : "定向派单"}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">发单方</p>
+                <p className="font-bold text-blue-900">{d.publisherName}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">需求类型</p>
+                <p className="font-bold text-blue-900">{DEMAND_TYPE_CN[d.type] ?? d.type}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
+                <p className="font-bold text-blue-900">¥{(d.budgetMin ?? 0).toLocaleString()} – ¥{(d.budgetMax ?? 0).toLocaleString()}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">交付截止</p>
+                <p className="font-bold text-blue-900">{d.deadline ? new Date(d.deadline).toLocaleDateString("zh-CN") : "—"}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">OPC等级要求</p>
+                <p className="font-bold text-blue-900">{d.opcLevel === "any" ? "不限" : `${d.opcLevel} 级及以上`}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">发布时间</p>
+                <p className="font-bold text-blue-900">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</p>
+              </div>
+            </div>
+            {d.skillTags?.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-slate-400 mb-2">技能标签</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {d.skillTags.map(t => (
+                    <span key={t} className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-bold text-slate-400 mb-2">需求描述</p>
+              <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{d.description}</div>
+            </div>
+            {d.milestones && d.milestones.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-slate-400 mb-2">里程碑节点（{d.milestones.length} 个）</p>
+                <div className="space-y-2">
+                  {d.milestones.map((m, i) => (
+                    <div key={i} className="bg-slate-50 rounded-xl p-3 flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0 mt-0.5">{i + 1}</div>
+                      <div>
+                        <p className="text-sm font-bold text-blue-900">{m.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">截止：{m.deadline ? new Date(m.deadline).toLocaleDateString("zh-CN") : "—"}</p>
+                        {m.deliverableDesc && <p className="text-xs text-slate-500 mt-0.5">{m.deliverableDesc}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {d.attachments && d.attachments.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-slate-400 mb-2">附件（{d.attachments.length} 个）</p>
+                <div className="space-y-1.5">
+                  {d.attachments.map((a, i) => (
+                    <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-xs text-blue-700 hover:bg-blue-50 transition-colors">
+                      <FileText size={13} />{a.name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DemandManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [, navigate] = useLocation();
+  const [detailId, setDetailId] = useState<number | null>(null);
   const { q, qInput, setQInput, filter, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminDemand>>({
@@ -768,7 +903,10 @@ function DemandManagement() {
             <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-blue-900">{d.title}</span>
+                  <button
+                    onClick={() => setDetailId(d.id)}
+                    className="font-bold text-sm text-blue-900 hover:text-primary hover:underline text-left"
+                  >{d.title}</button>
                   {d.isUrgent && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded-full animate-pulse">紧急</span>}
                 </div>
               </td>
@@ -779,7 +917,7 @@ function DemandManagement() {
               <td className="px-6 py-4"><StatusBadge label={statusCN[d.status] ?? d.status} color={statusColor(d.status)} /></td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-1">
-                  <button onClick={() => navigate(`/publisher/demand/${d.id}`)}
+                  <button onClick={() => setDetailId(d.id)}
                     title="查看详情" className="p-2 rounded-xl hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors">
                     <Eye size={15} />
                   </button>
@@ -827,6 +965,7 @@ function DemandManagement() {
         }
       </TableShell>
       <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
+      {detailId !== null && <AdminDemandDetailPanel id={detailId} onClose={() => setDetailId(null)} />}
     </div>
   );
 }

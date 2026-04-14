@@ -231,6 +231,20 @@ router.get("/admin/demands", async (req, res) => {
   }
 });
 
+router.get("/admin/demands/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [d] = await db.select().from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
+    if (!d) return res.status(404).json({ error: "需求不存在" });
+    const [pub] = await db.select({ nickname: usersTable.nickname })
+      .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
+    res.json({ ...d, publisherName: pub?.nickname ?? "—" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取需求详情失败" });
+  }
+});
+
 router.patch("/admin/demands/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);

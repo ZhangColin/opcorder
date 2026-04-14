@@ -233,7 +233,7 @@ function Router() {
 
       {/* 社区 & 学习资源：游客也可访问 */}
       <Route path="/community" component={Community} />
-      <Route path="/academy" component={Academy} />
+      <Route path="/academy">{() => <Layout><Academy /></Layout>}</Route>
 
       {/* OPC 专属路由 */}
       <Route>

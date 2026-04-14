@@ -308,11 +308,7 @@ export default function PublisherCreateDemand() {
     return "";
   }, [opcLevel, budgetMax]);
 
-  const minDeadlineDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return d.toISOString().split("T")[0];
-  })();
+  const minDeadlineDate = new Date().toISOString().split("T")[0];
 
   /* ── Load existing demand for edit ── */
   useEffect(() => {
@@ -346,7 +342,7 @@ export default function PublisherCreateDemand() {
     else if (Number(budgetMin) >= Number(budgetMax)) e.budget = "预算最小值须小于最大值";
     else if (budgetCapError) e.budget = budgetCapError;
     if (!deadline) e.deadline = "请选择交付截止日期";
-    else if (deadline < minDeadlineDate) e.deadline = "截止日期须至少在今天3天后";
+    else if (deadline < minDeadlineDate) e.deadline = "截止日期不能早于今天";
     if (mode === "open" && !bidDeadline) e.bidDeadline = "公开抢单模式须设置抢单截止时间";
     if (mode === "directed" && directedOpcIds.length === 0) e.directedOpcIds = "定向派单模式须选择目标OPC";
     milestones.forEach((m, i) => {
@@ -739,7 +735,7 @@ export default function PublisherCreateDemand() {
             </FormField>
 
             <FormField label="交付截止日期" required error={errors.deadline}
-              hint="不得早于今日起3天后">
+              hint="不早于今天">
               <input
                 type="date"
                 value={deadline}
