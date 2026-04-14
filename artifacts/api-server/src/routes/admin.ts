@@ -704,6 +704,107 @@ router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res)
   }
 });
 
+/* ─── USER BULK EMAIL ───────────────────────────── */
+
+router.post("/admin/users/bulk-email", async (req, res) => {
+  try {
+    const {
+      subject, body,
+      filterRole, filterStatus,
+      filterNames, filterEmails, filterPhones, filterLevels,
+      filterRegisteredFrom, filterRegisteredTo,
+    } = req.body as {
+      subject?: string; body?: string;
+      filterRole?: string; filterStatus?: string;
+      filterNames?: string; filterEmails?: string; filterPhones?: string;
+      filterLevels?: string;
+      filterRegisteredFrom?: string; filterRegisteredTo?: string;
+    };
+
+    if (!subject?.trim() || !body?.trim()) {
+      return res.status(400).json({ error: "邮件主题和正文不能为空" });
+    }
+
+    // Build conditions for the users query
+    const conditions: any[] = [];
+    if (filterRole && filterRole !== "all") {
+      conditions.push(eq(usersTable.role, filterRole as any));
+    }
+    if (filterStatus && filterStatus !== "all") {
+      conditions.push(eq(usersTable.status, filterStatus as any));
+    }
+    if (filterRegisteredFrom?.trim()) {
+      conditions.push(sql`${usersTable.createdAt} >= ${new Date(filterRegisteredFrom)}`);
+    }
+    if (filterRegisteredTo?.trim()) {
+      conditions.push(sql`${usersTable.createdAt} <= ${new Date(filterRegisteredTo + "T23:59:59")}`);
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    let users = await db
+      .select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone, role: usersTable.role })
+      .from(usersTable)
+      .where(where);
+
+    // Apply name filter (comma-separated list, partial match)
+    if (filterNames?.trim()) {
+      const names = filterNames.split(",").map(n => n.trim().toLowerCase()).filter(Boolean);
+      users = users.filter(u => names.some(n => u.nickname?.toLowerCase().includes(n)));
+    }
+    // Apply email filter (comma-separated list, partial match)
+    if (filterEmails?.trim()) {
+      const emails = filterEmails.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+      users = users.filter(u => emails.some(e => u.email?.toLowerCase().includes(e)));
+    }
+    // Apply phone filter (comma-separated, partial match)
+    if (filterPhones?.trim()) {
+      const phones = filterPhones.split(",").map(p => p.trim()).filter(Boolean);
+      users = users.filter(u => u.phone && phones.some(p => u.phone!.includes(p)));
+    }
+    // Apply OPC level filter — requires joining opc_profiles
+    if (filterLevels?.trim()) {
+      const levels = filterLevels.split(",").map(l => l.trim()).filter(Boolean);
+      if (levels.length > 0) {
+        const opcIds = (await db.execute(
+          sql`SELECT user_id FROM opc_profiles WHERE level = ANY(${levels}::text[])`
+        )).rows.map((r: any) => r.user_id as number);
+        const idSet = new Set(opcIds);
+        users = users.filter(u => idSet.has(u.id));
+      }
+    }
+
+    // Filter out users with no email
+    users = users.filter(u => !!u.email);
+
+    if (users.length === 0) {
+      return res.json({ sent: 0, failed: 0, total: 0, message: "没有符合条件的用户" });
+    }
+
+    let sent = 0;
+    let failed = 0;
+    const FROM = "接单吧 <noreply@aieducenter.com>";
+
+    await Promise.allSettled(
+      users.map(async (u) => {
+        const { error } = await resend.emails.send({
+          from: FROM,
+          to: u.email!,
+          subject: subject.trim(),
+          html: buildBulkEmail(u.nickname ?? u.email!, body.trim()),
+        });
+        if (error) { failed++; console.error("user bulk email error", u.email, error); }
+        else { sent++; }
+      })
+    );
+
+    res.json({ sent, failed, total: users.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "群发邮件失败" });
+  }
+});
+
 /* ─── BULK EMAIL ────────────────────────────────── */
 
 router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => {

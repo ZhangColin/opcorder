@@ -388,6 +388,7 @@ function UserManagement() {
   const { q, qInput, setQInput, page, pageSize, setPage, setPageSize, commitSearch, clearSearch } = useAdminListState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showBulkEmail, setShowBulkEmail] = useState(false);
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminUser>>({
     queryKey: ["admin-users", roleFilter, statusFilter, q, page, pageSize],
@@ -414,6 +415,7 @@ function UserManagement() {
 
   return (
     <div className="space-y-6">
+      {showBulkEmail && <UserBulkEmailModal onClose={() => setShowBulkEmail(false)} />}
       <SectionHeader title="用户管理" sub="OPC 账户审核、角色权限配置、认证等级调整、封禁/解封" />
       <div className="flex items-center gap-3 flex-wrap">
         {ROLE_FILTERS.map(f => (
@@ -438,6 +440,12 @@ function UserManagement() {
           <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
           {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
+        <button
+          onClick={() => setShowBulkEmail(true)}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors"
+        >
+          <Mail size={13} /> 群发邮件
+        </button>
       </div>
       <TableShell headers={["用户", "邮箱", "手机号", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={9} /> : users.length === 0 ? <EmptyRow cols={9} /> :
@@ -493,6 +501,185 @@ function UserManagement() {
         }
       </TableShell>
       <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
+    </div>
+  );
+}
+
+/* ─── User Bulk Email Modal ──────────────────────── */
+
+function UserBulkEmailModal({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const [subject, setSubject]   = useState("");
+  const [body, setBody]         = useState("");
+
+  // filter states
+  const [filterRole,             setFilterRole]             = useState("all");
+  const [filterStatus,           setFilterStatus]           = useState("all");
+  const [filterNames,            setFilterNames]            = useState("");
+  const [filterEmails,           setFilterEmails]           = useState("");
+  const [filterPhones,           setFilterPhones]           = useState("");
+  const [filterLevels,           setFilterLevels]           = useState<string[]>([]);
+  const [filterRegisteredFrom,   setFilterRegisteredFrom]   = useState("");
+  const [filterRegisteredTo,     setFilterRegisteredTo]     = useState("");
+
+  const OPC_LEVELS = [
+    { v: "newbie", label: "新手" },
+    { v: "C",      label: "C级·基础" },
+    { v: "B",      label: "B级·进阶" },
+    { v: "A",      label: "A级·专家" },
+  ];
+
+  const toggleLevel = (v: string) =>
+    setFilterLevels(prev => prev.includes(v) ? prev.filter(l => l !== v) : [...prev, v]);
+
+  const sendMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}/api/admin/users/bulk-email`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          subject, body,
+          filterRole, filterStatus,
+          filterNames, filterEmails, filterPhones,
+          filterLevels: filterLevels.join(","),
+          filterRegisteredFrom, filterRegisteredTo,
+        }),
+      }).then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error ?? "发送失败");
+        return data;
+      }),
+    onSuccess: (data) => {
+      if (data.total === 0) {
+        toast({ title: "没有符合条件的用户", description: "请调整过滤条件后重试", variant: "destructive" });
+      } else {
+        toast({ title: `群发完成：成功 ${data.sent} 封${data.failed > 0 ? `，失败 ${data.failed} 封` : ""}` });
+        onClose();
+      }
+    },
+    onError: (e: Error) => toast({ title: "发送失败", description: e.message, variant: "destructive" }),
+  });
+
+  const canSend = subject.trim().length > 0 && body.trim().length > 0 && !sendMutation.isPending;
+
+  const inputCls = "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition";
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Mail size={18} className="text-primary" /> 群发邮件 · 用户管理
+          </h3>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"><X size={18} /></button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          {/* Email content */}
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">邮件主题 <span className="text-red-500">*</span></label>
+            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="请输入邮件主题" className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">邮件正文 <span className="text-red-500">*</span></label>
+            <textarea value={body} onChange={e => setBody(e.target.value)} placeholder="请输入邮件正文内容…" rows={5}
+              className={`${inputCls} resize-none`} />
+          </div>
+
+          {/* Filters */}
+          <div className="border-t border-slate-100 pt-4 space-y-3">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">过滤条件（不填/不选即发送全部）</p>
+
+            {/* Role + Status row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">角色</label>
+                <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className={inputCls}>
+                  <option value="all">全部角色</option>
+                  <option value="opc">OPC</option>
+                  <option value="publisher">发单方</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">账号状态</label>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={inputCls}>
+                  <option value="all">全部状态</option>
+                  <option value="active">正常</option>
+                  <option value="suspended">封禁</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Names */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">用户名（多个用逗号隔开）</label>
+              <input value={filterNames} onChange={e => setFilterNames(e.target.value)}
+                placeholder="如：张三,李四"
+                className={inputCls} />
+            </div>
+
+            {/* Emails */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">邮箱（多个用逗号隔开）</label>
+              <input value={filterEmails} onChange={e => setFilterEmails(e.target.value)}
+                placeholder="如：user@example.com"
+                className={inputCls} />
+            </div>
+
+            {/* Phones */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">手机号（多个用逗号隔开）</label>
+              <input value={filterPhones} onChange={e => setFilterPhones(e.target.value)}
+                placeholder="如：138xxxx,139xxxx"
+                className={inputCls} />
+            </div>
+
+            {/* OPC Level */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">OPC 等级（可多选，不选则全部）</label>
+              <div className="flex flex-wrap gap-2">
+                {OPC_LEVELS.map(l => (
+                  <button key={l.v} type="button" onClick={() => toggleLevel(l.v)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
+                      filterLevels.includes(l.v)
+                        ? "bg-secondary text-white border-secondary"
+                        : "bg-slate-50 text-slate-500 border-slate-200 hover:border-secondary/50"
+                    }`}>
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Registration date range */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">注册日期范围</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="date" value={filterRegisteredFrom} onChange={e => setFilterRegisteredFrom(e.target.value)}
+                  className={inputCls} />
+                <input type="date" value={filterRegisteredTo} onChange={e => setFilterRegisteredTo(e.target.value)}
+                  className={inputCls} />
+              </div>
+              <p className="text-xs text-slate-400 mt-1">左为开始日期，右为结束日期，不填则不限</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+          <p className="text-xs text-slate-400">所有过滤条件取交集（AND 关系）</p>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-slate-500 hover:bg-slate-100 transition-colors">取消</button>
+            <button onClick={() => sendMutation.mutate()} disabled={!canSend}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              {sendMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+              {sendMutation.isPending ? "发送中…" : "发送邮件"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
