@@ -12,18 +12,28 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+async function start() {
+  // Run migrations and seed before accepting traffic to avoid a startup race
+  // where requests arrive before schema changes are in place
+  await runMigrations();
+  await runSeed();
 
-  logger.info({ port }, "Server listening");
-  startScheduler();
-  runMigrations()
-    .then(() => runSeed())
-    .catch((e) => logger.error({ err: e }, "Startup initialization failed"));
-  generateManualPdf()
-    .then((outPath) => logger.info({ outPath }, "OPC manual PDF generated"))
-    .catch((e) => logger.error({ err: e }, "Failed to generate manual PDF"));
+  app.listen(port, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+
+    logger.info({ port }, "Server listening");
+    startScheduler();
+
+    generateManualPdf()
+      .then((outPath) => logger.info({ outPath }, "OPC manual PDF generated"))
+      .catch((e) => logger.error({ err: e }, "Failed to generate manual PDF"));
+  });
+}
+
+start().catch((e) => {
+  logger.error({ err: e }, "Startup initialization failed");
+  process.exit(1);
 });
