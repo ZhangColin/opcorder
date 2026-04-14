@@ -180,6 +180,7 @@ export default function PublisherDemandDetail() {
     mutationFn: async (reason: string) => {
       const res = await fetch(`${BASE}/api/demands/${demandId}/request-refund`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: reason.trim() || undefined }),
       });
