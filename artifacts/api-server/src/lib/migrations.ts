@@ -11,7 +11,7 @@ import { logger } from "./logger";
 export async function runMigrations(): Promise<void> {
   logger.info("Running startup data migrations...");
 
-  // Migration 001a: add demands.budget column if missing
+  // Migration 001a: add demands.budget column and relax legacy budget_min/budget_max constraints
   // (consolidated from budgetMin/budgetMax to a single budget field)
   try {
     await db.execute(sql`
@@ -19,6 +19,16 @@ export async function runMigrations(): Promise<void> {
     `);
   } catch (err) {
     logger.warn({ err }, "Migration 001a: could not add budget column");
+  }
+
+  // Migration 001a2: set DEFAULT 0 on legacy budget_min/budget_max so inserts that
+  // omit these columns (new code path) do not violate NOT NULL constraints
+  try {
+    await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_min SET DEFAULT 0`);
+    await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_max SET DEFAULT 0`);
+  } catch (err) {
+    // Safe to ignore — columns may already have defaults or may not exist on fresh DBs
+    logger.warn({ err }, "Migration 001a2: could not set defaults on legacy budget columns");
   }
 
   // Migration 001b: add pending_payment to demand status enum if missing
