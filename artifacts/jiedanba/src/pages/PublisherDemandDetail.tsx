@@ -266,10 +266,14 @@ export default function PublisherDemandDetail() {
       }
 
       // Offline flow
+      if (!receiptUrl.trim()) {
+        toast({ title: "请先上传转账凭证", description: "需上传转账截图或凭证文件后才能提交", variant: "destructive" });
+        return;
+      }
       const body: { method: "online" | "offline"; receiptUrl?: string; paymentNote?: string } = {
         method: "offline",
+        receiptUrl: receiptUrl.trim(),
       };
-      if (receiptUrl.trim()) body.receiptUrl = receiptUrl.trim();
       if (paymentNote.trim()) body.paymentNote = paymentNote.trim();
 
       await submitPaymentMutation.mutateAsync({ demandId, data: body });
@@ -653,8 +657,8 @@ export default function PublisherDemandDetail() {
                                   </div>
                                   <button
                                     onClick={handleSubmitPayment}
-                                    disabled={submitPaymentMutation.isPending || receiptUploading}
-                                    className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                                    disabled={submitPaymentMutation.isPending || receiptUploading || !receiptUrl.trim()}
+                                    className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                   >
                                     <Upload size={14} />
                                     {submitPaymentMutation.isPending ? "提交中…" : "提交缴费凭证"}
