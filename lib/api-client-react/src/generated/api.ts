@@ -18,17 +18,20 @@ import type {
 
 import type {
   AcceptOrderBody,
+  AdminDemandPaymentRow,
   BidApplication,
   Course,
   CreateBidInput,
   CreateDeliverableInput,
   CreateDemandInput,
+  CreateDemandPaymentInput,
   CreatePortfolioInput,
   CreatePostCommentBody,
   CreatePostInput,
   Deliverable,
   Demand,
   DemandListResponse,
+  DemandPayment,
   EnrollCourseBody,
   Enrollment,
   EnrollmentWithCourse,
@@ -36,6 +39,7 @@ import type {
   HealthStatus,
   ListCoursesParams,
   ListDemandsParams,
+  ListDemandPaymentsParams,
   ListMyEnrollmentsParams,
   ListNotificationsParams,
   ListOrdersParams,
@@ -53,6 +57,7 @@ import type {
   PostComment,
   PostListResponse,
   RejectDeliveryBody,
+  ReviewDemandPaymentBody,
   TogglePostLike200,
   TogglePostLikeBody,
   UpdateBidStatusBody,
@@ -3136,3 +3141,193 @@ export function useListMyEnrollments<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/* ─── Demand Payment Endpoints ─────────────────────────── */
+
+// POST /demands/:demandId/payment
+export const submitDemandPayment = (
+  demandId: number,
+  createDemandPaymentInput: BodyType<CreateDemandPaymentInput>,
+) => {
+  return customFetch<DemandPayment>({
+    url: `/demands/${demandId}/payment`,
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    data: createDemandPaymentInput,
+  });
+};
+
+export const useSubmitDemandPayment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDemandPayment>>,
+    TError,
+    { demandId: number; data: BodyType<CreateDemandPaymentInput> },
+    TContext
+  >;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitDemandPayment>>,
+  TError,
+  { demandId: number; data: BodyType<CreateDemandPaymentInput> },
+  TContext
+> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitDemandPayment>>,
+    { demandId: number; data: BodyType<CreateDemandPaymentInput> }
+  > = (props) => {
+    const { demandId, data } = props ?? {};
+    return submitDemandPayment(demandId, data);
+  };
+  return useMutation({ mutationFn, ...mutationOptions });
+};
+
+// GET /demands/:demandId/payment
+export const getDemandPayment = (demandId: number) => {
+  return customFetch<DemandPayment | null>({
+    url: `/demands/${demandId}/payment`,
+    method: "GET",
+  });
+};
+
+export const getGetDemandPaymentQueryKey = (demandId: number) =>
+  [`/demands/${demandId}/payment`] as const;
+
+export const getGetDemandPaymentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDemandPayment>>,
+  TError = ErrorType<unknown>,
+>(
+  demandId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDemandPayment>>,
+      TError,
+      TData
+    >;
+  },
+) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDemandPaymentQueryKey(demandId);
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDemandPayment>>
+  > = () => getDemandPayment(demandId);
+  return { queryKey, queryFn, enabled: !!demandId, ...queryOptions };
+};
+
+export const useGetDemandPayment = <
+  TData = Awaited<ReturnType<typeof getDemandPayment>>,
+  TError = ErrorType<unknown>,
+>(
+  demandId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDemandPayment>>,
+      TError,
+      TData
+    >;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+  const queryOptions = getGetDemandPaymentQueryOptions(demandId, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...query, queryKey: queryOptions.queryKey };
+};
+
+// GET /admin/demand-payments
+export const listDemandPayments = (params?: ListDemandPaymentsParams) => {
+  return customFetch<AdminDemandPaymentRow[]>({
+    url: `/admin/demand-payments`,
+    method: "GET",
+    params,
+  });
+};
+
+export const getListDemandPaymentsQueryKey = (
+  params?: ListDemandPaymentsParams,
+) => [`/admin/demand-payments`, ...(params ? [params] : [])] as const;
+
+export const getListDemandPaymentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDemandPayments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDemandPaymentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDemandPayments>>,
+      TError,
+      TData
+    >;
+  },
+) => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey =
+    queryOptions?.queryKey ?? getListDemandPaymentsQueryKey(params);
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDemandPayments>>
+  > = () => listDemandPayments(params);
+  return { queryKey, queryFn, ...queryOptions };
+};
+
+export const useListDemandPayments = <
+  TData = Awaited<ReturnType<typeof listDemandPayments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDemandPaymentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDemandPayments>>,
+      TError,
+      TData
+    >;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+  const queryOptions = getListDemandPaymentsQueryOptions(params, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...query, queryKey: queryOptions.queryKey };
+};
+
+// PATCH /admin/demand-payments/:paymentId
+export const reviewDemandPayment = (
+  paymentId: number,
+  reviewDemandPaymentBody: BodyType<ReviewDemandPaymentBody>,
+) => {
+  return customFetch<DemandPayment>({
+    url: `/admin/demand-payments/${paymentId}`,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    data: reviewDemandPaymentBody,
+  });
+};
+
+export const useReviewDemandPayment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviewDemandPayment>>,
+    TError,
+    { paymentId: number; data: BodyType<ReviewDemandPaymentBody> },
+    TContext
+  >;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reviewDemandPayment>>,
+  TError,
+  { paymentId: number; data: BodyType<ReviewDemandPaymentBody> },
+  TContext
+> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviewDemandPayment>>,
+    { paymentId: number; data: BodyType<ReviewDemandPaymentBody> }
+  > = (props) => {
+    const { paymentId, data } = props ?? {};
+    return reviewDemandPayment(paymentId, data);
+  };
+  return useMutation({ mutationFn, ...mutationOptions });
+};

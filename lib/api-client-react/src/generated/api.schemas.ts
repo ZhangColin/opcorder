@@ -742,3 +742,54 @@ export type EnrollCourseBody = {
 export type ListMyEnrollmentsParams = {
   userId: number;
 };
+
+/* ─── Demand Payment Types ─────────────────────────────── */
+
+export type DemandPaymentMethod =
+  (typeof DemandPaymentMethod)[keyof typeof DemandPaymentMethod];
+export const DemandPaymentMethod = {
+  online: "online",
+  offline: "offline",
+} as const;
+
+export type DemandPaymentStatus =
+  (typeof DemandPaymentStatus)[keyof typeof DemandPaymentStatus];
+export const DemandPaymentStatus = {
+  pending: "pending",
+  confirmed: "confirmed",
+  rejected: "rejected",
+} as const;
+
+export interface DemandPayment {
+  id: number;
+  demandId: number;
+  amount: number;
+  method: DemandPaymentMethod;
+  status: DemandPaymentStatus;
+  receiptUrl?: string | null;
+  paymentNote?: string | null;
+  rejectReason?: string | null;
+  confirmedBy?: number | null;
+  confirmedAt?: string | null;
+  createdAt: string;
+}
+
+export interface AdminDemandPaymentRow extends DemandPayment {
+  demandTitle?: string | null;
+  publisherName?: string | null;
+}
+
+export interface CreateDemandPaymentInput {
+  method: DemandPaymentMethod;
+  receiptUrl?: string;
+  paymentNote?: string;
+}
+
+export interface ReviewDemandPaymentBody {
+  action: "confirm" | "reject";
+  rejectReason?: string;
+}
+
+export type ListDemandPaymentsParams = {
+  status?: string;
+};

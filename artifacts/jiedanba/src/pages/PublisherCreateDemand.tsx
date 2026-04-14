@@ -317,7 +317,7 @@ export default function PublisherCreateDemand() {
       setDescription(existingDemand.description ?? "");
       setSkillTags((existingDemand.skillTags as string[]) ?? []);
       setOpcLevel(existingDemand.opcLevel ?? "any");
-      setBudget(String((existingDemand as any).budget ?? ""));
+      setBudget(String(existingDemand.budget ?? ""));
       setDeadline(existingDemand.deadline ? String(existingDemand.deadline).split("T")[0] : "");
       setMode((existingDemand.mode as "open" | "directed") ?? "open");
       setBidDeadline(existingDemand.bidDeadline ? String(existingDemand.bidDeadline).split("T")[0] : "");

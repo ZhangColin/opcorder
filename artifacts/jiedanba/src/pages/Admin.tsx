@@ -4025,11 +4025,12 @@ interface PaymentRow {
   amount: number;
   method: string;
   status: string;
-  paymentNote?: string;
-  rejectReason?: string;
-  confirmedAt?: string;
+  paymentNote?: string | null;
+  rejectReason?: string | null;
+  confirmedAt?: string | null;
   createdAt: string;
-  demand?: { title: string; budget: number };
+  demandTitle?: string | null;
+  publisherName?: string | null;
 }
 
 function DepositPaymentManagement() {
@@ -4139,7 +4140,7 @@ function DepositPaymentManagement() {
                   <div className="flex items-center gap-4 text-left">
                     <div>
                       <p className="text-sm font-bold text-slate-800">
-                        {payment.demand?.title ?? `需求 #${payment.demandId}`}
+                        {payment.demandTitle ?? `需求 #${payment.demandId}`}
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {new Date(payment.createdAt).toLocaleString("zh-CN")} ·{" "}

@@ -1,6 +1,6 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { clearSession } from "@/lib/auth";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
   Search, Bell, Star, BadgeCheck, Calendar,
@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import {
   useGetDemandById,
+  useGetDemandPayment,
   useListBidsForDemand,
+  useSubmitDemandPayment,
   useUpdateBidStatus,
   useUpdateDemandStatus,
 } from "@workspace/api-client-react";
@@ -91,15 +93,14 @@ export default function PublisherDemandDetail() {
   const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("offline");
   const [paymentNote, setPaymentNote] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
-  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
-  const [existingPayment, setExistingPayment] = useState<{
-    id: number; demandId: number; amount: number; method: string;
-    status: string; receiptUrl?: string | null; paymentNote?: string | null;
-    rejectReason?: string | null; confirmedAt?: string | null; createdAt: string;
-  } | null>(null);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
+  });
+
+  // Fetch existing payment (only active when demand is in pending_payment state)
+  const { data: existingPayment, refetch: refetchPayment } = useGetDemandPayment(demandId, {
+    query: { enabled: demandId > 0 && demand?.status === "pending_payment" },
   });
 
   const { data: bids = [], isLoading: bidsLoading } = useListBidsForDemand(demandId, {
@@ -108,6 +109,7 @@ export default function PublisherDemandDetail() {
 
   const updateBidStatus = useUpdateBidStatus();
   const updateDemandStatus = useUpdateDemandStatus();
+  const submitPaymentMutation = useSubmitDemandPayment();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -157,45 +159,20 @@ export default function PublisherDemandDetail() {
     }
   };
 
-  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-  // Fetch existing payment when demand is pending_payment
-  useEffect(() => {
-    if (demand?.status === "pending_payment" && demandId > 0) {
-      const token = localStorage.getItem("jdb_user_id");
-      fetch(`${BASE}/api/demands/${demandId}/payment`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }).then(r => r.json()).then(data => {
-        setExistingPayment(data);
-      }).catch(() => {});
-    }
-  }, [demand?.status, demandId]);
-
   const handleSubmitPayment = async () => {
-    setPaymentSubmitting(true);
     try {
-      const token = localStorage.getItem("jdb_user_id");
-      const body: { method: string; receiptUrl?: string; paymentNote?: string } = { method: paymentMethod };
+      const body: { method: "online" | "offline"; receiptUrl?: string; paymentNote?: string } = {
+        method: paymentMethod,
+      };
       if (receiptUrl.trim()) body.receiptUrl = receiptUrl.trim();
       if (paymentNote.trim()) body.paymentNote = paymentNote.trim();
 
-      const res = await fetch(`${BASE}/api/demands/${demandId}/payment`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "缴费提交失败");
-      setExistingPayment(data);
+      await submitPaymentMutation.mutateAsync({ demandId, data: body });
+      await refetchPayment();
       toast({ title: "保证金缴费凭证已提交", description: "请等待平台审核确认，确认后需求将自动发布" });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "请稍后重试";
       toast({ title: "提交失败", description: msg, variant: "destructive" });
-    } finally {
-      setPaymentSubmitting(false);
     }
   };
 
@@ -453,53 +430,73 @@ export default function PublisherDemandDetail() {
                           {(!existingPayment || existingPayment.status === "rejected") && (
                             <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
                               <p className="text-sm font-bold text-slate-700">提交缴费凭证</p>
+
+                              {/* Payment method tabs */}
                               <div>
                                 <p className="text-xs text-slate-500 mb-2">缴费方式</p>
-                                <div className="flex gap-3">
+                                <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
                                   {(["offline", "online"] as const).map(m => (
                                     <button
                                       key={m}
                                       type="button"
                                       onClick={() => setPaymentMethod(m)}
-                                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                                         paymentMethod === m
-                                          ? "border-primary bg-primary/5 text-primary"
-                                          : "border-slate-200 text-slate-600 hover:border-primary/30"
+                                          ? "bg-white text-primary shadow-sm"
+                                          : "text-slate-500 hover:text-slate-700"
                                       }`}
                                     >
-                                      {m === "offline" ? "线下转账" : "在线支付"}
+                                      {m === "offline" ? "🏦 线下转账" : "📱 扫码支付"}
                                     </button>
                                   ))}
                                 </div>
                               </div>
-                              <div>
-                                <p className="text-xs text-slate-500 mb-2">转账截图或凭证链接（选填）</p>
-                                <input
-                                  type="url"
-                                  value={receiptUrl}
-                                  onChange={e => setReceiptUrl(e.target.value)}
-                                  placeholder="https://… 粘贴截图外链或凭证图片链接"
-                                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                                />
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
-                                <textarea
-                                  value={paymentNote}
-                                  onChange={e => setPaymentNote(e.target.value)}
-                                  placeholder="如转账流水号、支付渠道等"
-                                  rows={2}
-                                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
-                                />
-                              </div>
-                              <button
-                                onClick={handleSubmitPayment}
-                                disabled={paymentSubmitting}
-                                className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
-                              >
-                                <Upload size={14} />
-                                {paymentSubmitting ? "提交中…" : "提交缴费凭证"}
-                              </button>
+
+                              {/* Online payment: QR code placeholder */}
+                              {paymentMethod === "online" && (
+                                <div className="border border-slate-200 rounded-xl p-4 text-center space-y-2">
+                                  <div className="w-32 h-32 mx-auto bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs">
+                                    <CreditCard size={28} className="mb-1 text-slate-300" />
+                                    <span>支付二维码</span>
+                                    <span className="text-[10px]">（即将上线）</span>
+                                  </div>
+                                  <p className="text-xs text-slate-500">扫码支付功能即将开放，目前请选择线下转账。</p>
+                                </div>
+                              )}
+
+                              {/* Offline payment: receipt URL + note */}
+                              {paymentMethod === "offline" && (
+                                <>
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-2">转账截图或凭证链接（选填）</p>
+                                    <input
+                                      type="url"
+                                      value={receiptUrl}
+                                      onChange={e => setReceiptUrl(e.target.value)}
+                                      placeholder="https://… 粘贴截图外链或凭证图片链接"
+                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
+                                    <textarea
+                                      value={paymentNote}
+                                      onChange={e => setPaymentNote(e.target.value)}
+                                      placeholder="如转账流水号、支付渠道等"
+                                      rows={2}
+                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={handleSubmitPayment}
+                                    disabled={submitPaymentMutation.isPending}
+                                    className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                                  >
+                                    <Upload size={14} />
+                                    {submitPaymentMutation.isPending ? "提交中…" : "提交缴费凭证"}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>

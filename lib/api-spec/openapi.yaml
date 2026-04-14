@@ -1341,17 +1341,15 @@ components:
     CreateDemandPaymentInput:
       type: object
       properties:
-        amount:
-          type: number
         method:
           type: string
           enum: [online, offline]
         receiptUrl:
           type: string
+          description: URL of payment receipt screenshot or proof
         paymentNote:
           type: string
       required:
-        - amount
         - method
 
     BidApplication:

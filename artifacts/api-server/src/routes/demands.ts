@@ -299,10 +299,40 @@ router.put("/demands/:demandId", requireAuth, async (req, res) => {
   }
 });
 
+// Publisher-allowed status transitions (admin transitions handled separately in admin routes)
+const PUBLISHER_TRANSITIONS: Record<string, string[]> = {
+  draft:          ["pending_review", "closed"],
+  pending_review: ["draft"],  // withdraw from review
+};
+
 router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
     const body = UpdateDemandStatusBody.parse(req.body);
+
+    // Look up the demand for ownership and transition validation
+    const [existing] = await db
+      .select({ publisherId: demandsTable.publisherId, status: demandsTable.status })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ error: "需求不存在" });
+
+    const isAdmin = req.user!.role === "admin";
+
+    // Non-admins: ownership check + allowed transitions only
+    if (!isAdmin) {
+      if (existing.publisherId !== req.user!.id) {
+        return res.status(403).json({ error: "无权操作" });
+      }
+      const allowed = PUBLISHER_TRANSITIONS[existing.status] ?? [];
+      if (!allowed.includes(body.status)) {
+        return res.status(400).json({
+          error: `状态 "${existing.status}" 不允许直接变更为 "${body.status}"`,
+        });
+      }
+    }
 
     const [updated] = await db.update(demandsTable).set({
       status: body.status as any,

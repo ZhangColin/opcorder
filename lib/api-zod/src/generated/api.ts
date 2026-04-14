@@ -1196,3 +1196,39 @@ export const ListMyEnrollmentsResponseItem = zod.object({
 export const ListMyEnrollmentsResponse = zod.array(
   ListMyEnrollmentsResponseItem,
 );
+
+/* ─── Demand Payment Schemas ─────────────────────── */
+
+export const CreateDemandPaymentInput = zod.object({
+  method: zod.enum(["online", "offline"]),
+  receiptUrl: zod.string().url().optional(),
+  paymentNote: zod.string().optional(),
+});
+
+export const DemandPayment = zod.object({
+  id: zod.number(),
+  demandId: zod.number(),
+  amount: zod.number(),
+  method: zod.enum(["online", "offline"]),
+  status: zod.enum(["pending", "confirmed", "rejected"]),
+  receiptUrl: zod.string().nullable().optional(),
+  paymentNote: zod.string().nullable().optional(),
+  rejectReason: zod.string().nullable().optional(),
+  confirmedBy: zod.number().nullable().optional(),
+  confirmedAt: zod.string().nullable().optional(),
+  createdAt: zod.string(),
+});
+
+export const GetDemandPaymentResponse = DemandPayment.nullable();
+
+export const AdminDemandPaymentRow = DemandPayment.extend({
+  demandTitle: zod.string().nullable().optional(),
+  publisherName: zod.string().nullable().optional(),
+});
+
+export const ListDemandPaymentsResponse = zod.array(AdminDemandPaymentRow);
+
+export const ReviewDemandPaymentBody = zod.object({
+  action: zod.enum(["confirm", "reject"]),
+  rejectReason: zod.string().optional(),
+});
