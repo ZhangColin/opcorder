@@ -63,7 +63,7 @@ function FormField({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" {...(error ? { "data-field-error": "true" } : {})}>
       <label className="block text-sm font-bold text-blue-900">
         {label}
         {required && <span className="text-destructive ml-1">*</span>}
@@ -367,9 +367,26 @@ export default function PublisherCreateDemand() {
   /* ── Submit ── */
   const handleSubmit = async (asDraft: boolean) => {
     if (!asDraft && !validate()) {
-      // 滚动到顶部以便用户看到错误提示
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      toast({ title: "请检查表单", description: "请填写所有必填项后再提交", variant: "destructive" });
+      // Scroll to first error field and show specific toast
+      setTimeout(() => {
+        const firstError = document.querySelector("[data-field-error]") as HTMLElement | null;
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 50);
+      // Build a specific message from the first error
+      const currentErrors: Record<string, string> = {};
+      if (!title.trim()) currentErrors.title = "请填写需求标题";
+      if (!type) currentErrors.type = "请选择需求类型";
+      if (!description.trim()) currentErrors.description = "请填写需求描述";
+      if (skillTags.length === 0) currentErrors.skillTags = "请至少选择一个技能标签";
+      if (!budget || isNaN(Number(budget)) || Number(budget) <= 0) currentErrors.budget = "请填写预算金额";
+      if (!deadline) currentErrors.deadline = "请选择交付截止日期";
+      if (mode === "open" && !bidDeadline) currentErrors.bidDeadline = "请设置抢单截止时间";
+      if (mode === "directed" && directedOpcIds.length === 0) currentErrors.directedOpcIds = "请选择目标OPC";
+      const ordered = ["title", "type", "description", "skillTags", "budget", "deadline", "bidDeadline", "directedOpcIds"];
+      const firstMsg = ordered.map(k => currentErrors[k]).find(Boolean);
+      toast({ title: firstMsg ?? "请填写完整", description: "请按提示填写所有必填项", variant: "destructive" });
       return;
     }
     setSaving(true);
