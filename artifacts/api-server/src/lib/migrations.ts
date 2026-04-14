@@ -97,6 +97,19 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 001d failed in production: ${err}`);
   }
 
+  // Migration 001d2: add partial unique index enforcing one pending payment per demand
+  // Separate step so it runs on existing tables as well as freshly created ones.
+  // If violating rows exist, warn and continue; in production fail-fast.
+  try {
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS demand_payments_one_pending_per_demand
+        ON demand_payments(demand_id) WHERE (status = 'pending')
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 001d2: could not create pending uniqueness index (constraint may already be violated — deduplicate pending rows first)");
+    if (!isDev) throw new Error(`Migration 001d2 failed in production: ${err}`);
+  }
+
   // Migration 001e: backfill demands.budget from budget_max for any rows still at 0
   // Runs before 002 (column drop) to ensure data is preserved
   try {
