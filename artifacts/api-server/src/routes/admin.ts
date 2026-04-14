@@ -236,24 +236,133 @@ router.get("/admin/demands/:id", async (req, res) => {
     const id = Number(req.params.id);
     const [d] = await db.select().from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
     if (!d) return res.status(404).json({ error: "需求不存在" });
-    const [pub] = await db.select({ nickname: usersTable.nickname })
-      .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
-    res.json({ ...d, publisherName: pub?.nickname ?? "—" });
+    const [pub] = await db.select({
+      nickname: usersTable.nickname,
+      email: usersTable.email,
+      phone: usersTable.phone,
+    }).from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
+    res.json({
+      ...d,
+      publisherName: pub?.nickname ?? "—",
+      publisherEmail: pub?.email ?? null,
+      publisherPhone: pub?.phone ?? null,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取需求详情失败" });
   }
 });
 
+/* ─── Send in-app notification to demand publisher ── */
+router.post("/admin/demands/:id/notify", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { title, content } = req.body as { title?: string; content?: string };
+    if (!title?.trim() || !content?.trim()) {
+      return res.status(400).json({ error: "标题和内容不能为空" });
+    }
+    const [d] = await db.select({ publisherId: demandsTable.publisherId })
+      .from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
+    if (!d) return res.status(404).json({ error: "需求不存在" });
+    await db.insert(notificationsTable).values({
+      userId: d.publisherId,
+      type: "system",
+      title: title.trim(),
+      content: content.trim(),
+      relatedId: id,
+      relatedType: "demand",
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "发送站内信失败" });
+  }
+});
+
+/* ─── Send email to demand publisher ─────────────── */
+router.post("/admin/demands/:id/send-email", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { subject, content } = req.body as { subject?: string; content?: string };
+    if (!subject?.trim() || !content?.trim()) {
+      return res.status(400).json({ error: "主题和内容不能为空" });
+    }
+    const [d] = await db.select({ publisherId: demandsTable.publisherId })
+      .from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
+    if (!d) return res.status(404).json({ error: "需求不存在" });
+    const [pub] = await db.select({ nickname: usersTable.nickname, email: usersTable.email })
+      .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
+    if (!pub?.email) return res.status(400).json({ error: "该用户未绑定邮箱" });
+    const { error } = await resend.emails.send({
+      from: "接单吧 <noreply@aieducenter.com>",
+      to: pub.email,
+      subject: subject.trim(),
+      html: buildBulkEmail(pub.nickname ?? pub.email, content.trim()),
+    });
+    if (error) return res.status(500).json({ error: "邮件发送失败" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "发送邮件失败" });
+  }
+});
+
 router.patch("/admin/demands/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { action } = req.body as { action: string };
+    const { action, reason } = req.body as { action: string; reason?: string };
+
+    // Load demand + publisher info for notifications
+    const [d] = await db.select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+      .from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
+    if (!d) return res.status(404).json({ error: "需求不存在" });
+    const [pub] = await db.select({ nickname: usersTable.nickname, email: usersTable.email })
+      .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
 
     if (action === "approve") {
       await db.update(demandsTable).set({ status: "published" }).where(eq(demandsTable.id, id));
+      // In-app notification
+      await db.insert(notificationsTable).values({
+        userId: d.publisherId,
+        type: "system",
+        title: "您的需求已通过审核",
+        content: `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布，OPC可以查看并投标。`,
+        relatedId: id,
+        relatedType: "demand",
+      });
+      // Email notification
+      if (pub?.email) {
+        await resend.emails.send({
+          from: "接单吧 <noreply@aieducenter.com>",
+          to: pub.email,
+          subject: "您的需求已通过审核 - 接单吧",
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布，OPC 可以查看并投标。\n\n请登录接单吧查看需求详情。`),
+        }).catch(() => {/* ignore email errors */});
+      }
     } else if (action === "reject") {
+      if (!reason?.trim()) {
+        return res.status(400).json({ error: "审核不通过时必须填写原因" });
+      }
       await db.update(demandsTable).set({ status: "closed" }).where(eq(demandsTable.id, id));
+      const reasonText = reason.trim();
+      // In-app notification
+      await db.insert(notificationsTable).values({
+        userId: d.publisherId,
+        type: "system",
+        title: "您的需求未通过审核",
+        content: `您的需求「${d.title}」未通过平台审核。\n\n审核意见：${reasonText}\n\n请根据上述意见修改后重新提交。`,
+        relatedId: id,
+        relatedType: "demand",
+      });
+      // Email notification
+      if (pub?.email) {
+        await resend.emails.send({
+          from: "接单吧 <noreply@aieducenter.com>",
+          to: pub.email,
+          subject: "您的需求未通过审核 - 接单吧",
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」未通过平台审核。\n\n审核意见：${reasonText}\n\n请根据上述意见修改后重新提交审核。`),
+        }).catch(() => {/* ignore email errors */});
+      }
     } else if (action === "markUrgent") {
       await db.update(demandsTable).set({ isUrgent: true }).where(eq(demandsTable.id, id));
     } else if (action === "removeUrgent") {
@@ -819,7 +928,80 @@ router.post("/admin/users/bulk-email", async (req, res) => {
   }
 });
 
-/* ─── BULK EMAIL ────────────────────────────────── */
+/* ─── BULK NOTIFY (in-app) ─────────────────────── */
+
+router.post("/admin/users/bulk-notify", async (req, res) => {
+  try {
+    const {
+      title, content,
+      filterRole, filterStatus,
+      filterNames, filterEmails, filterPhones, filterLevels,
+      filterRegisteredFrom, filterRegisteredTo,
+    } = req.body as {
+      title?: string; content?: string;
+      filterRole?: string; filterStatus?: string;
+      filterNames?: string; filterEmails?: string; filterPhones?: string;
+      filterLevels?: string;
+      filterRegisteredFrom?: string; filterRegisteredTo?: string;
+    };
+
+    if (!title?.trim() || !content?.trim()) {
+      return res.status(400).json({ error: "标题和内容不能为空" });
+    }
+
+    const conditions: any[] = [];
+    if (filterRole && filterRole !== "all") conditions.push(eq(usersTable.role, filterRole as any));
+    if (filterStatus && filterStatus !== "all") conditions.push(eq(usersTable.status, filterStatus as any));
+    if (filterRegisteredFrom?.trim()) conditions.push(sql`${usersTable.createdAt} >= ${new Date(filterRegisteredFrom)}`);
+    if (filterRegisteredTo?.trim()) conditions.push(sql`${usersTable.createdAt} <= ${new Date(filterRegisteredTo + "T23:59:59")}`);
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    let users = await db.select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone }).from(usersTable).where(where);
+
+    if (filterNames?.trim()) {
+      const names = filterNames.split(",").map(n => n.trim().toLowerCase()).filter(Boolean);
+      users = users.filter(u => names.some(n => u.nickname?.toLowerCase().includes(n)));
+    }
+    if (filterEmails?.trim()) {
+      const emails = filterEmails.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+      users = users.filter(u => emails.some(e => u.email?.toLowerCase().includes(e)));
+    }
+    if (filterPhones?.trim()) {
+      const phones = filterPhones.split(",").map(p => p.trim()).filter(Boolean);
+      users = users.filter(u => u.phone && phones.some(p => u.phone!.includes(p)));
+    }
+    if (filterLevels?.trim()) {
+      const levels = filterLevels.split(",").map(l => l.trim()).filter(Boolean);
+      if (levels.length > 0) {
+        const opcIds = (await db.execute(
+          sql`SELECT user_id FROM opc_profiles WHERE level = ANY(${levels}::text[])`
+        )).rows.map((r: any) => r.user_id as number);
+        const idSet = new Set(opcIds);
+        users = users.filter(u => idSet.has(u.id));
+      }
+    }
+
+    if (users.length === 0) {
+      return res.json({ sent: 0, total: 0, message: "没有符合条件的用户" });
+    }
+
+    await db.insert(notificationsTable).values(
+      users.map(u => ({
+        userId: u.id,
+        type: "system" as const,
+        title: title.trim(),
+        content: content.trim(),
+      }))
+    );
+
+    res.json({ sent: users.length, total: users.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "群发站内信失败" });
+  }
+});
+
+/* ─── BULK EMAIL (Training) ─────────────────────── */
 
 router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => {
   try {
