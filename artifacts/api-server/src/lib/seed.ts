@@ -4,7 +4,7 @@ import {
   usersTable,
   opcProfilesTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
 interface OpcSeedEntry {
@@ -189,16 +189,6 @@ export async function runSeed(): Promise<void> {
     } catch (err) {
       logger.warn({ email: entry.email, err }, "Seed skipped (may already exist)");
     }
-  }
-
-  // One-time idempotent backfill: set budget = budget_max for demands still at 0
-  // (safe to run repeatedly — only updates rows with budget = 0 that have budget_max > 0)
-  try {
-    await db.execute(
-      sql`UPDATE demands SET budget = budget_max WHERE (budget IS NULL OR budget = 0) AND budget_max > 0`
-    );
-  } catch (err) {
-    logger.warn({ err }, "Budget backfill skipped (column may not exist)");
   }
 
   logger.info("Seed check complete.");
