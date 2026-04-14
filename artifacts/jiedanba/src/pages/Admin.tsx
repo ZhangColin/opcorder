@@ -864,6 +864,7 @@ interface AdminDemandDetail extends AdminDemand {
   bidDeadline: string | null;
   publisherEmail: string | null;
   publisherPhone: string | null;
+  rejectionReason: string | null;
 }
 
 const DEMAND_TYPE_CN: Record<string, string> = {
@@ -1014,6 +1015,17 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 </div>
               )}
             </div>
+
+            {/* Rejection reason banner */}
+            {d.rejectionReason && (
+              <div className="border border-red-200 bg-red-50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <XCircle size={14} className="text-destructive shrink-0" />
+                  <p className="text-xs font-bold text-destructive">审核不通过原因</p>
+                </div>
+                <p className="text-sm text-red-800 whitespace-pre-wrap leading-relaxed">{d.rejectionReason}</p>
+              </div>
+            )}
 
             {/* Demand meta grid */}
             <div className="grid grid-cols-2 gap-3 text-sm">

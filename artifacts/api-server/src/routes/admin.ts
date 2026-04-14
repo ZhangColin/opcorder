@@ -343,8 +343,8 @@ router.patch("/admin/demands/:id", async (req, res) => {
       if (!reason?.trim()) {
         return res.status(400).json({ error: "审核不通过时必须填写原因" });
       }
-      await db.update(demandsTable).set({ status: "closed" }).where(eq(demandsTable.id, id));
       const reasonText = reason.trim();
+      await db.update(demandsTable).set({ status: "closed", rejectionReason: reasonText }).where(eq(demandsTable.id, id));
       // In-app notification
       await db.insert(notificationsTable).values({
         userId: d.publisherId,
