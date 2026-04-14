@@ -12,6 +12,7 @@ import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 /* ─── Constants ───────────────────────────────── */
 
@@ -250,8 +251,16 @@ export default function PublisherDemandList() {
     }
   };
 
-  const handleWithdraw = async (id: number) => {
-    if (!confirm("确认撤回审核？撤回后需求将变回草稿状态，可重新编辑后提交")) return;
+  const [pendingWithdrawId, setPendingWithdrawId] = useState<number | null>(null);
+  const [pendingCloseId, setPendingCloseId] = useState<number | null>(null);
+
+  const handleWithdraw = (id: number) => setPendingWithdrawId(id);
+  const handleClose = (id: number) => setPendingCloseId(id);
+
+  const doWithdraw = async () => {
+    if (pendingWithdrawId == null) return;
+    const id = pendingWithdrawId;
+    setPendingWithdrawId(null);
     try {
       await updateStatus.mutateAsync({ demandId: id, data: { status: "draft" } });
       toast({ title: "已撤回", description: "需求已变回草稿，可重新编辑后提交审核" });
@@ -261,8 +270,10 @@ export default function PublisherDemandList() {
     }
   };
 
-  const handleClose = async (id: number) => {
-    if (!confirm("确认关闭该需求？关闭后将无法恢复")) return;
+  const doClose = async () => {
+    if (pendingCloseId == null) return;
+    const id = pendingCloseId;
+    setPendingCloseId(null);
     try {
       await updateStatus.mutateAsync({ demandId: id, data: { status: "closed" } });
       toast({ title: "需求已关闭" });
@@ -486,6 +497,26 @@ export default function PublisherDemandList() {
           </div>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={pendingWithdrawId !== null}
+        title="确认撤回审核？"
+        description="撤回后需求将变回草稿状态，可重新编辑后再次提交审核。"
+        confirmLabel="确认撤回"
+        cancelLabel="取消"
+        onConfirm={doWithdraw}
+        onCancel={() => setPendingWithdrawId(null)}
+      />
+      <ConfirmDialog
+        open={pendingCloseId !== null}
+        title="确认关闭需求？"
+        description="关闭后该需求将无法恢复，OPC 无法再查看或报名。"
+        confirmLabel="确认关闭"
+        cancelLabel="取消"
+        confirmDestructive
+        onConfirm={doClose}
+        onCancel={() => setPendingCloseId(null)}
+      />
     </div>
   );
 }

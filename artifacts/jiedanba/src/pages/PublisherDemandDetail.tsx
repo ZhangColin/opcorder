@@ -20,6 +20,7 @@ import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
   ai_education: "AI 教育",
@@ -82,6 +83,8 @@ export default function PublisherDemandDetail() {
   const [rejectReason, setRejectReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [demandActionLoading, setDemandActionLoading] = useState(false);
+  const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
@@ -114,8 +117,8 @@ export default function PublisherDemandDetail() {
     }
   };
 
-  const handleWithdrawDemand = async () => {
-    if (!confirm("确认撤回审核？撤回后需求将变回草稿状态，可重新编辑后提交")) return;
+  const doWithdrawDemand = async () => {
+    setShowWithdrawDialog(false);
     setDemandActionLoading(true);
     try {
       await updateDemandStatus.mutateAsync({ demandId, data: { status: "draft" } });
@@ -128,8 +131,8 @@ export default function PublisherDemandDetail() {
     }
   };
 
-  const handleCloseDemand = async () => {
-    if (!confirm("确认关闭该需求？关闭后将无法恢复")) return;
+  const doCloseDemand = async () => {
+    setShowCloseDialog(false);
     setDemandActionLoading(true);
     try {
       await updateDemandStatus.mutateAsync({ demandId, data: { status: "closed" } });
@@ -314,7 +317,7 @@ export default function PublisherDemandDetail() {
                       )}
                       {isPendingReview && (
                         <button
-                          onClick={handleWithdrawDemand}
+                          onClick={() => setShowWithdrawDialog(true)}
                           disabled={demandActionLoading}
                           className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-100 disabled:opacity-50 transition-colors border border-amber-200"
                         >
@@ -323,7 +326,7 @@ export default function PublisherDemandDetail() {
                       )}
                       {isDraft && (
                         <button
-                          onClick={handleCloseDemand}
+                          onClick={() => setShowCloseDialog(true)}
                           disabled={demandActionLoading}
                           className="flex items-center gap-2 text-slate-400 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-destructive disabled:opacity-50 transition-colors"
                         >
@@ -755,6 +758,26 @@ export default function PublisherDemandDetail() {
           )}
         </div>
       </main>
+
+      <ConfirmDialog
+        open={showWithdrawDialog}
+        title="确认撤回审核？"
+        description="撤回后需求将变回草稿状态，可重新编辑后再次提交审核。"
+        confirmLabel="确认撤回"
+        cancelLabel="取消"
+        onConfirm={doWithdrawDemand}
+        onCancel={() => setShowWithdrawDialog(false)}
+      />
+      <ConfirmDialog
+        open={showCloseDialog}
+        title="确认关闭需求？"
+        description="关闭后该需求将无法恢复，OPC 无法再查看或报名。"
+        confirmLabel="确认关闭"
+        cancelLabel="取消"
+        confirmDestructive
+        onConfirm={doCloseDemand}
+        onCancel={() => setShowCloseDialog(false)}
+      />
     </div>
   );
 }
