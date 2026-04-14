@@ -220,7 +220,8 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
     const milestoneId = parseInt(req.params.milestoneId); // 1-based
     const milestoneIdx = milestoneId - 1; // 0-based for JSONB array
 
-    const { rating, comment } = req.body as { rating?: number; comment?: string };
+    // Validate body with shared AcceptOrderBody schema (same validation as global accept)
+    const body = AcceptOrderBody.parse(req.body);
 
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
     if (!order) return res.status(404).json({ error: "订单不存在" });
@@ -271,8 +272,8 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
         status: "completed",
         updatedAt: new Date(),
       };
-      if (rating && rating >= 1 && rating <= 5) updateData.rating = rating;
-      if (comment) updateData.reviewComment = comment;
+      if (body.rating) updateData.rating = body.rating;
+      if (body.comment) updateData.reviewComment = body.comment;
 
       const [updated] = await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, orderId)).returning();
       finalOrder = updated;
@@ -305,7 +306,10 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
       updatedAt: finalOrder.updatedAt.toISOString(),
     });
   } catch (error) {
-    console.error("milestone accept error", error);
+    if (error instanceof Error && error.name === "ZodError") {
+      return res.status(400).json({ error: "请求参数无效" });
+    }
+    req.log.error({ msg: "milestone accept error", err: String(error) });
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -404,7 +408,10 @@ router.post("/orders/:orderId/milestones/:milestoneId/reject", requireAuth, asyn
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    console.error("milestone reject error", error);
+    if (error instanceof Error && error.name === "ZodError") {
+      return res.status(400).json({ error: "请求参数无效" });
+    }
+    req.log.error({ msg: "milestone reject error", err: String(error) });
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -414,6 +421,15 @@ router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
     const body = AcceptOrderBody.parse(req.body);
+
+    // Block global accept on milestone orders — use per-milestone endpoints instead
+    const [orderCheck] = await db
+      .select({ milestones: ordersTable.milestones })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    if (Array.isArray(orderCheck?.milestones) && orderCheck.milestones.length > 0) {
+      return res.status(400).json({ error: "里程碑订单请使用逐里程碑验收接口" });
+    }
 
     const updateData: Record<string, unknown> = {
       status: "completed",
@@ -467,6 +483,15 @@ router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
     const body = RejectDeliveryBody.parse(req.body);
+
+    // Block global reject on milestone orders — use per-milestone endpoints instead
+    const [orderCheck] = await db
+      .select({ milestones: ordersTable.milestones })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    if (Array.isArray(orderCheck?.milestones) && orderCheck.milestones.length > 0) {
+      return res.status(400).json({ error: "里程碑订单请使用逐里程碑打回接口" });
+    }
 
     await db.update(deliverablesTable).set({
       status: "rejected",
