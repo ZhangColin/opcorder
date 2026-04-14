@@ -1206,7 +1206,8 @@ export const CreateDemandPaymentInput = zod.object({
       (v) => {
         // Accept internal storage paths (set by Replit object storage upload flow)
         if (/^\/.*\/api\/storage\//i.test(v) || v.startsWith("/api/storage/")) return true;
-        try { const u = new URL(v); return u.protocol === "https:" || u.protocol === "http:"; } catch { return false; }
+        // Accept absolute https/http URLs (regex avoids need for DOM URL type)
+        return /^https?:\/\/.+/.test(v);
       },
       { message: "receiptUrl must be an absolute https/http URL or an internal /api/storage/... path" }
     )
