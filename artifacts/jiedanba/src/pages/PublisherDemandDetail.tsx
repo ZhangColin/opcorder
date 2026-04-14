@@ -277,6 +277,10 @@ export default function PublisherDemandDetail() {
       if (paymentNote.trim()) body.paymentNote = paymentNote.trim();
 
       await submitPaymentMutation.mutateAsync({ demandId, data: body });
+      // Stop any online payment polling since user switched to offline
+      setOnlineQrUrl(null);
+      setOnlinePaymentId(null);
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
       await refetchPayment();
       toast({ title: "缴费凭证已提交", description: "请等待平台审核确认，确认后需求将自动发布" });
     } catch (err: unknown) {
@@ -557,9 +561,11 @@ export default function PublisherDemandDetail() {
                                     type="button"
                                     onClick={() => {
                                       setPaymentMethod(m);
-                                      if (m === "online") {
+                                      if (m === "offline") {
+                                        // Stop online polling when switching to offline
                                         setOnlineQrUrl(null);
                                         setOnlinePaymentId(null);
+                                        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
                                       }
                                     }}
                                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
