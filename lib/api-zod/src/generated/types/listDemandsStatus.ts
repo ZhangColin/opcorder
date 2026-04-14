@@ -12,6 +12,7 @@ export type ListDemandsStatus =
 export const ListDemandsStatus = {
   draft: "draft",
   pending_review: "pending_review",
+  pending_payment: "pending_payment",
   published: "published",
   matched: "matched",
   in_progress: "in_progress",

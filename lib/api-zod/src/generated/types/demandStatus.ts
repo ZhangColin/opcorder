@@ -11,6 +11,7 @@ export type DemandStatus = (typeof DemandStatus)[keyof typeof DemandStatus];
 export const DemandStatus = {
   draft: "draft",
   pending_review: "pending_review",
+  pending_payment: "pending_payment",
   published: "published",
   matched: "matched",
   in_progress: "in_progress",

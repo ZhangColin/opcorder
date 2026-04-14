@@ -203,9 +203,13 @@ function EmptyRow({ cols, text }: { cols: number; text?: string }) {
 
 function safeUrl(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
+  const trimmed = url.trim();
+  // Allow trusted internal storage paths (relative, from Replit object storage)
+  if (/^\/.*\/api\/storage\//i.test(trimmed) || trimmed.startsWith("/api/storage/")) return trimmed;
+  // Allow absolute http/https URLs
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") return url;
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") return trimmed;
   } catch {
     // invalid URL
   }
