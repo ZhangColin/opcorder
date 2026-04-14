@@ -4248,27 +4248,25 @@ function DepositPaymentManagement() {
 
                     {safeUrl(payment.receiptUrl) && (
                       <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">缴费凭证</p>
-                        {/\.(jpg|jpeg|png|gif|webp)$/i.test(payment.receiptUrl!) ? (
-                          <div className="mt-1">
-                            <a href={safeUrl(payment.receiptUrl)} target="_blank" rel="noopener noreferrer">
-                              <img
-                                src={safeUrl(payment.receiptUrl)}
-                                alt="缴费凭证截图"
-                                className="max-h-48 rounded-xl border border-slate-200 object-contain bg-slate-50 hover:opacity-90 transition-opacity cursor-zoom-in"
-                              />
-                            </a>
-                          </div>
-                        ) : (
-                          <a
-                            href={safeUrl(payment.receiptUrl)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary underline break-all"
-                          >
-                            {payment.receiptUrl}
-                          </a>
-                        )}
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">缴费凭证</p>
+                        <a href={safeUrl(payment.receiptUrl)} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={safeUrl(payment.receiptUrl)}
+                            alt="缴费凭证截图"
+                            className="max-h-64 rounded-xl border border-slate-200 object-contain bg-slate-50 hover:opacity-90 transition-opacity cursor-zoom-in"
+                            onError={e => {
+                              const img = e.target as HTMLImageElement;
+                              img.style.display = "none";
+                              const link = document.createElement("a");
+                              link.href = safeUrl(payment.receiptUrl) ?? "#";
+                              link.target = "_blank";
+                              link.rel = "noopener noreferrer";
+                              link.className = "text-sm text-primary underline break-all";
+                              link.textContent = "点击查看凭证";
+                              img.parentElement?.appendChild(link);
+                            }}
+                          />
+                        </a>
                       </div>
                     )}
 
