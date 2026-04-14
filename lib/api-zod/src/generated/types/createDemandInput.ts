@@ -17,8 +17,7 @@ export interface CreateDemandInput {
   description: string;
   skillTags: string[];
   opcLevel: CreateDemandInputOpcLevel;
-  budgetMin: number;
-  budgetMax: number;
+  budget: number;
   deadline: Date;
   milestones?: CreateDemandInputMilestonesItem[];
   mode: CreateDemandInputMode;

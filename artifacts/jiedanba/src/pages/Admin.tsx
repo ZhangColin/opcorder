@@ -201,6 +201,17 @@ function EmptyRow({ cols, text }: { cols: number; text?: string }) {
   );
 }
 
+function safeUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") return url;
+  } catch {
+    // invalid URL
+  }
+  return undefined;
+}
+
 function AdminPagination({ page, pageSize, total, onPage, onPageSize }: {
   page: number; pageSize: number; total: number;
   onPage: (p: number) => void; onPageSize?: (s: number) => void;
@@ -4183,14 +4194,14 @@ function DepositPaymentManagement() {
                       </div>
                     </div>
 
-                    {payment.receiptUrl && (
+                    {safeUrl(payment.receiptUrl) && (
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">缴费凭证</p>
-                        {/\.(jpg|jpeg|png|gif|webp)$/i.test(payment.receiptUrl) ? (
+                        {/\.(jpg|jpeg|png|gif|webp)$/i.test(payment.receiptUrl!) ? (
                           <div className="mt-1">
-                            <a href={payment.receiptUrl} target="_blank" rel="noopener noreferrer">
+                            <a href={safeUrl(payment.receiptUrl)} target="_blank" rel="noopener noreferrer">
                               <img
-                                src={payment.receiptUrl}
+                                src={safeUrl(payment.receiptUrl)}
                                 alt="缴费凭证截图"
                                 className="max-h-48 rounded-xl border border-slate-200 object-contain bg-slate-50 hover:opacity-90 transition-opacity cursor-zoom-in"
                               />
@@ -4198,7 +4209,7 @@ function DepositPaymentManagement() {
                           </div>
                         ) : (
                           <a
-                            href={payment.receiptUrl}
+                            href={safeUrl(payment.receiptUrl)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-primary underline break-all"

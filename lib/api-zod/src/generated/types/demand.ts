@@ -20,8 +20,7 @@ export interface Demand {
   description: string;
   skillTags: string[];
   opcLevel: DemandOpcLevel;
-  budgetMin: number;
-  budgetMax: number;
+  budget: number;
   deadline: Date;
   milestones?: Milestone[];
   mode: DemandMode;

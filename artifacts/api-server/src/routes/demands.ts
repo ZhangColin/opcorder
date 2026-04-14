@@ -364,6 +364,19 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "method must be 'online' or 'offline'" });
     }
 
+    // Validate receiptUrl: only allow https:// or http:// schemes to prevent stored XSS
+    if (receiptUrl) {
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(receiptUrl.trim());
+      } catch {
+        return res.status(400).json({ error: "receiptUrl 格式无效" });
+      }
+      if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+        return res.status(400).json({ error: "receiptUrl 只允许 https 或 http 协议" });
+      }
+    }
+
     const [demand] = await db
       .select({ status: demandsTable.status, publisherId: demandsTable.publisherId, budget: demandsTable.budget })
       .from(demandsTable)

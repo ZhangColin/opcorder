@@ -14,8 +14,7 @@ export interface UpdateDemandInput {
   description?: string;
   skillTags?: string[];
   opcLevel?: UpdateDemandInputOpcLevel;
-  budgetMin?: number;
-  budgetMax?: number;
+  budget?: number;
   deadline?: Date;
   milestones?: UpdateDemandInputMilestonesItem[];
   bidDeadline?: Date;
