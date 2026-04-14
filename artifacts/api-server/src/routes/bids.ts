@@ -15,6 +15,7 @@ const LEVEL_LABEL: Record<string, string> = { C: "C级（新手）", B: "B级（
 
 /* GET /bids/my — returns all bids for the current OPC user with demand info */
 router.get("/bids/my", requireAuth, async (req, res) => {
+  if (req.user!.role !== "opc") return res.status(403).json({ error: "仅OPC可访问" });
   try {
     const opcId = req.user!.id;
     const bids = await db
@@ -48,6 +49,7 @@ router.get("/bids/my", requireAuth, async (req, res) => {
 
 /* PATCH /bids/:bidId/withdraw — OPC withdraws their own pending bid */
 router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
+  if (req.user!.role !== "opc") return res.status(403).json({ error: "仅OPC可撤消申请" });
   try {
     const bidId = parseInt(req.params.bidId);
     const opcId = req.user!.id;
