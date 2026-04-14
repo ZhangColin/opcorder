@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, demandsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable } from "@workspace/db";
+import { db, demandsTable, demandPaymentsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
 import {
   ListDemandsQueryParams,
@@ -58,8 +58,8 @@ router.get("/demands", requireAuth, async (req, res) => {
     if (params.status) conditions.push(eq(demandsTable.status, params.status as any));
     if (params.type) conditions.push(eq(demandsTable.type, params.type as any));
     if (params.opcLevel && params.opcLevel !== "any") conditions.push(eq(demandsTable.opcLevel, params.opcLevel));
-    if (params.minBudget) conditions.push(gte(demandsTable.budgetMax, params.minBudget));
-    if (params.maxBudget) conditions.push(lte(demandsTable.budgetMin, params.maxBudget));
+    if (params.minBudget) conditions.push(gte(demandsTable.budget, params.minBudget));
+    if (params.maxBudget) conditions.push(lte(demandsTable.budget, params.maxBudget));
     if (params.eligibleLevel) {
       conditions.push(
         sql`(${demandsTable.opcLevel} = ${params.eligibleLevel} OR ${demandsTable.opcLevel} = 'any')`
@@ -93,8 +93,8 @@ router.get("/demands", requireAuth, async (req, res) => {
     let orderByClause;
     switch (params.sortBy) {
       case "deadline": orderByClause = asc(demandsTable.deadline); break;
-      case "budget_high": orderByClause = desc(demandsTable.budgetMax); break;
-      case "budget_low": orderByClause = asc(demandsTable.budgetMin); break;
+      case "budget_high": orderByClause = desc(demandsTable.budget); break;
+      case "budget_low": orderByClause = asc(demandsTable.budget); break;
       default: orderByClause = desc(demandsTable.createdAt);
     }
 
@@ -107,8 +107,7 @@ router.get("/demands", requireAuth, async (req, res) => {
         description: demandsTable.description,
         skillTags: demandsTable.skillTags,
         opcLevel: demandsTable.opcLevel,
-        budgetMin: demandsTable.budgetMin,
-        budgetMax: demandsTable.budgetMax,
+        budget: demandsTable.budget,
         deadline: demandsTable.deadline,
         milestones: demandsTable.milestones,
         attachments: demandsTable.attachments,
@@ -186,8 +185,7 @@ router.post("/demands", requireAuth, async (req, res) => {
       description: body.description,
       skillTags: body.skillTags,
       opcLevel: body.opcLevel,
-      budgetMin: body.budgetMin,
-      budgetMax: body.budgetMax,
+      budget: body.budget,
       deadline: body.deadline,
       milestones,
       attachments: rawAttachments,
@@ -223,8 +221,7 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
         description: demandsTable.description,
         skillTags: demandsTable.skillTags,
         opcLevel: demandsTable.opcLevel,
-        budgetMin: demandsTable.budgetMin,
-        budgetMax: demandsTable.budgetMax,
+        budget: demandsTable.budget,
         deadline: demandsTable.deadline,
         milestones: demandsTable.milestones,
         attachments: demandsTable.attachments,
@@ -283,8 +280,7 @@ router.put("/demands/:demandId", requireAuth, async (req, res) => {
     if (body.description !== undefined) updateData.description = body.description;
     if (body.skillTags !== undefined) updateData.skillTags = body.skillTags;
     if (body.opcLevel !== undefined) updateData.opcLevel = body.opcLevel;
-    if (body.budgetMin !== undefined) updateData.budgetMin = body.budgetMin;
-    if (body.budgetMax !== undefined) updateData.budgetMax = body.budgetMax;
+    if (body.budget !== undefined) updateData.budget = body.budget;
     if (body.deadline !== undefined) updateData.deadline = body.deadline;
     if (body.milestones !== undefined) updateData.milestones = body.milestones;
     if (body.bidDeadline !== undefined) updateData.bidDeadline = new Date(body.bidDeadline);
@@ -322,6 +318,79 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to update demand status" });
+  }
+});
+
+router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
+  try {
+    const demandId = parseInt(req.params.demandId);
+    const { amount, method, receiptUrl, paymentNote } = req.body as {
+      amount: number;
+      method: "online" | "offline";
+      receiptUrl?: string;
+      paymentNote?: string;
+    };
+
+    if (!amount || !method) {
+      return res.status(400).json({ error: "amount and method are required" });
+    }
+
+    const [demand] = await db
+      .select({ status: demandsTable.status, publisherId: demandsTable.publisherId })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (demand.status !== "pending_payment") {
+      return res.status(400).json({ error: "该需求当前状态无需缴纳保证金" });
+    }
+    if (demand.publisherId !== req.user!.id) {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    const [payment] = await db.insert(demandPaymentsTable).values({
+      demandId,
+      amount,
+      method: method as any,
+      status: "pending",
+      receiptUrl: receiptUrl ?? null,
+      paymentNote: paymentNote ?? null,
+    }).returning();
+
+    res.status(201).json({
+      ...payment,
+      confirmedAt: payment.confirmedAt?.toISOString() ?? null,
+      createdAt: payment.createdAt.toISOString(),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "缴费提交失败" });
+  }
+});
+
+router.get("/demands/:demandId/payment", requireAuth, async (req, res) => {
+  try {
+    const demandId = parseInt(req.params.demandId);
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(eq(demandPaymentsTable.demandId, demandId))
+      .orderBy(desc(demandPaymentsTable.createdAt))
+      .limit(1);
+
+    if (!payment) {
+      return res.json(null);
+    }
+
+    res.json({
+      ...payment,
+      confirmedAt: payment.confirmedAt?.toISOString() ?? null,
+      createdAt: payment.createdAt.toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({ error: "获取缴费记录失败" });
   }
 });
 
@@ -417,7 +486,7 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
     const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
     const seq = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
     const orderNo = `ORD-${ym}-${seq}`;
-    const amount = demand.budgetMax;
+    const amount = demand.budget;
 
     const [order] = await db
       .insert(ordersTable)

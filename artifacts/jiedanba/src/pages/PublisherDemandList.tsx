@@ -20,6 +20,7 @@ const STATUS_TABS = [
   { key: "all",                label: "全部需求",  cls: "" },
   { key: "draft",              label: "草稿",      cls: "text-slate-500" },
   { key: "pending_review",     label: "待审核",    cls: "text-amber-600" },
+  { key: "pending_payment",    label: "待缴保证金", cls: "text-orange-600" },
   { key: "published",          label: "招募中",    cls: "text-blue-600" },
   { key: "in_progress",        label: "进行中",    cls: "text-indigo-600" },
   { key: "pending_acceptance", label: "待验收",    cls: "text-purple-600" },
@@ -30,6 +31,7 @@ const STATUS_TABS = [
 const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
   draft:              { label: "草稿",   cls: "bg-slate-100 text-slate-500" },
   pending_review:     { label: "待审核", cls: "bg-amber-50 text-amber-700 border border-amber-200" },
+  pending_payment:    { label: "待缴保证金", cls: "bg-orange-50 text-orange-700 border border-orange-200" },
   published:          { label: "招募中", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
   open:               { label: "招募中", cls: "bg-blue-50 text-blue-700 border border-blue-200" },
   matched:            { label: "已匹配", cls: "bg-cyan-50 text-cyan-700 border border-cyan-200" },
@@ -65,9 +67,7 @@ function DemandCard({
   const [, navigate] = useLocation();
   const statusInfo = STATUS_BADGES[demand.status] ?? { label: demand.status, cls: "bg-slate-100 text-slate-500" };
   const typeLabel = DEMAND_TYPE_LABELS[demand.type] ?? demand.type;
-  const budgetText = demand.budgetMin && demand.budgetMax
-    ? `¥${Number(demand.budgetMin).toLocaleString()} - ¥${Number(demand.budgetMax).toLocaleString()}`
-    : "面议";
+  const budgetText = demand.budget ? `¥${Number(demand.budget).toLocaleString()}` : "面议";
 
   const isDraft = demand.status === "draft";
   const isPendingReview = demand.status === "pending_review";

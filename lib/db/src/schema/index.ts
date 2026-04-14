@@ -2,6 +2,7 @@ export * from "./users";
 export * from "./opc-profiles";
 export * from "./publisher-profiles";
 export * from "./demands";
+export * from "./demand-payments";
 export * from "./bids";
 export * from "./orders";
 export * from "./deliverables";

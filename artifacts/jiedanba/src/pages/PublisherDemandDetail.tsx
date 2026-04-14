@@ -1,13 +1,13 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { clearSession } from "@/lib/auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import {
   Search, Bell, Star, BadgeCheck, Calendar,
   Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
   FileText, Download, FileImage, FileSpreadsheet, FileArchive, File,
-  Menu, Edit2, Send, X, Undo2,
+  Menu, Edit2, Send, X, Undo2, CreditCard, Upload,
 } from "lucide-react";
 import {
   useGetDemandById,
@@ -33,14 +33,15 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  draft:              { label: "草稿",   color: "bg-slate-100 text-slate-600" },
-  pending_review:     { label: "待审核", color: "bg-amber-100 text-amber-700" },
-  published:          { label: "招募中", color: "bg-blue-100 text-blue-700" },
-  matched:            { label: "已匹配", color: "bg-purple-100 text-purple-700" },
-  in_progress:        { label: "进行中", color: "bg-green-100 text-green-700" },
-  pending_acceptance: { label: "待验收", color: "bg-orange-100 text-orange-700" },
-  completed:          { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
-  closed:             { label: "已关闭", color: "bg-red-100 text-red-600" },
+  draft:              { label: "草稿",     color: "bg-slate-100 text-slate-600" },
+  pending_review:     { label: "待审核",   color: "bg-amber-100 text-amber-700" },
+  pending_payment:    { label: "待缴保证金", color: "bg-orange-100 text-orange-700" },
+  published:          { label: "招募中",   color: "bg-blue-100 text-blue-700" },
+  matched:            { label: "已匹配",   color: "bg-purple-100 text-purple-700" },
+  in_progress:        { label: "进行中",   color: "bg-green-100 text-green-700" },
+  pending_acceptance: { label: "待验收",   color: "bg-orange-100 text-orange-700" },
+  completed:          { label: "已完成",   color: "bg-emerald-100 text-emerald-700" },
+  closed:             { label: "已关闭",   color: "bg-red-100 text-red-600" },
 };
 
 const OPC_LEVEL_COLOR: Record<string, string> = {
@@ -85,6 +86,12 @@ export default function PublisherDemandDetail() {
   const [demandActionLoading, setDemandActionLoading] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+
+  // Payment state
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("offline");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [existingPayment, setExistingPayment] = useState<any>(null);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
@@ -142,6 +149,49 @@ export default function PublisherDemandDetail() {
       toast({ title: "操作失败", description: "请稍后重试", variant: "destructive" });
     } finally {
       setDemandActionLoading(false);
+    }
+  };
+
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  // Fetch existing payment when demand is pending_payment
+  useEffect(() => {
+    if (demand?.status === "pending_payment" && demandId > 0) {
+      const token = localStorage.getItem("jdb_user_id");
+      fetch(`${BASE}/api/demands/${demandId}/payment`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then(r => r.json()).then(data => {
+        setExistingPayment(data);
+      }).catch(() => {});
+    }
+  }, [demand?.status, demandId]);
+
+  const handleSubmitPayment = async () => {
+    setPaymentSubmitting(true);
+    try {
+      const token = localStorage.getItem("jdb_user_id");
+      const body: Record<string, any> = {
+        amount: (demand as any)?.budget ?? 0,
+        method: paymentMethod,
+      };
+      if (paymentNote.trim()) body.paymentNote = paymentNote.trim();
+
+      const res = await fetch(`${BASE}/api/demands/${demandId}/payment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "缴费提交失败");
+      setExistingPayment(data);
+      toast({ title: "保证金缴费凭证已提交", description: "请等待平台审核确认，确认后需求将自动发布" });
+    } catch (err: any) {
+      toast({ title: "提交失败", description: err.message ?? "请稍后重试", variant: "destructive" });
+    } finally {
+      setPaymentSubmitting(false);
     }
   };
 
@@ -254,9 +304,9 @@ export default function PublisherDemandDetail() {
                     <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">{demand.description}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs text-slate-400 mb-1">预算区间</p>
+                    <p className="text-xs text-slate-400 mb-1">预算金额</p>
                     <p className="text-2xl font-extrabold text-primary">
-                      ¥{demand.budgetMin.toLocaleString()} – ¥{demand.budgetMax.toLocaleString()}
+                      ¥{(demand as any).budget?.toLocaleString() ?? "面议"}
                     </p>
                     <p className="text-xs text-slate-400 mt-1 flex items-center justify-end gap-1">
                       <Calendar size={12} />
@@ -295,43 +345,127 @@ export default function PublisherDemandDetail() {
                 {(() => {
                   const isDraft = demand.status === "draft";
                   const isPendingReview = demand.status === "pending_review";
-                  if (!isDraft && !isPendingReview) return null;
+                  const isPendingPayment = demand.status === "pending_payment";
+                  if (!isDraft && !isPendingReview && !isPendingPayment) return null;
                   return (
-                    <div className="mt-5 pt-5 border-t border-slate-100 flex items-center gap-3 flex-wrap">
-                      {isDraft && (
-                        <button
-                          onClick={handleSubmitReview}
-                          disabled={demandActionLoading}
-                          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm shadow-primary/20"
-                        >
-                          <Send size={14} />
-                          {demandActionLoading ? "提交中…" : "提交审核"}
-                        </button>
+                    <div className="mt-5 pt-5 border-t border-slate-100">
+                      {(isDraft || isPendingReview) && (
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {isDraft && (
+                            <button
+                              onClick={handleSubmitReview}
+                              disabled={demandActionLoading}
+                              className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm shadow-primary/20"
+                            >
+                              <Send size={14} />
+                              {demandActionLoading ? "提交中…" : "提交审核"}
+                            </button>
+                          )}
+                          {isDraft && (
+                            <Link href={`/publisher/demands/${demandId}/edit`}>
+                              <button className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+                                <Edit2 size={14} /> 编辑需求
+                              </button>
+                            </Link>
+                          )}
+                          {isPendingReview && (
+                            <button
+                              onClick={() => setShowWithdrawDialog(true)}
+                              disabled={demandActionLoading}
+                              className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-100 disabled:opacity-50 transition-colors border border-amber-200"
+                            >
+                              <Undo2 size={14} /> {demandActionLoading ? "撤回中…" : "撤回审核"}
+                            </button>
+                          )}
+                          {isDraft && (
+                            <button
+                              onClick={() => setShowCloseDialog(true)}
+                              disabled={demandActionLoading}
+                              className="flex items-center gap-2 text-slate-400 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-destructive disabled:opacity-50 transition-colors"
+                            >
+                              <X size={14} /> 关闭需求
+                            </button>
+                          )}
+                        </div>
                       )}
-                      {isDraft && (
-                        <Link href={`/publisher/demands/${demandId}/edit`}>
-                          <button className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
-                            <Edit2 size={14} /> 编辑需求
-                          </button>
-                        </Link>
-                      )}
-                      {isPendingReview && (
-                        <button
-                          onClick={() => setShowWithdrawDialog(true)}
-                          disabled={demandActionLoading}
-                          className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-amber-100 disabled:opacity-50 transition-colors border border-amber-200"
-                        >
-                          <Undo2 size={14} /> {demandActionLoading ? "撤回中…" : "撤回审核"}
-                        </button>
-                      )}
-                      {isDraft && (
-                        <button
-                          onClick={() => setShowCloseDialog(true)}
-                          disabled={demandActionLoading}
-                          className="flex items-center gap-2 text-slate-400 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-destructive disabled:opacity-50 transition-colors"
-                        >
-                          <X size={14} /> 关闭需求
-                        </button>
+
+                      {/* ── 保证金缴纳 UI ── */}
+                      {isPendingPayment && (
+                        <div className="space-y-4">
+                          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CreditCard size={16} className="text-orange-600 shrink-0" />
+                              <p className="text-sm font-bold text-orange-800">需缴纳保证金后需求才会发布</p>
+                            </div>
+                            <p className="text-xs text-orange-700 leading-relaxed">
+                              您的需求已通过审核。请按以下方式缴纳保证金 <span className="font-bold">¥{((demand as any).budget ?? 0).toLocaleString()}</span>，
+                              平台确认到账后需求将自动发布至需求大厅。
+                            </p>
+                          </div>
+
+                          {existingPayment && existingPayment.status === "pending" && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Clock size={14} className="text-blue-600" />
+                                <p className="text-sm font-bold text-blue-800">缴费凭证已提交，等待平台确认</p>
+                              </div>
+                              <p className="text-xs text-blue-600">
+                                提交时间：{new Date(existingPayment.createdAt).toLocaleString("zh-CN")}
+                                {existingPayment.paymentNote && ` · 备注：${existingPayment.paymentNote}`}
+                              </p>
+                            </div>
+                          )}
+
+                          {existingPayment && existingPayment.status === "rejected" && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                              <p className="text-sm font-bold text-red-700 mb-1">缴费凭证审核未通过</p>
+                              <p className="text-xs text-red-600">原因：{existingPayment.rejectReason}</p>
+                            </div>
+                          )}
+
+                          {(!existingPayment || existingPayment.status === "rejected") && (
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+                              <p className="text-sm font-bold text-slate-700">提交缴费凭证</p>
+                              <div>
+                                <p className="text-xs text-slate-500 mb-2">缴费方式</p>
+                                <div className="flex gap-3">
+                                  {(["offline", "online"] as const).map(m => (
+                                    <button
+                                      key={m}
+                                      type="button"
+                                      onClick={() => setPaymentMethod(m)}
+                                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                                        paymentMethod === m
+                                          ? "border-primary bg-primary/5 text-primary"
+                                          : "border-slate-200 text-slate-600 hover:border-primary/30"
+                                      }`}
+                                    >
+                                      {m === "offline" ? "线下转账" : "在线支付"}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 mb-2">备注（选填）</p>
+                                <textarea
+                                  value={paymentNote}
+                                  onChange={e => setPaymentNote(e.target.value)}
+                                  placeholder="如填写转账流水号、支付截图链接等"
+                                  rows={2}
+                                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                                />
+                              </div>
+                              <button
+                                onClick={handleSubmitPayment}
+                                disabled={paymentSubmitting}
+                                className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                              >
+                                <Upload size={14} />
+                                {paymentSubmitting ? "提交中…" : "提交缴费凭证"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   );

@@ -97,13 +97,14 @@ export type Module =
   | "dashboard" | "users" | "demands" | "orders"
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
-  | "sensitivewords";
+  | "sensitivewords" | "payments";
 
 const NAV: { key: Module; icon: React.ElementType; label: string }[] = [
   { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板" },
   { key: "cockpit",        icon: BarChart3,           label: "平台驾驶舱" },
   { key: "users",          icon: Users,              label: "用户管理" },
   { key: "demands",        icon: FileText,            label: "需求管理" },
+  { key: "payments",       icon: Receipt,             label: "保证金审核" },
   { key: "orders",         icon: ShoppingBag,         label: "订单管理" },
   { key: "disputes",       icon: Gavel,               label: "争议管理" },
   { key: "finance",        icon: Wallet,              label: "财务管理" },
@@ -846,8 +847,9 @@ interface AdminDemand {
   title: string;
   status: string;
   mode: string;
-  budgetMin: number;
-  budgetMax: number;
+  budget?: number;
+  budgetMin?: number;
+  budgetMax?: number;
   isUrgent: boolean;
   createdAt: string;
   publisherName: string;
@@ -1047,7 +1049,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
-                <p className="font-bold text-blue-900">¥{(d.budgetMin ?? 0).toLocaleString()} – ¥{(d.budgetMax ?? 0).toLocaleString()}</p>
+                <p className="font-bold text-blue-900">¥{(d.budget ?? d.budgetMin ?? 0).toLocaleString()}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">交付截止</p>
@@ -1189,7 +1191,7 @@ function DemandManagement() {
               </td>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">{d.demandNo}</td>
               <td className="px-6 py-4 text-sm text-slate-500">{d.publisherName}</td>
-              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{(d.budgetMin ?? 0).toLocaleString()}–¥{(d.budgetMax ?? 0).toLocaleString()}</td>
+              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{(d.budget ?? d.budgetMin ?? 0).toLocaleString()}</td>
               <td className="px-6 py-4 text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</td>
               <td className="px-6 py-4"><StatusBadge label={statusCN[d.status] ?? d.status} color={statusColor(d.status)} /></td>
               <td className="px-6 py-4">
@@ -4017,6 +4019,250 @@ function SensitiveWordsManagement() {
   );
 }
 
+/* ─── Module: 保证金审核 ─────────────────────────── */
+
+interface PaymentRow {
+  id: number;
+  demandId: number;
+  amount: number;
+  method: string;
+  status: string;
+  paymentNote?: string;
+  rejectReason?: string;
+  confirmedAt?: string;
+  createdAt: string;
+  demand?: { title: string; budget: number };
+}
+
+function DepositPaymentManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState<"pending" | "confirmed" | "rejected" | "all">("pending");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  const queryKey = ["admin-demand-payments", statusFilter];
+  const { data: payments = [], isLoading } = useQuery<PaymentRow[]>({
+    queryKey,
+    queryFn: () => adminGet(`/api/admin/demand-payments?status=${statusFilter}`),
+  });
+
+  const handleConfirm = async (paymentId: number) => {
+    setActionLoading(paymentId);
+    try {
+      await adminPatch(`/api/admin/demand-payments/${paymentId}`, { action: "confirm" });
+      toast({ title: "已确认收款", description: "需求已自动发布至需求大厅" });
+      qc.invalidateQueries({ queryKey });
+      setExpandedId(null);
+    } catch (e: any) {
+      toast({ title: "操作失败", description: e.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (paymentId: number) => {
+    if (!rejectNote.trim()) { toast({ title: "请填写拒绝原因", variant: "destructive" }); return; }
+    setActionLoading(paymentId);
+    try {
+      await adminPatch(`/api/admin/demand-payments/${paymentId}`, { action: "reject", rejectReason: rejectNote.trim() });
+      toast({ title: "已拒绝并通知发布方" });
+      qc.invalidateQueries({ queryKey });
+      setRejectingId(null);
+      setRejectNote("");
+      setExpandedId(null);
+    } catch (e: any) {
+      toast({ title: "操作失败", description: e.message, variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const STATUS_TABS: { key: typeof statusFilter; label: string }[] = [
+    { key: "pending",   label: "待审核" },
+    { key: "confirmed", label: "已确认" },
+    { key: "rejected",  label: "已拒绝" },
+    { key: "all",       label: "全部" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="保证金审核"
+        sub="审核发布方缴纳的保证金凭证，确认到账后需求自动发布"
+        action={
+          <div className="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+            <Receipt size={13} />
+            待审核 {payments.filter(p => p.status === "pending").length}
+          </div>
+        }
+      />
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        {STATUS_TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setStatusFilter(t.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+              statusFilter === t.key
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white text-slate-500 border border-slate-200 hover:border-primary/40"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <Loader2 size={20} className="animate-spin mr-2" />加载中…
+        </div>
+      ) : payments.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-slate-400">
+          <Receipt size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">暂无{STATUS_TABS.find(t => t.key === statusFilter)?.label}记录</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {payments.map(payment => {
+            const isExpanded = expandedId === payment.id;
+            const isRejecting = rejectingId === payment.id;
+            const loading = actionLoading === payment.id;
+            return (
+              <div key={payment.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <button
+                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  onClick={() => setExpandedId(isExpanded ? null : payment.id)}
+                >
+                  <div className="flex items-center gap-4 text-left">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {payment.demand?.title ?? `需求 #${payment.demandId}`}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {new Date(payment.createdAt).toLocaleString("zh-CN")} ·{" "}
+                        {payment.method === "offline" ? "线下转账" : "在线支付"}
+                      </p>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                      payment.status === "pending" ? "bg-amber-100 text-amber-700" :
+                      payment.status === "confirmed" ? "bg-emerald-100 text-emerald-700" :
+                      "bg-red-100 text-red-600"
+                    }`}>
+                      {payment.status === "pending" ? "待审核" : payment.status === "confirmed" ? "已确认" : "已拒绝"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <p className="text-lg font-extrabold text-primary">¥{payment.amount.toLocaleString()}</p>
+                    {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t border-slate-100 px-6 py-5 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">需求ID</p>
+                        <p className="text-sm text-slate-700">#{payment.demandId}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">保证金金额</p>
+                        <p className="text-sm font-bold text-primary">¥{payment.amount.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">缴费方式</p>
+                        <p className="text-sm text-slate-700">{payment.method === "offline" ? "线下转账" : "在线支付"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">提交时间</p>
+                        <p className="text-sm text-slate-700">{new Date(payment.createdAt).toLocaleString("zh-CN")}</p>
+                      </div>
+                    </div>
+
+                    {payment.paymentNote && (
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">缴费备注</p>
+                        <p className="text-sm text-slate-700 bg-slate-50 rounded-xl p-3">{payment.paymentNote}</p>
+                      </div>
+                    )}
+
+                    {payment.status === "rejected" && payment.rejectReason && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                        <p className="text-xs font-bold text-red-600 mb-1">拒绝原因</p>
+                        <p className="text-sm text-red-700">{payment.rejectReason}</p>
+                      </div>
+                    )}
+
+                    {payment.status === "confirmed" && payment.confirmedAt && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                        <p className="text-xs font-bold text-emerald-600 mb-1">确认时间</p>
+                        <p className="text-sm text-emerald-700">{new Date(payment.confirmedAt).toLocaleString("zh-CN")}</p>
+                      </div>
+                    )}
+
+                    {payment.status === "pending" && (
+                      <div className="space-y-3 pt-2">
+                        {isRejecting ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={rejectNote}
+                              onChange={e => setRejectNote(e.target.value)}
+                              placeholder="请填写拒绝原因（将通知发布方）"
+                              rows={3}
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                            />
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => handleReject(payment.id)}
+                                disabled={loading}
+                                className="flex items-center gap-2 bg-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-600 disabled:opacity-50 transition-colors"
+                              >
+                                {loading ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                                确认拒绝
+                              </button>
+                              <button
+                                onClick={() => { setRejectingId(null); setRejectNote(""); }}
+                                className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => handleConfirm(payment.id)}
+                              disabled={loading}
+                              className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                            >
+                              {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                              确认收款并发布需求
+                            </button>
+                            <button
+                              onClick={() => setRejectingId(payment.id)}
+                              className="flex items-center gap-2 bg-red-50 text-red-600 border border-red-200 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-red-100 transition-colors"
+                            >
+                              <XCircle size={14} /> 拒绝
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
     case "dashboard":      return <Dashboard />;
@@ -4031,6 +4277,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "levelcert":      return <LevelCertReview />;
     case "content":        return <ContentReview />;
     case "sensitivewords": return <SensitiveWordsManagement />;
+    case "payments":       return <DepositPaymentManagement />;
     case "settings":       return <SiteSettingsManagement />;
   }
 }

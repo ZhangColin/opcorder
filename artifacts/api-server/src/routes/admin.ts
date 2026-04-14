@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
-import { eq, desc, count, sql, and, ilike, or } from "drizzle-orm";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
+import { eq, desc, count, sql, and, ilike, or, asc } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
 
@@ -320,13 +320,13 @@ router.patch("/admin/demands/:id", async (req, res) => {
       .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
 
     if (action === "approve") {
-      await db.update(demandsTable).set({ status: "published" }).where(eq(demandsTable.id, id));
+      await db.update(demandsTable).set({ status: "pending_payment" }).where(eq(demandsTable.id, id));
       // In-app notification
       await db.insert(notificationsTable).values({
         userId: d.publisherId,
         type: "system",
-        title: "您的需求已通过审核",
-        content: `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布，OPC可以查看并投标。`,
+        title: "您的需求已通过审核，请缴纳保证金",
+        content: `您的需求「${d.title}」已通过平台审核。请在需求详情页缴纳保证金，保证金到账确认后需求将自动发布至需求大厅。`,
         relatedId: id,
         relatedType: "demand",
       });
@@ -335,8 +335,8 @@ router.patch("/admin/demands/:id", async (req, res) => {
         await resend.emails.send({
           from: "接单吧 <noreply@aieducenter.com>",
           to: pub.email,
-          subject: "您的需求已通过审核 - 接单吧",
-          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布，OPC 可以查看并投标。\n\n请登录接单吧查看需求详情。`),
+          subject: "您的需求已通过审核，请缴纳保证金 - 接单吧",
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核。\n\n请登录接单吧，在需求详情页缴纳保证金，保证金到账确认后需求将自动发布至需求大厅，OPC 可以查看并投标。`),
         }).catch(() => {/* ignore email errors */});
       }
     } else if (action === "reject") {
@@ -1534,6 +1534,138 @@ router.delete("/admin/learning-resources/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "删除学习资源失败" });
+  }
+});
+
+/* ─── DEMAND PAYMENT MANAGEMENT ───────────────────── */
+
+router.get("/admin/demand-payments", async (req, res) => {
+  try {
+    const { status } = req.query as { status?: string };
+
+    const rows = await db
+      .select({
+        id: demandPaymentsTable.id,
+        demandId: demandPaymentsTable.demandId,
+        demandTitle: demandsTable.title,
+        publisherName: usersTable.nickname,
+        amount: demandPaymentsTable.amount,
+        method: demandPaymentsTable.method,
+        status: demandPaymentsTable.status,
+        receiptUrl: demandPaymentsTable.receiptUrl,
+        paymentNote: demandPaymentsTable.paymentNote,
+        rejectReason: demandPaymentsTable.rejectReason,
+        confirmedAt: demandPaymentsTable.confirmedAt,
+        createdAt: demandPaymentsTable.createdAt,
+      })
+      .from(demandPaymentsTable)
+      .leftJoin(demandsTable, eq(demandPaymentsTable.demandId, demandsTable.id))
+      .leftJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
+      .where(status ? eq(demandPaymentsTable.status, status as any) : undefined)
+      .orderBy(desc(demandPaymentsTable.createdAt));
+
+    res.json(rows.map(r => ({
+      ...r,
+      confirmedAt: r.confirmedAt?.toISOString() ?? null,
+      createdAt: r.createdAt.toISOString(),
+    })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "获取缴费记录失败" });
+  }
+});
+
+router.patch("/admin/demand-payments/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { action, rejectReason } = req.body as { action: string; rejectReason?: string };
+
+    if (!["confirm", "reject"].includes(action)) {
+      return res.status(400).json({ error: "无效操作" });
+    }
+
+    const [payment] = await db
+      .select({
+        id: demandPaymentsTable.id,
+        demandId: demandPaymentsTable.demandId,
+        amount: demandPaymentsTable.amount,
+      })
+      .from(demandPaymentsTable)
+      .where(eq(demandPaymentsTable.id, id))
+      .limit(1);
+
+    if (!payment) return res.status(404).json({ error: "缴费记录不存在" });
+
+    const [demand] = await db
+      .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, payment.demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "关联需求不存在" });
+
+    if (action === "confirm") {
+      const now = new Date();
+      await db.update(demandPaymentsTable).set({
+        status: "confirmed",
+        confirmedAt: now,
+      }).where(eq(demandPaymentsTable.id, id));
+
+      await db.update(demandsTable).set({
+        status: "published",
+        updatedAt: now,
+      }).where(eq(demandsTable.id, payment.demandId));
+
+      await db.insert(notificationsTable).values({
+        userId: demand.publisherId,
+        type: "system",
+        title: "保证金已到账，需求已发布",
+        content: `您的需求「${demand.title}」的保证金已到账确认，需求现已在需求大厅公开发布，OPC可以查看并投标。`,
+        relatedId: payment.demandId,
+        relatedType: "demand",
+      });
+    } else {
+      const reasonText = rejectReason?.trim() ?? "保证金信息有误，请重新提交";
+      await db.update(demandPaymentsTable).set({
+        status: "rejected",
+        rejectReason: reasonText,
+      }).where(eq(demandPaymentsTable.id, id));
+
+      await db.insert(notificationsTable).values({
+        userId: demand.publisherId,
+        type: "system",
+        title: "保证金审核未通过",
+        content: `您的需求「${demand.title}」的保证金审核未通过。原因：${reasonText}。请在需求详情页重新提交缴费凭证。`,
+        relatedId: payment.demandId,
+        relatedType: "demand",
+      });
+    }
+
+    const [updated] = await db
+      .select({
+        id: demandPaymentsTable.id,
+        demandId: demandPaymentsTable.demandId,
+        amount: demandPaymentsTable.amount,
+        method: demandPaymentsTable.method,
+        status: demandPaymentsTable.status,
+        receiptUrl: demandPaymentsTable.receiptUrl,
+        paymentNote: demandPaymentsTable.paymentNote,
+        rejectReason: demandPaymentsTable.rejectReason,
+        confirmedAt: demandPaymentsTable.confirmedAt,
+        createdAt: demandPaymentsTable.createdAt,
+      })
+      .from(demandPaymentsTable)
+      .where(eq(demandPaymentsTable.id, id))
+      .limit(1);
+
+    res.json({
+      ...updated,
+      confirmedAt: updated!.confirmedAt?.toISOString() ?? null,
+      createdAt: updated!.createdAt.toISOString(),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "操作失败" });
   }
 });
 

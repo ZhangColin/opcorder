@@ -156,7 +156,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [draft, pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
+            enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed]
         - name: type
           in: query
           schema:
@@ -292,7 +292,7 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [draft, pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
+                  enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed]
                 reason:
                   type: string
               required:
@@ -874,6 +874,85 @@ paths:
                 items:
                   $ref: "#/components/schemas/EnrollmentWithCourse"
 
+  /demands/{demandId}/payment:
+    post:
+      operationId: submitDemandPayment
+      tags: [demands]
+      summary: Submit deposit payment for a demand
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDemandPaymentInput"
+      responses:
+        "201":
+          description: Payment submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandPayment"
+
+  /admin/demand-payments:
+    get:
+      operationId: listDemandPayments
+      tags: [admin]
+      summary: List pending deposit payments
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, rejected]
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DemandPayment"
+
+  /admin/demand-payments/{paymentId}:
+    patch:
+      operationId: reviewDemandPayment
+      tags: [admin]
+      summary: Confirm or reject a deposit payment
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [confirm, reject]
+                rejectReason:
+                  type: string
+              required:
+                - action
+      responses:
+        "200":
+          description: Payment reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandPayment"
+
 components:
   schemas:
     HealthStatus:
@@ -1049,9 +1128,7 @@ components:
         opcLevel:
           type: string
           enum: [C, B, A, any]
-        budgetMin:
-          type: number
-        budgetMax:
+        budget:
           type: number
         deadline:
           type: string
@@ -1065,7 +1142,7 @@ components:
           enum: [open, directed]
         status:
           type: string
-          enum: [draft, pending_review, published, matched, in_progress, pending_acceptance, completed, closed]
+          enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed]
         isUrgent:
           type: boolean
         bidDeadline:
@@ -1091,8 +1168,7 @@ components:
         - description
         - skillTags
         - opcLevel
-        - budgetMin
-        - budgetMax
+        - budget
         - deadline
         - mode
         - status
@@ -1139,9 +1215,7 @@ components:
         opcLevel:
           type: string
           enum: [C, B, A, any]
-        budgetMin:
-          type: number
-        budgetMax:
+        budget:
           type: number
         deadline:
           type: string
@@ -1180,8 +1254,7 @@ components:
         - description
         - skillTags
         - opcLevel
-        - budgetMin
-        - budgetMax
+        - budget
         - deadline
         - mode
 
@@ -1200,9 +1273,7 @@ components:
         opcLevel:
           type: string
           enum: [C, B, A, any]
-        budgetMin:
-          type: number
-        budgetMax:
+        budget:
           type: number
         deadline:
           type: string
@@ -1227,6 +1298,61 @@ components:
           format: date-time
         isUrgent:
           type: boolean
+
+    DemandPayment:
+      type: object
+      properties:
+        id:
+          type: integer
+        demandId:
+          type: integer
+        demandTitle:
+          type: string
+        publisherName:
+          type: string
+        amount:
+          type: number
+        method:
+          type: string
+          enum: [online, offline]
+        status:
+          type: string
+          enum: [pending, confirmed, rejected]
+        receiptUrl:
+          type: string
+        paymentNote:
+          type: string
+        rejectReason:
+          type: string
+        confirmedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - demandId
+        - amount
+        - method
+        - status
+        - createdAt
+
+    CreateDemandPaymentInput:
+      type: object
+      properties:
+        amount:
+          type: number
+        method:
+          type: string
+          enum: [online, offline]
+        receiptUrl:
+          type: string
+        paymentNote:
+          type: string
+      required:
+        - amount
+        - method
 
     BidApplication:
       type: object

@@ -158,6 +158,7 @@ export const ListDemandsQueryParams = zod.object({
     .enum([
       "draft",
       "pending_review",
+      "pending_payment",
       "published",
       "matched",
       "in_progress",
@@ -204,8 +205,7 @@ export const ListDemandsResponse = zod.object({
       description: zod.string(),
       skillTags: zod.array(zod.string()),
       opcLevel: zod.enum(["C", "B", "A", "any"]),
-      budgetMin: zod.number(),
-      budgetMax: zod.number(),
+      budget: zod.number(),
       deadline: zod.date(),
       milestones: zod
         .array(
@@ -224,6 +224,7 @@ export const ListDemandsResponse = zod.object({
       status: zod.enum([
         "draft",
         "pending_review",
+        "pending_payment",
         "published",
         "matched",
         "in_progress",
@@ -267,8 +268,7 @@ export const CreateDemandBody = zod.object({
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),
-  budgetMin: zod.number(),
-  budgetMax: zod.number(),
+  budget: zod.number(),
   deadline: zod.coerce.date(),
   milestones: zod
     .array(
@@ -309,8 +309,7 @@ export const GetDemandByIdResponse = zod.object({
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),
-  budgetMin: zod.number(),
-  budgetMax: zod.number(),
+  budget: zod.number(),
   deadline: zod.date(),
   milestones: zod
     .array(
@@ -329,6 +328,7 @@ export const GetDemandByIdResponse = zod.object({
   status: zod.enum([
     "draft",
     "pending_review",
+    "pending_payment",
     "published",
     "matched",
     "in_progress",
@@ -359,8 +359,7 @@ export const UpdateDemandBody = zod.object({
   description: zod.string().optional(),
   skillTags: zod.array(zod.string()).optional(),
   opcLevel: zod.enum(["C", "B", "A", "any"]).optional(),
-  budgetMin: zod.number().optional(),
-  budgetMax: zod.number().optional(),
+  budget: zod.number().optional(),
   deadline: zod.coerce.date().optional(),
   milestones: zod
     .array(
@@ -392,8 +391,7 @@ export const UpdateDemandResponse = zod.object({
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),
-  budgetMin: zod.number(),
-  budgetMax: zod.number(),
+  budget: zod.number(),
   deadline: zod.date(),
   milestones: zod
     .array(
@@ -412,6 +410,7 @@ export const UpdateDemandResponse = zod.object({
   status: zod.enum([
     "draft",
     "pending_review",
+    "pending_payment",
     "published",
     "matched",
     "in_progress",
@@ -439,6 +438,7 @@ export const UpdateDemandStatusBody = zod.object({
   status: zod.enum([
     "draft",
     "pending_review",
+    "pending_payment",
     "published",
     "matched",
     "in_progress",
@@ -466,8 +466,7 @@ export const UpdateDemandStatusResponse = zod.object({
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),
-  budgetMin: zod.number(),
-  budgetMax: zod.number(),
+  budget: zod.number(),
   deadline: zod.date(),
   milestones: zod
     .array(
@@ -486,6 +485,7 @@ export const UpdateDemandStatusResponse = zod.object({
   status: zod.enum([
     "draft",
     "pending_review",
+    "pending_payment",
     "published",
     "matched",
     "in_progress",

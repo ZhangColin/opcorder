@@ -135,6 +135,7 @@ export type DemandStatus = (typeof DemandStatus)[keyof typeof DemandStatus];
 export const DemandStatus = {
   draft: "draft",
   pending_review: "pending_review",
+  pending_payment: "pending_payment",
   published: "published",
   matched: "matched",
   in_progress: "in_progress",
@@ -152,8 +153,7 @@ export interface Demand {
   description: string;
   skillTags: string[];
   opcLevel: DemandOpcLevel;
-  budgetMin: number;
-  budgetMax: number;
+  budget: number;
   deadline: string;
   milestones?: Milestone[];
   mode: DemandMode;
@@ -219,8 +219,7 @@ export interface CreateDemandInput {
   description: string;
   skillTags: string[];
   opcLevel: CreateDemandInputOpcLevel;
-  budgetMin: number;
-  budgetMax: number;
+  budget: number;
   deadline: string;
   milestones?: CreateDemandInputMilestonesItem[];
   mode: CreateDemandInputMode;
@@ -251,8 +250,7 @@ export interface UpdateDemandInput {
   description?: string;
   skillTags?: string[];
   opcLevel?: UpdateDemandInputOpcLevel;
-  budgetMin?: number;
-  budgetMax?: number;
+  budget?: number;
   deadline?: string;
   milestones?: UpdateDemandInputMilestonesItem[];
   bidDeadline?: string;

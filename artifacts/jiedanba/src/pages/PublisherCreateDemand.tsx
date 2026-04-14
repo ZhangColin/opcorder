@@ -284,8 +284,7 @@ export default function PublisherCreateDemand() {
   const [description, setDescription] = useState("");
   const [skillTags, setSkillTags] = useState<string[]>([]);
   const [opcLevel, setOpcLevel] = useState("any");
-  const [budgetMin, setBudgetMin] = useState("");
-  const [budgetMax, setBudgetMax] = useState("");
+  const [budget, setBudget] = useState("");
   const [deadline, setDeadline] = useState("");
   const [mode, setMode] = useState<"open" | "directed">("open");
   const [bidDeadline, setBidDeadline] = useState("");
@@ -298,15 +297,15 @@ export default function PublisherCreateDemand() {
 
   /* ── 实时预算等级上限校验 ── */
   const budgetCapError = useMemo(() => {
-    const max = Number(budgetMax);
-    if (!budgetMax || isNaN(max) || max <= 0) return "";
+    const val = Number(budget);
+    if (!budget || isNaN(val) || val <= 0) return "";
     const cap = LEVEL_BUDGET_CAP[opcLevel] ?? 200_000;
-    if (max > cap) {
+    if (val > cap) {
       const levelLabel = opcLevel === "any" ? "当前设置" : `${opcLevel}级OPC`;
-      return `${levelLabel}接单上限为 ¥${cap.toLocaleString()}，最高预算 ¥${max.toLocaleString()} 超出限额，请降低预算或提高OPC等级要求`;
+      return `${levelLabel}接单上限为 ¥${cap.toLocaleString()}，预算 ¥${val.toLocaleString()} 超出限额，请降低预算或提高OPC等级要求`;
     }
     return "";
-  }, [opcLevel, budgetMax]);
+  }, [opcLevel, budget]);
 
   const minDeadlineDate = new Date().toISOString().split("T")[0];
 
@@ -318,8 +317,7 @@ export default function PublisherCreateDemand() {
       setDescription(existingDemand.description ?? "");
       setSkillTags((existingDemand.skillTags as string[]) ?? []);
       setOpcLevel(existingDemand.opcLevel ?? "any");
-      setBudgetMin(String(existingDemand.budgetMin ?? ""));
-      setBudgetMax(String(existingDemand.budgetMax ?? ""));
+      setBudget(String((existingDemand as any).budget ?? ""));
       setDeadline(existingDemand.deadline ? String(existingDemand.deadline).split("T")[0] : "");
       setMode((existingDemand.mode as "open" | "directed") ?? "open");
       setBidDeadline(existingDemand.bidDeadline ? String(existingDemand.bidDeadline).split("T")[0] : "");
@@ -338,8 +336,7 @@ export default function PublisherCreateDemand() {
     if (!type) e.type = "请选择需求类型";
     if (!description.trim()) e.description = "请填写需求描述";
     if (skillTags.length === 0) e.skillTags = "请至少选择一个技能标签";
-    if (!budgetMin || !budgetMax) e.budget = "请填写预算范围";
-    else if (Number(budgetMin) >= Number(budgetMax)) e.budget = "预算最小值须小于最大值";
+    if (!budget || isNaN(Number(budget)) || Number(budget) <= 0) e.budget = "请填写预算金额";
     else if (budgetCapError) e.budget = budgetCapError;
     if (!deadline) e.deadline = "请选择交付截止日期";
     else if (deadline < minDeadlineDate) e.deadline = "截止日期不能早于今天";
@@ -383,8 +380,7 @@ export default function PublisherCreateDemand() {
         description: description.trim(),
         skillTags,
         opcLevel,
-        budgetMin: Number(budgetMin),
-        budgetMax: Number(budgetMax),
+        budget: Number(budget),
         deadline,
         mode: mode as any,
         isUrgent,
@@ -579,8 +575,8 @@ export default function PublisherCreateDemand() {
               <div className="grid grid-cols-2 gap-3">
                 {OPC_LEVELS.map(lvl => {
                   const cap = LEVEL_BUDGET_CAP[lvl.value] ?? 200_000;
-                  const budgetNum = Number(budgetMax);
-                  const exceedsCap = budgetMax && !isNaN(budgetNum) && budgetNum > cap;
+                  const budgetNum = Number(budget);
+                  const exceedsCap = budget && !isNaN(budgetNum) && budgetNum > cap;
                   const isSelected = opcLevel === lvl.value;
                   return (
                     <button
@@ -695,41 +691,25 @@ export default function PublisherCreateDemand() {
           {/* ── Section 4: 预算与时间 ── */}
           <Section title="预算与时间" subtitle="设置项目预算范围和交付截止日期">
 
-            <FormField label="预算范围（元）" required error={budgetCapError || errors.budget}
-              hint="设置合理的预算区间，吸引优质OPC">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
-                  <input
-                    type="number"
-                    value={budgetMin}
-                    onChange={e => setBudgetMin(e.target.value)}
-                    placeholder="最低预算"
-                    min={0}
-                    className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
-                      errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
-                    }`}
-                  />
-                </div>
-                <span className="text-slate-400 font-bold">—</span>
-                <div className="flex-1 relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
-                  <input
-                    type="number"
-                    value={budgetMax}
-                    onChange={e => setBudgetMax(e.target.value)}
-                    placeholder="最高预算"
-                    min={0}
-                    className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
-                      errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
-                    }`}
-                  />
-                </div>
+            <FormField label="预算金额（元）" required error={budgetCapError || errors.budget}
+              hint="设置合理的预算，吸引优质OPC投标">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
+                <input
+                  type="number"
+                  value={budget}
+                  onChange={e => setBudget(e.target.value)}
+                  placeholder="请填写预算金额"
+                  min={0}
+                  className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
+                    errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
+                  }`}
+                />
               </div>
-              {budgetMin && budgetMax && Number(budgetMin) < Number(budgetMax) && (
+              {budget && Number(budget) > 0 && (
                 <p className="text-xs text-secondary font-semibold mt-1.5 flex items-center gap-1">
                   <Info size={12} />
-                  OPC实际到手：¥{Math.floor(Number(budgetMin) * 0.5).toLocaleString()} - ¥{Math.floor(Number(budgetMax) * 0.7).toLocaleString()}（50%-70%分成）
+                  OPC实际到手约：¥{Math.floor(Number(budget) * 0.9).toLocaleString()}（平台收取10%服务费）
                 </p>
               )}
             </FormField>

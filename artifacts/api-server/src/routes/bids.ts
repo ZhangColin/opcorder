@@ -57,7 +57,7 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
         publisherId:  demandsTable.publisherId,
         title:        demandsTable.title,
         opcLevel:     demandsTable.opcLevel,
-        budgetMax:    demandsTable.budgetMax,
+        budget:       demandsTable.budget,
         status:       demandsTable.status,
       })
       .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
@@ -84,9 +84,9 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
     }
 
     const budgetCap = LEVEL_BUDGET_CAP[opcActualLevel];
-    if (budgetCap !== undefined && demand.budgetMax > budgetCap) {
+    if (budgetCap !== undefined && demand.budget > budgetCap) {
       return res.status(403).json({
-        error: `该需求预算最高 ¥${demand.budgetMax.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
+        error: `该需求预算 ¥${demand.budget.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
       });
     }
 
@@ -133,7 +133,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
     if (body.status === "accepted") {
       const [demand] = await db.select().from(demandsTable).where(eq(demandsTable.id, updated.demandId));
       if (demand) {
-        const amount = demand.budgetMax;
+        const amount = demand.budget;
         const opcShare = amount * 0.9;
         const publisherShare = 0;
         const platformFee = amount * 0.1;

@@ -9,7 +9,7 @@ export const demandTypeEnum = pgEnum("demand_type", [
 ]);
 
 export const demandStatusEnum = pgEnum("demand_status", [
-  "draft", "pending_review", "published", "matched",
+  "draft", "pending_review", "pending_payment", "published", "matched",
   "in_progress", "pending_acceptance", "completed", "closed"
 ]);
 
@@ -23,8 +23,7 @@ export const demandsTable = pgTable("demands", {
   description: text("description").notNull(),
   skillTags: jsonb("skill_tags").$type<string[]>().notNull().default([]),
   opcLevel: varchar("opc_level", { length: 10 }).notNull().default("any"),
-  budgetMin: real("budget_min").notNull(),
-  budgetMax: real("budget_max").notNull(),
+  budget: real("budget").notNull().default(0),
   deadline: date("deadline").notNull(),
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>>().default([]),
   attachments: jsonb("attachments").$type<Array<{ name: string; size: string; type: string; url: string }>>().default([]),
