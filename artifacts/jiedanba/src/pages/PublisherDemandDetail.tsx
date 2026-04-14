@@ -1,5 +1,5 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { clearSession } from "@/lib/auth";
+import { clearSession, getAccessToken } from "@/lib/auth";
 import { useState, useEffect, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useLocation, Link } from "wouter";
@@ -178,10 +178,13 @@ export default function PublisherDemandDetail() {
 
   const requestRefundMut = useMutation({
     mutationFn: async (reason: string) => {
+      const token = getAccessToken();
       const res = await fetch(`${BASE}/api/demands/${demandId}/request-refund`, {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ reason: reason.trim() || undefined }),
       });
       const data = await res.json();
