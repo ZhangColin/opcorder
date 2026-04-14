@@ -921,7 +921,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
   });
 
   const statusCN: Record<string, string> = {
-    draft: "草稿", pending_review: "待审核", published: "已发布",
+    draft: "草稿", pending_review: "待审核", pending_payment: "待缴保证金", published: "已发布",
     matched: "已匹配", in_progress: "进行中", pending_acceptance: "待验收",
     completed: "已完成", closed: "已关闭",
   };
@@ -1149,6 +1149,7 @@ function DemandManagement() {
   const STATUS_FILTERS = [
     { val: "all", label: "全部" },
     { val: "pending_review", label: "待审核" },
+    { val: "pending_payment", label: "待缴保证金" },
     { val: "published", label: "已发布" },
     { val: "in_progress", label: "进行中" },
     { val: "completed", label: "已完成" },
@@ -1156,12 +1157,13 @@ function DemandManagement() {
   ];
 
   const statusCN: Record<string, string> = {
-    draft: "草稿", pending_review: "待审核", published: "已发布",
+    draft: "草稿", pending_review: "待审核", pending_payment: "待缴保证金", published: "已发布",
     matched: "已匹配", in_progress: "进行中", pending_acceptance: "待验收",
     completed: "已完成", closed: "已关闭",
   };
   const statusColor = (s: string) => ({
     pending_review: "bg-amber-100 text-amber-700",
+    pending_payment: "bg-orange-100 text-orange-700",
     published: "bg-blue-100 text-blue-700",
     in_progress: "bg-indigo-100 text-indigo-700",
     completed: "bg-green-100 text-green-700",
