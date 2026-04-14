@@ -889,9 +889,26 @@ const DEMAND_TYPE_CN: Record<string, string> = {
 
 function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
   const { toast } = useToast();
-  const { data: d, isLoading } = useQuery<AdminDemandDetail>({
+  const qc = useQueryClient();
+  const { data: d, isLoading, refetch } = useQuery<AdminDemandDetail>({
     queryKey: ["admin-demand-detail", id],
     queryFn: () => adminGet(`/api/admin/demands/${id}`),
+  });
+
+  // Admin actions mutation
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const actionMut = useMutation({
+    mutationFn: ({ action, reason }: { action: string; reason?: string }) =>
+      adminPatch(`/api/admin/demands/${id}`, { action, reason }),
+    onSuccess: () => {
+      toast({ title: "操作成功" });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-demands"] });
+      setShowRejectForm(false);
+      setRejectReason("");
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
   // Inline send-email form state
@@ -931,7 +948,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/30 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="h-full w-full max-w-xl bg-white shadow-2xl flex flex-col overflow-hidden"
+        className="h-full w-full max-w-2xl bg-white shadow-2xl flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -943,7 +960,89 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
         ) : !d ? (
           <div className="flex-1 flex items-center justify-center text-sm text-slate-400">加载失败</div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div className="flex-1 overflow-y-auto flex flex-col">
+            {/* ── Action bar ── */}
+            {(d.status === "pending_review" || d.status === "published" || (d.status !== "closed" && d.status !== "completed")) && (
+              <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center gap-2">
+                {d.status === "pending_review" && (
+                  <>
+                    <button
+                      onClick={() => actionMut.mutate({ action: "approve" })}
+                      disabled={actionMut.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                      <CheckCircle2 size={13} /> 通过审核
+                    </button>
+                    <button
+                      onClick={() => { setShowRejectForm(v => !v); setShowEmailForm(false); setShowNotifyForm(false); }}
+                      disabled={actionMut.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                      <XCircle size={13} /> 审核不通过
+                    </button>
+                  </>
+                )}
+                {!d.isUrgent ? (
+                  <button
+                    onClick={() => actionMut.mutate({ action: "markUrgent" })}
+                    disabled={actionMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                  >
+                    <Megaphone size={13} /> 标记紧急
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => actionMut.mutate({ action: "removeUrgent" })}
+                    disabled={actionMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-300 disabled:opacity-50 transition-colors"
+                  >
+                    <Flag size={13} /> 取消紧急
+                  </button>
+                )}
+                {d.status === "published" && (
+                  <button
+                    onClick={() => { if (confirm(`确认将需求「${d.title}」退回到草稿编辑模式？`)) actionMut.mutate({ action: "revertToDraft" }); }}
+                    disabled={actionMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-xs font-bold hover:bg-amber-200 disabled:opacity-50 transition-colors"
+                  >
+                    <RotateCcw size={13} /> 退回编辑
+                  </button>
+                )}
+                {d.status !== "closed" && d.status !== "completed" && (
+                  <button
+                    onClick={() => { if (confirm("确认强制关闭此需求？")) actionMut.mutate({ action: "forceClose" }); }}
+                    disabled={actionMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 disabled:opacity-50 transition-colors border border-red-200"
+                  >
+                    <XCircle size={13} /> 强制关闭
+                  </button>
+                )}
+              </div>
+            )}
+            {/* ── Reject inline form ── */}
+            {showRejectForm && (
+              <div className="px-6 py-4 bg-red-50 border-b border-red-100 space-y-2">
+                <p className="text-xs font-bold text-red-700">填写审核不通过原因</p>
+                <textarea
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  placeholder="请说明不通过原因，将通知发单方…"
+                  rows={2}
+                  className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-200 bg-white resize-none"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowRejectForm(false)} className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">取消</button>
+                  <button
+                    onClick={() => { if (rejectReason.trim()) actionMut.mutate({ action: "reject", reason: rejectReason.trim() }); }}
+                    disabled={!rejectReason.trim() || actionMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-red-700 transition-colors"
+                  >
+                    {actionMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <XCircle size={11} />} 确认不通过
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
             {/* Title */}
             <div>
               <div className="flex items-start gap-2 flex-wrap">
@@ -1118,6 +1217,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 </div>
               </div>
             )}
+          </div>
           </div>
         )}
       </div>
