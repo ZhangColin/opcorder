@@ -16,6 +16,7 @@ export const ADMIN_PERMISSION_KEYS = [
   "content",
   "sensitivewords",
   "settings",
+  "screen",
 ] as const;
 
 export type AdminPermissionKey = (typeof ADMIN_PERMISSION_KEYS)[number];

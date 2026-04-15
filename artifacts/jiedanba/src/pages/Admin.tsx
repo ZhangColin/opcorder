@@ -15,7 +15,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
-  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight,
+  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -99,7 +99,7 @@ export type Module =
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments"
-  | "roles" | "adminusers";
+  | "roles" | "adminusers" | "screen";
 
 const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string }[] = [
   { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板",    permKey: "dashboard" },
@@ -118,6 +118,7 @@ const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly
   { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
   { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
   { key: "adminusers",     icon: UserCog,             label: "管理员管理",  superAdminOnly: true },
+  { key: "screen",         icon: Monitor,             label: "数据大屏",    permKey: "screen" },
 ];
 
 /* ─── Admin profile hook ─────────────────────────── */
@@ -5251,6 +5252,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;
+    case "screen":         return null;
   }
 }
 
@@ -5336,7 +5338,10 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
           {visibleNav.map(item => (
             <button
               key={item.key}
-              onClick={() => setActive(item.key)}
+              onClick={() => {
+                if (item.key === "screen") { navigate("/screen"); return; }
+                setActive(item.key);
+              }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
                 active === item.key
                   ? "bg-primary text-white shadow-lg shadow-primary/20"
@@ -5345,6 +5350,9 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
             >
               <item.icon size={17} />
               {item.label}
+              {item.key === "screen" && (
+                <span className="ml-auto text-[9px] font-bold uppercase tracking-widest text-slate-500 opacity-70">全屏</span>
+              )}
             </button>
           ))}
         </nav>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { getValidAccessToken, clearSession } from "@/lib/auth";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -83,7 +84,20 @@ function rgb(hex: string) {
   return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`;
 }
 async function fetchScreen(): Promise<ScreenData> {
-  const r = await fetch(`${BASE}/api/screen`);
+  const token = await getValidAccessToken(BASE);
+  if (!token) {
+    clearSession();
+    window.location.href = `${BASE}/login`;
+    throw new Error("未登录");
+  }
+  const r = await fetch(`${BASE}/api/screen`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (r.status === 401 || r.status === 403) {
+    clearSession();
+    window.location.href = `${BASE}/login`;
+    throw new Error("登录已过期");
+  }
   if (!r.ok) throw new Error("数据加载失败");
   return r.json();
 }

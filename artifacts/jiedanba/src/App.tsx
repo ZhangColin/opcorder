@@ -186,7 +186,9 @@ function Router() {
       {/* 公开路由 */}
       <Route path="/login" component={Login} />
       <Route path="/auth/:role" component={Auth} />
-      <Route path="/screen" component={ScreenDisplay} />
+      <Route path="/screen">
+        {() => <AdminGate><ScreenDisplay /></AdminGate>}
+      </Route>
 
       {/* 管理员专属 */}
       <Route path="/admin">
