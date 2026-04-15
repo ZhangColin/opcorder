@@ -518,8 +518,11 @@ export default function ScreenDisplay() {
         {/* ════ MAIN CONTENT ════ */}
         <div style={{ zIndex:1, flex:1, minHeight:0, display:"flex", gap:9, padding:"0 32px" }}>
 
-          {/* ── Left: Chart carousel ── */}
-          <Panel style={{ flex:60, display:"flex", flexDirection:"column", overflow:"hidden", padding:"14px 20px 12px" }}>
+          {/* ── Left column: chart on top, 3 info panels below ── */}
+          <div style={{ flex:60, display:"flex", flexDirection:"column", gap:9, minHeight:0 }}>
+
+          {/* Chart carousel */}
+          <Panel style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", overflow:"hidden", padding:"14px 20px 12px" }}>
             {/* Tab bar */}
             <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
               <div style={{ display:"flex", gap:6 }}>
@@ -595,43 +598,33 @@ export default function ScreenDisplay() {
             </div>
           </Panel>
 
-          {/* ── Right: Today + Feed + Progress + Ring ── */}
-          <div style={{ flex:40, display:"flex", flexDirection:"column", gap:9, minHeight:0 }}>
+          {/* ── Bottom info strip: 3 panels side by side ── */}
+          <div style={{ flexShrink:0, display:"flex", gap:9, height:148 }}>
 
             {/* Today's highlights */}
-            <Panel style={{ flexShrink:0, padding:"12px 16px" }}>
+            <Panel style={{ flex:3, padding:"11px 14px", display:"flex", flexDirection:"column" }}>
               <SectionLabel title="今日实时新增" color={C.green} live />
-              <div style={{ display:"flex", gap:8 }}>
-                <TodayStat label="新用户" value={today.newUsers}   accent={C.cyan}   icon="👤" />
-                <TodayStat label="新需求" value={today.newDemands} accent={C.teal}   icon="📋" />
-                <TodayStat label="新订单" value={today.newOrders}  accent={C.green}  icon="🤝" />
+              <div style={{ flex:1, display:"flex", gap:8, alignItems:"stretch" }}>
+                <TodayStat label="新用户" value={today.newUsers}   accent={C.cyan}  icon="👤" />
+                <TodayStat label="新需求" value={today.newDemands} accent={C.teal}  icon="📋" />
+                <TodayStat label="新订单" value={today.newOrders}  accent={C.green} icon="🤝" />
               </div>
-            </Panel>
-
-            {/* Activity feed (scrolling) */}
-            <Panel style={{ flex:1, minHeight:0, padding:"12px 16px", display:"flex", flexDirection:"column" }}>
-              <SectionLabel title="实时动态" color={C.cyan} live />
-              {data
-                ? <ActivityFeed ticker1={data.ticker1} ticker2={data.ticker2} />
-                : <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:C.dim, fontSize:12 }}>加载中…</div>
-              }
             </Panel>
 
             {/* Demand progress */}
-            <Panel style={{ flexShrink:0, padding:"12px 16px" }}>
+            <Panel style={{ flex:5, padding:"11px 14px", display:"flex", flexDirection:"column" }}>
               <SectionLabel title="需求全周期进度" />
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"space-around" }}>
                 {(data?.demandStatusChart ?? []).map((d, i) => (
                   <DemandProgress key={d.status} label={d.label} value={d.value}
-                    total={totalDemands} color={D_COLORS[d.status] ?? PIE_COLORS[i%PIE_COLORS.length]} delay={i*70} />
+                    total={totalDemands} color={D_COLORS[d.status] ?? PIE_COLORS[i%PIE_COLORS.length]} delay={i*60} />
                 ))}
               </div>
               {data && (
-                <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${LINE}`,
-                  display:"flex", justifyContent:"space-between", fontSize:11, color:C.dim }}>
+                <div style={{ paddingTop:6, borderTop:`1px solid ${LINE}`, display:"flex",
+                  justifyContent:"space-between", fontSize:10.5, color:C.dim, flexShrink:0 }}>
                   <span>需求总计</span>
-                  <span style={{ fontWeight:800, color:C.cyan,
-                    textShadow:`0 0 10px rgba(${rgb(C.cyan)},0.5)` }}>
+                  <span style={{ fontWeight:800, color:C.cyan, textShadow:`0 0 8px rgba(${rgb(C.cyan)},0.5)` }}>
                     {totalDemands} 条
                   </span>
                 </div>
@@ -639,48 +632,53 @@ export default function ScreenDisplay() {
             </Panel>
 
             {/* Completion rate + settlement */}
-            <Panel style={{ flexShrink:0, padding:"11px 16px", display:"flex", alignItems:"center", gap:14 }}>
-              {/* SVG ring */}
-              <div style={{ position:"relative", width:64, height:64, flexShrink:0 }}>
-                <svg width={64} height={64} style={{ transform:"rotate(-90deg)" }}>
-                  <circle cx={32} cy={32} r={26} fill="none" stroke={`rgba(${rgb(C.green)},0.1)`} strokeWidth={5.5} />
-                  <circle cx={32} cy={32} r={26} fill="none" stroke={C.green}
-                    strokeWidth={5.5} strokeDasharray={2*Math.PI*26}
-                    strokeDashoffset={2*Math.PI*26*(1-(kpi?.completionRate??0)/100)}
+            <Panel style={{ flex:3, padding:"11px 14px", display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ position:"relative", width:60, height:60, flexShrink:0 }}>
+                <svg width={60} height={60} style={{ transform:"rotate(-90deg)" }}>
+                  <circle cx={30} cy={30} r={24} fill="none" stroke={`rgba(${rgb(C.green)},0.1)`} strokeWidth={5} />
+                  <circle cx={30} cy={30} r={24} fill="none" stroke={C.green}
+                    strokeWidth={5} strokeDasharray={2*Math.PI*24}
+                    strokeDashoffset={2*Math.PI*24*(1-(kpi?.completionRate??0)/100)}
                     strokeLinecap="round"
-                    style={{ transition:"stroke-dashoffset 1.2s ease",
-                      filter:`drop-shadow(0 0 5px ${C.green})` }} />
+                    style={{ transition:"stroke-dashoffset 1.2s ease", filter:`drop-shadow(0 0 5px ${C.green})` }} />
                 </svg>
                 <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <span style={{ fontSize:13, fontWeight:900, color:C.green,
-                    textShadow:`0 0 12px rgba(${rgb(C.green)},0.6)` }}>
+                  <span style={{ fontSize:12, fontWeight:900, color:C.green, textShadow:`0 0 12px rgba(${rgb(C.green)},0.6)` }}>
                     {kpi?.completionRate ?? 0}%
                   </span>
                 </div>
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, fontWeight:800, color:C.dim, letterSpacing:"0.06em", textTransform:"uppercase" }}>
-                  订单完成率
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.06em", textTransform:"uppercase" }}>订单完成率</div>
+                <div style={{ fontSize:10.5, color:C.dim, marginTop:2 }}>
+                  完成 <span style={{ color:C.green, fontWeight:700 }}>{kpi?.completedOrders ?? 0}</span> ·
+                  进行中 <span style={{ color:C.teal, fontWeight:700 }}>{kpi?.inProgressOrders ?? 0}</span>
                 </div>
-                <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>
-                  已完成 <span style={{ color:C.green, fontWeight:700 }}>{kpi?.completedOrders ?? 0}</span> 单 ·
-                  进行中 <span style={{ color:C.teal, fontWeight:700 }}>{kpi?.inProgressOrders ?? 0}</span> 单
-                </div>
-              </div>
-              <div style={{ borderLeft:`1px solid ${LINE}`, paddingLeft:14 }}>
-                <div style={{ fontSize:10, color:C.dim, letterSpacing:"0.05em" }}>累计结算</div>
-                <div style={{ fontSize:20, fontWeight:900, color:C.amber, marginTop:2,
-                  textShadow:`0 0 14px rgba(${rgb(C.amber)},0.5)` }}>
-                  {kpi
-                    ? kpi.totalSettled >= 10000
-                      ? `${(kpi.totalSettled/10000).toFixed(1)}万`
-                      : kpi.totalSettled.toLocaleString("zh-CN")
-                    : "—"}
-                  <span style={{ fontSize:11, fontWeight:400, color:C.dim, marginLeft:3 }}>元</span>
+                <div style={{ borderTop:`1px solid ${LINE}`, marginTop:8, paddingTop:7 }}>
+                  <div style={{ fontSize:10, color:C.dim }}>累计结算</div>
+                  <div style={{ fontSize:18, fontWeight:900, color:C.amber, lineHeight:1.1,
+                    textShadow:`0 0 14px rgba(${rgb(C.amber)},0.5)` }}>
+                    {kpi ? (kpi.totalSettled >= 10000 ? `${(kpi.totalSettled/10000).toFixed(1)}万` : kpi.totalSettled.toLocaleString("zh-CN")) : "—"}
+                    <span style={{ fontSize:11, fontWeight:400, color:C.dim, marginLeft:3 }}>元</span>
+                  </div>
                 </div>
               </div>
             </Panel>
+
           </div>
+
+          {/* close left column */}
+          </div>
+
+          {/* ── Right: Activity feed only (full height) ── */}
+          <Panel style={{ flex:40, display:"flex", flexDirection:"column", overflow:"hidden", padding:"14px 16px" }}>
+            <SectionLabel title="实时动态" color={C.cyan} live />
+            {data
+              ? <ActivityFeed ticker1={data.ticker1} ticker2={data.ticker2} />
+              : <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:C.dim, fontSize:12 }}>加载中…</div>
+            }
+          </Panel>
+
         </div>
 
         {/* ════ TICKERS ════ */}
