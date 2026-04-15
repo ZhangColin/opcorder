@@ -966,6 +966,16 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
     onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
+  const confirmOnlineRefundMut = useMutation({
+    mutationFn: () => adminPost(`/api/admin/demands/${id}/confirm-online-refund`, {}),
+    onSuccess: () => {
+      toast({ title: "在线退款已确认", description: "需求状态已更新为已退款，发单方已收到通知" });
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-demands"] });
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
   const handleRefundReceiptUpload = async (file: File) => {
     setOfflineRefundUploading(true);
     try {
@@ -1117,6 +1127,21 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors"
                   >
                     <CheckCircle2 size={13} /> 确认线下退款
+                  </button>
+                )}
+                {d.status === "refunding" && d.payment?.method === "online" && (
+                  <button
+                    disabled={confirmOnlineRefundMut.isPending}
+                    onClick={() => askConfirm({
+                      title: "手动确认在线退款",
+                      description: `确认「${d.title}」的在线退款已到账？此操作将直接更新状态为已退款并通知发单方。`,
+                      confirmLabel: "确认到账",
+                      onConfirm: () => confirmOnlineRefundMut.mutate(),
+                    })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
+                    {confirmOnlineRefundMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                    确认在线退款到账
                   </button>
                 )}
               </div>

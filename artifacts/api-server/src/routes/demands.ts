@@ -11,7 +11,7 @@ import {
   CreateDemandPaymentInput,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
-import { createPaymentOrder, queryPaymentStatus, queryRefundStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
+import { createPaymentOrder, queryPaymentStatus, queryRefundStatus, isRefundSuccess, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
 
 const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
@@ -841,9 +841,8 @@ router.post("/demands/:demandId/sync-refund-status", requireAuth, async (req, re
     }
 
     const result = await queryRefundStatus(payment.refundOrderNo);
-    const statusUpper = (result.status ?? "").toUpperCase();
 
-    if (statusUpper === "SUCCESS" || statusUpper === "REFUNDED") {
+    if (isRefundSuccess(result)) {
       const now = new Date();
       await db.transaction(async (tx) => {
         await tx.update(demandPaymentsTable).set({ status: "refunded", refundedAt: now })
@@ -860,7 +859,7 @@ router.post("/demands/:demandId/sync-refund-status", requireAuth, async (req, re
       return res.json({ status: "refunded", synced: true });
     }
 
-    return res.json({ status: demand.status, refundStatus: result.status, synced: false });
+    return res.json({ status: demand.status, refundStatus: result.status, refundStatusName: result.statusName, synced: false });
   } catch (err) {
     console.error("[sync-refund-status] error:", err);
     res.status(500).json({ error: "查询退款状态失败" });

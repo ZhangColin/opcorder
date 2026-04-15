@@ -134,10 +134,36 @@ export async function queryPaymentStatus(paymentOrderNo: string): Promise<Paymen
   return json.data;
 }
 
+/**
+ * Refund status codes (integer):
+ *   1 = 待审核      (pending audit)
+ *   2 = 审核通过    (audit approved / processing)
+ *   3 = 退款中      (processing)
+ *   4 = 退款失败    (failed)
+ *   5 = 退款成功    (success)
+ */
+export const REFUND_STATUS = {
+  PENDING_AUDIT:  1,
+  AUDIT_APPROVED: 2,
+  PROCESSING:     3,
+  FAILED:         4,
+  SUCCESS:        5,
+} as const;
+
 export interface RefundResult {
   refundOrderNo: string;
-  status: string;   // e.g. "PROCESSING", "SUCCESS", "FAILED"
-  amount: number;
+  status: number;
+  statusName: string;
+  refundAmount?: number;
+  amount?: number;
+}
+
+export function isRefundSuccess(r: RefundResult): boolean {
+  return r.status === REFUND_STATUS.SUCCESS || r.statusName === "退款成功";
+}
+
+export function isRefundFailed(r: RefundResult): boolean {
+  return r.status === REFUND_STATUS.FAILED || r.statusName === "退款失败";
 }
 
 export async function queryRefundStatus(refundOrderNo: string): Promise<RefundResult> {

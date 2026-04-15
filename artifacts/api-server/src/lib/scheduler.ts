@@ -10,7 +10,7 @@ import {
 } from "@workspace/db";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { logger } from "./logger";
-import { queryRefundStatus } from "./payment";
+import { queryRefundStatus, isRefundSuccess, isRefundFailed } from "./payment";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -183,9 +183,8 @@ async function pollOnlineRefundStatus() {
       if (!p.refundOrderNo) continue;
       try {
         const result = await queryRefundStatus(p.refundOrderNo);
-        const statusUpper = (result.status ?? "").toUpperCase();
 
-        if (statusUpper === "SUCCESS" || statusUpper === "REFUNDED") {
+        if (isRefundSuccess(result)) {
           const now = new Date();
           const [demand] = await db
             .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
@@ -223,10 +222,10 @@ async function pollOnlineRefundStatus() {
           });
 
           logger.info({ paymentId: p.id, demandId: p.demandId, refundOrderNo: p.refundOrderNo }, "Online refund confirmed via polling");
-        } else if (statusUpper === "FAILED" || statusUpper === "FAIL") {
-          logger.warn({ paymentId: p.id, refundOrderNo: p.refundOrderNo, status: result.status }, "Online refund failed via polling");
+        } else if (isRefundFailed(result)) {
+          logger.warn({ paymentId: p.id, refundOrderNo: p.refundOrderNo, status: result.status, statusName: result.statusName }, "Online refund failed via polling");
         } else {
-          logger.info({ paymentId: p.id, refundOrderNo: p.refundOrderNo, status: result.status }, "Online refund still processing");
+          logger.info({ paymentId: p.id, refundOrderNo: p.refundOrderNo, status: result.status, statusName: result.statusName }, "Online refund still processing");
         }
       } catch (innerErr) {
         logger.error({ err: innerErr, paymentId: p.id, refundOrderNo: p.refundOrderNo }, "Failed to query refund status");

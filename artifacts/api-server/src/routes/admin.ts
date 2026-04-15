@@ -1964,4 +1964,69 @@ router.post("/admin/demands/:id/confirm-offline-refund", requireAdmin, async (re
   }
 });
 
+/** Admin manually confirms an online refund (fallback when payment API query fails) */
+router.post("/admin/demands/:id/confirm-online-refund", requireAdmin, async (req, res) => {
+  try {
+    const demandId = Number(req.params.id);
+
+    const [demand] = await db
+      .select()
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (demand.status !== "refunding") {
+      return res.status(409).json({ error: "该需求当前不处于退款中状态" });
+    }
+
+    const [payment] = await db
+      .select()
+      .from(demandPaymentsTable)
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "refunding")))
+      .limit(1);
+
+    if (!payment) return res.status(404).json({ error: "未找到退款中的保证金记录" });
+    if (payment.method !== "online") {
+      return res.status(400).json({ error: "只有在线支付的退款才使用此接口" });
+    }
+
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx.update(demandPaymentsTable).set({
+        status: "refunded",
+        refundedAt: now,
+      }).where(eq(demandPaymentsTable.id, payment.id));
+
+      await tx.update(demandsTable).set({ status: "refunded", updatedAt: now })
+        .where(eq(demandsTable.id, demandId));
+
+      if (demand.publisherId) {
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId, type: "system",
+          title: "保证金已退款成功",
+          content: `您的需求「${demand.title}」的保证金已成功退还，请确认到账情况。如有问题请联系平台客服。`,
+          relatedId: demandId, relatedType: "demand",
+        });
+      }
+
+      const [pub] = await tx.select({ nickname: usersTable.nickname, email: usersTable.email })
+        .from(usersTable).where(eq(usersTable.id, demand.publisherId)).limit(1);
+      if (pub?.email) {
+        await resend.emails.send({
+          from: "接单吧 <noreply@opcorder.com>", to: pub.email,
+          subject: `保证金已退款 — 需求「${demand.title}」`,
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${demand.title}」的保证金已成功退还，请确认到账情况。如有问题请联系平台客服。`),
+        }).catch(() => {});
+      }
+    });
+
+    res.json({ success: true, refundedAt: now.toISOString() });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "操作失败";
+    console.error("[admin-confirm-online-refund] error:", err);
+    res.status(500).json({ error: msg });
+  }
+});
+
 export default router;
