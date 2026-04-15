@@ -170,7 +170,7 @@ function PaymentModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity ${closing ? "opacity-0" : "opacity-100"}`}
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity ${closing ? "opacity-0" : "opacity-100"}`}
       onClick={onClose}
     >
       <div
