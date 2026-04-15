@@ -1,8 +1,17 @@
 import { Router, type IRouter } from "express";
+import { rateLimit } from "express-rate-limit";
 import { db, usersTable, demandsTable, ordersTable, portfoliosTable, opcProfilesTable } from "@workspace/db";
 import { eq, gte, sql, count, and, inArray, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+const screenLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "请求过于频繁，请稍后再试" },
+});
 
 function daysAgo(n: number): Date {
   const d = new Date();
@@ -25,7 +34,7 @@ function buildDailyBuckets(days: number): Record<string, number> {
   return buckets;
 }
 
-router.get("/screen", async (_req, res) => {
+router.get("/screen", screenLimiter, async (_req, res) => {
   try {
     const DAYS = 14;
     const since14 = daysAgo(DAYS);
