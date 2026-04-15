@@ -294,5 +294,37 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 004e: could not bootstrap super admins");
   }
 
+  // Migration 005a: add refund_pending and refunded to payment_status enum (CRITICAL)
+  // Required for course enrollment refund flow
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'paid';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'refund_pending';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 005a: could not add refund values to payment_status enum");
+    if (!isDev) throw new Error(`Migration 005a failed in production: ${err}`);
+  }
+
+  // Migration 005b: add refund tracking columns to enrollments table (CRITICAL)
+  try {
+    await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_reason text`);
+    await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_requested_at timestamp`);
+    await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_order_no varchar(100)`);
+    await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refunded_at timestamp`);
+    await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_reject_reason text`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 005b: could not add refund columns to enrollments");
+    if (!isDev) throw new Error(`Migration 005b failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

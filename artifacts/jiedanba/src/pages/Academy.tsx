@@ -6,6 +6,7 @@ import {
   BookOpen, ArrowRight, PlayCircle, Loader2, Award,
   CreditCard, BadgeCheck, AlertCircle, X, Clock,
   Users, GraduationCap, CheckCircle, Eye, ExternalLink,
+  RotateCcw, RefreshCw, BookMarked,
 } from "lucide-react";
 import {
   useGetCurrentUser, useGetOpcProfile,
@@ -275,6 +276,179 @@ function DocPreviewModal({ url, onClose }: { url: string; onClose: () => void })
           通过 Google Docs 在线渲染预览 · 需要网络连接
         </p>
       )}
+    </div>
+  );
+}
+
+/* ─── Refund Request Modal ───────────────────────── */
+
+function RefundRequestModal({
+  courseName,
+  onClose,
+  onSubmit,
+  isSubmitting,
+}: {
+  courseName: string;
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+  isSubmitting: boolean;
+}) {
+  const [reason, setReason] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border/40">
+          <div>
+            <h3 className="text-base font-bold text-foreground">申请退款</h3>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{courseName}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center text-muted-foreground transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">退款原因</label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="请说明申请退款的原因…"
+              rows={4}
+              className="w-full px-4 py-3 text-sm border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+            />
+          </div>
+          <div className="flex items-center gap-3 justify-end">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">取消</button>
+            <button
+              onClick={() => { if (reason.trim()) onSubmit(reason.trim()); }}
+              disabled={!reason.trim() || isSubmitting}
+              className="flex items-center gap-2 px-5 py-2 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50"
+            >
+              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              {isSubmitting ? "提交中…" : "提交申请"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── My Course Card ─────────────────────────────── */
+
+const MY_COURSE_STATUS: Record<string, { label: string; color: string }> = {
+  pending:       { label: "待支付", color: "bg-amber-100 text-amber-700" },
+  paid:          { label: "已支付", color: "bg-green-100 text-green-700" },
+  refund_pending:{ label: "退款审核中", color: "bg-orange-100 text-orange-700" },
+  free:          { label: "已报名", color: "bg-blue-100 text-blue-700" },
+  refunded:      { label: "已退款", color: "bg-slate-100 text-slate-500" },
+};
+
+function MyCourseCard({
+  enrollment,
+  isPayingId,
+  isRefundingId,
+  onPay,
+  onRequestRefund,
+  onViewDetail,
+}: {
+  enrollment: {
+    id: number;
+    courseId: number;
+    paymentStatus: string;
+    progressPct: number;
+    refundRejectReason?: string | null;
+    course?: { id: number; title: string; category: string; durationMinutes: number; instructor?: string | null; price: number; description: string };
+  };
+  isPayingId: number | null;
+  isRefundingId: number | null;
+  onPay: (courseId: number) => void;
+  onRequestRefund: (courseId: number, courseName: string) => void;
+  onViewDetail: (course: { id: number; title: string; category: string; durationMinutes: number; instructor?: string | null; price: number; description: string; [key: string]: unknown }) => void;
+}) {
+  const course = (enrollment as any).course;
+  const status = enrollment.paymentStatus;
+  const badge = MY_COURSE_STATUS[status] ?? { label: status, color: "bg-slate-100 text-slate-500" };
+  const Icon = COURSE_ICONS[course?.category ?? "tech"] ?? BookOpen;
+  const grad = COURSE_GRADS[course?.category ?? "tech"] ?? "from-blue-700 to-indigo-900";
+
+  return (
+    <div className="group bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 border border-border/40">
+      <button
+        className={`relative h-32 w-full bg-gradient-to-br ${grad} flex items-center justify-center overflow-hidden cursor-pointer`}
+        onClick={() => course && onViewDetail(course)}
+      >
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "20px 20px" }} />
+        <Icon size={40} className="text-white/50" />
+        <div className={`absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.color}`}>
+          {badge.label}
+        </div>
+        {enrollment.progressPct > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/20">
+            <div className="h-full bg-[#4dffb2] transition-all" style={{ width: `${enrollment.progressPct}%` }} />
+          </div>
+        )}
+      </button>
+
+      <div className="p-5">
+        <div className="flex items-center gap-2 mb-1.5 text-xs text-muted-foreground">
+          <span className="font-semibold">{CATEGORY_LABELS[course?.category ?? ""] ?? "课程"}</span>
+          {course?.durationMinutes && <span>· {durationLabel(course.durationMinutes)}</span>}
+          {course?.instructor && <span>· {course.instructor}</span>}
+        </div>
+        <h4 className="text-base font-bold text-foreground leading-tight mb-3 line-clamp-2">{course?.title ?? `课程 #${enrollment.courseId}`}</h4>
+
+        {enrollment.refundRejectReason && (
+          <div className="mb-3 px-3 py-2 bg-red-50 border border-red-100 rounded-xl">
+            <p className="text-xs text-red-600"><span className="font-bold">退款被拒：</span>{enrollment.refundRejectReason}</p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-extrabold text-primary">
+            {course?.price ? `¥${course.price.toFixed(0)}` : "免费"}
+          </div>
+          <div className="flex items-center gap-2">
+            {status === "pending" && (
+              <button
+                onClick={() => onPay(enrollment.courseId)}
+                disabled={isPayingId === enrollment.courseId}
+                className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white font-bold text-xs rounded-xl hover:bg-amber-600 transition-all disabled:opacity-50"
+              >
+                {isPayingId === enrollment.courseId ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
+                立即支付
+              </button>
+            )}
+            {status === "paid" && (
+              <button
+                onClick={() => onRequestRefund(enrollment.courseId, course?.title ?? `课程 #${enrollment.courseId}`)}
+                disabled={isRefundingId === enrollment.courseId}
+                className="flex items-center gap-1 px-3 py-1.5 bg-muted text-muted-foreground font-bold text-xs rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-border/40 transition-all disabled:opacity-50"
+              >
+                <RotateCcw size={12} />
+                申请退款
+              </button>
+            )}
+            {(status === "free" || status === "paid") && (
+              <button
+                onClick={() => course && onViewDetail(course)}
+                className="text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all"
+              >
+                <PlayCircle size={14} /> {enrollment.progressPct > 0 ? "继续学习" : "开始学习"}
+              </button>
+            )}
+            {status === "refund_pending" && (
+              <span className="text-xs text-orange-600 font-semibold flex items-center gap-1">
+                <RefreshCw size={12} className="animate-spin" /> 审核中
+              </span>
+            )}
+            {status === "refunded" && (
+              <span className="text-xs text-slate-400 font-semibold">已退款</span>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -569,15 +743,10 @@ function CourseCard({
               </button>
             ) : (
               <button
-                onClick={() => onEnroll(course.id)}
-                disabled={isEnrolling}
-                className="text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all disabled:opacity-50"
+                onClick={() => onViewDetail(course)}
+                className="text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all"
               >
-                {isEnrolling ? (
-                  <><Loader2 size={14} className="animate-spin" /> 报名中</>
-                ) : (
-                  <>开始学习 <ArrowRight size={14} /></>
-                )}
+                开始学习 <ArrowRight size={14} />
               </button>
             )}
           </div>
@@ -596,14 +765,18 @@ function CourseCard({
 /* ─── Main Page ────────────────────────────────── */
 
 type CourseFilter = "all" | "tech" | "strategy" | "compliance" | "operations";
+type CourseTab = "library" | "mine";
 
 export default function Academy() {
   const [courseFilter, setCourseFilter] = useState<CourseFilter>("all");
+  const [courseTab, setCourseTab]       = useState<CourseTab>("library");
   const [enrollingId, setEnrollingId]   = useState<number | null>(null);
   const [payingId, setPayingId]         = useState<number | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [paymentModal, setPaymentModal] = useState<PaymentModalData | null>(null);
   const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
+  const [refundModal, setRefundModal]   = useState<{ courseId: number; courseName: string } | null>(null);
+  const [isRefunding, setIsRefunding]   = useState(false);
   const qc = useQueryClient();
 
   const { data: user }    = useGetCurrentUser();
@@ -714,6 +887,44 @@ export default function Academy() {
     toast({ title: "支付成功！", description: "课程已解锁，开始学习吧" });
   };
 
+  const handleRefundRequest = async (courseId: number, reason: string) => {
+    if (!user?.id) return;
+    setIsRefunding(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${BASE}/api/courses/${courseId}/request-refund`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        toast({ title: "申请失败", description: err.error ?? "请稍后重试", variant: "destructive" });
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ["/api/courses/my-enrollments"] });
+      setRefundModal(null);
+      toast({ title: "退款申请已提交", description: "审核通过后将自动退款，请耐心等待" });
+    } catch {
+      toast({ title: "网络错误", description: "无法连接服务器，请检查网络", variant: "destructive" });
+    } finally {
+      setIsRefunding(false);
+    }
+  };
+
+  const myEnrollments = enrollments.filter(e => {
+    const ps = (e as any).paymentStatus ?? "free";
+    if (!["pending", "paid", "refund_pending", "refunded"].includes(ps)) return false;
+    if (courseFilter !== "all") {
+      const cat = (e as any).course?.category;
+      if (cat && cat !== courseFilter) return false;
+    }
+    return true;
+  });
+
   const inProgress = enrollments.filter(e => e.progressPct > 0 && e.progressPct < 100).slice(0, 2);
 
   return (
@@ -744,6 +955,15 @@ export default function Academy() {
           isEnrolling={enrollingId === selectedCourse.id}
           isPaying={payingId === selectedCourse.id}
           isLoggedIn={!!user}
+        />
+      )}
+
+      {refundModal && (
+        <RefundRequestModal
+          courseName={refundModal.courseName}
+          onClose={() => setRefundModal(null)}
+          onSubmit={(reason) => handleRefundRequest(refundModal.courseId, reason)}
+          isSubmitting={isRefunding}
         />
       )}
 
@@ -820,14 +1040,37 @@ export default function Academy() {
         {/* Left 8-col */}
         <div className="col-span-12 lg:col-span-8 space-y-12">
 
-          {/* Course Library */}
+          {/* Course Library / My Courses */}
           <section>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-extrabold font-display text-primary">课程库</h2>
-              <div className="flex gap-2">
-                {(["all", "tech", "strategy", "compliance"] as CourseFilter[]).map(f => (
+            {/* Tab header + category filter */}
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+              <div className="flex items-center bg-muted/60 rounded-2xl p-1 gap-1">
+                <button
+                  onClick={() => setCourseTab("library")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    courseTab === "library" ? "bg-white text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <BookOpen size={14} /> 课程库
+                </button>
+                <button
+                  onClick={() => setCourseTab("mine")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    courseTab === "mine" ? "bg-white text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <BookMarked size={14} /> 我的课程
+                  {myEnrollments.length > 0 && (
+                    <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      courseTab === "mine" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                    }`}>{myEnrollments.length}</span>
+                  )}
+                </button>
+              </div>
+              <div className="flex gap-1.5">
+                {(["all", "tech", "strategy", "compliance", "operations"] as CourseFilter[]).map(f => (
                   <button key={f} onClick={() => setCourseFilter(f)}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
                       courseFilter === f ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"
                     }`}>
                     {f === "all" ? "全部" : CATEGORY_LABELS[f]}
@@ -836,25 +1079,58 @@ export default function Academy() {
               </div>
             </div>
 
-            {coursesLoading ? (
-              <div className="flex items-center justify-center py-20 text-muted-foreground">
-                <Loader2 size={24} className="animate-spin mr-2" /> 加载课程中…
-              </div>
+            {courseTab === "library" ? (
+              coursesLoading ? (
+                <div className="flex items-center justify-center py-20 text-muted-foreground">
+                  <Loader2 size={24} className="animate-spin mr-2" /> 加载课程中…
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {courses.map(course => (
+                    <CourseCard
+                      key={course.id}
+                      course={course}
+                      enrollment={(enrollmentMap.get(course.id) as EnrollmentInfo | undefined) ?? null}
+                      isEnrolling={enrollingId === course.id}
+                      isPaying={payingId === course.id}
+                      onEnroll={handleEnroll}
+                      onPay={handlePay}
+                      onViewDetail={setSelectedCourse}
+                    />
+                  ))}
+                </div>
+              )
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {courses.map(course => (
-                  <CourseCard
-                    key={course.id}
-                    course={course}
-                    enrollment={(enrollmentMap.get(course.id) as EnrollmentInfo | undefined) ?? null}
-                    isEnrolling={enrollingId === course.id}
-                    isPaying={payingId === course.id}
-                    onEnroll={handleEnroll}
-                    onPay={handlePay}
-                    onViewDetail={setSelectedCourse}
-                  />
-                ))}
-              </div>
+              myEnrollments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-white rounded-2xl border border-border/40">
+                  <BookMarked size={32} className="mb-3 opacity-30" />
+                  <p className="text-sm font-semibold">
+                    {user ? "暂无已报名的课程" : "请先登录查看报名记录"}
+                  </p>
+                  {user && (
+                    <button
+                      onClick={() => setCourseTab("library")}
+                      className="mt-4 flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all"
+                    >
+                      <BookOpen size={14} /> 浏览课程库
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {myEnrollments.map(e => (
+                    <MyCourseCard
+                      key={e.id}
+                      enrollment={e as any}
+                      isPayingId={payingId}
+                      isRefundingId={isRefunding ? (refundModal?.courseId ?? null) : null}
+                      onPay={handlePay}
+                      onRequestRefund={(courseId, courseName) => setRefundModal({ courseId, courseName })}
+                      onViewDetail={(course) => setSelectedCourse(course as any)}
+                    />
+                  ))}
+                </div>
+              )
             )}
           </section>
 

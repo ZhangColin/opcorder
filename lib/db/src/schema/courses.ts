@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 export const courseCategoryEnum = pgEnum("course_category", ["tech", "strategy", "compliance", "operations"]);
 export const courseLevelEnum = pgEnum("course_level", ["C", "B", "A"]);
 export const courseStatusEnum = pgEnum("course_status", ["draft", "published", "closed"]);
-export const paymentStatusEnum = pgEnum("payment_status", ["free", "pending", "paid"]);
+export const paymentStatusEnum = pgEnum("payment_status", ["free", "pending", "paid", "refund_pending", "refunded"]);
 
 export const coursesTable = pgTable("courses", {
   id: serial("id").primaryKey(),
@@ -38,6 +38,11 @@ export const enrollmentsTable = pgTable("enrollments", {
   paymentOrderNo: varchar("payment_order_no", { length: 100 }),
   certIssued: boolean("cert_issued").notNull().default(false),
   certIssuedAt: timestamp("cert_issued_at"),
+  refundReason: text("refund_reason"),
+  refundRequestedAt: timestamp("refund_requested_at"),
+  refundOrderNo: varchar("refund_order_no", { length: 100 }),
+  refundedAt: timestamp("refunded_at"),
+  refundRejectReason: text("refund_reject_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

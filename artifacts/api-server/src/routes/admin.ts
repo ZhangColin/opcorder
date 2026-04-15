@@ -883,6 +883,153 @@ router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res)
   }
 });
 
+/* ─── COURSE REFUND MANAGEMENT ─────────────────── */
+
+/** List all pending course refund requests */
+router.get("/admin/training/refunds", requireAdmin, async (req, res) => {
+  try {
+    const rows = await db
+      .select({
+        enrollment: enrollmentsTable,
+        course: coursesTable,
+        user: {
+          id: usersTable.id,
+          nickname: usersTable.nickname,
+          email: usersTable.email,
+        },
+      })
+      .from(enrollmentsTable)
+      .leftJoin(coursesTable, eq(enrollmentsTable.courseId, coursesTable.id))
+      .leftJoin(usersTable, eq(enrollmentsTable.userId, usersTable.id))
+      .where(eq(enrollmentsTable.paymentStatus, "refund_pending"))
+      .orderBy(desc(enrollmentsTable.refundRequestedAt));
+
+    res.json(rows.map(({ enrollment, course, user }) => ({
+      id: enrollment.id,
+      courseId: enrollment.courseId,
+      courseTitle: course?.title ?? null,
+      courseCategory: course?.category ?? null,
+      coursePrice: course?.price ?? null,
+      userId: enrollment.userId,
+      userNickname: user?.nickname ?? null,
+      userEmail: user?.email ?? null,
+      paymentStatus: enrollment.paymentStatus,
+      paymentOrderNo: enrollment.paymentOrderNo ?? null,
+      refundReason: enrollment.refundReason ?? null,
+      refundRequestedAt: enrollment.refundRequestedAt?.toISOString() ?? null,
+      refundRejectReason: enrollment.refundRejectReason ?? null,
+      createdAt: enrollment.createdAt.toISOString(),
+    })));
+  } catch (err) {
+    console.error("[admin-course-refunds]", err);
+    res.status(500).json({ error: "获取退款列表失败" });
+  }
+});
+
+/** Admin approves a course enrollment refund request */
+router.post("/admin/training/enrollments/:enrollId/approve-refund", requireAdmin, async (req, res) => {
+  try {
+    const enrollId = Number(req.params.enrollId);
+
+    const [enrollment] = await db
+      .select({ enrollment: enrollmentsTable, course: coursesTable, user: usersTable })
+      .from(enrollmentsTable)
+      .leftJoin(coursesTable, eq(enrollmentsTable.courseId, coursesTable.id))
+      .leftJoin(usersTable, eq(enrollmentsTable.userId, usersTable.id))
+      .where(eq(enrollmentsTable.id, enrollId));
+
+    if (!enrollment) return res.status(404).json({ error: "报名记录不存在" });
+    if (enrollment.enrollment.paymentStatus !== "refund_pending") {
+      return res.status(409).json({ error: "该报名记录当前不处于退款审核中" });
+    }
+    if (!enrollment.enrollment.paymentOrderNo) {
+      return res.status(400).json({ error: "缺少支付订单号，无法发起退款" });
+    }
+
+    const amountFen = Math.round((enrollment.course?.price ?? 0) * 100);
+    const businessOrderNo = `COURSE-REFUND-${enrollId}-${Date.now()}`;
+
+    const refundResult = await createRefund({
+      paymentOrderNo: enrollment.enrollment.paymentOrderNo,
+      amount: amountFen,
+      reason: enrollment.enrollment.refundReason ?? "课程退款",
+      businessOrderNo,
+      notifyUrl: "https://www.opcorder.com/api/payment/refund-callback",
+      needAudit: false,
+    });
+
+    await db.update(enrollmentsTable)
+      .set({
+        paymentStatus: "refunded",
+        refundOrderNo: refundResult.refundOrderNo,
+        refundedAt: new Date(),
+      })
+      .where(eq(enrollmentsTable.id, enrollId));
+
+    if (enrollment.user?.id) {
+      await db.insert(notificationsTable).values({
+        userId: enrollment.user.id,
+        type: "system",
+        title: "课程退款已完成",
+        content: `您申请的课程「${enrollment.course?.title ?? ""}」退款申请已通过，退款将在1-5个工作日内到账。`,
+        relatedId: enrollment.enrollment.courseId,
+        relatedType: "course",
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, refundOrderNo: refundResult.refundOrderNo });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "操作失败";
+    console.error("[admin-approve-course-refund]", err);
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** Admin rejects a course enrollment refund request */
+router.post("/admin/training/enrollments/:enrollId/reject-refund", requireAdmin, async (req, res) => {
+  try {
+    const enrollId = Number(req.params.enrollId);
+    const { reason } = req.body as { reason?: string };
+    if (!reason?.trim()) return res.status(400).json({ error: "请填写拒绝原因" });
+
+    const [enrollment] = await db
+      .select({ enrollment: enrollmentsTable, course: coursesTable, user: usersTable })
+      .from(enrollmentsTable)
+      .leftJoin(coursesTable, eq(enrollmentsTable.courseId, coursesTable.id))
+      .leftJoin(usersTable, eq(enrollmentsTable.userId, usersTable.id))
+      .where(eq(enrollmentsTable.id, enrollId));
+
+    if (!enrollment) return res.status(404).json({ error: "报名记录不存在" });
+    if (enrollment.enrollment.paymentStatus !== "refund_pending") {
+      return res.status(409).json({ error: "该报名记录当前不处于退款审核中" });
+    }
+
+    await db.update(enrollmentsTable)
+      .set({
+        paymentStatus: "paid",
+        refundRejectReason: reason.trim(),
+      })
+      .where(eq(enrollmentsTable.id, enrollId));
+
+    if (enrollment.user?.id) {
+      await db.insert(notificationsTable).values({
+        userId: enrollment.user.id,
+        type: "system",
+        title: "课程退款申请未通过",
+        content: `您申请的课程「${enrollment.course?.title ?? ""}」退款未获批准。原因：${reason.trim()}。如有疑问请联系平台客服。`,
+        relatedId: enrollment.enrollment.courseId,
+        relatedType: "course",
+      }).catch(() => {});
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "操作失败";
+    console.error("[admin-reject-course-refund]", err);
+    res.status(500).json({ error: msg });
+  }
+});
+
 /* ─── USER BULK EMAIL ───────────────────────────── */
 
 router.post("/admin/users/bulk-email", async (req, res) => {

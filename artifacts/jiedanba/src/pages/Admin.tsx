@@ -2067,8 +2067,8 @@ const STATUS_COLOR: Record<string, string> = {
   published: "bg-green-100 text-green-700",
   closed: "bg-slate-100 text-slate-500",
 };
-const PAY_LABEL: Record<string, string> = { free: "免费", pending: "待支付", paid: "已支付" };
-const PAY_COLOR: Record<string, string> = { free: "bg-slate-100 text-slate-500", pending: "bg-amber-100 text-amber-700", paid: "bg-green-100 text-green-700" };
+const PAY_LABEL: Record<string, string> = { free: "免费", pending: "待支付", paid: "已支付", refund_pending: "退款审核中", refunded: "已退款" };
+const PAY_COLOR: Record<string, string> = { free: "bg-slate-100 text-slate-500", pending: "bg-amber-100 text-amber-700", paid: "bg-green-100 text-green-700", refund_pending: "bg-orange-100 text-orange-700", refunded: "bg-slate-100 text-slate-500" };
 
 type CourseForm = {
   title: string; category: string; requiredLevel: string; durationMinutes: string;
@@ -2367,6 +2367,8 @@ function BulkEmailModal({ courseId, onClose }: { courseId: number; onClose: () =
                 <option value="paid">已支付</option>
                 <option value="pending">待支付</option>
                 <option value="free">免费</option>
+                <option value="refund_pending">退款审核中</option>
+                <option value="refunded">已退款</option>
               </select>
             </div>
           </div>
@@ -2478,16 +2480,6 @@ function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: ()
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-1">
-                      {e.payment_status === "pending" && (
-                        <button
-                          onClick={() => payMutation.mutate(e.id)}
-                          disabled={payMutation.isPending}
-                          title="确认收款（演示）"
-                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors disabled:opacity-50">
-                          <BadgeCent size={13} />
-                          确认收款
-                        </button>
-                      )}
                       {!e.cert_issued && (e.payment_status === "free" || e.payment_status === "paid") && (
                         <button
                           onClick={() => certMutation.mutate(e.id)}
@@ -2511,6 +2503,154 @@ function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: ()
   );
 }
 
+/* ─── Course Refund Management ─────────────────── */
+
+type CourseRefundRow = {
+  id: number;
+  courseId: number;
+  courseTitle: string | null;
+  courseCategory: string | null;
+  coursePrice: number | null;
+  userId: number;
+  userNickname: string | null;
+  userEmail: string | null;
+  paymentStatus: string;
+  paymentOrderNo: string | null;
+  refundReason: string | null;
+  refundRequestedAt: string | null;
+  refundRejectReason: string | null;
+  createdAt: string;
+};
+
+function CourseRefundManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [rejectModal, setRejectModal] = useState<{ id: number; courseTitle: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const { data: refunds = [], isLoading } = useQuery<CourseRefundRow[]>({
+    queryKey: ["admin-course-refunds"],
+    queryFn: () => adminGet("/api/admin/training/refunds"),
+    refetchInterval: 30_000,
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (id: number) => adminPost(`/api/admin/training/enrollments/${id}/approve-refund`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-course-refunds"] });
+      toast({ title: "退款已批准", description: "已自动向支付平台发起退款" });
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      adminPost(`/api/admin/training/enrollments/${id}/reject-refund`, { reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-course-refunds"] });
+      setRejectModal(null);
+      setRejectReason("");
+      toast({ title: "退款已拒绝", description: "已通知用户" });
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold text-slate-600">退款审核中的课程报名</span>
+        {refunds.length > 0 && (
+          <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">{refunds.length}</span>
+        )}
+      </div>
+
+      <TableShell headers={["课程", "用户", "金额", "退款原因", "申请时间", "操作"]}>
+        {isLoading ? <LoadingRow cols={6} /> : refunds.length === 0 ? (
+          <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-400 text-sm">暂无待审核的退款申请</td></tr>
+        ) : refunds.map(r => (
+          <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
+            <td className="px-5 py-4">
+              <div className="font-bold text-sm text-slate-800 line-clamp-1 max-w-[200px]">{r.courseTitle ?? `课程 #${r.courseId}`}</div>
+              <div className="text-xs text-slate-400">{r.courseCategory ?? ""}</div>
+            </td>
+            <td className="px-5 py-4">
+              <div className="text-sm font-semibold text-slate-700">{r.userNickname ?? "-"}</div>
+              <div className="text-xs text-slate-400">{r.userEmail ?? ""}</div>
+            </td>
+            <td className="px-5 py-4">
+              <span className="text-sm font-extrabold text-primary">
+                ¥{(r.coursePrice ?? 0).toFixed(0)}
+              </span>
+            </td>
+            <td className="px-5 py-4 max-w-[200px]">
+              <p className="text-xs text-slate-600 line-clamp-2">{r.refundReason ?? "-"}</p>
+            </td>
+            <td className="px-5 py-4 text-xs text-slate-500">
+              {r.refundRequestedAt ? new Date(r.refundRequestedAt).toLocaleString("zh-CN") : "-"}
+            </td>
+            <td className="px-5 py-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => approveMutation.mutate(r.id)}
+                  disabled={approveMutation.isPending}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors disabled:opacity-50"
+                >
+                  <Check size={13} /> 批准退款
+                </button>
+                <button
+                  onClick={() => { setRejectModal({ id: r.id, courseTitle: r.courseTitle ?? `课程 #${r.courseId}` }); setRejectReason(""); }}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+                >
+                  <XCircle size={13} /> 拒绝
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </TableShell>
+
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setRejectModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">拒绝退款申请</h3>
+                <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{rejectModal.courseTitle}</p>
+              </div>
+              <button onClick={() => setRejectModal(null)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">拒绝原因（将通知用户）</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  placeholder="请输入拒绝原因…"
+                  rows={4}
+                  className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 transition-colors"
+                />
+              </div>
+              <div className="flex items-center gap-3 justify-end">
+                <button onClick={() => setRejectModal(null)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors">取消</button>
+                <button
+                  onClick={() => { if (rejectReason.trim()) rejectMutation.mutate({ id: rejectModal.id, reason: rejectReason.trim() }); }}
+                  disabled={!rejectReason.trim() || rejectMutation.isPending}
+                  className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 transition-all disabled:opacity-50"
+                >
+                  {rejectMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                  确认拒绝
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TrainingManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -2518,6 +2658,7 @@ function TrainingManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editCourse, setEditCourse] = useState<AdminCourse | null>(null);
   const [enrollCourse, setEnrollCourse] = useState<AdminCourse | null>(null);
+  const [trainingTab, setTrainingTab] = useState<"courses" | "refunds">("courses");
   const { q, qInput, setQInput, filter: courseStatus, level: courseLevel, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter: applyStatus, applyLevel } = useAdminListState("all", "all");
 
   const { data, isLoading } = useQuery<TrainingData>({
@@ -2608,6 +2749,30 @@ function TrainingManagement() {
         <StatCard label="证书已发放" value={(data?.totalCerts ?? 0).toString()} icon={Award} accent />
         <StatCard label="课程收入(元)" value={(data?.totalRevenue ?? 0).toFixed(0)} icon={DollarSign} />
       </div>
+
+      {/* Sub-tabs */}
+      <div className="flex items-center bg-slate-100 rounded-2xl p-1 gap-1 w-fit">
+        <button
+          onClick={() => setTrainingTab("courses")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            trainingTab === "courses" ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <BookOpen size={14} /> 课程列表
+        </button>
+        <button
+          onClick={() => setTrainingTab("refunds")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            trainingTab === "refunds" ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <RotateCcw size={14} /> 退款管理
+        </button>
+      </div>
+
+      {trainingTab === "refunds" ? (
+        <CourseRefundManagement />
+      ) : (<>
 
       <div className="flex items-center gap-2 flex-wrap">
         {COURSE_STATUS_FILTERS.map(f => (
@@ -2748,6 +2913,7 @@ function TrainingManagement() {
           onClose={() => setEnrollCourse(null)}
         />
       )}
+      </>)}
       {confirmDialog}
     </div>
   );

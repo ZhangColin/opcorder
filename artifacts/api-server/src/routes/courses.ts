@@ -3,7 +3,7 @@ import { db, coursesTable, enrollmentsTable, learningResourcesTable } from "@wor
 import { eq, and, sql } from "drizzle-orm";
 import { ListCoursesQueryParams } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
-import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
+import { createPaymentOrder, queryPaymentStatus, createRefund, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
 
 const router: IRouter = Router();
 
@@ -41,6 +41,11 @@ function formatEnrollment(e: typeof enrollmentsTable.$inferSelect, course?: type
     paymentOrderNo: e.paymentOrderNo ?? null,
     certIssued: e.certIssued,
     certIssuedAt: e.certIssuedAt?.toISOString() ?? null,
+    refundReason: e.refundReason ?? null,
+    refundRequestedAt: e.refundRequestedAt?.toISOString() ?? null,
+    refundOrderNo: e.refundOrderNo ?? null,
+    refundedAt: e.refundedAt?.toISOString() ?? null,
+    refundRejectReason: e.refundRejectReason ?? null,
     createdAt: e.createdAt.toISOString(),
     ...(course ? { course: formatCourse(course) } : {}),
   };
@@ -222,6 +227,39 @@ router.post("/courses/:courseId/payment-status", requireAuth, async (req, res) =
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "查询失败";
     res.status(500).json({ error: msg });
+  }
+});
+
+/* User requests a refund for a paid course enrollment */
+router.post("/courses/:courseId/request-refund", requireAuth, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId);
+    const userId = req.user!.id;
+    const { reason } = req.body as { reason?: string };
+
+    if (!reason?.trim()) {
+      return res.status(400).json({ error: "请填写退款原因" });
+    }
+
+    const [enrollment] = await db.select().from(enrollmentsTable)
+      .where(and(eq(enrollmentsTable.courseId, courseId), eq(enrollmentsTable.userId, userId)));
+
+    if (!enrollment) return res.status(404).json({ error: "未找到报名记录" });
+    if (enrollment.paymentStatus !== "paid") {
+      return res.status(409).json({ error: "只有已支付的课程才能申请退款" });
+    }
+
+    await db.update(enrollmentsTable)
+      .set({
+        paymentStatus: "refund_pending",
+        refundReason: reason.trim(),
+        refundRequestedAt: new Date(),
+      })
+      .where(eq(enrollmentsTable.id, enrollment.id));
+
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "申请退款失败" });
   }
 });
 
