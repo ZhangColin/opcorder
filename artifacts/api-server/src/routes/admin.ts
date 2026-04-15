@@ -64,6 +64,7 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/cockpit",       permission: "cockpit" },
   { prefix: "/api/admin/users",         permission: "users" },
   { prefix: "/api/admin/demands",       permission: "demands" },
+  { prefix: "/api/admin/demand-refunds", permission: "demands" },
   { prefix: "/api/admin/orders",        permission: "orders" },
   { prefix: "/api/admin/finance",       permission: "finance" },
   { prefix: "/api/admin/ecosystem",     permission: "ecosystem" },
@@ -1911,11 +1912,15 @@ router.get("/admin/demand-refunds", async (req, res) => {
     const { status } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query);
 
+    type RefundableStatus = "refund_pending" | "refunding" | "refunded";
+    const REFUNDABLE_STATUSES: RefundableStatus[] = ["refund_pending", "refunding", "refunded"];
+    const isRefundableStatus = (s: string): s is RefundableStatus => REFUNDABLE_STATUSES.includes(s as RefundableStatus);
+
     const conditions = [
       sql`${demandsTable.status} IN ('refund_pending', 'refunding', 'refunded')`,
     ];
-    if (status && status !== "all") {
-      conditions.push(eq(demandsTable.status, status as any));
+    if (status && status !== "all" && isRefundableStatus(status)) {
+      conditions.push(eq(demandsTable.status, status));
     }
     const where = and(...conditions);
 
