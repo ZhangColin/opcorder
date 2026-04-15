@@ -36,6 +36,7 @@ import OpcIncome from "@/pages/OpcIncome";
 import OpcMyBids from "@/pages/OpcMyBids";
 import SettlementAccount from "@/pages/SettlementAccount";
 import Admin from "@/pages/Admin";
+import ScreenDisplay from "@/pages/ScreenDisplay";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -185,6 +186,7 @@ function Router() {
       {/* 公开路由 */}
       <Route path="/login" component={Login} />
       <Route path="/auth/:role" component={Auth} />
+      <Route path="/screen" component={ScreenDisplay} />
 
       {/* 管理员专属 */}
       <Route path="/admin">
