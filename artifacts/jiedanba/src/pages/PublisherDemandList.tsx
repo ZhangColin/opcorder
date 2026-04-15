@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { clearSession } from "@/lib/auth";
+import { useState, useEffect } from "react";
+import { clearSession, getAccessToken } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
 import {
   Search, Bell, PlusCircle, Filter,
@@ -26,6 +26,9 @@ const STATUS_TABS = [
   { key: "pending_acceptance", label: "待验收",    cls: "text-purple-600" },
   { key: "completed",          label: "已完成",    cls: "text-green-600" },
   { key: "closed",             label: "已关闭",    cls: "text-slate-400" },
+  { key: "refund_pending",     label: "退款审核中", cls: "text-rose-600" },
+  { key: "refunding",          label: "退款中",    cls: "text-rose-700" },
+  { key: "refunded",           label: "已退款",    cls: "text-emerald-600" },
 ];
 
 const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
@@ -39,6 +42,9 @@ const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
   pending_acceptance: { label: "待验收", cls: "bg-purple-50 text-purple-700 border border-purple-200" },
   completed:          { label: "已完成", cls: "bg-green-50 text-green-700 border border-green-200" },
   closed:             { label: "已关闭", cls: "bg-slate-100 text-slate-400" },
+  refund_pending:     { label: "退款审核中", cls: "bg-rose-50 text-rose-700 border border-rose-200" },
+  refunding:          { label: "退款中",    cls: "bg-rose-100 text-rose-800 border border-rose-200" },
+  refunded:           { label: "已退款",   cls: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
 };
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
@@ -293,6 +299,26 @@ export default function PublisherDemandList() {
   const demands = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 1;
+
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  // On list load, sync refund status for any "refunding" demands
+  useEffect(() => {
+    const refundingIds = demands.filter((d: any) => d.status === "refunding").map((d: any) => d.id);
+    if (refundingIds.length === 0) return;
+    let anyUpdated = false;
+    Promise.all(
+      refundingIds.map((id: number) =>
+        fetch(`${BASE}/api/demands/${id}/sync-refund-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        })
+          .then(r => r.json())
+          .then((r: any) => { if (r.synced) anyUpdated = true; })
+          .catch(() => {})
+      )
+    ).then(() => { if (anyUpdated) refetch(); });
+  }, [demands.map((d: any) => `${d.id}:${d.status}`).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">

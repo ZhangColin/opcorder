@@ -11,7 +11,7 @@ import {
   CreateDemandPaymentInput,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
-import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
+import { createPaymentOrder, queryPaymentStatus, queryRefundStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
 
 const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
@@ -809,6 +809,61 @@ router.post("/demands/:demandId/request-refund", requireAuth, async (req, res) =
   } catch (err) {
     console.error("[request-refund] error:", err);
     res.status(500).json({ error: "申请退款失败，请重试" });
+  }
+});
+
+/* Sync online refund status for a specific demand (triggered by frontend on page load) */
+router.post("/demands/:demandId/sync-refund-status", requireAuth, async (req, res) => {
+  try {
+    const demandId = Number(req.params.demandId);
+    const userId = (req as any).user?.id;
+
+    const [demand] = await db
+      .select({ id: demandsTable.id, status: demandsTable.status, publisherId: demandsTable.publisherId, title: demandsTable.title })
+      .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (demand.publisherId !== userId && !(req as any).user?.isAdmin) {
+      return res.status(403).json({ error: "无权限" });
+    }
+    if (demand.status !== "refunding") {
+      return res.json({ status: demand.status, synced: false });
+    }
+
+    const [payment] = await db
+      .select({ id: demandPaymentsTable.id, refundOrderNo: demandPaymentsTable.refundOrderNo, method: demandPaymentsTable.method })
+      .from(demandPaymentsTable)
+      .where(and(eq(demandPaymentsTable.demandId, demandId), eq(demandPaymentsTable.status, "refunding")))
+      .limit(1);
+
+    if (!payment || !payment.refundOrderNo || payment.method !== "online") {
+      return res.json({ status: demand.status, synced: false });
+    }
+
+    const result = await queryRefundStatus(payment.refundOrderNo);
+    const statusUpper = (result.status ?? "").toUpperCase();
+
+    if (statusUpper === "SUCCESS" || statusUpper === "REFUNDED") {
+      const now = new Date();
+      await db.transaction(async (tx) => {
+        await tx.update(demandPaymentsTable).set({ status: "refunded", refundedAt: now })
+          .where(eq(demandPaymentsTable.id, payment.id));
+        await tx.update(demandsTable).set({ status: "refunded", updatedAt: now })
+          .where(eq(demandsTable.id, demandId));
+        await tx.insert(notificationsTable).values({
+          userId: demand.publisherId, type: "system",
+          title: "保证金已退款成功",
+          content: `您的需求「${demand.title}」的保证金已成功退还，请确认到账情况。`,
+          relatedId: demandId, relatedType: "demand",
+        });
+      });
+      return res.json({ status: "refunded", synced: true });
+    }
+
+    return res.json({ status: demand.status, refundStatus: result.status, synced: false });
+  } catch (err) {
+    console.error("[sync-refund-status] error:", err);
+    res.status(500).json({ error: "查询退款状态失败" });
   }
 });
 

@@ -133,6 +133,19 @@ export default function PublisherDemandDetail() {
     navigate("/login");
   };
 
+  // When viewing a demand in "refunding" state, trigger an on-demand status sync
+  useEffect(() => {
+    if (!demand || demand.status !== "refunding") return;
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${BASE}/api/demands/${demandId}/sync-refund-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+    })
+      .then(r => r.json())
+      .then((r: any) => { if (r.synced) refetchDemand(); })
+      .catch(() => {});
+  }, [demand?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSubmitReview = async () => {
     setDemandActionLoading(true);
     try {
@@ -541,15 +554,15 @@ export default function PublisherDemandDetail() {
                               <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div>
                                   <p className="text-xs text-slate-400 mb-0.5">开户行</p>
-                                  <p className="font-medium text-slate-700">招商银行</p>
+                                  <p className="font-medium text-slate-700">中国工商银行股份有限公司北京海淀支行</p>
                                 </div>
                                 <div>
                                   <p className="text-xs text-slate-400 mb-0.5">账户名</p>
-                                  <p className="font-medium text-slate-700">接单吧平台运营</p>
+                                  <p className="font-medium text-slate-700">北京海创元人工智能教育科技有限公司</p>
                                 </div>
                                 <div className="col-span-2">
                                   <p className="text-xs text-slate-400 mb-0.5">账号</p>
-                                  <p className="font-mono font-bold text-slate-800 text-base tracking-wider">6225 8888 8888 8888</p>
+                                  <p className="font-mono font-bold text-slate-800 text-base tracking-wider">0200049619201891562</p>
                                 </div>
                                 <div className="col-span-2">
                                   <p className="text-xs text-slate-400 mb-0.5">转账备注（必填）</p>
