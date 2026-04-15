@@ -930,7 +930,7 @@ export default function Academy() {
 
   const myEnrollments = enrollments.filter(e => {
     const ps = (e as any).paymentStatus ?? "free";
-    if (!["pending", "paid", "refund_pending", "refunded"].includes(ps)) return false;
+    if (!["free", "pending", "paid", "refund_pending", "refunded"].includes(ps)) return false;
     if (courseFilter !== "all") {
       const cat = (e as any).course?.category;
       if (cat && cat !== courseFilter) return false;
