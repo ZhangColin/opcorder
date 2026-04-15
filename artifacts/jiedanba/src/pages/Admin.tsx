@@ -5315,10 +5315,18 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
 
   const visibleNav = NAV.filter(canSee);
 
-  // If the current active module is no longer accessible, jump to the first visible one
+  // If the current active module is no longer accessible, jump to the first visible one.
+  // Special case: if the only/first accessible module is "screen", navigate directly to it.
   useEffect(() => {
     const allowed = visibleNav.some(n => n.key === active);
-    if (!allowed && visibleNav.length > 0) setActive(visibleNav[0].key);
+    if (!allowed && visibleNav.length > 0) {
+      const first = visibleNav[0].key;
+      if (first === "screen") {
+        navigate("/screen");
+      } else {
+        setActive(first);
+      }
+    }
   }, [visibleNav.map(n => n.key).join(",")]);
 
   function handleLogout() {
