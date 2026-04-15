@@ -1466,6 +1466,9 @@ function DemandManagement() {
     { val: "in_progress", label: "进行中" },
     { val: "completed", label: "已完成" },
     { val: "closed", label: "已关闭" },
+    { val: "refund_pending", label: "退款审核中" },
+    { val: "refunding", label: "退款中" },
+    { val: "refunded", label: "已退款" },
   ];
 
   const statusCN: Record<string, string> = {
@@ -1482,6 +1485,9 @@ function DemandManagement() {
     completed: "bg-green-100 text-green-700",
     closed: "bg-slate-100 text-slate-500",
     matched: "bg-purple-100 text-purple-700",
+    refund_pending: "bg-rose-100 text-rose-700",
+    refunding: "bg-rose-200 text-rose-800",
+    refunded: "bg-emerald-100 text-emerald-700",
   }[s] ?? "bg-slate-100 text-slate-500");
 
   return (

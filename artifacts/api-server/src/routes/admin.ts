@@ -192,7 +192,7 @@ router.get("/admin/demands", async (req, res) => {
     const { page, pageSize, offset } = paginate(req.query);
 
     const conditions = [];
-    if (status && status !== "all") conditions.push(eq(demandsTable.status, status as "pending_review" | "published" | "in_progress" | "completed" | "closed" | "matched" | "draft" | "pending_acceptance"));
+    if (status && status !== "all") conditions.push(eq(demandsTable.status, status as "pending_review" | "published" | "in_progress" | "completed" | "closed" | "matched" | "draft" | "pending_acceptance" | "pending_payment" | "refund_pending" | "refunding" | "refunded"));
     if (q) conditions.push(or(
       ilike(demandsTable.title, `%${q}%`),
       ilike(demandsTable.demandNo, `%${q}%`),
