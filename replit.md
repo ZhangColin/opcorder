@@ -145,6 +145,18 @@ OPC gets 60%, publisher 30%, platform fee 10%
 - No file upload for deliverables (text links only)
 - No real-time notifications (poll-based)
 
+### RBAC Multi-Admin System (v2)
+
+- **Super admin**: `isSuperAdmin=true` in `usersTable`; gets `adminPermissions=["*"]` bypassing all checks
+- **Roles table**: `admin_roles` (id, name, description, permissions: string[])
+- **Role assignments**: `admin_role_assignments` (userId, roleId)
+- **14 permission keys**: dashboard, cockpit, users, demands, payments, orders, disputes, finance, ecosystem, training, levelcert, content, sensitivewords, settings
+- **Middleware**: `requireAdmin` (loads isSuperAdmin from DB + merges role perms), `requirePermission(key)`, `requireSuperAdmin`
+- **Path-based permission guard**: router.use middleware in admin.ts maps URL prefixes to permission keys
+- **Admin endpoints** (super admin only): `GET/POST /api/admin/roles`, `PATCH/DELETE /api/admin/roles/:id`, `GET/POST /api/admin/admin-users`, `PATCH/DELETE /api/admin/admin-users/:id`, `GET /api/admin/admin-users/search-users`
+- **Profile endpoint**: `GET /api/admin/profile` → returns isSuperAdmin + permissions[] for current session
+- **Frontend**: NAV filtered by permissions; super-admin-only items (角色管理, 管理员管理) shown only to super admins; header shows 超级管理员 badge; AdminRolesPanel + AdminUsersPanel implemented
+
 ## TypeScript & Composite Projects
 
 Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references.

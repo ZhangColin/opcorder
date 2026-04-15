@@ -15,7 +15,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
-  Flame, Filter, ShieldCheck, Lock, EyeOff,
+  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -98,24 +98,46 @@ export type Module =
   | "dashboard" | "users" | "demands" | "orders"
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
-  | "sensitivewords" | "payments";
+  | "sensitivewords" | "payments"
+  | "roles" | "adminusers";
 
-const NAV: { key: Module; icon: React.ElementType; label: string }[] = [
-  { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板" },
-  { key: "cockpit",        icon: BarChart3,           label: "平台驾驶舱" },
-  { key: "users",          icon: Users,              label: "用户管理" },
-  { key: "demands",        icon: FileText,            label: "需求管理" },
-  { key: "payments",       icon: Receipt,             label: "保证金审核" },
-  { key: "orders",         icon: ShoppingBag,         label: "订单管理" },
-  { key: "disputes",       icon: Gavel,               label: "争议管理" },
-  { key: "finance",        icon: Wallet,              label: "财务管理" },
-  { key: "ecosystem",      icon: Network,             label: "OPC 生态池" },
-  { key: "training",       icon: GraduationCap,       label: "认证培训" },
-  { key: "levelcert",      icon: Trophy,              label: "等级认证" },
-  { key: "content",        icon: Shield,              label: "内容审核" },
-  { key: "sensitivewords", icon: Flame,               label: "敏感词管理" },
-  { key: "settings",       icon: SlidersHorizontal,   label: "站点设置" },
+const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string }[] = [
+  { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板",    permKey: "dashboard" },
+  { key: "cockpit",        icon: BarChart3,           label: "平台驾驶舱",  permKey: "cockpit" },
+  { key: "users",          icon: Users,              label: "用户管理",    permKey: "users" },
+  { key: "demands",        icon: FileText,            label: "需求管理",    permKey: "demands" },
+  { key: "payments",       icon: Receipt,             label: "保证金审核",  permKey: "payments" },
+  { key: "orders",         icon: ShoppingBag,         label: "订单管理",    permKey: "orders" },
+  { key: "disputes",       icon: Gavel,               label: "争议管理",    permKey: "disputes" },
+  { key: "finance",        icon: Wallet,              label: "财务管理",    permKey: "finance" },
+  { key: "ecosystem",      icon: Network,             label: "OPC 生态池",  permKey: "ecosystem" },
+  { key: "training",       icon: GraduationCap,       label: "认证培训",    permKey: "training" },
+  { key: "levelcert",      icon: Trophy,              label: "等级认证",    permKey: "levelcert" },
+  { key: "content",        icon: Shield,              label: "内容审核",    permKey: "content" },
+  { key: "sensitivewords", icon: Flame,               label: "敏感词管理",  permKey: "sensitivewords" },
+  { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
+  { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
+  { key: "adminusers",     icon: UserCog,             label: "管理员管理",  superAdminOnly: true },
 ];
+
+/* ─── Admin profile hook ─────────────────────────── */
+
+type AdminProfile = {
+  id: number;
+  nickname: string;
+  email: string;
+  isSuperAdmin: boolean;
+  permissions: string[];
+};
+
+function useAdminProfile() {
+  return useQuery<AdminProfile>({
+    queryKey: ["admin-profile"],
+    queryFn: () => adminGet("/api/admin/profile"),
+    staleTime: 60_000,
+    retry: false,
+  });
+}
 
 /* ─── Shared components ─────────────────────────── */
 
@@ -4725,6 +4747,492 @@ function DepositPaymentManagement() {
   );
 }
 
+/* ─── RBAC: permission key labels ────────────────── */
+
+const PERM_LABELS: Record<string, string> = {
+  dashboard:      "数据看板",
+  cockpit:        "平台驾驶舱",
+  users:          "用户管理",
+  demands:        "需求管理",
+  payments:       "保证金审核",
+  orders:         "订单管理",
+  disputes:       "争议管理",
+  finance:        "财务管理",
+  ecosystem:      "OPC 生态池",
+  training:       "认证培训",
+  levelcert:      "等级认证",
+  content:        "内容审核",
+  sensitivewords: "敏感词管理",
+  settings:       "站点设置",
+};
+
+const ALL_PERM_KEYS = Object.keys(PERM_LABELS);
+
+type AdminRole = {
+  id: number; name: string; description: string | null;
+  permissions: string[]; memberCount: number;
+  createdAt: string; updatedAt: string;
+};
+
+type AdminAccount = {
+  id: number; nickname: string; email: string;
+  isSuperAdmin: boolean; roleIds: number[]; createdAt: string;
+};
+
+/* ─── AdminRolesPanel ────────────────────────────── */
+
+function AdminRolesPanel() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
+  const { data: roles = [], isLoading } = useQuery<AdminRole[]>({
+    queryKey: ["admin-roles"],
+    queryFn: () => adminGet("/api/admin/roles"),
+  });
+
+  const [showForm, setShowForm] = useState(false);
+  const [editRole, setEditRole] = useState<AdminRole | null>(null);
+  const [form, setForm] = useState({ name: "", description: "", permissions: [] as string[] });
+
+  function openCreate() {
+    setEditRole(null);
+    setForm({ name: "", description: "", permissions: [] });
+    setShowForm(true);
+  }
+
+  function openEdit(r: AdminRole) {
+    setEditRole(r);
+    setForm({ name: r.name, description: r.description ?? "", permissions: [...r.permissions] });
+    setShowForm(true);
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      if (editRole) {
+        return adminPatch(`/api/admin/roles/${editRole.id}`, form);
+      }
+      return adminPost("/api/admin/roles", form);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-roles"] });
+      setShowForm(false);
+      toast({ title: editRole ? "角色已更新" : "角色已创建" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/roles/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-roles"] });
+      toast({ title: "角色已删除" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  function togglePerm(key: string) {
+    setForm(f => ({
+      ...f,
+      permissions: f.permissions.includes(key)
+        ? f.permissions.filter(p => p !== key)
+        : [...f.permissions, key],
+    }));
+  }
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="角色管理"
+        sub="创建和管理权限角色，为管理员分配不同的功能模块访问权限"
+        action={
+          <button onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={15} /> 新建角色
+          </button>
+        }
+      />
+
+      {showForm && (
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-primary/20">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-bold text-blue-900">{editRole ? "编辑角色" : "新建角色"}</h3>
+            <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5">角色名称 *</label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="例如：运营专员、财务审核"
+                className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5">备注说明</label>
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="可选，描述该角色的职责"
+                className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-2">可访问模块</label>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {ALL_PERM_KEYS.map(key => (
+                  <label key={key} className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer text-sm transition-colors ${
+                    form.permissions.includes(key)
+                      ? "bg-primary/10 border-primary text-primary font-bold"
+                      : "border-slate-200 text-slate-600 hover:border-primary/40"
+                  }`}>
+                    <input type="checkbox" className="hidden" checked={form.permissions.includes(key)} onChange={() => togglePerm(key)} />
+                    <Check size={13} className={form.permissions.includes(key) ? "text-primary" : "text-transparent"} />
+                    {PERM_LABELS[key]}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowForm(false)}
+                className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">取消</button>
+              <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name.trim()}
+                className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
+                {saveMutation.isPending ? "保存中…" : "保存角色"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
+          <Loader2 size={20} className="animate-spin" /> 加载中…
+        </div>
+      ) : roles.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-slate-400">
+          <KeyRound size={40} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">暂无角色，点击「新建角色」创建第一个角色</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {roles.map(r => (
+            <div key={r.id} className="bg-white rounded-2xl shadow-sm p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-blue-900">{r.name}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">
+                      {r.memberCount} 名管理员
+                    </span>
+                  </div>
+                  {r.description && <p className="text-xs text-slate-400 mb-2">{r.description}</p>}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {r.permissions.length === 0
+                      ? <span className="text-xs text-slate-400">（无权限）</span>
+                      : r.permissions.map(p => (
+                          <span key={p} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full">
+                            {PERM_LABELS[p] ?? p}
+                          </span>
+                        ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => openEdit(r)}
+                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-colors">
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const ok = await confirm({ title: `删除角色「${r.name}」？`, description: "此操作不可恢复，所有使用该角色的管理员将失去对应权限。", confirmText: "确认删除", variant: "destructive" });
+                      if (ok) deleteMutation.mutate(r.id);
+                    }}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── AdminUsersPanel ────────────────────────────── */
+
+function AdminUsersPanel() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const confirm = useConfirm();
+
+  const { data: admins = [], isLoading } = useQuery<AdminAccount[]>({
+    queryKey: ["rbac-admin-accounts"],
+    queryFn: () => adminGet("/api/admin/admin-users"),
+  });
+
+  const { data: allRoles = [] } = useQuery<AdminRole[]>({
+    queryKey: ["admin-roles"],
+    queryFn: () => adminGet("/api/admin/roles"),
+  });
+
+  const [showInvite, setShowInvite] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: number; nickname: string; email: string; role: string }[]>([]);
+  const [selectedUser, setSelectedUser] = useState<{ id: number; nickname: string; email: string } | null>(null);
+  const [inviteRoles, setInviteRoles] = useState<number[]>([]);
+  const [editAdminId, setEditAdminId] = useState<number | null>(null);
+  const [editRoles, setEditRoles] = useState<number[]>([]);
+
+  const searchMutation = useMutation({
+    mutationFn: (q: string) => adminGet<{ id: number; nickname: string; email: string; role: string }[]>(`/api/admin/admin-users/search-users?q=${encodeURIComponent(q)}`),
+    onSuccess: setSearchResults,
+  });
+
+  function handleSearch(q: string) {
+    setSearchQ(q);
+    if (q.trim().length >= 1) searchMutation.mutate(q.trim());
+    else setSearchResults([]);
+  }
+
+  const promoteMutation = useMutation({
+    mutationFn: () => adminPost("/api/admin/admin-users", { userId: selectedUser!.id, roleIds: inviteRoles }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rbac-admin-accounts"] });
+      setShowInvite(false);
+      setSelectedUser(null);
+      setInviteRoles([]);
+      toast({ title: "管理员已添加" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const updateRolesMutation = useMutation({
+    mutationFn: ({ id, roles }: { id: number; roles: number[] }) => adminPatch(`/api/admin/admin-users/${id}`, { roleIds: roles }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rbac-admin-accounts"] });
+      setEditAdminId(null);
+      toast({ title: "角色已更新" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/admin-users/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rbac-admin-accounts"] });
+      toast({ title: "管理员权限已撤销" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const roleMap = Object.fromEntries(allRoles.map(r => [r.id, r.name]));
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="管理员管理"
+        sub="添加和管理平台管理员账号，分配角色以控制功能访问权限"
+        action={
+          <button onClick={() => { setShowInvite(true); setSelectedUser(null); setSearchQ(""); setSearchResults([]); setInviteRoles([]); }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={15} /> 添加管理员
+          </button>
+        }
+      />
+
+      {showInvite && (
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-primary/20">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-bold text-blue-900">添加管理员</h3>
+            <button onClick={() => setShowInvite(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          </div>
+          <div className="space-y-4">
+            {!selectedUser ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">搜索用户（昵称或邮箱）</label>
+                <input value={searchQ} onChange={e => handleSearch(e.target.value)}
+                  placeholder="输入关键词搜索现有用户…"
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                {searchResults.length > 0 && (
+                  <div className="mt-2 border rounded-xl overflow-hidden divide-y">
+                    {searchResults.map(u => (
+                      <button key={u.id} onClick={() => { setSelectedUser(u); setSearchResults([]); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-blue-50 transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                          {u.nickname?.[0] ?? "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-blue-900 truncate">{u.nickname}</p>
+                          <p className="text-xs text-slate-400 truncate">{u.email} · {u.role}</p>
+                        </div>
+                        <ChevronRight size={14} className="text-slate-300 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+                <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
+                  {selectedUser.nickname[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-blue-900">{selectedUser.nickname}</p>
+                  <p className="text-xs text-slate-500">{selectedUser.email}</p>
+                </div>
+                <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600"><X size={15} /></button>
+              </div>
+            )}
+
+            {selectedUser && (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2">分配角色（可多选）</label>
+                {allRoles.length === 0
+                  ? <p className="text-sm text-slate-400">请先在「角色管理」中创建角色</p>
+                  : (
+                    <div className="flex flex-wrap gap-2">
+                      {allRoles.map(r => (
+                        <label key={r.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border cursor-pointer text-sm transition-colors ${
+                          inviteRoles.includes(r.id) ? "bg-primary/10 border-primary text-primary font-bold" : "border-slate-200 text-slate-600 hover:border-primary/40"
+                        }`}>
+                          <input type="checkbox" className="hidden" checked={inviteRoles.includes(r.id)}
+                            onChange={() => setInviteRoles(prev => prev.includes(r.id) ? prev.filter(x => x !== r.id) : [...prev, r.id])} />
+                          <Check size={12} className={inviteRoles.includes(r.id) ? "text-primary" : "text-transparent"} />
+                          {r.name}
+                        </label>
+                      ))}
+                    </div>
+                  )
+                }
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowInvite(false)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">取消</button>
+              <button onClick={() => promoteMutation.mutate()} disabled={!selectedUser || promoteMutation.isPending}
+                className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
+                {promoteMutation.isPending ? "添加中…" : "确认添加"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
+          <Loader2 size={20} className="animate-spin" /> 加载中…
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+              <tr>
+                <th className="px-6 py-4">管理员</th>
+                <th className="px-6 py-4">类型</th>
+                <th className="px-6 py-4">已分配角色</th>
+                <th className="px-6 py-4">加入时间</th>
+                <th className="px-6 py-4">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {admins.length === 0 && (
+                <tr><td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-400">暂无数据</td></tr>
+              )}
+              {admins.map(a => (
+                <tr key={a.id}>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold shrink-0">
+                        {a.nickname[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-blue-900">{a.nickname}</p>
+                        <p className="text-xs text-slate-400">{a.email}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {a.isSuperAdmin
+                      ? <span className="flex items-center gap-1 text-amber-600 text-xs font-bold"><ShieldAlert size={13} /> 超级管理员</span>
+                      : <span className="text-xs text-slate-500">普通管理员</span>
+                    }
+                  </td>
+                  <td className="px-6 py-4">
+                    {a.isSuperAdmin
+                      ? <span className="text-xs text-slate-400">全部权限</span>
+                      : (
+                        editAdminId === a.id
+                          ? (
+                            <div className="flex flex-wrap gap-1">
+                              {allRoles.map(r => (
+                                <label key={r.id} className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border cursor-pointer transition-colors ${
+                                  editRoles.includes(r.id) ? "bg-primary/10 border-primary text-primary font-bold" : "border-slate-200 text-slate-500"
+                                }`}>
+                                  <input type="checkbox" className="hidden" checked={editRoles.includes(r.id)}
+                                    onChange={() => setEditRoles(prev => prev.includes(r.id) ? prev.filter(x => x !== r.id) : [...prev, r.id])} />
+                                  {r.name}
+                                </label>
+                              ))}
+                            </div>
+                          )
+                          : (
+                            <div className="flex flex-wrap gap-1">
+                              {a.roleIds.length === 0
+                                ? <span className="text-xs text-slate-400">（未分配角色）</span>
+                                : a.roleIds.map(rid => (
+                                    <span key={rid} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full">
+                                      {roleMap[rid] ?? `角色${rid}`}
+                                    </span>
+                                  ))
+                              }
+                            </div>
+                          )
+                      )
+                    }
+                  </td>
+                  <td className="px-6 py-4 text-xs text-slate-400">
+                    {new Date(a.createdAt).toLocaleDateString("zh-CN")}
+                  </td>
+                  <td className="px-6 py-4">
+                    {!a.isSuperAdmin && (
+                      <div className="flex items-center gap-1">
+                        {editAdminId === a.id ? (
+                          <>
+                            <button onClick={() => updateRolesMutation.mutate({ id: a.id, roles: editRoles })}
+                              disabled={updateRolesMutation.isPending}
+                              className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-primary/90">
+                              保存
+                            </button>
+                            <button onClick={() => setEditAdminId(null)} className="px-3 py-1 text-slate-400 hover:text-slate-600 text-xs">取消</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => { setEditAdminId(a.id); setEditRoles([...a.roleIds]); }}
+                              className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const ok = await confirm({ title: `撤销「${a.nickname}」的管理员权限？`, description: "该用户将失去所有后台访问权限，恢复为普通用户。", confirmText: "确认撤销", variant: "destructive" });
+                                if (ok) revokeMutation.mutate(a.id);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                              <UserX size={13} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── ModuleContent ───────────────────────────────── */
+
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
     case "dashboard":      return <Dashboard />;
@@ -4741,6 +5249,8 @@ function ModuleContent({ module }: { module: Module }) {
     case "sensitivewords": return <SensitiveWordsManagement />;
     case "payments":       return <DepositPaymentManagement />;
     case "settings":       return <SiteSettingsManagement />;
+    case "roles":          return <AdminRolesPanel />;
+    case "adminusers":     return <AdminUsersPanel />;
   }
 }
 
@@ -4789,6 +5299,26 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
 
   const adminNickname = localStorage.getItem("jdb_nickname") ?? "管理员";
 
+  const { data: profile } = useAdminProfile();
+  const isSuperAdmin = profile?.isSuperAdmin ?? false;
+  const permissions = profile?.permissions ?? [];
+  const hasAllPerms = isSuperAdmin || permissions.includes("*");
+
+  function canSee(item: typeof NAV[0]): boolean {
+    if (item.superAdminOnly) return isSuperAdmin;
+    if (hasAllPerms) return true;
+    if (!item.permKey) return true;
+    return permissions.includes(item.permKey);
+  }
+
+  const visibleNav = NAV.filter(canSee);
+
+  // If the current active module is no longer accessible, jump to the first visible one
+  useEffect(() => {
+    const allowed = visibleNav.some(n => n.key === active);
+    if (!allowed && visibleNav.length > 0) setActive(visibleNav[0].key);
+  }, [visibleNav.map(n => n.key).join(",")]);
+
   function handleLogout() {
     clearSession();
     toast({ title: "已退出登录" });
@@ -4802,8 +5332,8 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
       <aside className="w-64 fixed left-0 top-0 h-screen z-50 bg-slate-900 flex flex-col p-4">
         <AdminSidebarLogo />
 
-        <nav className="flex-1 flex flex-col gap-0.5">
-          {NAV.map(item => (
+        <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto">
+          {visibleNav.map(item => (
             <button
               key={item.key}
               onClick={() => setActive(item.key)}
@@ -4841,11 +5371,16 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">{adminNickname}</p>
-                <p className="text-[10px] text-slate-500">平台管理员</p>
+                <p className="text-sm font-bold text-blue-900">{profile?.nickname ?? adminNickname}</p>
+                <p className="text-[10px] text-slate-500 flex items-center justify-end gap-1">
+                  {isSuperAdmin
+                    ? <><ShieldAlert size={10} className="text-amber-500" /> 超级管理员</>
+                    : "平台管理员"
+                  }
+                </p>
               </div>
               <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
-                {adminNickname[0]}
+                {(profile?.nickname ?? adminNickname)[0]}
               </div>
             </div>
           </div>

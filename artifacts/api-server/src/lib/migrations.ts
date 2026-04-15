@@ -241,5 +241,51 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 004a failed in production: ${err}`);
   }
 
+  // Migration 004b: create admin_roles table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS admin_roles (
+        id serial PRIMARY KEY,
+        name varchar(100) NOT NULL,
+        description text,
+        permissions text[] NOT NULL DEFAULT '{}',
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 004b: could not create admin_roles table");
+    if (!isDev) throw new Error(`Migration 004b failed in production: ${err}`);
+  }
+
+  // Migration 004c: create admin_role_assignments junction table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS admin_role_assignments (
+        user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role_id integer NOT NULL REFERENCES admin_roles(id) ON DELETE CASCADE,
+        PRIMARY KEY (user_id, role_id)
+      )
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 004c: could not create admin_role_assignments table");
+    if (!isDev) throw new Error(`Migration 004c failed in production: ${err}`);
+  }
+
+  // Migration 004d: add is_super_admin column to users (CRITICAL)
+  try {
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_super_admin boolean NOT NULL DEFAULT false`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 004d: could not add is_super_admin column to users");
+    if (!isDev) throw new Error(`Migration 004d failed in production: ${err}`);
+  }
+
+  // Migration 004e: bootstrap existing admin accounts as super admins (non-critical)
+  try {
+    await db.execute(sql`UPDATE users SET is_super_admin = true WHERE role = 'admin' AND is_super_admin = false`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 004e: could not bootstrap super admins");
+  }
+
   logger.info("Startup data migrations complete.");
 }

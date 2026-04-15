@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable } from "@workspace/db";
-import { eq, desc, count, sql, and, ilike, or, asc, inArray } from "drizzle-orm";
-import { requireAdmin } from "../middleware/adminAuth";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS } from "@workspace/db";
+import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
+import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
 import { ReviewDemandPaymentBody } from "@workspace/api-zod";
 import { createRefund } from "../lib/payment";
@@ -53,6 +53,41 @@ function buildBulkEmail(nickname: string, body: string): string {
 const router: IRouter = Router();
 
 router.use("/admin", requireAdmin);
+
+/* ─── Path-based permission guard ─────────────────────────────────────────
+   Maps URL path prefixes to required permission keys.
+   Super admins (adminPermissions === ["*"]) bypass this check automatically.
+   Paths not listed here are accessible to any authenticated admin.
+   ───────────────────────────────────────────────────────────────────────── */
+const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
+  { prefix: "/api/admin/stats",         permission: "dashboard" },
+  { prefix: "/api/admin/cockpit",       permission: "cockpit" },
+  { prefix: "/api/admin/users",         permission: "users" },
+  { prefix: "/api/admin/demands",       permission: "demands" },
+  { prefix: "/api/admin/orders",        permission: "orders" },
+  { prefix: "/api/admin/finance",       permission: "finance" },
+  { prefix: "/api/admin/ecosystem",     permission: "ecosystem" },
+  { prefix: "/api/admin/training",      permission: "training" },
+  { prefix: "/api/admin/level-certs",   permission: "levelcert" },
+  { prefix: "/api/admin/content",       permission: "content" },
+  { prefix: "/api/admin/sensitive-words", permission: "sensitivewords" },
+  { prefix: "/api/admin/settings",      permission: "settings" },
+  { prefix: "/api/admin/disputes",      permission: "disputes" },
+];
+
+import { Request, Response, NextFunction } from "express";
+router.use("/admin", (req: Request, res: Response, next: NextFunction) => {
+  const perms = req.user?.adminPermissions ?? [];
+  if (perms.includes("*")) return next(); // super admin
+
+  // req.originalUrl contains the full path e.g. "/api/admin/users?foo=bar"
+  const urlPath = req.originalUrl.split("?")[0];
+  const match = PATH_PERMISSION_MAP.find(m => urlPath.startsWith(m.prefix));
+  if (!match) return next(); // unprotected path (profile, roles mgmt, etc.)
+
+  if (perms.includes(match.permission)) return next();
+  return res.status(403).json({ error: "权限不足", required: match.permission });
+});
 
 function paginate(query: Record<string, string | string[] | undefined>, defaultSize = 20) {
   const page = Math.max(1, parseInt(String(query.page ?? 1)) || 1);
@@ -1961,6 +1996,195 @@ router.post("/admin/demands/:id/confirm-offline-refund", requireAdmin, async (re
     const msg = err instanceof Error ? err.message : "操作失败";
     console.error("[admin-confirm-offline-refund] error:", err);
     res.status(500).json({ error: msg });
+  }
+});
+
+/* ─────────────────────────────────────────────────
+   Admin profile (permissions for current session)
+   ───────────────────────────────────────────────── */
+router.get("/admin/profile", async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const [user] = await db
+      .select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, isSuperAdmin: usersTable.isSuperAdmin })
+      .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+
+    const permissions = req.user!.adminPermissions ?? [];
+    res.json({ ...user, permissions, isSuperAdmin: user?.isSuperAdmin ?? false });
+  } catch (err) {
+    res.status(500).json({ error: "获取管理员信息失败" });
+  }
+});
+
+/* ─────────────────────────────────────────────────
+   Roles CRUD (super admin only)
+   ───────────────────────────────────────────────── */
+router.get("/admin/roles", requireSuperAdmin, async (_req, res) => {
+  try {
+    const roles = await db.select().from(adminRolesTable).orderBy(asc(adminRolesTable.id));
+    // attach member count
+    const counts = await db
+      .select({ roleId: adminRoleAssignmentsTable.roleId, cnt: count() })
+      .from(adminRoleAssignmentsTable)
+      .groupBy(adminRoleAssignmentsTable.roleId);
+    const countMap = Object.fromEntries(counts.map(c => [c.roleId, c.cnt]));
+    res.json(roles.map(r => ({ ...r, memberCount: countMap[r.id] ?? 0 })));
+  } catch (err) {
+    res.status(500).json({ error: "获取角色列表失败" });
+  }
+});
+
+router.post("/admin/roles", requireSuperAdmin, async (req, res) => {
+  try {
+    const { name, description, permissions } = req.body as { name: string; description?: string; permissions: string[] };
+    if (!name?.trim()) return res.status(400).json({ error: "角色名称不能为空" });
+    const validPerms = permissions.filter((p: string) => (ADMIN_PERMISSION_KEYS as readonly string[]).includes(p));
+    const [role] = await db.insert(adminRolesTable)
+      .values({ name: name.trim(), description: description?.trim() ?? null, permissions: validPerms })
+      .returning();
+    res.json(role);
+  } catch (err) {
+    res.status(500).json({ error: "创建角色失败" });
+  }
+});
+
+router.patch("/admin/roles/:id", requireSuperAdmin, async (req, res) => {
+  try {
+    const roleId = Number(req.params.id);
+    const { name, description, permissions } = req.body as { name?: string; description?: string; permissions?: string[] };
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (name?.trim()) updateData.name = name.trim();
+    if (description !== undefined) updateData.description = description?.trim() ?? null;
+    if (permissions !== undefined) {
+      updateData.permissions = permissions.filter((p: string) => (ADMIN_PERMISSION_KEYS as readonly string[]).includes(p));
+    }
+    const [role] = await db.update(adminRolesTable).set(updateData).where(eq(adminRolesTable.id, roleId)).returning();
+    if (!role) return res.status(404).json({ error: "角色不存在" });
+    res.json(role);
+  } catch (err) {
+    res.status(500).json({ error: "更新角色失败" });
+  }
+});
+
+router.delete("/admin/roles/:id", requireSuperAdmin, async (req, res) => {
+  try {
+    const roleId = Number(req.params.id);
+    await db.delete(adminRoleAssignmentsTable).where(eq(adminRoleAssignmentsTable.roleId, roleId));
+    await db.delete(adminRolesTable).where(eq(adminRolesTable.id, roleId));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "删除角色失败" });
+  }
+});
+
+/* ─────────────────────────────────────────────────
+   Admin users management (super admin only)
+   ───────────────────────────────────────────────── */
+router.get("/admin/admin-users", requireSuperAdmin, async (_req, res) => {
+  try {
+    const admins = await db
+      .select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, isSuperAdmin: usersTable.isSuperAdmin, createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(eq(usersTable.role, "admin"))
+      .orderBy(desc(usersTable.isSuperAdmin), asc(usersTable.id));
+
+    const assignments = await db
+      .select({ userId: adminRoleAssignmentsTable.userId, roleId: adminRoleAssignmentsTable.roleId })
+      .from(adminRoleAssignmentsTable)
+      .where(inArray(adminRoleAssignmentsTable.userId, admins.map(a => a.id)));
+
+    const roleMap: Record<number, number[]> = {};
+    for (const a of assignments) {
+      if (!roleMap[a.userId]) roleMap[a.userId] = [];
+      roleMap[a.userId].push(a.roleId);
+    }
+
+    res.json(admins.map(a => ({ ...a, roleIds: roleMap[a.id] ?? [] })));
+  } catch (err) {
+    res.status(500).json({ error: "获取管理员列表失败" });
+  }
+});
+
+/** Promote an existing user to admin and assign roles */
+router.post("/admin/admin-users", requireSuperAdmin, async (req, res) => {
+  try {
+    const { userId, roleIds } = req.body as { userId: number; roleIds: number[] };
+    if (!userId) return res.status(400).json({ error: "请选择用户" });
+
+    const [user] = await db.select({ id: usersTable.id, role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) return res.status(404).json({ error: "用户不存在" });
+
+    await db.update(usersTable).set({ role: "admin" }).where(eq(usersTable.id, userId));
+
+    if (Array.isArray(roleIds) && roleIds.length > 0) {
+      await db.delete(adminRoleAssignmentsTable).where(eq(adminRoleAssignmentsTable.userId, userId));
+      await db.insert(adminRoleAssignmentsTable).values(roleIds.map(r => ({ userId, roleId: r })));
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "设置管理员失败" });
+  }
+});
+
+/** Update an admin's role assignments */
+router.patch("/admin/admin-users/:id", requireSuperAdmin, async (req, res) => {
+  try {
+    const targetId = Number(req.params.id);
+    const currentId = req.user!.id;
+    const { roleIds } = req.body as { roleIds: number[] };
+
+    const [target] = await db.select({ isSuperAdmin: usersTable.isSuperAdmin }).from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+    if (!target) return res.status(404).json({ error: "管理员不存在" });
+    if (target.isSuperAdmin && targetId !== currentId) return res.status(403).json({ error: "无法修改其他超级管理员的角色" });
+
+    await db.delete(adminRoleAssignmentsTable).where(eq(adminRoleAssignmentsTable.userId, targetId));
+    if (Array.isArray(roleIds) && roleIds.length > 0) {
+      await db.insert(adminRoleAssignmentsTable).values(roleIds.map(r => ({ userId: targetId, roleId: r })));
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "更新角色分配失败" });
+  }
+});
+
+/** Revoke admin access from a user */
+router.delete("/admin/admin-users/:id", requireSuperAdmin, async (req, res) => {
+  try {
+    const targetId = Number(req.params.id);
+    const currentId = req.user!.id;
+    if (targetId === currentId) return res.status(400).json({ error: "不能撤销自己的管理员权限" });
+
+    const [target] = await db.select({ isSuperAdmin: usersTable.isSuperAdmin }).from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+    if (!target) return res.status(404).json({ error: "管理员不存在" });
+    if (target.isSuperAdmin) return res.status(403).json({ error: "不能撤销超级管理员权限" });
+
+    await db.delete(adminRoleAssignmentsTable).where(eq(adminRoleAssignmentsTable.userId, targetId));
+    await db.update(usersTable).set({ role: "opc" }).where(eq(usersTable.id, targetId));
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "撤销管理员权限失败" });
+  }
+});
+
+/** Search non-admin users to promote */
+router.get("/admin/admin-users/search-users", requireSuperAdmin, async (req, res) => {
+  try {
+    const q = String(req.query.q ?? "").trim();
+    if (!q) return res.json([]);
+    const users = await db
+      .select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, role: usersTable.role })
+      .from(usersTable)
+      .where(and(
+        ne(usersTable.role, "admin"),
+        or(ilike(usersTable.nickname, `%${q}%`), ilike(usersTable.email, `%${q}%`))
+      ))
+      .limit(10);
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: "搜索失败" });
   }
 });
 

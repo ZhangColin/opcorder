@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp, pgEnum, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, timestamp, pgEnum, unique, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { sql } from "drizzle-orm";
@@ -16,6 +16,7 @@ export const usersTable = pgTable("users", {
   title: varchar("title", { length: 100 }),
   role: userRoleEnum("role").notNull().default("opc"),
   status: userStatusEnum("status").notNull().default("active"),
+  isSuperAdmin: boolean("is_super_admin").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   unique("users_email_key").on(t.email),
