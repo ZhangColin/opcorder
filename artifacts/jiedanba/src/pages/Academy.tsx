@@ -882,11 +882,9 @@ export default function Academy() {
       qc.invalidateQueries({ queryKey: ["/api/courses/my-enrollments"] });
       const ps = (result as typeof result & { paymentStatus?: string }).paymentStatus;
       if (ps === "pending") {
-        setSelectedCourse(null);
         await initiatePayment(courseId);
       } else {
         toast({ title: "报名成功", description: "已加入课程，开始学习吧" });
-        setSelectedCourse(null);
       }
     } finally {
       setEnrollingId(null);
@@ -894,7 +892,6 @@ export default function Academy() {
   };
 
   const handlePay = async (courseId: number) => {
-    setSelectedCourse(null);
     await initiatePayment(courseId);
   };
 
