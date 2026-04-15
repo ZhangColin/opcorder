@@ -3,8 +3,10 @@ import { db } from "@workspace/db";
 import {
   usersTable,
   opcProfilesTable,
+  adminRolesTable,
+  adminRoleAssignmentsTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { logger } from "./logger";
 
 interface OpcSeedEntry {
@@ -189,6 +191,78 @@ export async function runSeed(): Promise<void> {
     } catch (err) {
       logger.warn({ email: entry.email, err }, "Seed skipped (may already exist)");
     }
+  }
+
+  // ── 大屏管理员 role & screen user ──────────────────────────────────────────
+  // Idempotent: only creates if not already present.
+  // This ensures the production database has the screen role and dedicated user
+  // on first deploy without requiring any manual SQL.
+  try {
+    // 1. Ensure the 大屏管理员 role exists
+    let [screenRole] = await db
+      .select({ id: adminRolesTable.id })
+      .from(adminRolesTable)
+      .where(eq(adminRolesTable.name, "大屏管理员"))
+      .limit(1);
+
+    if (!screenRole) {
+      const [inserted] = await db
+        .insert(adminRolesTable)
+        .values({
+          name: "大屏管理员",
+          description: "仅可访问数据大屏展示页",
+          permissions: ["screen"],
+        })
+        .returning({ id: adminRolesTable.id });
+      screenRole = inserted;
+      logger.info("Seeded 大屏管理员 role");
+    }
+
+    // 2. Ensure the screen user exists
+    let [screenUser] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, "screen@jiedanba.com"))
+      .limit(1);
+
+    if (!screenUser) {
+      const passwordHash = await bcrypt.hash("HcyScreen@2026", 10);
+      const [inserted] = await db
+        .insert(usersTable)
+        .values({
+          nickname: "screen",
+          email: "screen@jiedanba.com",
+          passwordHash,
+          role: "admin",
+          status: "active",
+          isSuperAdmin: false,
+        })
+        .returning({ id: usersTable.id });
+      screenUser = inserted;
+      logger.info("Seeded screen admin user");
+    }
+
+    // 3. Ensure role assignment exists
+    const [existing] = await db
+      .select()
+      .from(adminRoleAssignmentsTable)
+      .where(
+        and(
+          eq(adminRoleAssignmentsTable.userId, screenUser.id),
+          eq(adminRoleAssignmentsTable.roleId, screenRole.id),
+        )
+      )
+      .limit(1);
+
+    if (!existing) {
+      await db.insert(adminRoleAssignmentsTable).values({
+        userId: screenUser.id,
+        roleId: screenRole.id,
+      });
+      logger.info("Assigned 大屏管理员 role to screen user");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Screen user seed skipped");
   }
 
   logger.info("Seed check complete.");
