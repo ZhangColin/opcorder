@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { startScheduler } from "./lib/scheduler";
 import { runSeed } from "./lib/seed";
 import { runMigrations } from "./lib/migrations";
+import { syncSchema } from "./lib/syncSchema";
 import { generateManualPdf } from "./lib/generateManualPdf";
 
 const rawPort = process.env["PORT"] ?? "8080";
@@ -13,9 +14,17 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 async function start() {
-  // Run migrations and seed before accepting traffic to avoid a startup race
-  // where requests arrive before schema changes are in place
+  // 1. Sync Drizzle schema → DB (additive only, idempotent).
+  //    Must run before data-level migrations because those reference tables
+  //    that only exist after the schema is applied.  In production Replit
+  //    deployments DATABASE_URL is unavailable during the build phase, so
+  //    the build-time migrate.mjs may have been skipped.
+  await syncSchema();
+
+  // 2. Run data-level migrations (idempotent ALTER TABLE / enum value additions).
   await runMigrations();
+
+  // 3. Seed required application data (roles, demo users, etc.).
   await runSeed();
 
   app.listen(port, (err) => {
