@@ -609,14 +609,14 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onPre
                   <ArrowRight size={14} /> 登录后报名
                 </a>
               ) : needsPay ? (
-                <button
-                  onClick={() => onPay(course.id)}
-                  disabled={isPaying}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 text-white font-bold text-sm rounded-xl hover:bg-amber-600 transition-all disabled:opacity-50"
-                >
-                  {isPaying ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                  立即支付
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-amber-700 font-semibold flex items-center gap-1">
+                    <CreditCard size={13} /> 已报名，请在「我的课程」中完成支付
+                  </span>
+                  <button onClick={onClose} className="flex items-center gap-1.5 px-4 py-2 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-muted/70 transition-all">
+                    <X size={14} /> 关闭
+                  </button>
+                </div>
               ) : isPaid && isEnrolled ? (
                 <button
                   onClick={onClose}
@@ -741,16 +741,7 @@ function CourseCard({
                 <BadgeCheck size={14} /> 持证
               </div>
             )}
-            {needsPay ? (
-              <button
-                onClick={() => onPay(course.id)}
-                disabled={isPaying}
-                className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white font-bold text-xs rounded-xl hover:bg-amber-600 transition-all disabled:opacity-50"
-              >
-                {isPaying ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
-                立即支付
-              </button>
-            ) : isEnrolled && isPaid ? (
+            {isEnrolled && isPaid ? (
               <button
                 onClick={() => onViewDetail(course)}
                 className="text-primary font-bold text-sm flex items-center gap-1 hover:gap-2 transition-all"
