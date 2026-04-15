@@ -168,10 +168,9 @@ export function isRefundFailed(r: RefundResult): boolean {
 
 export async function queryRefundStatus(refundOrderNo: string): Promise<RefundResult> {
   const body = "";
-  const resp = await fetch(`${BASE_URL}/api/v1/refunds/${refundOrderNo}/query`, {
-    method: "POST",
+  const resp = await fetch(`${BASE_URL}/api/v1/refunds/${refundOrderNo}`, {
+    method: "GET",
     headers: buildHeaders(body),
-    body,
   });
   const json = await resp.json() as { code: number | string; message: string; data: RefundResult };
   console.log(`[queryRefundStatus] refundOrderNo=${refundOrderNo} httpStatus=${resp.status} code=${json.code} status=${json.data?.status}`);
