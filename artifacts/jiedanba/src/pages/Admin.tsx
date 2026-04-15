@@ -2651,6 +2651,272 @@ function CourseRefundManagement() {
   );
 }
 
+type DemandRefundItem = {
+  id: number;
+  demandNo: string;
+  title: string;
+  status: string;
+  budget: number;
+  publisherName: string;
+  publisherEmail: string | null;
+  updatedAt: string;
+  payment: {
+    id: number;
+    method: "online" | "offline";
+    amount: number;
+    refundReason: string | null;
+    refundRequestedAt: string | null;
+    refundRejectReason: string | null;
+    refundReceiptUrl: string | null;
+    refundOrderNo: string | null;
+    refundedAt: string | null;
+  } | null;
+};
+
+function DemandRefundManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState("refund_pending");
+  const [rejectModal, setRejectModal] = useState<DemandRefundItem | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [offlineReceiptModal, setOfflineReceiptModal] = useState<DemandRefundItem | null>(null);
+  const [offlineReceipt, setOfflineReceipt] = useState("");
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+
+  const { data: resp, isLoading } = useQuery<{ data: DemandRefundItem[]; total: number }>({
+    queryKey: ["admin-demand-refunds", statusFilter],
+    queryFn: () => adminGet(`/api/admin/demand-refunds?status=${statusFilter}&pageSize=50`),
+    refetchInterval: 30_000,
+  });
+  const items = resp?.data ?? [];
+
+  const approveMut = useMutation({
+    mutationFn: (id: number) => adminPost(`/api/admin/demands/${id}/approve-refund`, {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-demand-refunds"] }); toast({ title: "退款已批准", description: "系统已自动处理退款流程" }); },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const rejectMut = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) => adminPost(`/api/admin/demands/${id}/reject-refund`, { reason }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-demand-refunds"] }); setRejectModal(null); setRejectReason(""); toast({ title: "退款已拒绝", description: "已通知发单方" }); },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const confirmOfflineMut = useMutation({
+    mutationFn: ({ id, url }: { id: number; url: string }) => adminPost(`/api/admin/demands/${id}/confirm-offline-refund`, { refundReceiptUrl: url }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-demand-refunds"] }); setOfflineReceiptModal(null); setOfflineReceipt(""); toast({ title: "线下退款已确认", description: "已通知发单方退款完成" }); },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const handleReceiptUpload = async (file: File) => {
+    setUploadingReceipt(true);
+    try {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!reqRes.ok) throw new Error("上传请求失败");
+      const { uploadURL, objectPath } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error("文件上传失败");
+      setOfflineReceipt(`${BASE}/api/storage${objectPath}`);
+      toast({ title: "凭证上传成功" });
+    } catch (err: any) {
+      toast({ title: "上传失败", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
+  const STATUS_TABS = [
+    { val: "refund_pending", label: "待审核" },
+    { val: "refunding", label: "退款中" },
+    { val: "refunded", label: "已退款" },
+    { val: "all", label: "全部" },
+  ];
+
+  const statusBadge = (s: string) => ({
+    refund_pending: "bg-rose-100 text-rose-700",
+    refunding: "bg-indigo-100 text-indigo-700",
+    refunded: "bg-emerald-100 text-emerald-700",
+  }[s] ?? "bg-slate-100 text-slate-500");
+
+  const statusLabel = (s: string) => ({ refund_pending: "退款审核中", refunding: "退款中", refunded: "已退款" }[s] ?? s);
+
+  return (
+    <div className="space-y-4 mt-8">
+      <SectionHeader title="需求退款申请" sub="审核发单方的保证金退款申请，批准或拒绝" />
+      <div className="flex items-center gap-2">
+        {STATUS_TABS.map(t => (
+          <button key={t.val} onClick={() => setStatusFilter(t.val)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${statusFilter === t.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <TableShell headers={["需求标题", "发单方", "金额", "支付方式", "退款原因", "申请时间", "状态", "操作"]}>
+        {isLoading ? <LoadingRow cols={8} /> : items.length === 0 ? (
+          <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400 text-sm">暂无退款申请</td></tr>
+        ) : items.map(item => (
+          <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+            <td className="px-5 py-4">
+              <div className="font-bold text-sm text-slate-800 line-clamp-1 max-w-[180px]">{item.title}</div>
+              <div className="text-xs text-slate-400 font-mono">{item.demandNo}</div>
+            </td>
+            <td className="px-5 py-4">
+              <div className="text-sm font-semibold text-slate-700">{item.publisherName}</div>
+              <div className="text-xs text-slate-400">{item.publisherEmail ?? ""}</div>
+            </td>
+            <td className="px-5 py-4">
+              <span className="text-sm font-extrabold text-primary">¥{(item.payment?.amount ?? item.budget).toLocaleString()}</span>
+            </td>
+            <td className="px-5 py-4">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.payment?.method === "online" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>
+                {item.payment?.method === "online" ? "在线支付" : "线下转账"}
+              </span>
+            </td>
+            <td className="px-5 py-4 max-w-[160px]">
+              <p className="text-xs text-slate-600 line-clamp-2">{item.payment?.refundReason ?? "-"}</p>
+            </td>
+            <td className="px-5 py-4 text-xs text-slate-500">
+              {item.payment?.refundRequestedAt ? new Date(item.payment.refundRequestedAt).toLocaleString("zh-CN") : "-"}
+            </td>
+            <td className="px-5 py-4">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusBadge(item.status)}`}>
+                {statusLabel(item.status)}
+              </span>
+            </td>
+            <td className="px-5 py-4">
+              {item.status === "refund_pending" && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => approveMut.mutate(item.id)}
+                    disabled={approveMut.isPending}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors disabled:opacity-50"
+                  >
+                    {approveMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={13} />} 批准退款
+                  </button>
+                  <button
+                    onClick={() => { setRejectModal(item); setRejectReason(""); }}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+                  >
+                    <XCircle size={13} /> 拒绝
+                  </button>
+                </div>
+              )}
+              {item.status === "refunding" && item.payment?.method === "offline" && (
+                <button
+                  onClick={() => { setOfflineReceiptModal(item); setOfflineReceipt(""); }}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors"
+                >
+                  <Upload size={13} /> 上传凭证
+                </button>
+              )}
+              {item.status === "refunding" && item.payment?.method === "online" && (
+                <span className="text-xs text-slate-400">退款处理中…</span>
+              )}
+              {item.status === "refunded" && (
+                <span className="text-xs text-emerald-600 font-semibold">已完成</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </TableShell>
+
+      {/* Reject modal */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setRejectModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">拒绝退款申请</h3>
+                <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{rejectModal.title}</p>
+              </div>
+              <button onClick={() => setRejectModal(null)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1.5">拒绝原因（将通过站内信和邮件通知发单方）</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  rows={3}
+                  placeholder="请说明拒绝退款的原因…"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setRejectModal(null)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors">取消</button>
+                <button
+                  onClick={() => { if (rejectReason.trim()) rejectMut.mutate({ id: rejectModal.id, reason: rejectReason.trim() }); }}
+                  disabled={!rejectReason.trim() || rejectMut.isPending}
+                  className="px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 disabled:opacity-50 transition-colors"
+                >
+                  {rejectMut.isPending ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null} 确认拒绝
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Offline receipt upload modal */}
+      {offlineReceiptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setOfflineReceiptModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">上传线下退款凭证</h3>
+                <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{offlineReceiptModal.title}</p>
+              </div>
+              <button onClick={() => setOfflineReceiptModal(null)} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1.5">退款凭证图片</label>
+                {offlineReceipt ? (
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                    <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                    <span className="text-xs text-green-700 font-semibold flex-1 truncate">凭证已上传</span>
+                    <button onClick={() => setOfflineReceipt("")} className="text-xs text-slate-400 hover:text-slate-600">更换</button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-6 cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                    {uploadingReceipt ? (
+                      <Loader2 size={24} className="text-primary animate-spin" />
+                    ) : (
+                      <>
+                        <Upload size={24} className="text-slate-300" />
+                        <span className="text-xs text-slate-400">点击上传退款凭证截图</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleReceiptUpload(f); }} />
+                  </label>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setOfflineReceiptModal(null)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors">取消</button>
+                <button
+                  onClick={() => { if (offlineReceipt && offlineReceiptModal) confirmOfflineMut.mutate({ id: offlineReceiptModal.id, url: offlineReceipt }); }}
+                  disabled={!offlineReceipt || confirmOfflineMut.isPending}
+                  className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {confirmOfflineMut.isPending ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null} 确认退款完成
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TrainingManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -5416,7 +5682,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "levelcert":      return <LevelCertReview />;
     case "content":        return <ContentReview />;
     case "sensitivewords": return <SensitiveWordsManagement />;
-    case "payments":       return <DepositPaymentManagement />;
+    case "payments":       return <><DepositPaymentManagement /><DemandRefundManagement /></>;
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;

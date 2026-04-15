@@ -1905,6 +1905,80 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
 
 /* ─── DEMAND DEPOSIT REFUND WORKFLOW ───────────────────── */
 
+/** List all demand deposit refund requests (pending, refunding, refunded) */
+router.get("/admin/demand-refunds", async (req, res) => {
+  try {
+    const { status } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query);
+
+    const conditions = [
+      sql`${demandsTable.status} IN ('refund_pending', 'refunding', 'refunded')`,
+    ];
+    if (status && status !== "all") {
+      conditions.push(eq(demandsTable.status, status as any));
+    }
+    const where = and(...conditions);
+
+    const [{ total }] = await db.select({ total: count() }).from(demandsTable).where(where);
+
+    const demands = await db
+      .select({
+        id: demandsTable.id,
+        demandNo: demandsTable.demandNo,
+        title: demandsTable.title,
+        status: demandsTable.status,
+        budget: demandsTable.budget,
+        publisherId: demandsTable.publisherId,
+        createdAt: demandsTable.createdAt,
+        updatedAt: demandsTable.updatedAt,
+      })
+      .from(demandsTable)
+      .where(where)
+      .orderBy(desc(demandsTable.updatedAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    const enriched = await Promise.all(demands.map(async (d) => {
+      const [pub] = await db.select({ nickname: usersTable.nickname, email: usersTable.email })
+        .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
+      const [payment] = await db.select({
+        id: demandPaymentsTable.id,
+        method: demandPaymentsTable.method,
+        status: demandPaymentsTable.status,
+        amount: demandPaymentsTable.amount,
+        refundReason: demandPaymentsTable.refundReason,
+        refundRequestedAt: demandPaymentsTable.refundRequestedAt,
+        refundRejectReason: demandPaymentsTable.refundRejectReason,
+        refundReceiptUrl: demandPaymentsTable.refundReceiptUrl,
+        refundOrderNo: demandPaymentsTable.refundOrderNo,
+        refundedAt: demandPaymentsTable.refundedAt,
+        paymentOrderNo: demandPaymentsTable.paymentOrderNo,
+        receiptUrl: demandPaymentsTable.receiptUrl,
+      }).from(demandPaymentsTable)
+        .where(eq(demandPaymentsTable.demandId, d.id))
+        .orderBy(desc(demandPaymentsTable.createdAt))
+        .limit(1);
+      return {
+        ...d,
+        publisherName: pub?.nickname ?? "—",
+        publisherEmail: pub?.email ?? null,
+        createdAt: d.createdAt.toISOString(),
+        updatedAt: d.updatedAt.toISOString(),
+        payment: payment ? {
+          ...payment,
+          refundRequestedAt: payment.refundRequestedAt?.toISOString() ?? null,
+          refundedAt: payment.refundedAt?.toISOString() ?? null,
+        } : null,
+      };
+    }));
+
+    res.json({ data: enriched, total: Number(total), page, pageSize });
+  } catch (err) {
+    console.error("[admin-demand-refunds]", err);
+    res.status(500).json({ error: "获取退款列表失败" });
+  }
+});
+
 /** Admin approves a publisher's refund request */
 router.post("/admin/demands/:id/approve-refund", requireAdmin, async (req, res) => {
   try {

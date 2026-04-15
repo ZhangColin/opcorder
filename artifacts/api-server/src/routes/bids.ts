@@ -6,6 +6,36 @@ import {
   UpdateBidStatusBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+function buildWinnerEmail(nickname: string, demandTitle: string, orderNo: string): string {
+  const n = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9f9fc;">
+      <div style="background:white;border-radius:16px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+          <div style="background:#0047ab;width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;">
+            <span style="color:white;font-weight:900;font-size:18px;line-height:1;">接</span>
+          </div>
+          <span style="display:inline-block;vertical-align:middle;font-weight:900;font-size:20px;color:#0047ab;margin-left:10px;">接单吧</span>
+        </div>
+        <h2 style="font-size:22px;font-weight:800;color:#1a1c1e;margin:0 0 20px;">恭喜您中标！🎉</h2>
+        <div style="border-left:3px solid #0047ab;padding-left:16px;margin-bottom:24px;">
+          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">您好，${n(nickname)}！</p>
+          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">您的申请已被发单方选中，需求「<strong>${n(demandTitle)}</strong>」已正式进入执行阶段。</p>
+          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">订单编号：<span style="font-family:monospace;background:#f3f4f6;padding:2px 8px;border-radius:6px;">${n(orderNo)}</span></p>
+          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">请登录接单吧，在「我的订单」中查看订单详情并开始执行。请务必在约定期限内按时完成各里程碑交付。</p>
+        </div>
+        <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:16px 0 0;border-top:1px solid #f3f4f6;padding-top:16px;">
+          此邮件由系统自动发送，请勿直接回复。
+        </p>
+      </div>
+      <p style="text-align:center;color:#c4c4c4;font-size:12px;margin:16px 0 0;">© 2026 接单吧 · OPC撮合交易平台</p>
+    </div>
+  `;
+}
 
 const router: IRouter = Router();
 
@@ -236,6 +266,28 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
         await db.update(bidsTable).set({ status: "rejected" }).where(
           and(eq(bidsTable.demandId, demand.id), eq(bidsTable.status, "pending"))
         );
+
+        // Send winner notification to OPC
+        const [opcUser] = await db.select({ nickname: usersTable.nickname, email: usersTable.email })
+          .from(usersTable).where(eq(usersTable.id, updated.opcId)).limit(1);
+
+        await db.insert(notificationsTable).values({
+          userId: updated.opcId,
+          type: "system",
+          title: "恭喜您中标！",
+          content: `您对需求「${demand.title}」的申请已被发单方选中。订单编号：${orderNo}。请登录接单吧查看订单详情并开始执行，请务必在约定期限内完成交付。`,
+          relatedId: demand.id,
+          relatedType: "demand",
+        });
+
+        if (opcUser?.email) {
+          resend.emails.send({
+            from: "接单吧 <noreply@aieducenter.com>",
+            to: opcUser.email,
+            subject: `恭喜中标！需求「${demand.title}」 - 接单吧`,
+            html: buildWinnerEmail(opcUser.nickname ?? opcUser.email, demand.title, orderNo),
+          }).catch(() => {});
+        }
       }
     }
 
