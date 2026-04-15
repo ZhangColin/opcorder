@@ -546,32 +546,48 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onPre
           {syllabusUrl && (
             <div className="border border-border rounded-xl p-4">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">课纲资料</p>
-              <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/15 rounded-xl">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <FileText size={20} className="text-primary" />
+              <div className={`flex items-center gap-3 p-3 rounded-xl border ${isEnrolled && isPaid ? "bg-primary/5 border-primary/15" : "bg-muted/40 border-border/40"}`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isEnrolled && isPaid ? "bg-primary/10" : "bg-muted"}`}>
+                  {isEnrolled && isPaid
+                    ? <FileText size={20} className="text-primary" />
+                    : <Lock size={20} className="text-muted-foreground/50" />
+                  }
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">{getFileLabel(syllabusUrl)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">课程大纲与学习资料</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isEnrolled && isPaid
+                      ? "课程大纲与学习资料"
+                      : coursePrice > 0
+                        ? "付款后即可查看与下载"
+                        : "报名后即可查看与下载"
+                    }
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => onPreviewDoc(syllabusUrl)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors"
-                    title="在浏览器中预览"
-                  >
-                    <Eye size={13} /> 预览
-                  </button>
-                  <a
-                    href={syllabusUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-foreground text-xs font-semibold rounded-lg hover:bg-muted/70 transition-colors"
-                    title="下载文件"
-                  >
-                    <Download size={13} /> 下载
-                  </a>
-                </div>
+                {isEnrolled && isPaid ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => onPreviewDoc(syllabusUrl)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+                      title="在浏览器中预览"
+                    >
+                      <Eye size={13} /> 预览
+                    </button>
+                    <a
+                      href={syllabusUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-foreground text-xs font-semibold rounded-lg hover:bg-muted/70 transition-colors"
+                      title="下载文件"
+                    >
+                      <Download size={13} /> 下载
+                    </a>
+                  </div>
+                ) : (
+                  <div className="shrink-0 px-3 py-1.5 bg-muted rounded-lg text-xs text-muted-foreground font-semibold flex items-center gap-1">
+                    <Lock size={12} /> 未解锁
+                  </div>
+                )}
               </div>
             </div>
           )}
