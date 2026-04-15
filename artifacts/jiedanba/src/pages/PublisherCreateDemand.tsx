@@ -876,9 +876,10 @@ export default function PublisherCreateDemand() {
               <p className="font-bold mb-1">提交后流程说明</p>
               <ul className="text-xs text-blue-700 space-y-0.5 list-disc pl-4">
                 <li>需求提交后进入「待审核」状态，平台运营团队将在24小时内完成审核</li>
-                <li>审核通过后自动进入「已发布」状态，OPC可开始抢单</li>
-                <li>定向派单邀约OPC后48小时未响应，自动转为公开抢单</li>
-                <li>您可在「需求管理」页跟踪需求进展</li>
+                <li>审核通过后进入「待缴保证金」状态，缴纳保证金后需求正式发布</li>
+                <li>发布后OPC可公开抢单；若选择定向派单，邀约OPC后48小时未响应将自动转为公开抢单</li>
+                <li>OPC匹配成功后进入「进行中」，完成交付后由您发起验收</li>
+                <li>您可在「需求管理」页随时跟踪需求进展</li>
               </ul>
             </div>
           </div>
