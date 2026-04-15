@@ -132,8 +132,9 @@ type AdminProfile = {
 };
 
 function useAdminProfile() {
+  const tokenHint = localStorage.getItem("jdb_user_id")?.slice(-12) ?? "none";
   return useQuery<AdminProfile>({
-    queryKey: ["admin-profile"],
+    queryKey: ["admin-profile", tokenHint],
     queryFn: () => adminGet("/api/admin/profile"),
     staleTime: 60_000,
     retry: false,
@@ -4765,6 +4766,7 @@ const PERM_LABELS: Record<string, string> = {
   content:        "内容审核",
   sensitivewords: "敏感词管理",
   settings:       "站点设置",
+  screen:         "数据大屏",
 };
 
 const ALL_PERM_KEYS = Object.keys(PERM_LABELS);

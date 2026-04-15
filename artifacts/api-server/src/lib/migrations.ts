@@ -281,8 +281,15 @@ export async function runMigrations(): Promise<void> {
   }
 
   // Migration 004e: bootstrap existing admin accounts as super admins (non-critical)
+  // Only promote admins that have NO role assignments — users with roles are intentional
+  // RBAC-managed admins (e.g. 大屏管理员) and must NOT be elevated.
   try {
-    await db.execute(sql`UPDATE users SET is_super_admin = true WHERE role = 'admin' AND is_super_admin = false`);
+    await db.execute(sql`
+      UPDATE users SET is_super_admin = true
+      WHERE role = 'admin'
+        AND is_super_admin = false
+        AND id NOT IN (SELECT DISTINCT user_id FROM admin_role_assignments)
+    `);
   } catch (err) {
     logger.warn({ err }, "Migration 004e: could not bootstrap super admins");
   }
