@@ -420,16 +420,6 @@ function MyCourseCard({
                 立即支付
               </button>
             )}
-            {status === "paid" && (
-              <button
-                onClick={() => onRequestRefund(enrollment.courseId, course?.title ?? `课程 #${enrollment.courseId}`)}
-                disabled={isRefundingId === enrollment.courseId}
-                className="flex items-center gap-1 px-3 py-1.5 bg-muted text-muted-foreground font-bold text-xs rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-100 border border-border/40 transition-all disabled:opacity-50"
-              >
-                <RotateCcw size={12} />
-                申请退款
-              </button>
-            )}
             {(status === "free" || status === "paid") && (
               <button
                 onClick={() => course && onViewDetail(course)}
@@ -457,15 +447,17 @@ function MyCourseCard({
 
 const LEVEL_LABELS: Record<string, string> = { C: "C 级·新手", B: "B 级·进阶", A: "A 级·专家" };
 
-function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onPreviewDoc, isEnrolling, isPaying, isLoggedIn }: {
+function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onRequestRefund, onPreviewDoc, isEnrolling, isPaying, isRefunding, isLoggedIn }: {
   course: Course;
   enrollment: EnrollmentInfo | null;
   onClose: () => void;
   onEnroll: (id: number) => void;
   onPay: (id: number) => void;
+  onRequestRefund: (courseId: number, courseName: string) => void;
   onPreviewDoc: (url: string) => void;
   isEnrolling: boolean;
   isPaying: boolean;
+  isRefunding: boolean;
   isLoggedIn: boolean;
 }) {
   const Icon = COURSE_ICONS[course.category] ?? Cpu;
@@ -479,6 +471,8 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onPre
   const certIssued = enrollment?.certIssued ?? false;
   const needsPay = enrollment?.paymentStatus === "pending";
   const isPaid = enrollment?.paymentStatus === "paid" || enrollment?.paymentStatus === "free";
+  const isRefundPending = enrollment?.paymentStatus === "refund_pending";
+  const isRefunded = enrollment?.paymentStatus === "refunded";
 
   const getFileLabel = (url: string) => {
     const ext = url.split(".").pop()?.toLowerCase() ?? "";
@@ -622,14 +616,38 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onPre
                     <X size={14} /> 关闭
                   </button>
                 </div>
+              ) : isRefundPending ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-orange-600 font-semibold flex items-center gap-1.5">
+                    <RefreshCw size={13} className="animate-spin" /> 退款审核中
+                  </span>
+                  <button onClick={onClose} className="flex items-center gap-1.5 px-4 py-2 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-muted/70 transition-all">
+                    <X size={14} /> 关闭
+                  </button>
+                </div>
+              ) : isRefunded ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-400 font-semibold">已退款</span>
+                  <button onClick={onClose} className="flex items-center gap-1.5 px-4 py-2 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-muted/70 transition-all">
+                    <X size={14} /> 关闭
+                  </button>
+                </div>
               ) : isPaid && isEnrolled ? (
-                <button
-                  onClick={onClose}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-muted/70 transition-all"
-                >
-                  <X size={14} />
-                  关闭
-                </button>
+                <div className="flex items-center gap-3">
+                  {enrollment?.paymentStatus === "paid" && (
+                    <button
+                      onClick={() => onRequestRefund(course.id, course.title)}
+                      disabled={isRefunding}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-muted text-muted-foreground font-bold text-sm rounded-xl hover:bg-red-50 hover:text-red-600 border border-border/40 transition-all disabled:opacity-50"
+                    >
+                      {isRefunding ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                      {isRefunding ? "提交中…" : "申请退款"}
+                    </button>
+                  )}
+                  <button onClick={onClose} className="flex items-center gap-1.5 px-4 py-2 bg-muted text-foreground font-bold text-sm rounded-xl hover:bg-muted/70 transition-all">
+                    <X size={14} /> 关闭
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => onEnroll(course.id)}
@@ -960,9 +978,11 @@ export default function Academy() {
           onClose={() => setSelectedCourse(null)}
           onEnroll={(id) => { handleEnroll(id); }}
           onPay={(id) => { handlePay(id); }}
+          onRequestRefund={(courseId, courseName) => setRefundModal({ courseId, courseName })}
           onPreviewDoc={(url) => { setSelectedCourse(null); setDocPreviewUrl(url); }}
           isEnrolling={enrollingId === selectedCourse.id}
           isPaying={payingId === selectedCourse.id}
+          isRefunding={isRefunding && refundModal?.courseId === selectedCourse.id}
           isLoggedIn={!!user}
         />
       )}
