@@ -18,6 +18,7 @@ import {
   Flame, Filter, ShieldCheck, Lock, EyeOff,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/use-confirm";
 
 /* ─── API helpers ────────────────────────────────── */
 
@@ -905,6 +906,7 @@ const DEMAND_TYPE_CN: Record<string, string> = {
 
 function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
   const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
   const qc = useQueryClient();
   const { data: d, isLoading, refetch } = useQuery<AdminDemandDetail>({
     queryKey: ["admin-demand-detail", id],
@@ -1075,7 +1077,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 )}
                 {d.status === "published" && (
                   <button
-                    onClick={() => { if (confirm(`确认将需求「${d.title}」退回到草稿编辑模式？`)) actionMut.mutate({ action: "revertToDraft" }); }}
+                    onClick={() => askConfirm({ title: `退回需求「${d.title}」到草稿`, description: "发单方将需要重新提交审核。", confirmLabel: "确认退回", confirmVariant: "default", onConfirm: () => actionMut.mutate({ action: "revertToDraft" }) })}
                     disabled={actionMut.isPending}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-xs font-bold hover:bg-amber-200 disabled:opacity-50 transition-colors"
                   >
@@ -1084,7 +1086,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 )}
                 {d.status !== "closed" && d.status !== "completed" && d.status !== "refund_pending" && d.status !== "refunding" && d.status !== "refunded" && (
                   <button
-                    onClick={() => { if (confirm("确认强制关闭此需求？")) actionMut.mutate({ action: "forceClose" }); }}
+                    onClick={() => askConfirm({ title: "强制关闭需求", description: "关闭后不可撤销，发单方和 OPC 均会收到通知。", confirmLabel: "强制关闭", confirmVariant: "destructive", onConfirm: () => actionMut.mutate({ action: "forceClose" }) })}
                     disabled={actionMut.isPending}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 disabled:opacity-50 transition-colors border border-red-200"
                   >
@@ -1094,7 +1096,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 {d.status === "refund_pending" && (
                   <>
                     <button
-                      onClick={() => { if (confirm("确认批准此退款申请？将向发布方发起退款。")) approveRefundMut.mutate(); }}
+                      onClick={() => askConfirm({ title: "批准退款申请", description: "确认后将向发布方发起退款，此操作不可撤销。", confirmLabel: "批准退款", confirmVariant: "default", onConfirm: () => approveRefundMut.mutate() })}
                       disabled={approveRefundMut.isPending}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
@@ -1433,6 +1435,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
           </div>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }
@@ -1440,6 +1443,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
 function DemandManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
   const [detailId, setDetailId] = useState<number | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -1559,14 +1563,14 @@ function DemandManagement() {
                   )}
                   {d.status === "published" && (
                     <button
-                      onClick={() => { if (confirm(`确认将需求「${d.title}」退回到草稿编辑模式？发单方将需要重新提交审核。`)) mutate.mutate({ id: d.id, action: "revertToDraft" }); }}
+                      onClick={() => askConfirm({ title: `退回需求「${d.title}」到草稿`, description: "发单方将需要重新提交审核。", confirmLabel: "确认退回", confirmVariant: "default", onConfirm: () => mutate.mutate({ id: d.id, action: "revertToDraft" }) })}
                       title="退回编辑"
                       className="p-2 rounded-xl hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
                       <RotateCcw size={15} />
                     </button>
                   )}
                   {d.status !== "closed" && d.status !== "completed" && (
-                    <button onClick={() => { if (confirm("确认强制关闭此需求？")) mutate.mutate({ id: d.id, action: "forceClose" }); }}
+                    <button onClick={() => askConfirm({ title: "强制关闭需求", description: "关闭后不可撤销，相关方均会收到通知。", confirmLabel: "强制关闭", confirmVariant: "destructive", onConfirm: () => mutate.mutate({ id: d.id, action: "forceClose" }) })}
                       title="强制关闭" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
                       <XCircle size={15} />
                     </button>
@@ -1621,6 +1625,7 @@ function DemandManagement() {
           </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
@@ -1645,6 +1650,7 @@ interface AdminOrder {
 function OrderManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
   const { q, qInput, setQInput, filter, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminOrder>>({
@@ -1734,7 +1740,7 @@ function OrderManagement() {
                     </button>
                   )}
                   {o.status !== "completed" && o.status !== "closed" && (
-                    <button onClick={() => { if (confirm("确认强制结算此订单？")) mutate.mutate({ id: o.id, action: "forceSettle" }); }}
+                    <button onClick={() => askConfirm({ title: "强制结算订单", description: "结算后不可撤销，OPC 和发单方均会收到通知。", confirmLabel: "强制结算", confirmVariant: "default", onConfirm: () => mutate.mutate({ id: o.id, action: "forceSettle" }) })}
                       title="强制结算" className="p-2 rounded-xl hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
                       <CreditCard size={15} />
                     </button>
@@ -1746,6 +1752,7 @@ function OrderManagement() {
         }
       </TableShell>
       <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
+      {confirmDialog}
     </div>
   );
 }
@@ -2483,6 +2490,7 @@ function EnrollmentPanel({ course, onClose }: { course: AdminCourse; onClose: ()
 function TrainingManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
   const [modalOpen, setModalOpen] = useState(false);
   const [editCourse, setEditCourse] = useState<AdminCourse | null>(null);
   const [enrollCourse, setEnrollCourse] = useState<AdminCourse | null>(null);
@@ -2680,11 +2688,7 @@ function TrainingManagement() {
                       <Star size={13} className="fill-amber-400 text-amber-400" />
                     </button>
                   )}
-                  <button onClick={() => {
-                    if (confirm(`确定要删除课程「${c.title}」吗？此操作不可恢复。`)) {
-                      deleteMutation.mutate(c.id);
-                    }
-                  }} title="删除"
+                  <button onClick={() => askConfirm({ title: `删除课程「${c.title}」`, description: "删除后不可恢复，已报名的学员将失去访问权限。", confirmLabel: "确认删除", confirmVariant: "destructive", onConfirm: () => deleteMutation.mutate(c.id) })} title="删除"
                     className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
                     <Trash2 size={13} />
                   </button>
@@ -2720,6 +2724,7 @@ function TrainingManagement() {
           onClose={() => setEnrollCourse(null)}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }
@@ -3020,6 +3025,7 @@ interface AdminComment {
 function ContentReview() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
   const [previewPost, setPreviewPost] = useState<AdminPost | null>(null);
   const [contentTab, setContentTab] = useState<"posts" | "comments">("posts");
   const [q, setQ] = useState("");
@@ -3149,7 +3155,7 @@ function ContentReview() {
                   <Flame size={14} /> {previewPost.isFeatured ? "取消热门" : "设为热门"}
                 </button>
                 <button
-                  onClick={() => { if (confirm("确认删除此帖子？删除后不可恢复。")) deletePost.mutate(previewPost.id); }}
+                  onClick={() => askConfirm({ title: "删除帖子", description: "删除后不可恢复，所有评论也将一并删除。", confirmLabel: "确认删除", confirmVariant: "destructive", onConfirm: () => deletePost.mutate(previewPost.id) })}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                 >
                   <Trash2 size={14} /> 删除帖子
@@ -3251,7 +3257,7 @@ function ContentReview() {
                       <Flame size={15} />
                     </button>
                     <button
-                      onClick={() => { if (confirm("确认删除此帖子？删除后不可恢复。")) deletePost.mutate(p.id); }}
+                      onClick={() => askConfirm({ title: "删除帖子", description: "删除后不可恢复，所有评论也将一并删除。", confirmLabel: "确认删除", confirmVariant: "destructive", onConfirm: () => deletePost.mutate(p.id) })}
                       title="删除" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
                       <Trash2 size={15} />
                     </button>
@@ -3280,7 +3286,7 @@ function ContentReview() {
                 <td className="px-6 py-4 text-xs text-slate-400">{new Date(c.createdAt).toLocaleDateString("zh-CN")}</td>
                 <td className="px-6 py-4">
                   <button
-                    onClick={() => { if (confirm("确认删除此回复？删除后不可恢复。")) deleteComment.mutate(c.id); }}
+                    onClick={() => askConfirm({ title: "删除回复", description: "删除后不可恢复。", confirmLabel: "确认删除", confirmVariant: "destructive", onConfirm: () => deleteComment.mutate(c.id) })}
                     title="删除" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
                     <Trash2 size={15} />
                   </button>
@@ -3293,6 +3299,7 @@ function ContentReview() {
         </>
       )}
     </div>
+    {confirmDialog}
     </>
   );
 }
