@@ -172,14 +172,14 @@ function StatCard({ title, value, unit = "", icon, colorType = "cyan", delay = 0
       <div className={clsx("absolute top-0 left-0 right-0 h-[2px] opacity-80", c.bar)} />
 
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[13px] font-bold text-slate-400 tracking-[0.08em] uppercase leading-tight">{title}</span>
-        <div className={clsx("w-7 h-7 rounded-md border flex items-center justify-center", c.icon)}>
-          <span className={clsx("w-4 h-4", c.text)}>{icon}</span>
+        <span className="text-[17px] font-bold text-slate-400 tracking-[0.08em] uppercase leading-tight">{title}</span>
+        <div className={clsx("w-8 h-8 rounded-md border flex items-center justify-center", c.icon)}>
+          <span className={clsx("w-5 h-5", c.text)}>{icon}</span>
         </div>
       </div>
       <div className="flex items-baseline gap-1 leading-none mt-1">
-        <span className={clsx("text-[34px] font-black font-mono tabular-nums", c.text)}>{display}</span>
-        {unit && <span className="text-[13px] text-slate-500 font-medium">{unit}</span>}
+        <span className={clsx("text-[42px] font-black font-mono tabular-nums", c.text)}>{display}</span>
+        {unit && <span className="text-[17px] text-slate-500 font-medium">{unit}</span>}
       </div>
     </div>
   );
@@ -201,7 +201,7 @@ function Panel({ children, title, borderColor = "border-cyan-500/50", className 
       {title && (
         <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/5 shrink-0">
           <div className="w-1.5 h-5 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-          <span className="text-[15px] font-bold text-slate-400 tracking-[0.08em] uppercase">{title}</span>
+          <span className="text-[20px] font-bold text-slate-400 tracking-[0.08em] uppercase">{title}</span>
         </div>
       )}
       <div className={clsx("flex flex-col", title ? "p-3 pt-2" : "p-3", "h-full")}>
@@ -241,15 +241,15 @@ function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-          <XAxis dataKey="date" stroke="#64748b" fontSize={13} tickLine={false} axisLine={{ stroke: "#334155" }} />
-          <YAxis stroke="#64748b" fontSize={13} tickLine={false} axisLine={{ stroke: "#334155" }} allowDecimals={false} />
+          <XAxis dataKey="date" stroke="#64748b" fontSize={15} tickLine={false} axisLine={{ stroke: "#334155" }} />
+          <YAxis stroke="#64748b" fontSize={15} tickLine={false} axisLine={{ stroke: "#334155" }} allowDecimals={false} />
           <Tooltip
             contentStyle={{ backgroundColor: "rgba(2,13,36,0.9)", borderColor: "rgba(6,182,212,0.3)", color: "#e2e8f0", borderRadius: 6 }}
-            itemStyle={{ fontSize: 15, fontWeight: "bold" }}
-            labelStyle={{ fontSize: 13, color: "#94a3b8" }}
+            itemStyle={{ fontSize: 17, fontWeight: "bold" }}
+            labelStyle={{ fontSize: 15, color: "#94a3b8" }}
           />
-          <Legend verticalAlign="top" height={36} iconType="diamond"
-            formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 14 }}>{value}</span>} />
+          <Legend verticalAlign="top" height={40} iconType="diamond"
+            formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 18 }}>{value}</span>} />
           <Area type="monotone" name="新用户" dataKey="users" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorUsers)"
             dot={{ r: 3, fill: "#06b6d4", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#06b6d4", stroke: "#fff", strokeWidth: 2 }} />
           <Area type="monotone" name="新需求" dataKey="demands" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorDemands)"
@@ -428,7 +428,7 @@ function LiveFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticker2: 
                 ? "bg-gradient-to-r from-cyan-900/30 to-[#020b1e]/50 border-cyan-500/30 shadow-[inset_0_0_15px_rgba(6,182,212,0.08)]"
                 : "bg-gradient-to-r from-amber-900/20 to-[#020b1e]/50 border-amber-500/25 shadow-[inset_0_0_15px_rgba(245,158,11,0.05)]"
             )}>
-              <p className={clsx("text-[14px] leading-snug font-medium tracking-wide",
+              <p className={clsx("text-[17px] leading-snug font-medium tracking-wide",
                 item.type === "activity" ? "text-cyan-50" : "text-amber-100")}>
                 {item.text}
               </p>
@@ -592,7 +592,7 @@ export default function ScreenDisplay() {
           </div>
 
           {/* ═══ KPI STATS ROW ═══ */}
-          <div className="grid grid-cols-8 gap-3 px-6 mb-3 shrink-0" style={{ height: 124 }}>
+          <div className="grid grid-cols-8 gap-3 px-6 mb-3 shrink-0" style={{ height: 148 }}>
             {statsData.map((s, i) => (
               <StatCard key={i} {...s} ready={ready} />
             ))}
