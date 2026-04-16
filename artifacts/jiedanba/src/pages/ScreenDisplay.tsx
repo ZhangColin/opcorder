@@ -347,7 +347,7 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
       {/* Left block — ring + legend, 3/5 width */}
       <div className="flex-[3] flex items-center justify-center gap-6 min-w-0">
         {/* Ring — capped at 130px so it doesn't dominate */}
-        <div className="relative shrink-0" style={{ height: "min(100%, 130px)", aspectRatio: "1" }}>
+        <div className="relative shrink-0" style={{ height: "min(100%, 165px)", aspectRatio: "1" }}>
           <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
             <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth="8" />
             <circle cx="50" cy="50" r="42" fill="none" stroke="#10b981"
