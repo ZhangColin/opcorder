@@ -521,7 +521,7 @@ function MilestoneCard({
 
   // Derive milestone status from its deliverables, not from ms.status (which is undefined in JSONB)
   const status =
-    msDelivs.some((d) => d.status === "approved") ? "completed" :
+    msDelivs.some((d) => d.status === "approved") ? "approved" :
     msDelivs.some((d) => d.status === "submitted") ? "submitted" :
     msDelivs.some((d) => d.status === "rejected") ? "rejected" :
     "pending";
@@ -640,6 +640,27 @@ function MilestoneCard({
               onSuccess={onRefetch}
             />
           )}
+
+          {status === "approved" && (() => {
+            const mExt = ms as unknown as { rating?: number; comment?: string };
+            if (!mExt.rating && !mExt.comment) return null;
+            return (
+              <div className="mt-4 flex items-start gap-3 p-3 rounded-xl bg-green-50 border border-green-200">
+                <CheckCircle2 size={14} className="text-green-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  {mExt.rating && (
+                    <div className="flex items-center gap-1.5">
+                      {[1,2,3,4,5].map(s => (
+                        <Star key={s} size={12} className={s <= mExt.rating! ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
+                      ))}
+                      <span className="text-xs text-green-700 font-bold ml-1">发单方评分 {mExt.rating} 分</span>
+                    </div>
+                  )}
+                  {mExt.comment && <p className="text-xs text-green-700">{mExt.comment}</p>}
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
       )}

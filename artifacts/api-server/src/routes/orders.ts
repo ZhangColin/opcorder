@@ -290,10 +290,20 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
       status: "approved",
     }).where(eq(deliverablesTable.id, submittedDeliv.id));
 
-    // Update the milestone JSONB status to 'approved'
+    // Update the milestone JSONB status to 'approved' (and optionally rating/comment)
     await db.execute(
       sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},status}'`)}, '"approved"'::jsonb), updated_at = NOW() WHERE id = ${orderId}`
     );
+    if (body.rating) {
+      await db.execute(
+        sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},rating}'`)}, to_jsonb(${body.rating})) WHERE id = ${orderId}`
+      );
+    }
+    if (body.comment) {
+      await db.execute(
+        sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},comment}'`)}, to_jsonb(${body.comment})) WHERE id = ${orderId}`
+      );
+    }
 
     // Re-fetch milestones to check if all are approved
     const [freshOrder] = await db.select({ milestones: ordersTable.milestones }).from(ordersTable).where(eq(ordersTable.id, orderId));

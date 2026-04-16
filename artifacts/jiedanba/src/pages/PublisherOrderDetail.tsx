@@ -617,6 +617,28 @@ export default function PublisherOrderDetail() {
                                 </div>
                               )}
 
+                              {/* Milestone rating/comment from publisher */}
+                              {msStatus === "approved" && !isAcceptOpen && !isRejectOpen && (() => {
+                                const mExt = m as unknown as { rating?: number; comment?: string };
+                                if (!mExt.rating && !mExt.comment) return null;
+                                return (
+                                  <div className="mt-3 pl-11 flex items-start gap-2">
+                                    <CheckCircle2 size={13} className="text-green-600 shrink-0 mt-0.5" />
+                                    <div className="space-y-0.5">
+                                      {mExt.rating && (
+                                        <div className="flex items-center gap-1">
+                                          {[1,2,3,4,5].map(s => (
+                                            <Star key={s} size={11} className={s <= mExt.rating! ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
+                                          ))}
+                                          <span className="text-xs text-green-700 font-bold ml-1">您的评分 {mExt.rating} 分</span>
+                                        </div>
+                                      )}
+                                      {mExt.comment && <p className="text-xs text-green-700">{mExt.comment}</p>}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                               {/* Submitted deliverables for this milestone */}
                               {msDelivs.length > 0 && !isAcceptOpen && !isRejectOpen && (
                                 <div className="mt-3 pl-11 space-y-2">
