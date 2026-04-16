@@ -217,23 +217,6 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
 
-    // OPC access control: deny only when ALL bids for this demand are rejected/withdrawn
-    // (if any bid is pending or accepted, access is still allowed)
-    if (req.user!.role === "opc") {
-      const allBids = await db
-        .select({ status: bidsTable.status })
-        .from(bidsTable)
-        .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.opcId, req.user!.id)));
-      if (allBids.length > 0) {
-        const hasActiveOrAccepted = allBids.some(
-          b => b.status === "pending" || b.status === "accepted"
-        );
-        if (!hasActiveOrAccepted) {
-          return res.status(403).json({ error: "您的申请已被婉拒或已撤消，无法查看该需求详情" });
-        }
-      }
-    }
-
     const [demand] = await db
       .select({
         id: demandsTable.id,
