@@ -68,7 +68,7 @@ router.get("/bids/my", requireAuth, async (req, res) => {
 
     res.json(bids.map(b => ({
       ...b,
-      demandDeadline: b.demandDeadline?.toISOString() ?? null,
+      demandDeadline: b.demandDeadline ?? null,   // date column returns string, not Date
       createdAt: b.createdAt.toISOString(),
     })));
   } catch (error) {
