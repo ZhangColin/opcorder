@@ -543,7 +543,7 @@ export default function PublisherOrderDetail() {
                                 <div className="mt-4 pl-11 border-t border-amber-200 pt-4 space-y-3">
                                   <p className="text-sm font-bold text-green-700">确认通过该里程碑？</p>
                                   <div>
-                                    <p className="text-xs text-slate-500 mb-1.5">评分（可选，若这是最后一个里程碑将保存为最终评分）</p>
+                                    <p className="text-xs text-slate-500 mb-1.5">评分（可选）</p>
                                     <StarPicker value={milestoneAcceptRating} onChange={setMilestoneAcceptRating} />
                                   </div>
                                   <textarea
@@ -633,7 +633,7 @@ export default function PublisherOrderDetail() {
                                           <span className="text-xs text-green-700 font-bold ml-1">您的评分 {mExt.rating} 分</span>
                                         </div>
                                       )}
-                                      {mExt.comment && <p className="text-xs text-green-700">{mExt.comment}</p>}
+                                      {mExt.comment && <p className="text-xs text-green-700">评语：{mExt.comment}</p>}
                                     </div>
                                   </div>
                                 );

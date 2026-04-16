@@ -656,7 +656,7 @@ function MilestoneCard({
                       <span className="text-xs text-green-700 font-bold ml-1">发单方评分 {mExt.rating} 分</span>
                     </div>
                   )}
-                  {mExt.comment && <p className="text-xs text-green-700">{mExt.comment}</p>}
+                  {mExt.comment && <p className="text-xs text-green-700">评语：{mExt.comment}</p>}
                 </div>
               </div>
             );
