@@ -272,14 +272,14 @@ function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; new
     { label: "新订单", value: newOrders,  colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
   ];
   return (
-    <div className="flex flex-col justify-between h-full gap-2">
+    <div className="grid grid-cols-3 gap-2.5 h-full">
       {items.map((item, i) => (
         <div key={i} className={clsx(
-          "flex-1 rounded-lg border px-4 flex items-center justify-between",
+          "rounded-lg border px-4 flex items-center justify-between",
           item.borderClass, item.bgClass
         )}>
           <div className="flex items-center gap-2">
-            <span className="text-lg">{item.icon}</span>
+            <span className="text-lg shrink-0">{item.icon}</span>
             <span className="text-[16px] font-bold text-slate-400 tracking-wider">{item.label}</span>
           </div>
           <span className={clsx("text-[30px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
@@ -343,50 +343,57 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
   const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
 
   return (
-    <div className="flex-1 min-h-0 flex items-center gap-5 px-2">
-      {/* Left — big ring */}
-      <div className="shrink-0 relative" style={{ width: ringSize, height: ringSize }}>
-        <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
-          <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={7} />
-          <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="#10b981"
-            strokeWidth={7} strokeDasharray={ringC2}
-            strokeDashoffset={ringC2 * (1 - completionRate / 100)}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 10px #10b981)" }} />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[22px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
-            {completionRate}%
-          </span>
+    <div className="flex-1 min-h-0 flex items-center gap-4 px-2">
+
+      {/* Left block — ring + legend to its right */}
+      <div className="flex items-center gap-4 shrink-0">
+        {/* Ring */}
+        <div className="shrink-0 relative" style={{ width: ringSize, height: ringSize }}>
+          <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={7} />
+            <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="#10b981"
+              strokeWidth={7} strokeDasharray={ringC2}
+              strokeDashoffset={ringC2 * (1 - completionRate / 100)}
+              strokeLinecap="round"
+              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 10px #10b981)" }} />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[22px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+              {completionRate}%
+            </span>
+          </div>
+        </div>
+
+        {/* Legend — right of ring */}
+        <div className="flex flex-col gap-2">
+          <span className="text-[15px] font-bold text-slate-500">订单完成率</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
+            <span className="text-[14px] text-slate-400">完成</span>
+            <span className="text-[17px] font-black text-emerald-400 font-mono">{completedOrders}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shrink-0" />
+            <span className="text-[14px] text-slate-400">进行中</span>
+            <span className="text-[17px] font-black text-teal-400 font-mono">{inProgressOrders}</span>
+          </div>
         </div>
       </div>
 
       {/* Vertical divider */}
       <div className="self-stretch w-px bg-white/5 my-3 shrink-0" />
 
-      {/* Right — rate info + settlement */}
-      <div className="flex-1 flex flex-col justify-between h-full py-3">
-        <div className="flex flex-col gap-2">
-          <span className="text-[16px] font-bold text-slate-400 tracking-widest uppercase">订单完成率</span>
-          <div className="text-[15px] text-slate-500">
-            完成&nbsp;<span className="text-emerald-400 font-bold text-[17px]">{completedOrders}</span>
-            &nbsp;·&nbsp;
-            进行中&nbsp;<span className="text-teal-400 font-bold text-[17px]">{inProgressOrders}</span>
-          </div>
-        </div>
-
-        <div className="w-full border-t border-white/5" />
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[15px] font-bold text-slate-500 tracking-widest uppercase">累计结算</span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-[40px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
-              {settled}
-            </span>
-            <span className="text-[18px] font-bold text-slate-300">元</span>
-          </div>
+      {/* Right block — 累计结算 */}
+      <div className="flex-1 flex flex-col justify-center items-center gap-2">
+        <span className="text-[15px] font-bold text-slate-500 tracking-widest">累计结算</span>
+        <div className="flex items-baseline gap-1">
+          <span className="text-[42px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+            {settled}
+          </span>
+          <span className="text-[18px] font-bold text-slate-300">元</span>
         </div>
       </div>
+
     </div>
   );
 }
