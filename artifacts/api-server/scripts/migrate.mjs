@@ -30,11 +30,9 @@ function main() {
 
   const result = spawnSync(
     process.platform === "win32" ? "pnpm.cmd" : "pnpm",
-    ["--filter", "@workspace/db", "run", "push"],
+    ["--filter", "@workspace/db", "run", "push-force"],
     {
-      // Send repeated newlines so any interactive prompt selects its safe default.
-      input: "\n\n\n\n\n",
-      stdio: ["pipe", "inherit", "inherit"],
+      stdio: "inherit",
       cwd: WORKSPACE_ROOT,
       env: { ...process.env },
     }
