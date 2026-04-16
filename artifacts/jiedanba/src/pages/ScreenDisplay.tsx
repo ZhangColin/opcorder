@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getValidAccessToken, clearSession } from "@/lib/auth";
+import { format } from "date-fns";
+import clsx from "clsx";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { Users, FileText, CheckCircle, Clock, TrendingUp, DollarSign, Hexagon } from "lucide-react";
 
 /* ════════════════════════════════════════
    Types
@@ -22,67 +25,9 @@ type ScreenData = {
   ticker2: { text: string }[];
 };
 
-/* ════════════════════════════════════════
-   Color palette — LED panel optimised
-   深海军蓝底 + 高饱和发光色
-════════════════════════════════════════ */
-const BG   = "#09131f";          // deep navy (not pure black — LEDs look off at #000)
-const SURF = "rgba(10,24,44,0.82)"; // panel surface
-const LINE = "rgba(0,180,220,0.12)"; // grid & divider
-
-const C = {
-  cyan:   "#00c8e0",
-  green:  "#00d87a",
-  amber:  "#ffb020",
-  purple: "#9d7cf0",
-  pink:   "#f06090",
-  blue:   "#3f90ff",
-  teal:   "#00b8a0",
-  text:   "#b8d8f0",   // cool off-white — easy on eyes
-  dim:    "#2a4a64",   // muted label text
-};
-
-const PIE_COLORS  = [C.cyan, C.green, C.purple, C.amber, C.pink];
-const CHART_TABS  = ["近14天增长趋势", "需求状态分布", "用户角色分布"];
-const REFRESH_SEC = 60;
-const CHART_SWAP  = 9000;
-
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const REFRESH_SEC = 60;
 
-/* ════════════════════════════════════════
-   Demand status colours
-════════════════════════════════════════ */
-const D_COLORS: Record<string, string> = {
-  published: C.blue, matched: C.cyan,
-  in_progress: C.purple, pending_acceptance: C.amber, completed: C.green,
-};
-
-/* ════════════════════════════════════════
-   CSS keyframes
-════════════════════════════════════════ */
-const KF = `
-  @keyframes orb1  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(55px,-40px)} }
-  @keyframes orb2  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(-40px,45px)} }
-  @keyframes orb3  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(25px,35px)} }
-  @keyframes kpiIn { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes chartIn { from{opacity:0;transform:scale(0.97) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
-  @keyframes feedScroll { from{transform:translateY(0)} to{transform:translateY(-50%)} }
-  @keyframes tickRun    { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-  @keyframes liveDot { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-  @keyframes progIn  { from{width:0} to{width:var(--pct)} }
-  @keyframes scanline {
-    0%   { background-position: 0 0; }
-    100% { background-position: 0 4px; }
-  }
-`;
-
-/* ════════════════════════════════════════
-   Helpers
-════════════════════════════════════════ */
-function rgb(hex: string) {
-  return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`;
-}
 async function fetchScreen(): Promise<ScreenData> {
   const token = await getValidAccessToken(BASE);
   if (!token) {
@@ -103,9 +48,21 @@ async function fetchScreen(): Promise<ScreenData> {
 }
 
 /* ════════════════════════════════════════
-   Hook: count-up
+   CSS keyframes for custom animations
 ════════════════════════════════════════ */
-function useCountUp(target: number, ready: boolean, ms = 1600, delay = 0) {
+const KF = `
+  @keyframes orb1  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(55px,-40px)} }
+  @keyframes orb2  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(-40px,45px)} }
+  @keyframes feedScroll { from{transform:translateY(0)} to{transform:translateY(-50%)} }
+  @keyframes liveDot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes kpiIn { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes chartIn { from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
+`;
+
+/* ════════════════════════════════════════
+   Count-up hook
+════════════════════════════════════════ */
+function useCountUp(target: number, ready: boolean, ms = 1400, delay = 0) {
   const [v, setV] = useState(0);
   useEffect(() => {
     if (!ready) return;
@@ -124,157 +81,315 @@ function useCountUp(target: number, ready: boolean, ms = 1600, delay = 0) {
 }
 
 /* ════════════════════════════════════════
-   LiveClock
+   Header — Figma Design
 ════════════════════════════════════════ */
-function LiveClock() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t); }, []);
-  return (
-    <div style={{ textAlign:"right" }}>
-      <div style={{ fontSize:26, fontWeight:900, color:C.text, fontVariantNumeric:"tabular-nums", lineHeight:1,
-        textShadow:`0 0 18px rgba(${rgb(C.cyan)},0.4)` }}>
-        {now.toLocaleTimeString("zh-CN", { hour12:false })}
-      </div>
-      <div style={{ fontSize:11, color:C.dim, marginTop:3, letterSpacing:"0.08em" }}>
-        {now.toLocaleDateString("zh-CN", { year:"numeric", month:"long", day:"numeric", weekday:"short" })}
-      </div>
-    </div>
-  );
-}
+function Header() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-/* ════════════════════════════════════════
-   CountdownRing
-════════════════════════════════════════ */
-function CountdownRing({ n, total }: { n: number; total: number }) {
-  const r = 18, c2 = 2 * Math.PI * r;
-  const color = n <= 10 ? C.amber : C.cyan;
   return (
-    <div style={{ position:"relative", width:46, height:46, flexShrink:0 }}>
-      <svg width={46} height={46} style={{ position:"absolute", transform:"rotate(-90deg)" }}>
-        <circle cx={23} cy={23} r={r} fill="none" stroke={`rgba(${rgb(color)},0.15)`} strokeWidth={2.5} />
-        <circle cx={23} cy={23} r={r} fill="none" stroke={color}
-          strokeWidth={2.5} strokeDasharray={c2} strokeDashoffset={c2*(1-n/total)}
-          strokeLinecap="round" style={{ transition:"stroke-dashoffset 1s linear, stroke 0.3s",
-          filter:`drop-shadow(0 0 4px ${color})` }} />
-      </svg>
-      <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <span style={{ fontSize:9, fontWeight:900, color, fontVariantNumeric:"tabular-nums" }}>{n}s</span>
-      </div>
-    </div>
-  );
-}
+    <div className="relative flex items-center justify-between px-8 py-3 h-24 w-full bg-gradient-to-b from-[#0f1f45]/60 to-transparent shrink-0">
+      {/* Top Line Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_rgba(6,182,212,1)]" />
 
-/* ════════════════════════════════════════
-   KpiCard
-════════════════════════════════════════ */
-function KpiCard({ label, value, unit="", accent, icon, delay, ready }: {
-  label: string; value: number; unit?: string;
-  accent: string; icon: string; delay: number; ready: boolean;
-}) {
-  const n = useCountUp(value, ready, 1600, delay);
-  const display = n >= 10000 ? `${(n/10000).toFixed(1)}万` : n.toLocaleString("zh-CN");
-  return (
-    <div style={{
-      flex:1, minWidth:0, position:"relative", overflow:"hidden",
-      background: SURF,
-      border:`1px solid rgba(${rgb(accent)},0.28)`,
-      borderRadius:14,
-      padding:"13px 16px 15px",
-      boxShadow:`0 0 20px rgba(${rgb(accent)},0.08), inset 0 1px 0 rgba(255,255,255,0.03)`,
-      animation:`kpiIn 0.65s cubic-bezier(0.16,1,0.3,1) ${delay}ms both`,
-    }}>
-      {/* top glow bar */}
-      <div style={{ position:"absolute", top:0, left:0, right:0, height:2,
-        background:`linear-gradient(90deg, ${accent} 0%, transparent 70%)`,
-        boxShadow:`0 0 8px ${accent}`,
-      }} />
-      {/* bottom right decorative circle */}
-      <div style={{ position:"absolute", right:-16, bottom:-16, width:60, height:60, borderRadius:"50%",
-        background:`radial-gradient(circle, rgba(${rgb(accent)},0.1) 0%, transparent 70%)` }} />
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-        <span style={{ fontSize:10, fontWeight:700, color:C.dim, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-          {label}
-        </span>
-        <div style={{ width:26, height:26, borderRadius:7,
-          background:`rgba(${rgb(accent)},0.14)`, border:`1px solid rgba(${rgb(accent)},0.25)`,
-          display:"flex", alignItems:"center", justifyContent:"center", fontSize:13 }}>
-          {icon}
+      {/* Time - Left */}
+      <div className="w-[30%] flex items-center">
+        <div className="text-[32px] font-mono font-bold text-slate-100 tracking-widest drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
+          {format(time, "HH:mm:ss")}
         </div>
       </div>
-      <div style={{ display:"flex", alignItems:"baseline", gap:4, lineHeight:1 }}>
-        <span style={{ fontSize:34, fontWeight:900, color:accent,
-          fontVariantNumeric:"tabular-nums",
-          textShadow:`0 0 16px rgba(${rgb(accent)},0.5), 0 0 40px rgba(${rgb(accent)},0.2)`,
-        }}>{display}</span>
-        {unit && <span style={{ fontSize:12, color:C.dim }}>{unit}</span>}
+
+      {/* Center Title */}
+      <div className="flex-1 flex justify-center items-center relative h-full shrink-0">
+        <div className="absolute top-4 w-[110%] h-12 flex items-center justify-center pointer-events-none">
+          <div className="absolute bottom-0 w-[80%] h-px bg-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
+          <div className="absolute left-[10%] bottom-0 w-8 h-px bg-cyan-400 origin-bottom-right -rotate-45 transform translate-y-px" />
+          <div className="absolute left-[5%] bottom-1 flex gap-1 -skew-x-[30deg]">
+            <div className="w-4 h-1.5 bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]" />
+            <div className="w-4 h-1.5 bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]" />
+            <div className="w-4 h-1.5 bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)] opacity-50" />
+          </div>
+          <div className="absolute right-[10%] bottom-0 w-8 h-px bg-cyan-400 origin-bottom-left rotate-45 transform translate-y-px" />
+          <div className="absolute right-[5%] bottom-1 flex gap-1 -skew-x-[30deg]">
+            <div className="w-4 h-1.5 bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)] opacity-50" />
+            <div className="w-4 h-1.5 bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]" />
+            <div className="w-4 h-1.5 bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]" />
+          </div>
+        </div>
+        <h1 className="relative z-10 text-[28px] font-bold tracking-[0.1em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-200 to-purple-400 drop-shadow-[0_2px_15px_rgba(168,85,247,0.5)] flex items-center gap-3">
+          <span>接单吧 OPC 撮合交易平台</span>
+          <span className="text-purple-400 drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]">数据大屏</span>
+        </h1>
+      </div>
+
+      {/* Status - Right */}
+      <div className="w-[30%] flex justify-end items-center gap-3">
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,1)] animate-pulse" />
+          <span className="text-[15px] text-emerald-400 font-medium tracking-wider drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">
+            平台运行正常
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
 /* ════════════════════════════════════════
-   TodayStat — compact "today" card
+   StatCard — Figma Design
 ════════════════════════════════════════ */
-function TodayStat({ label, value, accent, icon }: {
-  label: string; value: number; accent: string; icon: string;
+const colorMap = {
+  cyan:    { border: "border-cyan-500",    text: "text-cyan-400",    bg: "bg-cyan-950/20",    shadow: "shadow-[inset_0_0_20px_rgba(6,182,212,0.3)]",    glow: "shadow-[0_0_15px_rgba(6,182,212,0.3)]",    bar: "bg-cyan-400",    icon: "bg-cyan-950/50 border-cyan-700" },
+  blue:    { border: "border-blue-500",    text: "text-blue-400",    bg: "bg-blue-950/20",    shadow: "shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]",    glow: "shadow-[0_0_15px_rgba(59,130,246,0.3)]",    bar: "bg-blue-400",    icon: "bg-blue-950/50 border-blue-700" },
+  purple:  { border: "border-purple-500",  text: "text-purple-400",  bg: "bg-purple-950/20",  shadow: "shadow-[inset_0_0_20px_rgba(168,85,247,0.3)]",    glow: "shadow-[0_0_15px_rgba(168,85,247,0.3)]",    bar: "bg-purple-400",  icon: "bg-purple-950/50 border-purple-700" },
+  emerald: { border: "border-emerald-500", text: "text-emerald-400", bg: "bg-emerald-950/20", shadow: "shadow-[inset_0_0_20px_rgba(16,185,129,0.3)]",    glow: "shadow-[0_0_15px_rgba(16,185,129,0.3)]",    bar: "bg-emerald-400", icon: "bg-emerald-950/50 border-emerald-700" },
+  amber:   { border: "border-amber-500",   text: "text-amber-400",   bg: "bg-amber-950/20",   shadow: "shadow-[inset_0_0_20px_rgba(245,158,11,0.3)]",    glow: "shadow-[0_0_15px_rgba(245,158,11,0.3)]",    bar: "bg-amber-400",   icon: "bg-amber-950/50 border-amber-700" },
+  rose:    { border: "border-rose-500",    text: "text-rose-400",    bg: "bg-rose-950/20",    shadow: "shadow-[inset_0_0_20px_rgba(244,63,94,0.3)]",     glow: "shadow-[0_0_15px_rgba(244,63,94,0.3)]",     bar: "bg-rose-400",    icon: "bg-rose-950/50 border-rose-700" },
+} as const;
+
+type ColorType = keyof typeof colorMap;
+
+function StatCard({ title, value, unit = "", icon, colorType = "cyan", delay = 0, ready = true }: {
+  title: string; value: number; unit?: string;
+  icon: React.ReactNode; colorType?: ColorType; delay?: number; ready?: boolean;
+}) {
+  const n = useCountUp(value, ready, 1400, delay);
+  const display = n >= 10000 ? `${(n / 10000).toFixed(1)}万` : n.toLocaleString("zh-CN");
+  const c = colorMap[colorType];
+
+  return (
+    <div
+      className={clsx(
+        "relative flex flex-col justify-between p-3 rounded-xl border overflow-hidden",
+        c.border, c.bg, c.shadow, c.glow
+      )}
+      style={{ animation: `kpiIn 0.65s cubic-bezier(0.16,1,0.3,1) ${delay}ms both` }}
+    >
+      {/* Top glow bar */}
+      <div className={clsx("absolute top-0 left-0 right-0 h-[2px] opacity-80", c.bar)} />
+
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-bold text-slate-400 tracking-[0.08em] uppercase leading-tight">{title}</span>
+        <div className={clsx("w-6 h-6 rounded-md border flex items-center justify-center", c.icon)}>
+          <span className={clsx("w-3.5 h-3.5", c.text)}>{icon}</span>
+        </div>
+      </div>
+      <div className="flex items-baseline gap-1 leading-none mt-1">
+        <span className={clsx("text-[28px] font-black font-mono tabular-nums", c.text)}>{display}</span>
+        {unit && <span className="text-[10px] text-slate-500 font-medium">{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════
+   Panel — Figma Design
+════════════════════════════════════════ */
+function Panel({ children, title, borderColor = "border-cyan-500/50", className = "" }: {
+  children: React.ReactNode; title?: string;
+  borderColor?: string; className?: string;
 }) {
   return (
-    <div style={{
-      flex:1, padding:"9px 12px",
-      background:`rgba(${rgb(accent)},0.07)`,
-      border:`1px solid rgba(${rgb(accent)},0.22)`,
-      borderRadius:10,
-      display:"flex", flexDirection:"column", gap:4,
-    }}>
-      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-        <span style={{ fontSize:14 }}>{icon}</span>
-        <span style={{ fontSize:10, fontWeight:700, color:C.dim, letterSpacing:"0.05em" }}>{label}</span>
-      </div>
-      <div style={{ fontSize:24, fontWeight:900, color:accent, lineHeight:1,
-        fontVariantNumeric:"tabular-nums",
-        textShadow:`0 0 12px rgba(${rgb(accent)},0.5)` }}>
-        {value > 0 ? `+${value}` : value}
+    <div className={clsx(
+      "relative rounded-xl border bg-[#0a1530]/80 shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
+      "backdrop-blur-sm overflow-hidden",
+      borderColor, className
+    )}>
+      {title && (
+        <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/5 shrink-0">
+          <div className="w-1 h-4 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+          <span className="text-[11px] font-bold text-slate-400 tracking-[0.08em] uppercase">{title}</span>
+        </div>
+      )}
+      <div className={clsx("flex flex-col", title ? "p-3 pt-2" : "p-3", "h-full")}>
+        {children}
       </div>
     </div>
   );
 }
 
 /* ════════════════════════════════════════
-   DemandProgress
+   TrendChart — Figma Design with real data
 ════════════════════════════════════════ */
-function DemandProgress({ label, value, total, color, delay }: {
-  label: string; value: number; total: number; color: string; delay: number;
-}) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  const [show, setShow] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setShow(true), delay + 400); return () => clearTimeout(t); }, []);
+function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
+  const chartData = data.map(d => ({
+    date: d.label || d.date,
+    users: d.newUsers,
+    demands: d.newDemands,
+    orders: d.newOrders,
+  }));
+
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:8, animation:`fadeIn 0.5s ease ${delay}ms both` }}>
-      <div style={{ width:44, fontSize:11, fontWeight:700, color:C.dim, flexShrink:0, textAlign:"right" }}>{label}</div>
-      <div style={{ flex:1, height:6, borderRadius:4, background:`rgba(${rgb(color)},0.1)`, overflow:"hidden" }}>
-        <div style={{
-          height:"100%", borderRadius:4,
-          background:`linear-gradient(90deg, ${color}, rgba(${rgb(color)},0.65))`,
-          width: show ? `${pct}%` : "0%",
-          transition:"width 1s cubic-bezier(0.4,0,0.2,1)",
-          boxShadow:`0 0 8px rgba(${rgb(color)},0.6)`,
-        }} />
-      </div>
-      <div style={{ width:58, fontSize:11, fontWeight:700, color, flexShrink:0 }}>
-        {value} <span style={{ color:C.dim, fontWeight:400 }}>({pct}%)</span>
+    <div className="flex flex-col h-full w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.5} />
+              <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="colorDemands" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.5} />
+              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#a855f7" stopOpacity={0.5} />
+              <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={{ stroke: "#334155" }} />
+          <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={{ stroke: "#334155" }} allowDecimals={false} />
+          <Tooltip
+            contentStyle={{ backgroundColor: "rgba(2,13,36,0.9)", borderColor: "rgba(6,182,212,0.3)", color: "#e2e8f0", borderRadius: 6 }}
+            itemStyle={{ fontSize: 12, fontWeight: "bold" }}
+            labelStyle={{ fontSize: 10, color: "#94a3b8" }}
+          />
+          <Legend verticalAlign="top" height={32} iconType="diamond"
+            formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 11 }}>{value}</span>} />
+          <Area type="monotone" name="新用户" dataKey="users" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorUsers)"
+            dot={{ r: 3, fill: "#06b6d4", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#06b6d4", stroke: "#fff", strokeWidth: 2 }} />
+          <Area type="monotone" name="新需求" dataKey="demands" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorDemands)"
+            dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#3b82f6", stroke: "#fff", strokeWidth: 2 }} />
+          <Area type="monotone" name="新订单" dataKey="orders" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorOrders)"
+            dot={{ r: 3, fill: "#a855f7", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#a855f7", stroke: "#fff", strokeWidth: 2 }} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════
+   TodayStats — Figma Design with real data
+════════════════════════════════════════ */
+function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; newDemands: number; newOrders: number }) {
+  const items = [
+    { label: "新用户", value: newUsers, colorClass: "text-cyan-400", borderClass: "border-cyan-500/40", bgClass: "bg-cyan-950/30", icon: "👤" },
+    { label: "新需求", value: newDemands, colorClass: "text-teal-400", borderClass: "border-teal-500/40", bgClass: "bg-teal-950/30", icon: "📋" },
+    { label: "新订单", value: newOrders, colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
+  ];
+  return (
+    <div className="flex gap-3 h-full">
+      {items.map((item, i) => (
+        <div key={i} className={clsx("flex-1 rounded-lg border p-3 flex flex-col gap-2", item.borderClass, item.bgClass)}>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">{item.icon}</span>
+            <span className="text-[10px] font-bold text-slate-400 tracking-wider">{item.label}</span>
+          </div>
+          <div className={clsx("text-[26px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+            {item.value > 0 ? `+${item.value}` : item.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════
+   ProgressBars — Figma Design with real data
+════════════════════════════════════════ */
+const STATUS_COLORS: Record<string, { colorClass: string; shadowClass: string }> = {
+  published:          { colorClass: "bg-cyan-400",    shadowClass: "shadow-[0_0_10px_rgba(6,182,212,1)]" },
+  matched:            { colorClass: "bg-blue-400",    shadowClass: "shadow-[0_0_10px_rgba(59,130,246,1)]" },
+  in_progress:        { colorClass: "bg-purple-400",  shadowClass: "shadow-[0_0_10px_rgba(168,85,247,1)]" },
+  pending_acceptance: { colorClass: "bg-amber-400",   shadowClass: "shadow-[0_0_10px_rgba(245,158,11,1)]" },
+  completed:          { colorClass: "bg-emerald-400", shadowClass: "shadow-[0_0_10px_rgba(16,185,129,1)]" },
+};
+
+function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; total: number }) {
+  return (
+    <div className="flex flex-col justify-center h-full w-full gap-2.5 px-1">
+      {data.map((item, index) => {
+        const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+        const c = STATUS_COLORS[item.status] ?? { colorClass: "bg-slate-400", shadowClass: "" };
+        return (
+          <div key={index} className="flex items-center gap-3">
+            <span className="text-[10px] text-slate-300 w-14 text-right font-medium tracking-wider shrink-0">{item.label}</span>
+            <div className="flex-1 h-2.5 bg-[#0a1936] rounded-full overflow-hidden border border-cyan-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
+              <div
+                className={clsx("h-full rounded-full transition-all duration-1000 ease-out", c.colorClass, c.shadowClass)}
+                style={{ width: `${pct === 0 ? 2 : pct}%` }}
+              />
+            </div>
+            <div className="w-16 flex items-center justify-between text-[10px] text-slate-400 font-mono shrink-0">
+              <span>{item.value}</span>
+              <span>({pct}%)</span>
+            </div>
+          </div>
+        );
+      })}
+      <div className="flex justify-between items-center pt-1.5 border-t border-white/5 text-[10px] mt-auto">
+        <span className="text-slate-500">需求总计</span>
+        <span className="font-bold text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.6)]">{total} 条</span>
       </div>
     </div>
   );
 }
 
 /* ════════════════════════════════════════
-   ActivityFeed — vertical auto-scroll
+   OrderOverview — Figma Design with real data
 ════════════════════════════════════════ */
-function ActivityFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticker2: { text: string }[] }) {
+function OrderOverview({ completionRate, completedOrders, inProgressOrders, totalSettled }: {
+  completionRate: number; completedOrders: number; inProgressOrders: number; totalSettled: number;
+}) {
+  const r = 24, c2 = 2 * Math.PI * r;
+  const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
+
+  return (
+    <div className="flex flex-col items-center justify-around h-full gap-2">
+      {/* Completion Ring */}
+      <div className="flex flex-col items-center gap-1.5">
+        <div className="relative w-[70px] h-[70px]">
+          <svg width={70} height={70} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={35} cy={35} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={5} />
+            <circle cx={35} cy={35} r={r} fill="none" stroke="#10b981"
+              strokeWidth={5} strokeDasharray={c2}
+              strokeDashoffset={c2 * (1 - completionRate / 100)}
+              strokeLinecap="round"
+              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 6px #10b981)" }} />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[13px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+              {completionRate}%
+            </span>
+          </div>
+        </div>
+        <span className="text-[9px] font-bold text-slate-400 tracking-[0.08em] uppercase">订单完成率</span>
+        <div className="text-[10px] text-slate-500 text-center">
+          完成 <span className="text-emerald-400 font-bold">{completedOrders}</span> ·
+          进行中 <span className="text-teal-400 font-bold">{inProgressOrders}</span>
+        </div>
+      </div>
+
+      <div className="w-full border-t border-white/5" />
+
+      {/* Settlement */}
+      <div className="flex flex-col items-center gap-1">
+        <span className="text-[9px] font-bold text-slate-500 tracking-[0.08em] uppercase">累计结算</span>
+        <div className="flex items-baseline gap-1">
+          <span className="text-[36px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+            {settled}
+          </span>
+          <span className="text-[12px] font-bold text-slate-300">元</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════
+   LiveFeed — Figma Design with real data
+════════════════════════════════════════ */
+type FeedItem = { text: string; type: "activity" | "achieve" };
+
+function LiveFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticker2: { text: string }[] }) {
   const items = useMemo(() => {
-    const all = [
+    const all: FeedItem[] = [
       ...ticker1.map(t => ({ text: t.text, type: "activity" as const })),
-      ...ticker2.map(t => ({ text: t.text, type: "achieve"  as const })),
+      ...ticker2.map(t => ({ text: t.text, type: "achieve" as const })),
     ];
     for (let i = all.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -286,39 +401,49 @@ function ActivityFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticke
   const half = Math.max(1, items.length / 2);
   const duration = half * 2.8;
 
-  const ICON  = { activity:"⚡", achieve:"🏆" };
-  const COLOR = { activity: C.cyan, achieve: C.amber };
-
   if (!items.length) return (
-    <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:C.dim, fontSize:12 }}>
-      暂无动态
-    </div>
+    <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">暂无动态</div>
   );
+
   return (
-    <div style={{ flex:1, overflow:"hidden", position:"relative", minHeight:0 }}>
-      <div style={{ position:"absolute", top:0, insetInline:0, height:28, zIndex:1,
-        background:`linear-gradient(to bottom, ${BG}, transparent)`, pointerEvents:"none" }} />
-      <div style={{ position:"absolute", bottom:0, insetInline:0, height:28, zIndex:1,
-        background:`linear-gradient(to top, ${BG}, transparent)`, pointerEvents:"none" }} />
-      <div style={{ animation:`feedScroll ${duration}s linear infinite`, display:"flex", flexDirection:"column", gap:6 }}>
-        {items.map((item, i) => {
-          const col = COLOR[item.type];
-          return (
-            <div key={i} style={{
-              flexShrink:0,
-              background:`rgba(${rgb(col)},0.05)`,
-              border:`1px solid rgba(${rgb(col)},0.18)`,
-              borderLeft:`3px solid ${col}`,
-              borderRadius:8,
-              padding:"8px 12px",
-              display:"flex", alignItems:"flex-start", gap:8,
-              boxShadow:`0 0 10px rgba(${rgb(col)},0.06)`,
-            }}>
-              <span style={{ fontSize:13, flexShrink:0, marginTop:1 }}>{ICON[item.type]}</span>
-              <span style={{ fontSize:12, color:C.text, lineHeight:1.55 }}>{item.text}</span>
+    <div className="flex-1 overflow-hidden relative min-h-0 pl-4">
+      {/* Timeline track */}
+      <div className="absolute left-[29px] top-4 bottom-4 w-px bg-cyan-900/60 shadow-[0_0_5px_rgba(6,182,212,0.3)]" />
+
+      {/* Fade masks */}
+      <div className="absolute top-0 inset-x-0 h-8 bg-gradient-to-b from-[#0a1530] to-transparent pointer-events-none z-10" />
+      <div className="absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[#0a1530] to-transparent pointer-events-none z-10" />
+
+      <div style={{ animation: `feedScroll ${duration}s linear infinite` }} className="flex flex-col gap-3 py-2">
+        {items.map((item, i) => (
+          <div key={i} className="relative pl-10 flex items-center">
+            {/* Timeline Dot */}
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[14px] h-[14px] rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center shadow-[0_0_8px_rgba(6,182,212,0.8)] z-10">
+              <div className="w-1.5 h-1.5 rounded-full bg-cyan-200" />
             </div>
-          );
-        })}
+            {/* Content */}
+            <div className={clsx(
+              "flex-1 flex items-center justify-between p-2.5 rounded-lg border transition-all",
+              item.type === "activity"
+                ? "bg-gradient-to-r from-cyan-900/30 to-[#020b1e]/50 border-cyan-500/30 shadow-[inset_0_0_15px_rgba(6,182,212,0.08)]"
+                : "bg-gradient-to-r from-amber-900/20 to-[#020b1e]/50 border-amber-500/25 shadow-[inset_0_0_15px_rgba(245,158,11,0.05)]"
+            )}>
+              <p className={clsx("text-[11px] leading-snug font-medium tracking-wide",
+                item.type === "activity" ? "text-cyan-50" : "text-amber-100")}>
+                {item.text}
+              </p>
+              <div className={clsx(
+                "ml-2 w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md border",
+                item.type === "activity"
+                  ? "bg-cyan-900/40 border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.3)_inset]"
+                  : "bg-amber-900/30 border-amber-500/25"
+              )}>
+                <Hexagon className={clsx("w-3.5 h-3.5 drop-shadow-[0_0_5px_rgba(6,182,212,1)]",
+                  item.type === "activity" ? "text-cyan-300" : "text-amber-300")} />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -327,11 +452,11 @@ function ActivityFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticke
 /* ════════════════════════════════════════
    Ticker — horizontal scroll
 ════════════════════════════════════════ */
-function Ticker({ items, color, bgColor }: { items: { text: string }[]; color: string; bgColor: string }) {
+function Ticker({ items, color, label }: { items: { text: string }[]; color: string; label: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const text = items.length ? items.map(i => `◆  ${i.text}`).join("      ") : "暂无数据";
   const doubled = `${text}      ${text}`;
-  const speed = 55; // px/s
+  const speed = 55;
 
   useEffect(() => {
     const el = trackRef.current;
@@ -349,67 +474,69 @@ function Ticker({ items, color, bgColor }: { items: { text: string }[]; color: s
   }, [items]);
 
   return (
-    <div style={{ flex:1, overflow:"hidden", position:"relative" }}>
-      <div style={{ position:"absolute", left:0, insetBlock:0, width:44, zIndex:1,
-        background:`linear-gradient(to right, ${bgColor}, transparent)`, pointerEvents:"none" }} />
-      <div style={{ position:"absolute", right:0, insetBlock:0, width:44, zIndex:1,
-        background:`linear-gradient(to left, ${bgColor}, transparent)`, pointerEvents:"none" }} />
-      <div ref={trackRef} style={{ display:"inline-block", whiteSpace:"nowrap",
-        color, fontSize:12.5, fontWeight:700, letterSpacing:"0.03em",
-        textShadow:`0 0 8px rgba(${rgb(color)},0.5)` }}>
-        {doubled}
+    <div className={clsx(
+      "flex items-center border-t",
+      color === "cyan" ? "bg-cyan-900/10 border-cyan-500/10" : "bg-amber-900/8 border-amber-500/8"
+    )}>
+      <div className={clsx(
+        "shrink-0 px-4 text-[10px] font-black tracking-[0.08em] whitespace-nowrap",
+        color === "cyan" ? "text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]"
+                        : "text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"
+      )} style={{ padding: "7px 14px 7px 24px" }}>
+        {label}
+      </div>
+      <div className="flex-1 overflow-hidden relative">
+        <div className={clsx("absolute left-0 inset-y-0 w-10 z-10 pointer-events-none",
+          color === "cyan" ? "bg-gradient-to-r from-[#040c1a] to-transparent" : "bg-gradient-to-r from-[#040c1a] to-transparent")} />
+        <div className={clsx("absolute right-0 inset-y-0 w-10 z-10 pointer-events-none",
+          color === "cyan" ? "bg-gradient-to-l from-[#040c1a] to-transparent" : "bg-gradient-to-l from-[#040c1a] to-transparent")} />
+        <div ref={trackRef} className={clsx(
+          "inline-block whitespace-nowrap text-[12px] font-bold tracking-[0.03em]",
+          color === "cyan"
+            ? "text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.5)]"
+            : "text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]"
+        )} style={{ padding: "7px 0" }}>
+          {doubled}
+        </div>
       </div>
     </div>
   );
 }
 
 /* ════════════════════════════════════════
-   Panel wrapper
+   CountdownRing
 ════════════════════════════════════════ */
-function Panel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function CountdownRing({ n, total }: { n: number; total: number }) {
+  const r = 14, c2 = 2 * Math.PI * r;
+  const color = n <= 10 ? "#fbbf24" : "#06b6d4";
   return (
-    <div style={{
-      background: SURF,
-      border:`1px solid ${LINE}`,
-      borderRadius:16,
-      boxShadow:`0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)`,
-      ...style,
-    }}>{children}</div>
-  );
-}
-
-/* ════════════════════════════════════════
-   SectionLabel
-════════════════════════════════════════ */
-function SectionLabel({ title, color = C.cyan, live }: { title: string; color?: string; live?: boolean }) {
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10, flexShrink:0 }}>
-      {live && (
-        <div style={{ width:7, height:7, borderRadius:"50%", background:color,
-          boxShadow:`0 0 8px ${color}`, animation:"liveDot 2s ease-in-out infinite" }} />
-      )}
-      <span style={{ fontSize:11, fontWeight:800, color:C.dim, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-        {title}
-      </span>
+    <div className="relative w-9 h-9 shrink-0">
+      <svg width={36} height={36} style={{ position: "absolute", transform: "rotate(-90deg)" }}>
+        <circle cx={18} cy={18} r={r} fill="none" stroke={`${color}25`} strokeWidth={2} />
+        <circle cx={18} cy={18} r={r} fill="none" stroke={color}
+          strokeWidth={2} strokeDasharray={c2} strokeDashoffset={c2 * (1 - n / total)}
+          strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s linear", filter: `drop-shadow(0 0 3px ${color})` }} />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-[8px] font-black tabular-nums" style={{ color }}>{n}s</span>
+      </div>
     </div>
   );
 }
 
 /* ════════════════════════════════════════
-   Main page
+   Main Screen Page
 ════════════════════════════════════════ */
 export default function ScreenDisplay() {
   const [countdown, setCountdown] = useState(REFRESH_SEC);
-  const [chartIdx, setChartIdx]   = useState(0);
-  const [chartKey, setChartKey]   = useState(0);
 
   const { data, dataUpdatedAt } = useQuery<ScreenData>({
-    queryKey:["screen"], queryFn:fetchScreen,
-    refetchInterval:REFRESH_SEC*1000, staleTime:0,
+    queryKey: ["screen"], queryFn: fetchScreen,
+    refetchInterval: REFRESH_SEC * 1000, staleTime: 0,
   });
 
   const ready = !!data;
-  const kpi   = data?.kpi;
+  const kpi = data?.kpi;
 
   useEffect(() => {
     setCountdown(REFRESH_SEC);
@@ -417,316 +544,127 @@ export default function ScreenDisplay() {
     return () => clearInterval(t);
   }, [dataUpdatedAt]);
 
-  useEffect(() => {
-    const t = setInterval(() => { setChartIdx(i => (i+1)%3); setChartKey(k => k+1); }, CHART_SWAP);
-    return () => clearInterval(t);
-  }, []);
-
-  const switchChart = (i: number) => { setChartIdx(i); setChartKey(k => k+1); };
-
   const today = useMemo(() => {
-    if (!data?.timeSeries?.length) return { newUsers:0, newDemands:0, newOrders:0 };
+    if (!data?.timeSeries?.length) return { newUsers: 0, newDemands: 0, newOrders: 0 };
     return data.timeSeries[data.timeSeries.length - 1];
   }, [data]);
 
   const totalDemands = useMemo(() =>
     (data?.demandStatusChart ?? []).reduce((s, d) => s + d.value, 0), [data]);
 
-  const chartTip = {
-    backgroundColor:"#0b1d35", border:`1px solid ${LINE}`,
-    borderRadius:8, color:C.text, fontSize:12,
-    boxShadow:"0 4px 20px rgba(0,0,0,0.5)",
-  };
+  const statsData = [
+    { title: "平台总用户",   value: kpi?.totalUsers ?? 0,        unit: "",    icon: <Users className="w-full h-full" />,        colorType: "cyan"    as ColorType, delay: 0   },
+    { title: "OPC 数量",     value: kpi?.opcCount ?? 0,           unit: "",    icon: <Users className="w-full h-full" />,        colorType: "blue"    as ColorType, delay: 50  },
+    { title: "发单企业",     value: kpi?.publisherCount ?? 0,     unit: "",    icon: <FileText className="w-full h-full" />,     colorType: "purple"  as ColorType, delay: 100 },
+    { title: "已发布需求",   value: kpi?.publishedDemands ?? 0,   unit: "",    icon: <FileText className="w-full h-full" />,     colorType: "emerald" as ColorType, delay: 150 },
+    { title: "进行中订单",   value: kpi?.inProgressOrders ?? 0,   unit: "",    icon: <Clock className="w-full h-full" />,        colorType: "amber"   as ColorType, delay: 200 },
+    { title: "已完成订单",   value: kpi?.completedOrders ?? 0,    unit: "",    icon: <CheckCircle className="w-full h-full" />,  colorType: "emerald" as ColorType, delay: 250 },
+    { title: "订单完成率",   value: kpi?.completionRate ?? 0,     unit: "%",   icon: <TrendingUp className="w-full h-full" />,   colorType: "rose"    as ColorType, delay: 300 },
+    { title: "平台累计结算", value: kpi?.totalSettled ?? 0,       unit: "元",  icon: <DollarSign className="w-full h-full" />,   colorType: "amber"   as ColorType, delay: 350 },
+  ];
 
   return (
     <>
       <style>{KF}</style>
-      <div style={{
-        width:"100vw", height:"100vh",
-        background:`linear-gradient(155deg, #070f1c 0%, #091520 50%, #07111d 100%)`,
-        color:C.text,
-        fontFamily:"'PingFang SC','Microsoft YaHei',system-ui,sans-serif",
-        display:"flex", flexDirection:"column",
-        overflow:"hidden", position:"relative",
-      }}>
-
-        {/* ── Background: orbs + subtle grid ── */}
-        <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0 }}>
-          <div style={{ position:"absolute", top:"-5%", left:"5%", width:500, height:500, borderRadius:"50%",
-            background:`radial-gradient(circle, rgba(${rgb(C.cyan)},0.08) 0%, transparent 65%)`,
-            animation:"orb1 15s ease-in-out infinite" }} />
-          <div style={{ position:"absolute", bottom:"5%", right:"5%", width:420, height:420, borderRadius:"50%",
-            background:`radial-gradient(circle, rgba(${rgb(C.purple)},0.08) 0%, transparent 65%)`,
-            animation:"orb2 19s ease-in-out infinite" }} />
-          <div style={{ position:"absolute", top:"40%", right:"25%", width:300, height:300, borderRadius:"50%",
-            background:`radial-gradient(circle, rgba(${rgb(C.teal)},0.06) 0%, transparent 65%)`,
-            animation:"orb3 12s ease-in-out infinite" }} />
-          {/* Thin grid */}
-          <div style={{ position:"absolute", inset:0,
-            backgroundImage:`linear-gradient(rgba(0,180,220,0.04) 1px, transparent 1px),linear-gradient(90deg, rgba(0,180,220,0.04) 1px, transparent 1px)`,
-            backgroundSize:"70px 70px" }} />
+      <div
+        className="w-screen h-screen text-slate-200 overflow-hidden flex flex-col font-sans selection:bg-cyan-500/30 relative"
+        style={{ background: "linear-gradient(155deg, #040b17 0%, #060f1e 50%, #040c18 100%)" }}
+      >
+        {/* Background effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-[-5%] left-[5%] w-[500px] h-[500px] rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 65%)", animation: "orb1 15s ease-in-out infinite" }} />
+          <div className="absolute bottom-[5%] right-[5%] w-[420px] h-[420px] rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 65%)", animation: "orb2 19s ease-in-out infinite" }} />
+          <div className="absolute inset-0"
+            style={{ backgroundImage: "linear-gradient(rgba(6,182,212,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.04) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
         </div>
 
-        {/* ════ HEADER ════ */}
-        <header style={{
-          zIndex:1, flexShrink:0,
-          display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"10px 32px",
-          background:"rgba(7,15,28,0.7)",
-          backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)",
-          borderBottom:`1px solid rgba(${rgb(C.cyan)},0.12)`,
-          boxShadow:`0 1px 0 rgba(${rgb(C.cyan)},0.06)`,
-        }}>
-          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            <div style={{
-              width:44, height:44, borderRadius:12, flexShrink:0,
-              background:`linear-gradient(135deg, ${C.cyan} 0%, ${C.blue} 100%)`,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:21, fontWeight:900, color:"#fff",
-              boxShadow:`0 0 24px rgba(${rgb(C.cyan)},0.5)`,
-            }}>接</div>
-            <div>
-              <div style={{
-                fontSize:21, fontWeight:900, letterSpacing:"0.07em", lineHeight:1.1,
-                background:`linear-gradient(90deg, ${C.text} 0%, ${C.cyan} 45%, ${C.purple} 90%)`,
-                WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
-              }}>
-                接单吧  OPC 撮合交易平台  数据大屏
-              </div>
-              <div style={{ fontSize:10, color:C.dim, letterSpacing:"0.14em", marginTop:3 }}>
-                JIEDANBA · OPC MATCHING PLATFORM · REAL-TIME SHOWCASE
-              </div>
-            </div>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            {/* Status badge */}
-            <div style={{
-              display:"flex", alignItems:"center", gap:7,
-              background:`rgba(${rgb(C.green)},0.08)`,
-              border:`1px solid rgba(${rgb(C.green)},0.3)`,
-              borderRadius:20, padding:"5px 14px",
-            }}>
-              <div style={{ width:7, height:7, borderRadius:"50%", background:C.green,
-                boxShadow:`0 0 8px ${C.green}`, animation:"liveDot 2s ease-in-out infinite" }} />
-              <span style={{ fontSize:11, fontWeight:700, color:C.green, letterSpacing:"0.04em" }}>
-                平台运行正常
-              </span>
-            </div>
-            <LiveClock />
+        {/* Main layout */}
+        <div className="relative z-10 flex flex-col flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
+
+          {/* ═══ HEADER ═══ */}
+          <Header />
+
+          {/* Countdown indicator */}
+          <div className="absolute top-3 right-8 flex items-center gap-2 z-20">
             <CountdownRing n={countdown} total={REFRESH_SEC} />
           </div>
-        </header>
 
-        {/* ════ KPI CARDS ════ */}
-        <div style={{ zIndex:1, flexShrink:0, display:"flex", gap:9, padding:"10px 32px" }}>
-          <KpiCard label="平台总用户"   value={kpi?.totalUsers ?? 0}        accent={C.cyan}   icon="👥" delay={0}   ready={ready} />
-          <KpiCard label="OPC 数量"     value={kpi?.opcCount ?? 0}           accent={C.blue}   icon="🎯" delay={60}  ready={ready} />
-          <KpiCard label="发单企业"     value={kpi?.publisherCount ?? 0}     accent={C.purple} icon="🏢" delay={120} ready={ready} />
-          <KpiCard label="已发布需求"   value={kpi?.publishedDemands ?? 0}   accent={C.teal}   icon="📋" delay={180} ready={ready} />
-          <KpiCard label="进行中订单"   value={kpi?.inProgressOrders ?? 0}   accent={C.cyan}   icon="⚡" delay={240} ready={ready} />
-          <KpiCard label="已完成订单"   value={kpi?.completedOrders ?? 0}    accent={C.green}  icon="✅" delay={300} ready={ready} />
-          <KpiCard label="订单完成率"   value={kpi?.completionRate ?? 0} unit="%" accent={C.pink}  icon="📈" delay={360} ready={ready} />
-          <KpiCard label="平台累计结算" value={kpi?.totalSettled ?? 0}   unit="元" accent={C.amber} icon="💰" delay={420} ready={ready} />
-        </div>
+          {/* ═══ KPI STATS ROW ═══ */}
+          <div className="grid grid-cols-8 gap-3 px-6 mb-3 shrink-0" style={{ height: 106 }}>
+            {statsData.map((s, i) => (
+              <StatCard key={i} {...s} ready={ready} />
+            ))}
+          </div>
 
-        {/* ════ MAIN CONTENT ════ */}
-        <div style={{ zIndex:1, flex:1, minHeight:0, display:"flex", gap:9, padding:"0 32px" }}>
+          {/* ═══ MAIN CONTENT ═══ */}
+          <div className="flex-1 min-h-0 flex gap-3 px-6 pb-2">
 
-          {/* ── Left column: chart on top, 3 info panels below ── */}
-          <div style={{ flex:60, display:"flex", flexDirection:"column", gap:9, minHeight:0 }}>
+            {/* Left column — 72% */}
+            <div className="flex-[7.5] flex flex-col gap-3 min-w-0">
 
-          {/* Chart carousel */}
-          <Panel style={{ flex:1, minHeight:0, display:"flex", flexDirection:"column", overflow:"hidden", padding:"14px 20px 12px" }}>
-            {/* Tab bar */}
-            <div style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-              <div style={{ display:"flex", gap:6 }}>
-                {CHART_TABS.map((label, i) => (
-                  <button key={i} onClick={() => switchChart(i)} style={{
-                    padding:"5px 14px", borderRadius:20, border:"none", cursor:"pointer",
-                    fontSize:11.5, fontWeight:700, letterSpacing:"0.04em",
-                    transition:"all 0.3s ease",
-                    background: chartIdx === i ? `rgba(${rgb(C.cyan)},0.15)` : "transparent",
-                    color: chartIdx === i ? C.cyan : C.dim,
-                    boxShadow: chartIdx === i
-                      ? `0 0 0 1px rgba(${rgb(C.cyan)},0.4), 0 0 12px rgba(${rgb(C.cyan)},0.1)`
-                      : `0 0 0 1px rgba(255,255,255,0.06)`,
-                  }}>{label}</button>
-                ))}
-              </div>
-              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                {[0,1,2].map(i => (
-                  <button key={i} onClick={() => switchChart(i)} style={{
-                    width: chartIdx===i ? 22 : 7, height:7, borderRadius:4,
-                    border:"none", cursor:"pointer", padding:0,
-                    background: chartIdx===i ? C.cyan : `rgba(255,255,255,0.12)`,
-                    boxShadow: chartIdx===i ? `0 0 8px ${C.cyan}` : "none",
-                    transition:"all 0.35s cubic-bezier(0.4,0,0.2,1)",
-                  }} />
-                ))}
+              {/* Trend Chart */}
+              <Panel title="近14天增长趋势" borderColor="border-cyan-500/40" className="flex-[5.5] min-h-0">
+                {data?.timeSeries?.length
+                  ? <TrendChart data={data.timeSeries} />
+                  : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                }
+              </Panel>
+
+              {/* Bottom row */}
+              <div className="flex-[4.5] min-h-0 flex gap-3">
+
+                {/* Today new stats */}
+                <Panel title="今日实时新增" borderColor="border-blue-500/40" className="flex-[3.5] min-w-0">
+                  <TodayStats newUsers={today.newUsers} newDemands={today.newDemands} newOrders={today.newOrders} />
+                </Panel>
+
+                {/* Demand lifecycle */}
+                <Panel title="需求全周期进度" borderColor="border-cyan-500/40" className="flex-[5] min-w-0">
+                  {data
+                    ? <ProgressBars data={data.demandStatusChart} total={totalDemands} />
+                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                  }
+                </Panel>
+
+                {/* Order stats */}
+                <Panel title="订单概览" borderColor="border-emerald-500/40" className="flex-[3] min-w-0">
+                  {kpi
+                    ? <OrderOverview
+                        completionRate={kpi.completionRate}
+                        completedOrders={kpi.completedOrders}
+                        inProgressOrders={kpi.inProgressOrders}
+                        totalSettled={kpi.totalSettled}
+                      />
+                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                  }
+                </Panel>
+
               </div>
             </div>
 
-            <div key={chartKey} style={{ flex:1, minHeight:0, animation:"chartIn 0.45s ease both" }}>
-              {chartIdx === 0 && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data?.timeSeries ?? []} margin={{ top:8, right:8, left:-22, bottom:0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={`rgba(${rgb(C.cyan)},0.06)`} />
-                    <XAxis dataKey="label" tick={{ fill:C.dim, fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill:C.dim, fontSize:11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={chartTip} />
-                    <Legend wrapperStyle={{ fontSize:12, color:C.dim, paddingTop:6 }} />
-                    <Line type="monotone" dataKey="newUsers"   name="新增用户" stroke={C.cyan}   strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:C.cyan   }} />
-                    <Line type="monotone" dataKey="newDemands" name="新增需求" stroke={C.green}  strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:C.green  }} />
-                    <Line type="monotone" dataKey="newOrders"  name="新增订单" stroke={C.purple} strokeWidth={2.5} dot={false} activeDot={{ r:5, fill:C.purple }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-              {chartIdx === 1 && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data?.demandStatusChart ?? []} margin={{ top:8, right:8, left:-22, bottom:0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={`rgba(${rgb(C.cyan)},0.06)`} />
-                    <XAxis dataKey="label" tick={{ fill:C.dim, fontSize:11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill:C.dim, fontSize:11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={chartTip} cursor={{ fill:`rgba(${rgb(C.cyan)},0.04)` }} />
-                    <Bar dataKey="value" name="需求数" radius={[6,6,0,0]} isAnimationActive>
-                      {(data?.demandStatusChart ?? []).map((_,i) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-              {chartIdx === 2 && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie dataKey="value" nameKey="label" data={data?.userRoleChart ?? []}
-                      cx="50%" cy="44%" innerRadius="36%" outerRadius="62%" paddingAngle={6} isAnimationActive>
-                      {(data?.userRoleChart ?? []).map((_,i) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={chartTip} formatter={(v:number) => [v.toLocaleString(),"人数"]} />
-                    <Legend wrapperStyle={{ fontSize:13 }}
-                      formatter={(val, e:{ payload?:{value:number} }) => (
-                        <span style={{ color:C.text }}>{val} <span style={{ color:C.dim }}>({e.payload?.value ?? 0}人)</span></span>
-                      )} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </Panel>
-
-          {/* ── Bottom info strip: 3 panels side by side ── */}
-          <div style={{ flexShrink:0, display:"flex", gap:9, height:148 }}>
-
-            {/* Today's highlights */}
-            <Panel style={{ flex:3, padding:"11px 14px", display:"flex", flexDirection:"column" }}>
-              <SectionLabel title="今日实时新增" color={C.green} live />
-              <div style={{ flex:1, display:"flex", gap:8, alignItems:"stretch" }}>
-                <TodayStat label="新用户" value={today.newUsers}   accent={C.cyan}  icon="👤" />
-                <TodayStat label="新需求" value={today.newDemands} accent={C.teal}  icon="📋" />
-                <TodayStat label="新订单" value={today.newOrders}  accent={C.green} icon="🤝" />
+            {/* Right column — 28% (Live Feed) */}
+            <Panel title="实时动态" borderColor="border-purple-500/40" className="flex-[2.5] min-h-0">
+              <div className="flex items-center gap-1.5 mb-2 shrink-0">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,1)]"
+                  style={{ animation: "liveDot 2s ease-in-out infinite" }} />
+                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">LIVE</span>
               </div>
-            </Panel>
-
-            {/* Demand progress */}
-            <Panel style={{ flex:5, padding:"11px 14px", display:"flex", flexDirection:"column" }}>
-              <SectionLabel title="需求全周期进度" />
-              <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"space-around" }}>
-                {(data?.demandStatusChart ?? []).map((d, i) => (
-                  <DemandProgress key={d.status} label={d.label} value={d.value}
-                    total={totalDemands} color={D_COLORS[d.status] ?? PIE_COLORS[i%PIE_COLORS.length]} delay={i*60} />
-                ))}
-              </div>
-              {data && (
-                <div style={{ paddingTop:6, borderTop:`1px solid ${LINE}`, display:"flex",
-                  justifyContent:"space-between", fontSize:10.5, color:C.dim, flexShrink:0 }}>
-                  <span>需求总计</span>
-                  <span style={{ fontWeight:800, color:C.cyan, textShadow:`0 0 8px rgba(${rgb(C.cyan)},0.5)` }}>
-                    {totalDemands} 条
-                  </span>
-                </div>
-              )}
-            </Panel>
-
-            {/* Completion rate + settlement */}
-            <Panel style={{ flex:3, padding:"11px 14px", display:"flex", alignItems:"center", gap:12 }}>
-              <div style={{ position:"relative", width:60, height:60, flexShrink:0 }}>
-                <svg width={60} height={60} style={{ transform:"rotate(-90deg)" }}>
-                  <circle cx={30} cy={30} r={24} fill="none" stroke={`rgba(${rgb(C.green)},0.1)`} strokeWidth={5} />
-                  <circle cx={30} cy={30} r={24} fill="none" stroke={C.green}
-                    strokeWidth={5} strokeDasharray={2*Math.PI*24}
-                    strokeDashoffset={2*Math.PI*24*(1-(kpi?.completionRate??0)/100)}
-                    strokeLinecap="round"
-                    style={{ transition:"stroke-dashoffset 1.2s ease", filter:`drop-shadow(0 0 5px ${C.green})` }} />
-                </svg>
-                <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <span style={{ fontSize:12, fontWeight:900, color:C.green, textShadow:`0 0 12px rgba(${rgb(C.green)},0.6)` }}>
-                    {kpi?.completionRate ?? 0}%
-                  </span>
-                </div>
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.06em", textTransform:"uppercase" }}>订单完成率</div>
-                <div style={{ fontSize:10.5, color:C.dim, marginTop:2 }}>
-                  完成 <span style={{ color:C.green, fontWeight:700 }}>{kpi?.completedOrders ?? 0}</span> ·
-                  进行中 <span style={{ color:C.teal, fontWeight:700 }}>{kpi?.inProgressOrders ?? 0}</span>
-                </div>
-                <div style={{ borderTop:`1px solid ${LINE}`, marginTop:8, paddingTop:7 }}>
-                  <div style={{ fontSize:10, color:C.dim }}>累计结算</div>
-                  <div style={{ fontSize:18, fontWeight:900, color:C.amber, lineHeight:1.1,
-                    textShadow:`0 0 14px rgba(${rgb(C.amber)},0.5)` }}>
-                    {kpi ? (kpi.totalSettled >= 10000 ? `${(kpi.totalSettled/10000).toFixed(1)}万` : kpi.totalSettled.toLocaleString("zh-CN")) : "—"}
-                    <span style={{ fontSize:11, fontWeight:400, color:C.dim, marginLeft:3 }}>元</span>
-                  </div>
-                </div>
-              </div>
+              {data
+                ? <LiveFeed ticker1={data.ticker1} ticker2={data.ticker2} />
+                : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+              }
             </Panel>
 
           </div>
 
-          {/* close left column */}
+          {/* ═══ TICKERS ═══ */}
+          <div className="shrink-0 z-10">
+            <Ticker items={data?.ticker1 ?? []} color="cyan" label="🎉 平台动态" />
+            <Ticker items={data?.ticker2 ?? []} color="amber" label="🏆 喜报连连" />
           </div>
 
-          {/* ── Right: Activity feed only (full height) ── */}
-          <Panel style={{ flex:40, display:"flex", flexDirection:"column", overflow:"hidden", padding:"14px 16px" }}>
-            <SectionLabel title="实时动态" color={C.cyan} live />
-            {data
-              ? <ActivityFeed ticker1={data.ticker1} ticker2={data.ticker2} />
-              : <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:C.dim, fontSize:12 }}>加载中…</div>
-            }
-          </Panel>
-
-        </div>
-
-        {/* ════ TICKERS ════ */}
-        <div style={{ zIndex:1, flexShrink:0 }}>
-          {/* Ticker 1 */}
-          {(() => { const bg = `rgba(0,180,${220*0.15+7*0.85},1)`; return (
-            <div style={{
-              display:"flex", alignItems:"center", padding:"7px 0",
-              background:`linear-gradient(90deg, rgba(${rgb(C.cyan)},0.08) 0%, rgba(${rgb(C.blue)},0.05) 100%)`,
-              borderTop:`1px solid rgba(${rgb(C.cyan)},0.1)`,
-            }}>
-              <div style={{ flexShrink:0, padding:"0 14px 0 32px", fontSize:10.5, fontWeight:900,
-                color:C.cyan, letterSpacing:"0.08em", whiteSpace:"nowrap",
-                textShadow:`0 0 10px rgba(${rgb(C.cyan)},0.6)` }}>
-                🎉 平台动态
-              </div>
-              <Ticker items={data?.ticker1 ?? []} color={C.cyan} bgColor={bg} />
-            </div>
-          ); })()}
-          {/* Ticker 2 */}
-          {(() => { const bg2 = `rgba(${rgb(BG)},1)`; return (
-            <div style={{
-              display:"flex", alignItems:"center", padding:"7px 0",
-              background:`linear-gradient(90deg, rgba(${rgb(C.amber)},0.07) 0%, rgba(${rgb(C.pink)},0.04) 100%)`,
-              borderTop:`1px solid rgba(${rgb(C.amber)},0.08)`,
-            }}>
-              <div style={{ flexShrink:0, padding:"0 14px 0 32px", fontSize:10.5, fontWeight:900,
-                color:C.amber, letterSpacing:"0.08em", whiteSpace:"nowrap",
-                textShadow:`0 0 10px rgba(${rgb(C.amber)},0.6)` }}>
-                🏆 喜报连连
-              </div>
-              <Ticker items={data?.ticker2 ?? []} color={C.amber} bgColor={bg2} />
-            </div>
-          ); })()}
         </div>
       </div>
     </>
