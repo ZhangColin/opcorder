@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, enrollmentsTable, demandPaymentsTable, demandsTable, notificationsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -123,7 +124,7 @@ router.post("/payment/callback", async (req, res) => {
     res.status(200).send();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "回调处理失败";
-    console.error(`[payment-callback] error: ${msg}`);
+    logger.error({ err: msg }, "[payment-callback] error");
     res.status(200).send(); // always 200 — provider does not retry anyway
   }
 });
@@ -207,7 +208,7 @@ router.post("/payment/refund-callback", async (req, res) => {
     res.status(200).send();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "退款回调处理失败";
-    console.error(`[refund-callback] error: ${msg}`);
+    logger.error({ err: msg }, "[refund-callback] error");
     res.status(200).send();
   }
 });

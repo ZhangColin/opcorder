@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, demandsTable, demandPaymentsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
@@ -458,7 +459,7 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
       createdAt: payment.createdAt.toISOString(),
     });
   } catch (error) {
-    console.error(error);
+    logger.error({ err: error }, "Route handler error");
     res.status(500).json({ error: "缴费提交失败" });
   }
 });
@@ -717,7 +718,7 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
 
     res.json({ success: true, action: "accepted", orderId: order.id });
   } catch (error) {
-    console.error("invite respond error:", error);
+    logger.error({ err: error }, "invite respond error:");
     res.status(500).json({ error: "操作失败，请重试" });
   }
 });
@@ -796,7 +797,7 @@ router.post("/demands/:demandId/request-refund", requireAuth, async (req, res) =
 
     res.json({ success: true });
   } catch (err) {
-    console.error("[request-refund] error:", err);
+    logger.error({ err: err }, "[request-refund] error:");
     res.status(500).json({ error: "申请退款失败，请重试" });
   }
 });
@@ -850,7 +851,7 @@ router.post("/demands/:demandId/sync-refund-status", requireAuth, async (req, re
 
     return res.json({ status: demand.status, refundStatus: result.status, refundStatusName: result.statusName, synced: false });
   } catch (err) {
-    console.error("[sync-refund-status] error:", err);
+    logger.error({ err: err }, "[sync-refund-status] error:");
     res.status(500).json({ error: "查询退款状态失败" });
   }
 });

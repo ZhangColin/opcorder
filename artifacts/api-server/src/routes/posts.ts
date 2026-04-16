@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, postsTable, postLikesTable, postCommentsTable, usersTable, publisherProfilesTable, sensitiveWordsTable } from "@workspace/db";
 import { eq, desc, and, sql, or, ilike, inArray } from "drizzle-orm";
@@ -99,7 +100,7 @@ router.get("/posts", async (req, res) => {
       total: Number(countResult[0]?.count ?? 0),
     });
   } catch (err) {
-    console.error("List posts error:", err);
+    logger.error({ err: err }, "List posts error:");
     res.status(500).json({ error: "Failed to list posts" });
   }
 });

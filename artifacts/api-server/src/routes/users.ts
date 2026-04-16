@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, usersTable, opcProfilesTable, publisherProfilesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -163,7 +164,7 @@ router.put("/users/:userId/opc-profile", requireAuth, async (req, res) => {
     if (!updated) return res.status(404).json({ error: "Profile not found after update" });
     res.json(updated);
   } catch (err) {
-    console.error("Update profile error:", err);
+    logger.error({ err: err }, "Update profile error:");
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -256,7 +257,7 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
       companyLogo: updatedProfile?.companyLogo ?? null,
     });
   } catch (err) {
-    console.error("Update publisher profile error:", err);
+    logger.error({ err: err }, "Update publisher profile error:");
     res.status(500).json({ error: "Failed to update publisher profile" });
   }
 });

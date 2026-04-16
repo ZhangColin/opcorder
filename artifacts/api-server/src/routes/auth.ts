@@ -210,7 +210,7 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "登录失败，请稍后重试" });
   }
 });
@@ -317,7 +317,7 @@ router.post("/auth/register", async (req, res) => {
       }
     })();
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "注册失败，请稍后重试" });
   }
 });
@@ -355,7 +355,7 @@ router.post("/auth/refresh", async (req, res) => {
     const accessToken = signAccessToken(user.id, user.role);
     res.json({ accessToken });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "刷新失败，请重新登录" });
   }
 });
@@ -379,7 +379,7 @@ router.post("/auth/logout", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "登出失败" });
   }
 });
@@ -407,7 +407,7 @@ router.post("/auth/change-password", requireAuth, async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "修改失败，请稍后重试" });
   }
 });
@@ -473,13 +473,13 @@ router.post("/auth/forgot-password", async (req, res) => {
     });
 
     if (sendError) {
-      console.error("Resend error:", sendError);
+      logger.error({ err: sendError }, "Resend error:");
     }
 
     await new Promise((r) => setTimeout(r, 500 + Math.random() * 500));
     return res.json(UNIFIED_MESSAGE);
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     await new Promise((r) => setTimeout(r, 500 + Math.random() * 500));
     return res.json(UNIFIED_MESSAGE);
   }

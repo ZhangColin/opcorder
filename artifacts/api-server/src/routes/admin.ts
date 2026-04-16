@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
@@ -81,7 +82,7 @@ async function sendBatchedEmails(
         });
         if (error) {
           failed++;
-          console.error("bulk email error", j.email, error);
+          logger.error({ err: error, email: j.email }, "Bulk email error");
         } else {
           sent++;
         }
@@ -183,7 +184,7 @@ router.get("/admin/stats", async (_req, res) => {
       totalPosts: Number(postCount.cnt) || 0,
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取统计数据失败" });
   }
 });
@@ -237,7 +238,7 @@ router.get("/admin/users", async (req, res) => {
 
     res.json({ data: withOpcProfiles, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取用户列表失败" });
   }
 });
@@ -261,7 +262,7 @@ router.patch("/admin/users/:id", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -309,7 +310,7 @@ router.get("/admin/demands", async (req, res) => {
 
     res.json({ data: withPublisher, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取需求列表失败" });
   }
 });
@@ -351,7 +352,7 @@ router.get("/admin/demands/:id", async (req, res) => {
       } : null,
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取需求详情失败" });
   }
 });
@@ -377,7 +378,7 @@ router.post("/admin/demands/:id/notify", async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "发送站内信失败" });
   }
 });
@@ -405,7 +406,7 @@ router.post("/admin/demands/:id/send-email", async (req, res) => {
     if (error) return res.status(500).json({ error: "邮件发送失败" });
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "发送邮件失败" });
   }
 });
@@ -480,7 +481,7 @@ router.patch("/admin/demands/:id", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -547,7 +548,7 @@ router.get("/admin/orders", async (req, res) => {
 
     res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取订单列表失败" });
   }
 });
@@ -569,7 +570,7 @@ router.patch("/admin/orders/:id", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -628,7 +629,7 @@ router.get("/admin/finance", async (req, res) => {
       transactionsPageSize: pageSize,
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取财务数据失败" });
   }
 });
@@ -675,7 +676,7 @@ router.get("/admin/ecosystem", async (req, res) => {
 
     res.json({ data: opcs.rows, total: Number(countRow?.total ?? 0), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取生态池数据失败" });
   }
 });
@@ -699,7 +700,7 @@ router.patch("/admin/ecosystem/:userId", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -775,7 +776,7 @@ router.get("/admin/training", async (req, res) => {
       totalRevenue: Number(enrollStats?.total_revenue ?? 0),
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取培训数据失败" });
   }
 });
@@ -805,7 +806,7 @@ router.post("/admin/training/courses", async (req, res) => {
 
     res.status(201).json(course);
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "创建课程失败" });
   }
 });
@@ -837,7 +838,7 @@ router.put("/admin/training/courses/:id", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "更新课程失败" });
   }
 });
@@ -849,7 +850,7 @@ router.delete("/admin/training/courses/:id", async (req, res) => {
     await db.delete(coursesTable).where(eq(coursesTable.id, id));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "删除课程失败" });
   }
 });
@@ -875,7 +876,7 @@ router.patch("/admin/training/courses/:id", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -895,7 +896,7 @@ router.get("/admin/training/courses/:id/enrollments", async (req, res) => {
     `);
     res.json(rows.rows);
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取报名列表失败" });
   }
 });
@@ -908,7 +909,7 @@ router.post("/admin/training/enrollments/:enrollId/pay", async (req, res) => {
       .where(eq(enrollmentsTable.id, enrollId));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -925,7 +926,7 @@ router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res)
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "发证失败" });
   }
 });
@@ -968,7 +969,7 @@ router.get("/admin/training/refunds", requireAdmin, async (req, res) => {
       createdAt: enrollment.createdAt.toISOString(),
     })));
   } catch (err) {
-    console.error("[admin-course-refunds]", err);
+    logger.error({ err: err }, "[admin-course-refunds]");
     res.status(500).json({ error: "获取退款列表失败" });
   }
 });
@@ -1027,7 +1028,7 @@ router.post("/admin/training/enrollments/:enrollId/approve-refund", requireAdmin
     res.json({ success: true, refundOrderNo: refundResult.refundOrderNo });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
-    console.error("[admin-approve-course-refund]", err);
+    logger.error({ err: err }, "[admin-approve-course-refund]");
     res.status(500).json({ error: msg });
   }
 });
@@ -1072,7 +1073,7 @@ router.post("/admin/training/enrollments/:enrollId/reject-refund", requireAdmin,
     res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
-    console.error("[admin-reject-course-refund]", err);
+    logger.error({ err: err }, "[admin-reject-course-refund]");
     res.status(500).json({ error: msg });
   }
 });
@@ -1160,7 +1161,7 @@ router.post("/admin/users/bulk-email", async (req, res) => {
 
     res.json({ sent, failed, skipped, total: users.length });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "群发邮件失败" });
   }
 });
@@ -1233,7 +1234,7 @@ router.post("/admin/users/bulk-notify", async (req, res) => {
 
     res.json({ sent: users.length, total: users.length });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "群发站内信失败" });
   }
 });
@@ -1281,7 +1282,7 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
 
     res.json({ sent, failed, skipped, total: list.length });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "群发邮件失败" });
   }
 });
@@ -1347,7 +1348,7 @@ router.get("/admin/level-certs", async (req, res) => {
     `);
     res.json({ data: rows.rows, total: Number(countRow?.total ?? 0), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取等级认证列表失败" });
   }
 });
@@ -1427,7 +1428,7 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
 
     res.json({ ok: true, grantedLevel: result !== "rejected" ? grantedLevel : null });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "评审操作失败" });
   }
 });
@@ -1473,7 +1474,7 @@ router.get("/admin/content", async (req, res) => {
 
     res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取内容列表失败" });
   }
 });
@@ -1485,7 +1486,7 @@ router.patch("/admin/content/:postId/feature", async (req, res) => {
     await db.update(postsTable).set({ isFeatured }).where(eq(postsTable.id, id));
     res.json({ ok: true, isFeatured });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -1498,7 +1499,7 @@ router.delete("/admin/content/posts/:id", async (req, res) => {
     await db.delete(postsTable).where(eq(postsTable.id, id));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "删除失败" });
   }
 });
@@ -1536,7 +1537,7 @@ router.get("/admin/content/comments", async (req, res) => {
 
     res.json({ data: comments, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取评论列表失败" });
   }
 });
@@ -1552,7 +1553,7 @@ router.delete("/admin/content/comments/:id", async (req, res) => {
       .where(eq(postsTable.id, comment.postId));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "删除失败" });
   }
 });
@@ -1578,7 +1579,7 @@ router.post("/admin/change-password", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "修改密码失败" });
   }
 });
@@ -1590,7 +1591,7 @@ router.get("/admin/sensitive-words", async (_req, res) => {
     const words = await db.select().from(sensitiveWordsTable).orderBy(sensitiveWordsTable.createdAt);
     res.json(words);
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取敏感词失败" });
   }
 });
@@ -1603,7 +1604,7 @@ router.post("/admin/sensitive-words", async (req, res) => {
     res.status(201).json(row);
   } catch (err: any) {
     if (err?.code === "23505") return res.status(409).json({ error: "该敏感词已存在" });
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "添加失败" });
   }
 });
@@ -1614,7 +1615,7 @@ router.delete("/admin/sensitive-words/:id", async (req, res) => {
     await db.delete(sensitiveWordsTable).where(eq(sensitiveWordsTable.id, id));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "删除失败" });
   }
 });
@@ -1656,7 +1657,7 @@ router.get("/admin/settings", async (_req, res) => {
     for (const row of rows) result[row.key] = row.value ?? "";
     res.json(result);
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取站点设置失败" });
   }
 });
@@ -1672,7 +1673,7 @@ router.put("/admin/settings", async (req, res) => {
     }
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "保存站点设置失败" });
   }
 });
@@ -1692,7 +1693,7 @@ router.get("/site-settings", async (_req, res) => {
   try {
     res.json(await loadSettings());
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取站点设置失败" });
   }
 });
@@ -1704,7 +1705,7 @@ router.get("/admin/learning-resources", async (_req, res) => {
     const rows = await db.select().from(learningResourcesTable).orderBy(learningResourcesTable.sortOrder, learningResourcesTable.createdAt);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取学习资源失败" });
   }
 });
@@ -1726,7 +1727,7 @@ router.post("/admin/learning-resources", async (req, res) => {
     }).returning();
     res.status(201).json(row);
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "创建学习资源失败" });
   }
 });
@@ -1745,7 +1746,7 @@ router.put("/admin/learning-resources/:id", async (req, res) => {
     }).where(eq(learningResourcesTable.id, id));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "更新学习资源失败" });
   }
 });
@@ -1756,7 +1757,7 @@ router.delete("/admin/learning-resources/:id", async (req, res) => {
     await db.delete(learningResourcesTable).where(eq(learningResourcesTable.id, id));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "删除学习资源失败" });
   }
 });
@@ -1806,7 +1807,7 @@ router.get("/admin/demand-payments", async (req, res) => {
       createdAt: r.createdAt.toISOString(),
     })));
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取缴费记录失败" });
   }
 });
@@ -1923,7 +1924,7 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
       createdAt: updated!.createdAt.toISOString(),
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "操作失败" });
   }
 });
@@ -2003,7 +2004,7 @@ router.get("/admin/demand-refunds", async (req, res) => {
 
     res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error("[admin-demand-refunds]", err);
+    logger.error({ err: err }, "[admin-demand-refunds]");
     res.status(500).json({ error: "获取退款列表失败" });
   }
 });
@@ -2112,7 +2113,7 @@ router.post("/admin/demands/:id/approve-refund", requireAdmin, async (req, res) 
     res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
-    console.error("[admin-approve-refund] error:", err);
+    logger.error({ err: err }, "[admin-approve-refund] error:");
     res.status(500).json({ error: msg });
   }
 });
@@ -2176,7 +2177,7 @@ router.post("/admin/demands/:id/reject-refund", requireAdmin, async (req, res) =
     res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
-    console.error("[admin-reject-refund] error:", err);
+    logger.error({ err: err }, "[admin-reject-refund] error:");
     res.status(500).json({ error: msg });
   }
 });
@@ -2244,7 +2245,7 @@ router.post("/admin/demands/:id/confirm-offline-refund", requireAdmin, async (re
     res.json({ success: true, refundedAt: now.toISOString() });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
-    console.error("[admin-confirm-offline-refund] error:", err);
+    logger.error({ err: err }, "[admin-confirm-offline-refund] error:");
     res.status(500).json({ error: msg });
   }
 });

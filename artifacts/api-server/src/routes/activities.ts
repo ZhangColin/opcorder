@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, activitiesTable, activityFieldsTable, registrationsTable, registrationTagsTable } from "@workspace/db";
 import { eq, desc, count, and, ilike, or, inArray, sql } from "drizzle-orm";
@@ -28,7 +29,7 @@ router.get("/activities/:id/public", async (req, res) => {
 
     res.json({ ...activity, fields });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取活动信息失败" });
   }
 });
@@ -81,7 +82,7 @@ router.post("/activities/:id/register", async (req, res) => {
 
     res.status(201).json({ id: registration.id, ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "提交报名失败" });
   }
 });
@@ -122,7 +123,7 @@ router.get("/admin/activities", async (req, res) => {
 
     res.json({ data: withCounts, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取活动列表失败" });
   }
 });
@@ -140,7 +141,7 @@ router.get("/admin/activities/:id", async (req, res) => {
 
     res.json({ ...activity, fields });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取活动详情失败" });
   }
 });
@@ -187,7 +188,7 @@ router.post("/admin/activities", async (req, res) => {
 
     res.status(201).json({ ...activity, fields: savedFields });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "创建活动失败" });
   }
 });
@@ -239,7 +240,7 @@ router.put("/admin/activities/:id", async (req, res) => {
 
     res.json({ ...updated, fields: savedFields });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "更新活动失败" });
   }
 });
@@ -251,7 +252,7 @@ router.delete("/admin/activities/:id", async (req, res) => {
     await db.delete(activitiesTable).where(eq(activitiesTable.id, id));
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "删除活动失败" });
   }
 });
@@ -272,7 +273,7 @@ router.patch("/admin/activities/:id/publish", async (req, res) => {
 
     res.json({ status: updated.status });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "发布活动失败" });
   }
 });
@@ -293,7 +294,7 @@ router.patch("/admin/activities/:id/unpublish", async (req, res) => {
 
     res.json({ status: updated.status });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "退回草稿失败" });
   }
 });
@@ -314,7 +315,7 @@ router.patch("/admin/activities/:id/end", async (req, res) => {
 
     res.json({ status: updated.status });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "结束活动失败" });
   }
 });
@@ -368,7 +369,7 @@ router.get("/admin/activities/:id/registrations", async (req, res) => {
 
     res.json({ data: withTags, total: Number(total), page, pageSize });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取报名列表失败" });
   }
 });
@@ -452,7 +453,7 @@ router.get("/admin/activities/:id/registrations/export", async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
     res.send("\uFEFF" + csv); // BOM for Excel compatibility
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "导出失败" });
   }
 });
@@ -474,7 +475,7 @@ router.get("/admin/registrations/:id", async (req, res) => {
 
     res.json({ ...reg, tags: tags.map(t => t.tag), fields });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取报名详情失败" });
   }
 });
@@ -491,7 +492,7 @@ router.patch("/admin/registrations/:id/note", async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "更新备注失败" });
   }
 });
@@ -523,7 +524,7 @@ router.post("/admin/registrations/:id/tags", async (req, res) => {
 
     res.json({ tags: tags.map(t => t.tag) });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "添加标签失败" });
   }
 });
@@ -547,7 +548,7 @@ router.delete("/admin/registrations/:id/tags/:tag", async (req, res) => {
 
     res.json({ tags: tags.map(t => t.tag) });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "删除标签失败" });
   }
 });
@@ -564,7 +565,7 @@ router.get("/admin/activities/:id/tags", async (req, res) => {
     `);
     res.json({ tags: (tags.rows as { tag: string }[]).map(r => r.tag) });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "获取标签列表失败" });
   }
 });

@@ -6,6 +6,15 @@ import { runMigrations } from "./lib/migrations";
 import { syncSchema } from "./lib/syncSchema";
 import { generateManualPdf } from "./lib/generateManualPdf";
 
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception");
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error({ err: reason instanceof Error ? reason : new Error(String(reason)) }, "Unhandled promise rejection");
+});
+
 const rawPort = process.env["PORT"] ?? "8080";
 const port = Number(rawPort);
 

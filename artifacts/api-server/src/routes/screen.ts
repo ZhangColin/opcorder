@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, usersTable, demandsTable, ordersTable, portfoliosTable, opcProfilesTable } from "@workspace/db";
 import { eq, gte, sql, count, and, inArray, desc } from "drizzle-orm";
@@ -210,7 +211,7 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       ticker2,
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "数据加载失败" });
   }
 });
