@@ -169,30 +169,43 @@ export default function PublisherOrderList() {
                       </div>
 
                       {/* Progress indicator for in_progress */}
-                      {order.status === "in_progress" && order.milestones && order.milestones.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-slate-100">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-slate-500 font-medium">里程碑进度</span>
-                            <span className="text-xs font-bold text-primary">
-                              {order.milestones.filter((m) => m.status === "approved").length} / {order.milestones.length} 已完成
-                            </span>
+                      {order.status === "in_progress" && order.milestones && order.milestones.length > 0 && (() => {
+                        const deliverables: any[] = (order as any).deliverables ?? [];
+                        const msTotal = order.milestones.length;
+                        const msApproved = order.milestones.filter((_, i) =>
+                          deliverables.some((d: any) => d.milestoneId === i + 1 && d.status === "approved")
+                        ).length;
+                        return (
+                          <div className="mt-4 pt-4 border-t border-slate-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-slate-500 font-medium">里程碑进度</span>
+                              <span className="text-xs font-bold text-primary">
+                                {msApproved} / {msTotal} 已完成
+                              </span>
+                            </div>
+                            <div className="flex gap-1">
+                              {order.milestones.map((_, i) => {
+                                const msDelivs = deliverables.filter((d: any) => d.milestoneId === i + 1);
+                                const s = msDelivs.some((d: any) => d.status === "approved")
+                                  ? "approved"
+                                  : msDelivs.some((d: any) => d.status === "submitted")
+                                  ? "submitted"
+                                  : "pending";
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`h-1.5 flex-1 rounded-full ${
+                                      s === "approved" ? "bg-green-400"
+                                      : s === "submitted" ? "bg-amber-400"
+                                      : "bg-slate-200"
+                                    }`}
+                                  />
+                                );
+                              })}
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            {order.milestones.map((m, i) => (
-                              <div
-                                key={i}
-                                className={`h-1.5 flex-1 rounded-full ${
-                                  m.status === "approved"
-                                    ? "bg-green-400"
-                                    : m.status === "submitted"
-                                    ? "bg-amber-400"
-                                    : "bg-slate-200"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Status actions hint */}
                       {order.status === "completed" && (
