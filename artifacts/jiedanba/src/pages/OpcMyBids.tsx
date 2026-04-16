@@ -158,7 +158,7 @@ export default function OpcMyBids() {
     if (!withdrawTarget) return;
     try {
       await withdrawBidMutation.mutateAsync({ bidId: withdrawTarget.id });
-      qc.invalidateQueries({ queryKey: ["getMyBids"] });
+      await refetch();
       toast({ title: "申请已撤消", description: "申请记录已标记为已撤消" });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "请稍后重试";
