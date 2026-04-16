@@ -342,12 +342,12 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
 
   /* Ring fills container height — use a viewBox so SVG scales freely */
   return (
-    <div className="flex-1 min-h-0 flex items-stretch gap-4 px-2">
+    <div className="flex-1 min-h-0 flex items-center gap-4 px-2">
 
       {/* Left block — ring + legend, 3/5 width */}
       <div className="flex-[3] flex items-center justify-center gap-6 min-w-0">
-        {/* Ring — capped at 130px so it doesn't dominate */}
-        <div className="relative shrink-0" style={{ height: "min(100%, 165px)", aspectRatio: "1" }}>
+        {/* Ring — fixed 150px */}
+        <div className="relative shrink-0" style={{ width: 150, height: 150 }}>
           <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
             <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth="8" />
             <circle cx="50" cy="50" r="42" fill="none" stroke="#10b981"
@@ -381,7 +381,7 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
       </div>
 
       {/* Vertical divider */}
-      <div className="w-px bg-white/5 my-2 shrink-0" />
+      <div className="self-stretch w-px bg-white/5 my-4 shrink-0" />
 
       {/* Right block — 累计结算, 2/5 width */}
       <div className="flex-[2] flex flex-col justify-center items-center gap-3">
