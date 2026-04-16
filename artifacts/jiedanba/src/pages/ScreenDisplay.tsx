@@ -267,21 +267,21 @@ function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
 ════════════════════════════════════════ */
 function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; newDemands: number; newOrders: number }) {
   const items = [
-    { label: "新用户", value: newUsers, colorClass: "text-cyan-400",   borderClass: "border-cyan-500/40",   bgClass: "bg-cyan-950/30",   icon: "👤" },
-    { label: "新需求", value: newDemands, colorClass: "text-teal-400", borderClass: "border-teal-500/40",   bgClass: "bg-teal-950/30",   icon: "📋" },
-    { label: "新订单", value: newOrders, colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
+    { label: "新用户", value: newUsers,   colorClass: "text-cyan-400",    borderClass: "border-cyan-500/40",   bgClass: "bg-cyan-950/30",   icon: "👤" },
+    { label: "新需求", value: newDemands, colorClass: "text-teal-400",    borderClass: "border-teal-500/40",   bgClass: "bg-teal-950/30",   icon: "📋" },
+    { label: "新订单", value: newOrders,  colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
   ];
   return (
-    <div className="grid grid-cols-3 gap-3 h-full">
+    <div className="grid grid-cols-3 gap-2.5 h-full">
       {items.map((item, i) => (
         <div key={i} className={clsx(
-          "rounded-lg border px-4 py-3 flex items-center gap-4",
+          "rounded-lg border px-3 flex items-center gap-3",
           item.borderClass, item.bgClass
         )}>
-          <span className="text-2xl shrink-0">{item.icon}</span>
-          <div className="flex flex-col gap-1 min-w-0">
-            <span className="text-[15px] font-bold text-slate-400 tracking-wider whitespace-nowrap">{item.label}</span>
-            <span className={clsx("text-[34px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+          <span className="text-lg shrink-0">{item.icon}</span>
+          <div className="flex flex-col justify-center min-w-0">
+            <span className="text-[14px] font-bold text-slate-400 tracking-wider">{item.label}</span>
+            <span className={clsx("text-[28px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
               {item.value > 0 ? `+${item.value}` : item.value}
             </span>
           </div>
@@ -304,27 +304,27 @@ const STATUS_COLORS: Record<string, { colorClass: string; shadowClass: string }>
 
 function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; total: number }) {
   return (
-    <div className="flex flex-col flex-1 min-h-0 justify-between w-full gap-2 px-1">
+    <div className="flex flex-col flex-1 min-h-0 justify-between w-full px-1">
       {data.map((item, index) => {
         const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
         const c = STATUS_COLORS[item.status] ?? { colorClass: "bg-slate-400", shadowClass: "" };
         return (
-          <div key={index} className="flex items-center gap-3">
-            <span className="text-[16px] text-slate-300 w-24 text-right font-medium tracking-wider shrink-0">{item.label}</span>
-            <div className="flex-1 h-4 bg-[#0a1936] rounded-full overflow-hidden border border-cyan-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
+          <div key={index} className="flex items-center gap-2">
+            <span className="text-[15px] text-slate-300 w-16 text-right font-medium shrink-0">{item.label}</span>
+            <div className="flex-1 h-3 bg-[#0a1936] rounded-full overflow-hidden border border-cyan-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
               <div
                 className={clsx("h-full rounded-full transition-all duration-1000 ease-out", c.colorClass, c.shadowClass)}
                 style={{ width: `${pct === 0 ? 2 : pct}%` }}
               />
             </div>
-            <div className="w-24 flex items-center justify-between text-[15px] text-slate-400 font-mono shrink-0">
+            <div className="w-20 flex items-center justify-between text-[14px] text-slate-400 font-mono shrink-0">
               <span className="font-bold">{item.value}</span>
-              <span>({pct}%)</span>
+              <span className="text-slate-500">({pct}%)</span>
             </div>
           </div>
         );
       })}
-      <div className="flex justify-between items-center pt-2 border-t border-white/5 text-[15px]">
+      <div className="flex justify-between items-center border-t border-white/5 pt-1 text-[14px]">
         <span className="text-slate-500">需求总计</span>
         <span className="font-bold text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.6)]">{total} 条</span>
       </div>
@@ -338,44 +338,45 @@ function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; 
 function OrderOverview({ completionRate, completedOrders, inProgressOrders, totalSettled }: {
   completionRate: number; completedOrders: number; inProgressOrders: number; totalSettled: number;
 }) {
-  const r = 34, cx = 46, cy = 46, size = 92;
+  const r = 32, cx = 42, cy = 42, size = 84;
   const c2 = 2 * Math.PI * r;
   const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 items-center gap-3 py-2">
-      {/* Completion Ring */}
-      <div className="flex flex-col items-center gap-2">
+    <div className="flex-1 min-h-0 flex items-center gap-4 px-1">
+      {/* Left — completion ring + rate info */}
+      <div className="flex flex-col items-center gap-2 shrink-0">
         <div className="relative" style={{ width: size, height: size }}>
           <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={6} />
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={5} />
             <circle cx={cx} cy={cy} r={r} fill="none" stroke="#10b981"
-              strokeWidth={6} strokeDasharray={c2}
+              strokeWidth={5} strokeDasharray={c2}
               strokeDashoffset={c2 * (1 - completionRate / 100)}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 8px #10b981)" }} />
+              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 7px #10b981)" }} />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[20px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+            <span className="text-[18px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
               {completionRate}%
             </span>
           </div>
         </div>
-        <span className="text-[16px] font-bold text-slate-400 tracking-[0.08em] uppercase">订单完成率</span>
-        <div className="text-[15px] text-slate-500 text-center leading-relaxed">
-          完成 <span className="text-emerald-400 font-bold text-[17px]">{completedOrders}</span>
-          <span className="mx-1">·</span>
-          进行中 <span className="text-teal-400 font-bold text-[17px]">{inProgressOrders}</span>
+        <span className="text-[14px] font-bold text-slate-400 tracking-widest uppercase">订单完成率</span>
+        <div className="text-[13px] text-slate-500 text-center">
+          完成&nbsp;<span className="text-emerald-400 font-bold">{completedOrders}</span>
+          &nbsp;·&nbsp;
+          进行中&nbsp;<span className="text-teal-400 font-bold">{inProgressOrders}</span>
         </div>
       </div>
 
-      <div className="w-full border-t border-white/5" />
+      {/* Vertical divider */}
+      <div className="self-stretch w-px bg-white/5 my-2 shrink-0" />
 
-      {/* Settlement */}
-      <div className="flex flex-col items-center gap-1">
-        <span className="text-[15px] font-bold text-slate-500 tracking-[0.08em] uppercase">累计结算</span>
+      {/* Right — settlement */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-2">
+        <span className="text-[15px] font-bold text-slate-500 tracking-widest uppercase">累计结算</span>
         <div className="flex items-baseline gap-1">
-          <span className="text-[38px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+          <span className="text-[40px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
             {settled}
           </span>
           <span className="text-[18px] font-bold text-slate-300">元</span>
@@ -620,8 +621,8 @@ export default function ScreenDisplay() {
               {/* Bottom section — 2 rows */}
               <div className="flex-[4.5] min-h-0 flex flex-col gap-3">
 
-                {/* Row 1: Today new stats — compact horizontal strip */}
-                <Panel title="今日实时新增" borderColor="border-blue-500/40" className="shrink-0" style={{ height: 110 }}>
+                {/* Row 1: Today new stats — compact horizontal strip, no title */}
+                <Panel borderColor="border-blue-500/40" className="shrink-0" style={{ height: 78 }}>
                   <TodayStats newUsers={today.newUsers} newDemands={today.newDemands} newOrders={today.newOrders} />
                 </Panel>
 
