@@ -50,13 +50,14 @@ router.post("/activities/:id/register", async (req, res) => {
 
     const { name, phone, email, organization, extraData } = req.body as {
       name: string;
-      phone?: string;
+      phone: string;
       email?: string;
       organization?: string;
       extraData?: Record<string, string | string[]>;
     };
 
     if (!name?.trim()) return res.status(400).json({ error: "姓名不能为空" });
+    if (!phone?.trim()) return res.status(400).json({ error: "手机号不能为空" });
 
     const extra = extraData ?? {};
     for (const field of fields) {

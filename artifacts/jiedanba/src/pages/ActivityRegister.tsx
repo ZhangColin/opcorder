@@ -79,6 +79,10 @@ export default function ActivityRegister() {
       newErrors.name = "请填写姓名";
     }
 
+    if (!String(formData.phone ?? "").trim()) {
+      newErrors.phone = "请填写手机号";
+    }
+
     for (const field of activity.fields) {
       const val = formData[`field_${field.id}`];
       if (field.isRequired) {
@@ -108,7 +112,7 @@ export default function ActivityRegister() {
 
     mutation.mutate({
       name: String(formData.name ?? "").trim(),
-      phone: String(formData.phone ?? "").trim() || undefined,
+      phone: String(formData.phone ?? "").trim(),
       email: String(formData.email ?? "").trim() || undefined,
       organization: String(formData.organization ?? "").trim() || undefined,
       extraData,
@@ -210,11 +214,11 @@ export default function ActivityRegister() {
               />
             </FormField>
 
-            <FormField label="手机号" error={errors.phone}>
+            <FormField label="手机号" required error={errors.phone}>
               <input
                 type="tel"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-                placeholder="请输入手机号（选填）"
+                placeholder="请输入手机号"
                 value={String(formData.phone ?? "")}
                 onChange={e => handleChange("phone", e.target.value)}
               />
