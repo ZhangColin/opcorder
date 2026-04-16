@@ -411,17 +411,6 @@ export default function PublisherOrderDetail() {
                   <Trophy size={20} className="text-emerald-600" />
                   <div>
                     <p className="font-bold text-emerald-800">订单已完成</p>
-                    {order.opcRating && (
-                      <div className="flex items-center gap-1 mt-1">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star key={s} size={12} className={s <= order.opcRating! ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
-                        ))}
-                        <span className="text-xs text-emerald-600 ml-1">OPC 评分：{order.opcRating} 分</span>
-                      </div>
-                    )}
-                    {order.opcReviewComment && (
-                      <p className="text-xs text-emerald-700 mt-0.5">OPC 评语：{order.opcReviewComment}</p>
-                    )}
                   </div>
                 </div>
               )}

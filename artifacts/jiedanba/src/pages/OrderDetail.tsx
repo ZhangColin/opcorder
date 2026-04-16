@@ -1126,25 +1126,6 @@ export default function OrderDetail() {
               <p className="text-sm text-green-700 mt-0.5">
                 您的分成 ¥{Math.round(order.amount * 0.9).toLocaleString()} 将在 3 个工作日内到账。
               </p>
-              {order.rating && (
-                <div className="flex items-center gap-1 mt-1">
-                  {[1,2,3,4,5].map(s => (
-                    <Star key={s} size={12} className={s <= (order.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
-                  ))}
-                  <span className="text-xs text-green-600 ml-1">发单方评分：{order.rating} 分</span>
-                </div>
-              )}
-              {order.reviewComment && (
-                <p className="text-xs text-green-700 mt-0.5">评价：{order.reviewComment}</p>
-              )}
-              {(order as any).opcRating && (
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-xs text-green-600">您的评价：</span>
-                  {[1,2,3,4,5].map(s => (
-                    <Star key={s} size={12} className={s <= ((order as any).opcRating ?? 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 
