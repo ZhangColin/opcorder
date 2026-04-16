@@ -4,6 +4,7 @@ import {
   ArrowLeft, CheckCircle2, Clock, XCircle, UploadCloud, AlertCircle,
   ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag, Star, Send, Loader2,
   Building2, MapPin, Globe, Mail, Users, CalendarDays, ChevronRight, Link2,
+  Plus, X, Upload,
 } from "lucide-react";
 
 import {
@@ -14,6 +15,7 @@ import type { Milestone, Deliverable } from "@workspace/api-client-react";
 import { ORDER_STATUSES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { getAccessToken } from "@/lib/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -117,31 +119,86 @@ function EmptyDelivForm({
   onSuccess: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", fileUrl: "" });
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [files, setFiles] = useState<{ url: string; label: string }[]>([]);
+  const [linkInput, setLinkInput] = useState("");
+  const [uploadCount, setUploadCount] = useState(0);
   const { mutate: submit, isPending } = useSubmitDeliverable();
   const { toast } = useToast();
 
+  const uploading = uploadCount > 0;
+
+  const addLink = () => {
+    const v = linkInput.trim();
+    if (!v) return;
+    setFiles((f) => [...f, { url: v, label: v.split("/").pop()?.split("?")[0] || v }]);
+    setLinkInput("");
+  };
+
+  const removeFile = (i: number) => setFiles((f) => f.filter((_, idx) => idx !== i));
+
+  const uploadFile = async (file: File) => {
+    setUploadCount((c) => c + 1);
+    try {
+      const contentType = file.type || "application/octet-stream";
+      const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType }),
+      });
+      if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
+      const { uploadURL, objectPath } = await res.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
+      if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const fileUrl = `${BASE}/api/storage${objectPath}`;
+      setFiles((f) => [...f, { url: fileUrl, label: file.name }]);
+      toast({ title: `${file.name} 上传成功` });
+    } catch (e) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUploadCount((c) => c - 1);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const allLinks = [...files, ...(linkInput.trim() ? [{ url: linkInput.trim(), label: linkInput.trim().split("/").pop()?.split("?")[0] || linkInput.trim() }] : [])];
+    if (!title.trim()) {
+      toast({ title: "请填写交付物名称", variant: "destructive" });
+      return;
+    }
+    if (allLinks.length === 0) {
+      toast({ title: "请至少上传一个文件或添加链接", variant: "destructive" });
+      return;
+    }
+    const descriptionStr = allLinks.map((f) => `${f.url}\t${f.label}`).join("\n") + (description ? `\n${description}` : "");
     submit(
       {
         orderId,
         data: {
-          title: form.title,
-          description: form.description,
-          fileUrl: form.fileUrl || undefined,
+          title: title.trim(),
+          description: descriptionStr,
+          fileUrl: allLinks[0].url,
+          fileName: allLinks[0].label,
           milestoneId,
         },
       },
       {
         onSuccess: () => {
           toast({ title: "交付物已提交", description: "等待发单方审核。" });
-          setForm({ title: "", description: "", fileUrl: "" });
+          setTitle("");
+          setDescription("");
+          setFiles([]);
+          setLinkInput("");
           setOpen(false);
           onSuccess();
         },
         onError: () => {
-          toast({ title: "提交失败", variant: "destructive" });
+          toast({ title: "提交失败，请稍后重试", variant: "destructive" });
         },
       }
     );
@@ -159,43 +216,103 @@ function EmptyDelivForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 border border-primary/20 rounded-xl p-4 bg-primary/5 space-y-3">
-      <p className="text-sm font-bold text-primary mb-1">提交「{milestoneLabel}」交付物</p>
+    <form onSubmit={handleSubmit} className="mt-4 border border-primary/20 rounded-xl p-5 bg-primary/5 space-y-4">
+      <p className="text-sm font-bold text-primary">提交「{milestoneLabel}」交付物</p>
+
+      {/* Title */}
       <div>
         <label className="block text-xs font-bold mb-1 text-foreground">交付物名称 *</label>
         <input
           required
           className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none"
           placeholder="例：第一阶段需求分析报告"
-          value={form.title}
-          onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
         />
       </div>
+
+      {/* Files section */}
       <div>
-        <label className="block text-xs font-bold mb-1 text-foreground">交付说明</label>
+        <label className="block text-xs font-bold mb-2 text-foreground">
+          文件 / 链接 * <span className="font-normal text-muted-foreground">（可添加多个）</span>
+        </label>
+
+        {/* Added files list */}
+        {files.length > 0 && (
+          <ul className="space-y-1.5 mb-2">
+            {files.map((f, i) => (
+              <li key={i} className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-2 group">
+                <Link2 size={12} className="text-muted-foreground shrink-0" />
+                <span className="text-xs text-foreground truncate flex-1">{f.label}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                >
+                  <X size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Link input row */}
+        <div className="flex gap-2 mb-2">
+          <input
+            type="url"
+            value={linkInput}
+            onChange={(e) => setLinkInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } }}
+            placeholder="粘贴网盘/仓库链接，按 Enter 或点击 +"
+            className="flex-1 text-xs border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-background"
+          />
+          <button
+            type="button"
+            onClick={addLink}
+            disabled={!linkInput.trim()}
+            className="p-2 rounded-lg border border-border text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+
+        {/* File upload button */}
+        <label className={`flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-border cursor-pointer text-xs font-medium text-primary hover:bg-primary/5 transition-colors ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}>
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+          {uploading ? "上传中…" : "点击上传文件"}
+          <input
+            type="file"
+            className="hidden"
+            multiple
+            disabled={uploading}
+            onChange={(e) => {
+              const selectedFiles = Array.from(e.target.files ?? []);
+              selectedFiles.forEach((f) => uploadFile(f));
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-xs font-bold mb-1 text-foreground">交付说明（选填）</label>
         <textarea
           rows={2}
           className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none resize-none"
           placeholder="简述交付内容及要点…"
-          value={form.description}
-          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
         />
       </div>
-      <div>
-        <label className="block text-xs font-bold mb-1 text-foreground">文件链接（网盘/代码仓库等）</label>
-        <input
-          className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none"
-          placeholder="https://..."
-          value={form.fileUrl}
-          onChange={(e) => setForm((p) => ({ ...p, fileUrl: e.target.value }))}
-        />
-      </div>
+
       <div className="flex gap-2 pt-1">
         <button
           type="submit"
-          disabled={isPending}
-          className="flex-1 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50"
+          disabled={isPending || uploading}
+          className="flex-1 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
         >
+          {isPending && <Loader2 size={14} className="animate-spin" />}
           {isPending ? "提交中…" : "确认提交"}
         </button>
         <button
