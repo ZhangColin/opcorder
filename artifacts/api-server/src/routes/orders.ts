@@ -228,7 +228,7 @@ router.patch("/orders/:orderId/deliverables/:deliverableId", requireAuth, async 
       and(eq(deliverablesTable.id, deliverableId), eq(deliverablesTable.orderId, orderId))
     );
     if (!deliv) return res.status(404).json({ error: "交付物不存在" });
-    if (deliv.status !== "submitted") return res.status(400).json({ error: "只能修改待审核状态的交付物" });
+    if (deliv.status === "approved") return res.status(400).json({ error: "审核通过的交付物不可修改" });
 
     const { title, description, fileUrl, fileName } = req.body;
     const [updated] = await db.update(deliverablesTable).set({
@@ -236,6 +236,8 @@ router.patch("/orders/:orderId/deliverables/:deliverableId", requireAuth, async 
       ...(description !== undefined && { description }),
       ...(fileUrl !== undefined && { fileUrl }),
       ...(fileName !== undefined && { fileName }),
+      status: "submitted",
+      feedback: null,
       submittedAt: new Date(),
     }).where(eq(deliverablesTable.id, deliverableId)).returning();
 

@@ -528,7 +528,7 @@ function MilestoneCard({
 
   const cfg = MS_STATUS_CFG[status as keyof typeof MS_STATUS_CFG] ?? MS_STATUS_CFG.pending;
   const Icon = cfg.icon;
-  const canSubmit = orderStatus === "in_progress" && (status === "pending" || status === "rejected");
+  const canSubmit = orderStatus === "in_progress" && status === "pending";
   const latestRejected = msDelivs.find((d) => d.status === "rejected");
   const rejectedCount = msDelivs.filter((d) => d.status === "rejected").length;
   const MAX_REVISIONS = 3;
@@ -615,7 +615,7 @@ function MilestoneCard({
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {d.status === "submitted" && orderStatus === "in_progress" && (
+                        {d.status !== "approved" && orderStatus === "in_progress" && (
                           <button
                             onClick={() => setEditingDelivId(d.id)}
                             className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
@@ -641,11 +641,6 @@ function MilestoneCard({
             />
           )}
 
-          {status === "rejected" && (
-            <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <RotateCcw size={11} /> 请修改后重新提交本节点交付物
-            </div>
-          )}
         </div>
       )}
     </div>
