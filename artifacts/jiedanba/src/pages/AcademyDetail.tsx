@@ -85,8 +85,7 @@ function DocxViewer({ url }: { url: string }) {
 
   return (
     <div
-      className="prose prose-sm max-w-none bg-white rounded-xl p-8 border border-border/30 overflow-auto"
-      style={{ maxHeight: 700 }}
+      className="prose prose-sm max-w-none bg-white rounded-xl p-8 border border-border/30"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -121,10 +120,7 @@ function XlsxViewer({ url }: { url: string }) {
   if (html === null) return <LoadingPlaceholder />;
 
   return (
-    <div
-      className="overflow-auto rounded-xl border border-border/30 bg-white"
-      style={{ maxHeight: 700 }}
-    >
+    <div className="rounded-xl border border-border/30 bg-white overflow-x-auto">
       <style>{`
         .xlsx-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
         .xlsx-table td, .xlsx-table th { border: 1px solid #e5e7eb; padding: 6px 10px; white-space: nowrap; }
