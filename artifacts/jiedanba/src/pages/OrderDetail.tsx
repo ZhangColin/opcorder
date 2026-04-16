@@ -706,8 +706,7 @@ function OpcReviewPanel({ orderId, onDone }: { orderId: number; onDone: () => vo
     try {
       const res = await fetch(`${BASE}/api/orders/${orderId}/opc-review`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
         body: JSON.stringify({ rating, comment }),
       });
       if (!res.ok) throw new Error();
