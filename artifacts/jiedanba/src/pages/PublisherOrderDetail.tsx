@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { clearSession } from "@/lib/auth";
+import { clearSession, getAccessToken } from "@/lib/auth";
 import { useLocation } from "wouter";
 import {
   Search, Bell, ArrowLeft, CheckCircle2, Clock,
@@ -201,8 +201,7 @@ export default function PublisherOrderDetail() {
     mutationFn: async ({ msId, rt, cm }: { msId: number; rt: number; cm: string }) => {
       const res = await fetch(`${BASE}/api/orders/${orderId}/milestones/${msId}/accept`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
         body: JSON.stringify({
           ...(rt > 0 ? { rating: rt } : {}),
           ...(cm.trim() ? { comment: cm.trim() } : {}),
@@ -231,8 +230,7 @@ export default function PublisherOrderDetail() {
     mutationFn: async ({ msId, reason }: { msId: number; reason: string }) => {
       const res = await fetch(`${BASE}/api/orders/${orderId}/milestones/${msId}/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
         body: JSON.stringify({ reason }),
       });
       if (!res.ok) {
