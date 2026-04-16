@@ -384,7 +384,7 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
       <div className="self-stretch w-px bg-white/5 my-3 shrink-0" />
 
       {/* Right block — 累计结算, 2/5 width */}
-      <div className="flex-[2] flex flex-col justify-center items-center gap-2">
+      <div className="flex-[2] self-stretch flex flex-col justify-center items-center gap-2">
         <span className="text-[15px] font-bold text-slate-500 tracking-widest">累计结算</span>
         <div className="flex items-baseline gap-1">
           <span className="text-[42px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
