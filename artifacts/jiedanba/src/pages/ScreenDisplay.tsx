@@ -345,8 +345,8 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
   return (
     <div className="flex-1 min-h-0 flex items-center gap-4 px-2">
 
-      {/* Left block — ring + legend to its right */}
-      <div className="flex items-center gap-4 shrink-0">
+      {/* Left block — ring + legend, 3/5 width */}
+      <div className="flex-[3] flex items-center gap-4 min-w-0">
         {/* Ring */}
         <div className="shrink-0 relative" style={{ width: ringSize, height: ringSize }}>
           <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
@@ -383,8 +383,8 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
       {/* Vertical divider */}
       <div className="self-stretch w-px bg-white/5 my-3 shrink-0" />
 
-      {/* Right block — 累计结算 */}
-      <div className="flex-1 flex flex-col justify-center items-center gap-2">
+      {/* Right block — 累计结算, 2/5 width */}
+      <div className="flex-[2] flex flex-col justify-center items-center gap-2">
         <span className="text-[15px] font-bold text-slate-500 tracking-widest">累计结算</span>
         <div className="flex items-baseline gap-1">
           <span className="text-[42px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
