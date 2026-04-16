@@ -1152,14 +1152,22 @@ router.post("/admin/users/bulk-email", async (req, res) => {
     users = users.filter(u => !!u.email);
 
     if (users.length === 0) {
-      return res.json({ sent: 0, failed: 0, skipped: 0, total: 0, message: "没有符合条件的用户" });
+      return res.json({ total: 0, message: "没有符合条件的用户" });
     }
 
     const FROM = "接单吧 <noreply@aieducenter.com>";
     const jobs = users.map(u => ({ email: u.email!, nickname: u.nickname ?? u.email! }));
-    const { sent, failed, skipped } = await sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM);
+    const total = jobs.length;
 
-    res.json({ sent, failed, skipped, total: users.length });
+    res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
+
+    sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM)
+      .then(({ sent, failed, skipped }) => {
+        logger.info({ sent, failed, skipped, total }, "Bulk email job completed");
+      })
+      .catch((err) => {
+        logger.error({ err }, "Bulk email job failed");
+      });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "群发邮件失败" });
@@ -1273,14 +1281,22 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
     }
 
     if (list.length === 0) {
-      return res.json({ sent: 0, failed: 0, skipped: 0, message: "没有符合条件的学员" });
+      return res.json({ total: 0, message: "没有符合条件的学员" });
     }
 
     const FROM = "接单吧 <noreply@aieducenter.com>";
     const jobs = list.map(r => ({ email: r.email, nickname: r.nickname ?? r.email }));
-    const { sent, failed, skipped } = await sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM);
+    const total = jobs.length;
 
-    res.json({ sent, failed, skipped, total: list.length });
+    res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
+
+    sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM)
+      .then(({ sent, failed, skipped }) => {
+        logger.info({ sent, failed, skipped, total, courseId }, "Course bulk email job completed");
+      })
+      .catch((err) => {
+        logger.error({ err, courseId }, "Course bulk email job failed");
+      });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
     res.status(500).json({ error: "群发邮件失败" });

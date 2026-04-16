@@ -596,7 +596,9 @@ function UserBulkEmailModal({ onClose }: { onClose: () => void }) {
           filterRegisteredFrom, filterRegisteredTo,
         }),
       }).then(async r => {
-        const data = await r.json();
+        const text = await r.text();
+        let data: any;
+        try { data = JSON.parse(text); } catch { throw new Error("服务器返回异常，请稍后重试"); }
         if (!r.ok) throw new Error(data.error ?? "发送失败");
         return data;
       }),
@@ -604,10 +606,7 @@ function UserBulkEmailModal({ onClose }: { onClose: () => void }) {
       if (data.total === 0) {
         toast({ title: "没有符合条件的用户", description: "请调整过滤条件后重试", variant: "destructive" });
       } else {
-        const parts = [`成功 ${data.sent} 封`];
-        if (data.failed > 0) parts.push(`失败 ${data.failed} 封`);
-        if (data.skipped > 0) parts.push(`跳过 ${data.skipped} 封（邮箱无效）`);
-        toast({ title: `群发完成：${parts.join("，")}` });
+        toast({ title: "群发任务已启动", description: `共 ${data.total} 位收件人，正在后台发送，结果将记录到系统日志` });
         onClose();
       }
     },
@@ -2305,16 +2304,19 @@ function BulkEmailModal({ courseId, onClose }: { courseId: number; onClose: () =
         headers: getAdminHeaders(),
         body: JSON.stringify({ subject, body, filterNames, filterPaymentStatus: filterStatus }),
       }).then(async r => {
-        const data = await r.json();
+        const text = await r.text();
+        let data: any;
+        try { data = JSON.parse(text); } catch { throw new Error("服务器返回异常，请稍后重试"); }
         if (!r.ok) throw new Error(data.error ?? "发送失败");
         return data;
       }),
     onSuccess: (data) => {
-      const parts = [`成功 ${data.sent} 封`];
-      if (data.failed > 0) parts.push(`失败 ${data.failed} 封`);
-      if (data.skipped > 0) parts.push(`跳过 ${data.skipped} 封（邮箱无效）`);
-      toast({ title: `群发完成：${parts.join("，")}` });
-      onClose();
+      if (data.total === 0) {
+        toast({ title: "没有符合条件的学员", description: "请调整过滤条件后重试", variant: "destructive" });
+      } else {
+        toast({ title: "群发任务已启动", description: `共 ${data.total} 位收件人，正在后台发送，结果将记录到系统日志` });
+        onClose();
+      }
     },
     onError: (e: Error) => toast({ title: "发送失败", description: e.message, variant: "destructive" }),
   });
