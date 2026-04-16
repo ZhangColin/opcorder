@@ -335,45 +335,45 @@ function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; 
 function OrderOverview({ completionRate, completedOrders, inProgressOrders, totalSettled }: {
   completionRate: number; completedOrders: number; inProgressOrders: number; totalSettled: number;
 }) {
-  const r = 24, c2 = 2 * Math.PI * r;
+  const r = 20, c2 = 2 * Math.PI * r;
   const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
 
   return (
-    <div className="flex flex-col items-center justify-around h-full gap-2">
+    <div className="flex flex-col items-center justify-between h-full py-1 gap-1 overflow-hidden">
       {/* Completion Ring */}
-      <div className="flex flex-col items-center gap-1.5">
-        <div className="relative w-[70px] h-[70px]">
-          <svg width={70} height={70} style={{ transform: "rotate(-90deg)" }}>
-            <circle cx={35} cy={35} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={5} />
-            <circle cx={35} cy={35} r={r} fill="none" stroke="#10b981"
-              strokeWidth={5} strokeDasharray={c2}
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        <div className="relative w-[54px] h-[54px]">
+          <svg width={54} height={54} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={27} cy={27} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={4} />
+            <circle cx={27} cy={27} r={r} fill="none" stroke="#10b981"
+              strokeWidth={4} strokeDasharray={c2}
               strokeDashoffset={c2 * (1 - completionRate / 100)}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 6px #10b981)" }} />
+              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 5px #10b981)" }} />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[13px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+            <span className="text-[11px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
               {completionRate}%
             </span>
           </div>
         </div>
         <span className="text-[9px] font-bold text-slate-400 tracking-[0.08em] uppercase">订单完成率</span>
-        <div className="text-[10px] text-slate-500 text-center">
+        <div className="text-[9px] text-slate-500 text-center">
           完成 <span className="text-emerald-400 font-bold">{completedOrders}</span> ·
           进行中 <span className="text-teal-400 font-bold">{inProgressOrders}</span>
         </div>
       </div>
 
-      <div className="w-full border-t border-white/5" />
+      <div className="w-full border-t border-white/5 shrink-0" />
 
       {/* Settlement */}
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-0.5 shrink-0">
         <span className="text-[9px] font-bold text-slate-500 tracking-[0.08em] uppercase">累计结算</span>
         <div className="flex items-baseline gap-1">
-          <span className="text-[36px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+          <span className="text-[28px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
             {settled}
           </span>
-          <span className="text-[12px] font-bold text-slate-300">元</span>
+          <span className="text-[11px] font-bold text-slate-300">元</span>
         </div>
       </div>
     </div>
@@ -567,8 +567,8 @@ export default function ScreenDisplay() {
     <>
       <style>{KF}</style>
       <div
-        className="w-screen h-screen text-slate-200 overflow-hidden flex flex-col font-sans selection:bg-cyan-500/30 relative"
-        style={{ background: "linear-gradient(155deg, #040b17 0%, #060f1e 50%, #040c18 100%)" }}
+        className="text-slate-200 flex flex-col font-sans selection:bg-cyan-500/30 relative"
+        style={{ background: "linear-gradient(155deg, #040b17 0%, #060f1e 50%, #040c18 100%)", zoom: 4, width: "100vw", height: "100vh", overflow: "hidden" }}
       >
         {/* Background effects */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
