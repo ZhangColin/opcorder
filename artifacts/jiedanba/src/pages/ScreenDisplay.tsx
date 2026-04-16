@@ -195,7 +195,7 @@ function Panel({ children, title, borderColor = "border-cyan-500/50", className 
   return (
     <div className={clsx(
       "relative rounded-xl border bg-[#0a1530]/80 shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
-      "backdrop-blur-sm overflow-hidden",
+      "backdrop-blur-sm overflow-hidden flex flex-col",
       borderColor, className
     )} style={style}>
       {title && (
@@ -204,7 +204,7 @@ function Panel({ children, title, borderColor = "border-cyan-500/50", className 
           <span className="text-[20px] font-bold text-slate-400 tracking-[0.08em] uppercase">{title}</span>
         </div>
       )}
-      <div className={clsx("flex flex-col", title ? "p-3 pt-2" : "p-3", "h-full")}>
+      <div className={clsx("flex flex-col flex-1 min-h-0", title ? "p-3 pt-2" : "p-3")}>
         {children}
       </div>
     </div>
