@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import {
   Plus, Loader2, Search, Edit2, Trash2, QrCode, Link2,
   ChevronLeft, X, FileText, Eye,
-  Users, ToggleLeft, ToggleRight,
+  Users,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -68,7 +68,7 @@ type Activity = {
   location: string | null;
   startTime: string | null;
   endTime: string | null;
-  isActive: boolean;
+  status: "draft" | "active" | "ended";
   registrationCount: number;
   createdAt: string;
   fields?: ActivityField[];
@@ -93,14 +93,16 @@ type FormField = {
   options: string[];
 };
 
-/* ─── Status helper (time-aware) ─────────────────── */
+/* ─── Status display helper ──────────────────────── */
 
-function getActivityStatus(act: { isActive: boolean; startTime: string | null; endTime: string | null }) {
-  const now = new Date();
-  if (!act.isActive) return { label: "已关闭", cls: "bg-slate-100 text-slate-500" };
-  if (act.endTime && new Date(act.endTime) <= now) return { label: "已结束", cls: "bg-red-50 text-red-500" };
-  if (act.startTime && new Date(act.startTime) > now) return { label: "未开始", cls: "bg-amber-50 text-amber-600" };
-  return { label: "进行中", cls: "bg-green-50 text-green-600" };
+const STATUS_MAP = {
+  draft:  { label: "草稿", cls: "bg-slate-100 text-slate-500" },
+  active: { label: "进行中", cls: "bg-green-50 text-green-600" },
+  ended:  { label: "已结束", cls: "bg-red-50 text-red-500" },
+} as const;
+
+function getStatusDisplay(status: Activity["status"]) {
+  return STATUS_MAP[status] ?? { label: status, cls: "bg-slate-100 text-slate-500" };
 }
 
 /* ─── Pagination ─────────────────────────────────── */
@@ -690,10 +692,21 @@ export default function AdminActivities() {
     ),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ id }: { id: number; isActive: boolean }) =>
-      adminPatch(`/api/admin/activities/${id}/toggle`, {}),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-activities"] }); },
+  const publishMutation = useMutation({
+    mutationFn: (id: number) => adminPatch(`/api/admin/activities/${id}/publish`, {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-activities"] }); toast({ title: "活动已发布，报名链接现已生效" }); },
+    onError: (err) => toast({ title: err instanceof Error ? err.message : "发布失败", variant: "destructive" }),
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: (id: number) => adminPatch(`/api/admin/activities/${id}/unpublish`, {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-activities"] }); toast({ title: "已退回草稿" }); },
+    onError: (err) => toast({ title: err instanceof Error ? err.message : "操作失败", variant: "destructive" }),
+  });
+
+  const endMutation = useMutation({
+    mutationFn: (id: number) => adminPatch(`/api/admin/activities/${id}/end`, {}),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-activities"] }); toast({ title: "活动已结束" }); },
     onError: (err) => toast({ title: err instanceof Error ? err.message : "操作失败", variant: "destructive" }),
   });
 
@@ -757,10 +770,9 @@ export default function AdminActivities() {
           className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white"
         >
           <option value="">全部状态</option>
+          <option value="draft">草稿</option>
           <option value="active">进行中</option>
-          <option value="notstarted">未开始</option>
           <option value="ended">已结束</option>
-          <option value="inactive">已关闭</option>
         </select>
       </div>
 
@@ -806,15 +818,19 @@ export default function AdminActivities() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col items-start gap-1.5">
-                    {(() => { const s = getActivityStatus(act); return <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.cls}`}>{s.label}</span>; })()}
-                    <button
-                      onClick={() => toggleMutation.mutate({ id: act.id, isActive: !act.isActive })}
-                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-primary"
-                      title={act.isActive ? "点击手动关闭" : "点击手动开启"}
-                    >
-                      {act.isActive ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
-                      {act.isActive ? "手动关闭" : "手动开启"}
-                    </button>
+                    {(() => { const s = getStatusDisplay(act.status); return <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.cls}`}>{s.label}</span>; })()}
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {act.status === "draft" && (
+                        <button onClick={() => publishMutation.mutate(act.id)}
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20">发布</button>
+                      )}
+                      {act.status === "active" && (<>
+                        <button onClick={() => unpublishMutation.mutate(act.id)}
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200">退回草稿</button>
+                        <button onClick={() => endMutation.mutate(act.id)}
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-500 hover:bg-red-100">结束活动</button>
+                      </>)}
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-400">{new Date(act.createdAt).toLocaleDateString("zh-CN")}</td>

@@ -402,5 +402,21 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 006d failed in production: ${err}`);
   }
 
+  // Migration 006e: replace is_active boolean with status varchar on activities
+  // 'draft'=草稿, 'active'=进行中, 'ended'=已结束
+  try {
+    await db.execute(sql`
+      ALTER TABLE activities ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'draft'
+    `);
+    // Backfill: existing active rows → 'active', inactive rows keep 'draft'
+    await db.execute(sql`
+      UPDATE activities SET status = 'active' WHERE is_active = true AND status = 'draft'
+    `);
+    await db.execute(sql`ALTER TABLE activities DROP COLUMN IF EXISTS is_active`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 006e: could not migrate activities status column");
+    if (!isDev) throw new Error(`Migration 006e failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

@@ -20,7 +20,7 @@ router.get("/activities/:id/public", async (req, res) => {
 
     const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
     if (!activity) return res.status(404).json({ error: "活动不存在" });
-    if (!activity.isActive) return res.status(404).json({ error: "活动已关闭" });
+    if (activity.status !== "active") return res.status(404).json({ error: "活动未开放报名" });
 
     const fields = await db.select().from(activityFieldsTable)
       .where(eq(activityFieldsTable.activityId, id))
@@ -42,7 +42,7 @@ router.post("/activities/:id/register", async (req, res) => {
 
     const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, activityId)).limit(1);
     if (!activity) return res.status(404).json({ error: "活动不存在" });
-    if (!activity.isActive) return res.status(400).json({ error: "活动报名已关闭" });
+    if (activity.status !== "active") return res.status(400).json({ error: "活动当前未开放报名" });
 
     const fields = await db.select().from(activityFieldsTable)
       .where(eq(activityFieldsTable.activityId, activityId))
@@ -95,23 +95,12 @@ router.get("/admin/activities", async (req, res) => {
   try {
     const { q, status } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query);
-    const now = new Date();
 
     const conditions = [];
     if (q) conditions.push(ilike(activitiesTable.title, `%${q}%`));
-    // status filter: active=进行中, notstarted=未开始, ended=已结束, inactive=已关闭
-    if (status === "active") {
-      conditions.push(eq(activitiesTable.isActive, true));
-      conditions.push(sql`(${activitiesTable.startTime} IS NULL OR ${activitiesTable.startTime} <= ${now})`);
-      conditions.push(sql`(${activitiesTable.endTime} IS NULL OR ${activitiesTable.endTime} > ${now})`);
-    } else if (status === "notstarted") {
-      conditions.push(eq(activitiesTable.isActive, true));
-      conditions.push(sql`${activitiesTable.startTime} IS NOT NULL AND ${activitiesTable.startTime} > ${now}`);
-    } else if (status === "ended") {
-      conditions.push(eq(activitiesTable.isActive, true));
-      conditions.push(sql`${activitiesTable.endTime} IS NOT NULL AND ${activitiesTable.endTime} <= ${now}`);
-    } else if (status === "inactive") {
-      conditions.push(eq(activitiesTable.isActive, false));
+    // status filter maps directly to DB status column: draft/active/ended
+    if (status === "draft" || status === "active" || status === "ended") {
+      conditions.push(eq(activitiesTable.status, status));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -175,7 +164,7 @@ router.post("/admin/activities", async (req, res) => {
       location: location?.trim() || null,
       startTime: startTime ? new Date(startTime) : null,
       endTime: endTime ? new Date(endTime) : null,
-      isActive: true,
+      status: "draft",
     }).returning();
 
     if (fields && fields.length > 0) {
@@ -206,13 +195,12 @@ router.post("/admin/activities", async (req, res) => {
 router.put("/admin/activities/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { title, description, location, startTime, endTime, isActive, fields } = req.body as {
+    const { title, description, location, startTime, endTime, fields } = req.body as {
       title?: string;
       description?: string;
       location?: string;
       startTime?: string;
       endTime?: string;
-      isActive?: boolean;
       fields?: Array<{ label: string; fieldType: string; isRequired: boolean; options?: string[]; sortOrder?: number }>;
     };
 
@@ -225,7 +213,6 @@ router.put("/admin/activities/:id", async (req, res) => {
     if (location !== undefined) updateData.location = location?.trim() || null;
     if (startTime !== undefined) updateData.startTime = startTime ? new Date(startTime) : null;
     if (endTime !== undefined) updateData.endTime = endTime ? new Date(endTime) : null;
-    if (isActive !== undefined) updateData.isActive = isActive;
 
     const [updated] = await db.update(activitiesTable).set(updateData as Partial<typeof activitiesTable.$inferInsert>).where(eq(activitiesTable.id, id)).returning();
 
@@ -268,23 +255,66 @@ router.delete("/admin/activities/:id", async (req, res) => {
   }
 });
 
-/* Toggle activity active/inactive */
-router.patch("/admin/activities/:id/toggle", async (req, res) => {
+/* Publish activity: draft → active */
+router.patch("/admin/activities/:id/publish", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const [existing] = await db.select({ isActive: activitiesTable.isActive })
+    const [existing] = await db.select({ status: activitiesTable.status })
       .from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "活动不存在" });
+    if (existing.status !== "draft") return res.status(400).json({ error: "只有草稿状态的活动才能发布" });
 
     const [updated] = await db.update(activitiesTable)
-      .set({ isActive: !existing.isActive, updatedAt: new Date() })
+      .set({ status: "active", updatedAt: new Date() })
       .where(eq(activitiesTable.id, id))
-      .returning({ isActive: activitiesTable.isActive });
+      .returning({ status: activitiesTable.status });
 
-    res.json({ isActive: updated.isActive });
+    res.json({ status: updated.status });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "切换活动状态失败" });
+    res.status(500).json({ error: "发布活动失败" });
+  }
+});
+
+/* Unpublish activity: active → draft */
+router.patch("/admin/activities/:id/unpublish", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [existing] = await db.select({ status: activitiesTable.status })
+      .from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "活动不存在" });
+    if (existing.status !== "active") return res.status(400).json({ error: "只有进行中的活动才能退回草稿" });
+
+    const [updated] = await db.update(activitiesTable)
+      .set({ status: "draft", updatedAt: new Date() })
+      .where(eq(activitiesTable.id, id))
+      .returning({ status: activitiesTable.status });
+
+    res.json({ status: updated.status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "退回草稿失败" });
+  }
+});
+
+/* End activity: active → ended */
+router.patch("/admin/activities/:id/end", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [existing] = await db.select({ status: activitiesTable.status })
+      .from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "活动不存在" });
+    if (existing.status !== "active") return res.status(400).json({ error: "只有进行中的活动才能结束" });
+
+    const [updated] = await db.update(activitiesTable)
+      .set({ status: "ended", updatedAt: new Date() })
+      .where(eq(activitiesTable.id, id))
+      .returning({ status: activitiesTable.status });
+
+    res.json({ status: updated.status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "结束活动失败" });
   }
 });
 

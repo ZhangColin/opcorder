@@ -21,7 +21,7 @@ type Activity = {
   location: string | null;
   startTime: string | null;
   endTime: string | null;
-  isActive: boolean;
+  status: string;
   fields: ActivityField[];
 };
 
@@ -142,7 +142,7 @@ export default function ActivityRegister() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-4">😕</div>
-          <h1 className="text-xl font-bold text-gray-800 mb-2">活动不存在或已关闭</h1>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">暂无法访问此活动</h1>
           <p className="text-gray-500 text-sm">
             {error instanceof Error ? error.message : "请确认链接是否正确"}
           </p>

@@ -9,7 +9,7 @@ export const activitiesTable = pgTable("activities", {
   location: varchar("location", { length: 200 }),
   startTime: timestamp("start_time"),
   endTime: timestamp("end_time"),
-  isActive: boolean("is_active").notNull().default(true),
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
