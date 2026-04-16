@@ -188,16 +188,16 @@ function StatCard({ title, value, unit = "", icon, colorType = "cyan", delay = 0
 /* ════════════════════════════════════════
    Panel — Figma Design
 ════════════════════════════════════════ */
-function Panel({ children, title, borderColor = "border-cyan-500/50", className = "" }: {
+function Panel({ children, title, borderColor = "border-cyan-500/50", className = "", style }: {
   children: React.ReactNode; title?: string;
-  borderColor?: string; className?: string;
+  borderColor?: string; className?: string; style?: React.CSSProperties;
 }) {
   return (
     <div className={clsx(
       "relative rounded-xl border bg-[#0a1530]/80 shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
       "backdrop-blur-sm overflow-hidden",
       borderColor, className
-    )}>
+    )} style={style}>
       {title && (
         <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/5 shrink-0">
           <div className="w-1.5 h-5 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
@@ -267,18 +267,23 @@ function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
 ════════════════════════════════════════ */
 function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; newDemands: number; newOrders: number }) {
   const items = [
-    { label: "新用户", value: newUsers, colorClass: "text-cyan-400", borderClass: "border-cyan-500/40", bgClass: "bg-cyan-950/30", icon: "👤" },
-    { label: "新需求", value: newDemands, colorClass: "text-teal-400", borderClass: "border-teal-500/40", bgClass: "bg-teal-950/30", icon: "📋" },
+    { label: "新用户", value: newUsers, colorClass: "text-cyan-400",   borderClass: "border-cyan-500/40",   bgClass: "bg-cyan-950/30",   icon: "👤" },
+    { label: "新需求", value: newDemands, colorClass: "text-teal-400", borderClass: "border-teal-500/40",   bgClass: "bg-teal-950/30",   icon: "📋" },
     { label: "新订单", value: newOrders, colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
   ];
   return (
-    <div className="flex flex-col gap-2.5 flex-1 min-h-0">
+    <div className="grid grid-cols-3 gap-3 h-full">
       {items.map((item, i) => (
-        <div key={i} className={clsx("flex-1 rounded-lg border px-3 flex items-center gap-3", item.borderClass, item.bgClass)}>
-          <span className="text-xl shrink-0">{item.icon}</span>
-          <span className="text-[16px] font-bold text-slate-400 tracking-wider w-12 shrink-0">{item.label}</span>
-          <div className={clsx("text-[36px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
-            {item.value > 0 ? `+${item.value}` : item.value}
+        <div key={i} className={clsx(
+          "rounded-lg border px-4 py-3 flex items-center gap-4",
+          item.borderClass, item.bgClass
+        )}>
+          <span className="text-2xl shrink-0">{item.icon}</span>
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-[15px] font-bold text-slate-400 tracking-wider whitespace-nowrap">{item.label}</span>
+            <span className={clsx("text-[34px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+              {item.value > 0 ? `+${item.value}` : item.value}
+            </span>
           </div>
         </div>
       ))}
@@ -612,35 +617,39 @@ export default function ScreenDisplay() {
                 }
               </Panel>
 
-              {/* Bottom row */}
-              <div className="flex-[4.5] min-h-0 flex gap-3">
+              {/* Bottom section — 2 rows */}
+              <div className="flex-[4.5] min-h-0 flex flex-col gap-3">
 
-                {/* Today new stats */}
-                <Panel title="今日实时新增" borderColor="border-blue-500/40" className="flex-[3.5] min-w-0">
+                {/* Row 1: Today new stats — compact horizontal strip */}
+                <Panel title="今日实时新增" borderColor="border-blue-500/40" className="shrink-0" style={{ height: 110 }}>
                   <TodayStats newUsers={today.newUsers} newDemands={today.newDemands} newOrders={today.newOrders} />
                 </Panel>
 
-                {/* Demand lifecycle */}
-                <Panel title="需求全周期进度" borderColor="border-cyan-500/40" className="flex-[5] min-w-0">
-                  {data
-                    ? <ProgressBars data={data.demandStatusChart} total={totalDemands} />
-                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
-                  }
-                </Panel>
+                {/* Row 2: Demand lifecycle + Order overview */}
+                <div className="flex-1 min-h-0 flex gap-3">
 
-                {/* Order stats */}
-                <Panel title="订单概览" borderColor="border-emerald-500/40" className="flex-[3] min-w-0">
-                  {kpi
-                    ? <OrderOverview
-                        completionRate={kpi.completionRate}
-                        completedOrders={kpi.completedOrders}
-                        inProgressOrders={kpi.inProgressOrders}
-                        totalSettled={kpi.totalSettled}
-                      />
-                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
-                  }
-                </Panel>
+                  {/* Demand lifecycle */}
+                  <Panel title="需求全周期进度" borderColor="border-cyan-500/40" className="flex-[5.5] min-w-0">
+                    {data
+                      ? <ProgressBars data={data.demandStatusChart} total={totalDemands} />
+                      : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                    }
+                  </Panel>
 
+                  {/* Order overview */}
+                  <Panel title="订单概览" borderColor="border-emerald-500/40" className="flex-[4.5] min-w-0">
+                    {kpi
+                      ? <OrderOverview
+                          completionRate={kpi.completionRate}
+                          completedOrders={kpi.completedOrders}
+                          inProgressOrders={kpi.inProgressOrders}
+                          totalSettled={kpi.totalSettled}
+                        />
+                      : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                    }
+                  </Panel>
+
+                </div>
               </div>
             </div>
 
