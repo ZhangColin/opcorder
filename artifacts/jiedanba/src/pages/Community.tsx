@@ -668,11 +668,17 @@ export default function Community() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            {["话题广场", "动态", "热榜", "活动"].map((label, i) => (
+            {["话题广场", "动态", "热榜"].map((label, i) => (
               <span key={label} className={`font-bold text-sm tracking-tight cursor-pointer transition-colors ${
                 i === 0 ? "text-blue-700 border-b-2 border-blue-700 pb-1" : "text-slate-500 hover:text-blue-900"
               }`}>{label}</span>
             ))}
+            <a
+              href={`${import.meta.env.BASE_URL}events/opc-meetup.html`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-sm tracking-tight text-slate-500 hover:text-blue-900 transition-colors"
+            >活动</a>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -971,20 +977,27 @@ export default function Community() {
               <h2 className="font-extrabold mb-5 flex items-center gap-2 text-sm">
                 <CalendarDays size={16} /> 近期活动
               </h2>
-              <div className="bg-white/10 rounded-xl p-4 mb-5 backdrop-blur-md">
-                <div className="text-[10px] text-blue-200 mb-1.5 font-bold uppercase">线上直播</div>
-                <h4 className="font-bold text-sm mb-3 leading-snug">《OPC开发者沙龙：从Prompt工程到业务逻辑闭环》</h4>
-                <div className="flex items-center justify-between text-xs text-blue-200">
-                  <span>4月28日 20:00</span>
-                  <span className="flex items-center gap-1"><User size={12} /> 256 已报名</span>
-                </div>
-              </div>
-              <button
-                onClick={() => requireLogin()}
-                className="w-full py-3 bg-secondary text-white rounded-xl font-bold text-sm hover:bg-secondary/90 transition-colors"
+              <a
+                href={`${import.meta.env.BASE_URL}events/opc-meetup.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block bg-white/10 rounded-xl p-4 mb-4 backdrop-blur-md hover:bg-white/20 transition-colors cursor-pointer"
               >
-                立即报名
-              </button>
+                <div className="text-[10px] text-blue-200 mb-1.5 font-bold uppercase">线下见面会</div>
+                <h4 className="font-bold text-sm mb-3 leading-snug">OPC 国际枢纽站 一人公司线下见面会</h4>
+                <div className="flex items-center justify-between text-xs text-blue-200">
+                  <span>4月17日 14:00 · 原点大厦</span>
+                  <span className="flex items-center gap-1"><User size={12} /> 限额 100 席</span>
+                </div>
+              </a>
+              <a
+                href={`${import.meta.env.BASE_URL}events/opc-meetup.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-3 bg-secondary text-white rounded-xl font-bold text-sm hover:bg-secondary/90 transition-colors text-center"
+              >
+                查看详情 & 报名
+              </a>
             </section>
 
             <section id="leaderboard" className="bg-white rounded-2xl p-6 border border-slate-100">
