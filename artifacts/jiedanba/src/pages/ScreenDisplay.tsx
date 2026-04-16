@@ -342,12 +342,12 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
 
   /* Ring fills container height — use a viewBox so SVG scales freely */
   return (
-    <div className="flex-1 min-h-0 flex items-stretch gap-4 px-2 py-2">
+    <div className="flex-1 min-h-0 flex items-stretch gap-4 px-2">
 
       {/* Left block — ring + legend, 3/5 width */}
       <div className="flex-[3] flex items-center justify-center gap-6 min-w-0">
-        {/* Ring — square, fills available height */}
-        <div className="relative shrink-0" style={{ height: "100%", aspectRatio: "1" }}>
+        {/* Ring — capped at 130px so it doesn't dominate */}
+        <div className="relative shrink-0" style={{ height: "min(100%, 130px)", aspectRatio: "1" }}>
           <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
             <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth="8" />
             <circle cx="50" cy="50" r="42" fill="none" stroke="#10b981"
@@ -365,16 +365,16 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
         </div>
 
         {/* Legend — right of ring */}
-        <div className="flex flex-col gap-3">
-          <span className="text-[16px] font-bold text-slate-400">订单完成率</span>
+        <div className="flex flex-col gap-3 min-w-0 shrink-0">
+          <span className="text-[16px] font-bold text-slate-400 whitespace-nowrap">订单完成率</span>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_#10b981]" />
-            <span className="text-[15px] text-slate-400">完成</span>
+            <span className="text-[15px] text-slate-400 whitespace-nowrap">完成</span>
             <span className="text-[22px] font-black text-emerald-400 font-mono leading-none">{completedOrders}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-teal-400 shrink-0 shadow-[0_0_6px_#2dd4bf]" />
-            <span className="text-[15px] text-slate-400">进行中</span>
+            <span className="text-[15px] text-slate-400 whitespace-nowrap">进行中</span>
             <span className="text-[22px] font-black text-teal-400 font-mono leading-none">{inProgressOrders}</span>
           </div>
         </div>
