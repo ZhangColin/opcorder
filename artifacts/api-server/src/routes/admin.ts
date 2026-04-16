@@ -50,6 +50,51 @@ function buildBulkEmail(nickname: string, body: string): string {
   `;
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+}
+
+async function sendBatchedEmails(
+  jobs: Array<{ email: string; nickname: string }>,
+  subject: string,
+  body: string,
+  from: string
+): Promise<{ sent: number; failed: number; skipped: number }> {
+  const BATCH_SIZE = 4;
+  const DELAY_MS = 1100;
+  let sent = 0, failed = 0, skipped = 0;
+
+  const valid = jobs.filter(j => {
+    if (!j.email || !isValidEmail(j.email)) { skipped++; return false; }
+    return true;
+  });
+
+  for (let i = 0; i < valid.length; i += BATCH_SIZE) {
+    const batch = valid.slice(i, i + BATCH_SIZE);
+    await Promise.allSettled(
+      batch.map(async (j) => {
+        const { error } = await resend.emails.send({
+          from,
+          to: j.email,
+          subject: subject.trim(),
+          html: buildBulkEmail(j.nickname ?? j.email, body.trim()),
+        });
+        if (error) {
+          failed++;
+          console.error("bulk email error", j.email, error);
+        } else {
+          sent++;
+        }
+      })
+    );
+    if (i + BATCH_SIZE < valid.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+    }
+  }
+
+  return { sent, failed, skipped };
+}
+
 const router: IRouter = Router();
 
 router.use("/admin", requireAdmin);
@@ -1106,27 +1151,14 @@ router.post("/admin/users/bulk-email", async (req, res) => {
     users = users.filter(u => !!u.email);
 
     if (users.length === 0) {
-      return res.json({ sent: 0, failed: 0, total: 0, message: "没有符合条件的用户" });
+      return res.json({ sent: 0, failed: 0, skipped: 0, total: 0, message: "没有符合条件的用户" });
     }
 
-    let sent = 0;
-    let failed = 0;
     const FROM = "接单吧 <noreply@aieducenter.com>";
+    const jobs = users.map(u => ({ email: u.email!, nickname: u.nickname ?? u.email! }));
+    const { sent, failed, skipped } = await sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM);
 
-    await Promise.allSettled(
-      users.map(async (u) => {
-        const { error } = await resend.emails.send({
-          from: FROM,
-          to: u.email!,
-          subject: subject.trim(),
-          html: buildBulkEmail(u.nickname ?? u.email!, body.trim()),
-        });
-        if (error) { failed++; console.error("user bulk email error", u.email, error); }
-        else { sent++; }
-      })
-    );
-
-    res.json({ sent, failed, total: users.length });
+    res.json({ sent, failed, skipped, total: users.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "群发邮件失败" });
@@ -1240,27 +1272,14 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
     }
 
     if (list.length === 0) {
-      return res.json({ sent: 0, failed: 0, message: "没有符合条件的学员" });
+      return res.json({ sent: 0, failed: 0, skipped: 0, message: "没有符合条件的学员" });
     }
 
-    let sent = 0;
-    let failed = 0;
     const FROM = "接单吧 <noreply@aieducenter.com>";
+    const jobs = list.map(r => ({ email: r.email, nickname: r.nickname ?? r.email }));
+    const { sent, failed, skipped } = await sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM);
 
-    await Promise.allSettled(
-      list.map(async (r) => {
-        const { error } = await resend.emails.send({
-          from: FROM,
-          to: r.email,
-          subject: subject.trim(),
-          html: buildBulkEmail(r.nickname ?? r.email, body.trim()),
-        });
-        if (error) { failed++; console.error("bulk email error", r.email, error); }
-        else { sent++; }
-      })
-    );
-
-    res.json({ sent, failed, total: list.length });
+    res.json({ sent, failed, skipped, total: list.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "群发邮件失败" });

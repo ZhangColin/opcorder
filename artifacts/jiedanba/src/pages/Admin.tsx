@@ -604,7 +604,10 @@ function UserBulkEmailModal({ onClose }: { onClose: () => void }) {
       if (data.total === 0) {
         toast({ title: "没有符合条件的用户", description: "请调整过滤条件后重试", variant: "destructive" });
       } else {
-        toast({ title: `群发完成：成功 ${data.sent} 封${data.failed > 0 ? `，失败 ${data.failed} 封` : ""}` });
+        const parts = [`成功 ${data.sent} 封`];
+        if (data.failed > 0) parts.push(`失败 ${data.failed} 封`);
+        if (data.skipped > 0) parts.push(`跳过 ${data.skipped} 封（邮箱无效）`);
+        toast({ title: `群发完成：${parts.join("，")}` });
         onClose();
       }
     },
@@ -2307,7 +2310,10 @@ function BulkEmailModal({ courseId, onClose }: { courseId: number; onClose: () =
         return data;
       }),
     onSuccess: (data) => {
-      toast({ title: `群发完成：成功 ${data.sent} 封${data.failed > 0 ? `，失败 ${data.failed} 封` : ""}` });
+      const parts = [`成功 ${data.sent} 封`];
+      if (data.failed > 0) parts.push(`失败 ${data.failed} 封`);
+      if (data.skipped > 0) parts.push(`跳过 ${data.skipped} 封（邮箱无效）`);
+      toast({ title: `群发完成：${parts.join("，")}` });
       onClose();
     },
     onError: (e: Error) => toast({ title: "发送失败", description: e.message, variant: "destructive" }),
