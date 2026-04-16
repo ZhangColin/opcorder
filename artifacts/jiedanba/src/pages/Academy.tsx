@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, Star, Lock, Trophy, FileText,
@@ -790,16 +791,17 @@ type CourseFilter = "all" | "tech" | "strategy" | "compliance" | "operations";
 type CourseTab = "library" | "mine";
 
 export default function Academy() {
+  const [, navigate] = useLocation();
   const [courseFilter, setCourseFilter] = useState<CourseFilter>("all");
   const [courseTab, setCourseTab]       = useState<CourseTab>("library");
   const [enrollingId, setEnrollingId]   = useState<number | null>(null);
   const [payingId, setPayingId]         = useState<number | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [paymentModal, setPaymentModal] = useState<PaymentModalData | null>(null);
-  const [docPreviewUrl, setDocPreviewUrl] = useState<string | null>(null);
   const [refundModal, setRefundModal]   = useState<{ courseId: number; courseName: string } | null>(null);
   const [isRefunding, setIsRefunding]   = useState(false);
   const qc = useQueryClient();
+
+  const goToDetail = (course: Course) => navigate(`/academy/course/${course.id}`);
 
   const { data: user }    = useGetCurrentUser();
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
@@ -949,33 +951,12 @@ export default function Academy() {
   return (
     <div className="space-y-12">
 
-      {/* Doc Preview Modal */}
-      {docPreviewUrl && (
-        <DocPreviewModal url={docPreviewUrl} onClose={() => setDocPreviewUrl(null)} />
-      )}
-
       {/* Payment Modal */}
       {paymentModal && (
         <PaymentModal
           data={paymentModal}
           onClose={() => setPaymentModal(null)}
           onPaid={handlePaymentPaid}
-        />
-      )}
-
-      {selectedCourse && (
-        <CourseDetailModal
-          course={selectedCourse}
-          enrollment={(enrollmentMap.get(selectedCourse.id) as EnrollmentInfo | undefined) ?? null}
-          onClose={() => setSelectedCourse(null)}
-          onEnroll={(id) => { handleEnroll(id); }}
-          onPay={(id) => { handlePay(id); }}
-          onRequestRefund={(courseId, courseName) => setRefundModal({ courseId, courseName })}
-          onPreviewDoc={(url) => { setSelectedCourse(null); setDocPreviewUrl(url); }}
-          isEnrolling={enrollingId === selectedCourse.id}
-          isPaying={payingId === selectedCourse.id}
-          isRefunding={isRefunding && refundModal?.courseId === selectedCourse.id}
-          isLoggedIn={!!user}
         />
       )}
 
@@ -1116,7 +1097,7 @@ export default function Academy() {
                       isPaying={payingId === course.id}
                       onEnroll={handleEnroll}
                       onPay={handlePay}
-                      onViewDetail={setSelectedCourse}
+                      onViewDetail={goToDetail}
                     />
                   ))}
                 </div>
@@ -1147,7 +1128,7 @@ export default function Academy() {
                       isRefundingId={isRefunding ? (refundModal?.courseId ?? null) : null}
                       onPay={handlePay}
                       onRequestRefund={(courseId, courseName) => setRefundModal({ courseId, courseName })}
-                      onViewDetail={(course) => setSelectedCourse(course as any)}
+                      onViewDetail={(course) => goToDetail(course as any)}
                     />
                   ))}
                 </div>

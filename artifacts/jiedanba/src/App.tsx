@@ -31,6 +31,7 @@ import OrderHall from "@/pages/OrderHall";
 import Profile from "@/pages/Profile";
 import Portfolios from "@/pages/Portfolios";
 import Academy from "@/pages/Academy";
+import AcademyDetail from "@/pages/AcademyDetail";
 import Notifications from "@/pages/Notifications";
 import OpcIncome from "@/pages/OpcIncome";
 import OpcMyBids from "@/pages/OpcMyBids";
@@ -241,6 +242,7 @@ function Router() {
       {/* 社区 & 学习资源：游客也可访问 */}
       <Route path="/community" component={Community} />
       <Route path="/academy">{() => <Layout><Academy /></Layout>}</Route>
+      <Route path="/academy/course/:id">{() => <Layout><AcademyDetail /></Layout>}</Route>
 
       {/* OPC 专属路由 */}
       <Route>
