@@ -429,5 +429,19 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 006e failed in production: ${err}`);
   }
 
+  // Migration 007a: add 'order_completed' value to notification_type enum (CRITICAL)
+  // Required for order completion notifications sent to both parties
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'order_completed' AFTER 'system';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 007a: could not add order_completed to notification_type enum");
+    if (!isDev) throw new Error(`Migration 007a failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

@@ -29,10 +29,9 @@ export async function syncSchema(): Promise<void> {
 
   const result = spawnSync(
     "pnpm",
-    ["--filter", "@workspace/db", "run", "push"],
+    ["--filter", "@workspace/db", "run", "push-force"],
     {
-      input: "\n\n\n\n\n",
-      stdio: ["pipe", "inherit", "inherit"],
+      stdio: "inherit",
       cwd: workspaceRoot,
       env: { ...process.env },
     },
