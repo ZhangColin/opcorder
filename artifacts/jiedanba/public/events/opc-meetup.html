@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OPC 国际枢纽站 一人公司线下见面会</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root{
     --zgc-blue:#0052D9;
@@ -172,8 +173,15 @@
         <div>
           <div class="reg-title">感兴趣？即刻锁定席位</div>
           <div class="reg-sub">报名即生效，线下不见不散~</div>
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <a class="reg-btn" href="https://www.opcorder.com/register/1" target="_blank" rel="noopener">立即报名 →</a>
+            <button onclick="downloadQr()" style="display:inline-flex;align-items:center;gap:6px;background:transparent;border:1.5px solid var(--zgc-blue);color:var(--zgc-blue);font-size:14px;font-weight:600;padding:9px 18px;border-radius:8px;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#e8f0ff'" onmouseout="this.style.background='transparent'">⬇ 下载二维码</button>
+          </div>
         </div>
-        <a class="reg-btn" href="https://www.opcorder.com/register/1" target="_blank" rel="noopener">立即报名 →</a>
+        <div style="text-align:center;flex-shrink:0">
+          <canvas id="reg-qr" style="border-radius:10px;display:block"></canvas>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">扫码报名</div>
+        </div>
       </div>
     </section>
 
@@ -197,5 +205,26 @@
 
     <div class="footer">AI 原点社区 × 海创元 · 联合主办　|　本日程最终解释权归主办方所有</div>
   </div>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    var canvas = document.getElementById('reg-qr');
+    if (canvas && window.QRCode) {
+      QRCode.toCanvas(canvas, 'https://www.opcorder.com/register/1', {
+        width: 130,
+        margin: 2,
+        color: { dark: '#003A9E', light: '#ffffff' }
+      });
+    }
+  });
+
+  function downloadQr() {
+    var canvas = document.getElementById('reg-qr');
+    if (!canvas) return;
+    var link = document.createElement('a');
+    link.download = 'OPC见面会报名二维码.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+</script>
 </body>
 </html>
