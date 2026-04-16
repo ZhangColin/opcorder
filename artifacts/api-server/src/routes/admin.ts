@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -55,15 +55,23 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 }
 
+interface BulkEmailResult {
+  sent: number;
+  failed: number;
+  skipped: number;
+  failedEmails: Array<{ email: string; reason: string }>;
+}
+
 async function sendBatchedEmails(
   jobs: Array<{ email: string; nickname: string }>,
   subject: string,
   body: string,
   from: string
-): Promise<{ sent: number; failed: number; skipped: number }> {
+): Promise<BulkEmailResult> {
   const BATCH_SIZE = 4;
   const DELAY_MS = 1100;
   let sent = 0, failed = 0, skipped = 0;
+  const failedEmails: Array<{ email: string; reason: string }> = [];
 
   const valid = jobs.filter(j => {
     if (!j.email || !isValidEmail(j.email)) { skipped++; return false; }
@@ -74,17 +82,26 @@ async function sendBatchedEmails(
     const batch = valid.slice(i, i + BATCH_SIZE);
     await Promise.allSettled(
       batch.map(async (j) => {
-        const { error } = await resend.emails.send({
-          from,
-          to: j.email,
-          subject: subject.trim(),
-          html: buildBulkEmail(j.nickname ?? j.email, body.trim()),
-        });
-        if (error) {
+        try {
+          const { error } = await resend.emails.send({
+            from,
+            to: j.email,
+            subject: subject.trim(),
+            html: buildBulkEmail(j.nickname ?? j.email, body.trim()),
+          });
+          if (error) {
+            failed++;
+            const reason = (error as any).message ?? JSON.stringify(error);
+            failedEmails.push({ email: j.email, reason });
+            logger.error({ err: error, email: j.email }, "Bulk email send error");
+          } else {
+            sent++;
+          }
+        } catch (err) {
           failed++;
-          logger.error({ err: error, email: j.email }, "Bulk email error");
-        } else {
-          sent++;
+          const reason = err instanceof Error ? err.message : String(err);
+          failedEmails.push({ email: j.email, reason });
+          logger.error({ err, email: j.email }, "Bulk email send exception");
         }
       })
     );
@@ -93,7 +110,21 @@ async function sendBatchedEmails(
     }
   }
 
-  return { sent, failed, skipped };
+  return { sent, failed, skipped, failedEmails };
+}
+
+async function writeSystemLog(
+  level: "info" | "warn" | "error",
+  category: string,
+  message: string,
+  metadata?: Record<string, unknown>,
+  operatorId?: number
+) {
+  try {
+    await db.insert(systemLogsTable).values({ level, category, message, metadata: metadata ?? null, operatorId: operatorId ?? null });
+  } catch (err) {
+    logger.error({ err }, "Failed to write system log");
+  }
 }
 
 const router: IRouter = Router();
@@ -1158,15 +1189,24 @@ router.post("/admin/users/bulk-email", async (req, res) => {
     const FROM = "接单吧 <noreply@aieducenter.com>";
     const jobs = users.map(u => ({ email: u.email!, nickname: u.nickname ?? u.email! }));
     const total = jobs.length;
+    const operatorId = req.user?.id;
 
     res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
 
+    await writeSystemLog("info", "email", `群发邮件任务开始：${subject.trim()}`, { subject: subject.trim(), total }, operatorId);
+
     sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM)
-      .then(({ sent, failed, skipped }) => {
+      .then(async ({ sent, failed, skipped, failedEmails }) => {
         logger.info({ sent, failed, skipped, total }, "Bulk email job completed");
+        const level = failed > 0 ? "warn" : "info";
+        await writeSystemLog(level, "email", `群发邮件任务完成：${subject.trim()}`, {
+          subject: subject.trim(), total, sent, failed, skipped,
+          ...(failedEmails.length > 0 ? { failedEmails } : {}),
+        }, operatorId);
       })
-      .catch((err) => {
+      .catch(async (err) => {
         logger.error({ err }, "Bulk email job failed");
+        await writeSystemLog("error", "email", `群发邮件任务异常：${subject.trim()}`, { subject: subject.trim(), error: err instanceof Error ? err.message : String(err) }, operatorId);
       });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
@@ -1287,15 +1327,24 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
     const FROM = "接单吧 <noreply@aieducenter.com>";
     const jobs = list.map(r => ({ email: r.email, nickname: r.nickname ?? r.email }));
     const total = jobs.length;
+    const operatorId = req.user?.id;
 
     res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
 
+    await writeSystemLog("info", "email", `课程群发邮件任务开始：${subject.trim()}`, { subject: subject.trim(), courseId, total }, operatorId);
+
     sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM)
-      .then(({ sent, failed, skipped }) => {
+      .then(async ({ sent, failed, skipped, failedEmails }) => {
         logger.info({ sent, failed, skipped, total, courseId }, "Course bulk email job completed");
+        const level = failed > 0 ? "warn" : "info";
+        await writeSystemLog(level, "email", `课程群发邮件任务完成：${subject.trim()}`, {
+          subject: subject.trim(), courseId, total, sent, failed, skipped,
+          ...(failedEmails.length > 0 ? { failedEmails } : {}),
+        }, operatorId);
       })
-      .catch((err) => {
+      .catch(async (err) => {
         logger.error({ err, courseId }, "Course bulk email job failed");
+        await writeSystemLog("error", "email", `课程群发邮件任务异常：${subject.trim()}`, { subject: subject.trim(), courseId, error: err instanceof Error ? err.message : String(err) }, operatorId);
       });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
@@ -2452,6 +2501,49 @@ router.get("/admin/admin-users/search-users", requireSuperAdmin, async (req, res
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: "搜索失败" });
+  }
+});
+
+/* ─── SYSTEM LOGS ───────────────────────────────── */
+
+router.get("/admin/system-logs", async (req, res) => {
+  try {
+    const { category, level, limit: limitStr, offset: offsetStr } = req.query as Record<string, string>;
+    const limit = Math.min(Number(limitStr) || 50, 200);
+    const offset = Number(offsetStr) || 0;
+
+    const conditions = [];
+    if (category && category !== "all") conditions.push(eq(systemLogsTable.category, category));
+    if (level && level !== "all") conditions.push(eq(systemLogsTable.level, level));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [totalResult] = await db.select({ count: count() }).from(systemLogsTable).where(where);
+    const rows = await db
+      .select({
+        id: systemLogsTable.id,
+        level: systemLogsTable.level,
+        category: systemLogsTable.category,
+        message: systemLogsTable.message,
+        metadata: systemLogsTable.metadata,
+        operatorId: systemLogsTable.operatorId,
+        operatorName: usersTable.nickname,
+        createdAt: systemLogsTable.createdAt,
+      })
+      .from(systemLogsTable)
+      .leftJoin(usersTable, eq(systemLogsTable.operatorId, usersTable.id))
+      .where(where)
+      .orderBy(desc(systemLogsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    res.json({
+      total: Number(totalResult.count),
+      rows: rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    res.status(500).json({ error: "查询系统日志失败" });
   }
 });
 
