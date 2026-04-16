@@ -338,59 +338,59 @@ function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; 
 function OrderOverview({ completionRate, completedOrders, inProgressOrders, totalSettled }: {
   completionRate: number; completedOrders: number; inProgressOrders: number; totalSettled: number;
 }) {
-  const ringSize = 110, ringR = 44, ringCx = 55, ringCy = 55;
-  const ringC2 = 2 * Math.PI * ringR;
   const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
 
+  /* Ring fills container height — use a viewBox so SVG scales freely */
   return (
-    <div className="flex-1 min-h-0 flex items-stretch gap-4 px-2">
+    <div className="flex-1 min-h-0 flex items-stretch gap-4 px-2 py-2">
 
       {/* Left block — ring + legend, 3/5 width */}
-      <div className="flex-[3] flex items-center justify-center gap-4 min-w-0">
-        {/* Ring */}
-        <div className="shrink-0 relative" style={{ width: ringSize, height: ringSize }}>
-          <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
-            <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={7} />
-            <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="#10b981"
-              strokeWidth={7} strokeDasharray={ringC2}
-              strokeDashoffset={ringC2 * (1 - completionRate / 100)}
+      <div className="flex-[3] flex items-center justify-center gap-6 min-w-0">
+        {/* Ring — square, fills available height */}
+        <div className="relative shrink-0" style={{ height: "100%", aspectRatio: "1" }}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth="8" />
+            <circle cx="50" cy="50" r="42" fill="none" stroke="#10b981"
+              strokeWidth="8"
+              strokeDasharray={`${2 * Math.PI * 42}`}
+              strokeDashoffset={`${2 * Math.PI * 42 * (1 - completionRate / 100)}`}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 10px #10b981)" }} />
+              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 4px #10b981)" }} />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[22px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+            <span className="text-[26px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
               {completionRate}%
             </span>
           </div>
         </div>
 
         {/* Legend — right of ring */}
-        <div className="flex flex-col gap-2">
-          <span className="text-[15px] font-bold text-slate-500">订单完成率</span>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-            <span className="text-[14px] text-slate-400">完成</span>
-            <span className="text-[17px] font-black text-emerald-400 font-mono">{completedOrders}</span>
+        <div className="flex flex-col gap-3">
+          <span className="text-[16px] font-bold text-slate-400">订单完成率</span>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_#10b981]" />
+            <span className="text-[15px] text-slate-400">完成</span>
+            <span className="text-[22px] font-black text-emerald-400 font-mono leading-none">{completedOrders}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shrink-0" />
-            <span className="text-[14px] text-slate-400">进行中</span>
-            <span className="text-[17px] font-black text-teal-400 font-mono">{inProgressOrders}</span>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-teal-400 shrink-0 shadow-[0_0_6px_#2dd4bf]" />
+            <span className="text-[15px] text-slate-400">进行中</span>
+            <span className="text-[22px] font-black text-teal-400 font-mono leading-none">{inProgressOrders}</span>
           </div>
         </div>
       </div>
 
       {/* Vertical divider */}
-      <div className="self-stretch w-px bg-white/5 my-3 shrink-0" />
+      <div className="w-px bg-white/5 my-2 shrink-0" />
 
       {/* Right block — 累计结算, 2/5 width */}
-      <div className="flex-[2] flex flex-col justify-center items-center gap-2">
-        <span className="text-[15px] font-bold text-slate-500 tracking-widest">累计结算</span>
+      <div className="flex-[2] flex flex-col justify-center items-center gap-3">
+        <span className="text-[16px] font-bold text-slate-400 tracking-widest">累计结算</span>
         <div className="flex items-baseline gap-1">
-          <span className="text-[42px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+          <span className="text-[46px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_18px_rgba(245,158,11,0.9)]">
             {settled}
           </span>
-          <span className="text-[18px] font-bold text-slate-300">元</span>
+          <span className="text-[20px] font-bold text-slate-300">元</span>
         </div>
       </div>
 
