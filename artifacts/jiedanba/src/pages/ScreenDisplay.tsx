@@ -272,14 +272,12 @@ function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; new
     { label: "新订单", value: newOrders, colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
   ];
   return (
-    <div className="flex flex-col gap-3 flex-1 min-h-0">
+    <div className="flex flex-col gap-2.5 flex-1 min-h-0">
       {items.map((item, i) => (
-        <div key={i} className={clsx("flex-1 rounded-lg border px-4 py-3 flex flex-col justify-center gap-2", item.borderClass, item.bgClass)}>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{item.icon}</span>
-            <span className="text-[16px] font-bold text-slate-400 tracking-wider">{item.label}</span>
-          </div>
-          <div className={clsx("text-[38px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+        <div key={i} className={clsx("flex-1 rounded-lg border px-3 flex items-center gap-3", item.borderClass, item.bgClass)}>
+          <span className="text-xl shrink-0">{item.icon}</span>
+          <span className="text-[16px] font-bold text-slate-400 tracking-wider w-12 shrink-0">{item.label}</span>
+          <div className={clsx("text-[36px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
             {item.value > 0 ? `+${item.value}` : item.value}
           </div>
         </div>
@@ -607,7 +605,7 @@ export default function ScreenDisplay() {
             <div className="flex-[7.5] flex flex-col gap-3 min-w-0">
 
               {/* Trend Chart */}
-              <Panel title="近14天增长趋势" borderColor="border-cyan-500/40" className="flex-[4] min-h-0">
+              <Panel title="近14天增长趋势" borderColor="border-cyan-500/40" className="flex-[5.5] min-h-0">
                 {data?.timeSeries?.length
                   ? <TrendChart data={data.timeSeries} />
                   : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
@@ -615,7 +613,7 @@ export default function ScreenDisplay() {
               </Panel>
 
               {/* Bottom row */}
-              <div className="flex-[6] min-h-0 flex gap-3">
+              <div className="flex-[4.5] min-h-0 flex gap-3">
 
                 {/* Today new stats */}
                 <Panel title="今日实时新增" borderColor="border-blue-500/40" className="flex-[3.5] min-w-0">
