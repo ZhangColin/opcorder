@@ -343,8 +343,8 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
   const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
 
   return (
-    <div className="flex-1 min-h-0 flex items-center gap-4 px-1">
-      {/* Left — completion ring + rate info */}
+    <div className="flex-1 min-h-0 flex flex-col items-center justify-between py-3 gap-2">
+      {/* Completion ring */}
       <div className="flex flex-col items-center gap-2 shrink-0">
         <div className="relative" style={{ width: size, height: size }}>
           <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
@@ -356,27 +356,27 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
               style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 7px #10b981)" }} />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[18px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+            <span className="text-[20px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
               {completionRate}%
             </span>
           </div>
         </div>
-        <span className="text-[14px] font-bold text-slate-400 tracking-widest uppercase">订单完成率</span>
-        <div className="text-[13px] text-slate-500 text-center">
-          完成&nbsp;<span className="text-emerald-400 font-bold">{completedOrders}</span>
+        <span className="text-[16px] font-bold text-slate-400 tracking-widest uppercase">订单完成率</span>
+        <div className="text-[14px] text-slate-500 text-center leading-relaxed">
+          完成&nbsp;<span className="text-emerald-400 font-bold text-[16px]">{completedOrders}</span>
           &nbsp;·&nbsp;
-          进行中&nbsp;<span className="text-teal-400 font-bold">{inProgressOrders}</span>
+          进行中&nbsp;<span className="text-teal-400 font-bold text-[16px]">{inProgressOrders}</span>
         </div>
       </div>
 
-      {/* Vertical divider */}
-      <div className="self-stretch w-px bg-white/5 my-2 shrink-0" />
+      {/* Horizontal divider */}
+      <div className="w-full border-t border-white/5 shrink-0" />
 
-      {/* Right — settlement */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-2">
+      {/* Settlement */}
+      <div className="flex flex-col items-center gap-2 shrink-0">
         <span className="text-[15px] font-bold text-slate-500 tracking-widest uppercase">累计结算</span>
         <div className="flex items-baseline gap-1">
-          <span className="text-[40px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+          <span className="text-[42px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
             {settled}
           </span>
           <span className="text-[18px] font-bold text-slate-300">元</span>
@@ -618,39 +618,35 @@ export default function ScreenDisplay() {
                 }
               </Panel>
 
-              {/* Bottom section — 2 rows */}
-              <div className="flex-[4.5] min-h-0 flex flex-col gap-3">
+              {/* Bottom section — left/right split */}
+              <div className="flex-[4.5] min-h-0 flex gap-3">
 
-                {/* Row 1: Today new stats — compact horizontal strip, no title */}
-                <Panel borderColor="border-blue-500/40" className="shrink-0" style={{ height: 78 }}>
-                  <TodayStats newUsers={today.newUsers} newDemands={today.newDemands} newOrders={today.newOrders} />
-                </Panel>
-
-                {/* Row 2: Demand lifecycle + Order overview */}
-                <div className="flex-1 min-h-0 flex gap-3">
-
-                  {/* Demand lifecycle */}
-                  <Panel title="需求全周期进度" borderColor="border-cyan-500/40" className="flex-[5.5] min-w-0">
+                {/* Left: today stats (compact) stacked above progress bars */}
+                <div className="flex-[5.5] flex flex-col gap-3 min-h-0 min-w-0">
+                  <Panel borderColor="border-blue-500/40" className="shrink-0" style={{ height: 78 }}>
+                    <TodayStats newUsers={today.newUsers} newDemands={today.newDemands} newOrders={today.newOrders} />
+                  </Panel>
+                  <Panel title="需求全周期进度" borderColor="border-cyan-500/40" className="flex-1 min-h-0 min-w-0">
                     {data
                       ? <ProgressBars data={data.demandStatusChart} total={totalDemands} />
                       : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
                     }
                   </Panel>
-
-                  {/* Order overview */}
-                  <Panel title="订单概览" borderColor="border-emerald-500/40" className="flex-[4.5] min-w-0">
-                    {kpi
-                      ? <OrderOverview
-                          completionRate={kpi.completionRate}
-                          completedOrders={kpi.completedOrders}
-                          inProgressOrders={kpi.inProgressOrders}
-                          totalSettled={kpi.totalSettled}
-                        />
-                      : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
-                    }
-                  </Panel>
-
                 </div>
+
+                {/* Right: order overview — full height */}
+                <Panel title="订单概览" borderColor="border-emerald-500/40" className="flex-[4.5] min-w-0">
+                  {kpi
+                    ? <OrderOverview
+                        completionRate={kpi.completionRate}
+                        completedOrders={kpi.completedOrders}
+                        inProgressOrders={kpi.inProgressOrders}
+                        totalSettled={kpi.totalSettled}
+                      />
+                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                  }
+                </Panel>
+
               </div>
             </div>
 
