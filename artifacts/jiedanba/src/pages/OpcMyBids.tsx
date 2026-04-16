@@ -144,7 +144,7 @@ const FILTER_TABS = [
 ] as const;
 
 export default function OpcMyBids() {
-  const { data: bids = [], isLoading, refetch } = useGetMyBids();
+  const { data: bids = [], isLoading, isError, refetch } = useGetMyBids();
   const withdrawBidMutation = useWithdrawBid();
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -223,6 +223,12 @@ export default function OpcMyBids() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-slate-400">
           <Loader2 size={20} className="animate-spin mr-2" /> 加载中…
+        </div>
+      ) : isError ? (
+        <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-slate-400">
+          <AlertCircle size={32} className="mx-auto mb-3 text-red-400 opacity-60" />
+          <p className="text-sm font-medium text-red-500">加载失败，请刷新重试</p>
+          <button onClick={() => refetch()} className="mt-3 text-xs text-primary underline">点击重新加载</button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-slate-400">

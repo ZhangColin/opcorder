@@ -43,9 +43,8 @@ const LEVEL_RANK: Record<string, number> = { C: 1, B: 2, A: 3 };
 const LEVEL_BUDGET_CAP: Record<string, number> = { C: 3_000, B: 20_000, A: 200_000 };
 const LEVEL_LABEL: Record<string, string> = { C: "C级（新手）", B: "B级（进阶）", A: "A级（专家）" };
 
-/* GET /bids/my — returns all bids for the current OPC user with demand info */
+/* GET /bids/my — returns all bids submitted by the current user (any role) */
 router.get("/bids/my", requireAuth, async (req, res) => {
-  if (req.user!.role !== "opc") return res.status(403).json({ error: "仅OPC可访问" });
   try {
     const opcId = req.user!.id;
     const bids = await db
@@ -191,16 +190,48 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       });
     }
 
-    const [bid] = await db.insert(bidsTable).values({
-      demandId,
-      opcId,
-      proposal: body.proposal,
-      estimatedDays: body.estimatedDays,
-      portfolioLinks: body.portfolioLinks || [],
-      status: "pending",
-    }).returning();
+    // Upsert: if a bid already exists for this OPC+demand, update it instead of inserting
+    const [existingBid] = await db
+      .select({ id: bidsTable.id, status: bidsTable.status })
+      .from(bidsTable)
+      .where(and(eq(bidsTable.demandId, demandId), eq(bidsTable.opcId, opcId)))
+      .orderBy(desc(bidsTable.createdAt))
+      .limit(1);
 
-    if (demand?.publisherId) {
+    let bid;
+    let isNew = false;
+
+    if (existingBid) {
+      if (existingBid.status === "accepted") {
+        return res.status(400).json({ error: "您已中标该需求，无法再次修改申请" });
+      }
+      // Update existing bid (reset to pending so publisher sees latest version)
+      const [updated] = await db
+        .update(bidsTable)
+        .set({
+          proposal: body.proposal,
+          estimatedDays: body.estimatedDays,
+          portfolioLinks: body.portfolioLinks || [],
+          status: "pending",
+        })
+        .where(eq(bidsTable.id, existingBid.id))
+        .returning();
+      bid = updated;
+    } else {
+      const [inserted] = await db.insert(bidsTable).values({
+        demandId,
+        opcId,
+        proposal: body.proposal,
+        estimatedDays: body.estimatedDays,
+        portfolioLinks: body.portfolioLinks || [],
+        status: "pending",
+      }).returning();
+      bid = inserted;
+      isNew = true;
+    }
+
+    // Only notify publisher on a brand-new bid (not on updates)
+    if (isNew && demand?.publisherId) {
       const [opc] = await db.select({ nickname: usersTable.nickname })
         .from(usersTable).where(eq(usersTable.id, opcId)).limit(1);
       await db.insert(notificationsTable).values({
@@ -213,7 +244,7 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       });
     }
 
-    res.status(201).json({
+    res.status(isNew ? 201 : 200).json({
       ...bid,
       createdAt: bid.createdAt.toISOString(),
     });
