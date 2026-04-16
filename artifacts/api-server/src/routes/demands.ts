@@ -57,6 +57,8 @@ router.get("/demands", requireAuth, async (req, res) => {
     const params = result.success
       ? result.data
       : ListDemandsQueryParams.parse({ ...req.query, status: undefined });
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
     const conditions = [];
 
     if (params.status) conditions.push(eq(demandsTable.status, params.status as any));
@@ -70,7 +72,11 @@ router.get("/demands", requireAuth, async (req, res) => {
       );
     }
     if (params.search) conditions.push(ilike(demandsTable.title, `%${params.search}%`));
-    if (params.publisherId) conditions.push(eq(demandsTable.publisherId, params.publisherId));
+    if (userRole === "publisher") {
+      conditions.push(eq(demandsTable.publisherId, userId));
+    } else if (userRole === "admin") {
+      if (params.publisherId) conditions.push(eq(demandsTable.publisherId, params.publisherId));
+    }
     if (params.deadlineFilter) {
       const now = new Date();
       let cutoff: Date;
