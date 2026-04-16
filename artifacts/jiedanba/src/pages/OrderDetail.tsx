@@ -327,6 +327,177 @@ function EmptyDelivForm({
   );
 }
 
+function EditDelivForm({
+  deliverable,
+  orderId,
+  onSuccess,
+  onCancel,
+}: {
+  deliverable: Deliverable;
+  orderId: number;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const initialFiles = parseDelivFiles(deliverable.description, deliverable.fileUrl, deliverable.fileName);
+  const [title, setTitle] = useState(deliverable.title);
+  const [description, setDescription] = useState(extractDescriptionText(deliverable.description));
+  const [files, setFiles] = useState<{ url: string; label: string }[]>(initialFiles);
+  const [linkInput, setLinkInput] = useState("");
+  const [uploadCount, setUploadCount] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  const uploading = uploadCount > 0;
+
+  const addLink = () => {
+    const v = linkInput.trim();
+    if (!v) return;
+    setFiles((f) => [...f, { url: v, label: v.split("/").pop()?.split("?")[0] || v }]);
+    setLinkInput("");
+  };
+
+  const removeFile = (i: number) => setFiles((f) => f.filter((_, idx) => idx !== i));
+
+  const uploadFile = async (file: File) => {
+    setUploadCount((c) => c + 1);
+    try {
+      const contentType = file.type || "application/octet-stream";
+      const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType }),
+      });
+      if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
+      const { uploadURL, objectPath } = await res.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
+      if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const fileUrl = `${BASE}/api/storage${objectPath}`;
+      setFiles((f) => [...f, { url: fileUrl, label: file.name }]);
+      toast({ title: `${file.name} 上传成功` });
+    } catch (e) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUploadCount((c) => c - 1);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const allLinks = [...files, ...(linkInput.trim() ? [{ url: linkInput.trim(), label: linkInput.trim().split("/").pop()?.split("?")[0] || linkInput.trim() }] : [])];
+    if (!title.trim()) { toast({ title: "请填写交付物名称", variant: "destructive" }); return; }
+    if (allLinks.length === 0) { toast({ title: "请至少保留一个文件或链接", variant: "destructive" }); return; }
+
+    const descriptionStr = allLinks.map((f) => `${f.url}\t${f.label}`).join("\n") + (description ? `\n${description}` : "");
+    setSaving(true);
+    try {
+      const res = await fetch(`${BASE}/api/orders/${orderId}/deliverables/${deliverable.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${getAccessToken() ?? ""}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: descriptionStr,
+          fileUrl: allLinks[0].url,
+          fileName: allLinks[0].label,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "修改失败");
+      toast({ title: "交付物已更新" });
+      onSuccess();
+    } catch (e) {
+      toast({ title: "修改失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSave} className="mt-3 border border-blue-200 rounded-xl p-5 bg-blue-50 space-y-4">
+      <p className="text-sm font-bold text-blue-700">修改交付物</p>
+
+      {/* Title */}
+      <div>
+        <label className="block text-xs font-bold mb-1 text-foreground">交付物名称 *</label>
+        <input
+          required
+          className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+
+      {/* Files */}
+      <div>
+        <label className="block text-xs font-bold mb-2 text-foreground">
+          文件 / 链接 * <span className="font-normal text-muted-foreground">（可添加多个）</span>
+        </label>
+        {files.length > 0 && (
+          <ul className="space-y-1.5 mb-2">
+            {files.map((f, i) => (
+              <li key={i} className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-2 group">
+                <Link2 size={12} className="text-muted-foreground shrink-0" />
+                <span className="text-xs text-foreground truncate flex-1">{f.label}</span>
+                <button type="button" onClick={() => removeFile(i)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
+                  <X size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2 mb-2">
+          <input
+            type="url"
+            value={linkInput}
+            onChange={(e) => setLinkInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLink(); } }}
+            placeholder="粘贴链接，按 Enter 或点击 +"
+            className="flex-1 text-xs border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-background"
+          />
+          <button type="button" onClick={addLink} disabled={!linkInput.trim()}
+            className="p-2 rounded-lg border border-border text-primary hover:bg-primary/10 transition-colors disabled:opacity-40">
+            <Plus size={14} />
+          </button>
+        </div>
+        <label className={`flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-border cursor-pointer text-xs font-medium text-primary hover:bg-primary/5 transition-colors ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}>
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+          {uploading ? "上传中…" : "点击上传文件"}
+          <input type="file" className="hidden" multiple disabled={uploading}
+            onChange={(e) => { Array.from(e.target.files ?? []).forEach(uploadFile); e.target.value = ""; }} />
+        </label>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-xs font-bold mb-1 text-foreground">交付说明（选填）</label>
+        <textarea rows={2}
+          className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-primary outline-none resize-none"
+          placeholder="简述交付内容及要点…"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <button type="submit" disabled={saving || uploading}
+          className="flex-1 py-2.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2">
+          {saving && <Loader2 size={14} className="animate-spin" />}
+          {saving ? "保存中…" : "保存修改"}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground transition-colors">
+          取消
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function MilestoneCard({
   ms,
   index,
@@ -343,6 +514,7 @@ function MilestoneCard({
   onRefetch: () => void;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [editingDelivId, setEditingDelivId] = useState<number | null>(null);
 
   // Use 1-based index as the milestone ID (JSONB milestones don't have their own id)
   const msDelivs = deliverables.filter((d) => d.milestoneId === index + 1);
@@ -407,27 +579,53 @@ function MilestoneCard({
                 const dc = DELIV_STATUS_CFG[d.status as keyof typeof DELIV_STATUS_CFG] ?? DELIV_STATUS_CFG.submitted;
                 const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
                 const plainText = extractDescriptionText(d.description);
+                const isEditing = editingDelivId === d.id;
+
+                if (isEditing) {
+                  return (
+                    <EditDelivForm
+                      key={d.id}
+                      deliverable={d}
+                      orderId={orderId}
+                      onSuccess={() => { setEditingDelivId(null); onRefetch(); }}
+                      onCancel={() => setEditingDelivId(null)}
+                    />
+                  );
+                }
+
                 return (
-                  <div key={d.id} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-background border border-border">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground">{d.title}</p>
-                      {plainText && <p className="text-xs text-muted-foreground mt-0.5">{plainText}</p>}
-                      {delivFiles.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {delivFiles.map((f, j) => (
-                            <a key={j} href={f.url} target="_blank" rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
-                              <Link2 size={10} />
-                              {f.label.length > 22 ? f.label.slice(0, 20) + "…" : f.label}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(d.submittedAt).toLocaleString("zh-CN")}
-                      </p>
+                  <div key={d.id} className="p-3 rounded-xl bg-background border border-border">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-foreground">{d.title}</p>
+                        {plainText && <p className="text-xs text-muted-foreground mt-0.5">{plainText}</p>}
+                        {delivFiles.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {delivFiles.map((f, j) => (
+                              <a key={j} href={f.url} target="_blank" rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
+                                <Link2 size={10} />
+                                {f.label.length > 22 ? f.label.slice(0, 20) + "…" : f.label}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(d.submittedAt).toLocaleString("zh-CN")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {d.status === "submitted" && orderStatus === "in_progress" && (
+                          <button
+                            onClick={() => setEditingDelivId(d.id)}
+                            className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                          >
+                            修改
+                          </button>
+                        )}
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${dc.cls}`}>{dc.label}</span>
+                      </div>
                     </div>
-                    <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded ${dc.cls}`}>{dc.label}</span>
                   </div>
                 );
               })}

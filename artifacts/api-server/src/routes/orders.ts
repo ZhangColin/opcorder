@@ -214,6 +214,38 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
   }
 });
 
+/* ─── OPC edit a submitted (not yet reviewed) deliverable ─── */
+router.patch("/orders/:orderId/deliverables/:deliverableId", requireAuth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    const deliverableId = parseInt(req.params.deliverableId);
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.opcId !== req.user!.id) return res.status(403).json({ error: "无权操作" });
+
+    const [deliv] = await db.select().from(deliverablesTable).where(
+      and(eq(deliverablesTable.id, deliverableId), eq(deliverablesTable.orderId, orderId))
+    );
+    if (!deliv) return res.status(404).json({ error: "交付物不存在" });
+    if (deliv.status !== "submitted") return res.status(400).json({ error: "只能修改待审核状态的交付物" });
+
+    const { title, description, fileUrl, fileName } = req.body;
+    const [updated] = await db.update(deliverablesTable).set({
+      ...(title !== undefined && { title }),
+      ...(description !== undefined && { description }),
+      ...(fileUrl !== undefined && { fileUrl }),
+      ...(fileName !== undefined && { fileName }),
+      submittedAt: new Date(),
+    }).where(eq(deliverablesTable.id, deliverableId)).returning();
+
+    res.json({ ...updated, submittedAt: updated.submittedAt.toISOString() });
+  } catch (error) {
+    logger.error(error, "Failed to update deliverable");
+    res.status(500).json({ error: "修改失败" });
+  }
+});
+
 /* ─── Per-milestone accept ─────────────────────── */
 router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, async (req, res) => {
   try {
