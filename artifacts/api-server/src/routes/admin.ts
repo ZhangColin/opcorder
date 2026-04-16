@@ -1793,7 +1793,11 @@ router.get("/admin/demand-payments", async (req, res) => {
       .from(demandPaymentsTable)
       .leftJoin(demandsTable, eq(demandPaymentsTable.demandId, demandsTable.id))
       .leftJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
-      .where(status && status !== "all" ? eq(demandPaymentsTable.status, status as PaymentStatus) : undefined)
+      .where(
+        status && status !== "all"
+          ? and(eq(demandPaymentsTable.method, "offline"), eq(demandPaymentsTable.status, status as PaymentStatus))
+          : eq(demandPaymentsTable.method, "offline")
+      )
       .orderBy(desc(demandPaymentsTable.createdAt));
 
     res.json(rows.map(r => ({
