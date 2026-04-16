@@ -272,19 +272,19 @@ function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; new
     { label: "新订单", value: newOrders,  colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
   ];
   return (
-    <div className="grid grid-cols-3 gap-2.5 h-full">
+    <div className="flex flex-col justify-between h-full gap-2">
       {items.map((item, i) => (
         <div key={i} className={clsx(
-          "rounded-lg border px-3 flex items-center gap-3",
+          "flex-1 rounded-lg border px-4 flex items-center justify-between",
           item.borderClass, item.bgClass
         )}>
-          <span className="text-lg shrink-0">{item.icon}</span>
-          <div className="flex flex-col justify-center min-w-0">
-            <span className="text-[14px] font-bold text-slate-400 tracking-wider">{item.label}</span>
-            <span className={clsx("text-[28px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
-              {item.value > 0 ? `+${item.value}` : item.value}
-            </span>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{item.icon}</span>
+            <span className="text-[16px] font-bold text-slate-400 tracking-wider">{item.label}</span>
           </div>
+          <span className={clsx("text-[30px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+            {item.value > 0 ? `+${item.value}` : item.value}
+          </span>
         </div>
       ))}
     </div>
@@ -338,48 +338,53 @@ function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; 
 function OrderOverview({ completionRate, completedOrders, inProgressOrders, totalSettled }: {
   completionRate: number; completedOrders: number; inProgressOrders: number; totalSettled: number;
 }) {
-  const r = 32, cx = 42, cy = 42, size = 84;
-  const c2 = 2 * Math.PI * r;
+  const ringSize = 110, ringR = 44, ringCx = 55, ringCy = 55;
+  const ringC2 = 2 * Math.PI * ringR;
   const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col items-center justify-between py-3 gap-2">
-      {/* Completion ring */}
-      <div className="flex flex-col items-center gap-2 shrink-0">
-        <div className="relative" style={{ width: size, height: size }}>
-          <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={5} />
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#10b981"
-              strokeWidth={5} strokeDasharray={c2}
-              strokeDashoffset={c2 * (1 - completionRate / 100)}
-              strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 7px #10b981)" }} />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[20px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
-              {completionRate}%
-            </span>
-          </div>
-        </div>
-        <span className="text-[16px] font-bold text-slate-400 tracking-widest uppercase">订单完成率</span>
-        <div className="text-[14px] text-slate-500 text-center leading-relaxed">
-          完成&nbsp;<span className="text-emerald-400 font-bold text-[16px]">{completedOrders}</span>
-          &nbsp;·&nbsp;
-          进行中&nbsp;<span className="text-teal-400 font-bold text-[16px]">{inProgressOrders}</span>
+    <div className="flex-1 min-h-0 flex items-center gap-5 px-2">
+      {/* Left — big ring */}
+      <div className="shrink-0 relative" style={{ width: ringSize, height: ringSize }}>
+        <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={7} />
+          <circle cx={ringCx} cy={ringCy} r={ringR} fill="none" stroke="#10b981"
+            strokeWidth={7} strokeDasharray={ringC2}
+            strokeDashoffset={ringC2 * (1 - completionRate / 100)}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 10px #10b981)" }} />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-[22px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+            {completionRate}%
+          </span>
         </div>
       </div>
 
-      {/* Horizontal divider */}
-      <div className="w-full border-t border-white/5 shrink-0" />
+      {/* Vertical divider */}
+      <div className="self-stretch w-px bg-white/5 my-3 shrink-0" />
 
-      {/* Settlement */}
-      <div className="flex flex-col items-center gap-2 shrink-0">
-        <span className="text-[15px] font-bold text-slate-500 tracking-widest uppercase">累计结算</span>
-        <div className="flex items-baseline gap-1">
-          <span className="text-[42px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
-            {settled}
-          </span>
-          <span className="text-[18px] font-bold text-slate-300">元</span>
+      {/* Right — rate info + settlement */}
+      <div className="flex-1 flex flex-col justify-between h-full py-3">
+        <div className="flex flex-col gap-2">
+          <span className="text-[16px] font-bold text-slate-400 tracking-widest uppercase">订单完成率</span>
+          <div className="text-[15px] text-slate-500">
+            完成&nbsp;<span className="text-emerald-400 font-bold text-[17px]">{completedOrders}</span>
+            &nbsp;·&nbsp;
+            进行中&nbsp;<span className="text-teal-400 font-bold text-[17px]">{inProgressOrders}</span>
+          </div>
+        </div>
+
+        <div className="w-full border-t border-white/5" />
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[15px] font-bold text-slate-500 tracking-widest uppercase">累计结算</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-[40px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+              {settled}
+            </span>
+            <span className="text-[18px] font-bold text-slate-300">元</span>
+          </div>
         </div>
       </div>
     </div>
