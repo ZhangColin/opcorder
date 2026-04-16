@@ -1,98 +1,16 @@
-import { useState, type ReactNode } from "react";
-import { getAccessToken } from "@/lib/auth";
+import { useState } from "react";
 import { Link } from "wouter";
 import {
   useListOrders,
-  useGetOrderById,
-  useListNotifications,
-  useSubmitDeliverable,
 } from "@workspace/api-client-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import {
-  CheckCircle2,
-  Clock,
-  Banknote,
   Loader2,
-  Upload,
-  FileText,
-  ExternalLink,
-  Sparkles,
   ChevronRight,
-  Plus,
-  X,
-  Link2,
+  CalendarDays,
+  Banknote,
+  Flag,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function extractUrls(text: string): { urls: string[]; plainText: string } {
-  if (!text) return { urls: [], plainText: "" };
-  const urlRegex = /https?:\/\/[^\s|,，]+/g;
-  const urls: string[] = [];
-  const plainText = text
-    .replace(urlRegex, (match) => { urls.push(match.trim()); return ""; })
-    .replace(/代码包:\s*—\s*\|?\s*/gi, "")
-    .replace(/文档:\s*—\s*\|?\s*/gi, "")
-    .replace(/\|/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  return { urls, plainText };
-}
-
-function extractDescriptionText(description: string | null | undefined): string {
-  if (!description) return "";
-  return description
-    .split("\n")
-    .filter(line => {
-      const t = line.trim();
-      if (!t) return false;
-      if (t.startsWith("/api/") || t.startsWith("http://") || t.startsWith("https://")) return false;
-      if (t.indexOf("\t") >= 0) return false;
-      return true;
-    })
-    .join(" ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-function friendlyUrl(url: string): string {
-  if (!url) return "文件";
-  if (url.includes("/api/storage/objects/uploads/") || url.includes("/storage/objects/uploads/")) return "";
-  const last = url.split("?")[0].split("/").pop() || "";
-  return last.length > 30 ? last.slice(0, 28) + "…" : last;
-}
-
-function parseDelivFiles(
-  description: string | null | undefined,
-  fileUrl?: string | null,
-  fileName?: string | null,
-): { url: string; label: string }[] {
-  const files: { url: string; label: string }[] = [];
-  if (description) {
-    for (const line of description.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const tabIdx = trimmed.indexOf("\t");
-      if (tabIdx >= 0) {
-        const url = trimmed.slice(0, tabIdx).trim();
-        const name = trimmed.slice(tabIdx + 1).trim();
-        if (url) files.push({ url, label: name || friendlyUrl(url) });
-      } else if (trimmed.startsWith("/api/") || trimmed.startsWith("http")) {
-        files.push({ url: trimmed, label: friendlyUrl(trimmed) });
-      }
-    }
-  }
-  if (fileUrl && !files.find(f => f.url === fileUrl)) {
-    const label = fileName && fileName !== "交付文件" ? fileName : friendlyUrl(fileUrl);
-    files.unshift({ url: fileUrl, label });
-  }
-  let storageIdx = 1;
-  for (const f of files) {
-    if (!f.label) { f.label = `已上传文件 ${storageIdx++}`; }
-  }
-  return files;
-}
 
 type TabStatus = "all" | "in_progress" | "pending_acceptance" | "completed";
 
@@ -103,248 +21,50 @@ const TABS: { label: string; value: TabStatus }[] = [
   { label: "已完成", value: "completed" },
 ];
 
-const STEPS = ["已启动", "工作推进", "核心交付", "结算到账"];
-
-function getStepState(status: string, i: number): "done" | "active" | "pending" {
-  const doneCount = status === "in_progress" ? 2 : status === "pending_acceptance" ? 3 : status === "completed" ? 4 : 0;
-  if (i < doneCount) return "done";
-  if (i === doneCount) return "active";
-  return "pending";
-}
-
-function progressPct(status: string): number {
-  if (status === "in_progress") return 50;
-  if (status === "pending_acceptance") return 75;
-  if (status === "completed") return 100;
-  return 0;
-}
+const STATUS_CFG: Record<string, { label: string; cls: string }> = {
+  in_progress:        { label: "执行中", cls: "bg-primary/10 text-primary" },
+  pending_acceptance: { label: "待验收", cls: "bg-orange-100 text-orange-700" },
+  completed:          { label: "已完成", cls: "bg-secondary/10 text-secondary" },
+  disputed:           { label: "争议中", cls: "bg-red-100 text-red-700" },
+  closed:             { label: "已关闭", cls: "bg-muted text-muted-foreground" },
+};
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
-}
-
-function timeAgo(d: string) {
-  const h = Math.floor((Date.now() - new Date(d).getTime()) / 3600000);
-  if (h < 1) return "刚刚";
-  if (h < 24) return `${h} 小时前`;
-  const days = Math.floor(h / 24);
-  if (days < 7) return `${days} 天前`;
-  return formatDate(d);
-}
-
-/* ─── Reusable delivery section card ─── */
-interface DeliverySectionProps {
-  icon: ReactNode;
-  accent: "primary" | "secondary";
-  title: string;
-  subtitle: string;
-  links: string[];
-  fileNames: Record<string, string>;
-  inputValue: string;
-  uploading: boolean;
-  onInputChange: (v: string) => void;
-  onAddLink: () => void;
-  onRemoveLink: (i: number) => void;
-  onFileChange: (file: File) => void;
-}
-
-function DeliverySection({
-  icon, accent, title, subtitle,
-  links, fileNames, inputValue, uploading,
-  onInputChange, onAddLink, onRemoveLink, onFileChange,
-}: DeliverySectionProps) {
-  const accentCls = accent === "primary"
-    ? { ring: "hover:border-primary", bg: "bg-primary/10 text-primary", focus: "focus:ring-primary/30 focus:border-primary", btn: "text-primary hover:bg-primary/10" }
-    : { ring: "hover:border-secondary", bg: "bg-secondary/10 text-secondary", focus: "focus:ring-secondary/30 focus:border-secondary", btn: "text-secondary hover:bg-secondary/10" };
-
-  return (
-    <div className={`border-2 border-dashed border-border ${accentCls.ring} transition-all rounded-xl p-6 flex flex-col bg-background`}>
-      {/* Header */}
-      <div className="flex flex-col items-center text-center mb-4">
-        <div className={`w-12 h-12 rounded-full ${accentCls.bg} flex items-center justify-center mb-3`}>
-          {icon}
-        </div>
-        <h4 className="font-display font-bold text-foreground mb-0.5">{title}</h4>
-        <p className="text-xs text-muted-foreground leading-relaxed">{subtitle}</p>
-      </div>
-
-      {/* Added links list */}
-      {links.length > 0 && (
-        <ul className="space-y-1.5 mb-3">
-          {links.map((url, i) => {
-            const label = fileNames[url] || url;
-            return (
-              <li key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 group">
-                <Link2 size={12} className="text-muted-foreground shrink-0" />
-                <a href={url} target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground truncate flex-1 hover:underline">{label}</a>
-                <button onClick={() => onRemoveLink(i)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
-                  <X size={12} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {/* Input row */}
-      <div className="flex gap-2 mt-auto">
-        <input
-          type="url"
-          value={inputValue}
-          onChange={e => onInputChange(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onAddLink(); } }}
-          placeholder="粘贴链接后按 Enter 或点击 +"
-          className={`flex-1 text-xs border border-border rounded-lg px-3 py-2 ${accentCls.focus} outline-none transition-all bg-white`}
-        />
-        <button
-          onClick={onAddLink}
-          disabled={!inputValue.trim()}
-          title="添加链接"
-          className={`p-2 rounded-lg border border-border ${accentCls.btn} transition-colors disabled:opacity-40`}
-        >
-          <Plus size={14} />
-        </button>
-      </div>
-
-      {/* File upload button */}
-      <label className={`mt-2 flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-border cursor-pointer text-xs font-medium ${accentCls.btn} transition-colors ${uploading ? "opacity-60 cursor-not-allowed" : "hover:bg-muted/50"}`}>
-        {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-        {uploading ? "上传中…" : "上传文件"}
-        <input type="file" className="hidden" disabled={uploading}
-          onChange={e => { const f = e.target.files?.[0]; if (f) onFileChange(f); e.target.value = ""; }} />
-      </label>
-    </div>
-  );
+  return new Date(d).toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
 export default function MyOrders() {
   const [tab, setTab] = useState<TabStatus>("all");
-  // multi-link state: code/file section
-  const [codeLinks, setCodeLinks] = useState<string[]>([]);
-  const [codeInput, setCodeInput] = useState("");
-  const [uploadingCode, setUploadingCode] = useState(false);
-  const [codeFileNames, setCodeFileNames] = useState<Record<string, string>>({});
-  // multi-link state: doc section
-  const [docLinks, setDocLinks] = useState<string[]>([]);
-  const [docInput, setDocInput] = useState("");
-  const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [docFileNames, setDocFileNames] = useState<Record<string, string>>({});
-  const { toast } = useToast();
   const { userId } = useCurrentUser();
 
   const { data: ordersData, isLoading } = useListOrders({
     status: tab === "all" ? undefined : (tab as any),
     opcId: userId || undefined,
     page: 1,
-    limit: 20,
+    limit: 50,
   });
 
-  const firstOrder = ordersData?.items?.[0];
-  const { data: order, refetch: refetchOrder } = useGetOrderById(firstOrder?.id ?? 0, {
-    query: { enabled: !!firstOrder?.id },
-  });
-
-  const { data: notifData } = useListNotifications({ page: 1, limit: 5 });
-  const submitMutation = useSubmitDeliverable();
-
-  // add pending input value to list before submitting
-  const allCodeLinks = [...codeLinks, ...(codeInput.trim() ? [codeInput.trim()] : [])];
-  const allDocLinks  = [...docLinks,  ...(docInput.trim()  ? [docInput.trim()]  : [])];
-
-  async function uploadFile(
-    file: File,
-    section: "code" | "doc",
-    setUploading: (v: boolean) => void,
-    addLink: (url: string) => void,
-    recordName: (url: string, name: string) => void,
-  ) {
-    setUploading(true);
-    try {
-      const contentType = file.type || "application/octet-stream";
-      const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${getAccessToken() ?? ""}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType }),
-      });
-      if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
-      const { uploadURL, objectPath } = await res.json();
-      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
-      if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
-      const fileUrl = `${BASE}/api/storage${objectPath}`;
-      addLink(fileUrl);
-      recordName(fileUrl, file.name);
-      toast({ title: "文件上传成功" });
-    } catch (e) {
-      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  const handleSubmit = async () => {
-    if (!order || (allCodeLinks.length === 0 && allDocLinks.length === 0)) {
-      toast({ title: "请至少添加一个文件链接或上传文件", variant: "destructive" });
-      return;
-    }
-    const allLinks = [...allCodeLinks, ...allDocLinks];
-    const allNames = { ...codeFileNames, ...docFileNames };
-    // Build description with original filenames embedded (url\tname pairs)
-    const description = allLinks
-      .map(url => allNames[url] ? `${url}\t${allNames[url]}` : url)
-      .join("\n");
-    const firstRealName = allLinks.map(u => allNames[u]).find(n => !!n);
-
-    // Find first milestone not yet submitted (1-based index = milestoneId)
-    const submittedMsIds = new Set(
-      order.deliverables?.filter((d: any) => d.milestoneId != null).map((d: any) => d.milestoneId) ?? []
-    );
-    const currentMsIdx = (order.milestones ?? []).findIndex((_: any, i: number) => !submittedMsIds.has(i + 1));
-    const effectiveMsIdx = currentMsIdx >= 0 ? currentMsIdx : 0;
-
-    try {
-      await submitMutation.mutateAsync({
-        orderId: order.id,
-        data: {
-          title: order.milestones?.[effectiveMsIdx]?.name ?? "交付物",
-          description,
-          fileUrl: allLinks[0],
-          fileName: firstRealName ?? "交付文件",
-          milestoneId: order.milestones?.length ? effectiveMsIdx + 1 : undefined,
-        },
-      });
-      setCodeLinks([]);
-      setCodeInput("");
-      setCodeFileNames({});
-      setDocLinks([]);
-      setDocInput("");
-      setDocFileNames({});
-      refetchOrder();
-      toast({ title: "交付物已提交", description: "发单方将在 48 小时内完成验收" });
-    } catch {
-      toast({ title: "提交失败，请稍后重试", variant: "destructive" });
-    }
-  };
+  const orders = ordersData?.items ?? [];
 
   return (
     <div>
       {/* Page Header */}
       <header className="mb-8">
         <h1 className="font-display font-extrabold text-4xl text-primary tracking-tight mb-2">
-          我的订单工作台
+          我的订单
         </h1>
         <p className="text-muted-foreground font-medium">
-          实时管理交付进度，追踪结算状态。
+          查看和管理您接手的所有订单。
         </p>
       </header>
 
       {/* Tab Bar */}
       <div className="flex items-center gap-6 border-b border-border mb-8">
-        {TABS.map(t => (
+        {TABS.map((t) => (
           <button
             key={t.value}
             onClick={() => setTab(t.value)}
@@ -364,9 +84,11 @@ export default function MyOrders() {
         <div className="flex items-center justify-center h-64 text-muted-foreground gap-2">
           <Loader2 size={20} className="animate-spin" /> 加载中…
         </div>
-      ) : !ordersData?.items?.length ? (
+      ) : orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-16 h-16 rounded-full bg-muted/60 flex items-center justify-center mb-4 text-2xl">📭</div>
+          <div className="w-16 h-16 rounded-full bg-muted/60 flex items-center justify-center mb-4 text-2xl">
+            📭
+          </div>
           <h3 className="text-lg font-bold text-foreground mb-2">暂无相关订单</h3>
           <p className="text-muted-foreground text-sm">
             切换其他状态，或前往{" "}
@@ -377,396 +99,106 @@ export default function MyOrders() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* ──────────── LEFT 8-col ──────────── */}
-          <div className="lg:col-span-8 space-y-8">
+        <div className="space-y-4">
+          {orders.map((order) => {
+            const cfg = STATUS_CFG[order.status] ?? STATUS_CFG.in_progress;
+            const milestones: any[] = (order as any).milestones ?? [];
+            const deliverables: any[] = (order as any).deliverables ?? [];
+            const msTotal = milestones.length;
+            const msCompleted = milestones.filter((_, i) => {
+              return deliverables.some(
+                (d: any) => d.milestoneId === i + 1 && d.status === "approved"
+              );
+            }).length;
+            const msSubmitted = milestones.filter((_, i) => {
+              const msDelivs = deliverables.filter((d: any) => d.milestoneId === i + 1);
+              return (
+                !msDelivs.some((d: any) => d.status === "approved") &&
+                msDelivs.some((d: any) => d.status === "submitted")
+              );
+            }).length;
 
-            {/* Active Order Card */}
-            {order && (
-              <section className="bg-white rounded-2xl p-8 shadow-sm border border-border/50">
-                {/* Card header */}
-                <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <span className="inline-block px-3 py-1 bg-secondary/15 text-secondary text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
-                      优先交付
-                    </span>
-                    <h2 className="font-display font-extrabold text-2xl text-foreground leading-tight">
-                      {order.demandTitle}
-                    </h2>
-                    <p className="text-muted-foreground font-medium mt-1 text-sm">
-                      订单编号{" "}
-                      <span className="text-primary font-bold font-mono">#{order.orderNo}</span>
-                      {order.deadline && (
-                        <>
-                          <span className="mx-2 opacity-40">·</span>
-                          截止 {formatDate(order.deadline)}
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/orders/${order.id}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/70 transition-colors rounded-lg text-sm font-bold text-primary shrink-0"
-                  >
-                    <ExternalLink size={14} /> 查看详情
-                  </Link>
-                </div>
-
-                {/* Progress Stepper */}
-                <div className="relative py-10">
-                  {/* Track */}
-                  <div className="absolute top-1/2 left-0 w-full h-1.5 bg-muted -translate-y-1/2 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-secondary transition-all duration-700 rounded-full"
-                      style={{ width: `${progressPct(order.status)}%` }}
-                    />
-                  </div>
-                  {/* Nodes */}
-                  <div className="relative flex justify-between">
-                    {STEPS.map((label, i) => {
-                      const state = getStepState(order.status, i);
-                      return (
-                        <div key={i} className="flex flex-col items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center z-10 shadow-md transition-all ${
-                              state === "done"
-                                ? "bg-secondary text-white"
-                                : state === "active"
-                                ? "bg-white border-4 border-secondary text-secondary"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {state === "done" ? (
-                              <CheckCircle2 size={20} strokeWidth={2.5} />
-                            ) : state === "active" ? (
-                              <div className="w-2.5 h-2.5 rounded-full bg-secondary animate-pulse" />
-                            ) : (
-                              <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-                            )}
-                          </div>
-                          <span
-                            className={`font-display font-bold text-xs ${
-                              state === "done" || state === "active" ? "text-secondary" : "text-muted-foreground"
-                            }`}
-                          >
-                            {label}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Current Milestone Info — find first milestone without a submitted deliverable */}
-                {(() => {
-                  const submittedIds = new Set(
-                    order.deliverables?.filter((d: any) => d.milestoneId != null).map((d: any) => d.milestoneId) ?? []
-                  );
-                  const activeMsIdx = (order.milestones ?? []).findIndex((_: any, i: number) => !submittedIds.has(i + 1));
-                  const ms = order.milestones?.[activeMsIdx >= 0 ? activeMsIdx : 0];
-                  const allDone = activeMsIdx === -1 && (order.milestones?.length ?? 0) > 0;
-                  if (!ms) return null;
-                  return (
-                    <div className="mt-4 p-5 bg-muted/50 rounded-xl flex items-start gap-4 border border-border/40">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${allDone ? "bg-secondary/10 text-secondary" : "bg-secondary/10 text-secondary"}`}>
-                        {allDone ? <CheckCircle2 size={18} /> : <Clock size={18} />}
-                      </div>
-                      <div>
-                        <p className="font-display font-bold text-foreground">
-                          {allDone ? "全部里程碑已提交" : `当前里程碑：${ms.name}`}
-                        </p>
-                        {!allDone && (
-                          <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                            {ms.deliverableDesc}
-                            {ms.deadline && (
-                              <span className="ml-2 font-bold text-primary">
-                                · 截止 {formatDate(ms.deadline)}
-                              </span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </section>
-            )}
-
-            {/* Deliverable Submission — only while in_progress */}
-            {order && order.status === "in_progress" && (
-              <section className="bg-white rounded-2xl p-8 shadow-sm border border-border/50">
-                <h3 className="font-display font-extrabold text-xl text-foreground mb-6">
-                  提交交付物
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Code / File Package */}
-                  <DeliverySection
-                    icon={<Upload size={22} />}
-                    accent="primary"
-                    title="代码 / 文件包"
-                    subtitle="ZIP、网盘链接均可"
-                    links={codeLinks}
-                    fileNames={codeFileNames}
-                    inputValue={codeInput}
-                    uploading={uploadingCode}
-                    onInputChange={setCodeInput}
-                    onAddLink={() => {
-                      const v = codeInput.trim();
-                      if (v) { setCodeLinks(l => [...l, v]); setCodeInput(""); }
-                    }}
-                    onRemoveLink={i => setCodeLinks(l => l.filter((_, idx) => idx !== i))}
-                    onFileChange={file => uploadFile(file, "code", setUploadingCode,
-                      url => setCodeLinks(l => [...l, url]),
-                      (url, name) => setCodeFileNames(m => ({ ...m, [url]: name })),
-                    )}
-                  />
-                  {/* Delivery Docs */}
-                  <DeliverySection
-                    icon={<FileText size={22} />}
-                    accent="secondary"
-                    title="交付文档"
-                    subtitle="交付有关的所有文档，不限格式，亦可打包一并提供"
-                    links={docLinks}
-                    fileNames={docFileNames}
-                    inputValue={docInput}
-                    uploading={uploadingDoc}
-                    onInputChange={setDocInput}
-                    onAddLink={() => {
-                      const v = docInput.trim();
-                      if (v) { setDocLinks(l => [...l, v]); setDocInput(""); }
-                    }}
-                    onRemoveLink={i => setDocLinks(l => l.filter((_, idx) => idx !== i))}
-                    onFileChange={file => uploadFile(file, "doc", setUploadingDoc,
-                      url => setDocLinks(l => [...l, url]),
-                      (url, name) => setDocFileNames(m => ({ ...m, [url]: name })),
-                    )}
-                  />
-                </div>
-
-                <div className="mt-8 flex justify-end">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={submitMutation.isPending || (allCodeLinks.length === 0 && allDocLinks.length === 0)}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-primary to-[#0047ab] text-white font-display font-bold rounded-xl shadow-lg hover:brightness-110 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submitMutation.isPending && <Loader2 size={16} className="animate-spin" />}
-                    提交最终交付物
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {/* Submitted deliverables — visible for in_progress AND pending_acceptance */}
-            {order && (order.status === "in_progress" || order.status === "pending_acceptance") &&
-              order.deliverables && order.deliverables.length > 0 && (
-              <section className="bg-white rounded-2xl p-8 shadow-sm border border-border/50">
-                {order.status === "pending_acceptance" && (
-                  <div className="flex items-center gap-3 mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                    <CheckCircle2 size={20} className="text-amber-600 shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-amber-800">交付物已提交，等待发单方验收</p>
-                      <p className="text-xs text-amber-700 mt-0.5">发单方将在 48 小时内完成验收，请保持关注通知。</p>
-                    </div>
-                  </div>
-                )}
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                  已提交记录
-                </p>
-                <div className="space-y-2">
-                  {order.deliverables.map((d: any, i: number) => {
-                    const delivFiles = parseDelivFiles(d.description, d.fileUrl, d.fileName);
-                    const plainText = extractDescriptionText(d.description);
-                    return (
-                      <div key={i} className="bg-muted/40 px-4 py-3 rounded-lg border border-border/40">
-                        <div className="flex items-center gap-3">
-                          <FileText size={14} className="text-muted-foreground shrink-0" />
-                          <span className="text-sm font-medium text-foreground flex-1 truncate">
-                            {d.title}
-                          </span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                            d.status === "approved"
-                              ? "bg-secondary/10 text-secondary"
-                              : d.status === "rejected"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-primary/10 text-primary"
-                          }`}>
-                            {d.status === "approved" ? "已通过" : d.status === "rejected" ? "已驳回" : "审核中"}
-                          </span>
-                        </div>
-                        {plainText && (
-                          <p className="text-xs text-muted-foreground mt-1 ml-5">{plainText}</p>
-                        )}
-                        {delivFiles.length > 0 && (
-                          <div className="mt-2 ml-5 flex flex-wrap gap-2">
-                            {delivFiles.map((f, j) => (
-                              <a key={j} href={f.url} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
-                              >
-                                <ExternalLink size={10} />
-                                {f.label.length > 22 ? f.label.slice(0, 20) + "…" : f.label}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* Completed banner */}
-            {order && order.status === "completed" && (
-              <section className="bg-secondary/10 border border-secondary/20 rounded-2xl p-8 flex items-center gap-6">
-                <CheckCircle2 size={40} className="text-secondary shrink-0" />
-                <div>
-                  <h3 className="font-display font-bold text-xl text-foreground">订单已完成 🎉</h3>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    结算金额{" "}
-                    <span className="text-secondary font-black">¥{Math.round(order.amount * 0.9).toLocaleString()}</span>{" "}
-                    已打入账户，感谢您的优质交付！
-                  </p>
-                </div>
-              </section>
-            )}
-          </div>
-
-          {/* ──────────── RIGHT 4-col ──────────── */}
-          <div className="lg:col-span-4 space-y-6">
-
-            {/* Payout Calculator */}
-            {order && (
-              <section className="bg-primary text-white rounded-2xl p-8 shadow-xl relative overflow-hidden">
-                {/* Decorative blobs */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12 blur-2xl pointer-events-none" />
-
-                <div className="relative z-10">
-                  <h3 className="text-[10px] font-bold text-white/60 uppercase tracking-widest mb-6 flex items-center gap-1.5">
-                    <Banknote size={13} /> 预计收益
-                  </h3>
-                  <div className="flex items-baseline gap-1 mb-1">
-                    <span className="text-xl font-bold text-white/80">¥</span>
-                    <span className="text-5xl font-extrabold tracking-tighter">
-                      {Math.round(order.amount * 0.9).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-white/50 text-sm mb-8 font-medium">OPC 税前到账估算</p>
-
-                  <div className="space-y-3 pt-6 border-t border-white/10">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-white/60">订单总额</span>
-                      <span className="font-bold">¥{order.amount?.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-white/60">平台服务费 (10%)</span>
-                      <span className="font-bold text-red-300">
-                        - ¥{order.platformFee?.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-white/60">OPC 分成比例</span>
-                      <span className="font-bold text-[#4dffb2]">× 90%</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 p-4 bg-white/10 rounded-xl flex items-start gap-3">
-                    <Sparkles size={16} className="text-[#4dffb2] shrink-0 mt-0.5" />
-                    <p className="text-xs leading-relaxed text-white/80">
-                      按时高质量交付可获得{" "}
-                      <span className="text-[#4dffb2] font-bold">信用分 +5</span>
-                      ，提升未来接单优先级。
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* Recent Activities */}
-            <section className="bg-white rounded-2xl p-6 shadow-sm border border-border/50">
-              <h3 className="font-display font-bold text-foreground mb-6 flex items-center justify-between text-base">
-                最近动态
-                <Link
-                  href="/notifications"
-                  className="text-xs text-primary font-bold flex items-center gap-1 hover:underline"
-                >
-                  全部 <ChevronRight size={12} />
-                </Link>
-              </h3>
-              <div className="space-y-5">
-                {notifData?.items?.slice(0, 4).map((n, i) => {
-                  const barColors = [
-                    "bg-secondary",
-                    "bg-primary/50",
-                    "bg-primary/25",
-                    "bg-muted-foreground/20",
-                  ];
-                  return (
-                    <div key={n.id} className="flex gap-4">
-                      <div
-                        className={`w-1 rounded-full shrink-0 ${barColors[i % barColors.length]}`}
-                        style={{ minHeight: 40 }}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-foreground line-clamp-1">{n.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">
-                          {n.content}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1 font-bold uppercase tracking-wider">
-                          {timeAgo(n.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* All Orders Quick Nav */}
-            {(ordersData?.items?.length ?? 0) > 1 && (
-              <section className="bg-white rounded-2xl p-6 shadow-sm border border-border/50">
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">
-                  全部订单
-                </h3>
-                <div className="space-y-1">
-                  {ordersData!.items.map(o => (
-                    <Link
-                      key={o.id}
-                      href={`/orders/${o.id}`}
-                      className="flex items-center justify-between py-3 px-3 rounded-xl hover:bg-muted/50 transition-colors group"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                          {o.demandTitle}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                          {o.orderNo}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-3">
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                            o.status === "completed"
-                              ? "bg-secondary/10 text-secondary"
-                              : o.status === "pending_acceptance"
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-primary/10 text-primary"
-                          }`}
-                        >
-                          {o.status === "completed"
-                            ? "已完成"
-                            : o.status === "pending_acceptance"
-                            ? "待验收"
-                            : "执行中"}
+            return (
+              <Link key={order.id} href={`/orders/${order.id}`}>
+                <div className="bg-white rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Left: title + meta */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded">
+                          #{order.orderNo}
                         </span>
-                        <ChevronRight size={14} className="text-muted-foreground" />
+                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${cfg.cls}`}>
+                          {cfg.label}
+                        </span>
                       </div>
-                    </Link>
-                  ))}
+                      <h3 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-3">
+                        {order.demandTitle}
+                      </h3>
+
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        {order.deadline && (
+                          <span className="flex items-center gap-1.5">
+                            <CalendarDays size={13} />
+                            截止 {formatDate(order.deadline)}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1.5">
+                          <Banknote size={13} />
+                          我的分成{" "}
+                          <span className="text-secondary font-black">
+                            ¥{Math.round(order.amount * 0.9).toLocaleString()}
+                          </span>
+                        </span>
+                        {msTotal > 0 && (
+                          <span className="flex items-center gap-1.5">
+                            <Flag size={13} />
+                            里程碑 {msCompleted}/{msTotal}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Milestone progress bar */}
+                      {msTotal > 0 && (
+                        <div className="mt-4 flex gap-1 h-1.5">
+                          {milestones.map((_, i) => {
+                            const msDelivs = deliverables.filter(
+                              (d: any) => d.milestoneId === i + 1
+                            );
+                            const s = msDelivs.some((d: any) => d.status === "approved")
+                              ? "approved"
+                              : msDelivs.some((d: any) => d.status === "submitted")
+                              ? "submitted"
+                              : "pending";
+                            const bg =
+                              s === "approved"
+                                ? "bg-secondary"
+                                : s === "submitted"
+                                ? "bg-primary/40"
+                                : "bg-muted";
+                            return (
+                              <div
+                                key={i}
+                                className={`flex-1 rounded-full ${bg} transition-all`}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right: arrow */}
+                    <div className="shrink-0 flex items-center self-center">
+                      <ChevronRight
+                        size={20}
+                        className="text-muted-foreground group-hover:text-primary transition-colors"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </section>
-            )}
-          </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
