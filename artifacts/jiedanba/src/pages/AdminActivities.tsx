@@ -93,6 +93,16 @@ type FormField = {
   options: string[];
 };
 
+/* ─── Status helper (time-aware) ─────────────────── */
+
+function getActivityStatus(act: { isActive: boolean; startTime: string | null; endTime: string | null }) {
+  const now = new Date();
+  if (!act.isActive) return { label: "已关闭", cls: "bg-slate-100 text-slate-500" };
+  if (act.endTime && new Date(act.endTime) <= now) return { label: "已结束", cls: "bg-red-50 text-red-500" };
+  if (act.startTime && new Date(act.startTime) > now) return { label: "未开始", cls: "bg-amber-50 text-amber-600" };
+  return { label: "进行中", cls: "bg-green-50 text-green-600" };
+}
+
 /* ─── Pagination ─────────────────────────────────── */
 
 function Pagination({ page, pageSize, total, onPage }: {
@@ -518,20 +528,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function RegistrationsList({ activity, onBack }: { activity: Activity; onBack: () => void }) {
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
   const [selectedReg, setSelectedReg] = useState<RegistrationItem | null>(null);
+  const [exporting, setExporting] = useState(false);
   const qc = useQueryClient();
 
   const { data: regsData, isLoading } = useQuery({
-    queryKey: ["admin-registrations", activity.id, page, q, tagFilter],
+    queryKey: ["admin-registrations", activity.id, page, q],
     queryFn: () => adminGet<{ data: RegistrationItem[]; total: number; page: number; pageSize: number }>(
-      `/api/admin/activities/${activity.id}/registrations?page=${page}&q=${encodeURIComponent(q)}&tag=${encodeURIComponent(tagFilter)}&pageSize=20`
+      `/api/admin/activities/${activity.id}/registrations?page=${page}&q=${encodeURIComponent(q)}&pageSize=20`
     ),
-  });
-
-  const { data: tagsData } = useQuery({
-    queryKey: ["admin-activity-tags", activity.id],
-    queryFn: () => adminGet<{ tags: string[] }>(`/api/admin/activities/${activity.id}/tags`),
   });
 
   const { data: activityDetail } = useQuery({
@@ -542,11 +547,29 @@ function RegistrationsList({ activity, onBack }: { activity: Activity; onBack: (
   const fields = activityDetail?.fields ?? [];
   const regs = regsData?.data ?? [];
   const total = regsData?.total ?? 0;
-  const availableTags = tagsData?.tags ?? [];
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const headers = getAdminHeaders();
+      const url = `${BASE}/api/admin/activities/${activity.id}/registrations/export?q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error("导出失败");
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${activity.title}-报名名单.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      /* ignore */
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function handleUpdated() {
     qc.invalidateQueries({ queryKey: ["admin-registrations", activity.id] });
-    qc.invalidateQueries({ queryKey: ["admin-activity-tags", activity.id] });
     if (selectedReg) {
       const updated = regsData?.data.find(r => r.id === selectedReg.id);
       if (updated) setSelectedReg(updated);
@@ -573,20 +596,17 @@ function RegistrationsList({ activity, onBack }: { activity: Activity; onBack: (
             value={q}
             onChange={e => { setQ(e.target.value); setPage(1); }}
             className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
-            placeholder="搜索姓名、手机号…"
+            placeholder="搜索姓名、手机号、邮箱、标签…"
           />
         </div>
-        {availableTags.length > 0 && (
-          <select
-            value={tagFilter}
-            onChange={e => { setTagFilter(e.target.value); setPage(1); }}
-            className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white"
-          >
-            <option value="">全部标签</option>
-            {availableTags.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        )}
-        <span className="text-xs text-slate-400">共 <b>{total}</b> 条报名</span>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex items-center gap-1.5 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 bg-white disabled:opacity-60"
+        >
+          {exporting ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+          导出 CSV
+        </button>
       </div>
 
       {/* Table */}
@@ -636,7 +656,7 @@ function RegistrationsList({ activity, onBack }: { activity: Activity; onBack: (
         </table>
       </div>
 
-      {total > 20 && <Pagination page={page} pageSize={20} total={total} onPage={setPage} />}
+      <Pagination page={page} pageSize={20} total={total} onPage={setPage} />
 
       {selectedReg && (
         <RegistrationDrawer
@@ -738,6 +758,8 @@ export default function AdminActivities() {
         >
           <option value="">全部状态</option>
           <option value="active">进行中</option>
+          <option value="notstarted">未开始</option>
+          <option value="ended">已结束</option>
           <option value="inactive">已关闭</option>
         </select>
       </div>
@@ -783,13 +805,17 @@ export default function AdminActivities() {
                   </button>
                 </td>
                 <td className="px-6 py-4">
-                  <button
-                    onClick={() => toggleMutation.mutate({ id: act.id, isActive: !act.isActive })}
-                    className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${act.isActive ? "bg-green-50 text-green-600" : "bg-slate-100 text-slate-500"}`}
-                  >
-                    {act.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                    {act.isActive ? "进行中" : "已关闭"}
-                  </button>
+                  <div className="flex flex-col items-start gap-1.5">
+                    {(() => { const s = getActivityStatus(act); return <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.cls}`}>{s.label}</span>; })()}
+                    <button
+                      onClick={() => toggleMutation.mutate({ id: act.id, isActive: !act.isActive })}
+                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-primary"
+                      title={act.isActive ? "点击手动关闭" : "点击手动开启"}
+                    >
+                      {act.isActive ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
+                      {act.isActive ? "手动关闭" : "手动开启"}
+                    </button>
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-400">{new Date(act.createdAt).toLocaleDateString("zh-CN")}</td>
                 <td className="px-6 py-4">
@@ -841,7 +867,7 @@ export default function AdminActivities() {
         </table>
       </div>
 
-      {total > 20 && <Pagination page={page} pageSize={20} total={total} onPage={setPage} />}
+      <Pagination page={page} pageSize={20} total={total} onPage={setPage} />
 
       {showForm && (
         <ActivityFormModal

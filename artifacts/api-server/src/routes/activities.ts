@@ -95,11 +95,24 @@ router.get("/admin/activities", async (req, res) => {
   try {
     const { q, status } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query);
+    const now = new Date();
 
     const conditions = [];
     if (q) conditions.push(ilike(activitiesTable.title, `%${q}%`));
-    if (status === "active") conditions.push(eq(activitiesTable.isActive, true));
-    else if (status === "inactive") conditions.push(eq(activitiesTable.isActive, false));
+    // status filter: active=进行中, notstarted=未开始, ended=已结束, inactive=已关闭
+    if (status === "active") {
+      conditions.push(eq(activitiesTable.isActive, true));
+      conditions.push(sql`(${activitiesTable.startTime} IS NULL OR ${activitiesTable.startTime} <= ${now})`);
+      conditions.push(sql`(${activitiesTable.endTime} IS NULL OR ${activitiesTable.endTime} > ${now})`);
+    } else if (status === "notstarted") {
+      conditions.push(eq(activitiesTable.isActive, true));
+      conditions.push(sql`${activitiesTable.startTime} IS NOT NULL AND ${activitiesTable.startTime} > ${now}`);
+    } else if (status === "ended") {
+      conditions.push(eq(activitiesTable.isActive, true));
+      conditions.push(sql`${activitiesTable.endTime} IS NOT NULL AND ${activitiesTable.endTime} <= ${now}`);
+    } else if (status === "inactive") {
+      conditions.push(eq(activitiesTable.isActive, false));
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -281,32 +294,32 @@ router.patch("/admin/activities/:id/toggle", async (req, res) => {
 router.get("/admin/activities/:id/registrations", async (req, res) => {
   try {
     const activityId = Number(req.params.id);
-    const { q, tag } = req.query as Record<string, string>;
+    const { q } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query);
 
-    let regIds: number[] | null = null;
-    if (tag) {
-      const tagRows = await db.select({ registrationId: registrationTagsTable.registrationId })
-        .from(registrationTagsTable)
-        .where(and(eq(registrationTagsTable.tag, tag), sql`registration_id IN (SELECT id FROM registrations WHERE activity_id = ${activityId})`));
-      regIds = tagRows.map(r => r.registrationId);
-      if (regIds.length === 0) {
-        return res.json({ data: [], total: 0, page, pageSize });
-      }
-    }
-
-    const conditions: ReturnType<typeof eq>[] = [eq(registrationsTable.activityId, activityId) as ReturnType<typeof eq>];
+    // Build WHERE: always filter by activityId, optionally by q (name/phone/email fuzzy OR tag fuzzy)
+    let baseWhere = eq(registrationsTable.activityId, activityId);
+    let where;
     if (q) {
-      conditions.push(or(
+      // Find reg IDs with matching tags for this activity
+      const tagMatches = await db.select({ registrationId: registrationTagsTable.registrationId })
+        .from(registrationTagsTable)
+        .where(and(
+          ilike(registrationTagsTable.tag, `%${q}%`),
+          sql`${registrationTagsTable.registrationId} IN (SELECT id FROM registrations WHERE activity_id = ${activityId})`,
+        ));
+      const tagRegIds = tagMatches.map(r => r.registrationId);
+
+      const textMatch = or(
         ilike(registrationsTable.name, `%${q}%`),
         ilike(registrationsTable.phone, `%${q}%`),
-      ) as ReturnType<typeof eq>);
+        ilike(registrationsTable.email, `%${q}%`),
+        ...(tagRegIds.length > 0 ? [inArray(registrationsTable.id, tagRegIds)] : []),
+      );
+      where = and(baseWhere, textMatch);
+    } else {
+      where = baseWhere;
     }
-    if (regIds !== null) {
-      conditions.push(inArray(registrationsTable.id, regIds) as unknown as ReturnType<typeof eq>);
-    }
-
-    const where = and(...conditions);
 
     const [{ total }] = await db.select({ total: count() }).from(registrationsTable).where(where);
 
@@ -326,6 +339,90 @@ router.get("/admin/activities/:id/registrations", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "获取报名列表失败" });
+  }
+});
+
+/* Export registrations as CSV */
+router.get("/admin/activities/:id/registrations/export", async (req, res) => {
+  try {
+    const activityId = Number(req.params.id);
+    const { q } = req.query as Record<string, string>;
+
+    const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, activityId)).limit(1);
+    if (!activity) return res.status(404).json({ error: "活动不存在" });
+
+    const fields = await db.select().from(activityFieldsTable)
+      .where(eq(activityFieldsTable.activityId, activityId))
+      .orderBy(activityFieldsTable.sortOrder);
+
+    // Build WHERE (same logic as list)
+    let baseWhere = eq(registrationsTable.activityId, activityId);
+    let where;
+    if (q) {
+      const tagMatches = await db.select({ registrationId: registrationTagsTable.registrationId })
+        .from(registrationTagsTable)
+        .where(and(
+          ilike(registrationTagsTable.tag, `%${q}%`),
+          sql`${registrationTagsTable.registrationId} IN (SELECT id FROM registrations WHERE activity_id = ${activityId})`,
+        ));
+      const tagRegIds = tagMatches.map(r => r.registrationId);
+      const textMatch = or(
+        ilike(registrationsTable.name, `%${q}%`),
+        ilike(registrationsTable.phone, `%${q}%`),
+        ilike(registrationsTable.email, `%${q}%`),
+        ...(tagRegIds.length > 0 ? [inArray(registrationsTable.id, tagRegIds)] : []),
+      );
+      where = and(baseWhere, textMatch);
+    } else {
+      where = baseWhere;
+    }
+
+    const registrations = await db.select().from(registrationsTable)
+      .where(where)
+      .orderBy(desc(registrationsTable.createdAt));
+
+    const withTags = await Promise.all(registrations.map(async (r) => {
+      const tags = await db.select({ tag: registrationTagsTable.tag })
+        .from(registrationTagsTable)
+        .where(eq(registrationTagsTable.registrationId, r.id));
+      return { ...r, tags: tags.map(t => t.tag).join("|") };
+    }));
+
+    // Build CSV
+    function csvCell(v: unknown): string {
+      const s = v == null ? "" : String(v);
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    }
+
+    const extraLabels = fields.map(f => f.label);
+    const headers = ["ID", "姓名", "手机号", "邮箱", "单位/公司", ...extraLabels, "标签", "管理员备注", "报名时间"];
+
+    const rows = withTags.map(r => {
+      const extra = (r.extraData ?? {}) as Record<string, string | string[]>;
+      const extraCells = extraLabels.map(label => {
+        const val = extra[label];
+        return Array.isArray(val) ? val.join("|") : (val ?? "");
+      });
+      return [
+        r.id, r.name, r.phone ?? "", r.email ?? "", r.organization ?? "",
+        ...extraCells,
+        r.tags, r.adminNote ?? "",
+        new Date(r.createdAt).toLocaleString("zh-CN"),
+      ].map(csvCell).join(",");
+    });
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const filename = encodeURIComponent(`${activity.title}-报名名单.csv`);
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
+    res.send("\uFEFF" + csv); // BOM for Excel compatibility
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "导出失败" });
   }
 });
 
