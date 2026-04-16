@@ -257,6 +257,101 @@ export interface UpdateDemandInput {
   isUrgent?: boolean;
 }
 
+export type DemandPaymentMethod =
+  (typeof DemandPaymentMethod)[keyof typeof DemandPaymentMethod];
+
+export const DemandPaymentMethod = {
+  online: "online",
+  offline: "offline",
+} as const;
+
+export type DemandPaymentStatus =
+  (typeof DemandPaymentStatus)[keyof typeof DemandPaymentStatus];
+
+export const DemandPaymentStatus = {
+  pending: "pending",
+  confirmed: "confirmed",
+  rejected: "rejected",
+  refunded: "refunded",
+} as const;
+
+export interface DemandPayment {
+  id: number;
+  demandId: number;
+  demandTitle?: string | null;
+  publisherName?: string | null;
+  amount: number;
+  method: DemandPaymentMethod;
+  status: DemandPaymentStatus;
+  /** Payment provider order number (online payments only) */
+  paymentOrderNo?: string | null;
+  /** QR code URL returned at payment creation (online only, not persisted) */
+  qrCodeUrl?: string | null;
+  receiptUrl?: string | null;
+  paymentNote?: string | null;
+  rejectReason?: string | null;
+  confirmedBy?: number | null;
+  confirmedAt?: string | null;
+  refundOrderNo?: string | null;
+  refundedAt?: string | null;
+  createdAt: string;
+}
+
+export interface DemandPaymentStatusResponse {
+  /** Payment provider status code: 1=待支付 2=已支付 3=支付失败 4=已取消 5=已过期 */
+  status: number;
+  statusName?: string;
+  paid: boolean;
+  terminal: boolean;
+  /** true when demand is published (payment confirmed in our system) */
+  confirmed: boolean;
+  paidAt?: string | null;
+}
+
+/**
+ * DemandPayment row augmented with demand/publisher context for admin views
+ */
+export type AdminDemandPaymentRow = DemandPayment;
+
+export type CreateDemandPaymentInputMethod =
+  (typeof CreateDemandPaymentInputMethod)[keyof typeof CreateDemandPaymentInputMethod];
+
+export const CreateDemandPaymentInputMethod = {
+  online: "online",
+  offline: "offline",
+} as const;
+
+export interface CreateDemandPaymentInput {
+  method: CreateDemandPaymentInputMethod;
+  /** Absolute https/http URL or internal storage path (/api/storage/...) of payment receipt screenshot or proof */
+  receiptUrl?: string;
+  paymentNote?: string;
+}
+
+export type MyBidItemStatus =
+  (typeof MyBidItemStatus)[keyof typeof MyBidItemStatus];
+
+export const MyBidItemStatus = {
+  pending: "pending",
+  accepted: "accepted",
+  rejected: "rejected",
+  withdrawn: "withdrawn",
+} as const;
+
+export interface MyBidItem {
+  id: number;
+  demandId: number;
+  demandTitle?: string | null;
+  demandStatus?: string | null;
+  demandBudget?: number | null;
+  demandDeadline?: string | null;
+  proposal: string;
+  estimatedDays?: number | null;
+  portfolioLinks?: string[] | null;
+  status: MyBidItemStatus;
+  createdAt: string;
+}
+
 export type BidApplicationStatus =
   (typeof BidApplicationStatus)[keyof typeof BidApplicationStatus];
 
@@ -281,27 +376,6 @@ export interface BidApplication {
   portfolioLinks?: string[];
   status: BidApplicationStatus;
   createdAt: string;
-}
-
-export interface MyBidItem {
-  id: number;
-  demandId: number;
-  demandTitle: string | null;
-  demandStatus: string | null;
-  demandBudget: number | null;
-  demandDeadline?: string | null;
-  proposal: string;
-  estimatedDays?: number | null;
-  portfolioLinks?: string[] | null;
-  status: BidApplicationStatus;
-  createdAt: string;
-}
-
-export type GetMyBidsResponse = MyBidItem[];
-
-export interface WithdrawBidResponse {
-  id: number;
-  status: "withdrawn";
 }
 
 export interface CreateBidInput {
@@ -549,6 +623,117 @@ export interface EnrollmentWithCourse {
   course: Course;
 }
 
+export type ActivityFieldFieldType =
+  (typeof ActivityFieldFieldType)[keyof typeof ActivityFieldFieldType];
+
+export const ActivityFieldFieldType = {
+  text: "text",
+  textarea: "textarea",
+  select: "select",
+  radio: "radio",
+  checkbox: "checkbox",
+} as const;
+
+export interface ActivityField {
+  id: number;
+  activityId: number;
+  label: string;
+  fieldType: ActivityFieldFieldType;
+  options?: string[] | null;
+  required: boolean;
+  sortOrder: number;
+}
+
+export interface Activity {
+  id: number;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  startAt?: string | null;
+  endAt?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type ActivityWithFields = Activity & {
+  fields: ActivityField[];
+};
+
+export type ActivityWithCount = Activity & {
+  registrationCount: number;
+};
+
+export interface AdminActivityListResponse {
+  data: ActivityWithCount[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type ActivityFieldInputFieldType =
+  (typeof ActivityFieldInputFieldType)[keyof typeof ActivityFieldInputFieldType];
+
+export const ActivityFieldInputFieldType = {
+  text: "text",
+  textarea: "textarea",
+  select: "select",
+  radio: "radio",
+  checkbox: "checkbox",
+} as const;
+
+export interface ActivityFieldInput {
+  label: string;
+  fieldType: ActivityFieldInputFieldType;
+  options?: string[];
+  required: boolean;
+  sortOrder?: number;
+}
+
+export interface ActivityInput {
+  title: string;
+  description?: string;
+  location?: string;
+  startAt?: string;
+  endAt?: string;
+  fields?: ActivityFieldInput[];
+}
+
+export type SubmitRegistrationInputExtraData = { [key: string]: unknown };
+
+export interface SubmitRegistrationInput {
+  name: string;
+  phone?: string;
+  email?: string;
+  organization?: string;
+  extraData?: SubmitRegistrationInputExtraData;
+}
+
+export interface Registration {
+  id: number;
+  activityId: number;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  organization?: string | null;
+  adminNote?: string | null;
+  createdAt: string;
+  tags: string[];
+}
+
+export interface RegistrationListResponse {
+  data: Registration[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type RegistrationDetailExtraData = { [key: string]: unknown };
+
+export type RegistrationDetail = Registration & {
+  extraData: RegistrationDetailExtraData;
+  fields: ActivityField[];
+};
+
 export type GetOpcLeaderboardParams = {
   limit?: number;
 };
@@ -576,6 +761,7 @@ export type ListDemandsStatus =
 export const ListDemandsStatus = {
   draft: "draft",
   pending_review: "pending_review",
+  pending_payment: "pending_payment",
   published: "published",
   matched: "matched",
   in_progress: "in_progress",
@@ -628,6 +814,7 @@ export type UpdateDemandStatusBodyStatus =
 export const UpdateDemandStatusBodyStatus = {
   draft: "draft",
   pending_review: "pending_review",
+  pending_payment: "pending_payment",
   published: "published",
   matched: "matched",
   in_progress: "in_progress",
@@ -639,6 +826,18 @@ export const UpdateDemandStatusBodyStatus = {
 export type UpdateDemandStatusBody = {
   status: UpdateDemandStatusBodyStatus;
   reason?: string;
+};
+
+export type WithdrawBid200Status =
+  (typeof WithdrawBid200Status)[keyof typeof WithdrawBid200Status];
+
+export const WithdrawBid200Status = {
+  withdrawn: "withdrawn",
+} as const;
+
+export type WithdrawBid200 = {
+  id: number;
+  status: WithdrawBid200Status;
 };
 
 export type UpdateBidStatusBodyStatus =
@@ -765,77 +964,91 @@ export type ListMyEnrollmentsParams = {
   userId: number;
 };
 
-/* ─── Demand Payment Types ─────────────────────────────── */
+export type ListDemandPaymentsParams = {
+  status?: ListDemandPaymentsStatus;
+};
 
-export type DemandPaymentMethod =
-  (typeof DemandPaymentMethod)[keyof typeof DemandPaymentMethod];
-export const DemandPaymentMethod = {
-  online: "online",
-  offline: "offline",
-} as const;
+export type ListDemandPaymentsStatus =
+  (typeof ListDemandPaymentsStatus)[keyof typeof ListDemandPaymentsStatus];
 
-export type DemandPaymentStatus =
-  (typeof DemandPaymentStatus)[keyof typeof DemandPaymentStatus];
-export const DemandPaymentStatus = {
+export const ListDemandPaymentsStatus = {
+  all: "all",
   pending: "pending",
   confirmed: "confirmed",
   rejected: "rejected",
-  refunded: "refunded",
 } as const;
 
-export interface DemandPayment {
-  id: number;
-  demandId: number;
-  amount: number;
-  method: DemandPaymentMethod;
-  status: DemandPaymentStatus;
-  paymentOrderNo?: string | null;
-  qrCodeUrl?: string | null;
-  receiptUrl?: string | null;
-  paymentNote?: string | null;
-  rejectReason?: string | null;
-  confirmedBy?: number | null;
-  confirmedAt?: string | null;
-  refundOrderNo?: string | null;
-  refundedAt?: string | null;
-  createdAt: string;
-}
+export type ReviewDemandPaymentBodyAction =
+  (typeof ReviewDemandPaymentBodyAction)[keyof typeof ReviewDemandPaymentBodyAction];
 
-export interface AdminDemandPaymentRow extends DemandPayment {
-  demandTitle?: string | null;
-  publisherName?: string | null;
-}
+export const ReviewDemandPaymentBodyAction = {
+  confirm: "confirm",
+  reject: "reject",
+} as const;
 
-export interface CreateDemandPaymentInput {
-  method: DemandPaymentMethod;
-  receiptUrl?: string;
-  paymentNote?: string;
-}
-
-export interface ReviewDemandPaymentBody {
-  action: "confirm" | "reject";
+export type ReviewDemandPaymentBody = {
+  action: ReviewDemandPaymentBodyAction;
   rejectReason?: string;
-}
+};
 
-export interface DemandPaymentStatusResponse {
-  status: number;
-  statusName?: string;
-  paid: boolean;
-  terminal: boolean;
-  confirmed: boolean;
-  paidAt?: string | null;
-}
-
-export interface RefundDemandPaymentBody {
+export type RefundDemandPaymentBody = {
+  /** Reason for refund */
   reason?: string;
-}
+};
 
-export interface RefundDemandPaymentResponse {
-  success: boolean;
-  refundOrderNo: string;
-  refundedAt: string;
-}
+export type RefundDemandPayment200 = {
+  success?: boolean;
+  refundOrderNo?: string;
+  refundedAt?: string;
+};
 
-export type ListDemandPaymentsParams = {
-  status?: string;
+export type SubmitRegistration201 = {
+  id: number;
+  ok: boolean;
+};
+
+export type AdminListActivitiesParams = {
+  q?: string;
+  status?: AdminListActivitiesStatus;
+  page?: number;
+  pageSize?: number;
+};
+
+export type AdminListActivitiesStatus =
+  (typeof AdminListActivitiesStatus)[keyof typeof AdminListActivitiesStatus];
+
+export const AdminListActivitiesStatus = {
+  active: "active",
+  inactive: "inactive",
+} as const;
+
+export type AdminToggleActivity200 = {
+  isActive: boolean;
+};
+
+export type AdminListRegistrationsParams = {
+  q?: string;
+  tag?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type AdminGetActivityTags200 = {
+  tags: string[];
+};
+
+export type AdminUpdateRegistrationNoteBody = {
+  note?: string;
+};
+
+export type AdminAddRegistrationTagBody = {
+  tag: string;
+};
+
+export type AdminAddRegistrationTag200 = {
+  tags: string[];
+};
+
+export type AdminDeleteRegistrationTag200 = {
+  tags: string[];
 };

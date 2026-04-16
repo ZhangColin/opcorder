@@ -23,6 +23,8 @@ tags:
     description: Portfolio management
   - name: stats
     description: Platform statistics
+  - name: activities
+    description: Activity registration management
 
 paths:
   /healthz:
@@ -1078,6 +1080,360 @@ paths:
         "409":
           description: Payment not in confirmed state or already refunded
 
+  /activities/{activityId}/public:
+    get:
+      operationId: getActivityPublic
+      tags: [activities]
+      summary: Get activity info (public, no auth)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity with custom fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityWithFields"
+        "404":
+          description: Activity not found or closed
+
+  /activities/{activityId}/register:
+    post:
+      operationId: submitRegistration
+      tags: [activities]
+      summary: Submit a registration (public, no auth)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitRegistrationInput"
+      responses:
+        "201":
+          description: Registration submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  ok:
+                    type: boolean
+                required: [id, ok]
+        "400":
+          description: Validation error
+        "404":
+          description: Activity not found or closed
+
+  /admin/activities:
+    get:
+      operationId: adminListActivities
+      tags: [activities]
+      summary: List activities (admin)
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated activity list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActivityListResponse"
+    post:
+      operationId: adminCreateActivity
+      tags: [activities]
+      summary: Create activity (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityInput"
+      responses:
+        "201":
+          description: Created activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityWithFields"
+
+  /admin/activities/{activityId}:
+    get:
+      operationId: adminGetActivity
+      tags: [activities]
+      summary: Get activity with fields (admin)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity with fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityWithFields"
+        "404":
+          description: Not found
+    put:
+      operationId: adminUpdateActivity
+      tags: [activities]
+      summary: Update activity (admin)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityInput"
+      responses:
+        "200":
+          description: Updated activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityWithFields"
+    delete:
+      operationId: adminDeleteActivity
+      tags: [activities]
+      summary: Delete activity (admin)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  /admin/activities/{activityId}/toggle:
+    patch:
+      operationId: adminToggleActivity
+      tags: [activities]
+      summary: Toggle activity active/inactive (admin)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isActive:
+                    type: boolean
+                required: [isActive]
+
+  /admin/activities/{activityId}/registrations:
+    get:
+      operationId: adminListRegistrations
+      tags: [activities]
+      summary: List registrations for an activity (admin)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated registration list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationListResponse"
+
+  /admin/activities/{activityId}/tags:
+    get:
+      operationId: adminGetActivityTags
+      tags: [activities]
+      summary: Get all tags used in activity registrations (admin)
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                required: [tags]
+
+  /admin/registrations/{registrationId}:
+    get:
+      operationId: adminGetRegistration
+      tags: [activities]
+      summary: Get registration detail (admin)
+      parameters:
+        - name: registrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationDetail"
+        "404":
+          description: Not found
+
+  /admin/registrations/{registrationId}/note:
+    patch:
+      operationId: adminUpdateRegistrationNote
+      tags: [activities]
+      summary: Update admin note on registration (admin)
+      parameters:
+        - name: registrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+
+  /admin/registrations/{registrationId}/tags:
+    post:
+      operationId: adminAddRegistrationTag
+      tags: [activities]
+      summary: Add tag to registration (admin)
+      parameters:
+        - name: registrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tag:
+                  type: string
+              required: [tag]
+      responses:
+        "200":
+          description: Updated tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                required: [tags]
+
+  /admin/registrations/{registrationId}/tags/{tag}:
+    delete:
+      operationId: adminDeleteRegistrationTag
+      tags: [activities]
+      summary: Delete tag from registration (admin)
+      parameters:
+        - name: registrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tag
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                required: [tags]
+
 components:
   schemas:
     HealthStatus:
@@ -2068,3 +2424,203 @@ components:
         - progressPct
         - createdAt
         - course
+
+    ActivityField:
+      type: object
+      properties:
+        id:
+          type: integer
+        activityId:
+          type: integer
+        label:
+          type: string
+        fieldType:
+          type: string
+          enum: [text, textarea, select, radio, checkbox]
+        options:
+          type: array
+          items:
+            type: string
+          nullable: true
+        required:
+          type: boolean
+        sortOrder:
+          type: integer
+      required: [id, activityId, label, fieldType, required, sortOrder]
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        startAt:
+          type: string
+          format: date-time
+          nullable: true
+        endAt:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, isActive, createdAt]
+
+    ActivityWithFields:
+      allOf:
+        - $ref: "#/components/schemas/Activity"
+        - type: object
+          properties:
+            fields:
+              type: array
+              items:
+                $ref: "#/components/schemas/ActivityField"
+          required: [fields]
+
+    ActivityWithCount:
+      allOf:
+        - $ref: "#/components/schemas/Activity"
+        - type: object
+          properties:
+            registrationCount:
+              type: integer
+          required: [registrationCount]
+
+    AdminActivityListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityWithCount"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+      required: [data, total, page, pageSize]
+
+    ActivityFieldInput:
+      type: object
+      properties:
+        label:
+          type: string
+        fieldType:
+          type: string
+          enum: [text, textarea, select, radio, checkbox]
+        options:
+          type: array
+          items:
+            type: string
+        required:
+          type: boolean
+        sortOrder:
+          type: integer
+      required: [label, fieldType, required]
+
+    ActivityInput:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityFieldInput"
+      required: [title]
+
+    SubmitRegistrationInput:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        organization:
+          type: string
+        extraData:
+          type: object
+          additionalProperties: true
+      required: [name]
+
+    Registration:
+      type: object
+      properties:
+        id:
+          type: integer
+        activityId:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        organization:
+          type: string
+          nullable: true
+        adminNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+      required: [id, activityId, name, createdAt, tags]
+
+    RegistrationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Registration"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+      required: [data, total, page, pageSize]
+
+    RegistrationDetail:
+      allOf:
+        - $ref: "#/components/schemas/Registration"
+        - type: object
+          properties:
+            extraData:
+              type: object
+              additionalProperties: true
+            fields:
+              type: array
+              items:
+                $ref: "#/components/schemas/ActivityField"
+          required: [extraData, fields]

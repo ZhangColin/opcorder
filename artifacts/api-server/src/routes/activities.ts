@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, activitiesTable, activityFieldsTable, registrationsTable, registrationTagsTable } from "@workspace/db";
 import { eq, desc, count, and, ilike, or, inArray, sql } from "drizzle-orm";
-import { requireAdmin } from "../middleware/adminAuth";
+import { requireAdmin, requirePermission } from "../middleware/adminAuth";
 
 const router: IRouter = Router();
 
@@ -70,9 +70,10 @@ router.post("/activities/:id/register", async (req, res) => {
   }
 });
 
-/* ─── Admin routes (require admin auth) ──────────────── */
+/* ─── Admin routes (require admin auth + activities permission) ──────────── */
 
-router.use("/admin/activities", requireAdmin);
+router.use("/admin/activities", requireAdmin, requirePermission("activities"));
+router.use("/admin/registrations", requireAdmin, requirePermission("activities"));
 
 /* List activities */
 router.get("/admin/activities", async (req, res) => {

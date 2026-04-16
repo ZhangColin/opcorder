@@ -8,7 +8,7 @@ import {
   GetDemandByIdResponse,
   UpdateDemandBody,
   UpdateDemandStatusBody,
-  CreateDemandPaymentInput,
+  SubmitDemandPaymentBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
 import { createPaymentOrder, queryPaymentStatus, queryRefundStatus, isRefundSuccess, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
@@ -377,7 +377,7 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId);
 
-    const parsed = CreateDemandPaymentInput.safeParse(req.body);
+    const parsed = SubmitDemandPaymentBody.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "请求参数无效", details: parsed.error.flatten().fieldErrors });
     }

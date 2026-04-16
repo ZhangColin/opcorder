@@ -521,7 +521,7 @@ export const ListBidsForDemandResponseItem = zod.object({
   proposal: zod.string(),
   estimatedDays: zod.number().optional(),
   portfolioLinks: zod.array(zod.string()).optional(),
-  status: zod.enum(["pending", "accepted", "rejected"]),
+  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
   createdAt: zod.date(),
 });
 export const ListBidsForDemandResponse = zod.array(
@@ -542,6 +542,36 @@ export const CreateBidBody = zod.object({
 });
 
 /**
+ * @summary List all bids submitted by the current OPC user
+ */
+export const GetMyBidsResponseItem = zod.object({
+  id: zod.number(),
+  demandId: zod.number(),
+  demandTitle: zod.string().nullish(),
+  demandStatus: zod.string().nullish(),
+  demandBudget: zod.number().nullish(),
+  demandDeadline: zod.date().nullish(),
+  proposal: zod.string(),
+  estimatedDays: zod.number().nullish(),
+  portfolioLinks: zod.array(zod.string()).nullish(),
+  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
+  createdAt: zod.date(),
+});
+export const GetMyBidsResponse = zod.array(GetMyBidsResponseItem);
+
+/**
+ * @summary Withdraw a pending bid application
+ */
+export const WithdrawBidParams = zod.object({
+  bidId: zod.coerce.number(),
+});
+
+export const WithdrawBidResponse = zod.object({
+  id: zod.number(),
+  status: zod.enum(["withdrawn"]),
+});
+
+/**
  * @summary Accept or reject a bid
  */
 export const UpdateBidStatusParams = zod.object({
@@ -550,36 +580,6 @@ export const UpdateBidStatusParams = zod.object({
 
 export const UpdateBidStatusBody = zod.object({
   status: zod.enum(["accepted", "rejected"]),
-});
-
-/**
- * @summary Get current OPC's own bids
- */
-export const GetMyBidsResponseItem = zod.object({
-  id: zod.number(),
-  demandId: zod.number(),
-  demandTitle: zod.string().nullable(),
-  demandStatus: zod.string().nullable(),
-  demandBudget: zod.number().nullable(),
-  demandDeadline: zod.string().nullable().optional(),
-  proposal: zod.string(),
-  estimatedDays: zod.number().nullable().optional(),
-  portfolioLinks: zod.array(zod.string()).nullable().optional(),
-  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
-  createdAt: zod.string(),
-});
-export const GetMyBidsResponse = zod.array(GetMyBidsResponseItem);
-
-/**
- * @summary Withdraw a bid (OPC only, pending status only)
- */
-export const WithdrawBidParams = zod.object({
-  bidId: zod.coerce.number(),
-});
-
-export const WithdrawBidResponse = zod.object({
-  id: zod.number(),
-  status: zod.literal("withdrawn"),
 });
 
 export const UpdateBidStatusResponse = zod.object({
@@ -594,7 +594,7 @@ export const UpdateBidStatusResponse = zod.object({
   proposal: zod.string(),
   estimatedDays: zod.number().optional(),
   portfolioLinks: zod.array(zod.string()).optional(),
-  status: zod.enum(["pending", "accepted", "rejected"]),
+  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
   createdAt: zod.date(),
 });
 
@@ -1227,61 +1227,544 @@ export const ListMyEnrollmentsResponse = zod.array(
   ListMyEnrollmentsResponseItem,
 );
 
-/* ─── Demand Payment Schemas ─────────────────────── */
+/**
+ * @summary Get the pending deposit payment for a demand (publisher or admin only)
+ */
+export const GetDemandPaymentParams = zod.object({
+  demandId: zod.coerce.number(),
+});
 
-export const CreateDemandPaymentInput = zod.object({
+export const GetDemandPaymentResponse = zod
+  .object({
+    id: zod.number(),
+    demandId: zod.number(),
+    demandTitle: zod.string().nullish(),
+    publisherName: zod.string().nullish(),
+    amount: zod.number(),
+    method: zod.enum(["online", "offline"]),
+    status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
+    paymentOrderNo: zod
+      .string()
+      .nullish()
+      .describe("Payment provider order number (online payments only)"),
+    qrCodeUrl: zod
+      .string()
+      .nullish()
+      .describe(
+        "QR code URL returned at payment creation (online only, not persisted)",
+      ),
+    receiptUrl: zod.string().nullish(),
+    paymentNote: zod.string().nullish(),
+    rejectReason: zod.string().nullish(),
+    confirmedBy: zod.number().nullish(),
+    confirmedAt: zod.date().nullish(),
+    refundOrderNo: zod.string().nullish(),
+    refundedAt: zod.date().nullish(),
+    createdAt: zod.date(),
+  })
+  .nullable();
+
+/**
+ * @summary Submit deposit payment for a demand
+ */
+export const SubmitDemandPaymentParams = zod.object({
+  demandId: zod.coerce.number(),
+});
+
+export const SubmitDemandPaymentBody = zod.object({
   method: zod.enum(["online", "offline"]),
-  receiptUrl: zod.string()
-    .refine(
-      (v) => {
-        // Accept internal storage paths (set by Replit object storage upload flow)
-        if (/^\/.*\/api\/storage\//i.test(v) || v.startsWith("/api/storage/")) return true;
-        // Accept absolute https/http URLs (regex avoids need for DOM URL type)
-        return /^https?:\/\/.+/.test(v);
-      },
-      { message: "receiptUrl must be an absolute https/http URL or an internal /api/storage/... path" }
-    )
-    .optional(),
+  receiptUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Absolute https\/http URL or internal storage path (\/api\/storage\/...) of payment receipt screenshot or proof",
+    ),
   paymentNote: zod.string().optional(),
 });
 
-export const DemandPayment = zod.object({
-  id: zod.number(),
-  demandId: zod.number(),
-  amount: zod.number(),
-  method: zod.enum(["online", "offline"]),
-  status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
-  paymentOrderNo: zod.string().nullable().optional(),
-  qrCodeUrl: zod.string().nullable().optional(),
-  receiptUrl: zod.string().nullable().optional(),
-  paymentNote: zod.string().nullable().optional(),
-  rejectReason: zod.string().nullable().optional(),
-  confirmedBy: zod.number().nullable().optional(),
-  confirmedAt: zod.string().nullable().optional(),
-  refundOrderNo: zod.string().nullable().optional(),
-  refundedAt: zod.string().nullable().optional(),
-  createdAt: zod.string(),
+/**
+ * @summary Poll online payment status for a demand deposit (publisher only)
+ */
+export const PollDemandPaymentStatusParams = zod.object({
+  demandId: zod.coerce.number(),
 });
 
-export const GetDemandPaymentResponse = DemandPayment.nullable();
-
-export const AdminDemandPaymentRow = DemandPayment.extend({
-  demandTitle: zod.string().nullable().optional(),
-  publisherName: zod.string().nullable().optional(),
+export const PollDemandPaymentStatusResponse = zod.object({
+  status: zod
+    .number()
+    .describe(
+      "Payment provider status code: 1=待支付 2=已支付 3=支付失败 4=已取消 5=已过期",
+    ),
+  statusName: zod.string().optional(),
+  paid: zod.boolean(),
+  terminal: zod.boolean(),
+  confirmed: zod
+    .boolean()
+    .describe(
+      "true when demand is published (payment confirmed in our system)",
+    ),
+  paidAt: zod.string().nullish(),
 });
 
-export const ListDemandPaymentsResponse = zod.array(AdminDemandPaymentRow);
+/**
+ * @summary List pending deposit payments
+ */
+export const ListDemandPaymentsQueryParams = zod.object({
+  status: zod.enum(["all", "pending", "confirmed", "rejected"]).optional(),
+});
+
+export const ListDemandPaymentsResponseItem = zod
+  .object({
+    id: zod.number(),
+    demandId: zod.number(),
+    demandTitle: zod.string().nullish(),
+    publisherName: zod.string().nullish(),
+    amount: zod.number(),
+    method: zod.enum(["online", "offline"]),
+    status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
+    paymentOrderNo: zod
+      .string()
+      .nullish()
+      .describe("Payment provider order number (online payments only)"),
+    qrCodeUrl: zod
+      .string()
+      .nullish()
+      .describe(
+        "QR code URL returned at payment creation (online only, not persisted)",
+      ),
+    receiptUrl: zod.string().nullish(),
+    paymentNote: zod.string().nullish(),
+    rejectReason: zod.string().nullish(),
+    confirmedBy: zod.number().nullish(),
+    confirmedAt: zod.date().nullish(),
+    refundOrderNo: zod.string().nullish(),
+    refundedAt: zod.date().nullish(),
+    createdAt: zod.date(),
+  })
+  .describe(
+    "DemandPayment row augmented with demand\/publisher context for admin views",
+  );
+export const ListDemandPaymentsResponse = zod.array(
+  ListDemandPaymentsResponseItem,
+);
+
+/**
+ * @summary Confirm or reject a deposit payment
+ */
+export const ReviewDemandPaymentParams = zod.object({
+  paymentId: zod.coerce.number(),
+});
 
 export const ReviewDemandPaymentBody = zod.object({
   action: zod.enum(["confirm", "reject"]),
   rejectReason: zod.string().optional(),
 });
 
-export const DemandPaymentStatusResponse = zod.object({
-  status: zod.number(),
-  statusName: zod.string().optional(),
-  paid: zod.boolean(),
-  terminal: zod.boolean(),
-  confirmed: zod.boolean(),
-  paidAt: zod.string().nullable().optional(),
+export const ReviewDemandPaymentResponse = zod.object({
+  id: zod.number(),
+  demandId: zod.number(),
+  demandTitle: zod.string().nullish(),
+  publisherName: zod.string().nullish(),
+  amount: zod.number(),
+  method: zod.enum(["online", "offline"]),
+  status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
+  paymentOrderNo: zod
+    .string()
+    .nullish()
+    .describe("Payment provider order number (online payments only)"),
+  qrCodeUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      "QR code URL returned at payment creation (online only, not persisted)",
+    ),
+  receiptUrl: zod.string().nullish(),
+  paymentNote: zod.string().nullish(),
+  rejectReason: zod.string().nullish(),
+  confirmedBy: zod.number().nullish(),
+  confirmedAt: zod.date().nullish(),
+  refundOrderNo: zod.string().nullish(),
+  refundedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Refund a confirmed demand deposit payment (online payments only)
+ */
+export const RefundDemandPaymentParams = zod.object({
+  paymentId: zod.coerce.number(),
+});
+
+export const RefundDemandPaymentBody = zod.object({
+  reason: zod.string().optional().describe("Reason for refund"),
+});
+
+export const RefundDemandPaymentResponse = zod.object({
+  success: zod.boolean().optional(),
+  refundOrderNo: zod.string().optional(),
+  refundedAt: zod.date().optional(),
+});
+
+/**
+ * @summary Get activity info (public, no auth)
+ */
+export const GetActivityPublicParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+export const GetActivityPublicResponse = zod
+  .object({
+    id: zod.number(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    location: zod.string().nullish(),
+    startAt: zod.date().nullish(),
+    endAt: zod.date().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+  })
+  .and(
+    zod.object({
+      fields: zod.array(
+        zod.object({
+          id: zod.number(),
+          activityId: zod.number(),
+          label: zod.string(),
+          fieldType: zod.enum([
+            "text",
+            "textarea",
+            "select",
+            "radio",
+            "checkbox",
+          ]),
+          options: zod.array(zod.string()).nullish(),
+          required: zod.boolean(),
+          sortOrder: zod.number(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Submit a registration (public, no auth)
+ */
+export const SubmitRegistrationParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+export const SubmitRegistrationBody = zod.object({
+  name: zod.string(),
+  phone: zod.string().optional(),
+  email: zod.string().optional(),
+  organization: zod.string().optional(),
+  extraData: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary List activities (admin)
+ */
+export const AdminListActivitiesQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  status: zod.enum(["active", "inactive"]).optional(),
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+});
+
+export const AdminListActivitiesResponse = zod.object({
+  data: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        title: zod.string(),
+        description: zod.string().nullish(),
+        location: zod.string().nullish(),
+        startAt: zod.date().nullish(),
+        endAt: zod.date().nullish(),
+        isActive: zod.boolean(),
+        createdAt: zod.date(),
+      })
+      .and(
+        zod.object({
+          registrationCount: zod.number(),
+        }),
+      ),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Create activity (admin)
+ */
+export const AdminCreateActivityBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  location: zod.string().optional(),
+  startAt: zod.coerce.date().optional(),
+  endAt: zod.coerce.date().optional(),
+  fields: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        fieldType: zod.enum([
+          "text",
+          "textarea",
+          "select",
+          "radio",
+          "checkbox",
+        ]),
+        options: zod.array(zod.string()).optional(),
+        required: zod.boolean(),
+        sortOrder: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get activity with fields (admin)
+ */
+export const AdminGetActivityParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+export const AdminGetActivityResponse = zod
+  .object({
+    id: zod.number(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    location: zod.string().nullish(),
+    startAt: zod.date().nullish(),
+    endAt: zod.date().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+  })
+  .and(
+    zod.object({
+      fields: zod.array(
+        zod.object({
+          id: zod.number(),
+          activityId: zod.number(),
+          label: zod.string(),
+          fieldType: zod.enum([
+            "text",
+            "textarea",
+            "select",
+            "radio",
+            "checkbox",
+          ]),
+          options: zod.array(zod.string()).nullish(),
+          required: zod.boolean(),
+          sortOrder: zod.number(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update activity (admin)
+ */
+export const AdminUpdateActivityParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+export const AdminUpdateActivityBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  location: zod.string().optional(),
+  startAt: zod.coerce.date().optional(),
+  endAt: zod.coerce.date().optional(),
+  fields: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        fieldType: zod.enum([
+          "text",
+          "textarea",
+          "select",
+          "radio",
+          "checkbox",
+        ]),
+        options: zod.array(zod.string()).optional(),
+        required: zod.boolean(),
+        sortOrder: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const AdminUpdateActivityResponse = zod
+  .object({
+    id: zod.number(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    location: zod.string().nullish(),
+    startAt: zod.date().nullish(),
+    endAt: zod.date().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+  })
+  .and(
+    zod.object({
+      fields: zod.array(
+        zod.object({
+          id: zod.number(),
+          activityId: zod.number(),
+          label: zod.string(),
+          fieldType: zod.enum([
+            "text",
+            "textarea",
+            "select",
+            "radio",
+            "checkbox",
+          ]),
+          options: zod.array(zod.string()).nullish(),
+          required: zod.boolean(),
+          sortOrder: zod.number(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Delete activity (admin)
+ */
+export const AdminDeleteActivityParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+/**
+ * @summary Toggle activity active/inactive (admin)
+ */
+export const AdminToggleActivityParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+export const AdminToggleActivityResponse = zod.object({
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary List registrations for an activity (admin)
+ */
+export const AdminListRegistrationsParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+export const AdminListRegistrationsQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  tag: zod.coerce.string().optional(),
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+});
+
+export const AdminListRegistrationsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      activityId: zod.number(),
+      name: zod.string(),
+      phone: zod.string().nullish(),
+      email: zod.string().nullish(),
+      organization: zod.string().nullish(),
+      adminNote: zod.string().nullish(),
+      createdAt: zod.date(),
+      tags: zod.array(zod.string()),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Get all tags used in activity registrations (admin)
+ */
+export const AdminGetActivityTagsParams = zod.object({
+  activityId: zod.coerce.number(),
+});
+
+export const AdminGetActivityTagsResponse = zod.object({
+  tags: zod.array(zod.string()),
+});
+
+/**
+ * @summary Get registration detail (admin)
+ */
+export const AdminGetRegistrationParams = zod.object({
+  registrationId: zod.coerce.number(),
+});
+
+export const AdminGetRegistrationResponse = zod
+  .object({
+    id: zod.number(),
+    activityId: zod.number(),
+    name: zod.string(),
+    phone: zod.string().nullish(),
+    email: zod.string().nullish(),
+    organization: zod.string().nullish(),
+    adminNote: zod.string().nullish(),
+    createdAt: zod.date(),
+    tags: zod.array(zod.string()),
+  })
+  .and(
+    zod.object({
+      extraData: zod.record(zod.string(), zod.unknown()),
+      fields: zod.array(
+        zod.object({
+          id: zod.number(),
+          activityId: zod.number(),
+          label: zod.string(),
+          fieldType: zod.enum([
+            "text",
+            "textarea",
+            "select",
+            "radio",
+            "checkbox",
+          ]),
+          options: zod.array(zod.string()).nullish(),
+          required: zod.boolean(),
+          sortOrder: zod.number(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update admin note on registration (admin)
+ */
+export const AdminUpdateRegistrationNoteParams = zod.object({
+  registrationId: zod.coerce.number(),
+});
+
+export const AdminUpdateRegistrationNoteBody = zod.object({
+  note: zod.string().optional(),
+});
+
+/**
+ * @summary Add tag to registration (admin)
+ */
+export const AdminAddRegistrationTagParams = zod.object({
+  registrationId: zod.coerce.number(),
+});
+
+export const AdminAddRegistrationTagBody = zod.object({
+  tag: zod.string(),
+});
+
+export const AdminAddRegistrationTagResponse = zod.object({
+  tags: zod.array(zod.string()),
+});
+
+/**
+ * @summary Delete tag from registration (admin)
+ */
+export const AdminDeleteRegistrationTagParams = zod.object({
+  registrationId: zod.coerce.number(),
+  tag: zod.coerce.string(),
+});
+
+export const AdminDeleteRegistrationTagResponse = zod.object({
+  tags: zod.array(zod.string()),
 });
