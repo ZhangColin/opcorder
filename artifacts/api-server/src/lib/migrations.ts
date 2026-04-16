@@ -404,13 +404,24 @@ export async function runMigrations(): Promise<void> {
 
   // Migration 006e: replace is_active boolean with status varchar on activities
   // 'draft'=草稿, 'active'=进行中, 'ended'=已结束
+  // NOTE: syncSchema() may already have applied the schema (adding status, dropping is_active)
+  // before this migration runs. The UPDATE is therefore wrapped in a DO block that checks
+  // whether is_active still exists before attempting to read it.
   try {
     await db.execute(sql`
       ALTER TABLE activities ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'draft'
     `);
-    // Backfill: existing active rows → 'active', inactive rows keep 'draft'
+    // Conditionally backfill: only if is_active column still exists (syncSchema may have already dropped it)
     await db.execute(sql`
-      UPDATE activities SET status = 'active' WHERE is_active = true AND status = 'draft'
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'activities' AND column_name = 'is_active'
+        ) THEN
+          UPDATE activities SET status = 'active' WHERE is_active = true AND status = 'draft';
+        END IF;
+      END $$
     `);
     await db.execute(sql`ALTER TABLE activities DROP COLUMN IF EXISTS is_active`);
   } catch (err) {
