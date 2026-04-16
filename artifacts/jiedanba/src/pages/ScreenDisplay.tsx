@@ -272,14 +272,14 @@ function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; new
     { label: "新订单", value: newOrders, colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
   ];
   return (
-    <div className="flex gap-3 h-full">
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       {items.map((item, i) => (
-        <div key={i} className={clsx("flex-1 rounded-lg border p-3 flex flex-col gap-2", item.borderClass, item.bgClass)}>
-          <div className="flex items-center gap-1.5">
-            <span className="text-base">{item.icon}</span>
-            <span className="text-[13px] font-bold text-slate-400 tracking-wider">{item.label}</span>
+        <div key={i} className={clsx("flex-1 rounded-lg border px-4 py-3 flex flex-col justify-center gap-2", item.borderClass, item.bgClass)}>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{item.icon}</span>
+            <span className="text-[16px] font-bold text-slate-400 tracking-wider">{item.label}</span>
           </div>
-          <div className={clsx("text-[32px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+          <div className={clsx("text-[38px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
             {item.value > 0 ? `+${item.value}` : item.value}
           </div>
         </div>
@@ -301,27 +301,27 @@ const STATUS_COLORS: Record<string, { colorClass: string; shadowClass: string }>
 
 function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; total: number }) {
   return (
-    <div className="flex flex-col justify-center h-full w-full gap-2.5 px-1">
+    <div className="flex flex-col flex-1 min-h-0 justify-between w-full gap-2 px-1">
       {data.map((item, index) => {
         const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
         const c = STATUS_COLORS[item.status] ?? { colorClass: "bg-slate-400", shadowClass: "" };
         return (
           <div key={index} className="flex items-center gap-3">
-            <span className="text-[13px] text-slate-300 w-20 text-right font-medium tracking-wider shrink-0">{item.label}</span>
-            <div className="flex-1 h-3 bg-[#0a1936] rounded-full overflow-hidden border border-cyan-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
+            <span className="text-[16px] text-slate-300 w-24 text-right font-medium tracking-wider shrink-0">{item.label}</span>
+            <div className="flex-1 h-4 bg-[#0a1936] rounded-full overflow-hidden border border-cyan-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
               <div
                 className={clsx("h-full rounded-full transition-all duration-1000 ease-out", c.colorClass, c.shadowClass)}
                 style={{ width: `${pct === 0 ? 2 : pct}%` }}
               />
             </div>
-            <div className="w-20 flex items-center justify-between text-[13px] text-slate-400 font-mono shrink-0">
-              <span>{item.value}</span>
+            <div className="w-24 flex items-center justify-between text-[15px] text-slate-400 font-mono shrink-0">
+              <span className="font-bold">{item.value}</span>
               <span>({pct}%)</span>
             </div>
           </div>
         );
       })}
-      <div className="flex justify-between items-center pt-1.5 border-t border-white/5 text-[13px] mt-auto">
+      <div className="flex justify-between items-center pt-2 border-t border-white/5 text-[15px]">
         <span className="text-slate-500">需求总计</span>
         <span className="font-bold text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.6)]">{total} 条</span>
       </div>
@@ -335,45 +335,47 @@ function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; 
 function OrderOverview({ completionRate, completedOrders, inProgressOrders, totalSettled }: {
   completionRate: number; completedOrders: number; inProgressOrders: number; totalSettled: number;
 }) {
-  const r = 20, c2 = 2 * Math.PI * r;
+  const r = 34, cx = 46, cy = 46, size = 92;
+  const c2 = 2 * Math.PI * r;
   const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
 
   return (
-    <div className="flex flex-col items-center justify-between h-full py-1 gap-1 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 items-center gap-3 py-2">
       {/* Completion Ring */}
-      <div className="flex flex-col items-center gap-1 shrink-0">
-        <div className="relative w-[54px] h-[54px]">
-          <svg width={54} height={54} style={{ transform: "rotate(-90deg)" }}>
-            <circle cx={27} cy={27} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={4} />
-            <circle cx={27} cy={27} r={r} fill="none" stroke="#10b981"
-              strokeWidth={4} strokeDasharray={c2}
+      <div className="flex flex-col items-center gap-2">
+        <div className="relative" style={{ width: size, height: size }}>
+          <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth={6} />
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#10b981"
+              strokeWidth={6} strokeDasharray={c2}
               strokeDashoffset={c2 * (1 - completionRate / 100)}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 5px #10b981)" }} />
+              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 8px #10b981)" }} />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[14px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+            <span className="text-[20px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
               {completionRate}%
             </span>
           </div>
         </div>
-        <span className="text-[12px] font-bold text-slate-400 tracking-[0.08em] uppercase">订单完成率</span>
-        <div className="text-[12px] text-slate-500 text-center">
-          完成 <span className="text-emerald-400 font-bold">{completedOrders}</span> ·
-          进行中 <span className="text-teal-400 font-bold">{inProgressOrders}</span>
+        <span className="text-[16px] font-bold text-slate-400 tracking-[0.08em] uppercase">订单完成率</span>
+        <div className="text-[15px] text-slate-500 text-center leading-relaxed">
+          完成 <span className="text-emerald-400 font-bold text-[17px]">{completedOrders}</span>
+          <span className="mx-1">·</span>
+          进行中 <span className="text-teal-400 font-bold text-[17px]">{inProgressOrders}</span>
         </div>
       </div>
 
-      <div className="w-full border-t border-white/5 shrink-0" />
+      <div className="w-full border-t border-white/5" />
 
       {/* Settlement */}
-      <div className="flex flex-col items-center gap-0.5 shrink-0">
-        <span className="text-[12px] font-bold text-slate-500 tracking-[0.08em] uppercase">累计结算</span>
+      <div className="flex flex-col items-center gap-1">
+        <span className="text-[15px] font-bold text-slate-500 tracking-[0.08em] uppercase">累计结算</span>
         <div className="flex items-baseline gap-1">
-          <span className="text-[32px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+          <span className="text-[38px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
             {settled}
           </span>
-          <span className="text-[14px] font-bold text-slate-300">元</span>
+          <span className="text-[18px] font-bold text-slate-300">元</span>
         </div>
       </div>
     </div>
@@ -605,7 +607,7 @@ export default function ScreenDisplay() {
             <div className="flex-[7.5] flex flex-col gap-3 min-w-0">
 
               {/* Trend Chart */}
-              <Panel title="近14天增长趋势" borderColor="border-cyan-500/40" className="flex-[5.5] min-h-0">
+              <Panel title="近14天增长趋势" borderColor="border-cyan-500/40" className="flex-[4] min-h-0">
                 {data?.timeSeries?.length
                   ? <TrendChart data={data.timeSeries} />
                   : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
@@ -613,7 +615,7 @@ export default function ScreenDisplay() {
               </Panel>
 
               {/* Bottom row */}
-              <div className="flex-[4.5] min-h-0 flex gap-3">
+              <div className="flex-[6] min-h-0 flex gap-3">
 
                 {/* Today new stats */}
                 <Panel title="今日实时新增" borderColor="border-blue-500/40" className="flex-[3.5] min-w-0">
@@ -649,7 +651,7 @@ export default function ScreenDisplay() {
               <div className="flex items-center gap-1.5 mb-2 shrink-0">
                 <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,1)]"
                   style={{ animation: "liveDot 2s ease-in-out infinite" }} />
-                <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase">LIVE</span>
+                <span className="text-[14px] font-bold text-slate-400 tracking-wider uppercase">LIVE</span>
               </div>
               {data
                 ? <LiveFeed ticker1={data.ticker1} ticker2={data.ticker2} />
