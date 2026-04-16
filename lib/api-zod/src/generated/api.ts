@@ -1418,8 +1418,8 @@ export const GetActivityPublicResponse = zod
     title: zod.string(),
     description: zod.string().nullish(),
     location: zod.string().nullish(),
-    startAt: zod.date().nullish(),
-    endAt: zod.date().nullish(),
+    startTime: zod.date().nullish(),
+    endTime: zod.date().nullish(),
     isActive: zod.boolean(),
     createdAt: zod.date(),
   })
@@ -1438,7 +1438,7 @@ export const GetActivityPublicResponse = zod
             "checkbox",
           ]),
           options: zod.array(zod.string()).nullish(),
-          required: zod.boolean(),
+          isRequired: zod.boolean(),
           sortOrder: zod.number(),
         }),
       ),
@@ -1478,8 +1478,8 @@ export const AdminListActivitiesResponse = zod.object({
         title: zod.string(),
         description: zod.string().nullish(),
         location: zod.string().nullish(),
-        startAt: zod.date().nullish(),
-        endAt: zod.date().nullish(),
+        startTime: zod.date().nullish(),
+        endTime: zod.date().nullish(),
         isActive: zod.boolean(),
         createdAt: zod.date(),
       })
@@ -1501,8 +1501,8 @@ export const AdminCreateActivityBody = zod.object({
   title: zod.string(),
   description: zod.string().optional(),
   location: zod.string().optional(),
-  startAt: zod.coerce.date().optional(),
-  endAt: zod.coerce.date().optional(),
+  startTime: zod.coerce.date().optional(),
+  endTime: zod.coerce.date().optional(),
   fields: zod
     .array(
       zod.object({
@@ -1515,7 +1515,7 @@ export const AdminCreateActivityBody = zod.object({
           "checkbox",
         ]),
         options: zod.array(zod.string()).optional(),
-        required: zod.boolean(),
+        isRequired: zod.boolean(),
         sortOrder: zod.number().optional(),
       }),
     )
@@ -1535,8 +1535,8 @@ export const AdminGetActivityResponse = zod
     title: zod.string(),
     description: zod.string().nullish(),
     location: zod.string().nullish(),
-    startAt: zod.date().nullish(),
-    endAt: zod.date().nullish(),
+    startTime: zod.date().nullish(),
+    endTime: zod.date().nullish(),
     isActive: zod.boolean(),
     createdAt: zod.date(),
   })
@@ -1555,7 +1555,7 @@ export const AdminGetActivityResponse = zod
             "checkbox",
           ]),
           options: zod.array(zod.string()).nullish(),
-          required: zod.boolean(),
+          isRequired: zod.boolean(),
           sortOrder: zod.number(),
         }),
       ),
@@ -1573,8 +1573,8 @@ export const AdminUpdateActivityBody = zod.object({
   title: zod.string(),
   description: zod.string().optional(),
   location: zod.string().optional(),
-  startAt: zod.coerce.date().optional(),
-  endAt: zod.coerce.date().optional(),
+  startTime: zod.coerce.date().optional(),
+  endTime: zod.coerce.date().optional(),
   fields: zod
     .array(
       zod.object({
@@ -1587,7 +1587,7 @@ export const AdminUpdateActivityBody = zod.object({
           "checkbox",
         ]),
         options: zod.array(zod.string()).optional(),
-        required: zod.boolean(),
+        isRequired: zod.boolean(),
         sortOrder: zod.number().optional(),
       }),
     )
@@ -1600,8 +1600,8 @@ export const AdminUpdateActivityResponse = zod
     title: zod.string(),
     description: zod.string().nullish(),
     location: zod.string().nullish(),
-    startAt: zod.date().nullish(),
-    endAt: zod.date().nullish(),
+    startTime: zod.date().nullish(),
+    endTime: zod.date().nullish(),
     isActive: zod.boolean(),
     createdAt: zod.date(),
   })
@@ -1620,7 +1620,7 @@ export const AdminUpdateActivityResponse = zod
             "checkbox",
           ]),
           options: zod.array(zod.string()).nullish(),
-          required: zod.boolean(),
+          isRequired: zod.boolean(),
           sortOrder: zod.number(),
         }),
       ),
@@ -1724,7 +1724,7 @@ export const AdminGetRegistrationResponse = zod
             "checkbox",
           ]),
           options: zod.array(zod.string()).nullish(),
-          required: zod.boolean(),
+          isRequired: zod.boolean(),
           sortOrder: zod.number(),
         }),
       ),

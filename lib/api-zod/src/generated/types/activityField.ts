@@ -13,6 +13,6 @@ export interface ActivityField {
   label: string;
   fieldType: ActivityFieldFieldType;
   options?: string[] | null;
-  required: boolean;
+  isRequired: boolean;
   sortOrder: number;
 }

@@ -640,7 +640,7 @@ export interface ActivityField {
   label: string;
   fieldType: ActivityFieldFieldType;
   options?: string[] | null;
-  required: boolean;
+  isRequired: boolean;
   sortOrder: number;
 }
 
@@ -649,8 +649,8 @@ export interface Activity {
   title: string;
   description?: string | null;
   location?: string | null;
-  startAt?: string | null;
-  endAt?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -685,7 +685,7 @@ export interface ActivityFieldInput {
   label: string;
   fieldType: ActivityFieldInputFieldType;
   options?: string[];
-  required: boolean;
+  isRequired: boolean;
   sortOrder?: number;
 }
 
@@ -693,8 +693,8 @@ export interface ActivityInput {
   title: string;
   description?: string;
   location?: string;
-  startAt?: string;
-  endAt?: string;
+  startTime?: string;
+  endTime?: string;
   fields?: ActivityFieldInput[];
 }
 

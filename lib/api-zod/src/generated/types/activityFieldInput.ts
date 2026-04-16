@@ -11,6 +11,6 @@ export interface ActivityFieldInput {
   label: string;
   fieldType: ActivityFieldInputFieldType;
   options?: string[];
-  required: boolean;
+  isRequired: boolean;
   sortOrder?: number;
 }

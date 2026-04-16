@@ -11,7 +11,7 @@ export interface ActivityInput {
   title: string;
   description?: string;
   location?: string;
-  startAt?: Date;
-  endAt?: Date;
+  startTime?: Date;
+  endTime?: Date;
   fields?: ActivityFieldInput[];
 }

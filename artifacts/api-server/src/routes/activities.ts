@@ -240,6 +240,26 @@ router.delete("/admin/activities/:id", async (req, res) => {
   }
 });
 
+/* Toggle activity active/inactive */
+router.patch("/admin/activities/:id/toggle", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [existing] = await db.select({ isActive: activitiesTable.isActive })
+      .from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
+    if (!existing) return res.status(404).json({ error: "活动不存在" });
+
+    const [updated] = await db.update(activitiesTable)
+      .set({ isActive: !existing.isActive, updatedAt: new Date() })
+      .where(eq(activitiesTable.id, id))
+      .returning({ isActive: activitiesTable.isActive });
+
+    res.json({ isActive: updated.isActive });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "切换活动状态失败" });
+  }
+});
+
 /* ─── Admin: registrations ───────────────────────── */
 
 /* List registrations for an activity */

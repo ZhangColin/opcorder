@@ -2442,11 +2442,11 @@ components:
           items:
             type: string
           nullable: true
-        required:
+        isRequired:
           type: boolean
         sortOrder:
           type: integer
-      required: [id, activityId, label, fieldType, required, sortOrder]
+      required: [id, activityId, label, fieldType, isRequired, sortOrder]
 
     Activity:
       type: object
@@ -2461,11 +2461,11 @@ components:
         location:
           type: string
           nullable: true
-        startAt:
+        startTime:
           type: string
           format: date-time
           nullable: true
-        endAt:
+        endTime:
           type: string
           format: date-time
           nullable: true
@@ -2523,11 +2523,11 @@ components:
           type: array
           items:
             type: string
-        required:
+        isRequired:
           type: boolean
         sortOrder:
           type: integer
-      required: [label, fieldType, required]
+      required: [label, fieldType, isRequired]
 
     ActivityInput:
       type: object
@@ -2538,10 +2538,10 @@ components:
           type: string
         location:
           type: string
-        startAt:
+        startTime:
           type: string
           format: date-time
-        endAt:
+        endTime:
           type: string
           format: date-time
         fields:

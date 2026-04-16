@@ -671,8 +671,8 @@ export default function AdminActivities() {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      adminPut(`/api/admin/activities/${id}`, { isActive }),
+    mutationFn: ({ id }: { id: number; isActive: boolean }) =>
+      adminPatch(`/api/admin/activities/${id}/toggle`, {}),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-activities"] }); },
     onError: (err) => toast({ title: err instanceof Error ? err.message : "操作失败", variant: "destructive" }),
   });

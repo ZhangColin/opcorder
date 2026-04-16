@@ -11,8 +11,8 @@ export interface Activity {
   title: string;
   description?: string | null;
   location?: string | null;
-  startAt?: Date | null;
-  endAt?: Date | null;
+  startTime?: Date | null;
+  endTime?: Date | null;
   isActive: boolean;
   createdAt: Date;
 }
