@@ -57,38 +57,159 @@ function durationLabel(mins?: number | null) {
 }
 
 /* ─── Inline Syllabus Viewer ───────────────────── */
+
+/* Word (.docx) rendered as HTML via mammoth */
+function DocxViewer({ url }: { url: string }) {
+  const [html, setHtml] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const mammoth = (await import("mammoth")).default;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("fetch failed");
+        const buf = await res.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer: buf });
+        if (!cancelled) setHtml(result.value);
+      } catch {
+        if (!cancelled) setErr(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (err) return <FileDownloadFallback url={url} />;
+  if (html === null) return <LoadingPlaceholder />;
+
+  return (
+    <div
+      className="prose prose-sm max-w-none bg-white rounded-xl p-8 border border-border/30 overflow-auto"
+      style={{ maxHeight: 700 }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+/* Excel (.xls / .xlsx) rendered as HTML table via SheetJS */
+function XlsxViewer({ url }: { url: string }) {
+  const [html, setHtml] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const XLSX = await import("xlsx");
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("fetch failed");
+        const buf = await res.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const table = XLSX.utils.sheet_to_html(ws, { editable: false });
+        if (!cancelled) setHtml(table);
+      } catch {
+        if (!cancelled) setErr(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (err) return <FileDownloadFallback url={url} />;
+  if (html === null) return <LoadingPlaceholder />;
+
+  return (
+    <div
+      className="overflow-auto rounded-xl border border-border/30 bg-white"
+      style={{ maxHeight: 700 }}
+    >
+      <style>{`
+        .xlsx-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        .xlsx-table td, .xlsx-table th { border: 1px solid #e5e7eb; padding: 6px 10px; white-space: nowrap; }
+        .xlsx-table tr:first-child td { background: #f3f4f6; font-weight: 600; }
+        .xlsx-table tr:hover td { background: #f9fafb; }
+      `}</style>
+      <div
+        className="xlsx-table p-4"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </div>
+  );
+}
+
+/* PPT / PPTX via Microsoft Office Online embed */
+function PptxViewer({ url }: { url: string }) {
+  const absolute = url.startsWith("http") ? url : new URL(url, window.location.href).href;
+  const msUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolute)}`;
+  return (
+    <iframe
+      src={msUrl}
+      title="课纲资料"
+      className="w-full border-0 rounded-xl bg-white"
+      style={{ height: 700 }}
+      allow="fullscreen"
+    />
+  );
+}
+
+function LoadingPlaceholder() {
+  return (
+    <div className="flex items-center justify-center h-40 text-muted-foreground gap-2">
+      <Loader2 size={20} className="animate-spin" />
+      <span className="text-sm">加载中…</span>
+    </div>
+  );
+}
+
+function FileDownloadFallback({ url }: { url: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-3">
+      <FileText size={32} className="opacity-40" />
+      <p className="text-sm">无法内嵌预览此文件</p>
+      <a href={url} target="_blank" rel="noreferrer"
+        className="text-xs text-primary underline">点击下载查看</a>
+    </div>
+  );
+}
+
 function InlineSyllabusViewer({ url }: { url: string }) {
   const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
   const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "svg"];
-  const officeExts = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"];
 
+  /* Images */
   if (imageExts.includes(ext)) {
     return (
-      <img
-        src={url}
-        alt="课纲资料"
+      <img src={url} alt="课纲资料"
         className="w-full rounded-xl object-contain"
-        style={{ maxHeight: 700 }}
-      />
+        style={{ maxHeight: 700 }} />
     );
   }
 
-  const absolute = url.startsWith("http") ? url : new URL(url, window.location.href).href;
-
-  if (officeExts.includes(ext)) {
-    const gDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(absolute)}&embedded=true`;
+  /* Word — client-side HTML conversion */
+  if (ext === "docx") return <DocxViewer url={url} />;
+  if (ext === "doc") {
+    const absolute = url.startsWith("http") ? url : new URL(url, window.location.href).href;
     return (
       <iframe
-        src={gDocsUrl}
+        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absolute)}`}
         title="课纲资料"
-        className="w-full border-0 rounded-xl"
+        className="w-full border-0 rounded-xl bg-white"
         style={{ height: 700 }}
         allow="fullscreen"
       />
     );
   }
 
-  /* PDF — object tag: renders content without browser toolbar */
+  /* Excel — client-side table rendering */
+  if (ext === "xlsx" || ext === "xls") return <XlsxViewer url={url} />;
+
+  /* PowerPoint — Microsoft Office Online embed */
+  if (ext === "ppt" || ext === "pptx") return <PptxViewer url={url} />;
+
+  /* PDF — object tag without toolbar */
+  const absolute = url.startsWith("http") ? url : new URL(url, window.location.href).href;
   return (
     <object
       data={`${absolute}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
@@ -96,12 +217,7 @@ function InlineSyllabusViewer({ url }: { url: string }) {
       className="w-full rounded-xl"
       style={{ height: 700 }}
     >
-      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
-        <FileText size={32} className="opacity-40" />
-        <p className="text-sm">浏览器不支持内嵌 PDF 预览</p>
-        <a href={url} target="_blank" rel="noreferrer"
-          className="text-xs text-primary underline">点击下载查看</a>
-      </div>
+      <FileDownloadFallback url={url} />
     </object>
   );
 }
