@@ -339,6 +339,24 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
         avgRating,
         totalOrders: opcOrders.length,
       }).where(eq(opcProfilesTable.userId, updated.opcId));
+
+      // Notify OPC and publisher
+      await db.insert(notificationsTable).values({
+        userId: updated.opcId,
+        type: "order_completed",
+        title: "订单已完成，结算流程已触发",
+        content: `订单「${updated.orderNo}」所有里程碑已通过验收，结算流程已触发，您的分成将在3个工作日内到账。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
+      await db.insert(notificationsTable).values({
+        userId: updated.publisherId,
+        type: "order_completed",
+        title: "订单已完成，结算流程已触发",
+        content: `订单「${updated.orderNo}」所有里程碑均已通过验收，结算流程已自动触发。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
     } else {
       const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
       finalOrder = updated;
@@ -511,6 +529,24 @@ router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
           totalOrders: opcOrders.length,
         }).where(eq(opcProfilesTable.userId, updated.opcId));
       }
+
+      // Notify OPC and publisher
+      await db.insert(notificationsTable).values({
+        userId: updated.opcId,
+        type: "order_completed",
+        title: "订单已完成，结算流程已触发",
+        content: `订单「${updated.orderNo}」已通过验收，结算流程已触发，您的分成将在3个工作日内到账。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
+      await db.insert(notificationsTable).values({
+        userId: updated.publisherId,
+        type: "order_completed",
+        title: "订单已完成，结算流程已触发",
+        content: `订单「${updated.orderNo}」已通过验收，结算流程已自动触发。`,
+        relatedId: orderId,
+        relatedType: "order",
+      });
     }
 
     res.json({

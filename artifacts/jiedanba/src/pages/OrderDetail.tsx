@@ -1122,7 +1122,7 @@ export default function OrderDetail() {
           <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-center gap-4">
             <CheckCircle2 size={28} className="text-green-600 shrink-0" />
             <div>
-              <p className="font-bold text-green-800">订单已完成，结算已触发</p>
+              <p className="font-bold text-green-800">订单已完成</p>
               <p className="text-sm text-green-700 mt-0.5">
                 您的分成 ¥{Math.round(order.amount * 0.9).toLocaleString()} 将在 3 个工作日内到账。
               </p>

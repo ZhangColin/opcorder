@@ -213,12 +213,12 @@ export default function PublisherOrderDetail() {
       }
       return res.json();
     },
-    onSuccess: async () => {
+    onSuccess: async (data: { allCompleted?: boolean }) => {
       await invalidate();
       setAcceptMilestoneId(null);
       setMilestoneAcceptRating(0);
       setMilestoneAcceptComment("");
-      setActionSuccess("里程碑已通过审核。");
+      setActionSuccess(data?.allCompleted ? "订单已完成，结算流程已触发。" : "里程碑已通过审核。");
     },
     onError: (e: Error) => {
       setActionError(e.message || "操作失败，请稍后重试");
@@ -262,7 +262,7 @@ export default function PublisherOrderDetail() {
       });
       await invalidate();
       setShowAcceptModal(false);
-      setActionSuccess("验收成功！结算流程已自动触发。");
+      setActionSuccess("订单已完成，结算流程已触发。");
     } catch {
       setActionError("操作失败，请稍后重试");
     }
@@ -410,17 +410,17 @@ export default function PublisherOrderDetail() {
                 <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex items-center gap-3">
                   <Trophy size={20} className="text-emerald-600" />
                   <div>
-                    <p className="font-bold text-emerald-800">订单已完成，结算流程已触发</p>
-                    {order.rating && (
+                    <p className="font-bold text-emerald-800">订单已完成</p>
+                    {order.opcRating && (
                       <div className="flex items-center gap-1 mt-1">
                         {[1, 2, 3, 4, 5].map((s) => (
-                          <Star key={s} size={12} className={s <= order.rating! ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
+                          <Star key={s} size={12} className={s <= order.opcRating! ? "fill-amber-400 text-amber-400" : "text-slate-300"} />
                         ))}
-                        <span className="text-xs text-emerald-600 ml-1">您的评分：{order.rating} 分</span>
+                        <span className="text-xs text-emerald-600 ml-1">OPC 评分：{order.opcRating} 分</span>
                       </div>
                     )}
-                    {order.reviewComment && (
-                      <p className="text-xs text-emerald-700 mt-0.5">评价：{order.reviewComment}</p>
+                    {order.opcReviewComment && (
+                      <p className="text-xs text-emerald-700 mt-0.5">OPC 评语：{order.opcReviewComment}</p>
                     )}
                   </div>
                 </div>
