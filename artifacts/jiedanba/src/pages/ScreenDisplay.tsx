@@ -97,7 +97,7 @@ function Header() {
 
       {/* Time - Left */}
       <div className="w-[30%] flex items-center">
-        <div className="text-[32px] font-mono font-bold text-slate-100 tracking-widest drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
+        <div className="text-[44px] font-mono font-bold text-slate-100 tracking-widest drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
           {format(time, "HH:mm:ss")}
         </div>
       </div>
@@ -119,7 +119,7 @@ function Header() {
             <div className="w-4 h-1.5 bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]" />
           </div>
         </div>
-        <h1 className="relative z-10 text-[28px] font-bold tracking-[0.1em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-200 to-purple-400 drop-shadow-[0_2px_15px_rgba(168,85,247,0.5)] flex items-center gap-3">
+        <h1 className="relative z-10 text-[36px] font-bold tracking-[0.1em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-200 to-purple-400 drop-shadow-[0_2px_15px_rgba(168,85,247,0.5)] flex items-center gap-3">
           <span>接单吧 OPC 撮合交易平台</span>
           <span className="text-purple-400 drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]">数据大屏</span>
         </h1>
@@ -129,7 +129,7 @@ function Header() {
       <div className="w-[30%] flex justify-end items-center gap-3">
         <div className="flex items-center gap-2 px-3 py-1.5">
           <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,1)] animate-pulse" />
-          <span className="text-[15px] text-emerald-400 font-medium tracking-wider drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">
+          <span className="text-[20px] text-emerald-400 font-medium tracking-wider drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">
             平台运行正常
           </span>
         </div>
@@ -172,14 +172,14 @@ function StatCard({ title, value, unit = "", icon, colorType = "cyan", delay = 0
       <div className={clsx("absolute top-0 left-0 right-0 h-[2px] opacity-80", c.bar)} />
 
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-bold text-slate-400 tracking-[0.08em] uppercase leading-tight">{title}</span>
-        <div className={clsx("w-6 h-6 rounded-md border flex items-center justify-center", c.icon)}>
-          <span className={clsx("w-3.5 h-3.5", c.text)}>{icon}</span>
+        <span className="text-[13px] font-bold text-slate-400 tracking-[0.08em] uppercase leading-tight">{title}</span>
+        <div className={clsx("w-7 h-7 rounded-md border flex items-center justify-center", c.icon)}>
+          <span className={clsx("w-4 h-4", c.text)}>{icon}</span>
         </div>
       </div>
       <div className="flex items-baseline gap-1 leading-none mt-1">
-        <span className={clsx("text-[28px] font-black font-mono tabular-nums", c.text)}>{display}</span>
-        {unit && <span className="text-[10px] text-slate-500 font-medium">{unit}</span>}
+        <span className={clsx("text-[34px] font-black font-mono tabular-nums", c.text)}>{display}</span>
+        {unit && <span className="text-[13px] text-slate-500 font-medium">{unit}</span>}
       </div>
     </div>
   );
@@ -200,8 +200,8 @@ function Panel({ children, title, borderColor = "border-cyan-500/50", className 
     )}>
       {title && (
         <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/5 shrink-0">
-          <div className="w-1 h-4 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-          <span className="text-[11px] font-bold text-slate-400 tracking-[0.08em] uppercase">{title}</span>
+          <div className="w-1.5 h-5 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+          <span className="text-[15px] font-bold text-slate-400 tracking-[0.08em] uppercase">{title}</span>
         </div>
       )}
       <div className={clsx("flex flex-col", title ? "p-3 pt-2" : "p-3", "h-full")}>
@@ -241,15 +241,15 @@ function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-          <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} axisLine={{ stroke: "#334155" }} />
-          <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={{ stroke: "#334155" }} allowDecimals={false} />
+          <XAxis dataKey="date" stroke="#64748b" fontSize={13} tickLine={false} axisLine={{ stroke: "#334155" }} />
+          <YAxis stroke="#64748b" fontSize={13} tickLine={false} axisLine={{ stroke: "#334155" }} allowDecimals={false} />
           <Tooltip
             contentStyle={{ backgroundColor: "rgba(2,13,36,0.9)", borderColor: "rgba(6,182,212,0.3)", color: "#e2e8f0", borderRadius: 6 }}
-            itemStyle={{ fontSize: 12, fontWeight: "bold" }}
-            labelStyle={{ fontSize: 10, color: "#94a3b8" }}
+            itemStyle={{ fontSize: 15, fontWeight: "bold" }}
+            labelStyle={{ fontSize: 13, color: "#94a3b8" }}
           />
-          <Legend verticalAlign="top" height={32} iconType="diamond"
-            formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 11 }}>{value}</span>} />
+          <Legend verticalAlign="top" height={36} iconType="diamond"
+            formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 14 }}>{value}</span>} />
           <Area type="monotone" name="新用户" dataKey="users" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorUsers)"
             dot={{ r: 3, fill: "#06b6d4", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#06b6d4", stroke: "#fff", strokeWidth: 2 }} />
           <Area type="monotone" name="新需求" dataKey="demands" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorDemands)"
@@ -276,10 +276,10 @@ function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; new
       {items.map((item, i) => (
         <div key={i} className={clsx("flex-1 rounded-lg border p-3 flex flex-col gap-2", item.borderClass, item.bgClass)}>
           <div className="flex items-center gap-1.5">
-            <span className="text-sm">{item.icon}</span>
-            <span className="text-[10px] font-bold text-slate-400 tracking-wider">{item.label}</span>
+            <span className="text-base">{item.icon}</span>
+            <span className="text-[13px] font-bold text-slate-400 tracking-wider">{item.label}</span>
           </div>
-          <div className={clsx("text-[26px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+          <div className={clsx("text-[32px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
             {item.value > 0 ? `+${item.value}` : item.value}
           </div>
         </div>
@@ -307,21 +307,21 @@ function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; 
         const c = STATUS_COLORS[item.status] ?? { colorClass: "bg-slate-400", shadowClass: "" };
         return (
           <div key={index} className="flex items-center gap-3">
-            <span className="text-[10px] text-slate-300 w-14 text-right font-medium tracking-wider shrink-0">{item.label}</span>
-            <div className="flex-1 h-2.5 bg-[#0a1936] rounded-full overflow-hidden border border-cyan-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
+            <span className="text-[13px] text-slate-300 w-20 text-right font-medium tracking-wider shrink-0">{item.label}</span>
+            <div className="flex-1 h-3 bg-[#0a1936] rounded-full overflow-hidden border border-cyan-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
               <div
                 className={clsx("h-full rounded-full transition-all duration-1000 ease-out", c.colorClass, c.shadowClass)}
                 style={{ width: `${pct === 0 ? 2 : pct}%` }}
               />
             </div>
-            <div className="w-16 flex items-center justify-between text-[10px] text-slate-400 font-mono shrink-0">
+            <div className="w-20 flex items-center justify-between text-[13px] text-slate-400 font-mono shrink-0">
               <span>{item.value}</span>
               <span>({pct}%)</span>
             </div>
           </div>
         );
       })}
-      <div className="flex justify-between items-center pt-1.5 border-t border-white/5 text-[10px] mt-auto">
+      <div className="flex justify-between items-center pt-1.5 border-t border-white/5 text-[13px] mt-auto">
         <span className="text-slate-500">需求总计</span>
         <span className="font-bold text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.6)]">{total} 条</span>
       </div>
@@ -352,13 +352,13 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
               style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 5px #10b981)" }} />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[11px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
+            <span className="text-[14px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
               {completionRate}%
             </span>
           </div>
         </div>
-        <span className="text-[9px] font-bold text-slate-400 tracking-[0.08em] uppercase">订单完成率</span>
-        <div className="text-[9px] text-slate-500 text-center">
+        <span className="text-[12px] font-bold text-slate-400 tracking-[0.08em] uppercase">订单完成率</span>
+        <div className="text-[12px] text-slate-500 text-center">
           完成 <span className="text-emerald-400 font-bold">{completedOrders}</span> ·
           进行中 <span className="text-teal-400 font-bold">{inProgressOrders}</span>
         </div>
@@ -368,12 +368,12 @@ function OrderOverview({ completionRate, completedOrders, inProgressOrders, tota
 
       {/* Settlement */}
       <div className="flex flex-col items-center gap-0.5 shrink-0">
-        <span className="text-[9px] font-bold text-slate-500 tracking-[0.08em] uppercase">累计结算</span>
+        <span className="text-[12px] font-bold text-slate-500 tracking-[0.08em] uppercase">累计结算</span>
         <div className="flex items-baseline gap-1">
-          <span className="text-[28px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
+          <span className="text-[32px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]">
             {settled}
           </span>
-          <span className="text-[11px] font-bold text-slate-300">元</span>
+          <span className="text-[14px] font-bold text-slate-300">元</span>
         </div>
       </div>
     </div>
@@ -428,7 +428,7 @@ function LiveFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticker2: 
                 ? "bg-gradient-to-r from-cyan-900/30 to-[#020b1e]/50 border-cyan-500/30 shadow-[inset_0_0_15px_rgba(6,182,212,0.08)]"
                 : "bg-gradient-to-r from-amber-900/20 to-[#020b1e]/50 border-amber-500/25 shadow-[inset_0_0_15px_rgba(245,158,11,0.05)]"
             )}>
-              <p className={clsx("text-[11px] leading-snug font-medium tracking-wide",
+              <p className={clsx("text-[14px] leading-snug font-medium tracking-wide",
                 item.type === "activity" ? "text-cyan-50" : "text-amber-100")}>
                 {item.text}
               </p>
@@ -479,7 +479,7 @@ function Ticker({ items, color, label }: { items: { text: string }[]; color: str
       color === "cyan" ? "bg-cyan-900/10 border-cyan-500/10" : "bg-amber-900/8 border-amber-500/8"
     )}>
       <div className={clsx(
-        "shrink-0 px-4 text-[10px] font-black tracking-[0.08em] whitespace-nowrap",
+        "shrink-0 px-4 text-[14px] font-black tracking-[0.08em] whitespace-nowrap",
         color === "cyan" ? "text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]"
                         : "text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"
       )} style={{ padding: "7px 14px 7px 24px" }}>
@@ -491,7 +491,7 @@ function Ticker({ items, color, label }: { items: { text: string }[]; color: str
         <div className={clsx("absolute right-0 inset-y-0 w-10 z-10 pointer-events-none",
           color === "cyan" ? "bg-gradient-to-l from-[#040c1a] to-transparent" : "bg-gradient-to-l from-[#040c1a] to-transparent")} />
         <div ref={trackRef} className={clsx(
-          "inline-block whitespace-nowrap text-[12px] font-bold tracking-[0.03em]",
+          "inline-block whitespace-nowrap text-[16px] font-bold tracking-[0.03em]",
           color === "cyan"
             ? "text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.5)]"
             : "text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]"
@@ -518,7 +518,7 @@ function CountdownRing({ n, total }: { n: number; total: number }) {
           strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s linear", filter: `drop-shadow(0 0 3px ${color})` }} />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[8px] font-black tabular-nums" style={{ color }}>{n}s</span>
+        <span className="text-[11px] font-black tabular-nums" style={{ color }}>{n}s</span>
       </div>
     </div>
   );
@@ -568,7 +568,7 @@ export default function ScreenDisplay() {
       <style>{KF}</style>
       <div
         className="text-slate-200 flex flex-col font-sans selection:bg-cyan-500/30 relative"
-        style={{ background: "linear-gradient(155deg, #040b17 0%, #060f1e 50%, #040c18 100%)", zoom: 2, width: "100vw", height: "100vh", overflow: "hidden" }}
+        style={{ background: "linear-gradient(155deg, #040b17 0%, #060f1e 50%, #040c18 100%)", width: "100vw", height: "100vh", overflow: "hidden" }}
       >
         {/* Background effects */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -592,7 +592,7 @@ export default function ScreenDisplay() {
           </div>
 
           {/* ═══ KPI STATS ROW ═══ */}
-          <div className="grid grid-cols-8 gap-3 px-6 mb-3 shrink-0" style={{ height: 106 }}>
+          <div className="grid grid-cols-8 gap-3 px-6 mb-3 shrink-0" style={{ height: 124 }}>
             {statsData.map((s, i) => (
               <StatCard key={i} {...s} ready={ready} />
             ))}
