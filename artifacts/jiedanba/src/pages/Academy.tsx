@@ -447,6 +447,36 @@ function MyCourseCard({
 
 const LEVEL_LABELS: Record<string, string> = { C: "C 级·新手", B: "B 级·进阶", A: "A 级·专家" };
 
+/* ─── Inline Syllabus Viewer ─────────────────────── */
+function InlineSyllabusViewer({ url }: { url: string }) {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "svg"];
+  const officeExts = ["doc", "docx", "ppt", "pptx", "xls", "xlsx"];
+
+  if (imageExts.includes(ext)) {
+    return (
+      <div className="p-4 flex justify-center bg-muted/20">
+        <img src={url} alt="课纲资料" className="max-w-full rounded-lg shadow" />
+      </div>
+    );
+  }
+
+  const absolute = url.startsWith("http") ? url : new URL(url, window.location.href).href;
+  const previewUrl = officeExts.includes(ext)
+    ? `https://docs.google.com/viewer?url=${encodeURIComponent(absolute)}&embedded=true`
+    : absolute;
+
+  return (
+    <iframe
+      src={previewUrl}
+      className="w-full border-0"
+      style={{ height: 420 }}
+      title="课纲资料预览"
+      allow="fullscreen"
+    />
+  );
+}
+
 function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onRequestRefund, onPreviewDoc, isEnrolling, isPaying, isRefunding, isLoggedIn }: {
   course: Course;
   enrollment: EnrollmentInfo | null;
@@ -538,51 +568,13 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onReq
           )}
 
           {syllabusUrl && (
-            <div className="border border-border rounded-xl p-4">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">课纲资料</p>
-              <div className={`flex items-center gap-3 p-3 rounded-xl border ${isEnrolled && isPaid ? "bg-primary/5 border-primary/15" : "bg-muted/40 border-border/40"}`}>
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isEnrolled && isPaid ? "bg-primary/10" : "bg-muted"}`}>
-                  {isEnrolled && isPaid
-                    ? <FileText size={20} className="text-primary" />
-                    : <Lock size={20} className="text-muted-foreground/50" />
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-foreground">{getFileLabel(syllabusUrl)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {isEnrolled && isPaid
-                      ? "课程大纲与学习资料"
-                      : coursePrice > 0
-                        ? "付款后即可查看与下载"
-                        : "报名后即可查看与下载"
-                    }
-                  </p>
-                </div>
-                {isEnrolled && isPaid ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => onPreviewDoc(syllabusUrl)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors"
-                      title="在浏览器中预览"
-                    >
-                      <Eye size={13} /> 预览
-                    </button>
-                    <a
-                      href={syllabusUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-foreground text-xs font-semibold rounded-lg hover:bg-muted/70 transition-colors"
-                      title="下载文件"
-                    >
-                      <Download size={13} /> 下载
-                    </a>
-                  </div>
-                ) : (
-                  <div className="shrink-0 px-3 py-1.5 bg-muted rounded-lg text-xs text-muted-foreground font-semibold flex items-center gap-1">
-                    <Lock size={12} /> 未解锁
-                  </div>
-                )}
+            <div className="border border-border rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 bg-muted/30 border-b border-border">
+                <FileText size={15} className="text-primary" />
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">课纲资料</p>
+                <span className="text-xs text-muted-foreground">— {getFileLabel(syllabusUrl)}</span>
               </div>
+              <InlineSyllabusViewer url={syllabusUrl} />
             </div>
           )}
 
