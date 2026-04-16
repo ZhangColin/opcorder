@@ -44,6 +44,10 @@ router.post("/activities/:id/register", async (req, res) => {
     if (!activity) return res.status(404).json({ error: "活动不存在" });
     if (!activity.isActive) return res.status(400).json({ error: "活动报名已关闭" });
 
+    const fields = await db.select().from(activityFieldsTable)
+      .where(eq(activityFieldsTable.activityId, activityId))
+      .orderBy(activityFieldsTable.sortOrder);
+
     const { name, phone, email, organization, extraData } = req.body as {
       name: string;
       phone?: string;
@@ -53,6 +57,17 @@ router.post("/activities/:id/register", async (req, res) => {
     };
 
     if (!name?.trim()) return res.status(400).json({ error: "姓名不能为空" });
+
+    const extra = extraData ?? {};
+    for (const field of fields) {
+      if (!field.isRequired) continue;
+      const val = extra[field.label];
+      const isEmpty = val === undefined || val === null || val === "" ||
+        (Array.isArray(val) && val.length === 0);
+      if (isEmpty) {
+        return res.status(400).json({ error: `"${field.label}"为必填项` });
+      }
+    }
 
     const [registration] = await db.insert(registrationsTable).values({
       activityId,
