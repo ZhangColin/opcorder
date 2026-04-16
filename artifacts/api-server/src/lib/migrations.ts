@@ -326,5 +326,81 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 005b failed in production: ${err}`);
   }
 
+  // Migration 006a: create activities table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS activities (
+        id serial PRIMARY KEY,
+        title varchar(200) NOT NULL,
+        description text,
+        location varchar(200),
+        start_time timestamp,
+        end_time timestamp,
+        is_active boolean NOT NULL DEFAULT true,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 006a: could not create activities table");
+    if (!isDev) throw new Error(`Migration 006a failed in production: ${err}`);
+  }
+
+  // Migration 006b: create activity_fields table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS activity_fields (
+        id serial PRIMARY KEY,
+        activity_id integer NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+        label varchar(100) NOT NULL,
+        field_type varchar(20) NOT NULL DEFAULT 'text',
+        is_required boolean NOT NULL DEFAULT false,
+        options jsonb DEFAULT '[]',
+        sort_order integer NOT NULL DEFAULT 0
+      )
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 006b: could not create activity_fields table");
+    if (!isDev) throw new Error(`Migration 006b failed in production: ${err}`);
+  }
+
+  // Migration 006c: create registrations table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS registrations (
+        id serial PRIMARY KEY,
+        activity_id integer NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+        name varchar(100) NOT NULL,
+        phone varchar(20),
+        email varchar(200),
+        organization varchar(200),
+        extra_data jsonb DEFAULT '{}',
+        admin_note text,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS registrations_activity_id_idx ON registrations(activity_id)`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 006c: could not create registrations table");
+    if (!isDev) throw new Error(`Migration 006c failed in production: ${err}`);
+  }
+
+  // Migration 006d: create registration_tags table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS registration_tags (
+        id serial PRIMARY KEY,
+        registration_id integer NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
+        tag varchar(50) NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS registration_tags_reg_id_idx ON registration_tags(registration_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS registration_tags_tag_idx ON registration_tags(tag)`);
+  } catch (err) {
+    logger.warn({ err }, "Migration 006d: could not create registration_tags table");
+    if (!isDev) throw new Error(`Migration 006d failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

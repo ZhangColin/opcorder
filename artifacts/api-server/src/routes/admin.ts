@@ -74,6 +74,7 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/sensitive-words", permission: "sensitivewords" },
   { prefix: "/api/admin/settings",      permission: "settings" },
   { prefix: "/api/admin/disputes",      permission: "disputes" },
+  { prefix: "/api/admin/activities",    permission: "activities" },
 ];
 
 import { Request, Response, NextFunction } from "express";

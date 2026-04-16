@@ -15,6 +15,7 @@ export const ADMIN_PERMISSION_KEYS = [
   "levelcert",
   "content",
   "sensitivewords",
+  "activities",
   "settings",
   "screen",
 ] as const;

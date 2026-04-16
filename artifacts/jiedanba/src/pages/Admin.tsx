@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import AdminActivities from "./AdminActivities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
@@ -98,7 +99,7 @@ export type Module =
   | "dashboard" | "users" | "demands" | "orders"
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
-  | "sensitivewords" | "payments"
+  | "sensitivewords" | "payments" | "activities"
   | "roles" | "adminusers" | "screen";
 
 const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string }[] = [
@@ -115,6 +116,7 @@ const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly
   { key: "levelcert",      icon: Trophy,              label: "等级认证",    permKey: "levelcert" },
   { key: "content",        icon: Shield,              label: "内容审核",    permKey: "content" },
   { key: "sensitivewords", icon: Flame,               label: "敏感词管理",  permKey: "sensitivewords" },
+  { key: "activities",     icon: ClipboardList,       label: "活动报名",    permKey: "activities" },
   { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
   { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
   { key: "adminusers",     icon: UserCog,             label: "管理员管理",  superAdminOnly: true },
@@ -5683,6 +5685,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "content":        return <ContentReview />;
     case "sensitivewords": return <SensitiveWordsManagement />;
     case "payments":       return <><DepositPaymentManagement /><DemandRefundManagement /></>;
+    case "activities":     return <AdminActivities />;
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;
