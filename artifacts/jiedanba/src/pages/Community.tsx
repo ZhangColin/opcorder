@@ -7,7 +7,7 @@ import {
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
   ArrowRight, Filter, Plus, X, Send, Loader2,
   ChevronDown, LogOut, ArrowLeft, ChevronUp,
-  ChevronLeft, ChevronRight, Flame, ShieldCheck,
+  ChevronLeft, ChevronRight, ShieldCheck,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile,
@@ -673,23 +673,6 @@ export default function Community() {
                 i === 0 ? "text-blue-700 border-b-2 border-blue-700 pb-1" : "text-slate-500 hover:text-blue-900"
               }`}>{label}</span>
             ))}
-            <a
-              href={`${import.meta.env.BASE_URL}events/opc-meetup.html`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-1 font-bold text-sm tracking-tight text-orange-500 hover:text-orange-600 transition-colors"
-            >
-              <style>{`
-                @keyframes flame-flicker {
-                  0%, 100% { opacity: 1; transform: scale(1) rotate(-3deg); }
-                  40% { opacity: 0.8; transform: scale(1.18) rotate(3deg); }
-                  70% { opacity: 1; transform: scale(1.08) rotate(-2deg); }
-                }
-                .flame-anim { animation: flame-flicker 1.4s ease-in-out infinite; transform-origin: bottom center; }
-              `}</style>
-              <Flame size={14} className="flame-anim" />
-              活动
-            </a>
           </nav>
 
           <div className="flex items-center gap-3">
