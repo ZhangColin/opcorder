@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Calendar, MapPin, Clock } from "lucide-react";
+import { SiteLogo, useSiteName } from "@/components/SiteLogo";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -130,6 +131,16 @@ export default function ActivityRegister() {
     handleChange(key, updated);
   }
 
+  const siteName = useSiteName();
+
+  const BrandHeader = () => (
+    <div className="flex items-center gap-2 mb-8">
+      <SiteLogo size={28} />
+      <span className="text-base font-bold text-blue-900">{siteName}</span>
+      <span className="text-xs text-gray-400 ml-1">活动报名</span>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
@@ -143,13 +154,16 @@ export default function ActivityRegister() {
 
   if (error || !activity) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center max-w-sm">
-          <div className="text-5xl mb-4">😕</div>
-          <h1 className="text-xl font-bold text-gray-800 mb-2">暂无法访问此活动</h1>
-          <p className="text-gray-500 text-sm">
-            {error instanceof Error ? error.message : "请确认链接是否正确"}
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-10 px-4">
+        <div className="max-w-lg mx-auto">
+          <BrandHeader />
+          <div className="text-center max-w-sm mx-auto">
+            <div className="text-5xl mb-4">😕</div>
+            <h1 className="text-xl font-bold text-gray-800 mb-2">暂无法访问此活动</h1>
+            <p className="text-gray-500 text-sm">
+              {error instanceof Error ? error.message : "请确认链接是否正确"}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -157,15 +171,18 @@ export default function ActivityRegister() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-lg p-10 text-center max-w-sm w-full">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 size={40} className="text-green-500" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-10 px-4">
+        <div className="max-w-lg mx-auto">
+          <BrandHeader />
+          <div className="bg-white rounded-3xl shadow-lg p-10 text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 size={40} className="text-green-500" />
+            </div>
+            <h1 className="text-2xl font-extrabold text-gray-900 mb-3">报名成功！</h1>
+            <p className="text-gray-500 text-base">
+              您已成功报名「{activity.title}」，期待与您相见！
+            </p>
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-3">报名成功！</h1>
-          <p className="text-gray-500 text-base">
-            您已成功报名「{activity.title}」，期待与您相见！
-          </p>
         </div>
       </div>
     );
@@ -174,6 +191,7 @@ export default function ActivityRegister() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-10 px-4">
       <div className="max-w-lg mx-auto">
+        <BrandHeader />
         {/* Activity header */}
         <div className="bg-white rounded-3xl shadow-sm p-8 mb-6">
           <h1 className="text-2xl font-extrabold text-blue-900 mb-3">{activity.title}</h1>
@@ -326,6 +344,14 @@ export default function ActivityRegister() {
               {mutation.isPending && <Loader2 size={18} className="animate-spin" />}
               {mutation.isPending ? "提交中…" : "提交报名"}
             </button>
+
+            <p className="text-center text-xs text-gray-400 leading-relaxed">
+              提交即表示您同意接单吧的
+              <a href="/terms" className="text-blue-500 hover:underline mx-0.5">服务条款</a>
+              和
+              <a href="/privacy" className="text-blue-500 hover:underline mx-0.5">隐私政策</a>
+              。您的信息仅用于本次活动报名，不会用于其他用途。
+            </p>
           </form>
         </div>
       </div>
