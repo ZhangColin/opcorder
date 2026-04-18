@@ -322,7 +322,7 @@ function useAdminListState<F extends string = string>(defaultFilter: F = "" as F
 
   const commitSearch = () => { setQ(qInput); setPage(1); };
   const clearSearch = () => { setQ(""); setQInput(""); setPage(1); };
-  const applyFilter = (f: F) => { setFilter(f); setPage(1); };
+  const applyFilter = (f: string) => { setFilter(f as F); setPage(1); };
   const applyLevel = (l: string) => { setLevel(l); setPage(1); };
   const setPageSize = (s: number) => { setPageSizeRaw(s); setPage(1); };
 
@@ -5229,7 +5229,7 @@ type AdminAccount = {
 function AdminRolesPanel() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirm();
+  const { askConfirm, confirmDialog } = useConfirm();
 
   const { data: roles = [], isLoading } = useQuery<AdminRole[]>({
     queryKey: ["admin-roles"],
@@ -5383,9 +5383,8 @@ function AdminRolesPanel() {
                     <Edit2 size={14} />
                   </button>
                   <button
-                    onClick={async () => {
-                      const ok = await confirm({ title: `删除角色「${r.name}」？`, description: "此操作不可恢复，所有使用该角色的管理员将失去对应权限。", confirmText: "确认删除", variant: "destructive" });
-                      if (ok) deleteMutation.mutate(r.id);
+                    onClick={() => {
+                      askConfirm({ title: `删除角色「${r.name}」？`, description: "此操作不可恢复，所有使用该角色的管理员将失去对应权限。", confirmLabel: "确认删除", confirmVariant: "destructive", onConfirm: () => deleteMutation.mutate(r.id) });
                     }}
                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
                     <Trash2 size={14} />
@@ -5396,6 +5395,7 @@ function AdminRolesPanel() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
@@ -5405,7 +5405,7 @@ function AdminRolesPanel() {
 function AdminUsersPanel() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirm();
+  const { askConfirm, confirmDialog } = useConfirm();
 
   const { data: admins = [], isLoading } = useQuery<AdminAccount[]>({
     queryKey: ["rbac-admin-accounts"],
@@ -5654,9 +5654,8 @@ function AdminUsersPanel() {
                               <Edit2 size={13} />
                             </button>
                             <button
-                              onClick={async () => {
-                                const ok = await confirm({ title: `撤销「${a.nickname}」的管理员权限？`, description: "该用户将失去所有后台访问权限，恢复为普通用户。", confirmText: "确认撤销", variant: "destructive" });
-                                if (ok) revokeMutation.mutate(a.id);
+                              onClick={() => {
+                                askConfirm({ title: `撤销「${a.nickname}」的管理员权限？`, description: "该用户将失去所有后台访问权限，恢复为普通用户。", confirmLabel: "确认撤销", confirmVariant: "destructive", onConfirm: () => revokeMutation.mutate(a.id) });
                               }}
                               className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                               <UserX size={13} />
@@ -5672,6 +5671,7 @@ function AdminUsersPanel() {
           </table>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

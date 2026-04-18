@@ -7,7 +7,7 @@ import {
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
   ArrowRight, Filter, Plus, X, Send, Loader2,
   ChevronDown, LogOut, ArrowLeft, ChevronUp,
-  ChevronLeft, ChevronRight, ShieldCheck,
+  ChevronLeft, ChevronRight, ShieldCheck, Flame,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile,
@@ -793,7 +793,7 @@ export default function Community() {
               <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
                 <Flame size={36} className="text-slate-200" />
                 <p className="text-sm font-medium">
-                  {activeTab === "hot" ? "暂无热门推荐，管理员正在精选优质内容" : "暂无帖子，快来发第一篇吧"}
+                  {feedTab === "hot" ? "暂无热门推荐，管理员正在精选优质内容" : "暂无帖子，快来发第一篇吧"}
                 </p>
               </div>
             ) : posts.map(post => {

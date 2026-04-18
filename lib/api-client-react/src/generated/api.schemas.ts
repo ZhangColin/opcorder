@@ -15,6 +15,8 @@ export interface OverviewStats {
   activeOpcs: number;
   monthlyOrders: number;
   completionRate: number;
+  totalSettlements?: number;
+  activeDemands?: number;
 }
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -50,6 +52,7 @@ export const OpcProfileLevel = {
   C: "C",
   B: "B",
   A: "A",
+  newbie: "newbie",
 } as const;
 
 export interface OpcProfile {
@@ -59,6 +62,12 @@ export interface OpcProfile {
   avatar?: string;
   level: OpcProfileLevel;
   bio?: string;
+  title?: string;
+  location?: string;
+  yearsExp?: number;
+  website?: string | null;
+  phone?: string | null;
+  wechat?: string;
   skillTags?: string[];
   industryTags?: string[];
   creditScore: number;
@@ -142,6 +151,9 @@ export const DemandStatus = {
   pending_acceptance: "pending_acceptance",
   completed: "completed",
   closed: "closed",
+  refund_pending: "refund_pending",
+  refunding: "refunding",
+  refunded: "refunded",
 } as const;
 
 export interface Demand {
@@ -165,6 +177,9 @@ export interface Demand {
   bidCount?: number;
   createdAt: string;
   updatedAt?: string;
+  requiredLevel?: string;
+  attachments?: { name: string; url: string; type?: string }[];
+  directedOpcIds?: number[];
 }
 
 export interface DemandListResponse {
@@ -215,17 +230,18 @@ export const CreateDemandInputMode = {
 export interface CreateDemandInput {
   /** @maxLength 50 */
   title: string;
-  type: CreateDemandInputType;
+  type: CreateDemandInputType | string;
   description: string;
   skillTags: string[];
-  opcLevel: CreateDemandInputOpcLevel;
+  opcLevel: CreateDemandInputOpcLevel | string;
   budget: number;
   deadline: string;
   milestones?: CreateDemandInputMilestonesItem[];
-  mode: CreateDemandInputMode;
+  mode: CreateDemandInputMode | string;
   bidDeadline?: string;
   isUrgent?: boolean;
   directedOpcIds?: number[];
+  attachments?: { name: string; url: string; type?: string }[];
 }
 
 export type UpdateDemandInputOpcLevel =
@@ -247,14 +263,18 @@ export type UpdateDemandInputMilestonesItem = {
 export interface UpdateDemandInput {
   /** @maxLength 50 */
   title?: string;
+  type?: string;
   description?: string;
   skillTags?: string[];
-  opcLevel?: UpdateDemandInputOpcLevel;
+  opcLevel?: UpdateDemandInputOpcLevel | string;
   budget?: number;
   deadline?: string;
   milestones?: UpdateDemandInputMilestonesItem[];
   bidDeadline?: string;
   isUrgent?: boolean;
+  mode?: string;
+  directedOpcIds?: number[];
+  attachments?: { name: string; url: string; type?: string }[];
 }
 
 export type DemandPaymentMethod =
@@ -468,6 +488,9 @@ export interface Portfolio {
   rating?: number;
   clientFeedback?: string;
   createdAt: string;
+  applyLevel?: string;
+  levelApplyStatus?: string;
+  levelApplyNote?: string;
 }
 
 export interface CreatePortfolioInput {
@@ -476,6 +499,8 @@ export interface CreatePortfolioInput {
   coverImage?: string;
   description: string;
   projectUrl?: string;
+  applyLevel?: string | null;
+  userId?: number;
 }
 
 export type NotificationType =
@@ -500,6 +525,7 @@ export const NotificationRelatedType = {
   demand: "demand",
   order: "order",
   bid: "bid",
+  portfolio: "portfolio",
 } as const;
 
 export interface Notification {
@@ -575,6 +601,7 @@ export const CourseRequiredLevel = {
   C: "C",
   B: "B",
   A: "A",
+  any: "any",
 } as const;
 
 export type CourseStatus = (typeof CourseStatus)[keyof typeof CourseStatus];
@@ -753,6 +780,7 @@ export type ListDemandsParams = {
    * Show demands where requiredLevel matches this level OR is "any"
    */
   eligibleLevel?: ListDemandsEligibleLevel;
+  publisherId?: number;
 };
 
 export type ListDemandsStatus =
@@ -857,6 +885,8 @@ export type ListOrdersParams = {
   role?: ListOrdersRole;
   page?: number;
   limit?: number;
+  opcId?: number;
+  publisherId?: number;
 };
 
 export type ListOrdersStatus =

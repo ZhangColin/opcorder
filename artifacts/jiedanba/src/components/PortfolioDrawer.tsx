@@ -144,9 +144,9 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
     };
     try {
       if (initial?.id) {
-        await update({ portfolioId: initial.id, data: payload as never });
+        await update({ portfolioId: initial.id, data: payload });
       } else {
-        await create({ data: { ...(payload as never), userId } });
+        await create({ data: { ...payload, userId } });
       }
       await qc.invalidateQueries({ queryKey: ["/api/portfolios"] });
       setStatus("saved");
