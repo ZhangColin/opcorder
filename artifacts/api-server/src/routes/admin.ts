@@ -1713,6 +1713,10 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   welcome_email_body:      "欢迎加入接单吧！我们是专注 OPC 超级个体的撮合交易平台，更多功能正在持续开发与上线中，敬请期待。",
   welcome_email_group_tip: "扫码加入官方微信交流群，与更多 OPC 伙伴一起交流成长：",
   wechat_group_qr:         "",
+  legal_terms_updated:     "2026 年 1 月 1 日",
+  legal_terms_content:     "",
+  legal_privacy_updated:   "2026 年 1 月 1 日",
+  legal_privacy_content:   "",
 };
 
 router.get("/admin/settings", async (_req, res) => {
@@ -1727,10 +1731,20 @@ router.get("/admin/settings", async (_req, res) => {
   }
 });
 
+const LEGAL_CONTENT_KEYS = new Set(["legal_terms_content", "legal_privacy_content"]);
+
+function stripDangerousHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "")
+    .replace(/javascript\s*:/gi, "about:");
+}
+
 router.put("/admin/settings", async (req, res) => {
   try {
     const updates = req.body as Record<string, string>;
-    for (const [key, value] of Object.entries(updates)) {
+    for (const [key, rawValue] of Object.entries(updates)) {
+      const value = LEGAL_CONTENT_KEYS.has(key) ? stripDangerousHtml(String(rawValue)) : rawValue;
       await db
         .insert(siteSettingsTable)
         .values({ key, value })

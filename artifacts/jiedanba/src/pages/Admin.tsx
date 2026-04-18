@@ -4243,6 +4243,48 @@ function SiteSettingsManagement() {
           </div>
         ))}
 
+        {/* 法律文档 */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-6">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">法律文档</h3>
+          <p className="text-xs text-slate-400 -mt-2">编辑后保存即可生效，无需重新部署。内容支持 HTML 标记；留空则显示系统默认静态内容。</p>
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold text-blue-900">服务条款（/terms）</h4>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">最后更新日期</label>
+              {field("legal_terms_updated", "2026 年 1 月 1 日")}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">正文内容（HTML）</label>
+              <textarea
+                value={form["legal_terms_content"] ?? ""}
+                onChange={e => setForm(v => ({ ...v, legal_terms_content: e.target.value }))}
+                rows={10}
+                placeholder="留空则使用系统默认静态内容。可粘贴 HTML 代码，例如：<section><h2>1. 总则</h2><p>…</p></section>"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition resize-y font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t border-slate-100 pt-6">
+            <h4 className="text-sm font-bold text-blue-900">隐私政策（/privacy）</h4>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">最后更新日期</label>
+              {field("legal_privacy_updated", "2026 年 1 月 1 日")}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">正文内容（HTML）</label>
+              <textarea
+                value={form["legal_privacy_content"] ?? ""}
+                onChange={e => setForm(v => ({ ...v, legal_privacy_content: e.target.value }))}
+                rows={10}
+                placeholder="留空则使用系统默认静态内容。可粘贴 HTML 代码，例如：<section><h2>1. 引言</h2><p>…</p></section>"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition resize-y font-mono"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* 保存按钮 */}
         <div className="flex justify-end">
           <button
