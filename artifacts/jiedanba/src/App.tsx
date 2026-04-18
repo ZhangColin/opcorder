@@ -41,6 +41,7 @@ import ScreenDisplay from "@/pages/ScreenDisplay";
 import ActivityRegister from "@/pages/ActivityRegister";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
+import Support from "@/pages/Support";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -192,6 +193,7 @@ function Router() {
       <Route path="/auth/:role" component={Auth} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/support" component={Support} />
       <Route path="/activity/:id" component={ActivityRegister} />
       <Route path="/screen">
         {() => <AdminGate><ScreenDisplay /></AdminGate>}

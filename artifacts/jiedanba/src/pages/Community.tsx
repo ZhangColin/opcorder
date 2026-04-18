@@ -1029,7 +1029,7 @@ export default function Community() {
             <a href="/privacy" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">隐私政策</a>
             <a href="/terms" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">服务条款</a>
             <a href="/terms#community" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">社区准则</a>
-            <a href="mailto:support@jiedanba.com" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">联系支持</a>
+            <a href="/support" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">联系支持</a>
           </nav>
           <div className="text-xs text-slate-400 uppercase tracking-widest">© 2026 {siteName} · OPC 专业平台</div>
         </div>
