@@ -7,14 +7,15 @@ import {
   Users,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getAccessToken } from "@/lib/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function getAdminHeaders() {
-  const userId = localStorage.getItem("jdb_user_id");
+  const token = getAccessToken();
   return {
     "Content-Type": "application/json",
-    ...(userId ? { Authorization: `Bearer ${userId}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 

@@ -33,16 +33,26 @@ export function storeSession(data: {
   localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
   localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-  localStorage.setItem("jdb_role", data.user.role);
-  localStorage.setItem("jdb_nickname", data.user.nickname ?? "");
+}
+
+/**
+ * Update a single field on the stored user object without touching the tokens.
+ * Use this instead of writing to legacy jdb_role / jdb_nickname keys directly.
+ */
+export function updateStoredUserField<K extends keyof StoredUser>(
+  field: K,
+  value: StoredUser[K],
+): void {
+  const user = getStoredUser();
+  if (!user) return;
+  user[field] = value;
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function clearSession(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  localStorage.removeItem("jdb_role");
-  localStorage.removeItem("jdb_nickname");
 }
 
 function getTokenExpiry(token: string): number | null {

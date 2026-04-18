@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
-import { clearSession } from "@/lib/auth";
+import { clearSession, getStoredUser } from "@/lib/auth";
 import {
   Search, Bell, User, ThumbsUp, MessageSquare,
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
@@ -582,7 +582,7 @@ export default function Community() {
   const [searchQuery, setSearchQuery]         = useState("");
   const [page, setPage]                       = useState(1);
 
-  const role     = localStorage.getItem("jdb_role");
+  const role     = getStoredUser()?.role ?? null;
   const isGuest  = !role;
   const siteName = useSiteName();
 

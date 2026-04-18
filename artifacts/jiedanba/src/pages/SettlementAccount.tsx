@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getAccessToken } from "@/lib/auth";
 import { useGetCurrentUser } from "@workspace/api-client-react";
 import {
   Building2,
@@ -52,9 +53,9 @@ export default function SettlementAccount() {
     if (!user?.id || initialized.current) return;
     initialized.current = true;
 
-    const userId = localStorage.getItem("jdb_user_id");
+    const token = getAccessToken();
     fetch(`${BASE}/api/opc/settlement-account`, {
-      headers: { Authorization: `Bearer ${userId}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then(({ data }) => {
@@ -82,13 +83,13 @@ export default function SettlementAccount() {
 
   async function handleSave() {
     setSaving(true);
-    const userId = localStorage.getItem("jdb_user_id");
+    const token = getAccessToken();
     try {
       const res = await fetch(`${BASE}/api/opc/settlement-account`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${userId}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });

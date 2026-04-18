@@ -3,7 +3,7 @@ import AdminActivities from "./AdminActivities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
-import { clearSession } from "@/lib/auth";
+import { clearSession, getAccessToken, getStoredUser } from "@/lib/auth";
 import {
   LayoutDashboard, Users, FileText, ShoppingBag,
   Wallet, Network, GraduationCap, Shield, BarChart3,
@@ -26,10 +26,10 @@ import { useConfirm } from "@/hooks/use-confirm";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function getAdminHeaders() {
-  const userId = localStorage.getItem("jdb_user_id");
+  const token = getAccessToken();
   return {
     "Content-Type": "application/json",
-    ...(userId ? { Authorization: `Bearer ${userId}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
 
@@ -134,7 +134,7 @@ type AdminProfile = {
 };
 
 function useAdminProfile() {
-  const tokenHint = localStorage.getItem("jdb_user_id")?.slice(-12) ?? "none";
+  const tokenHint = getAccessToken()?.slice(-12) ?? "none";
   return useQuery<AdminProfile>({
     queryKey: ["admin-profile", tokenHint],
     queryFn: () => adminGet("/api/admin/profile"),
@@ -5723,7 +5723,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
-  const role = localStorage.getItem("jdb_role");
+  const role = getStoredUser()?.role;
   if (!role || role !== "admin") {
     return (
       <div className="min-h-screen bg-[#f3f3f6] flex items-center justify-center">
@@ -5744,7 +5744,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
     );
   }
 
-  const adminNickname = localStorage.getItem("jdb_nickname") ?? "管理员";
+  const adminNickname = getStoredUser()?.nickname ?? "管理员";
 
   const { data: profile } = useAdminProfile();
   const isSuperAdmin = profile?.isSuperAdmin ?? false;

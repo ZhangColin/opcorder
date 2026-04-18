@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter, setOn401Handler } from "@workspace/api-client-react";
 import { useEffect } from "react";
-import { getValidAccessToken, clearSession, refreshAccessToken, isTokenExpiredSync, getRefreshToken } from "@/lib/auth";
+import { getValidAccessToken, clearSession, refreshAccessToken, isTokenExpiredSync, getRefreshToken, getAccessToken, getStoredUser } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
@@ -82,7 +82,7 @@ setOn401Handler(async () => {
  * - token 已过期但有 refresh token → 仍返回角色，让后台刷新流程处理
  */
 function getRole(): string | null {
-  const token = localStorage.getItem("jdb_user_id");
+  const token = getAccessToken();
   if (!token) return null;
   if (token.split(".").length !== 3) {
     clearSession();
@@ -92,7 +92,7 @@ function getRole(): string | null {
     clearSession();
     return null;
   }
-  return localStorage.getItem("jdb_role");
+  return getStoredUser()?.role ?? null;
 }
 
 function roleHomePath(role: string | null): string {
@@ -157,7 +157,7 @@ function SessionWatcher() {
 
     const check = async () => {
       if (checking) return;
-      const role = localStorage.getItem("jdb_role");
+      const role = getStoredUser()?.role;
       if (!role) return; // 未登录，无需检测
 
       checking = true;

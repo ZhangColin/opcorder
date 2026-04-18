@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { clearSession, getAccessToken } from "@/lib/auth";
+import { clearSession, getAccessToken, updateStoredUserField } from "@/lib/auth";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, Building2, MapPin, Users, Calendar, Globe,
@@ -321,7 +321,7 @@ export default function PublisherProfile() {
       const data = await res.json();
       setProfile(data);
       if (form.nickname && form.nickname !== localNickname) {
-        localStorage.setItem("jdb_nickname", form.nickname);
+        updateStoredUserField("nickname", form.nickname);
       }
       setEditing(false);
       setSaved(true);
