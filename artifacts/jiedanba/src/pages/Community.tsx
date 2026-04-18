@@ -1026,9 +1026,10 @@ export default function Community() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 max-w-screen-2xl mx-auto">
           <div className="font-display font-bold text-lg text-slate-900">{siteName}社区</div>
           <nav className="flex flex-wrap justify-center gap-8">
-            {["隐私政策", "服务条款", "社区准则", "联系支持"].map(link => (
-              <a key={link} href="#" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">{link}</a>
-            ))}
+            <a href="/privacy" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">隐私政策</a>
+            <a href="/terms" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">服务条款</a>
+            <a href="/terms#community" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">社区准则</a>
+            <a href="mailto:support@jiedanba.com" className="text-xs font-medium uppercase tracking-widest text-slate-400 hover:text-primary transition-colors">联系支持</a>
           </nav>
           <div className="text-xs text-slate-400 uppercase tracking-widest">© 2026 {siteName} · OPC 专业平台</div>
         </div>

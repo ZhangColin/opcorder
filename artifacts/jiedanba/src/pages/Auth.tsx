@@ -445,11 +445,10 @@ export default function Auth() {
           © 2026 接单吧 · 机构级 OPC 交易平台
         </span>
         <nav className="flex gap-6 flex-wrap justify-center">
-          {["服务条款", "隐私政策", "机构支持", "监管披露"].map(link => (
-            <a key={link} href="#" className="text-[10px] text-slate-400 font-medium hover:text-primary transition-colors tracking-wide">
-              {link}
-            </a>
-          ))}
+          <a href="/terms" className="text-[10px] text-slate-400 font-medium hover:text-primary transition-colors tracking-wide">服务条款</a>
+          <a href="/privacy" className="text-[10px] text-slate-400 font-medium hover:text-primary transition-colors tracking-wide">隐私政策</a>
+          <a href="mailto:support@jiedanba.com" className="text-[10px] text-slate-400 font-medium hover:text-primary transition-colors tracking-wide">机构支持</a>
+          <a href="/terms#regulatory" className="text-[10px] text-slate-400 font-medium hover:text-primary transition-colors tracking-wide">监管披露</a>
         </nav>
       </footer>
     </div>
