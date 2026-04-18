@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 export interface AuthUser {
   id: number;
   role: string;
+  isSuperAdmin?: boolean;
+  adminPermissions?: string[];
 }
 
 declare global {
@@ -20,23 +22,25 @@ function getJwtSecret(): string {
   return secret;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
   if (!token) {
-    return res.status(401).json({ error: "未登录，请先登录" });
+    res.status(401).json({ error: "未登录，请先登录" });
+    return;
   }
 
   try {
     const payload = jwt.verify(token, getJwtSecret(), { algorithms: ["HS256"] }) as jwt.JwtPayload;
     const userId = typeof payload.sub === "string" ? parseInt(payload.sub, 10) : Number(payload.sub);
     if (!userId || isNaN(userId)) {
-      return res.status(401).json({ error: "无效的登录凭证" });
+      res.status(401).json({ error: "无效的登录凭证" });
+      return;
     }
     req.user = { id: userId, role: payload.role as string };
     next();
   } catch {
-    return res.status(401).json({ error: "登录已过期，请重新登录" });
+    res.status(401).json({ error: "登录已过期，请重新登录" });
   }
 }

@@ -249,7 +249,6 @@ export async function generateManualPdf(): Promise<string> {
         footerTemplate: `<div style="font-size:9px;color:#9ca3af;width:100%;text-align:center;font-family:sans-serif;"><span class="pageNumber"></span> / <span class="totalPages"></span></div>`,
       },
       md_file_encoding: "utf-8",
-      highlighted_code_blocks: false,
     },
   );
 

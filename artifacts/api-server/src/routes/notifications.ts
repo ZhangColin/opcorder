@@ -33,7 +33,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
       .limit(limit)
       .offset(offset);
 
-    res.json({
+    return res.json({
       items: items.map(n => ({
         ...n,
         createdAt: n.createdAt.toISOString(),
@@ -44,13 +44,13 @@ router.get("/notifications", requireAuth, async (req, res) => {
       limit,
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to list notifications" });
+    return res.status(500).json({ error: "Failed to list notifications" });
   }
 });
 
 router.patch("/notifications/:notificationId/read", requireAuth, async (req, res) => {
   try {
-    const notificationId = parseInt(req.params.notificationId);
+    const notificationId = parseInt(req.params.notificationId as string);
     const userId = req.user!.id;
 
     const [existing] = await db.select({ userId: notificationsTable.userId })
@@ -61,12 +61,12 @@ router.patch("/notifications/:notificationId/read", requireAuth, async (req, res
     if (existing.userId !== userId) return res.status(403).json({ error: "无权操作他人通知" });
 
     const [updated] = await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, notificationId)).returning();
-    res.json({
+    return res.json({
       ...updated,
       createdAt: updated.createdAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to mark notification read" });
+    return res.status(500).json({ error: "Failed to mark notification read" });
   }
 });
 
@@ -76,9 +76,9 @@ router.post("/notifications/read-all", requireAuth, async (req, res) => {
     const result = await db.update(notificationsTable).set({ isRead: true }).where(
       and(eq(notificationsTable.userId, userId), eq(notificationsTable.isRead, false))
     ).returning();
-    res.json({ count: result.length });
+    return res.json({ count: result.length });
   } catch (error) {
-    res.status(500).json({ error: "Failed to mark all notifications read" });
+    return res.status(500).json({ error: "Failed to mark all notifications read" });
   }
 });
 

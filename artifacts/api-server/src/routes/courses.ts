@@ -66,9 +66,9 @@ router.get("/courses", async (req, res) => {
       : onlyPublished;
 
     const courses = await db.select().from(coursesTable).where(allConditions);
-    res.json(courses.map(formatCourse));
+    return res.json(courses.map(formatCourse));
   } catch {
-    res.status(500).json({ error: "Failed to list courses" });
+    return res.status(500).json({ error: "Failed to list courses" });
   }
 });
 
@@ -110,15 +110,15 @@ router.get("/courses/my-enrollments", requireAuth, async (req, res) => {
       );
     }
 
-    res.json(rows.map(({ enrollment, course }) => formatEnrollment(enrollment, course)));
+    return res.json(rows.map(({ enrollment, course }) => formatEnrollment(enrollment, course)));
   } catch {
-    res.status(500).json({ error: "Failed to get enrollments" });
+    return res.status(500).json({ error: "Failed to get enrollments" });
   }
 });
 
 router.post("/courses/:courseId/enroll", requireAuth, async (req, res) => {
   try {
-    const courseId = parseInt(req.params.courseId);
+    const courseId = parseInt(req.params.courseId as string);
     const userId = req.user!.id;
 
     const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, courseId));
@@ -144,16 +144,16 @@ router.post("/courses/:courseId/enroll", requireAuth, async (req, res) => {
       .set({ learnersCount: sql`${coursesTable.learnersCount} + 1` })
       .where(eq(coursesTable.id, courseId));
 
-    res.status(201).json(formatEnrollment(enrollment, course));
+    return res.status(201).json(formatEnrollment(enrollment, course));
   } catch {
-    res.status(500).json({ error: "Failed to enroll" });
+    return res.status(500).json({ error: "Failed to enroll" });
   }
 });
 
 /* Create real payment order */
 router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
   try {
-    const courseId = parseInt(req.params.courseId);
+    const courseId = parseInt(req.params.courseId as string);
     const userId = req.user!.id;
 
     const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, courseId));
@@ -183,7 +183,7 @@ router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
       .set({ paymentOrderNo: order.paymentOrderNo })
       .where(eq(enrollmentsTable.id, enrollment.id));
 
-    res.json({
+    return res.json({
       qrCodeUrl: order.qrCodeUrl,
       paymentOrderNo: order.paymentOrderNo,
       amount: course.price ?? 0,
@@ -191,14 +191,14 @@ router.post("/courses/:courseId/pay", requireAuth, async (req, res) => {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "支付创建失败";
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
 /* Poll payment status */
 router.post("/courses/:courseId/payment-status", requireAuth, async (req, res) => {
   try {
-    const courseId = parseInt(req.params.courseId);
+    const courseId = parseInt(req.params.courseId as string);
     const userId = req.user!.id;
 
     const [enrollment] = await db.select().from(enrollmentsTable)
@@ -217,23 +217,23 @@ router.post("/courses/:courseId/payment-status", requireAuth, async (req, res) =
         .where(eq(enrollmentsTable.id, enrollment.id));
     }
 
-    res.json({
+    return res.json({
       status: order.status,
       statusName: order.statusName,
       paid: order.status === PAYMENT_STATUS.PAID,
-      terminal: TERMINAL_STATUSES.includes(order.status),
+      terminal: (TERMINAL_STATUSES as number[]).includes(Number(order.status)),
       paidAt: order.paidAt,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "查询失败";
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
 /* User requests a refund for a paid course enrollment */
 router.post("/courses/:courseId/request-refund", requireAuth, async (req, res) => {
   try {
-    const courseId = parseInt(req.params.courseId);
+    const courseId = parseInt(req.params.courseId as string);
     const userId = req.user!.id;
     const { reason } = req.body as { reason?: string };
 
@@ -257,9 +257,9 @@ router.post("/courses/:courseId/request-refund", requireAuth, async (req, res) =
       })
       .where(eq(enrollmentsTable.id, enrollment.id));
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch {
-    res.status(500).json({ error: "申请退款失败" });
+    return res.status(500).json({ error: "申请退款失败" });
   }
 });
 
@@ -268,9 +268,9 @@ router.get("/learning-resources", async (_req, res) => {
   try {
     const rows = await db.select().from(learningResourcesTable)
       .orderBy(learningResourcesTable.sortOrder, learningResourcesTable.createdAt);
-    res.json(rows);
+    return res.json(rows);
   } catch {
-    res.status(500).json({ error: "获取学习资源失败" });
+    return res.status(500).json({ error: "获取学习资源失败" });
   }
 });
 

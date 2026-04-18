@@ -16,7 +16,7 @@ function paginate(query: Record<string, string | string[] | undefined>, defaultS
 
 router.get("/activities/:id/public", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     if (!id) return res.status(400).json({ error: "无效的活动ID" });
 
     const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
@@ -27,10 +27,10 @@ router.get("/activities/:id/public", async (req, res) => {
       .where(eq(activityFieldsTable.activityId, id))
       .orderBy(activityFieldsTable.sortOrder);
 
-    res.json({ ...activity, fields });
+    return res.json({ ...activity, fields });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取活动信息失败" });
+    return res.status(500).json({ error: "获取活动信息失败" });
   }
 });
 
@@ -38,7 +38,7 @@ router.get("/activities/:id/public", async (req, res) => {
 
 router.post("/activities/:id/register", async (req, res) => {
   try {
-    const activityId = Number(req.params.id);
+    const activityId = Number(req.params.id as string);
     if (!activityId) return res.status(400).json({ error: "无效的活动ID" });
 
     const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, activityId)).limit(1);
@@ -80,10 +80,10 @@ router.post("/activities/:id/register", async (req, res) => {
       extraData: extraData ?? {},
     }).returning();
 
-    res.status(201).json({ id: registration.id, ok: true });
+    return res.status(201).json({ id: registration.id, ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "提交报名失败" });
+    return res.status(500).json({ error: "提交报名失败" });
   }
 });
 
@@ -96,7 +96,7 @@ router.use("/admin/registrations", requireAdmin, requirePermission("activities")
 router.get("/admin/activities", async (req, res) => {
   try {
     const { q, status } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const conditions = [];
     if (q) conditions.push(ilike(activitiesTable.title, `%${q}%`));
@@ -121,17 +121,17 @@ router.get("/admin/activities", async (req, res) => {
       return { ...a, registrationCount: Number(cnt) };
     }));
 
-    res.json({ data: withCounts, total: Number(total), page, pageSize });
+    return res.json({ data: withCounts, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取活动列表失败" });
+    return res.status(500).json({ error: "获取活动列表失败" });
   }
 });
 
 /* Get single activity with fields */
 router.get("/admin/activities/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
     if (!activity) return res.status(404).json({ error: "活动不存在" });
 
@@ -139,10 +139,10 @@ router.get("/admin/activities/:id", async (req, res) => {
       .where(eq(activityFieldsTable.activityId, id))
       .orderBy(activityFieldsTable.sortOrder);
 
-    res.json({ ...activity, fields });
+    return res.json({ ...activity, fields });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取活动详情失败" });
+    return res.status(500).json({ error: "获取活动详情失败" });
   }
 });
 
@@ -186,17 +186,17 @@ router.post("/admin/activities", async (req, res) => {
       .where(eq(activityFieldsTable.activityId, activity.id))
       .orderBy(activityFieldsTable.sortOrder);
 
-    res.status(201).json({ ...activity, fields: savedFields });
+    return res.status(201).json({ ...activity, fields: savedFields });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "创建活动失败" });
+    return res.status(500).json({ error: "创建活动失败" });
   }
 });
 
 /* Update activity */
 router.put("/admin/activities/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { title, description, location, startTime, endTime, fields } = req.body as {
       title?: string;
       description?: string;
@@ -238,29 +238,29 @@ router.put("/admin/activities/:id", async (req, res) => {
       .where(eq(activityFieldsTable.activityId, id))
       .orderBy(activityFieldsTable.sortOrder);
 
-    res.json({ ...updated, fields: savedFields });
+    return res.json({ ...updated, fields: savedFields });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "更新活动失败" });
+    return res.status(500).json({ error: "更新活动失败" });
   }
 });
 
 /* Delete activity */
 router.delete("/admin/activities/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     await db.delete(activitiesTable).where(eq(activitiesTable.id, id));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "删除活动失败" });
+    return res.status(500).json({ error: "删除活动失败" });
   }
 });
 
 /* Publish activity: draft → active */
 router.patch("/admin/activities/:id/publish", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const [existing] = await db.select({ status: activitiesTable.status })
       .from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "活动不存在" });
@@ -271,17 +271,17 @@ router.patch("/admin/activities/:id/publish", async (req, res) => {
       .where(eq(activitiesTable.id, id))
       .returning({ status: activitiesTable.status });
 
-    res.json({ status: updated.status });
+    return res.json({ status: updated.status });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "发布活动失败" });
+    return res.status(500).json({ error: "发布活动失败" });
   }
 });
 
 /* Unpublish activity: active → draft */
 router.patch("/admin/activities/:id/unpublish", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const [existing] = await db.select({ status: activitiesTable.status })
       .from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "活动不存在" });
@@ -292,17 +292,17 @@ router.patch("/admin/activities/:id/unpublish", async (req, res) => {
       .where(eq(activitiesTable.id, id))
       .returning({ status: activitiesTable.status });
 
-    res.json({ status: updated.status });
+    return res.json({ status: updated.status });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "退回草稿失败" });
+    return res.status(500).json({ error: "退回草稿失败" });
   }
 });
 
 /* End activity: active → ended */
 router.patch("/admin/activities/:id/end", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const [existing] = await db.select({ status: activitiesTable.status })
       .from(activitiesTable).where(eq(activitiesTable.id, id)).limit(1);
     if (!existing) return res.status(404).json({ error: "活动不存在" });
@@ -313,10 +313,10 @@ router.patch("/admin/activities/:id/end", async (req, res) => {
       .where(eq(activitiesTable.id, id))
       .returning({ status: activitiesTable.status });
 
-    res.json({ status: updated.status });
+    return res.json({ status: updated.status });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "结束活动失败" });
+    return res.status(500).json({ error: "结束活动失败" });
   }
 });
 
@@ -325,9 +325,9 @@ router.patch("/admin/activities/:id/end", async (req, res) => {
 /* List registrations for an activity */
 router.get("/admin/activities/:id/registrations", async (req, res) => {
   try {
-    const activityId = Number(req.params.id);
+    const activityId = Number(req.params.id as string);
     const { q } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     // Build WHERE: always filter by activityId, optionally by q (name/phone/email fuzzy OR tag fuzzy)
     let baseWhere = eq(registrationsTable.activityId, activityId);
@@ -367,17 +367,17 @@ router.get("/admin/activities/:id/registrations", async (req, res) => {
       return { ...r, tags: tags.map(t => t.tag) };
     }));
 
-    res.json({ data: withTags, total: Number(total), page, pageSize });
+    return res.json({ data: withTags, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取报名列表失败" });
+    return res.status(500).json({ error: "获取报名列表失败" });
   }
 });
 
 /* Export registrations as CSV */
 router.get("/admin/activities/:id/registrations/export", async (req, res) => {
   try {
-    const activityId = Number(req.params.id);
+    const activityId = Number(req.params.id as string);
     const { q } = req.query as Record<string, string>;
 
     const [activity] = await db.select().from(activitiesTable).where(eq(activitiesTable.id, activityId)).limit(1);
@@ -451,17 +451,17 @@ router.get("/admin/activities/:id/registrations/export", async (req, res) => {
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
-    res.send("\uFEFF" + csv); // BOM for Excel compatibility
+    return res.send("\uFEFF" + csv); // BOM for Excel compatibility
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "导出失败" });
+    return res.status(500).json({ error: "导出失败" });
   }
 });
 
 /* Get single registration */
 router.get("/admin/registrations/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const [reg] = await db.select().from(registrationsTable).where(eq(registrationsTable.id, id)).limit(1);
     if (!reg) return res.status(404).json({ error: "报名记录不存在" });
 
@@ -473,34 +473,34 @@ router.get("/admin/registrations/:id", async (req, res) => {
       .where(eq(activityFieldsTable.activityId, reg.activityId))
       .orderBy(activityFieldsTable.sortOrder);
 
-    res.json({ ...reg, tags: tags.map(t => t.tag), fields });
+    return res.json({ ...reg, tags: tags.map(t => t.tag), fields });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取报名详情失败" });
+    return res.status(500).json({ error: "获取报名详情失败" });
   }
 });
 
 /* Update admin note */
 router.patch("/admin/registrations/:id/note", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { note } = req.body as { note: string };
 
     await db.update(registrationsTable)
       .set({ adminNote: note ?? null })
       .where(eq(registrationsTable.id, id));
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "更新备注失败" });
+    return res.status(500).json({ error: "更新备注失败" });
   }
 });
 
 /* Add tag */
 router.post("/admin/registrations/:id/tags", async (req, res) => {
   try {
-    const registrationId = Number(req.params.id);
+    const registrationId = Number(req.params.id as string);
     const { tag } = req.body as { tag: string };
 
     if (!tag?.trim()) return res.status(400).json({ error: "标签不能为空" });
@@ -522,17 +522,17 @@ router.post("/admin/registrations/:id/tags", async (req, res) => {
       .from(registrationTagsTable)
       .where(eq(registrationTagsTable.registrationId, registrationId));
 
-    res.json({ tags: tags.map(t => t.tag) });
+    return res.json({ tags: tags.map(t => t.tag) });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "添加标签失败" });
+    return res.status(500).json({ error: "添加标签失败" });
   }
 });
 
 /* Delete tag */
 router.delete("/admin/registrations/:id/tags/:tag", async (req, res) => {
   try {
-    const registrationId = Number(req.params.id);
+    const registrationId = Number(req.params.id as string);
     const tag = decodeURIComponent(req.params.tag);
 
     await db.delete(registrationTagsTable).where(
@@ -546,27 +546,27 @@ router.delete("/admin/registrations/:id/tags/:tag", async (req, res) => {
       .from(registrationTagsTable)
       .where(eq(registrationTagsTable.registrationId, registrationId));
 
-    res.json({ tags: tags.map(t => t.tag) });
+    return res.json({ tags: tags.map(t => t.tag) });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "删除标签失败" });
+    return res.status(500).json({ error: "删除标签失败" });
   }
 });
 
 /* Get all tags used in an activity's registrations (for filter dropdown) */
 router.get("/admin/activities/:id/tags", async (req, res) => {
   try {
-    const activityId = Number(req.params.id);
+    const activityId = Number(req.params.id as string);
     const tags = await db.execute(sql`
       SELECT DISTINCT rt.tag FROM registration_tags rt
       INNER JOIN registrations r ON r.id = rt.registration_id
       WHERE r.activity_id = ${activityId}
       ORDER BY rt.tag
     `);
-    res.json({ tags: (tags.rows as { tag: string }[]).map(r => r.tag) });
+    return res.json({ tags: (tags.rows as { tag: string }[]).map(r => r.tag) });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取标签列表失败" });
+    return res.status(500).json({ error: "获取标签列表失败" });
   }
 });
 

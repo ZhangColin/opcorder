@@ -196,7 +196,7 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
     await upsertRefreshToken(user.id, hashToken(rawRefreshToken), expiresAt);
 
-    res.json({
+    return res.json({
       accessToken,
       refreshToken: rawRefreshToken,
       user: {
@@ -211,7 +211,7 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "登录失败，请稍后重试" });
+    return res.status(500).json({ error: "登录失败，请稍后重试" });
   }
 });
 
@@ -271,7 +271,7 @@ router.post("/auth/register", async (req, res) => {
       await db.insert(opcProfilesTable).values({ userId: user.id });
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       id:        user.id,
       nickname:  user.nickname,
       email:     user.email,
@@ -318,7 +318,7 @@ router.post("/auth/register", async (req, res) => {
     })();
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "注册失败，请稍后重试" });
+    return res.status(500).json({ error: "注册失败，请稍后重试" });
   }
 });
 
@@ -353,10 +353,10 @@ router.post("/auth/refresh", async (req, res) => {
     }
 
     const accessToken = signAccessToken(user.id, user.role);
-    res.json({ accessToken });
+    return res.json({ accessToken });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "刷新失败，请重新登录" });
+    return res.status(500).json({ error: "刷新失败，请重新登录" });
   }
 });
 
@@ -377,10 +377,10 @@ router.post("/auth/logout", async (req, res) => {
       } catch { /* invalid signature — nothing to revoke */ }
     }
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "登出失败" });
+    return res.status(500).json({ error: "登出失败" });
   }
 });
 
@@ -405,10 +405,10 @@ router.post("/auth/change-password", requireAuth, async (req, res) => {
     const newHash = await bcrypt.hash(newPassword, 10);
     await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, user.id));
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "修改失败，请稍后重试" });
+    return res.status(500).json({ error: "修改失败，请稍后重试" });
   }
 });
 

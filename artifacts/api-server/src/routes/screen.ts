@@ -97,7 +97,7 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       .from(demandsTable)
       .where(and(
         gte(demandsTable.createdAt, since14),
-        inArray(demandsTable.status, [...POSITIVE_DEMAND_STATUSES] as string[]),
+        inArray(demandsTable.status, POSITIVE_DEMAND_STATUSES),
       ))
       .groupBy(sql`DATE(${demandsTable.createdAt})`);
 
@@ -188,7 +188,7 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       .select({ id: demandsTable.id, title: demandsTable.title, createdAt: demandsTable.createdAt, nickname: usersTable.nickname })
       .from(demandsTable)
       .innerJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
-      .where(inArray(demandsTable.status, [...POSITIVE_DEMAND_STATUSES] as string[]))
+      .where(inArray(demandsTable.status, POSITIVE_DEMAND_STATUSES))
       .orderBy(desc(demandsTable.createdAt))
       .limit(20);
 
@@ -202,7 +202,7 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       ...recentDemands.map(d => ({ text: `${d.nickname} 发布新需求《${d.title}》` })),
     ].sort(() => Math.random() - 0.5);
 
-    res.json({
+    return res.json({
       kpi: { totalUsers, opcCount, publisherCount: pubCount, publishedDemands, inProgressOrders, completedOrders, completionRate, totalSettled },
       timeSeries,
       demandStatusChart,
@@ -212,7 +212,7 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "数据加载失败" });
+    return res.status(500).json({ error: "数据加载失败" });
   }
 });
 

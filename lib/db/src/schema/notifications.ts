@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 export const notificationTypeEnum = pgEnum("notification_type", [
   "bid_received", "bid_accepted", "bid_rejected", "order_created",
   "delivery_submitted", "delivery_accepted", "delivery_rejected",
-  "directed_invite", "system", "order_completed"
+  "directed_invite", "system", "order_completed", "dispute_raised"
 ]);
 
 export const notificationsTable = pgTable("notifications", {

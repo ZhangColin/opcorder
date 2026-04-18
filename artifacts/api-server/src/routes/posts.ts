@@ -79,7 +79,7 @@ router.get("/posts", async (req, res) => {
       .from(postsTable)
       .where(whereClause);
 
-    const userId = params.userId;
+    const userId = req.query.userId ? Number(req.query.userId as string) : undefined;
     let likedSet = new Set<number>();
     if (userId && posts.length > 0) {
       const postIds = posts.map(p => p.post.id);
@@ -93,7 +93,7 @@ router.get("/posts", async (req, res) => {
       likedSet = new Set(likes.map(l => l.postId));
     }
 
-    res.json({
+    return res.json({
       items: posts.map(({ post, nickname, role, userAvatar, publisherLogo }) =>
         formatPost(post, nickname ?? "匿名用户", role ?? "opc", resolveAvatar(role, userAvatar, publisherLogo), likedSet.has(post.id))
       ),
@@ -101,14 +101,14 @@ router.get("/posts", async (req, res) => {
     });
   } catch (err) {
     logger.error({ err: err }, "List posts error:");
-    res.status(500).json({ error: "Failed to list posts" });
+    return res.status(500).json({ error: "Failed to list posts" });
   }
 });
 
 /* Public — single post readable without login */
 router.get("/posts/:postId", async (req, res) => {
   try {
-    const postId = parseInt(req.params.postId);
+    const postId = parseInt(req.params.postId as string);
     if (isNaN(postId)) return res.status(400).json({ error: "Invalid postId" });
 
     const [row] = await db
@@ -130,16 +130,16 @@ router.get("/posts/:postId", async (req, res) => {
       .set({ viewsCount: sql`${postsTable.viewsCount} + 1` })
       .where(eq(postsTable.id, postId));
 
-    res.json(formatPost(row.post, row.nickname ?? "匿名用户", row.role ?? "opc", resolveAvatar(row.role, row.userAvatar, row.publisherLogo)));
+    return res.json(formatPost(row.post, row.nickname ?? "匿名用户", row.role ?? "opc", resolveAvatar(row.role, row.userAvatar, row.publisherLogo)));
   } catch {
-    res.status(500).json({ error: "Failed to get post" });
+    return res.status(500).json({ error: "Failed to get post" });
   }
 });
 
 /* Public — comments readable without login */
 router.get("/posts/:postId/comments", async (req, res) => {
   try {
-    const postId = parseInt(req.params.postId);
+    const postId = parseInt(req.params.postId as string);
     const comments = await db
       .select({
         comment: postCommentsTable,
@@ -154,7 +154,7 @@ router.get("/posts/:postId/comments", async (req, res) => {
       .where(eq(postCommentsTable.postId, postId))
       .orderBy(desc(postCommentsTable.createdAt));
 
-    res.json(comments.map(({ comment, nickname, role, userAvatar, publisherLogo }) => ({
+    return res.json(comments.map(({ comment, nickname, role, userAvatar, publisherLogo }) => ({
       id: comment.id,
       postId: comment.postId,
       authorId: comment.authorId,
@@ -165,7 +165,7 @@ router.get("/posts/:postId/comments", async (req, res) => {
       createdAt: comment.createdAt.toISOString(),
     })));
   } catch {
-    res.status(500).json({ error: "Failed to list comments" });
+    return res.status(500).json({ error: "Failed to list comments" });
   }
 });
 
@@ -198,15 +198,15 @@ router.post("/posts", requireAuth, async (req, res) => {
       .leftJoin(publisherProfilesTable, eq(usersTable.id, publisherProfilesTable.userId))
       .where(eq(usersTable.id, authorId));
 
-    res.status(201).json(formatPost(post, userRow?.nickname ?? "匿名用户", userRow?.role ?? "opc", resolveAvatar(userRow?.role ?? null, userRow?.userAvatar ?? null, userRow?.publisherLogo ?? null)));
+    return res.status(201).json(formatPost(post, userRow?.nickname ?? "匿名用户", userRow?.role ?? "opc", resolveAvatar(userRow?.role ?? null, userRow?.userAvatar ?? null, userRow?.publisherLogo ?? null)));
   } catch {
-    res.status(500).json({ error: "Failed to create post" });
+    return res.status(500).json({ error: "Failed to create post" });
   }
 });
 
 router.post("/posts/:postId/like", requireAuth, async (req, res) => {
   try {
-    const postId = parseInt(req.params.postId);
+    const postId = parseInt(req.params.postId as string);
     if (isNaN(postId)) return res.status(400).json({ error: "Invalid postId" });
     const userId = req.user!.id;
 
@@ -231,15 +231,15 @@ router.post("/posts/:postId/like", requireAuth, async (req, res) => {
     }
 
     const [updated] = await db.select().from(postsTable).where(eq(postsTable.id, postId));
-    res.json({ liked, likesCount: updated?.likesCount ?? 0 });
+    return res.json({ liked, likesCount: updated?.likesCount ?? 0 });
   } catch {
-    res.status(500).json({ error: "Failed to toggle like" });
+    return res.status(500).json({ error: "Failed to toggle like" });
   }
 });
 
 router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
   try {
-    const postId = parseInt(req.params.postId);
+    const postId = parseInt(req.params.postId as string);
     const { content } = req.body as { content?: unknown };
     if (!content || typeof content !== "string" || !content.trim()) {
       return res.status(400).json({ error: "评论内容不能为空" });
@@ -262,7 +262,7 @@ router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
       .leftJoin(publisherProfilesTable, eq(usersTable.id, publisherProfilesTable.userId))
       .where(eq(usersTable.id, authorId));
 
-    res.status(201).json({
+    return res.status(201).json({
       id: comment.id,
       postId: comment.postId,
       authorId: comment.authorId,
@@ -273,7 +273,7 @@ router.post("/posts/:postId/comments", requireAuth, async (req, res) => {
       createdAt: comment.createdAt.toISOString(),
     });
   } catch {
-    res.status(500).json({ error: "Failed to create comment" });
+    return res.status(500).json({ error: "Failed to create comment" });
   }
 });
 

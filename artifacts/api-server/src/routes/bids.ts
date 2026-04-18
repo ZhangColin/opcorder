@@ -67,13 +67,13 @@ router.get("/bids/my", requireAuth, async (req, res) => {
       .where(eq(bidsTable.opcId, opcId))
       .orderBy(desc(bidsTable.createdAt));
 
-    res.json(bids.map(b => ({
+    return res.json(bids.map(b => ({
       ...b,
       demandDeadline: b.demandDeadline ?? null,   // date column returns string, not Date
       createdAt: b.createdAt.toISOString(),
     })));
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch my bids" });
+    return res.status(500).json({ error: "Failed to fetch my bids" });
   }
 });
 
@@ -81,7 +81,7 @@ router.get("/bids/my", requireAuth, async (req, res) => {
 router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
   if (req.user!.role !== "opc") return res.status(403).json({ error: "仅OPC可撤消申请" });
   try {
-    const bidId = parseInt(req.params.bidId, 10);
+    const bidId = parseInt(req.params.bidId as string, 10);
     if (isNaN(bidId) || bidId <= 0) return res.status(400).json({ error: "无效的申请ID" });
     const opcId = req.user!.id;
 
@@ -108,15 +108,15 @@ router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
       return res.status(409).json({ error: "申请状态已发生变化（可能已被审核），撤消失败" });
     }
 
-    res.json({ id: rows[0].id, status: rows[0].status });
+    return res.json({ id: rows[0].id, status: rows[0].status });
   } catch (error) {
-    res.status(500).json({ error: "撤消申请失败" });
+    return res.status(500).json({ error: "撤消申请失败" });
   }
 });
 
 router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
     const bids = await db
       .select({
         id: bidsTable.id,
@@ -138,18 +138,18 @@ router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
       .leftJoin(opcProfilesTable, eq(bidsTable.opcId, opcProfilesTable.userId))
       .where(eq(bidsTable.demandId, demandId));
 
-    res.json(bids.map(b => ({
+    return res.json(bids.map(b => ({
       ...b,
       createdAt: b.createdAt.toISOString(),
     })));
   } catch (error) {
-    res.status(500).json({ error: "Failed to list bids" });
+    return res.status(500).json({ error: "Failed to list bids" });
   }
 });
 
 router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
     const body = CreateBidBody.parse(req.body);
     const opcId = req.user!.id;
 
@@ -245,18 +245,18 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       });
     }
 
-    res.status(isNew ? 201 : 200).json({
+    return res.status(isNew ? 201 : 200).json({
       ...bid,
       createdAt: bid.createdAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to create bid" });
+    return res.status(500).json({ error: "Failed to create bid" });
   }
 });
 
 router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
   try {
-    const bidId = parseInt(req.params.bidId);
+    const bidId = parseInt(req.params.bidId as string);
     const body = UpdateBidStatusBody.parse(req.body);
 
     const [updated] = await db.update(bidsTable).set({
@@ -323,12 +323,12 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
       }
     }
 
-    res.json({
+    return res.json({
       ...updated,
       createdAt: updated.createdAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update bid status" });
+    return res.status(500).json({ error: "Failed to update bid status" });
   }
 });
 

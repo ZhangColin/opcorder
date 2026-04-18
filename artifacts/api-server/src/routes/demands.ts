@@ -158,7 +158,7 @@ router.get("/demands", requireAuth, async (req, res) => {
       bidDeadline: d.bidDeadline?.toISOString(),
     }));
 
-    res.json({
+    return res.json({
       items,
       total,
       page,
@@ -167,7 +167,7 @@ router.get("/demands", requireAuth, async (req, res) => {
     });
   } catch (error) {
     req.log.error({ error }, "Failed to list demands");
-    res.status(500).json({ error: "Failed to list demands" });
+    return res.status(500).json({ error: "Failed to list demands" });
   }
 });
 
@@ -197,7 +197,7 @@ router.post("/demands", requireAuth, async (req, res) => {
       skillTags: body.skillTags,
       opcLevel: body.opcLevel,
       budget: body.budget,
-      deadline: body.deadline,
+      deadline: body.deadline instanceof Date ? body.deadline.toISOString().split("T")[0] : String(body.deadline),
       milestones,
       attachments: rawAttachments,
       mode: body.mode as any,
@@ -208,7 +208,7 @@ router.post("/demands", requireAuth, async (req, res) => {
       status: "draft",
     }).returning();
 
-    res.status(201).json({
+    return res.status(201).json({
       ...demand,
       typeLabel: DEMAND_TYPE_LABELS[demand.type] || demand.type,
       createdAt: demand.createdAt.toISOString(),
@@ -216,13 +216,13 @@ router.post("/demands", requireAuth, async (req, res) => {
     });
   } catch (error) {
     req.log.error({ error }, "Failed to create demand");
-    res.status(500).json({ error: "Failed to create demand" });
+    return res.status(500).json({ error: "Failed to create demand" });
   }
 });
 
 router.get("/demands/:demandId", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
 
     const [demand] = await db
       .select({
@@ -267,7 +267,7 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
       contactEmail: publisherProfilesTable.contactEmail,
     }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, demand.publisherId));
 
-    res.json({
+    return res.json({
       ...demand,
       typeLabel: DEMAND_TYPE_LABELS[demand.type] || demand.type,
       bidCount: 0,
@@ -278,13 +278,13 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
       bidDeadline: demand.bidDeadline?.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch demand" });
+    return res.status(500).json({ error: "Failed to fetch demand" });
   }
 });
 
 router.put("/demands/:demandId", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
     const body = UpdateDemandBody.parse(req.body);
 
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -300,14 +300,14 @@ router.put("/demands/:demandId", requireAuth, async (req, res) => {
 
     const [updated] = await db.update(demandsTable).set(updateData).where(eq(demandsTable.id, demandId)).returning();
 
-    res.json({
+    return res.json({
       ...updated,
       typeLabel: DEMAND_TYPE_LABELS[updated.type] || updated.type,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update demand" });
+    return res.status(500).json({ error: "Failed to update demand" });
   }
 });
 
@@ -319,7 +319,7 @@ const PUBLISHER_TRANSITIONS: Record<string, string[]> = {
 
 router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
     const body = UpdateDemandStatusBody.parse(req.body);
 
     // Look up the demand for ownership and transition validation
@@ -352,20 +352,20 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(demandsTable.id, demandId)).returning();
 
-    res.json({
+    return res.json({
       ...updated,
       typeLabel: DEMAND_TYPE_LABELS[updated.type] || updated.type,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update demand status" });
+    return res.status(500).json({ error: "Failed to update demand status" });
   }
 });
 
 router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
 
     const parsed = SubmitDemandPaymentBody.safeParse(req.body);
     if (!parsed.success) {
@@ -452,7 +452,7 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
       paymentNote: paymentNote?.trim() || null,
     }).returning();
 
-    res.status(201).json({
+    return res.status(201).json({
       ...payment,
       confirmedAt: payment.confirmedAt?.toISOString() ?? null,
       refundedAt: payment.refundedAt?.toISOString() ?? null,
@@ -460,14 +460,14 @@ router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
     });
   } catch (error) {
     logger.error({ err: error }, "Route handler error");
-    res.status(500).json({ error: "缴费提交失败" });
+    return res.status(500).json({ error: "缴费提交失败" });
   }
 });
 
 /* Poll online payment status for a demand deposit */
 router.post("/demands/:demandId/payment-status", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
 
     const [demand] = await db
       .select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
@@ -522,7 +522,7 @@ router.post("/demands/:demandId/payment-status", requireAuth, async (req, res) =
       });
     }
 
-    res.json({
+    return res.json({
       status: order.status,
       statusName: order.statusName,
       paid: order.status === PAYMENT_STATUS.PAID,
@@ -532,13 +532,13 @@ router.post("/demands/:demandId/payment-status", requireAuth, async (req, res) =
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "查询失败";
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
 router.get("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
 
     // Ownership check: only the demand publisher or an admin may view payment records
     const [demand] = await db
@@ -563,19 +563,19 @@ router.get("/demands/:demandId/payment", requireAuth, async (req, res) => {
       return res.json(null);
     }
 
-    res.json({
+    return res.json({
       ...payment,
       confirmedAt: payment.confirmedAt?.toISOString() ?? null,
       createdAt: payment.createdAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "获取缴费记录失败" });
+    return res.status(500).json({ error: "获取缴费记录失败" });
   }
 });
 
 router.post("/demands/:demandId/invite", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
     const { opcId, publisherId } = req.body as { opcId: number; publisherId: number };
     if (!opcId || !publisherId) return res.status(400).json({ error: "opcId and publisherId required" });
 
@@ -595,15 +595,15 @@ router.post("/demands/:demandId/invite", requireAuth, async (req, res) => {
       relatedType: "demand",
     });
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Failed to send invite" });
+    return res.status(500).json({ error: "Failed to send invite" });
   }
 });
 
 router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) => {
   try {
-    const demandId = parseInt(req.params.demandId);
+    const demandId = parseInt(req.params.demandId as string);
     const { opcId, action, notificationId } = req.body as {
       opcId: number;
       action: "accept" | "reject";
@@ -716,10 +716,10 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
         .where(eq(notificationsTable.id, notificationId));
     }
 
-    res.json({ success: true, action: "accepted", orderId: order.id });
+    return res.json({ success: true, action: "accepted", orderId: order.id });
   } catch (error) {
     logger.error({ err: error }, "invite respond error:");
-    res.status(500).json({ error: "操作失败，请重试" });
+    return res.status(500).json({ error: "操作失败，请重试" });
   }
 });
 
@@ -727,7 +727,7 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
 
 router.post("/demands/:demandId/request-refund", requireAuth, async (req, res) => {
   try {
-    const demandId = Number(req.params.demandId);
+    const demandId = Number(req.params.demandId as string);
     const userId = (req as any).user?.id;
     const { reason } = req.body as { reason?: string };
 
@@ -795,17 +795,17 @@ router.post("/demands/:demandId/request-refund", requireAuth, async (req, res) =
       }
     });
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     logger.error({ err: err }, "[request-refund] error:");
-    res.status(500).json({ error: "申请退款失败，请重试" });
+    return res.status(500).json({ error: "申请退款失败，请重试" });
   }
 });
 
 /* Sync online refund status for a specific demand (triggered by frontend on page load) */
 router.post("/demands/:demandId/sync-refund-status", requireAuth, async (req, res) => {
   try {
-    const demandId = Number(req.params.demandId);
+    const demandId = Number(req.params.demandId as string);
     const userId = (req as any).user?.id;
 
     const [demand] = await db
@@ -852,7 +852,7 @@ router.post("/demands/:demandId/sync-refund-status", requireAuth, async (req, re
     return res.json({ status: demand.status, refundStatus: result.status, refundStatusName: result.statusName, synced: false });
   } catch (err) {
     logger.error({ err: err }, "[sync-refund-status] error:");
-    res.status(500).json({ error: "查询退款状态失败" });
+    return res.status(500).json({ error: "查询退款状态失败" });
   }
 });
 

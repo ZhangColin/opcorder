@@ -121,11 +121,11 @@ router.post("/payment/callback", async (req, res) => {
 
     // No matching record found
     console.warn(`[payment-callback] no matching enrollment or demand payment for paymentOrderNo=${paymentOrderNo}`);
-    res.status(200).send();
+    return res.status(200).send();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "回调处理失败";
     logger.error({ err: msg }, "[payment-callback] error");
-    res.status(200).send(); // always 200 — provider does not retry anyway
+    return res.status(200).send(); // always 200 — provider does not retry anyway
   }
 });
 
@@ -205,11 +205,11 @@ router.post("/payment/refund-callback", async (req, res) => {
       console.log(`[refund-callback] payment ${payment.id} refund status=${status} — no terminal update`);
     }
 
-    res.status(200).send();
+    return res.status(200).send();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "退款回调处理失败";
     logger.error({ err: msg }, "[refund-callback] error");
-    res.status(200).send();
+    return res.status(200).send();
   }
 });
 

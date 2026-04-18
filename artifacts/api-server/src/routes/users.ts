@@ -42,7 +42,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
     const userId = req.user!.id;
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) return res.status(404).json({ error: "用户不存在" });
-    res.json({
+    return res.json({
       id:        user.id,
       nickname:  user.nickname,
       email:     user.email,
@@ -53,7 +53,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
       createdAt: user.createdAt.toISOString(),
     });
   } catch {
-    res.status(500).json({ error: "Failed to fetch user" });
+    return res.status(500).json({ error: "Failed to fetch user" });
   }
 });
 
@@ -81,18 +81,18 @@ router.get("/users/opc-leaderboard", async (req, res) => {
       .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
       .orderBy(desc(opcProfilesTable.activityScore))
       .limit(limit ?? 10);
-    res.json(profiles);
+    return res.json(profiles);
   } catch {
-    res.status(500).json({ error: "Failed to fetch leaderboard" });
+    return res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 });
 
 router.get("/users/:userId", requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({
+    return res.json({
       id:        user.id,
       nickname:  user.nickname,
       phone:     user.phone,
@@ -102,24 +102,24 @@ router.get("/users/:userId", requireAuth, async (req, res) => {
       createdAt: user.createdAt.toISOString(),
     });
   } catch {
-    res.status(500).json({ error: "Failed to fetch user" });
+    return res.status(500).json({ error: "Failed to fetch user" });
   }
 });
 
 router.get("/users/:userId/opc-profile", requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
     const profile = await buildProfileResponse(userId);
     if (!profile) return res.status(404).json({ error: "OPC profile not found" });
-    res.json(profile);
+    return res.json(profile);
   } catch {
-    res.status(500).json({ error: "Failed to fetch profile" });
+    return res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
 
 router.put("/users/:userId/opc-profile", requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
 
     if (req.user!.id !== userId) {
       return res.status(403).json({ error: "无权修改他人资料" });
@@ -162,16 +162,16 @@ router.put("/users/:userId/opc-profile", requireAuth, async (req, res) => {
 
     const updated = await buildProfileResponse(userId);
     if (!updated) return res.status(404).json({ error: "Profile not found after update" });
-    res.json(updated);
+    return res.json(updated);
   } catch (err) {
     logger.error({ err: err }, "Update profile error:");
-    res.status(500).json({ error: "Failed to update profile" });
+    return res.status(500).json({ error: "Failed to update profile" });
   }
 });
 
 router.get("/users/:userId/publisher-profile", requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
     const [user] = await db.select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone })
       .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) return res.status(404).json({ error: "User not found" });
@@ -179,7 +179,7 @@ router.get("/users/:userId/publisher-profile", requireAuth, async (req, res) => 
     const [profile] = await db.select().from(publisherProfilesTable)
       .where(eq(publisherProfilesTable.userId, userId)).limit(1);
 
-    res.json({
+    return res.json({
       userId: user.id,
       nickname: user.nickname,
       email: user.email,
@@ -195,13 +195,13 @@ router.get("/users/:userId/publisher-profile", requireAuth, async (req, res) => 
       companyLogo: profile?.companyLogo ?? null,
     });
   } catch {
-    res.status(500).json({ error: "Failed to fetch publisher profile" });
+    return res.status(500).json({ error: "Failed to fetch publisher profile" });
   }
 });
 
 router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
 
     if (req.user!.id !== userId) {
       return res.status(403).json({ error: "无权修改他人资料" });
@@ -241,7 +241,7 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
     const [updatedProfile] = await db.select().from(publisherProfilesTable)
       .where(eq(publisherProfilesTable.userId, userId)).limit(1);
 
-    res.json({
+    return res.json({
       userId: updatedUser.id,
       nickname: updatedUser.nickname,
       email: updatedUser.email,
@@ -258,7 +258,7 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
     });
   } catch (err) {
     logger.error({ err: err }, "Update publisher profile error:");
-    res.status(500).json({ error: "Failed to update publisher profile" });
+    return res.status(500).json({ error: "Failed to update publisher profile" });
   }
 });
 

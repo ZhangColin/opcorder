@@ -86,8 +86,8 @@ async function sendBatchedEmails(
           const { error } = await resend.emails.send({
             from,
             to: j.email,
-            subject: subject.trim(),
-            html: buildBulkEmail(j.nickname ?? j.email, body.trim()),
+            subject: subject!.trim(),
+            html: buildBulkEmail(j.nickname ?? j.email, body!.trim()),
           });
           if (error) {
             failed++;
@@ -204,7 +204,7 @@ router.get("/admin/stats", async (_req, res) => {
     const completed = Number(completedOrders.cnt) || 0;
     const completionRate = total > 0 ? (completed / total * 100) : 0;
 
-    res.json({
+    return res.json({
       totalOrders: total,
       totalAmount: Number(orderStats.totalAmount) || 0,
       completionRate: Math.round(completionRate * 10) / 10,
@@ -216,7 +216,7 @@ router.get("/admin/stats", async (_req, res) => {
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取统计数据失败" });
+    return res.status(500).json({ error: "获取统计数据失败" });
   }
 });
 
@@ -225,7 +225,7 @@ router.get("/admin/stats", async (_req, res) => {
 router.get("/admin/users", async (req, res) => {
   try {
     const { role, status, q } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const conditions = [];
     if (role && role !== "all") conditions.push(eq(usersTable.role, role as "opc" | "publisher" | "admin"));
@@ -267,16 +267,16 @@ router.get("/admin/users", async (req, res) => {
       };
     }));
 
-    res.json({ data: withOpcProfiles, total: Number(total), page, pageSize });
+    return res.json({ data: withOpcProfiles, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取用户列表失败" });
+    return res.status(500).json({ error: "获取用户列表失败" });
   }
 });
 
 router.patch("/admin/users/:id", async (req, res) => {
   try {
-    const userId = Number(req.params.id);
+    const userId = Number(req.params.id as string);
     const { action, value } = req.body as { action: string; value?: string };
 
     if (action === "ban") {
@@ -291,10 +291,10 @@ router.patch("/admin/users/:id", async (req, res) => {
       return res.status(400).json({ error: "无效操作" });
     }
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
@@ -303,7 +303,7 @@ router.patch("/admin/users/:id", async (req, res) => {
 router.get("/admin/demands", async (req, res) => {
   try {
     const { status, q } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const conditions = [];
     if (status && status !== "all") conditions.push(eq(demandsTable.status, status as "pending_review" | "published" | "in_progress" | "completed" | "closed" | "matched" | "draft" | "pending_acceptance" | "pending_payment" | "refund_pending" | "refunding" | "refunded"));
@@ -339,16 +339,16 @@ router.get("/admin/demands", async (req, res) => {
       return { ...d, publisherName: pub?.nickname ?? "—" };
     }));
 
-    res.json({ data: withPublisher, total: Number(total), page, pageSize });
+    return res.json({ data: withPublisher, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取需求列表失败" });
+    return res.status(500).json({ error: "获取需求列表失败" });
   }
 });
 
 router.get("/admin/demands/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const [d] = await db.select().from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
     if (!d) return res.status(404).json({ error: "需求不存在" });
     const [pub] = await db.select({
@@ -362,7 +362,7 @@ router.get("/admin/demands/:id", async (req, res) => {
       .orderBy(desc(demandPaymentsTable.createdAt))
       .limit(1);
 
-    res.json({
+    return res.json({
       ...d,
       publisherName: pub?.nickname ?? "—",
       publisherEmail: pub?.email ?? null,
@@ -384,14 +384,14 @@ router.get("/admin/demands/:id", async (req, res) => {
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取需求详情失败" });
+    return res.status(500).json({ error: "获取需求详情失败" });
   }
 });
 
 /* ─── Send in-app notification to demand publisher ── */
 router.post("/admin/demands/:id/notify", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { title, content } = req.body as { title?: string; content?: string };
     if (!title?.trim() || !content?.trim()) {
       return res.status(400).json({ error: "标题和内容不能为空" });
@@ -407,17 +407,17 @@ router.post("/admin/demands/:id/notify", async (req, res) => {
       relatedId: id,
       relatedType: "demand",
     });
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "发送站内信失败" });
+    return res.status(500).json({ error: "发送站内信失败" });
   }
 });
 
 /* ─── Send email to demand publisher ─────────────── */
 router.post("/admin/demands/:id/send-email", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { subject, content } = req.body as { subject?: string; content?: string };
     if (!subject?.trim() || !content?.trim()) {
       return res.status(400).json({ error: "主题和内容不能为空" });
@@ -431,20 +431,20 @@ router.post("/admin/demands/:id/send-email", async (req, res) => {
     const { error } = await resend.emails.send({
       from: "接单吧 <noreply@aieducenter.com>",
       to: pub.email,
-      subject: subject.trim(),
+      subject: subject!.trim(),
       html: buildBulkEmail(pub.nickname ?? pub.email, content.trim()),
     });
     if (error) return res.status(500).json({ error: "邮件发送失败" });
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "发送邮件失败" });
+    return res.status(500).json({ error: "发送邮件失败" });
   }
 });
 
 router.patch("/admin/demands/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { action, reason } = req.body as { action: string; reason?: string };
 
     // Load demand + publisher info for notifications
@@ -510,10 +510,10 @@ router.patch("/admin/demands/:id", async (req, res) => {
       return res.status(400).json({ error: "无效操作" });
     }
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
@@ -522,7 +522,7 @@ router.patch("/admin/demands/:id", async (req, res) => {
 router.get("/admin/orders", async (req, res) => {
   try {
     const { status, q } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const conditions = [];
     if (status && status !== "all") conditions.push(eq(ordersTable.status, status as "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed"));
@@ -577,16 +577,16 @@ router.get("/admin/orders", async (req, res) => {
       };
     }));
 
-    res.json({ data: enriched, total: Number(total), page, pageSize });
+    return res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取订单列表失败" });
+    return res.status(500).json({ error: "获取订单列表失败" });
   }
 });
 
 router.patch("/admin/orders/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { action } = req.body as { action: string };
 
     if (action === "forceSettle") {
@@ -599,10 +599,10 @@ router.patch("/admin/orders/:id", async (req, res) => {
       return res.status(400).json({ error: "无效操作" });
     }
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
@@ -611,7 +611,7 @@ router.patch("/admin/orders/:id", async (req, res) => {
 router.get("/admin/finance", async (req, res) => {
   try {
     const { status } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const [totals] = await db.select({
       totalAmount: sql<number>`COALESCE(SUM(${ordersTable.amount}), 0)`,
@@ -649,7 +649,7 @@ router.get("/admin/finance", async (req, res) => {
       return { ...o, opcName: opc?.nickname ?? "—", publisherName: pub?.nickname ?? "—" };
     }));
 
-    res.json({
+    return res.json({
       totalSettled: Number(totals.totalAmount) || 0,
       platformFee: Number(totals.totalPlatformFee) || 0,
       opcShare: Number(totals.totalOpcShare) || 0,
@@ -661,7 +661,7 @@ router.get("/admin/finance", async (req, res) => {
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取财务数据失败" });
+    return res.status(500).json({ error: "获取财务数据失败" });
   }
 });
 
@@ -670,7 +670,7 @@ router.get("/admin/finance", async (req, res) => {
 router.get("/admin/ecosystem", async (req, res) => {
   try {
     const { q, level } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const qFilter  = q     ? sql`AND (u.nickname ILIKE ${'%' + q + '%'} OR u.email ILIKE ${'%' + q + '%'})` : sql``;
     const lvFilter = (level && level !== "all") ? sql`AND p.level = ${level}` : sql``;
@@ -705,16 +705,16 @@ router.get("/admin/ecosystem", async (req, res) => {
       LIMIT ${pageSize} OFFSET ${offset}
     `);
 
-    res.json({ data: opcs.rows, total: Number(countRow?.total ?? 0), page, pageSize });
+    return res.json({ data: opcs.rows, total: Number(countRow?.total ?? 0), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取生态池数据失败" });
+    return res.status(500).json({ error: "获取生态池数据失败" });
   }
 });
 
 router.patch("/admin/ecosystem/:userId", async (req, res) => {
   try {
-    const userId = Number(req.params.userId);
+    const userId = Number(req.params.userId as string);
     const { action, value } = req.body as { action: string; value?: string | number };
 
     if (action === "setLevel" && value) {
@@ -729,10 +729,10 @@ router.patch("/admin/ecosystem/:userId", async (req, res) => {
       return res.status(400).json({ error: "无效操作" });
     }
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
@@ -741,7 +741,7 @@ router.patch("/admin/ecosystem/:userId", async (req, res) => {
 router.get("/admin/training", async (req, res) => {
   try {
     const { q, status: courseStatus, level } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const qFilter = q ? sql`AND c.title ILIKE ${'%' + q + '%'}` : sql``;
     const statusFilter = (courseStatus && courseStatus !== "all") ? sql`AND c.status = ${courseStatus}` : sql``;
@@ -792,7 +792,7 @@ router.get("/admin/training", async (req, res) => {
     `);
     const enrollStats = (statsRows.rows as Array<Record<string, unknown>>)[0];
 
-    res.json({
+    return res.json({
       data: rows.rows,
       total: Number(countRow?.total ?? 0),
       page,
@@ -808,7 +808,7 @@ router.get("/admin/training", async (req, res) => {
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取培训数据失败" });
+    return res.status(500).json({ error: "获取培训数据失败" });
   }
 });
 
@@ -835,16 +835,16 @@ router.post("/admin/training/courses", async (req, res) => {
       maxEnrollments: maxEnrollments != null ? Number(maxEnrollments) : null,
     }).returning();
 
-    res.status(201).json(course);
+    return res.status(201).json(course);
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "创建课程失败" });
+    return res.status(500).json({ error: "创建课程失败" });
   }
 });
 
 router.put("/admin/training/courses/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const {
       title, category, requiredLevel, durationMinutes, description,
       badge, rating, isRequired, status, price, syllabusUrl, instructor, maxEnrollments,
@@ -867,28 +867,28 @@ router.put("/admin/training/courses/:id", async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(coursesTable.id, id));
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "更新课程失败" });
+    return res.status(500).json({ error: "更新课程失败" });
   }
 });
 
 router.delete("/admin/training/courses/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     await db.delete(enrollmentsTable).where(eq(enrollmentsTable.courseId, id));
     await db.delete(coursesTable).where(eq(coursesTable.id, id));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "删除课程失败" });
+    return res.status(500).json({ error: "删除课程失败" });
   }
 });
 
 router.patch("/admin/training/courses/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { action } = req.body as { action: string };
 
     if (action === "publish") {
@@ -905,16 +905,16 @@ router.patch("/admin/training/courses/:id", async (req, res) => {
       return res.status(400).json({ error: "无效操作" });
     }
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
 router.get("/admin/training/courses/:id/enrollments", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const rows = await db.execute(sql`
       SELECT
         e.id, e.user_id, e.progress_pct, e.completed_at,
@@ -925,29 +925,29 @@ router.get("/admin/training/courses/:id/enrollments", async (req, res) => {
       WHERE e.course_id = ${id}
       ORDER BY e.created_at DESC
     `);
-    res.json(rows.rows);
+    return res.json(rows.rows);
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取报名列表失败" });
+    return res.status(500).json({ error: "获取报名列表失败" });
   }
 });
 
 router.post("/admin/training/enrollments/:enrollId/pay", async (req, res) => {
   try {
-    const enrollId = Number(req.params.enrollId);
+    const enrollId = Number(req.params.enrollId as string);
     await db.update(enrollmentsTable)
       .set({ paymentStatus: "paid" })
       .where(eq(enrollmentsTable.id, enrollId));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
 router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res) => {
   try {
-    const enrollId = Number(req.params.enrollId);
+    const enrollId = Number(req.params.enrollId as string);
     const [enroll] = await db.select().from(enrollmentsTable).where(eq(enrollmentsTable.id, enrollId));
     if (!enroll) return res.status(404).json({ error: "报名记录不存在" });
 
@@ -955,10 +955,10 @@ router.post("/admin/training/enrollments/:enrollId/issue-cert", async (req, res)
       .set({ certIssued: true, certIssuedAt: new Date(), completedAt: enroll.completedAt ?? new Date() })
       .where(eq(enrollmentsTable.id, enrollId));
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "发证失败" });
+    return res.status(500).json({ error: "发证失败" });
   }
 });
 
@@ -983,7 +983,7 @@ router.get("/admin/training/refunds", requireAdmin, async (req, res) => {
       .where(eq(enrollmentsTable.paymentStatus, "refund_pending"))
       .orderBy(desc(enrollmentsTable.refundRequestedAt));
 
-    res.json(rows.map(({ enrollment, course, user }) => ({
+    return res.json(rows.map(({ enrollment, course, user }) => ({
       id: enrollment.id,
       courseId: enrollment.courseId,
       courseTitle: course?.title ?? null,
@@ -1001,14 +1001,14 @@ router.get("/admin/training/refunds", requireAdmin, async (req, res) => {
     })));
   } catch (err) {
     logger.error({ err: err }, "[admin-course-refunds]");
-    res.status(500).json({ error: "获取退款列表失败" });
+    return res.status(500).json({ error: "获取退款列表失败" });
   }
 });
 
 /** Admin approves a course enrollment refund request */
 router.post("/admin/training/enrollments/:enrollId/approve-refund", requireAdmin, async (req, res) => {
   try {
-    const enrollId = Number(req.params.enrollId);
+    const enrollId = Number(req.params.enrollId as string);
 
     const [enrollment] = await db
       .select({ enrollment: enrollmentsTable, course: coursesTable, user: usersTable })
@@ -1056,18 +1056,18 @@ router.post("/admin/training/enrollments/:enrollId/approve-refund", requireAdmin
       }).catch(() => {});
     }
 
-    res.json({ success: true, refundOrderNo: refundResult.refundOrderNo });
+    return res.json({ success: true, refundOrderNo: refundResult.refundOrderNo });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
     logger.error({ err: err }, "[admin-approve-course-refund]");
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
 /** Admin rejects a course enrollment refund request */
 router.post("/admin/training/enrollments/:enrollId/reject-refund", requireAdmin, async (req, res) => {
   try {
-    const enrollId = Number(req.params.enrollId);
+    const enrollId = Number(req.params.enrollId as string);
     const { reason } = req.body as { reason?: string };
     if (!reason?.trim()) return res.status(400).json({ error: "请填写拒绝原因" });
 
@@ -1101,11 +1101,11 @@ router.post("/admin/training/enrollments/:enrollId/reject-refund", requireAdmin,
       }).catch(() => {});
     }
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
     logger.error({ err: err }, "[admin-reject-course-refund]");
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
@@ -1191,26 +1191,26 @@ router.post("/admin/users/bulk-email", async (req, res) => {
     const total = jobs.length;
     const operatorId = req.user?.id;
 
-    res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
+    return res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
 
-    await writeSystemLog("info", "email", `群发邮件任务开始：${subject.trim()}`, { subject: subject.trim(), total }, operatorId);
+    await writeSystemLog("info", "email", `群发邮件任务开始：${subject!.trim()}`, { subject: subject!.trim(), total }, operatorId);
 
-    sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM)
+    sendBatchedEmails(jobs, subject!.trim(), body!.trim(), FROM)
       .then(async ({ sent, failed, skipped, failedEmails }) => {
         logger.info({ sent, failed, skipped, total }, "Bulk email job completed");
         const level = failed > 0 ? "warn" : "info";
-        await writeSystemLog(level, "email", `群发邮件任务完成：${subject.trim()}`, {
-          subject: subject.trim(), total, sent, failed, skipped,
+        await writeSystemLog(level, "email", `群发邮件任务完成：${subject!.trim()}`, {
+          subject: subject!.trim(), total, sent, failed, skipped,
           ...(failedEmails.length > 0 ? { failedEmails } : {}),
         }, operatorId);
       })
       .catch(async (err) => {
         logger.error({ err }, "Bulk email job failed");
-        await writeSystemLog("error", "email", `群发邮件任务异常：${subject.trim()}`, { subject: subject.trim(), error: err instanceof Error ? err.message : String(err) }, operatorId);
+        await writeSystemLog("error", "email", `群发邮件任务异常：${subject!.trim()}`, { subject: subject!.trim(), error: err instanceof Error ? err.message : String(err) }, operatorId);
       });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "群发邮件失败" });
+    return res.status(500).json({ error: "群发邮件失败" });
   }
 });
 
@@ -1280,10 +1280,10 @@ router.post("/admin/users/bulk-notify", async (req, res) => {
       }))
     );
 
-    res.json({ sent: users.length, total: users.length });
+    return res.json({ sent: users.length, total: users.length });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "群发站内信失败" });
+    return res.status(500).json({ error: "群发站内信失败" });
   }
 });
 
@@ -1291,7 +1291,7 @@ router.post("/admin/users/bulk-notify", async (req, res) => {
 
 router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => {
   try {
-    const courseId = Number(req.params.courseId);
+    const courseId = Number(req.params.courseId as string);
     const { subject, body, filterNames, filterPaymentStatus } = req.body as {
       subject?: string;
       body?: string;
@@ -1329,26 +1329,26 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
     const total = jobs.length;
     const operatorId = req.user?.id;
 
-    res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
+    return res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
 
-    await writeSystemLog("info", "email", `课程群发邮件任务开始：${subject.trim()}`, { subject: subject.trim(), courseId, total }, operatorId);
+    await writeSystemLog("info", "email", `课程群发邮件任务开始：${subject!.trim()}`, { subject: subject!.trim(), courseId, total }, operatorId);
 
-    sendBatchedEmails(jobs, subject.trim(), body.trim(), FROM)
+    sendBatchedEmails(jobs, subject!.trim(), body!.trim(), FROM)
       .then(async ({ sent, failed, skipped, failedEmails }) => {
         logger.info({ sent, failed, skipped, total, courseId }, "Course bulk email job completed");
         const level = failed > 0 ? "warn" : "info";
-        await writeSystemLog(level, "email", `课程群发邮件任务完成：${subject.trim()}`, {
-          subject: subject.trim(), courseId, total, sent, failed, skipped,
+        await writeSystemLog(level, "email", `课程群发邮件任务完成：${subject!.trim()}`, {
+          subject: subject!.trim(), courseId, total, sent, failed, skipped,
           ...(failedEmails.length > 0 ? { failedEmails } : {}),
         }, operatorId);
       })
       .catch(async (err) => {
         logger.error({ err, courseId }, "Course bulk email job failed");
-        await writeSystemLog("error", "email", `课程群发邮件任务异常：${subject.trim()}`, { subject: subject.trim(), courseId, error: err instanceof Error ? err.message : String(err) }, operatorId);
+        await writeSystemLog("error", "email", `课程群发邮件任务异常：${subject!.trim()}`, { subject: subject!.trim(), courseId, error: err instanceof Error ? err.message : String(err) }, operatorId);
       });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "群发邮件失败" });
+    return res.status(500).json({ error: "群发邮件失败" });
   }
 });
 
@@ -1357,7 +1357,7 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
 router.get("/admin/level-certs", async (req, res) => {
   try {
     const { status } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const statusClause = (status && status !== "all")
       ? (status === "reviewed"
@@ -1411,16 +1411,16 @@ router.get("/admin/level-certs", async (req, res) => {
         p.created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `);
-    res.json({ data: rows.rows, total: Number(countRow?.total ?? 0), page, pageSize });
+    return res.json({ data: rows.rows, total: Number(countRow?.total ?? 0), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取等级认证列表失败" });
+    return res.status(500).json({ error: "获取等级认证列表失败" });
   }
 });
 
 router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
   try {
-    const portfolioId = Number(req.params.portfolioId);
+    const portfolioId = Number(req.params.portfolioId as string);
     const { result, note, downgradeTo } = req.body as {
       result: "approved" | "downgraded" | "rejected";
       note?: string;
@@ -1491,10 +1491,10 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
       relatedType: "portfolio",
     });
 
-    res.json({ ok: true, grantedLevel: result !== "rejected" ? grantedLevel : null });
+    return res.json({ ok: true, grantedLevel: result !== "rejected" ? grantedLevel : null });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "评审操作失败" });
+    return res.status(500).json({ error: "评审操作失败" });
   }
 });
 
@@ -1503,7 +1503,7 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
 router.get("/admin/content", async (req, res) => {
   try {
     const { q } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const conditions = [];
     if (q) conditions.push(or(
@@ -1537,42 +1537,42 @@ router.get("/admin/content", async (req, res) => {
       return { ...p, authorName: author?.nickname ?? "—" };
     }));
 
-    res.json({ data: enriched, total: Number(total), page, pageSize });
+    return res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取内容列表失败" });
+    return res.status(500).json({ error: "获取内容列表失败" });
   }
 });
 
 router.patch("/admin/content/:postId/feature", async (req, res) => {
   try {
-    const id = Number(req.params.postId);
+    const id = Number(req.params.postId as string);
     const { isFeatured } = req.body as { isFeatured: boolean };
     await db.update(postsTable).set({ isFeatured }).where(eq(postsTable.id, id));
-    res.json({ ok: true, isFeatured });
+    return res.json({ ok: true, isFeatured });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
 router.delete("/admin/content/posts/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     await db.execute(sql`DELETE FROM post_comments WHERE post_id = ${id}`);
     await db.execute(sql`DELETE FROM post_likes WHERE post_id = ${id}`);
     await db.delete(postsTable).where(eq(postsTable.id, id));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "删除失败" });
+    return res.status(500).json({ error: "删除失败" });
   }
 });
 
 router.get("/admin/content/comments", async (req, res) => {
   try {
     const { q } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const conditions = [];
     if (q) conditions.push(or(
@@ -1600,26 +1600,26 @@ router.get("/admin/content/comments", async (req, res) => {
       .orderBy(desc(postCommentsTable.createdAt))
       .limit(pageSize).offset(offset);
 
-    res.json({ data: comments, total: Number(total), page, pageSize });
+    return res.json({ data: comments, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取评论列表失败" });
+    return res.status(500).json({ error: "获取评论列表失败" });
   }
 });
 
 router.delete("/admin/content/comments/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const [comment] = await db.select({ postId: postCommentsTable.postId }).from(postCommentsTable).where(eq(postCommentsTable.id, id)).limit(1);
     if (!comment) return res.status(404).json({ error: "评论不存在" });
     await db.delete(postCommentsTable).where(eq(postCommentsTable.id, id));
     await db.update(postsTable)
       .set({ commentsCount: sql`GREATEST(0, ${postsTable.commentsCount} - 1)` })
       .where(eq(postsTable.id, comment.postId));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "删除失败" });
+    return res.status(500).json({ error: "删除失败" });
   }
 });
 
@@ -1636,16 +1636,16 @@ router.post("/admin/change-password", async (req, res) => {
     if (!user) return res.status(404).json({ error: "用户不存在" });
 
     const { compare, hash } = await import("bcryptjs");
-    const valid = await compare(currentPassword, user.passwordHash);
+    const valid = await compare(currentPassword, user.passwordHash!);
     if (!valid) return res.status(401).json({ error: "当前密码错误" });
 
     const newHash = await hash(newPassword, 10);
     await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, userId));
 
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "修改密码失败" });
+    return res.status(500).json({ error: "修改密码失败" });
   }
 });
 
@@ -1654,10 +1654,10 @@ router.post("/admin/change-password", async (req, res) => {
 router.get("/admin/sensitive-words", async (_req, res) => {
   try {
     const words = await db.select().from(sensitiveWordsTable).orderBy(sensitiveWordsTable.createdAt);
-    res.json(words);
+    return res.json(words);
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取敏感词失败" });
+    return res.status(500).json({ error: "获取敏感词失败" });
   }
 });
 
@@ -1666,22 +1666,22 @@ router.post("/admin/sensitive-words", async (req, res) => {
     const { word } = req.body as { word: string };
     if (!word || !word.trim()) return res.status(400).json({ error: "敏感词不能为空" });
     const [row] = await db.insert(sensitiveWordsTable).values({ word: word.trim().toLowerCase() }).returning();
-    res.status(201).json(row);
+    return res.status(201).json(row);
   } catch (err: any) {
     if (err?.code === "23505") return res.status(409).json({ error: "该敏感词已存在" });
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "添加失败" });
+    return res.status(500).json({ error: "添加失败" });
   }
 });
 
 router.delete("/admin/sensitive-words/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     await db.delete(sensitiveWordsTable).where(eq(sensitiveWordsTable.id, id));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "删除失败" });
+    return res.status(500).json({ error: "删除失败" });
   }
 });
 
@@ -1724,10 +1724,10 @@ router.get("/admin/settings", async (_req, res) => {
     const rows = await db.select().from(siteSettingsTable);
     const result: Record<string, string> = { ...DEFAULT_SETTINGS };
     for (const row of rows) result[row.key] = row.value ?? "";
-    res.json(result);
+    return res.json(result);
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取站点设置失败" });
+    return res.status(500).json({ error: "获取站点设置失败" });
   }
 });
 
@@ -1750,10 +1750,10 @@ router.put("/admin/settings", async (req, res) => {
         .values({ key, value })
         .onConflictDoUpdate({ target: siteSettingsTable.key, set: { value, updatedAt: new Date() } });
     }
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "保存站点设置失败" });
+    return res.status(500).json({ error: "保存站点设置失败" });
   }
 });
 
@@ -1770,10 +1770,10 @@ async function loadSettings(): Promise<Record<string, string>> {
 
 router.get("/site-settings", async (_req, res) => {
   try {
-    res.json(await loadSettings());
+    return res.json(await loadSettings());
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取站点设置失败" });
+    return res.status(500).json({ error: "获取站点设置失败" });
   }
 });
 
@@ -1782,10 +1782,10 @@ router.get("/site-settings", async (_req, res) => {
 router.get("/admin/learning-resources", async (_req, res) => {
   try {
     const rows = await db.select().from(learningResourcesTable).orderBy(learningResourcesTable.sortOrder, learningResourcesTable.createdAt);
-    res.json(rows);
+    return res.json(rows);
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取学习资源失败" });
+    return res.status(500).json({ error: "获取学习资源失败" });
   }
 });
 
@@ -1793,7 +1793,7 @@ router.post("/admin/learning-resources", async (req, res) => {
   try {
     const { title, fileUrl, fileType, fileSize, description, sortOrder } = req.body as Record<string, unknown>;
     if (!title || !fileUrl) {
-      res.status(400).json({ error: "标题和文件地址为必填项" });
+      return res.status(400).json({ error: "标题和文件地址为必填项" });
       return;
     }
     const [row] = await db.insert(learningResourcesTable).values({
@@ -1804,16 +1804,16 @@ router.post("/admin/learning-resources", async (req, res) => {
       description: description != null && String(description).trim() ? String(description).trim() : null,
       sortOrder: sortOrder != null ? Number(sortOrder) : 0,
     }).returning();
-    res.status(201).json(row);
+    return res.status(201).json(row);
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "创建学习资源失败" });
+    return res.status(500).json({ error: "创建学习资源失败" });
   }
 });
 
 router.put("/admin/learning-resources/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     const { title, fileUrl, fileType, fileSize, description, sortOrder } = req.body as Record<string, unknown>;
     await db.update(learningResourcesTable).set({
       title: String(title || ""),
@@ -1823,21 +1823,21 @@ router.put("/admin/learning-resources/:id", async (req, res) => {
       description: description != null ? String(description) : null,
       sortOrder: sortOrder != null ? Number(sortOrder) : 0,
     }).where(eq(learningResourcesTable.id, id));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "更新学习资源失败" });
+    return res.status(500).json({ error: "更新学习资源失败" });
   }
 });
 
 router.delete("/admin/learning-resources/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
     await db.delete(learningResourcesTable).where(eq(learningResourcesTable.id, id));
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "删除学习资源失败" });
+    return res.status(500).json({ error: "删除学习资源失败" });
   }
 });
 
@@ -1880,20 +1880,20 @@ router.get("/admin/demand-payments", async (req, res) => {
       )
       .orderBy(desc(demandPaymentsTable.createdAt));
 
-    res.json(rows.map(r => ({
+    return res.json(rows.map(r => ({
       ...r,
       confirmedAt: r.confirmedAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
     })));
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "获取缴费记录失败" });
+    return res.status(500).json({ error: "获取缴费记录失败" });
   }
 });
 
 router.patch("/admin/demand-payments/:id", async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const id = Number(req.params.id as string);
 
     const parsed = ReviewDemandPaymentBody.safeParse(req.body);
     if (!parsed.success) {
@@ -1997,14 +1997,14 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
       .where(eq(demandPaymentsTable.id, id))
       .limit(1);
 
-    res.json({
+    return res.json({
       ...updated,
       confirmedAt: updated!.confirmedAt?.toISOString() ?? null,
       createdAt: updated!.createdAt.toISOString(),
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
@@ -2014,7 +2014,7 @@ router.patch("/admin/demand-payments/:id", async (req, res) => {
 router.get("/admin/demand-refunds", async (req, res) => {
   try {
     const { status } = req.query as Record<string, string>;
-    const { page, pageSize, offset } = paginate(req.query);
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     type RefundableStatus = "refund_pending" | "refunding" | "refunded";
     const REFUNDABLE_STATUSES: RefundableStatus[] = ["refund_pending", "refunding", "refunded"];
@@ -2081,17 +2081,17 @@ router.get("/admin/demand-refunds", async (req, res) => {
       };
     }));
 
-    res.json({ data: enriched, total: Number(total), page, pageSize });
+    return res.json({ data: enriched, total: Number(total), page, pageSize });
   } catch (err) {
     logger.error({ err: err }, "[admin-demand-refunds]");
-    res.status(500).json({ error: "获取退款列表失败" });
+    return res.status(500).json({ error: "获取退款列表失败" });
   }
 });
 
 /** Admin approves a publisher's refund request */
 router.post("/admin/demands/:id/approve-refund", requireAdmin, async (req, res) => {
   try {
-    const demandId = Number(req.params.id);
+    const demandId = Number(req.params.id as string);
 
     const [demand] = await db
       .select()
@@ -2189,18 +2189,18 @@ router.post("/admin/demands/:id/approve-refund", requireAdmin, async (req, res) 
       }
     });
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
     logger.error({ err: err }, "[admin-approve-refund] error:");
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
 /** Admin rejects a publisher's refund request */
 router.post("/admin/demands/:id/reject-refund", requireAdmin, async (req, res) => {
   try {
-    const demandId = Number(req.params.id);
+    const demandId = Number(req.params.id as string);
     const { reason } = req.body as { reason?: string };
     if (!reason?.trim()) return res.status(400).json({ error: "请填写拒绝原因" });
 
@@ -2253,18 +2253,18 @@ router.post("/admin/demands/:id/reject-refund", requireAdmin, async (req, res) =
       }
     });
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
     logger.error({ err: err }, "[admin-reject-refund] error:");
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
 /** Admin confirms an offline refund by uploading a receipt */
 router.post("/admin/demands/:id/confirm-offline-refund", requireAdmin, async (req, res) => {
   try {
-    const demandId = Number(req.params.id);
+    const demandId = Number(req.params.id as string);
     const { refundReceiptUrl } = req.body as { refundReceiptUrl?: string };
     if (!refundReceiptUrl?.trim()) return res.status(400).json({ error: "请上传退款凭证" });
 
@@ -2321,11 +2321,11 @@ router.post("/admin/demands/:id/confirm-offline-refund", requireAdmin, async (re
       }
     });
 
-    res.json({ success: true, refundedAt: now.toISOString() });
+    return res.json({ success: true, refundedAt: now.toISOString() });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "操作失败";
     logger.error({ err: err }, "[admin-confirm-offline-refund] error:");
-    res.status(500).json({ error: msg });
+    return res.status(500).json({ error: msg });
   }
 });
 
@@ -2340,9 +2340,9 @@ router.get("/admin/profile", async (req, res) => {
       .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
 
     const permissions = req.user!.adminPermissions ?? [];
-    res.json({ ...user, permissions, isSuperAdmin: user?.isSuperAdmin ?? false });
+    return res.json({ ...user, permissions, isSuperAdmin: user?.isSuperAdmin ?? false });
   } catch (err) {
-    res.status(500).json({ error: "获取管理员信息失败" });
+    return res.status(500).json({ error: "获取管理员信息失败" });
   }
 });
 
@@ -2358,9 +2358,9 @@ router.get("/admin/roles", requireSuperAdmin, async (_req, res) => {
       .from(adminRoleAssignmentsTable)
       .groupBy(adminRoleAssignmentsTable.roleId);
     const countMap = Object.fromEntries(counts.map(c => [c.roleId, c.cnt]));
-    res.json(roles.map(r => ({ ...r, memberCount: countMap[r.id] ?? 0 })));
+    return res.json(roles.map(r => ({ ...r, memberCount: countMap[r.id] ?? 0 })));
   } catch (err) {
-    res.status(500).json({ error: "获取角色列表失败" });
+    return res.status(500).json({ error: "获取角色列表失败" });
   }
 });
 
@@ -2372,15 +2372,15 @@ router.post("/admin/roles", requireSuperAdmin, async (req, res) => {
     const [role] = await db.insert(adminRolesTable)
       .values({ name: name.trim(), description: description?.trim() ?? null, permissions: validPerms })
       .returning();
-    res.json(role);
+    return res.json(role);
   } catch (err) {
-    res.status(500).json({ error: "创建角色失败" });
+    return res.status(500).json({ error: "创建角色失败" });
   }
 });
 
 router.patch("/admin/roles/:id", requireSuperAdmin, async (req, res) => {
   try {
-    const roleId = Number(req.params.id);
+    const roleId = Number(req.params.id as string);
     const { name, description, permissions } = req.body as { name?: string; description?: string; permissions?: string[] };
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (name?.trim()) updateData.name = name.trim();
@@ -2390,20 +2390,20 @@ router.patch("/admin/roles/:id", requireSuperAdmin, async (req, res) => {
     }
     const [role] = await db.update(adminRolesTable).set(updateData).where(eq(adminRolesTable.id, roleId)).returning();
     if (!role) return res.status(404).json({ error: "角色不存在" });
-    res.json(role);
+    return res.json(role);
   } catch (err) {
-    res.status(500).json({ error: "更新角色失败" });
+    return res.status(500).json({ error: "更新角色失败" });
   }
 });
 
 router.delete("/admin/roles/:id", requireSuperAdmin, async (req, res) => {
   try {
-    const roleId = Number(req.params.id);
+    const roleId = Number(req.params.id as string);
     await db.delete(adminRoleAssignmentsTable).where(eq(adminRoleAssignmentsTable.roleId, roleId));
     await db.delete(adminRolesTable).where(eq(adminRolesTable.id, roleId));
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "删除角色失败" });
+    return res.status(500).json({ error: "删除角色失败" });
   }
 });
 
@@ -2429,9 +2429,9 @@ router.get("/admin/admin-users", requireSuperAdmin, async (_req, res) => {
       roleMap[a.userId].push(a.roleId);
     }
 
-    res.json(admins.map(a => ({ ...a, roleIds: roleMap[a.id] ?? [] })));
+    return res.json(admins.map(a => ({ ...a, roleIds: roleMap[a.id] ?? [] })));
   } catch (err) {
-    res.status(500).json({ error: "获取管理员列表失败" });
+    return res.status(500).json({ error: "获取管理员列表失败" });
   }
 });
 
@@ -2451,16 +2451,16 @@ router.post("/admin/admin-users", requireSuperAdmin, async (req, res) => {
       await db.insert(adminRoleAssignmentsTable).values(roleIds.map(r => ({ userId, roleId: r })));
     }
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "设置管理员失败" });
+    return res.status(500).json({ error: "设置管理员失败" });
   }
 });
 
 /** Update an admin's role assignments */
 router.patch("/admin/admin-users/:id", requireSuperAdmin, async (req, res) => {
   try {
-    const targetId = Number(req.params.id);
+    const targetId = Number(req.params.id as string);
     const currentId = req.user!.id;
     const { roleIds } = req.body as { roleIds: number[] };
 
@@ -2473,16 +2473,16 @@ router.patch("/admin/admin-users/:id", requireSuperAdmin, async (req, res) => {
       await db.insert(adminRoleAssignmentsTable).values(roleIds.map(r => ({ userId: targetId, roleId: r })));
     }
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "更新角色分配失败" });
+    return res.status(500).json({ error: "更新角色分配失败" });
   }
 });
 
 /** Revoke admin access from a user */
 router.delete("/admin/admin-users/:id", requireSuperAdmin, async (req, res) => {
   try {
-    const targetId = Number(req.params.id);
+    const targetId = Number(req.params.id as string);
     const currentId = req.user!.id;
     if (targetId === currentId) return res.status(400).json({ error: "不能撤销自己的管理员权限" });
 
@@ -2493,9 +2493,9 @@ router.delete("/admin/admin-users/:id", requireSuperAdmin, async (req, res) => {
     await db.delete(adminRoleAssignmentsTable).where(eq(adminRoleAssignmentsTable.userId, targetId));
     await db.update(usersTable).set({ role: "opc" }).where(eq(usersTable.id, targetId));
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "撤销管理员权限失败" });
+    return res.status(500).json({ error: "撤销管理员权限失败" });
   }
 });
 
@@ -2512,9 +2512,9 @@ router.get("/admin/admin-users/search-users", requireSuperAdmin, async (req, res
         or(ilike(usersTable.nickname, `%${q}%`), ilike(usersTable.email, `%${q}%`))
       ))
       .limit(10);
-    res.json(users);
+    return res.json(users);
   } catch (err) {
-    res.status(500).json({ error: "搜索失败" });
+    return res.status(500).json({ error: "搜索失败" });
   }
 });
 
@@ -2551,13 +2551,13 @@ router.get("/admin/system-logs", async (req, res) => {
       .limit(limit)
       .offset(offset);
 
-    res.json({
+    return res.json({
       total: Number(totalResult.count),
       rows: rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })),
     });
   } catch (err) {
     logger.error({ err }, "Route handler error");
-    res.status(500).json({ error: "查询系统日志失败" });
+    return res.status(500).json({ error: "查询系统日志失败" });
   }
 });
 

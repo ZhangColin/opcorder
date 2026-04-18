@@ -88,7 +88,7 @@ router.get("/orders", requireAuth, async (req, res) => {
       };
     }));
 
-    res.json({
+    return res.json({
       items,
       total,
       page,
@@ -97,13 +97,13 @@ router.get("/orders", requireAuth, async (req, res) => {
     });
   } catch (error) {
     req.log.error({ error }, "Failed to list orders");
-    res.status(500).json({ error: "Failed to list orders" });
+    return res.status(500).json({ error: "Failed to list orders" });
   }
 });
 
 router.get("/orders/:orderId", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
+    const orderId = parseInt(req.params.orderId as string);
     const [order] = await db
       .select({
         id: ordersTable.id,
@@ -155,7 +155,7 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
       contactEmail: publisherProfilesTable.contactEmail,
     }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, order.publisherId));
 
-    res.json({
+    return res.json({
       ...order,
       opcNickname: opcUser?.nickname,
       publisherName: pubUser?.nickname,
@@ -169,13 +169,13 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
       updatedAt: order.updatedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch order" });
+    return res.status(500).json({ error: "Failed to fetch order" });
   }
 });
 
 router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
+    const orderId = parseInt(req.params.orderId as string);
     const body = SubmitDeliverableBody.parse(req.body);
 
     const [deliverable] = await db.insert(deliverablesTable).values({
@@ -205,20 +205,20 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(ordersTable.id, orderId));
 
-    res.status(201).json({
+    return res.status(201).json({
       ...deliverable,
       submittedAt: deliverable.submittedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to submit deliverable" });
+    return res.status(500).json({ error: "Failed to submit deliverable" });
   }
 });
 
 /* ─── OPC edit a submitted (not yet reviewed) deliverable ─── */
 router.patch("/orders/:orderId/deliverables/:deliverableId", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
-    const deliverableId = parseInt(req.params.deliverableId);
+    const orderId = parseInt(req.params.orderId as string);
+    const deliverableId = parseInt(req.params.deliverableId as string);
 
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
     if (!order) return res.status(404).json({ error: "订单不存在" });
@@ -241,18 +241,18 @@ router.patch("/orders/:orderId/deliverables/:deliverableId", requireAuth, async 
       submittedAt: new Date(),
     }).where(eq(deliverablesTable.id, deliverableId)).returning();
 
-    res.json({ ...updated, submittedAt: updated.submittedAt.toISOString() });
+    return res.json({ ...updated, submittedAt: updated.submittedAt.toISOString() });
   } catch (error) {
     logger.error(error, "Failed to update deliverable");
-    res.status(500).json({ error: "修改失败" });
+    return res.status(500).json({ error: "修改失败" });
   }
 });
 
 /* ─── Per-milestone accept ─────────────────────── */
 router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
-    const milestoneId = parseInt(req.params.milestoneId); // 1-based
+    const orderId = parseInt(req.params.orderId as string);
+    const milestoneId = parseInt(req.params.milestoneId as string); // 1-based
     const milestoneIdx = milestoneId - 1; // 0-based for JSONB array
 
     // Validate body with shared AcceptOrderBody schema (same validation as global accept)
@@ -362,7 +362,7 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
       finalOrder = updated;
     }
 
-    res.json({
+    return res.json({
       ...finalOrder,
       allCompleted: allApproved,
       createdAt: finalOrder.createdAt.toISOString(),
@@ -373,15 +373,15 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
       return res.status(400).json({ error: "请求参数无效" });
     }
     req.log.error({ msg: "milestone accept error", err: String(error) });
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
 /* ─── Per-milestone reject ─────────────────────── */
 router.post("/orders/:orderId/milestones/:milestoneId/reject", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
-    const milestoneId = parseInt(req.params.milestoneId); // 1-based
+    const orderId = parseInt(req.params.orderId as string);
+    const milestoneId = parseInt(req.params.milestoneId as string); // 1-based
     const milestoneIdx = milestoneId - 1; // 0-based for JSONB array
 
     const { reason } = req.body as { reason?: string };
@@ -463,7 +463,7 @@ router.post("/orders/:orderId/milestones/:milestoneId/reject", requireAuth, asyn
       });
     }
 
-    res.json({
+    return res.json({
       ...updated,
       milestoneRejections,
       autoDisputed: newOrderStatus === "disputed",
@@ -475,14 +475,14 @@ router.post("/orders/:orderId/milestones/:milestoneId/reject", requireAuth, asyn
       return res.status(400).json({ error: "请求参数无效" });
     }
     req.log.error({ msg: "milestone reject error", err: String(error) });
-    res.status(500).json({ error: "操作失败" });
+    return res.status(500).json({ error: "操作失败" });
   }
 });
 
 /* ─── Global accept (non-milestone orders only) ─── */
 router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
+    const orderId = parseInt(req.params.orderId as string);
     const body = AcceptOrderBody.parse(req.body);
 
     // Block global accept on milestone orders — use per-milestone endpoints instead
@@ -549,20 +549,20 @@ router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       ...updated,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to accept order" });
+    return res.status(500).json({ error: "Failed to accept order" });
   }
 });
 
 /* ─── Global reject (non-milestone orders only) ─── */
 router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
+    const orderId = parseInt(req.params.orderId as string);
     const body = RejectDeliveryBody.parse(req.body);
 
     // Block global reject on milestone orders — use per-milestone endpoints instead
@@ -617,7 +617,7 @@ router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       ...updated,
       rejectionCount: Number(rejectionCount),
       autoDisputed: newStatus === "disputed",
@@ -625,13 +625,13 @@ router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to reject delivery" });
+    return res.status(500).json({ error: "Failed to reject delivery" });
   }
 });
 
 router.post("/orders/:orderId/opc-review", requireAuth, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.orderId);
+    const orderId = parseInt(req.params.orderId as string);
     const { rating, comment } = req.body as { rating?: unknown; comment?: string };
     if (typeof rating !== "number" || rating < 1 || rating > 5) {
       return res.status(400).json({ error: "rating must be 1-5" });
@@ -648,13 +648,13 @@ router.post("/orders/:orderId/opc-review", requireAuth, async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(ordersTable.id, orderId)).returning();
 
-    res.json({
+    return res.json({
       ...updated,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to submit OPC review" });
+    return res.status(500).json({ error: "Failed to submit OPC review" });
   }
 });
 

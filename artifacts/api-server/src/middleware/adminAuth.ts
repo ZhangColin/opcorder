@@ -78,9 +78,10 @@ export function requirePermission(key: string) {
   };
 }
 
-export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!req.user?.isSuperAdmin) {
-    return res.status(403).json({ error: "需要超级管理员权限" });
+    res.status(403).json({ error: "需要超级管理员权限" });
+    return;
   }
   next();
 }

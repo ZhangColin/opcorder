@@ -30,9 +30,9 @@ router.get("/portfolios", async (req, res) => {
 
     const items = await db.select().from(portfoliosTable).where(conditions.length > 0 ? conditions[0] : undefined);
 
-    res.json(items.map(formatPortfolio));
+    return res.json(items.map(formatPortfolio));
   } catch (error) {
-    res.status(500).json({ error: "Failed to list portfolios" });
+    return res.status(500).json({ error: "Failed to list portfolios" });
   }
 });
 
@@ -55,15 +55,15 @@ router.post("/portfolios", requireAuth, async (req, res) => {
       levelApplyStatus: applyLevel ? "pending" : null,
     }).returning();
 
-    res.status(201).json(formatPortfolio(portfolio));
+    return res.status(201).json(formatPortfolio(portfolio));
   } catch (error) {
-    res.status(500).json({ error: "Failed to create portfolio" });
+    return res.status(500).json({ error: "Failed to create portfolio" });
   }
 });
 
 router.put("/portfolios/:portfolioId", requireAuth, async (req, res) => {
   try {
-    const portfolioId = parseInt(req.params.portfolioId);
+    const portfolioId = parseInt(req.params.portfolioId as string);
 
     const [existing] = await db
       .select({ userId: portfoliosTable.userId })
@@ -96,15 +96,15 @@ router.put("/portfolios/:portfolioId", requireAuth, async (req, res) => {
 
     const [updated] = await db.update(portfoliosTable).set(updateData).where(eq(portfoliosTable.id, portfolioId)).returning();
 
-    res.json(formatPortfolio(updated));
+    return res.json(formatPortfolio(updated));
   } catch (error) {
-    res.status(500).json({ error: "Failed to update portfolio" });
+    return res.status(500).json({ error: "Failed to update portfolio" });
   }
 });
 
 router.delete("/portfolios/:portfolioId", requireAuth, async (req, res) => {
   try {
-    const portfolioId = parseInt(req.params.portfolioId);
+    const portfolioId = parseInt(req.params.portfolioId as string);
 
     const [existing] = await db
       .select({ userId: portfoliosTable.userId })
@@ -118,9 +118,9 @@ router.delete("/portfolios/:portfolioId", requireAuth, async (req, res) => {
     }
 
     await db.delete(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: "Failed to delete portfolio" });
+    return res.status(500).json({ error: "Failed to delete portfolio" });
   }
 });
 
