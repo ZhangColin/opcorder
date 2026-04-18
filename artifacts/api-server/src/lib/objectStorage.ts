@@ -108,24 +108,67 @@ export class ObjectStorageService {
 
   async getObjectEntityUploadURL(): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
-    if (!privateObjectDir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
-      );
-    }
-
     const objectId = randomUUID();
     const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-
     const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({ bucketName, objectName, method: "PUT", ttlSec: 900 });
+  }
 
-    return signObjectURL({
+  /**
+   * Issue a presigned PUT URL targeting a quarantine path that is NOT
+   * accessible via /storage/objects/*. The file must be promoted (via
+   * promoteFromQuarantine) before it can be served.
+   *
+   * Returns the upload URL, the quarantine GCS path (used for magic-byte
+   * inspection and deletion on failure), and the final published objectPath
+   * (used as the stable reference returned to the client).
+   */
+  async getObjectEntityQuarantineUploadURL(): Promise<{
+    uploadURL: string;
+    quarantineGCSPath: string;
+    publishedGCSPath: string;
+    publishedObjectPath: string;
+  }> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+
+    const quarantineGCSPath = `${privateObjectDir}/pending/${objectId}`;
+    const publishedGCSPath = `${privateObjectDir}/uploads/${objectId}`;
+
+    const { bucketName, objectName } = parseObjectPath(quarantineGCSPath);
+    const uploadURL = await signObjectURL({
       bucketName,
       objectName,
       method: "PUT",
       ttlSec: 900,
     });
+
+    const publishedObjectPath = `/objects/uploads/${objectId}`;
+    return { uploadURL, quarantineGCSPath, publishedGCSPath, publishedObjectPath };
+  }
+
+  /**
+   * Retrieve a GCS File object directly from a raw GCS path string.
+   * Used to access quarantine objects (which are not accessible via /objects/*).
+   */
+  getFileFromGCSPath(gcsPath: string): File {
+    const { bucketName, objectName } = parseObjectPath(gcsPath);
+    return objectStorageClient.bucket(bucketName).file(objectName);
+  }
+
+  /**
+   * Copy a file from the quarantine path to the published path, then delete
+   * the quarantine copy. Call this only after successful verification.
+   */
+  async promoteFromQuarantine(quarantineGCSPath: string, publishedGCSPath: string): Promise<void> {
+    const { bucketName: fromBucket, objectName: fromObject } = parseObjectPath(quarantineGCSPath);
+    const { bucketName: toBucket, objectName: toObject } = parseObjectPath(publishedGCSPath);
+
+    const sourceFile = objectStorageClient.bucket(fromBucket).file(fromObject);
+    const destFile = objectStorageClient.bucket(toBucket).file(toObject);
+
+    await sourceFile.copy(destFile);
+    await sourceFile.delete();
   }
 
   async getObjectEntityFile(objectPath: string): Promise<File> {
@@ -139,6 +182,14 @@ export class ObjectStorageService {
     }
 
     const entityId = parts.slice(1).join("/");
+
+    // Block access to quarantine-area objects (path segment "pending").
+    // Files in the quarantine area must be promoted via /verify before they
+    // are accessible. This prevents bypassing the verification step.
+    if (entityId.startsWith("pending/") || entityId === "pending") {
+      throw new ObjectNotFoundError();
+    }
+
     let entityDir = this.getPrivateObjectDir();
     if (!entityDir.endsWith("/")) {
       entityDir = `${entityDir}/`;

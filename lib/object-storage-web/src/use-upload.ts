@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { UppyFile } from "@uppy/core";
 
 interface UploadMetadata {
@@ -10,6 +10,7 @@ interface UploadMetadata {
 interface UploadResponse {
   uploadURL: string;
   objectPath: string;
+  sessionToken: string;
   metadata: UploadMetadata;
 }
 
@@ -23,34 +24,36 @@ interface UseUploadOptions {
 /**
  * React hook for handling file uploads with presigned URLs.
  *
- * This hook implements the two-step presigned URL upload flow:
- * 1. Request a presigned URL from your backend (sends JSON metadata, NOT the file)
- * 2. Upload the file directly to the presigned URL
+ * Implements a secure three-step upload flow:
+ *  1. Request a presigned URL + session token from the backend
+ *     (sends JSON metadata — NOT the file bytes)
+ *  2. Upload the file directly to the quarantine presigned URL
+ *  3. Present the session token to the backend for post-upload verification
+ *     (server performs magic-byte MIME check + size check on actual bytes;
+ *      on success, promotes the file from quarantine to the published path)
  *
- * @example
+ * Files uploaded to the quarantine path are inaccessible via /storage/objects/*
+ * until verification succeeds — skipping step 3 leaves the file permanently
+ * inaccessible, not exploitable.
+ *
+ * For Uppy-based uploads (via ObjectUploader), use `getUploadParameters` together
+ * with `consumeSessionToken` to ensure verification is called after upload.
+ *
+ * @example — direct upload
  * ```tsx
- * function FileUploader() {
- *   const { uploadFile, isUploading, error } = useUpload({
- *     onSuccess: (response) => {
- *       console.log("Uploaded to:", response.objectPath);
- *     },
- *   });
+ * const { uploadFile, isUploading, error } = useUpload({
+ *   onSuccess: (response) => console.log("Uploaded:", response.objectPath),
+ * });
+ * await uploadFile(file);
+ * ```
  *
- *   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
- *     const file = e.target.files?.[0];
- *     if (file) {
- *       await uploadFile(file);
- *     }
- *   };
- *
- *   return (
- *     <div>
- *       <input type="file" onChange={handleFileChange} disabled={isUploading} />
- *       {isUploading && <p>Uploading...</p>}
- *       {error && <p>Error: {error.message}</p>}
- *     </div>
- *   );
- * }
+ * @example — Uppy integration
+ * ```tsx
+ * const { getUploadParameters, consumeSessionToken } = useUpload();
+ * <ObjectUploader
+ *   onGetUploadParameters={getUploadParameters}
+ *   consumeSessionToken={consumeSessionToken}
+ * />
  * ```
  */
 export function useUpload(options: UseUploadOptions = {}) {
@@ -59,13 +62,19 @@ export function useUpload(options: UseUploadOptions = {}) {
   const [error, setError] = useState<Error | null>(null);
   const [progress, setProgress] = useState(0);
 
+  /**
+   * Internal Map: presigned upload URL → session token.
+   * Populated by getUploadParameters, consumed by consumeSessionToken.
+   * This bridges the gap between the Uppy getUploadParameters call (where we
+   * get the token) and the post-upload verify call (where we need it).
+   */
+  const pendingTokens = useRef(new Map<string, string>());
+
   const requestUploadUrl = useCallback(
     async (file: File): Promise<UploadResponse> => {
       const response = await fetch(`${basePath}/uploads/request-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: file.name,
           size: file.size,
@@ -80,7 +89,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
       return response.json();
     },
-    []
+    [basePath]
   );
 
   const uploadToPresignedUrl = useCallback(
@@ -88,9 +97,7 @@ export function useUpload(options: UseUploadOptions = {}) {
       const response = await fetch(uploadURL, {
         method: "PUT",
         body: file,
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
+        headers: { "Content-Type": file.type || "application/octet-stream" },
       });
 
       if (!response.ok) {
@@ -100,6 +107,27 @@ export function useUpload(options: UseUploadOptions = {}) {
     []
   );
 
+  /**
+   * Step 3: present the server-issued session token for post-upload verification.
+   * The server uses its own stored metadata — the client sends only the token.
+   */
+  const verifyUpload = useCallback(
+    async (sessionToken: string): Promise<void> => {
+      const response = await fetch(`${basePath}/uploads/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Upload verification failed");
+      }
+    },
+    [basePath]
+  );
+
+  /** Direct upload: request URL → upload → verify. */
   const uploadFile = useCallback(
     async (file: File): Promise<UploadResponse | null> => {
       setIsUploading(true);
@@ -110,8 +138,11 @@ export function useUpload(options: UseUploadOptions = {}) {
         setProgress(10);
         const uploadResponse = await requestUploadUrl(file);
 
-        setProgress(30);
+        setProgress(40);
         await uploadToPresignedUrl(file, uploadResponse.uploadURL);
+
+        setProgress(70);
+        await verifyUpload(uploadResponse.sessionToken);
 
         setProgress(100);
         options.onSuccess?.(uploadResponse);
@@ -125,9 +156,14 @@ export function useUpload(options: UseUploadOptions = {}) {
         setIsUploading(false);
       }
     },
-    [requestUploadUrl, uploadToPresignedUrl, options]
+    [requestUploadUrl, uploadToPresignedUrl, verifyUpload, options]
   );
 
+  /**
+   * For Uppy integration: returns the presigned URL + headers Uppy needs,
+   * and internally stores the session token in a Map keyed by upload URL
+   * so ObjectUploader can retrieve it via `consumeSessionToken`.
+   */
   const getUploadParameters = useCallback(
     async (
       file: UppyFile<Record<string, unknown>, Record<string, unknown>>
@@ -138,9 +174,7 @@ export function useUpload(options: UseUploadOptions = {}) {
     }> => {
       const response = await fetch(`${basePath}/uploads/request-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: file.name,
           size: file.size,
@@ -149,22 +183,40 @@ export function useUpload(options: UseUploadOptions = {}) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get upload URL");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get upload URL");
       }
 
-      const data = await response.json();
+      const data: UploadResponse = await response.json();
+
+      // Store the session token so ObjectUploader can retrieve it after the PUT
+      pendingTokens.current.set(data.uploadURL, data.sessionToken);
+
       return {
         method: "PUT",
         url: data.uploadURL,
         headers: { "Content-Type": file.type || "application/octet-stream" },
       };
     },
-    []
+    [basePath]
   );
+
+  /**
+   * Retrieve and remove the session token stored for a given upload URL.
+   * Call this from the Uppy `onComplete` handler (via ObjectUploader's
+   * `consumeSessionToken` prop) to get the token needed for /verify.
+   * Returns undefined if the upload URL is unknown or already consumed.
+   */
+  const consumeSessionToken = useCallback((uploadUrl: string): string | undefined => {
+    const token = pendingTokens.current.get(uploadUrl);
+    pendingTokens.current.delete(uploadUrl);
+    return token;
+  }, []);
 
   return {
     uploadFile,
     getUploadParameters,
+    consumeSessionToken,
     isUploading,
     error,
     progress,

@@ -3,9 +3,13 @@ import { Readable } from "stream";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
+  VerifyUploadBody,
+  VerifyUploadResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import { validateFileUpload, verifyUploadedFile } from "../lib/fileValidation";
+import { createUploadSession, consumeUploadSession } from "../lib/uploadSessions";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -13,9 +17,17 @@ const objectStorageService = new ObjectStorageService();
 /**
  * POST /storage/uploads/request-url
  *
- * Request a presigned URL for file upload.
- * The client sends JSON metadata (name, size, contentType) — NOT the file.
- * Then uploads the file directly to the returned presigned URL.
+ * Step 1 of the secure upload flow.
+ *
+ * 1. Validates client-declared metadata (MIME type, extension, size) against
+ *    the server-side whitelist. Returns 422 on failure.
+ * 2. Issues a presigned PUT URL pointing to a QUARANTINE path in GCS.
+ *    The quarantine path is NOT accessible via /storage/objects/* — files
+ *    remain inaccessible until /verify promotes them to the published path.
+ * 3. Creates a server-side upload session that binds the quarantine path,
+ *    published path, and trusted metadata together under an opaque token.
+ * 4. Returns the presigned upload URL, the (future) published objectPath,
+ *    and the session token. The session token is required for /verify.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
@@ -27,19 +39,112 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   try {
     const { name, size, contentType } = parsed.data;
 
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    // Pre-upload gate: MIME type whitelist, extension whitelist, declared size limit
+    const validationError = validateFileUpload({ name, size, contentType });
+    if (validationError) {
+      req.log.warn(
+        { validationError, name, size, contentType },
+        "Upload request rejected by pre-upload gate"
+      );
+      res.status(422).json({ error: validationError.message, code: validationError.code });
+      return;
+    }
+
+    // Issue presigned URL to quarantine path; get the future published path
+    const { uploadURL, quarantineGCSPath, publishedGCSPath, publishedObjectPath } =
+      await objectStorageService.getObjectEntityQuarantineUploadURL();
+
+    // Store trusted metadata server-side — clients cannot substitute values at verify time
+    const sessionToken = createUploadSession({
+      quarantineGCSPath,
+      publishedGCSPath,
+      publishedObjectPath,
+      expectedContentType: contentType,
+      expectedName: name,
+    });
 
     res.json(
       RequestUploadUrlResponse.parse({
         uploadURL,
-        objectPath,
+        objectPath: publishedObjectPath,
+        sessionToken,
         metadata: { name, size, contentType },
       }),
     );
   } catch (error) {
     req.log.error({ err: error }, "Error generating upload URL");
     res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+});
+
+/**
+ * POST /storage/uploads/verify
+ *
+ * Step 3 of the secure upload flow (after the client PUT to the presigned URL).
+ *
+ * Security properties:
+ * - Accepts ONLY the server-issued session token; all metadata comes from the
+ *   server-side session store, never from client-provided fields.
+ * - Session is consumed on first call (one-time, prevents replay).
+ * - Downloads magic bytes from the quarantine GCS path bound to this session.
+ * - On FAILURE: deletes the quarantine object from GCS (no lingering bad files).
+ * - On SUCCESS: promotes the quarantine object to the published path, making it
+ *   accessible via /storage/objects/*.
+ *
+ * Because files start in the quarantine path (blocked by /storage/objects/*),
+ * skipping /verify leaves the file permanently inaccessible, not exploitable.
+ */
+router.post("/storage/uploads/verify", async (req: Request, res: Response) => {
+  const parsed = VerifyUploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Missing or invalid required fields" });
+    return;
+  }
+
+  const { sessionToken } = parsed.data;
+
+  // Consume session — one-time use, immediately invalidated
+  const session = consumeUploadSession(sessionToken);
+  if (!session) {
+    res.status(401).json({ error: "无效或已过期的上传会话" });
+    return;
+  }
+
+  const { quarantineGCSPath, publishedGCSPath, publishedObjectPath,
+          expectedContentType, expectedName } = session;
+
+  try {
+    // Get File object for the quarantine path (bypasses /objects/* access control)
+    const quarantineFile = objectStorageService.getFileFromGCSPath(quarantineGCSPath);
+
+    // Validate actual bytes, size, MIME type, and extension using TRUSTED session metadata
+    const verificationError = await verifyUploadedFile(
+      quarantineFile,
+      expectedContentType,
+      expectedName
+    );
+
+    if (verificationError) {
+      // Delete the quarantine object to avoid lingering malicious files
+      await quarantineFile.delete().catch((err: unknown) => {
+        req.log.warn({ err, quarantineGCSPath }, "Failed to delete quarantine object after failed verification");
+      });
+      req.log.warn(
+        { verificationError, quarantineGCSPath, expectedContentType, expectedName },
+        "Post-upload verification failed; quarantine object deleted"
+      );
+      res.status(422).json({ error: verificationError.message, code: verificationError.code });
+      return;
+    }
+
+    // Promote: copy quarantine → published path, delete quarantine
+    await objectStorageService.promoteFromQuarantine(quarantineGCSPath, publishedGCSPath);
+
+    req.log.info({ publishedObjectPath }, "Upload verified and promoted to published path");
+    res.json(VerifyUploadResponse.parse({ objectPath: publishedObjectPath, verified: true }));
+  } catch (error) {
+    req.log.error({ err: error }, "Error verifying upload");
+    res.status(500).json({ error: "Failed to verify upload" });
   }
 });
 
@@ -83,6 +188,9 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * Serve object entities from PRIVATE_OBJECT_DIR.
  * These are served from a separate path from /public-objects and can optionally
  * be protected with authentication or ACL checks based on the use case.
+ *
+ * Note: quarantine-area paths (containing /pending/) are blocked at the
+ * getObjectEntityFile layer in ObjectStorageService.
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {

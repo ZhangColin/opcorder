@@ -11,9 +11,15 @@ interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
   maxFileSize?: number;
   /**
+   * Base path where object storage routes are mounted (default: "/api/storage").
+   * Used to call /uploads/verify after each successful upload.
+   */
+  basePath?: string;
+  /**
    * Function to get upload parameters for each file.
-   * IMPORTANT: This receives the file object - use file.name, file.size, file.type
-   * to request per-file presigned URLs from your backend.
+   * IMPORTANT: Use the version from useUpload() — it internally stores the
+   * session token keyed by upload URL so that verification can be called
+   * after the upload completes.
    */
   onGetUploadParameters: (
     file: UppyFile<Record<string, unknown>, Record<string, unknown>>
@@ -22,6 +28,13 @@ interface ObjectUploaderProps {
     url: string;
     headers?: Record<string, string>;
   }>;
+  /**
+   * Optional function to retrieve and consume the session token for a given
+   * upload URL. Provide the `consumeSessionToken` value from useUpload().
+   * When provided, ObjectUploader automatically calls POST /uploads/verify
+   * after each successful upload to promote files from quarantine to published.
+   */
+  consumeSessionToken?: (uploadUrl: string) => string | undefined;
   onComplete?: (
     result: UploadResult<Record<string, unknown>, Record<string, unknown>>
   ) => void;
@@ -30,46 +43,57 @@ interface ObjectUploaderProps {
 }
 
 /**
- * A file upload component that renders as a button and provides a modal interface for
- * file management.
+ * A file upload component that renders as a button and provides a modal interface
+ * for file management.
  *
  * Features:
  * - Renders as a customizable button that opens a file upload modal
- * - Provides a modal interface for:
- *   - File selection
- *   - File preview
- *   - Upload progress tracking
- *   - Upload status display
+ * - Provides a modal interface for file selection, preview, and progress tracking
+ * - When used with `consumeSessionToken` from useUpload(), automatically calls
+ *   POST /uploads/verify after each successful upload so files are promoted from
+ *   the quarantine path to the published path and become accessible.
  *
- * The component uses Uppy v5 under the hood to handle all file upload functionality.
- * All file management features are automatically handled by the Uppy dashboard modal.
+ * Usage:
+ * ```tsx
+ * const { getUploadParameters, consumeSessionToken } = useUpload();
  *
- * @param props - Component props
- * @param props.maxNumberOfFiles - Maximum number of files allowed to be uploaded
- *   (default: 1)
+ * <ObjectUploader
+ *   onGetUploadParameters={getUploadParameters}
+ *   consumeSessionToken={consumeSessionToken}
+ *   onComplete={(result) => { ... }}
+ * >
+ *   Upload File
+ * </ObjectUploader>
+ * ```
+ *
+ * @param props.maxNumberOfFiles - Maximum number of files (default: 1)
  * @param props.maxFileSize - Maximum file size in bytes (default: 10MB)
- * @param props.onGetUploadParameters - Function to get upload parameters for each file.
- *   Receives the UppyFile object with file.name, file.size, file.type properties.
- *   Use these to request per-file presigned URLs from your backend. Returns method,
- *   url, and optional headers for the upload request.
- * @param props.onComplete - Callback function called when upload is complete. Typically
- *   used to make post-upload API calls to update server state and set object ACL
- *   policies.
+ * @param props.basePath - Base path for object storage API routes (default: "/api/storage")
+ * @param props.onGetUploadParameters - From useUpload().getUploadParameters
+ * @param props.consumeSessionToken - From useUpload().consumeSessionToken
+ * @param props.onComplete - Called when uploads complete
  * @param props.buttonClassName - Optional CSS class name for the button
- * @param props.children - Content to be rendered inside the button
+ * @param props.children - Content rendered inside the button
  */
 export function ObjectUploader({
   maxNumberOfFiles = 1,
   maxFileSize = 10485760, // 10MB default
+  basePath = "/api/storage",
   onGetUploadParameters,
+  consumeSessionToken,
   onComplete,
   buttonClassName,
   children,
 }: ObjectUploaderProps) {
   const onCompleteRef = useRef(onComplete);
   const onGetUploadParametersRef = useRef(onGetUploadParameters);
+  const consumeSessionTokenRef = useRef(consumeSessionToken);
+  const basePathRef = useRef(basePath);
+
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
   useEffect(() => { onGetUploadParametersRef.current = onGetUploadParameters; }, [onGetUploadParameters]);
+  useEffect(() => { consumeSessionTokenRef.current = consumeSessionToken; }, [consumeSessionToken]);
+  useEffect(() => { basePathRef.current = basePath; }, [basePath]);
 
   const [showModal, setShowModal] = useState(false);
   const [uppy] = useState(() =>
@@ -84,7 +108,29 @@ export function ObjectUploader({
         shouldUseMultipart: false,
         getUploadParameters: (file) => onGetUploadParametersRef.current(file),
       })
-      .on("complete", (result) => {
+      .on("complete", async (result) => {
+        // After Uppy completes PUT uploads, call /verify for each successful file
+        // using the session token stored by useUpload().getUploadParameters
+        const consume = consumeSessionTokenRef.current;
+        if (consume) {
+          const verifyBase = basePathRef.current;
+          for (const file of result.successful ?? []) {
+            const uploadUrl = (file as unknown as { uploadURL?: string }).uploadURL;
+            if (!uploadUrl) continue;
+            const token = consume(uploadUrl);
+            if (!token) continue;
+            try {
+              await fetch(`${verifyBase}/uploads/verify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionToken: token }),
+              });
+            } catch {
+              // Verification failure is handled server-side (quarantine object retained
+              // for logging, file stays inaccessible). Errors here are non-fatal for UI.
+            }
+          }
+        }
         onCompleteRef.current?.(result);
       })
   );
