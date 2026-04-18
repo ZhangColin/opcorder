@@ -192,7 +192,7 @@ function Router() {
       <Route path="/auth/:role" component={Auth} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
-      <Route path="/activity/:id/signup" component={ActivityRegister} />
+      <Route path="/activity/:id" component={ActivityRegister} />
       <Route path="/screen">
         {() => <AdminGate><ScreenDisplay /></AdminGate>}
       </Route>

@@ -729,7 +729,7 @@ export default function AdminActivities() {
   function getRegisterUrl(id: number) {
     const origin = window.location.origin;
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    return `${origin}${base}/activity/${id}/signup`;
+    return `${origin}${base}/activity/${id}`;
   }
 
   const activities = data?.data ?? [];
