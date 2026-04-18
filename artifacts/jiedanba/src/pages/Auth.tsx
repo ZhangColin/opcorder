@@ -398,6 +398,13 @@ export default function Auth() {
                 {loading ? "处理中…" : tab === "login" ? "登录进入" : "立即注册"}
                 {!loading && <ArrowRight size={18} />}
               </button>
+
+              <p className="text-center text-xs text-slate-500 leading-relaxed">
+                {tab === "login" ? "登录" : "注册"}即表示您同意接单吧的
+                <a href="/terms" className="text-blue-600 underline hover:text-blue-800 mx-0.5">服务条款</a>
+                与
+                <a href="/privacy" className="text-blue-600 underline hover:text-blue-800 mx-0.5">隐私政策</a>
+              </p>
             </form>
 
             {/* Footer links */}

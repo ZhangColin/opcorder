@@ -246,6 +246,13 @@ export default function Login() {
               <p className="text-center text-xs text-slate-400 pt-1">
                 OPC · 发单方 · 管理员均可从此登录
               </p>
+
+              <p className="text-center text-xs text-slate-500 leading-relaxed">
+                登录即表示您同意接单吧的
+                <a href="/terms" className="text-blue-600 underline hover:text-blue-800 mx-0.5">服务条款</a>
+                与
+                <a href="/privacy" className="text-blue-600 underline hover:text-blue-800 mx-0.5">隐私政策</a>
+              </p>
             </form>
           )}
 
@@ -366,6 +373,13 @@ export default function Login() {
                 {loading ? "注册中…" : "立即注册"}
                 {!loading && <ArrowRight size={18} />}
               </button>
+
+              <p className="text-center text-xs text-slate-500 leading-relaxed">
+                注册即表示您同意接单吧的
+                <a href="/terms" className="text-blue-600 underline hover:text-blue-800 mx-0.5">服务条款</a>
+                与
+                <a href="/privacy" className="text-blue-600 underline hover:text-blue-800 mx-0.5">隐私政策</a>
+              </p>
             </form>
           )}
 
