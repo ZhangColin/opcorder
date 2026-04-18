@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import DOMPurify from "dompurify";
 import { useParams, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -72,7 +73,12 @@ function DocxViewer({ url }: { url: string }) {
         if (!res.ok) throw new Error("fetch failed");
         const buf = await res.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer: buf });
-        if (!cancelled) setHtml(result.value);
+        const clean = DOMPurify.sanitize(result.value, {
+          USE_PROFILES: { html: true },
+          FORBID_TAGS: ["script", "style", "iframe", "object", "embed"],
+          FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+        });
+        if (!cancelled) setHtml(clean);
       } catch {
         if (!cancelled) setErr(true);
       }
@@ -108,7 +114,15 @@ function XlsxViewer({ url }: { url: string }) {
         const sheetName = wb.SheetNames[0];
         const ws = wb.Sheets[sheetName];
         const table = XLSX.utils.sheet_to_html(ws, { editable: false });
-        if (!cancelled) setHtml(table);
+        const clean = DOMPurify.sanitize(table, {
+          ALLOWED_TAGS: [
+            "table", "thead", "tbody", "tfoot", "tr", "th", "td",
+            "caption", "colgroup", "col",
+          ],
+          ALLOWED_ATTR: ["colspan", "rowspan", "scope", "headers", "style"],
+          FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+        });
+        if (!cancelled) setHtml(clean);
       } catch {
         if (!cancelled) setErr(true);
       }
