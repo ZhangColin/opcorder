@@ -15,8 +15,6 @@ export interface OverviewStats {
   activeOpcs: number;
   monthlyOrders: number;
   completionRate: number;
-  totalSettlements?: number;
-  activeDemands?: number;
 }
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -52,7 +50,6 @@ export const OpcProfileLevel = {
   C: "C",
   B: "B",
   A: "A",
-  newbie: "newbie",
 } as const;
 
 export interface OpcProfile {
@@ -62,12 +59,6 @@ export interface OpcProfile {
   avatar?: string;
   level: OpcProfileLevel;
   bio?: string;
-  title?: string;
-  location?: string;
-  yearsExp?: number;
-  website?: string | null;
-  phone?: string | null;
-  wechat?: string;
   skillTags?: string[];
   industryTags?: string[];
   creditScore: number;
@@ -156,6 +147,13 @@ export const DemandStatus = {
   refunded: "refunded",
 } as const;
 
+export type DemandAttachmentsItem = {
+  name?: string;
+  size?: string;
+  type?: string;
+  url?: string;
+};
+
 export interface Demand {
   id: number;
   demandNo: string;
@@ -172,14 +170,15 @@ export interface Demand {
   status: DemandStatus;
   isUrgent?: boolean;
   bidDeadline?: string;
+  /** Uploaded file attachments for this demand */
+  attachments?: DemandAttachmentsItem[];
+  /** Specific OPC user IDs this demand is directed at (only for directed mode) */
+  directedOpcIds?: number[];
   publisherId: number;
   publisherName?: string;
   bidCount?: number;
   createdAt: string;
   updatedAt?: string;
-  requiredLevel?: string;
-  attachments?: { name: string; url: string; type?: string }[];
-  directedOpcIds?: number[];
 }
 
 export interface DemandListResponse {
@@ -227,21 +226,29 @@ export const CreateDemandInputMode = {
   directed: "directed",
 } as const;
 
+export type CreateDemandInputAttachmentsItem = {
+  name?: string;
+  size?: string;
+  type?: string;
+  url?: string;
+};
+
 export interface CreateDemandInput {
   /** @maxLength 50 */
   title: string;
-  type: CreateDemandInputType | string;
+  type: CreateDemandInputType;
   description: string;
   skillTags: string[];
-  opcLevel: CreateDemandInputOpcLevel | string;
+  opcLevel: CreateDemandInputOpcLevel;
   budget: number;
   deadline: string;
   milestones?: CreateDemandInputMilestonesItem[];
-  mode: CreateDemandInputMode | string;
+  mode: CreateDemandInputMode;
   bidDeadline?: string;
   isUrgent?: boolean;
   directedOpcIds?: number[];
-  attachments?: { name: string; url: string; type?: string }[];
+  /** Uploaded file attachments */
+  attachments?: CreateDemandInputAttachmentsItem[];
 }
 
 export type UpdateDemandInputOpcLevel =
@@ -263,18 +270,14 @@ export type UpdateDemandInputMilestonesItem = {
 export interface UpdateDemandInput {
   /** @maxLength 50 */
   title?: string;
-  type?: string;
   description?: string;
   skillTags?: string[];
-  opcLevel?: UpdateDemandInputOpcLevel | string;
+  opcLevel?: UpdateDemandInputOpcLevel;
   budget?: number;
   deadline?: string;
   milestones?: UpdateDemandInputMilestonesItem[];
   bidDeadline?: string;
   isUrgent?: boolean;
-  mode?: string;
-  directedOpcIds?: number[];
-  attachments?: { name: string; url: string; type?: string }[];
 }
 
 export type DemandPaymentMethod =
@@ -293,6 +296,8 @@ export const DemandPaymentStatus = {
   confirmed: "confirmed",
   rejected: "rejected",
   refunded: "refunded",
+  refund_pending: "refund_pending",
+  refunding: "refunding",
 } as const;
 
 export interface DemandPayment {
@@ -476,6 +481,32 @@ export interface CreateDeliverableInput {
   fileName?: string;
 }
 
+/**
+ * The OPC certification level this portfolio is submitted for (null if not applying)
+ */
+export type PortfolioApplyLevel =
+  | (typeof PortfolioApplyLevel)[keyof typeof PortfolioApplyLevel]
+  | null;
+
+export const PortfolioApplyLevel = {
+  C: "C",
+  B: "B",
+  A: "A",
+} as const;
+
+/**
+ * Review status of the certification application
+ */
+export type PortfolioLevelApplyStatus =
+  | (typeof PortfolioLevelApplyStatus)[keyof typeof PortfolioLevelApplyStatus]
+  | null;
+
+export const PortfolioLevelApplyStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
 export interface Portfolio {
   id: number;
   userId: number;
@@ -487,10 +518,15 @@ export interface Portfolio {
   orderId?: number;
   rating?: number;
   clientFeedback?: string;
+  /** The OPC certification level this portfolio is submitted for (null if not applying) */
+  applyLevel?: PortfolioApplyLevel;
+  /** Review status of the certification application */
+  levelApplyStatus?: PortfolioLevelApplyStatus;
+  /** Admin review note for the certification application */
+  levelApplyNote?: string | null;
+  /** When the certification application was reviewed by an admin */
+  reviewedAt?: string | null;
   createdAt: string;
-  applyLevel?: string;
-  levelApplyStatus?: string;
-  levelApplyNote?: string;
 }
 
 export interface CreatePortfolioInput {
@@ -499,8 +535,6 @@ export interface CreatePortfolioInput {
   coverImage?: string;
   description: string;
   projectUrl?: string;
-  applyLevel?: string | null;
-  userId?: number;
 }
 
 export type NotificationType =
@@ -525,7 +559,6 @@ export const NotificationRelatedType = {
   demand: "demand",
   order: "order",
   bid: "bid",
-  portfolio: "portfolio",
 } as const;
 
 export interface Notification {
@@ -601,7 +634,6 @@ export const CourseRequiredLevel = {
   C: "C",
   B: "B",
   A: "A",
-  any: "any",
 } as const;
 
 export type CourseStatus = (typeof CourseStatus)[keyof typeof CourseStatus];
@@ -780,6 +812,9 @@ export type ListDemandsParams = {
    * Show demands where requiredLevel matches this level OR is "any"
    */
   eligibleLevel?: ListDemandsEligibleLevel;
+  /**
+   * Filter demands by publisher user ID
+   */
   publisherId?: number;
 };
 
@@ -796,6 +831,9 @@ export const ListDemandsStatus = {
   pending_acceptance: "pending_acceptance",
   completed: "completed",
   closed: "closed",
+  refund_pending: "refund_pending",
+  refunding: "refunding",
+  refunded: "refunded",
 } as const;
 
 export type ListDemandsOpcLevel =
@@ -849,6 +887,9 @@ export const UpdateDemandStatusBodyStatus = {
   pending_acceptance: "pending_acceptance",
   completed: "completed",
   closed: "closed",
+  refund_pending: "refund_pending",
+  refunding: "refunding",
+  refunded: "refunded",
 } as const;
 
 export type UpdateDemandStatusBody = {
@@ -883,10 +924,16 @@ export type UpdateBidStatusBody = {
 export type ListOrdersParams = {
   status?: ListOrdersStatus;
   role?: ListOrdersRole;
+  /**
+   * Filter orders by OPC user ID (admin use)
+   */
+  opcId?: number;
+  /**
+   * Filter orders by publisher user ID (admin use)
+   */
+  publisherId?: number;
   page?: number;
   limit?: number;
-  opcId?: number;
-  publisherId?: number;
 };
 
 export type ListOrdersStatus =

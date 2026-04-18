@@ -167,12 +167,29 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ## Root Scripts
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly`
+- `pnpm run build` — runs `codegen` → `typecheck` → recursively `build` in all packages
+- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` (libs first, then artifacts)
+- `pnpm run codegen` — regenerates all API types and React Query hooks from `lib/api-spec/openapi.yaml` using Orval
+
+## API Type Sync
+
+The frontend TypeScript types and Zod validators are auto-generated from the OpenAPI spec at `lib/api-spec/openapi.yaml`. Orval produces:
+- `lib/api-client-react/src/generated/` — React Query hooks and TypeScript interfaces
+- `lib/api-zod/src/generated/` — Zod schemas used by the API server for validation
+
+**Whenever `openapi.yaml` is changed**, run `pnpm run codegen` to keep types in sync. This is also run automatically as part of `pnpm run build`.
+
+**Developer checklist for backend schema changes:**
+1. Update `lib/api-spec/openapi.yaml` first (add the new field/endpoint/status)
+2. Run `pnpm run codegen` to regenerate frontend types and Zod schemas
+3. Update backend route code to match the new schema
+4. Verify `pnpm run typecheck:libs` still passes
+
+`lib/api-zod/src/index.ts` exports only the Zod schemas (`./generated/api`), not the raw TypeScript types (`./generated/types`), to avoid name collisions. The types folder (`generated/types/`) is still generated on disk. The codegen script uses `fix-zod-index.mjs` (in `lib/api-spec/`) to strip the conflicting re-export from the orval-generated barrel after each run.
 
 ## Key Commands
 
-- API codegen: `pnpm --filter @workspace/api-spec run codegen`
+- API codegen: `pnpm run codegen` (or `pnpm --filter @workspace/api-spec run codegen`)
 - DB push: `pnpm --filter @workspace/db run push`
 - Seed data: `pnpm --filter @workspace/scripts run seed`
 - Dev servers: Managed via Replit workflows

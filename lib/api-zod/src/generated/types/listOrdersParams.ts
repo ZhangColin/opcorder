@@ -11,6 +11,14 @@ import type { ListOrdersStatus } from "./listOrdersStatus";
 export type ListOrdersParams = {
   status?: ListOrdersStatus;
   role?: ListOrdersRole;
+  /**
+   * Filter orders by OPC user ID (admin use)
+   */
+  opcId?: number;
+  /**
+   * Filter orders by publisher user ID (admin use)
+   */
+  publisherId?: number;
   page?: number;
   limit?: number;
 };

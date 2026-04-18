@@ -165,6 +165,9 @@ export const ListDemandsQueryParams = zod.object({
       "pending_acceptance",
       "completed",
       "closed",
+      "refund_pending",
+      "refunding",
+      "refunded",
     ])
     .optional(),
   type: zod.coerce.string().optional(),
@@ -184,6 +187,10 @@ export const ListDemandsQueryParams = zod.object({
     .describe(
       'Show demands where requiredLevel matches this level OR is \"any\"',
     ),
+  publisherId: zod.coerce
+    .number()
+    .optional()
+    .describe("Filter demands by publisher user ID"),
 });
 
 export const ListDemandsResponse = zod.object({
@@ -231,9 +238,29 @@ export const ListDemandsResponse = zod.object({
         "pending_acceptance",
         "completed",
         "closed",
+        "refund_pending",
+        "refunding",
+        "refunded",
       ]),
       isUrgent: zod.boolean().optional(),
       bidDeadline: zod.date().optional(),
+      attachments: zod
+        .array(
+          zod.object({
+            name: zod.string().optional(),
+            size: zod.string().optional(),
+            type: zod.string().optional(),
+            url: zod.string().optional(),
+          }),
+        )
+        .optional()
+        .describe("Uploaded file attachments for this demand"),
+      directedOpcIds: zod
+        .array(zod.number())
+        .optional()
+        .describe(
+          "Specific OPC user IDs this demand is directed at (only for directed mode)",
+        ),
       publisherId: zod.number(),
       publisherName: zod.string().optional(),
       bidCount: zod.number().optional(),
@@ -283,6 +310,17 @@ export const CreateDemandBody = zod.object({
   bidDeadline: zod.coerce.date().optional(),
   isUrgent: zod.boolean().default(createDemandBodyIsUrgentDefault),
   directedOpcIds: zod.array(zod.number()).optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        name: zod.string().optional(),
+        size: zod.string().optional(),
+        type: zod.string().optional(),
+        url: zod.string().optional(),
+      }),
+    )
+    .optional()
+    .describe("Uploaded file attachments"),
 });
 
 /**
@@ -335,9 +373,29 @@ export const GetDemandByIdResponse = zod.object({
     "pending_acceptance",
     "completed",
     "closed",
+    "refund_pending",
+    "refunding",
+    "refunded",
   ]),
   isUrgent: zod.boolean().optional(),
   bidDeadline: zod.date().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        name: zod.string().optional(),
+        size: zod.string().optional(),
+        type: zod.string().optional(),
+        url: zod.string().optional(),
+      }),
+    )
+    .optional()
+    .describe("Uploaded file attachments for this demand"),
+  directedOpcIds: zod
+    .array(zod.number())
+    .optional()
+    .describe(
+      "Specific OPC user IDs this demand is directed at (only for directed mode)",
+    ),
   publisherId: zod.number(),
   publisherName: zod.string().optional(),
   bidCount: zod.number().optional(),
@@ -417,9 +475,29 @@ export const UpdateDemandResponse = zod.object({
     "pending_acceptance",
     "completed",
     "closed",
+    "refund_pending",
+    "refunding",
+    "refunded",
   ]),
   isUrgent: zod.boolean().optional(),
   bidDeadline: zod.date().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        name: zod.string().optional(),
+        size: zod.string().optional(),
+        type: zod.string().optional(),
+        url: zod.string().optional(),
+      }),
+    )
+    .optional()
+    .describe("Uploaded file attachments for this demand"),
+  directedOpcIds: zod
+    .array(zod.number())
+    .optional()
+    .describe(
+      "Specific OPC user IDs this demand is directed at (only for directed mode)",
+    ),
   publisherId: zod.number(),
   publisherName: zod.string().optional(),
   bidCount: zod.number().optional(),
@@ -445,6 +523,9 @@ export const UpdateDemandStatusBody = zod.object({
     "pending_acceptance",
     "completed",
     "closed",
+    "refund_pending",
+    "refunding",
+    "refunded",
   ]),
   reason: zod.string().optional(),
 });
@@ -492,9 +573,29 @@ export const UpdateDemandStatusResponse = zod.object({
     "pending_acceptance",
     "completed",
     "closed",
+    "refund_pending",
+    "refunding",
+    "refunded",
   ]),
   isUrgent: zod.boolean().optional(),
   bidDeadline: zod.date().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        name: zod.string().optional(),
+        size: zod.string().optional(),
+        type: zod.string().optional(),
+        url: zod.string().optional(),
+      }),
+    )
+    .optional()
+    .describe("Uploaded file attachments for this demand"),
+  directedOpcIds: zod
+    .array(zod.number())
+    .optional()
+    .describe(
+      "Specific OPC user IDs this demand is directed at (only for directed mode)",
+    ),
   publisherId: zod.number(),
   publisherName: zod.string().optional(),
   bidCount: zod.number().optional(),
@@ -615,6 +716,14 @@ export const ListOrdersQueryParams = zod.object({
     ])
     .optional(),
   role: zod.enum(["opc", "publisher"]).optional(),
+  opcId: zod.coerce
+    .number()
+    .optional()
+    .describe("Filter orders by OPC user ID (admin use)"),
+  publisherId: zod.coerce
+    .number()
+    .optional()
+    .describe("Filter orders by publisher user ID (admin use)"),
   page: zod.coerce.number().default(listOrdersQueryPageDefault),
   limit: zod.coerce.number().default(listOrdersQueryLimitDefault),
 });
@@ -920,6 +1029,24 @@ export const ListPortfoliosResponseItem = zod.object({
   orderId: zod.number().optional(),
   rating: zod.number().optional(),
   clientFeedback: zod.string().optional(),
+  applyLevel: zod
+    .enum(["C", "B", "A"])
+    .nullish()
+    .describe(
+      "The OPC certification level this portfolio is submitted for (null if not applying)",
+    ),
+  levelApplyStatus: zod
+    .enum(["pending", "approved", "rejected"])
+    .nullish()
+    .describe("Review status of the certification application"),
+  levelApplyNote: zod
+    .string()
+    .nullish()
+    .describe("Admin review note for the certification application"),
+  reviewedAt: zod
+    .date()
+    .nullish()
+    .describe("When the certification application was reviewed by an admin"),
   createdAt: zod.date(),
 });
 export const ListPortfoliosResponse = zod.array(ListPortfoliosResponseItem);
@@ -961,6 +1088,24 @@ export const UpdatePortfolioResponse = zod.object({
   orderId: zod.number().optional(),
   rating: zod.number().optional(),
   clientFeedback: zod.string().optional(),
+  applyLevel: zod
+    .enum(["C", "B", "A"])
+    .nullish()
+    .describe(
+      "The OPC certification level this portfolio is submitted for (null if not applying)",
+    ),
+  levelApplyStatus: zod
+    .enum(["pending", "approved", "rejected"])
+    .nullish()
+    .describe("Review status of the certification application"),
+  levelApplyNote: zod
+    .string()
+    .nullish()
+    .describe("Admin review note for the certification application"),
+  reviewedAt: zod
+    .date()
+    .nullish()
+    .describe("When the certification application was reviewed by an admin"),
   createdAt: zod.date(),
 });
 
@@ -1242,7 +1387,14 @@ export const GetDemandPaymentResponse = zod
     publisherName: zod.string().nullish(),
     amount: zod.number(),
     method: zod.enum(["online", "offline"]),
-    status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
+    status: zod.enum([
+      "pending",
+      "confirmed",
+      "rejected",
+      "refunded",
+      "refund_pending",
+      "refunding",
+    ]),
     paymentOrderNo: zod
       .string()
       .nullish()
@@ -1321,7 +1473,14 @@ export const ListDemandPaymentsResponseItem = zod
     publisherName: zod.string().nullish(),
     amount: zod.number(),
     method: zod.enum(["online", "offline"]),
-    status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
+    status: zod.enum([
+      "pending",
+      "confirmed",
+      "rejected",
+      "refunded",
+      "refund_pending",
+      "refunding",
+    ]),
     paymentOrderNo: zod
       .string()
       .nullish()
@@ -1367,7 +1526,14 @@ export const ReviewDemandPaymentResponse = zod.object({
   publisherName: zod.string().nullish(),
   amount: zod.number(),
   method: zod.enum(["online", "offline"]),
-  status: zod.enum(["pending", "confirmed", "rejected", "refunded"]),
+  status: zod.enum([
+    "pending",
+    "confirmed",
+    "rejected",
+    "refunded",
+    "refund_pending",
+    "refunding",
+  ]),
   paymentOrderNo: zod
     .string()
     .nullish()

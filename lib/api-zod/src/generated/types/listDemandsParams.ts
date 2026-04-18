@@ -26,4 +26,8 @@ export type ListDemandsParams = {
    * Show demands where requiredLevel matches this level OR is "any"
    */
   eligibleLevel?: ListDemandsEligibleLevel;
+  /**
+   * Filter demands by publisher user ID
+   */
+  publisherId?: number;
 };

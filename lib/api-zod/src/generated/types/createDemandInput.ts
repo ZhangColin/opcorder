@@ -5,6 +5,7 @@
  * JieDanBa OPC Matching Platform API
  * OpenAPI spec version: 1.0.0
  */
+import type { CreateDemandInputAttachmentsItem } from "./createDemandInputAttachmentsItem";
 import type { CreateDemandInputMilestonesItem } from "./createDemandInputMilestonesItem";
 import type { CreateDemandInputMode } from "./createDemandInputMode";
 import type { CreateDemandInputOpcLevel } from "./createDemandInputOpcLevel";
@@ -24,4 +25,6 @@ export interface CreateDemandInput {
   bidDeadline?: Date;
   isUrgent?: boolean;
   directedOpcIds?: number[];
+  /** Uploaded file attachments */
+  attachments?: CreateDemandInputAttachmentsItem[];
 }

@@ -14,4 +14,6 @@ export const DemandPaymentStatus = {
   confirmed: "confirmed",
   rejected: "rejected",
   refunded: "refunded",
+  refund_pending: "refund_pending",
+  refunding: "refunding",
 } as const;

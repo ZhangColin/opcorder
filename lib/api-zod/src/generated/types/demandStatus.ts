@@ -18,4 +18,7 @@ export const DemandStatus = {
   pending_acceptance: "pending_acceptance",
   completed: "completed",
   closed: "closed",
+  refund_pending: "refund_pending",
+  refunding: "refunding",
+  refunded: "refunded",
 } as const;

@@ -96,8 +96,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
-type UseQueryOptionsInput<TData, TError = unknown, T = TData> = Omit<UseQueryOptions<TData, TError, T>, "queryKey"> & { queryKey?: QueryKey };
-
 /**
  * @summary Health check
  */
@@ -122,7 +120,7 @@ export const getHealthCheckQueryOptions = <
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof healthCheck>>,
     TError,
     TData
@@ -157,7 +155,7 @@ export function useHealthCheck<
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof healthCheck>>,
     TError,
     TData
@@ -197,7 +195,7 @@ export const getGetOverviewStatsQueryOptions = <
   TData = Awaited<ReturnType<typeof getOverviewStats>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof getOverviewStats>>,
     TError,
     TData
@@ -232,7 +230,7 @@ export function useGetOverviewStats<
   TData = Awaited<ReturnType<typeof getOverviewStats>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof getOverviewStats>>,
     TError,
     TData
@@ -270,7 +268,7 @@ export const getGetCurrentUserQueryOptions = <
   TData = Awaited<ReturnType<typeof getCurrentUser>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof getCurrentUser>>,
     TError,
     TData
@@ -305,7 +303,7 @@ export function useGetCurrentUser<
   TData = Awaited<ReturnType<typeof getCurrentUser>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<
+  query?: UseQueryOptions<
     Awaited<ReturnType<typeof getCurrentUser>>,
     TError,
     TData
@@ -362,7 +360,7 @@ export const getGetOpcLeaderboardQueryOptions = <
 >(
   params?: GetOpcLeaderboardParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getOpcLeaderboard>>,
       TError,
       TData
@@ -401,7 +399,7 @@ export function useGetOpcLeaderboard<
 >(
   params?: GetOpcLeaderboardParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getOpcLeaderboard>>,
       TError,
       TData
@@ -445,7 +443,7 @@ export const getGetUserByIdQueryOptions = <
 >(
   userId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getUserById>>,
       TError,
       TData
@@ -488,7 +486,7 @@ export function useGetUserById<
 >(
   userId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getUserById>>,
       TError,
       TData
@@ -532,7 +530,7 @@ export const getGetOpcProfileQueryOptions = <
 >(
   userId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getOpcProfile>>,
       TError,
       TData
@@ -575,7 +573,7 @@ export function useGetOpcProfile<
 >(
   userId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getOpcProfile>>,
       TError,
       TData
@@ -718,7 +716,7 @@ export const getListDemandsQueryOptions = <
 >(
   params?: ListDemandsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listDemands>>,
       TError,
       TData
@@ -756,7 +754,7 @@ export function useListDemands<
 >(
   params?: ListDemandsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listDemands>>,
       TError,
       TData
@@ -886,7 +884,7 @@ export const getGetDemandByIdQueryOptions = <
 >(
   demandId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getDemandById>>,
       TError,
       TData
@@ -929,7 +927,7 @@ export function useGetDemandById<
 >(
   demandId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getDemandById>>,
       TError,
       TData
@@ -1147,7 +1145,7 @@ export const getListBidsForDemandQueryOptions = <
 >(
   demandId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listBidsForDemand>>,
       TError,
       TData
@@ -1192,7 +1190,7 @@ export function useListBidsForDemand<
 >(
   demandId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listBidsForDemand>>,
       TError,
       TData
@@ -1320,7 +1318,7 @@ export const getGetMyBidsQueryOptions = <
   TData = Awaited<ReturnType<typeof getMyBids>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<Awaited<ReturnType<typeof getMyBids>>, TError, TData>;
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getMyBids>>, TError, TData>;
   request?: SecondParameter<typeof customFetch>;
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
@@ -1351,7 +1349,7 @@ export function useGetMyBids<
   TData = Awaited<ReturnType<typeof getMyBids>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptionsInput<Awaited<ReturnType<typeof getMyBids>>, TError, TData>;
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getMyBids>>, TError, TData>;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMyBidsQueryOptions(options);
@@ -1573,7 +1571,7 @@ export const getListOrdersQueryOptions = <
 >(
   params?: ListOrdersParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listOrders>>,
       TError,
       TData
@@ -1611,7 +1609,7 @@ export function useListOrders<
 >(
   params?: ListOrdersParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listOrders>>,
       TError,
       TData
@@ -1655,7 +1653,7 @@ export const getGetOrderByIdQueryOptions = <
 >(
   orderId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getOrderById>>,
       TError,
       TData
@@ -1698,7 +1696,7 @@ export function useGetOrderById<
 >(
   orderId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getOrderById>>,
       TError,
       TData
@@ -2015,7 +2013,7 @@ export const getListPortfoliosQueryOptions = <
 >(
   params?: ListPortfoliosParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPortfolios>>,
       TError,
       TData
@@ -2053,7 +2051,7 @@ export function useListPortfolios<
 >(
   params?: ListPortfoliosParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPortfolios>>,
       TError,
       TData
@@ -2371,7 +2369,7 @@ export const getListNotificationsQueryOptions = <
 >(
   params?: ListNotificationsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listNotifications>>,
       TError,
       TData
@@ -2410,7 +2408,7 @@ export function useListNotifications<
 >(
   params?: ListNotificationsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listNotifications>>,
       TError,
       TData
@@ -2634,7 +2632,7 @@ export const getListPostsQueryOptions = <
 >(
   params?: ListPostsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPosts>>,
       TError,
       TData
@@ -2672,7 +2670,7 @@ export function useListPosts<
 >(
   params?: ListPostsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPosts>>,
       TError,
       TData
@@ -2889,7 +2887,7 @@ export const getListPostCommentsQueryOptions = <
 >(
   postId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPostComments>>,
       TError,
       TData
@@ -2933,7 +2931,7 @@ export function useListPostComments<
 >(
   postId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPostComments>>,
       TError,
       TData
@@ -3076,7 +3074,7 @@ export const getListCoursesQueryOptions = <
 >(
   params?: ListCoursesParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listCourses>>,
       TError,
       TData
@@ -3114,7 +3112,7 @@ export function useListCourses<
 >(
   params?: ListCoursesParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listCourses>>,
       TError,
       TData
@@ -3259,7 +3257,7 @@ export const getListMyEnrollmentsQueryOptions = <
 >(
   params: ListMyEnrollmentsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listMyEnrollments>>,
       TError,
       TData
@@ -3298,7 +3296,7 @@ export function useListMyEnrollments<
 >(
   params: ListMyEnrollmentsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listMyEnrollments>>,
       TError,
       TData
@@ -3342,7 +3340,7 @@ export const getGetDemandPaymentQueryOptions = <
 >(
   demandId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getDemandPayment>>,
       TError,
       TData
@@ -3386,7 +3384,7 @@ export function useGetDemandPayment<
 >(
   demandId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getDemandPayment>>,
       TError,
       TData
@@ -3622,7 +3620,7 @@ export const getListDemandPaymentsQueryOptions = <
 >(
   params?: ListDemandPaymentsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listDemandPayments>>,
       TError,
       TData
@@ -3661,7 +3659,7 @@ export function useListDemandPayments<
 >(
   params?: ListDemandPaymentsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof listDemandPayments>>,
       TError,
       TData
@@ -3882,7 +3880,7 @@ export const getGetActivityPublicQueryOptions = <
 >(
   activityId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getActivityPublic>>,
       TError,
       TData
@@ -3927,7 +3925,7 @@ export function useGetActivityPublic<
 >(
   activityId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof getActivityPublic>>,
       TError,
       TData
@@ -4080,7 +4078,7 @@ export const getAdminListActivitiesQueryOptions = <
 >(
   params?: AdminListActivitiesParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminListActivities>>,
       TError,
       TData
@@ -4120,7 +4118,7 @@ export function useAdminListActivities<
 >(
   params?: AdminListActivitiesParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminListActivities>>,
       TError,
       TData
@@ -4250,7 +4248,7 @@ export const getAdminGetActivityQueryOptions = <
 >(
   activityId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminGetActivity>>,
       TError,
       TData
@@ -4295,7 +4293,7 @@ export function useAdminGetActivity<
 >(
   activityId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminGetActivity>>,
       TError,
       TData
@@ -4626,7 +4624,7 @@ export const getAdminListRegistrationsQueryOptions = <
   activityId: number,
   params?: AdminListRegistrationsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminListRegistrations>>,
       TError,
       TData
@@ -4673,7 +4671,7 @@ export function useAdminListRegistrations<
   activityId: number,
   params?: AdminListRegistrationsParams,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminListRegistrations>>,
       TError,
       TData
@@ -4724,7 +4722,7 @@ export const getAdminGetActivityTagsQueryOptions = <
 >(
   activityId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminGetActivityTags>>,
       TError,
       TData
@@ -4769,7 +4767,7 @@ export function useAdminGetActivityTags<
 >(
   activityId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminGetActivityTags>>,
       TError,
       TData
@@ -4816,7 +4814,7 @@ export const getAdminGetRegistrationQueryOptions = <
 >(
   registrationId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminGetRegistration>>,
       TError,
       TData
@@ -4861,7 +4859,7 @@ export function useAdminGetRegistration<
 >(
   registrationId: number,
   options?: {
-    query?: UseQueryOptionsInput<
+    query?: UseQueryOptions<
       Awaited<ReturnType<typeof adminGetRegistration>>,
       TError,
       TData

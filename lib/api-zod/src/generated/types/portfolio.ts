@@ -5,6 +5,8 @@
  * JieDanBa OPC Matching Platform API
  * OpenAPI spec version: 1.0.0
  */
+import type { PortfolioApplyLevel } from "./portfolioApplyLevel";
+import type { PortfolioLevelApplyStatus } from "./portfolioLevelApplyStatus";
 
 export interface Portfolio {
   id: number;
@@ -17,5 +19,13 @@ export interface Portfolio {
   orderId?: number;
   rating?: number;
   clientFeedback?: string;
+  /** The OPC certification level this portfolio is submitted for (null if not applying) */
+  applyLevel?: PortfolioApplyLevel;
+  /** Review status of the certification application */
+  levelApplyStatus?: PortfolioLevelApplyStatus;
+  /** Admin review note for the certification application */
+  levelApplyNote?: string | null;
+  /** When the certification application was reviewed by an admin */
+  reviewedAt?: Date | null;
   createdAt: Date;
 }

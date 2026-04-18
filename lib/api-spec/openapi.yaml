@@ -158,7 +158,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed]
+            enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed, refund_pending, refunding, refunded]
         - name: type
           in: query
           schema:
@@ -207,6 +207,11 @@ paths:
           schema:
             type: string
             enum: [C, B, A]
+        - name: publisherId
+          in: query
+          description: Filter demands by publisher user ID
+          schema:
+            type: integer
       responses:
         "200":
           description: Demands list
@@ -294,7 +299,7 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed]
+                  enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed, refund_pending, refunding, refunded]
                 reason:
                   type: string
               required:
@@ -441,6 +446,16 @@ paths:
           schema:
             type: string
             enum: [opc, publisher]
+        - name: opcId
+          in: query
+          description: Filter orders by OPC user ID (admin use)
+          schema:
+            type: integer
+        - name: publisherId
+          in: query
+          description: Filter orders by publisher user ID (admin use)
+          schema:
+            type: integer
         - name: page
           in: query
           schema:
@@ -1623,12 +1638,31 @@ components:
           enum: [open, directed]
         status:
           type: string
-          enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed]
+          enum: [draft, pending_review, pending_payment, published, matched, in_progress, pending_acceptance, completed, closed, refund_pending, refunding, refunded]
         isUrgent:
           type: boolean
         bidDeadline:
           type: string
           format: date-time
+        attachments:
+          type: array
+          description: Uploaded file attachments for this demand
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              size:
+                type: string
+              type:
+                type: string
+              url:
+                type: string
+        directedOpcIds:
+          type: array
+          description: Specific OPC user IDs this demand is directed at (only for directed mode)
+          items:
+            type: integer
         publisherId:
           type: integer
         publisherName:
@@ -1729,6 +1763,20 @@ components:
           type: array
           items:
             type: integer
+        attachments:
+          type: array
+          description: Uploaded file attachments
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              size:
+                type: string
+              type:
+                type: string
+              url:
+                type: string
       required:
         - title
         - type
@@ -1800,7 +1848,7 @@ components:
           enum: [online, offline]
         status:
           type: string
-          enum: [pending, confirmed, rejected, refunded]
+          enum: [pending, confirmed, rejected, refunded, refund_pending, refunding]
         paymentOrderNo:
           type: string
           nullable: true
@@ -2143,6 +2191,25 @@ components:
           type: number
         clientFeedback:
           type: string
+        applyLevel:
+          type: string
+          nullable: true
+          description: The OPC certification level this portfolio is submitted for (null if not applying)
+          enum: [C, B, A]
+        levelApplyStatus:
+          type: string
+          nullable: true
+          description: Review status of the certification application
+          enum: [pending, approved, rejected]
+        levelApplyNote:
+          type: string
+          nullable: true
+          description: Admin review note for the certification application
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the certification application was reviewed by an admin
         createdAt:
           type: string
           format: date-time

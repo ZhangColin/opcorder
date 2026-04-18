@@ -5,6 +5,7 @@
  * JieDanBa OPC Matching Platform API
  * OpenAPI spec version: 1.0.0
  */
+import type { DemandAttachmentsItem } from "./demandAttachmentsItem";
 import type { DemandMode } from "./demandMode";
 import type { DemandOpcLevel } from "./demandOpcLevel";
 import type { DemandStatus } from "./demandStatus";
@@ -27,6 +28,10 @@ export interface Demand {
   status: DemandStatus;
   isUrgent?: boolean;
   bidDeadline?: Date;
+  /** Uploaded file attachments for this demand */
+  attachments?: DemandAttachmentsItem[];
+  /** Specific OPC user IDs this demand is directed at (only for directed mode) */
+  directedOpcIds?: number[];
   publisherId: number;
   publisherName?: string;
   bidCount?: number;
