@@ -5,7 +5,7 @@ import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
   Phone, MessageCircle, CheckCircle2, AlertCircle, Upload, ExternalLink, Banknote,
-  ZoomIn, ZoomOut, Crop, Loader2,
+  ZoomIn, ZoomOut, Crop, Loader2, Trophy,
 } from "lucide-react";
 
 import {
@@ -971,9 +971,25 @@ export default function Profile() {
                             </div>
                           </div>
                           <div className="p-5">
-                            <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-3 inline-block">
-                              {TYPE_LABEL[p.type] ?? p.type}
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap mb-3">
+                              <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider inline-block">
+                                {TYPE_LABEL[p.type] ?? p.type}
+                              </span>
+                              {p.levelApplyStatus && (() => {
+                                const lsMap: Record<string, { text: string; cls: string }> = {
+                                  pending:    { text: "审核中",   cls: "bg-amber-100 text-amber-700 border-amber-200" },
+                                  approved:   { text: "已通过",   cls: "bg-green-100 text-green-700 border-green-200" },
+                                  downgraded: { text: "降级通过", cls: "bg-blue-100  text-blue-700  border-blue-200"  },
+                                  rejected:   { text: "未通过",   cls: "bg-red-100   text-red-700   border-red-200"   },
+                                };
+                                const s = lsMap[p.levelApplyStatus];
+                                return s ? (
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border ${s.cls}`}>
+                                    <Trophy size={9} />{p.applyLevel} 级 · {s.text}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                             <h3 className="text-base font-bold text-blue-900 mb-1.5 font-display leading-snug">{p.title}</h3>
                             <p className="text-sm text-slate-500 mb-3 line-clamp-2 leading-relaxed">{p.description}</p>
                             <div className="flex items-center justify-between">

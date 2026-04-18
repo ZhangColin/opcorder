@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Plus, Pencil, Cpu, Bot, Globe, Lock, ArrowLeft, ExternalLink, Star, Trash2 } from "lucide-react";
+import { Plus, Pencil, Cpu, Bot, Globe, Lock, ArrowLeft, ExternalLink, Star, Trash2, Trophy } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile, useListPortfolios } from "@workspace/api-client-react";
 import { PortfolioDrawer, TYPE_LABEL } from "@/components/PortfolioDrawer";
 import type { Portfolio } from "@workspace/api-client-react";
@@ -23,6 +23,13 @@ const TYPE_COLORS: Record<string, string> = {
   livestream_media: "bg-pink-100 text-pink-700",
   ai_tool_dev:      "bg-amber-100 text-amber-700",
   other:            "bg-slate-100 text-slate-600",
+};
+
+const LEVEL_STATUS_BADGE: Record<string, { text: string; color: string }> = {
+  pending:    { text: "认证审核中",   color: "bg-amber-100 text-amber-700 border-amber-200" },
+  approved:   { text: "认证已通过",   color: "bg-green-100 text-green-700 border-green-200" },
+  downgraded: { text: "降级认证通过", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  rejected:   { text: "认证未通过",   color: "bg-red-100 text-red-700 border-red-200" },
 };
 
 export default function Portfolios() {
@@ -54,6 +61,7 @@ export default function Portfolios() {
         onClose={() => setDrawerOpen(false)}
         userId={user?.id ?? 1}
         initial={editingItem}
+        currentLevel={profile?.level}
       />
 
       <div className="space-y-8">
@@ -127,9 +135,17 @@ export default function Portfolios() {
 
                   {/* Content */}
                   <div className="p-5 flex flex-col flex-1">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider mb-3 w-fit ${typeColor}`}>
-                      {TYPE_LABEL[p.type] ?? p.type}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider w-fit ${typeColor}`}>
+                        {TYPE_LABEL[p.type] ?? p.type}
+                      </span>
+                      {p.levelApplyStatus && LEVEL_STATUS_BADGE[p.levelApplyStatus] && (
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold border w-fit ${LEVEL_STATUS_BADGE[p.levelApplyStatus].color}`}>
+                          <Trophy size={10} />
+                          {p.applyLevel} 级 · {LEVEL_STATUS_BADGE[p.levelApplyStatus].text}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-lg font-bold text-blue-900 mb-2 font-display leading-snug">{p.title}</h3>
                     <p className="text-sm text-slate-500 line-clamp-3 leading-relaxed flex-1">{p.description}</p>
 
