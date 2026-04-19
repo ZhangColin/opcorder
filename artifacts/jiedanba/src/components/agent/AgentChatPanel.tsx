@@ -31,7 +31,7 @@ interface AgentChatPanelProps {
   onFillForm?: (suggestion: FormSuggestion) => void;
   /** Called whenever the conversationId is established or updated */
   onConversationId?: (conversationId: number) => void;
-  /** inline: embedded in layout (no fixed positioning); drawer: slide-in from right (default) */
+  /** inline: embedded in layout (no fixed positioning); drawer: slide-in from right on desktop, bottom sheet on mobile (default) */
   mode?: "inline" | "drawer";
 }
 
@@ -51,6 +51,20 @@ const OPC_LEVEL_LABELS: Record<string, string> = {
   A:   "A级·专家（上限 ¥200,000）",
   any: "不限等级",
 };
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
 
 function extractJsonObject(str: string): { json: string; end: number } | null {
   const start = str.indexOf("{");
@@ -76,7 +90,7 @@ function parseFormSuggestion(content: string): { text: string; suggestion: FormS
   if (idx === -1) return { text: content, suggestion: null };
   const afterMarker = content.slice(idx + marker.length);
   const extracted = extractJsonObject(afterMarker);
-  if (!extracted) return { text: content, suggestion: null }; // JSON not yet complete
+  if (!extracted) return { text: content, suggestion: null };
   try {
     const suggestion = JSON.parse(extracted.json) as FormSuggestion;
     const textBefore = content.slice(0, idx).trim();
@@ -110,12 +124,24 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = useIsMobile();
+
+  // Swipe-to-close state for mobile bottom drawer
+  const dragStartY = useRef<number | null>(null);
+  const dragCurrentY = useRef<number>(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Reset drag offset when drawer opens/closes
+  useEffect(() => {
+    setDragOffset(0);
+  }, [open]);
 
   const loadHistory = useCallback(async () => {
     if (historyLoaded) return;
@@ -240,7 +266,6 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
               return next;
             });
           } else if (event.type === "done") {
-            // Final parse pass — covers the case where the JSON became complete on the last token
             const { text: finalText, suggestion: finalSuggestion } = parseFormSuggestion(rawContent);
             updateLastMsg({
               content: finalText,
@@ -278,7 +303,31 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     if (loading) { abortRef.current?.abort(); setLoading(false); }
     setMessages([WELCOME_MESSAGE]);
     setConversationId(null);
-    // Keep historyLoaded=true to prevent the open-effect from immediately re-fetching server history
+  };
+
+  // Touch handlers for swipe-down-to-close on mobile bottom drawer
+  const handleTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    dragCurrentY.current = 0;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (dragStartY.current === null) return;
+    const delta = e.touches[0].clientY - dragStartY.current;
+    if (delta > 0) {
+      dragCurrentY.current = delta;
+      setDragOffset(delta);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const threshold = 120;
+    if (dragCurrentY.current > threshold) {
+      onClose();
+    }
+    dragStartY.current = null;
+    dragCurrentY.current = 0;
+    setDragOffset(0);
   };
 
   const panelContent = (
@@ -402,9 +451,47 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     );
   }
 
+  // Mobile: bottom sheet drawer
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop */}
+        <div
+          className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+          onClick={onClose}
+          aria-hidden="true"
+        />
+        {/* Bottom sheet */}
+        <div
+          ref={drawerRef}
+          className={`fixed left-0 right-0 bottom-0 z-50 bg-white flex flex-col rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out`}
+          style={{
+            height: "70vh",
+            transform: open
+              ? `translateY(${dragOffset}px)`
+              : "translateY(100%)",
+            transition: dragOffset > 0 ? "none" : undefined,
+          }}
+        >
+          {/* Drag handle */}
+          <div
+            className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div className="w-10 h-1 rounded-full bg-slate-200" />
+          </div>
+          {panelContent}
+        </div>
+      </>
+    );
+  }
+
+  // Desktop: right-side drawer
   return (
     <>
-      {/* Backdrop – tap to close */}
+      {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
@@ -504,4 +591,3 @@ const TOOL_LABEL_MAP: Record<string, string> = {
   suggest_milestones: "里程碑方案",
   estimate_budget: "预算参考",
 };
-
