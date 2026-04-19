@@ -27,7 +27,10 @@ interface AgentChatPanelProps {
   open: boolean;
   onClose: () => void;
   sessionKey: string;
+  demandId?: number;
   onFillForm?: (suggestion: FormSuggestion) => void;
+  /** inline: embedded in layout (no fixed positioning); drawer: slide-in from right (default) */
+  mode?: "inline" | "drawer";
 }
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
@@ -83,7 +86,13 @@ function parseFormSuggestion(content: string): { text: string; suggestion: FormS
   }
 }
 
-export function AgentChatPanel({ open, onClose, sessionKey, onFillForm }: AgentChatPanelProps) {
+const WELCOME_MESSAGE: ChatMessage = {
+  role: "assistant",
+  content: `你好！我是需求分析助手\n\n我会通过几个简短的问题，帮您：\n- 理清需求描述，让OPC一看就懂\n- 拆解合理的里程碑阶段\n- 估算合适的预算范围\n\n**请先告诉我：您想发布什么类型的需求？** 可以用一句话简单描述，例如：我需要开发一套AI赋能党建培训课程。`,
+  timestamp: new Date().toISOString(),
+};
+
+export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, mode = "drawer" }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -103,11 +112,15 @@ export function AgentChatPanel({ open, onClose, sessionKey, onFillForm }: AgentC
     if (historyLoaded) return;
     try {
       const token = await getValidAccessToken(API_BASE);
-      const res = await fetch(
-        `${API_BASE}/api/agent/demand-analysis/history/session?sessionKey=${encodeURIComponent(sessionKey)}`,
-        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-      );
-      if (!res.ok) return;
+      const url = demandId
+        ? `${API_BASE}/api/agent/demand-analysis/history/${demandId}`
+        : `${API_BASE}/api/agent/demand-analysis/history/session?sessionKey=${encodeURIComponent(sessionKey)}`;
+      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) {
+        setHistoryLoaded(true);
+        setMessages([WELCOME_MESSAGE]);
+        return;
+      }
       const data = await res.json();
       if (data.messages && data.messages.length > 0) {
         setMessages(
@@ -121,13 +134,16 @@ export function AgentChatPanel({ open, onClose, sessionKey, onFillForm }: AgentC
             };
           })
         );
+      } else {
+        setMessages([WELCOME_MESSAGE]);
       }
       if (data.conversationId) setConversationId(data.conversationId);
       setHistoryLoaded(true);
     } catch {
       setHistoryLoaded(true);
+      setMessages([WELCOME_MESSAGE]);
     }
-  }, [sessionKey, historyLoaded]);
+  }, [sessionKey, demandId, historyLoaded]);
 
   useEffect(() => {
     if (open) {
@@ -155,7 +171,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, onFillForm }: AgentC
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text, sessionKey, conversationId: conversationId ?? undefined }),
+        body: JSON.stringify({ message: text, sessionKey, conversationId: conversationId ?? undefined, demandId: demandId ?? undefined }),
         signal: abortRef.current.signal,
       });
 
@@ -251,149 +267,142 @@ export function AgentChatPanel({ open, onClose, sessionKey, onFillForm }: AgentC
 
   const handleClear = () => {
     if (loading) { abortRef.current?.abort(); setLoading(false); }
-    setMessages([]);
+    setMessages([WELCOME_MESSAGE]);
     setConversationId(null);
-    setHistoryLoaded(false);
+    // Keep historyLoaded=true to prevent the open-effect from immediately re-fetching server history
   };
 
-  return (
+  const panelContent = (
     <>
-      <div
-        className={`fixed inset-0 z-40 transition-all duration-300 ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-        onClick={onClose}
-      />
-
-      <div className={`fixed top-0 right-0 bottom-0 z-50 w-[440px] max-w-[95vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "translate-x-full"}`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-primary/5 to-blue-50 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-              <Bot size={18} className="text-white" />
-            </div>
-            <div>
-              <p className="text-sm font-extrabold text-blue-900">需求分析助手</p>
-              <p className="text-xs text-slate-400">一步步帮您填好表单</p>
-            </div>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-primary/5 to-blue-50 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-sm">
+            <Bot size={18} className="text-white" />
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleClear} title="清空对话" className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-              <RotateCcw size={15} />
-            </button>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-              <X size={15} />
-            </button>
+          <div>
+            <p className="text-sm font-extrabold text-blue-900">需求分析助手</p>
+            <p className="text-xs text-slate-400">一步步帮您填好表单</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleClear} title="清空对话" className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+            <RotateCcw size={15} />
+          </button>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+            <X size={15} />
+          </button>
+        </div>
+      </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          {messages.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center h-full text-center py-12 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Sparkles size={28} className="text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-600 mb-1">告诉我您想发布什么需求</p>
-                <p className="text-xs text-slate-400 leading-relaxed max-w-[260px]">
-                  我会通过几个问题帮您理清需求细节，最终自动帮您填好表单
-                </p>
-              </div>
-              <div className="space-y-2 w-full max-w-[300px]">
-                {QUICK_PROMPTS.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => { setInput(p); setTimeout(() => textareaRef.current?.focus(), 50); }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-xl border border-primary/10 transition-colors"
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {messages.length === 0 && !historyLoaded && (
+          <div className="flex flex-col items-center justify-center h-full text-center py-12 space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Sparkles size={28} className="text-primary" />
             </div>
-          )}
+            <p className="text-sm text-slate-400">加载中…</p>
+          </div>
+        )}
 
-          {messages.map((msg, idx) => {
-            if (msg.role === "tool_indicator") {
-              return (
-                <div key={idx} className="flex items-center gap-2 text-xs text-slate-400 px-1">
-                  <Wrench size={11} className="shrink-0 text-amber-500" />
-                  <span>正在查询：{msg.content}</span>
-                </div>
-              );
-            }
-
-            if (msg.role === "user") {
-              return (
-                <div key={idx} className="flex justify-end">
-                  <div className="max-w-[82%] bg-primary text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
-                    {msg.content}
-                  </div>
-                </div>
-              );
-            }
-
+        {messages.map((msg, idx) => {
+          if (msg.role === "tool_indicator") {
             return (
-              <div key={idx} className="flex gap-3">
-                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot size={14} className="text-primary" />
-                </div>
-                <div className="flex-1 min-w-0 space-y-2">
-                  {msg.content && (
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 leading-relaxed shadow-sm">
-                      <FormattedContent content={msg.content} />
-                      {msg.isStreaming && msg.content && (
-                        <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
-                      )}
-                      {!msg.content && msg.isStreaming && (
-                        <span className="inline-flex items-center gap-1.5 text-slate-400">
-                          <Loader2 size={13} className="animate-spin" />
-                          思考中…
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {!msg.content && msg.isStreaming && (
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm shadow-sm">
-                      <span className="inline-flex items-center gap-1.5 text-slate-400">
-                        <Loader2 size={13} className="animate-spin" />
-                        思考中…
-                      </span>
-                    </div>
-                  )}
-                  {msg.formSuggestion && !msg.isStreaming && (
-                    <FormSuggestionCard
-                      suggestion={msg.formSuggestion}
-                      onFill={() => onFillForm?.(msg.formSuggestion!)}
-                    />
-                  )}
+              <div key={idx} className="flex items-center gap-2 text-xs text-slate-400 px-1">
+                <Wrench size={11} className="shrink-0 text-amber-500" />
+                <span>正在查询：{msg.content}</span>
+              </div>
+            );
+          }
+
+          if (msg.role === "user") {
+            return (
+              <div key={idx} className="flex justify-end">
+                <div className="max-w-[82%] bg-primary text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+                  {msg.content}
                 </div>
               </div>
             );
-          })}
+          }
 
-          <div ref={messagesEndRef} />
-        </div>
+          return (
+            <div key={idx} className="flex gap-3">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <Bot size={14} className="text-primary" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-2">
+                {msg.content && (
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 leading-relaxed shadow-sm">
+                    <FormattedContent content={msg.content} />
+                    {msg.isStreaming && msg.content && (
+                      <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
+                    )}
+                  </div>
+                )}
+                {!msg.content && msg.isStreaming && (
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm shadow-sm">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <Loader2 size={13} className="animate-spin" />
+                      思考中…
+                    </span>
+                  </div>
+                )}
+                {msg.formSuggestion && !msg.isStreaming && (
+                  <FormSuggestionCard
+                    suggestion={msg.formSuggestion}
+                    onFill={() => onFillForm?.(msg.formSuggestion!)}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
 
-        <div className="px-4 py-4 border-t border-slate-100 bg-white shrink-0">
-          <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="告诉我您的需求… (Enter 发送，Shift+Enter 换行)"
-              rows={2}
-              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none leading-relaxed"
-              disabled={loading}
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-              className="shrink-0 w-9 h-9 flex items-center justify-center bg-primary text-white rounded-xl disabled:opacity-40 hover:bg-primary/90 transition-all shadow-sm"
-            >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
-            </button>
-          </div>
-          <p className="text-[10px] text-slate-300 text-center mt-2">AI建议仅供参考，填入后请核对表单内容</p>
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="px-4 py-4 border-t border-slate-100 bg-white shrink-0">
+        <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="告诉我您的需求… (Enter 发送，Shift+Enter 换行)"
+            rows={2}
+            className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none leading-relaxed"
+            disabled={loading}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+            className="shrink-0 w-9 h-9 flex items-center justify-center bg-primary text-white rounded-xl disabled:opacity-40 hover:bg-primary/90 transition-all shadow-sm"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
+          </button>
         </div>
+        <p className="text-[10px] text-slate-300 text-center mt-2">AI建议仅供参考，填入后请核对表单内容</p>
+      </div>
+    </>
+  );
+
+  if (mode === "inline") {
+    return (
+      <div className="flex flex-col h-full bg-white">
+        {panelContent}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Backdrop – tap to close */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className={`fixed top-0 right-0 bottom-0 z-50 w-[440px] max-w-[95vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "translate-x-full"}`}>
+        {panelContent}
       </div>
     </>
   );
@@ -487,8 +496,3 @@ const TOOL_LABEL_MAP: Record<string, string> = {
   estimate_budget: "预算参考",
 };
 
-const QUICK_PROMPTS = [
-  "我想开发一套AI赋能党建工作的课程",
-  "需要找人做政企AI培训，预算在5万以内",
-  "帮我做一个AI工具，用于处理日常数据分析",
-];

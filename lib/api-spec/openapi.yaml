@@ -1451,6 +1451,25 @@ paths:
                       type: string
                 required: [tags]
 
+  /agent/demand-analysis/status:
+    get:
+      operationId: getAgentDemandAnalysisStatus
+      tags: [agent]
+      summary: Get demand analysis agent enabled status
+      responses:
+        "200":
+          description: Agent status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isEnabled:
+                    type: boolean
+                required: [isEnabled]
+        "401":
+          description: Unauthorized
+
   /agent/demand-analysis/chat:
     post:
       operationId: agentDemandAnalysisChat

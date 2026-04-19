@@ -137,6 +137,16 @@ function buildLLMMessages(systemPrompt: string, history: PersistedMessage[], use
   return messages;
 }
 
+router.get("/agent/demand-analysis/status", requireAuth, async (_req: Request, res: Response) => {
+  try {
+    const config = await getDemandAnalysisConfig();
+    return res.json({ isEnabled: config?.isEnabled ?? false });
+  } catch (error) {
+    logger.error({ error }, "Failed to get agent status");
+    return res.status(500).json({ error: "获取智能体状态失败" });
+  }
+});
+
 router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res: Response) => {
   const { message, demandId, sessionKey, conversationId } = req.body as {
     message: string;

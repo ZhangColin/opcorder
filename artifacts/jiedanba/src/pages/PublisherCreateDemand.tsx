@@ -1,5 +1,5 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { clearSession } from "@/lib/auth";
+import { clearSession, getAccessToken } from "@/lib/auth";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import {
@@ -251,9 +251,9 @@ function AttachmentInput({ onAdd, onUploadError }: {
   );
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Section({ id, title, subtitle, children }: { id?: string; title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-8">
+    <div id={id} className="bg-white rounded-2xl shadow-sm p-8">
       <div className="mb-6">
         <h2 className="text-lg font-extrabold text-blue-900 font-display">{title}</h2>
         {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
@@ -428,15 +428,34 @@ export default function PublisherCreateDemand() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agentPanelOpen, setAgentPanelOpen] = useState(false);
+  const [agentEnabled, setAgentEnabled] = useState(false);
   const agentSessionKey = useRef(`create-demand-${Date.now()}`).current;
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = getAccessToken();
+        const res = await fetch(`${API_BASE}/api/agent/demand-analysis/status`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAgentEnabled(!!data.isEnabled);
+        }
+      } catch {
+        setAgentEnabled(false);
+      }
+    })();
+  }, []);
+
   const handleFillForm = useCallback((suggestion: FormSuggestion) => {
-    if (suggestion.title) setTitle(suggestion.title.slice(0, 50));
-    if (suggestion.type) setType(suggestion.type);
-    if (suggestion.description) setDescription(suggestion.description);
-    if (suggestion.skillTags?.length) setSkillTags(suggestion.skillTags);
-    if (suggestion.opcLevel) setOpcLevel(suggestion.opcLevel);
-    if (suggestion.budget) setBudget(String(suggestion.budget));
+    let scrollTarget: string | null = null;
+    if (suggestion.title) { setTitle(suggestion.title.slice(0, 50)); scrollTarget = scrollTarget ?? "section-basic"; }
+    if (suggestion.type) { setType(suggestion.type); scrollTarget = scrollTarget ?? "section-basic"; }
+    if (suggestion.description) { setDescription(suggestion.description); scrollTarget = scrollTarget ?? "section-detail"; }
+    if (suggestion.skillTags?.length) { setSkillTags(suggestion.skillTags); scrollTarget = scrollTarget ?? "section-detail"; }
+    if (suggestion.opcLevel) { setOpcLevel(suggestion.opcLevel); scrollTarget = scrollTarget ?? "section-matching"; }
+    if (suggestion.budget) { setBudget(String(suggestion.budget)); scrollTarget = scrollTarget ?? "section-budget"; }
     if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
     if (suggestion.milestones?.length) {
       setMilestones(suggestion.milestones.map(m => ({
@@ -444,8 +463,14 @@ export default function PublisherCreateDemand() {
         deadline: m.deadline,
         deliverableDesc: m.deliverableDesc,
       })));
+      scrollTarget = scrollTarget ?? "section-milestones";
     }
     toast({ title: "已填入表单", description: "AI建议内容已填入，请检查并按需调整" });
+    if (scrollTarget) {
+      setTimeout(() => {
+        document.getElementById(scrollTarget!)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    }
   }, [toast]);
 
   const logout = () => {
@@ -458,9 +483,11 @@ export default function PublisherCreateDemand() {
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
-      <main className={`flex-1 md:ml-64 min-h-screen transition-all duration-300 ${agentPanelOpen ? "md:mr-[420px]" : ""}`}>
+      {/* Split content area: form column (flex-1) + optional sticky chat column */}
+      <div className="flex-1 md:ml-64 flex min-h-screen">
+      <main className="flex-1 min-w-0 min-h-screen">
         {/* Top bar */}
-        <header className={`fixed top-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2 transition-all duration-300 ${agentPanelOpen ? "right-[420px]" : "right-0"}`}>
+        <header className={`fixed top-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2 transition-all duration-300 ${agentPanelOpen ? "right-0 md:right-[420px]" : "right-0"}`}>
           {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
@@ -478,8 +505,8 @@ export default function PublisherCreateDemand() {
             <ChevronRight size={14} className="text-slate-300" />
             <span className="text-blue-900 font-bold">{isEdit ? "编辑需求" : "发布新需求"}</span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="relative w-72">
+          <div className="flex items-center gap-3">
+            <div className="relative w-72 hidden lg:block">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -487,6 +514,26 @@ export default function PublisherCreateDemand() {
                 className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
               />
             </div>
+            {agentEnabled && (
+              <button
+                type="button"
+                onClick={() => setAgentPanelOpen(prev => !prev)}
+                className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                  agentPanelOpen
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-primary text-white shadow-sm hover:bg-primary/90"
+                }`}
+              >
+                <Bot size={15} />
+                AI 助手
+                {!agentPanelOpen && (
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                  </span>
+                )}
+              </button>
+            )}
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
@@ -518,7 +565,7 @@ export default function PublisherCreateDemand() {
           </div>
 
           {/* ── Section 1: 基本信息 ── */}
-          <Section title="基本信息" subtitle="简洁清晰地描述您的需求">
+          <Section id="section-basic" title="基本信息" subtitle="简洁清晰地描述您的需求">
 
             <FormField label="需求标题" required error={errors.title}
               hint={`${title.length}/50 字，简洁描述任务内容`}>
@@ -580,7 +627,7 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 2: 需求详情 ── */}
-          <Section title="需求详情" subtitle="详细说明任务内容和交付要求">
+          <Section id="section-detail" title="需求详情" subtitle="详细说明任务内容和交付要求">
 
             <FormField label="需求描述" required error={errors.description}
               hint="详细说明任务内容、交付标准、验收条件等">
@@ -607,7 +654,7 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 3: 匹配设置 ── */}
-          <Section title="匹配设置" subtitle="设置OPC等级要求和派单模式">
+          <Section id="section-matching" title="匹配设置" subtitle="设置OPC等级要求和派单模式">
 
             <FormField label="需求OPC等级" required>
               <div className="grid grid-cols-2 gap-3">
@@ -727,7 +774,7 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 4: 预算与时间 ── */}
-          <Section title="预算与时间" subtitle="设置项目预算范围和交付截止日期">
+          <Section id="section-budget" title="预算与时间" subtitle="设置项目预算范围和交付截止日期">
 
             <FormField label="预算金额（元）" required error={budgetCapError || errors.budget}
               hint="设置合理的预算，吸引优质OPC投标">
@@ -768,7 +815,7 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 5: 里程碑（选填）── */}
-          <Section title="里程碑节点" subtitle="选填：拆解项目执行阶段，便于过程管理和分期付款">
+          <Section id="section-milestones" title="里程碑节点" subtitle="选填：拆解项目执行阶段，便于过程管理和分期付款">
 
             {milestones.length === 0 ? (
               <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
@@ -938,28 +985,50 @@ export default function PublisherCreateDemand() {
         </div>
       </main>
 
-      {/* ── 智能体浮动入口 ── */}
-      <button
-        type="button"
-        onClick={() => setAgentPanelOpen(true)}
-        className={`fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl transition-all duration-200 font-bold text-sm
-          bg-primary text-white hover:scale-105 hover:shadow-primary/30
-          ${agentPanelOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-      >
-        <Bot size={18} />
-        AI需求助手
-        <span className="flex h-2 w-2 relative">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-        </span>
-      </button>
+      {/* Desktop inline chat panel – sticky right column (40% of content area) */}
+      {agentPanelOpen && (
+        <div className="hidden md:flex flex-col w-[420px] shrink-0 sticky top-0 self-start h-screen border-l border-slate-200 bg-white overflow-hidden shadow-none">
+          <AgentChatPanel
+            mode="inline"
+            open={true}
+            onClose={() => setAgentPanelOpen(false)}
+            sessionKey={agentSessionKey}
+            demandId={isEdit ? editId : undefined}
+            onFillForm={handleFillForm}
+          />
+        </div>
+      )}
+      </div>{/* end split-content-area */}
 
-      <AgentChatPanel
-        open={agentPanelOpen}
-        onClose={() => setAgentPanelOpen(false)}
-        sessionKey={agentSessionKey}
-        onFillForm={handleFillForm}
-      />
+      {/* ── 智能体浮动入口（Mobile only）── */}
+      {agentEnabled && (
+        <button
+          type="button"
+          onClick={() => setAgentPanelOpen(true)}
+          className={`md:hidden fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl transition-all duration-200 font-bold text-sm
+            bg-primary text-white hover:scale-105 hover:shadow-primary/30
+            ${agentPanelOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        >
+          <Bot size={18} />
+          AI助手
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+          </span>
+        </button>
+      )}
+
+      {/* Mobile slide-in drawer */}
+      <div className="md:hidden">
+        <AgentChatPanel
+          mode="drawer"
+          open={agentPanelOpen}
+          onClose={() => setAgentPanelOpen(false)}
+          sessionKey={agentSessionKey}
+          demandId={isEdit ? editId : undefined}
+          onFillForm={handleFillForm}
+        />
+      </div>
     </div>
   );
 }
