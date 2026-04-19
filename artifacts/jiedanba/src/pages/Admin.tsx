@@ -16,7 +16,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
-  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor,
+  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -100,7 +100,7 @@ export type Module =
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments" | "activities"
-  | "roles" | "adminusers" | "screen";
+  | "roles" | "adminusers" | "screen" | "agent";
 
 const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string }[] = [
   { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板",    permKey: "dashboard" },
@@ -117,6 +117,7 @@ const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly
   { key: "content",        icon: Shield,              label: "内容审核",    permKey: "content" },
   { key: "sensitivewords", icon: Flame,               label: "敏感词管理",  permKey: "sensitivewords" },
   { key: "activities",     icon: ClipboardList,       label: "活动报名",    permKey: "activities" },
+  { key: "agent",          icon: Bot,                 label: "智能体配置",  permKey: "settings" },
   { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
   { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
   { key: "adminusers",     icon: UserCog,             label: "管理员管理",  superAdminOnly: true },
@@ -5718,6 +5719,174 @@ function AdminUsersPanel() {
   );
 }
 
+/* ─── AgentConfigManagement ──────────────────────── */
+
+type AgentConfig = {
+  id: number;
+  name: string;
+  sceneKey: string;
+  systemPrompt: string;
+  isEnabled: boolean;
+  model: string;
+  createdAt: string;
+};
+
+function AgentConfigManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const { data: configs, isLoading } = useQuery<AgentConfig[]>({
+    queryKey: ["admin-agent-configs"],
+    queryFn: () => adminGet("/api/admin/agent-configs"),
+  });
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [editEnabled, setEditEnabled] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (cfg: AgentConfig) => {
+    setEditingId(cfg.id);
+    setEditPrompt(cfg.systemPrompt);
+    setEditEnabled(cfg.isEnabled);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditPrompt("");
+  };
+
+  const saveEdit = async (id: number) => {
+    setSaving(true);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${BASE}/api/admin/agent-configs/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ systemPrompt: editPrompt, isEnabled: editEnabled }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `保存失败 (${res.status})`);
+      }
+      await qc.invalidateQueries({ queryKey: ["admin-agent-configs"] });
+      toast({ title: "保存成功", description: "智能体配置已更新" });
+      setEditingId(null);
+    } catch (err: any) {
+      toast({ title: "保存失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-900">智能体配置</h2>
+          <p className="text-sm text-slate-500 mt-0.5">管理平台各场景的 AI 智能体系统提示词与启用状态</p>
+        </div>
+      </div>
+
+      {(!configs || configs.length === 0) && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+          <Bot size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">暂无智能体配置</p>
+        </div>
+      )}
+
+      {configs?.map((cfg) => (
+        <div key={cfg.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Bot size={18} className="text-primary" />
+              </div>
+              <div>
+                <p className="font-extrabold text-slate-900">{cfg.name}</p>
+                <p className="text-xs text-slate-400">{cfg.sceneKey} · {cfg.model}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.isEnabled ? "bg-green-50 text-green-600" : "bg-slate-100 text-slate-400"}`}>
+                {cfg.isEnabled ? "已启用" : "已停用"}
+              </span>
+              {editingId !== cfg.id && (
+                <button
+                  onClick={() => startEdit(cfg)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors"
+                >
+                  <Edit2 size={12} /> 编辑
+                </button>
+              )}
+            </div>
+          </div>
+
+          {editingId === cfg.id ? (
+            <div className="px-6 py-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-bold text-slate-700">启用状态</label>
+                <button
+                  type="button"
+                  onClick={() => setEditEnabled(prev => !prev)}
+                  className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${editEnabled ? "bg-primary" : "bg-slate-300"}`}
+                >
+                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${editEnabled ? "translate-x-6" : "translate-x-0"}`} />
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">系统提示词</label>
+                <textarea
+                  value={editPrompt}
+                  onChange={(e) => setEditPrompt(e.target.value)}
+                  rows={18}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y"
+                />
+                <p className="text-xs text-slate-400 mt-1">{editPrompt.length} 字符</p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => saveEdit(cfg.id)}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  保存配置
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  className="px-5 py-2.5 border border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="px-6 py-4">
+              <p className="text-xs font-bold text-slate-500 mb-2">系统提示词预览</p>
+              <pre className="text-xs text-slate-600 bg-slate-50 rounded-xl px-4 py-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto border border-slate-100">
+                {cfg.systemPrompt}
+              </pre>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ─── ModuleContent ───────────────────────────────── */
 
 function ModuleContent({ module }: { module: Module }) {
@@ -5736,6 +5905,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "sensitivewords": return <SensitiveWordsManagement />;
     case "payments":       return <><DepositPaymentManagement /><DemandRefundManagement /></>;
     case "activities":     return <AdminActivities />;
+    case "agent":          return <AgentConfigManagement />;
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;

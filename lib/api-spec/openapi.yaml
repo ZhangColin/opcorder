@@ -25,6 +25,8 @@ tags:
     description: Platform statistics
   - name: activities
     description: Activity registration management
+  - name: agent
+    description: AI demand analysis agent
 
 paths:
   /healthz:
@@ -1449,6 +1451,166 @@ paths:
                       type: string
                 required: [tags]
 
+  /agent/demand-analysis/chat:
+    post:
+      operationId: agentDemandAnalysisChat
+      tags: [agent]
+      summary: Send a message to the demand analysis agent (SSE streaming)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentChatInput"
+      responses:
+        "200":
+          description: SSE stream of tokens and events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          description: Invalid input
+        "401":
+          description: Unauthorized
+        "503":
+          description: Agent not configured or disabled
+
+  /agent/demand-analysis/history/{demandId}:
+    get:
+      operationId: getAgentDemandHistory
+      tags: [agent]
+      summary: Get conversation history for a demand or session
+      parameters:
+        - name: demandId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Demand ID (integer) or "session" for session-based lookup
+        - name: sessionKey
+          in: query
+          schema:
+            type: string
+          description: Session key for pre-draft conversations (used when demandId is "session")
+      responses:
+        "200":
+          description: Conversation history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentHistoryResponse"
+        "401":
+          description: Unauthorized
+
+  /agent/demand-analysis/bind-demand:
+    post:
+      operationId: bindAgentConversationToDemand
+      tags: [agent]
+      summary: Bind a temporary session conversation to a saved demand ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conversationId:
+                  type: integer
+                demandId:
+                  type: integer
+              required: [conversationId, demandId]
+      responses:
+        "200":
+          description: Bound successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+        "401":
+          description: Unauthorized
+        "404":
+          description: Conversation not found
+
+  /admin/agent-configs:
+    get:
+      operationId: listAgentConfigs
+      tags: [agent]
+      summary: List all agent configurations (admin only)
+      responses:
+        "200":
+          description: Agent configs list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentConfig"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/agent-configs/{id}:
+    get:
+      operationId: getAgentConfigById
+      tags: [agent]
+      summary: Get agent configuration by ID (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Agent config detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentConfig"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    put:
+      operationId: updateAgentConfig
+      tags: [agent]
+      summary: Update agent configuration (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAgentConfigInput"
+      responses:
+        "200":
+          description: Updated agent config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentConfig"
+        "400":
+          description: No updatable fields
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
 components:
   schemas:
     HealthStatus:
@@ -2691,3 +2853,73 @@ components:
               items:
                 $ref: "#/components/schemas/ActivityField"
           required: [extraData, fields]
+
+    AgentConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sceneKey:
+          type: string
+        systemPrompt:
+          type: string
+        isEnabled:
+          type: boolean
+        model:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, sceneKey, systemPrompt, isEnabled, model, createdAt]
+
+    AgentMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+      required: [role, content, timestamp]
+
+    AgentHistoryResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentMessage"
+        conversationId:
+          type: integer
+          nullable: true
+      required: [messages, conversationId]
+
+    AgentChatInput:
+      type: object
+      properties:
+        message:
+          type: string
+        demandId:
+          type: integer
+          nullable: true
+        sessionKey:
+          type: string
+          nullable: true
+        conversationId:
+          type: integer
+          nullable: true
+      required: [message]
+
+    UpdateAgentConfigInput:
+      type: object
+      properties:
+        systemPrompt:
+          type: string
+        isEnabled:
+          type: boolean

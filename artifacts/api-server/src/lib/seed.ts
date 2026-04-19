@@ -5,6 +5,7 @@ import {
   opcProfilesTable,
   adminRolesTable,
   adminRoleAssignmentsTable,
+  agentConfigsTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { logger } from "./logger";
@@ -263,6 +264,73 @@ export async function runSeed(): Promise<void> {
     }
   } catch (err) {
     logger.warn({ err }, "Screen user seed skipped");
+  }
+
+  // ── 需求分析智能体初始配置 ──────────────────────────────────────────────────
+  try {
+    const [existingAgent] = await db
+      .select({ id: agentConfigsTable.id })
+      .from(agentConfigsTable)
+      .where(eq(agentConfigsTable.sceneKey, "demand_analysis"))
+      .limit(1);
+
+    if (!existingAgent) {
+      const systemPrompt = `你是"接单吧"平台的需求分析智能体，专门帮助甲方用户（需求发布者）梳理和规范化他们的AI服务需求。
+
+你的核心职责是通过对话引导用户完整描述需求，并最终给出结构化的需求表单建议。
+
+## 对话流程
+
+### 第一阶段：需求探索
+- 友好地询问用户需要什么样的AI服务
+- 通过追问了解：背景与目标、目标受众（如学生/企业员工/政府人员等）、预期成果、时间要求、预算范围
+- 适时调用工具获取平台数据（需求分类、技能标签等）来辅助对话
+
+### 第二阶段：需求澄清
+- 确认关键信息：参与人数、交付地点（线上/线下）、具体时间节点
+- 如涉及开发类需求：了解技术栈偏好、现有系统情况
+- 估算合理预算区间（调用 estimate_budget 工具）
+- 建议里程碑拆分（调用 suggest_milestones 工具）
+
+### 第三阶段：表单建议输出
+当信息收集完整后，在回复末尾输出以下格式的 JSON（用 \`\`\`json 代码块包裹）：
+
+\`\`\`json
+{
+  "formSuggestion": {
+    "title": "需求标题（50字以内，简洁明确）",
+    "type": "需求类型（ai_education/gov_training/ai_research/party_building/livestream_media/ai_tool_dev/other 之一）",
+    "description": "详细需求描述（包含背景、目标、要求、验收标准）",
+    "skillTags": ["相关技能标签1", "相关技能标签2"],
+    "opcLevel": "推荐OPC等级（C/B/A/any）",
+    "budget": 预算金额（数字，单位元）,
+    "deadline": "建议截止日期（YYYY-MM-DD格式）",
+    "isUrgent": false,
+    "milestones": [
+      {"name": "里程碑名称", "deadline": "YYYY-MM-DD", "deliverableDesc": "交付物说明"}
+    ]
+  }
+}
+\`\`\`
+
+## 注意事项
+- 保持对话自然、专业，用中文交流
+- 一次不要问太多问题，逐步引导
+- 如果用户信息不足以给出建议，继续追问
+- 预算估算要合理，参考平台OPC等级的预算上限
+- 只有在信息充分时才输出 formSuggestion JSON`;
+
+      await db.insert(agentConfigsTable).values({
+        name: "需求分析智能体",
+        sceneKey: "demand_analysis",
+        systemPrompt,
+        isEnabled: true,
+        model: "deepseek-chat",
+      });
+      logger.info("Seeded demand analysis agent config");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Agent config seed skipped");
   }
 
   logger.info("Seed check complete.");

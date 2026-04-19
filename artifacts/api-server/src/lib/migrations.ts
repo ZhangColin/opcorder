@@ -443,5 +443,50 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 007a failed in production: ${err}`);
   }
 
+  // Migration 008a: create agent_configs table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS agent_configs (
+        id serial PRIMARY KEY,
+        name varchar(100) NOT NULL,
+        scene_key varchar(50) NOT NULL UNIQUE,
+        system_prompt text NOT NULL,
+        is_enabled boolean NOT NULL DEFAULT true,
+        model varchar(100) NOT NULL DEFAULT 'deepseek-chat',
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 008a: could not create agent_configs table");
+    if (!isDev) throw new Error(`Migration 008a failed in production: ${err}`);
+  }
+
+  // Migration 008b: create agent_conversations table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS agent_conversations (
+        id serial PRIMARY KEY,
+        demand_id integer REFERENCES demands(id) ON DELETE SET NULL,
+        session_key varchar(100),
+        user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        messages jsonb NOT NULL DEFAULT '[]',
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS agent_conversations_demand_id_idx ON agent_conversations(demand_id)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS agent_conversations_user_id_idx ON agent_conversations(user_id)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS agent_conversations_session_key_idx ON agent_conversations(session_key)
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 008b: could not create agent_conversations table");
+    if (!isDev) throw new Error(`Migration 008b failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

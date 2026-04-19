@@ -5,8 +5,9 @@ import { useLocation, useParams } from "wouter";
 import {
   Search, Bell, Plus, Trash2, AlertCircle,
   CheckCircle2, ChevronRight, Info, Zap, Upload, X, FileText, Link2,
-  Menu,
+  Menu, Bot,
 } from "lucide-react";
+import { AgentChatPanel, type FormSuggestion } from "@/components/agent/AgentChatPanel";
 import { useCreateDemand, useUpdateDemand, useUpdateDemandStatus, useGetDemandById, useGetOpcLeaderboard } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
@@ -426,6 +427,26 @@ export default function PublisherCreateDemand() {
   };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [agentPanelOpen, setAgentPanelOpen] = useState(false);
+  const agentSessionKey = useRef(`create-demand-${Date.now()}`).current;
+
+  const handleFillForm = useCallback((suggestion: FormSuggestion) => {
+    if (suggestion.title) setTitle(suggestion.title.slice(0, 50));
+    if (suggestion.type) setType(suggestion.type);
+    if (suggestion.description) setDescription(suggestion.description);
+    if (suggestion.skillTags?.length) setSkillTags(suggestion.skillTags);
+    if (suggestion.opcLevel) setOpcLevel(suggestion.opcLevel);
+    if (suggestion.budget) setBudget(String(suggestion.budget));
+    if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
+    if (suggestion.milestones?.length) {
+      setMilestones(suggestion.milestones.map(m => ({
+        name: m.name,
+        deadline: m.deadline,
+        deliverableDesc: m.deliverableDesc,
+      })));
+    }
+    toast({ title: "已填入表单", description: "AI建议内容已填入，请检查并按需调整" });
+  }, [toast]);
 
   const logout = () => {
     clearSession();
@@ -437,9 +458,9 @@ export default function PublisherCreateDemand() {
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 md:ml-64 min-h-screen">
+      <main className={`flex-1 md:ml-64 min-h-screen transition-all duration-300 ${agentPanelOpen ? "md:mr-[420px]" : ""}`}>
         {/* Top bar */}
-        <header className="fixed top-0 right-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
+        <header className={`fixed top-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2 transition-all duration-300 ${agentPanelOpen ? "right-[420px]" : "right-0"}`}>
           {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
@@ -916,6 +937,29 @@ export default function PublisherCreateDemand() {
           </div>
         </div>
       </main>
+
+      {/* ── 智能体浮动入口 ── */}
+      <button
+        type="button"
+        onClick={() => setAgentPanelOpen(true)}
+        className={`fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl transition-all duration-200 font-bold text-sm
+          bg-primary text-white hover:scale-105 hover:shadow-primary/30
+          ${agentPanelOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      >
+        <Bot size={18} />
+        AI需求助手
+        <span className="flex h-2 w-2 relative">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+        </span>
+      </button>
+
+      <AgentChatPanel
+        open={agentPanelOpen}
+        onClose={() => setAgentPanelOpen(false)}
+        sessionKey={agentSessionKey}
+        onFillForm={handleFillForm}
+      />
     </div>
   );
 }

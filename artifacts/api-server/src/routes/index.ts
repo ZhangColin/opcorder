@@ -17,6 +17,7 @@ import paymentCallbackRouter from "./payment-callback";
 import downloadRouter from "./download";
 import screenRouter from "./screen";
 import activitiesRouter from "./activities";
+import agentRouter from "./agent";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(paymentCallbackRouter);
 router.use(downloadRouter);
 router.use(screenRouter);
 router.use(activitiesRouter);
+router.use(agentRouter);
 
 export default router;

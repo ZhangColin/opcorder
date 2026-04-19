@@ -17,3 +17,4 @@ export * from "./refresh-tokens";
 export * from "./admin-roles";
 export * from "./activities";
 export * from "./system-logs";
+export * from "./agent";
