@@ -29,6 +29,8 @@ interface AgentChatPanelProps {
   sessionKey: string;
   demandId?: number;
   onFillForm?: (suggestion: FormSuggestion) => void;
+  /** Called whenever the conversationId is established or updated */
+  onConversationId?: (conversationId: number) => void;
   /** inline: embedded in layout (no fixed positioning); drawer: slide-in from right (default) */
   mode?: "inline" | "drawer";
 }
@@ -92,12 +94,19 @@ const WELCOME_MESSAGE: ChatMessage = {
   timestamp: new Date().toISOString(),
 };
 
-export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, mode = "drawer" }: AgentChatPanelProps) {
+export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onConversationId, mode = "drawer" }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  useEffect(() => {
+    if (conversationId !== null) {
+      onConversationId?.(conversationId);
+    }
+  }, [conversationId, onConversationId]);
+
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

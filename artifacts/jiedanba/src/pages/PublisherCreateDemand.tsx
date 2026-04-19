@@ -1,5 +1,5 @@
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { clearSession, getAccessToken } from "@/lib/auth";
+import { clearSession, getAccessToken, getValidAccessToken } from "@/lib/auth";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import {
@@ -415,6 +415,24 @@ export default function PublisherCreateDemand() {
         if (!asDraft && created?.id) {
           await updateStatus.mutateAsync({ demandId: created.id, data: { status: "pending_review" } });
         }
+        if (created?.id && agentConversationId.current !== null) {
+          try {
+            const token = await getValidAccessToken(API_BASE);
+            const bindRes = await fetch(`${API_BASE}/api/agent/demand-analysis/bind-demand`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ conversationId: agentConversationId.current, demandId: created.id }),
+            });
+            if (!bindRes.ok) {
+              console.warn("[AgentBind] bind-demand failed:", bindRes.status, await bindRes.text().catch(() => ""));
+            }
+          } catch (bindErr) {
+            console.warn("[AgentBind] bind-demand request error:", bindErr);
+          }
+        }
         toast({ title: asDraft ? "草稿已保存" : "需求已提交审核", description: asDraft ? "您可以随时回来继续编辑" : "平台将在24小时内完成审核" });
       }
       navigate("/publisher/demands");
@@ -430,6 +448,11 @@ export default function PublisherCreateDemand() {
   const [agentPanelOpen, setAgentPanelOpen] = useState(false);
   const [agentEnabled, setAgentEnabled] = useState(false);
   const agentSessionKey = useRef(`create-demand-${Date.now()}`).current;
+  const agentConversationId = useRef<number | null>(null);
+
+  const handleConversationId = useCallback((id: number) => {
+    agentConversationId.current = id;
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -995,6 +1018,7 @@ export default function PublisherCreateDemand() {
             sessionKey={agentSessionKey}
             demandId={isEdit ? editId : undefined}
             onFillForm={handleFillForm}
+            onConversationId={handleConversationId}
           />
         </div>
       )}
@@ -1027,6 +1051,7 @@ export default function PublisherCreateDemand() {
           sessionKey={agentSessionKey}
           demandId={isEdit ? editId : undefined}
           onFillForm={handleFillForm}
+          onConversationId={handleConversationId}
         />
       </div>
     </div>
