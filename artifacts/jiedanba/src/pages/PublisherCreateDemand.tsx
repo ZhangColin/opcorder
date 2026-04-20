@@ -541,14 +541,14 @@ export default function PublisherCreateDemand() {
               <button
                 type="button"
                 onClick={() => setAgentPanelOpen(prev => !prev)}
-                className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   agentPanelOpen
                     ? "bg-primary/10 text-primary border border-primary/20"
                     : "bg-primary text-white shadow-sm hover:bg-primary/90"
                 }`}
               >
                 <Bot size={15} />
-                AI 助手
+                <span className="hidden sm:inline">AI 助手</span>
                 {!agentPanelOpen && (
                   <span className="flex h-2 w-2 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
@@ -1023,24 +1023,6 @@ export default function PublisherCreateDemand() {
         </div>
       )}
       </div>{/* end split-content-area */}
-
-      {/* ── 智能体浮动入口（Mobile only）── */}
-      {agentEnabled && (
-        <button
-          type="button"
-          onClick={() => setAgentPanelOpen(true)}
-          className={`md:hidden fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl transition-all duration-200 font-bold text-sm
-            bg-primary text-white hover:scale-105 hover:shadow-primary/30
-            ${agentPanelOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-        >
-          <Bot size={18} />
-          AI助手
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-          </span>
-        </button>
-      )}
 
       {/* Mobile slide-in drawer */}
       <div className="md:hidden">
