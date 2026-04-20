@@ -4471,6 +4471,14 @@ function LevelCertReview() {
   });
   const filtered = resp?.data ?? [];
 
+  // 单独查待审核总数，用于 Tab 角标
+  const { data: pendingResp } = useQuery<PagedResp<LevelCertRow>>({
+    queryKey: ["admin-level-certs-pending-total"],
+    queryFn: () => adminGet("/api/admin/level-certs?status=pending&page=1&pageSize=1"),
+    refetchInterval: 60000,
+  });
+  const pendingTotal = pendingResp?.total ?? 0;
+
   const reviewMut = useMutation({
     mutationFn: ({ portfolioId, result, downgradeTo }: { portfolioId: number; result: string; downgradeTo?: string }) =>
       adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note: reviewNote, downgradeTo }),
@@ -4483,8 +4491,6 @@ function LevelCertReview() {
     },
     onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
-
-  const pendingCount = filtered.filter(r => r.level_apply_status === "pending").length;
 
   return (
     <div>
@@ -4508,27 +4514,40 @@ function LevelCertReview() {
 
       <SectionHeader
         title="作品等级认证审核"
-        sub={`共 ${resp?.total ?? 0} 条申请，当前页 ${pendingCount} 条待审`}
+        sub={`共 ${resp?.total ?? 0} 条申请`}
         action={
-          <div className="flex items-center gap-2">
-            <select
-              value={filterStatus}
-              onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
-              className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
-              <option value="all">全部</option>
-              <option value="pending">待审核</option>
-              <option value="reviewed">已审核</option>
-              <option value="approved">已通过</option>
-              <option value="downgraded">降级通过</option>
-              <option value="rejected">未通过</option>
-            </select>
-            <button onClick={() => refetch()}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-              <RefreshCw size={16} className="text-slate-500" />
-            </button>
-          </div>
+          <button onClick={() => refetch()} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+            <RefreshCw size={16} className="text-slate-500" />
+          </button>
         }
       />
+
+      {/* Tab 过滤器 */}
+      <div className="flex gap-1 border-b border-slate-200 mb-4 -mt-2">
+        {([
+          { val: "all",     label: "全部" },
+          { val: "pending", label: "待审核" },
+          { val: "reviewed", label: "已通过" },
+          { val: "rejected", label: "未通过" },
+        ] as const).map(tab => (
+          <button
+            key={tab.val}
+            onClick={() => { setFilterStatus(tab.val); setPage(1); }}
+            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+              filterStatus === tab.val
+                ? "border-primary text-primary"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {tab.label}
+            {tab.val === "pending" && pendingTotal > 0 && filterStatus !== "pending" && (
+              <span className="ml-1.5 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {pendingTotal}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
