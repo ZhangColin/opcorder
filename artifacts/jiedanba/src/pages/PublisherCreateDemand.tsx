@@ -548,7 +548,7 @@ export default function PublisherCreateDemand() {
                 }`}
               >
                 <Bot size={15} />
-                <span className="hidden sm:inline">AI 助手</span>
+                AI 助手
                 {!agentPanelOpen && (
                   <span className="flex h-2 w-2 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
