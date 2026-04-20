@@ -84,22 +84,45 @@ function extractJsonObject(str: string): { json: string; end: number } | null {
   return null;
 }
 
+function stripCodeBlocks(text: string): string {
+  // Remove ```lang...``` fenced code blocks entirely (they contain JSON not meant for display)
+  return text.replace(/```[\w]*\n?[\s\S]*?```/g, "").trim();
+}
+
 function parseFormSuggestion(content: string): { text: string; suggestion: FormSuggestion | null } {
+  // Format 1 (new): form_suggestion_json:{...} — marker + inline JSON
   const marker = "form_suggestion_json:";
   const idx = content.indexOf(marker);
-  if (idx === -1) return { text: content, suggestion: null };
-  const afterMarker = content.slice(idx + marker.length);
-  const extracted = extractJsonObject(afterMarker);
-  if (!extracted) return { text: content, suggestion: null };
-  try {
-    const suggestion = JSON.parse(extracted.json) as FormSuggestion;
-    const textBefore = content.slice(0, idx).trim();
-    const textAfter = afterMarker.slice(extracted.end).trim();
-    const displayText = textAfter ? `${textBefore}\n\n${textAfter}` : textBefore;
-    return { text: displayText.trim(), suggestion };
-  } catch {
-    return { text: content, suggestion: null };
+  if (idx !== -1) {
+    const afterMarker = content.slice(idx + marker.length);
+    const extracted = extractJsonObject(afterMarker);
+    if (extracted) {
+      try {
+        const suggestion = JSON.parse(extracted.json) as FormSuggestion;
+        const textBefore = content.slice(0, idx).trim();
+        const textAfter = afterMarker.slice(extracted.end).trim();
+        const displayText = textAfter ? `${textBefore}\n\n${textAfter}` : textBefore;
+        return { text: stripCodeBlocks(displayText).trim(), suggestion };
+      } catch { /* fall through */ }
+    }
   }
+
+  // Format 2 (old): ```json { "formSuggestion": {...} } ``` code block
+  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    try {
+      const parsed = JSON.parse(codeBlockMatch[1]) as Record<string, unknown>;
+      const fs = parsed.formSuggestion as FormSuggestion | undefined;
+      if (fs && typeof fs === "object") {
+        const textWithout = stripCodeBlocks(content);
+        return { text: textWithout, suggestion: fs };
+      }
+    } catch { /* fall through */ }
+  }
+
+  // No suggestion — still strip any stray code blocks so JSON never shows raw
+  const stripped = stripCodeBlocks(content);
+  return { text: stripped !== content ? stripped : content, suggestion: null };
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -562,6 +585,7 @@ function FormattedContent({ content }: { content: string }) {
   return (
     <div className="space-y-1">
       {lines.map((line, i) => {
+        if (line.startsWith("```") || line.startsWith("form_suggestion_json:")) return null;
         if (line.startsWith("### ")) return <p key={i} className="font-extrabold text-blue-900 text-sm mt-2 first:mt-0">{line.slice(4)}</p>;
         if (line.startsWith("## ")) return <p key={i} className="font-extrabold text-blue-900 mt-2 first:mt-0">{line.slice(3)}</p>;
         if (line.startsWith("**") && line.endsWith("**") && line.length > 4) return <p key={i} className="font-bold text-slate-800">{line.slice(2, -2)}</p>;
