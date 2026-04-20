@@ -537,26 +537,6 @@ export default function PublisherCreateDemand() {
                 className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
               />
             </div>
-            {agentEnabled && (
-              <button
-                type="button"
-                onClick={() => setAgentPanelOpen(prev => !prev)}
-                className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                  agentPanelOpen
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "bg-primary text-white shadow-sm hover:bg-primary/90"
-                }`}
-              >
-                <Bot size={15} />
-                AI 助手
-                {!agentPanelOpen && (
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                  </span>
-                )}
-              </button>
-            )}
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
@@ -1023,6 +1003,24 @@ export default function PublisherCreateDemand() {
         </div>
       )}
       </div>{/* end split-content-area */}
+
+      {/* AI 助手浮动按钮（右下角） */}
+      {agentEnabled && (
+        <button
+          type="button"
+          onClick={() => setAgentPanelOpen(prev => !prev)}
+          className={`fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl transition-all duration-200 font-bold text-sm
+            bg-primary text-white hover:scale-105 hover:shadow-primary/30
+            ${agentPanelOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        >
+          <Bot size={18} />
+          AI 助手
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+          </span>
+        </button>
+      )}
 
       {/* Mobile slide-in drawer */}
       <div className="md:hidden">
