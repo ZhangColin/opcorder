@@ -1,4 +1,4 @@
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import { logger } from "./logger";
@@ -15,6 +15,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * In production Replit deployments, DATABASE_URL is only available at
  * runtime (not during the build phase), so we cannot rely on the build-time
  * migrate.mjs script to have already synced the schema.
+ *
+ * Uses async spawn (not spawnSync) so the Node.js event loop is never
+ * blocked — the HTTP server can respond to health checks while drizzle-kit
+ * runs in a child process.
  */
 export async function syncSchema(): Promise<void> {
   const dbUrl = process.env["DATABASE_URL"];
@@ -27,21 +31,31 @@ export async function syncSchema(): Promise<void> {
 
   const workspaceRoot = path.resolve(__dirname, "../../..");
 
-  const result = spawnSync(
-    "pnpm",
-    ["--filter", "@workspace/db", "run", "push-force"],
-    {
-      stdio: "inherit",
-      cwd: workspaceRoot,
-      env: { ...process.env },
-    },
-  );
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      "pnpm",
+      ["--filter", "@workspace/db", "run", "push-force"],
+      {
+        stdio: "inherit",
+        cwd: workspaceRoot,
+        env: { ...process.env },
+      },
+    );
 
-  if (result.status !== 0) {
-    const msg = `syncSchema: drizzle-kit push exited with code ${result.status}`;
-    logger.error(msg);
-    throw new Error(msg);
-  }
+    child.on("close", (code) => {
+      if (code !== 0) {
+        const msg = `syncSchema: drizzle-kit push exited with code ${code}`;
+        logger.error(msg);
+        reject(new Error(msg));
+      } else {
+        logger.info("syncSchema: schema sync complete — existing data untouched");
+        resolve();
+      }
+    });
 
-  logger.info("syncSchema: schema sync complete — existing data untouched");
+    child.on("error", (err) => {
+      logger.error({ err }, "syncSchema: failed to spawn drizzle-kit push");
+      reject(err);
+    });
+  });
 }
