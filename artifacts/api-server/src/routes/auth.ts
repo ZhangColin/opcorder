@@ -271,14 +271,6 @@ router.post("/auth/register", async (req, res) => {
       await db.insert(opcProfilesTable).values({ userId: user.id });
     }
 
-    return res.status(201).json({
-      id:        user.id,
-      nickname:  user.nickname,
-      email:     user.email,
-      role:      user.role,
-      createdAt: user.createdAt.toISOString(),
-    });
-
     // Fire-and-forget: send welcome email (failure does not affect registration)
     (async () => {
       try {
@@ -316,6 +308,14 @@ router.post("/auth/register", async (req, res) => {
         logger.warn({ err }, "Welcome email failed to send");
       }
     })();
+
+    return res.status(201).json({
+      id:        user.id,
+      nickname:  user.nickname,
+      email:     user.email,
+      role:      user.role,
+      createdAt: user.createdAt.toISOString(),
+    });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
     return res.status(500).json({ error: "注册失败，请稍后重试" });
