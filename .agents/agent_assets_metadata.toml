@@ -30,3 +30,9 @@ id = "EjqJeqiqBJ_NeRQ1VQEMg"
 uri = "file://exports/接单吧数据导出_2026-04-23.xlsx"
 type = "table"
 title = "接单吧数据导出_2026-04-23.xlsx"
+
+[[outputs]]
+id = "IECDJRa3GLIIkQjuUXz4c"
+uri = "file://exports/接单吧数据导出_V1_2026-04-23.xlsx"
+type = "table"
+title = "接单吧数据导出_V1_2026-04-23.xlsx"
