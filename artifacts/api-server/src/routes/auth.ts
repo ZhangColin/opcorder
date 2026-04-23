@@ -25,32 +25,77 @@ const router: IRouter = Router();
 
 /* ── Welcome email helpers ─────────────────────────────── */
 
-const WELCOME_EMAIL_KEYS = [
+// 发单方（publisher）欢迎邮件配置
+const PUBLISHER_WELCOME_EMAIL_KEYS = [
   "welcome_email_subject",
   "welcome_email_body",
   "welcome_email_group_tip",
   "wechat_group_qr",
 ] as const;
 
-const WELCOME_EMAIL_DEFAULTS: Record<(typeof WELCOME_EMAIL_KEYS)[number], string> = {
+const PUBLISHER_WELCOME_EMAIL_DEFAULTS: Record<(typeof PUBLISHER_WELCOME_EMAIL_KEYS)[number], string> = {
   welcome_email_subject:   "【接单吧】欢迎加入 OPC 撮合交易平台",
   welcome_email_body:      "欢迎加入接单吧！我们是专注 OPC 超级个体的撮合交易平台，更多功能正在持续开发与上线中，敬请期待。",
   welcome_email_group_tip: "扫码加入官方微信交流群，与更多 OPC 伙伴一起交流成长：",
   wechat_group_qr:         "",
 };
 
-async function loadWelcomeEmailSettings() {
-  const rows = await db
-    .select({ key: siteSettingsTable.key, value: siteSettingsTable.value })
-    .from(siteSettingsTable)
-    .where(inArray(siteSettingsTable.key, [...WELCOME_EMAIL_KEYS]));
+// 接单方（OPC）欢迎邮件配置
+const OPC_WELCOME_EMAIL_KEYS = [
+  "opc_welcome_email_subject",
+  "opc_welcome_email_body",
+  "opc_welcome_email_group_tip",
+  "opc_wechat_group_qr",
+] as const;
 
-  const result = { ...WELCOME_EMAIL_DEFAULTS };
-  for (const row of rows) {
-    const k = row.key as (typeof WELCOME_EMAIL_KEYS)[number];
-    if (k in result) result[k] = row.value ?? result[k];
+const OPC_WELCOME_EMAIL_DEFAULTS: Record<(typeof OPC_WELCOME_EMAIL_KEYS)[number], string> = {
+  opc_welcome_email_subject:   "【接单吧】欢迎成为 OPC 超级个体",
+  opc_welcome_email_body:      "欢迎加入接单吧！您已成功注册为 OPC 超级个体，平台将为您精准匹配优质需求，助力您的业务成长，敬请期待更多功能上线。",
+  opc_welcome_email_group_tip: "扫码加入 OPC 专属交流群，与更多超级个体一起交流成长：",
+  opc_wechat_group_qr:         "",
+};
+
+type WelcomeEmailSettings = {
+  subject: string;
+  body: string;
+  group_tip: string;
+  wechat_group_qr: string;
+};
+
+async function loadWelcomeEmailSettings(role: "opc" | "publisher"): Promise<WelcomeEmailSettings> {
+  if (role === "opc") {
+    const rows = await db
+      .select({ key: siteSettingsTable.key, value: siteSettingsTable.value })
+      .from(siteSettingsTable)
+      .where(inArray(siteSettingsTable.key, [...OPC_WELCOME_EMAIL_KEYS]));
+    const result = { ...OPC_WELCOME_EMAIL_DEFAULTS };
+    for (const row of rows) {
+      const k = row.key as (typeof OPC_WELCOME_EMAIL_KEYS)[number];
+      if (k in result) result[k] = row.value ?? result[k];
+    }
+    return {
+      subject:         result.opc_welcome_email_subject,
+      body:            result.opc_welcome_email_body,
+      group_tip:       result.opc_welcome_email_group_tip,
+      wechat_group_qr: result.opc_wechat_group_qr,
+    };
+  } else {
+    const rows = await db
+      .select({ key: siteSettingsTable.key, value: siteSettingsTable.value })
+      .from(siteSettingsTable)
+      .where(inArray(siteSettingsTable.key, [...PUBLISHER_WELCOME_EMAIL_KEYS]));
+    const result = { ...PUBLISHER_WELCOME_EMAIL_DEFAULTS };
+    for (const row of rows) {
+      const k = row.key as (typeof PUBLISHER_WELCOME_EMAIL_KEYS)[number];
+      if (k in result) result[k] = row.value ?? result[k];
+    }
+    return {
+      subject:         result.welcome_email_subject,
+      body:            result.welcome_email_body,
+      group_tip:       result.welcome_email_group_tip,
+      wechat_group_qr: result.wechat_group_qr,
+    };
   }
-  return result;
 }
 
 /** Resolve a potentially relative URL to an absolute URL using the known site domain. */
@@ -72,8 +117,8 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS, qrSrc?: string): string {
-  const bodyHtml = s.welcome_email_body
+function buildWelcomeEmail(nickname: string, s: WelcomeEmailSettings, qrSrc?: string): string {
+  const bodyHtml = s.body
     .split("\n")
     .map(line => line.trim())
     .filter(Boolean)
@@ -82,7 +127,7 @@ function buildWelcomeEmail(nickname: string, s: typeof WELCOME_EMAIL_DEFAULTS, q
 
   const qrBlock = qrSrc
     ? `<div style="margin:24px 0;text-align:center;">
-        <p style="color:#6b7280;font-size:14px;margin:0 0 12px;">${escapeHtml(s.welcome_email_group_tip)}</p>
+        <p style="color:#6b7280;font-size:14px;margin:0 0 12px;">${escapeHtml(s.group_tip)}</p>
         <img src="${qrSrc}" alt="微信入群二维码" width="240"
              style="border-radius:12px;border:1px solid #e5e7eb;display:inline-block;" />
       </div>`
@@ -275,7 +320,7 @@ router.post("/auth/register", async (req, res) => {
     // Fire-and-forget: send welcome email (failure does not affect registration)
     (async () => {
       try {
-        const s = await loadWelcomeEmailSettings();
+        const s = await loadWelcomeEmailSettings(role as "opc" | "publisher");
 
         // Embed QR code as base64 data URI for maximum email client compatibility
         let qrSrc: string | undefined;
@@ -299,7 +344,7 @@ router.post("/auth/register", async (req, res) => {
         const { error: sendError } = await resend.emails.send({
           from: "接单吧 <jiedanba@opcorder.com>",
           to: normalizedEmail,
-          subject: s.welcome_email_subject,
+          subject: s.subject,
           html: buildWelcomeEmail(user.nickname, s, qrSrc),
         });
         if (sendError) {

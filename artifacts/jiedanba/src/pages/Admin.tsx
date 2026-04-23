@@ -4133,9 +4133,13 @@ function SiteSettingsManagement() {
           ))}
         </div>
 
-        {/* 注册欢迎邮件 */}
+        {/* 发单方注册欢迎邮件 */}
         <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">注册欢迎邮件</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">发单方注册欢迎邮件</h3>
+            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold">发单方</span>
+          </div>
+          <p className="text-xs text-slate-400 -mt-2">发单方（企业/个人）注册成功后自动发送此邮件</p>
 
           <div>
             <label className="block text-sm font-bold text-blue-900 mb-1.5">邮件主题</label>
@@ -4189,7 +4193,73 @@ function SiteSettingsManagement() {
                   placeholder="或直接粘贴图片 URL"
                   className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
                 />
-                <p className="text-xs text-slate-400 mt-1">上传后新注册用户的欢迎邮件中将自动显示此二维码</p>
+                <p className="text-xs text-slate-400 mt-1">上传后发单方注册欢迎邮件中将自动显示此二维码</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 接单方（OPC）注册欢迎邮件 */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">接单方注册欢迎邮件</h3>
+            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold">OPC 接单方</span>
+          </div>
+          <p className="text-xs text-slate-400 -mt-2">OPC 超级个体注册成功后自动发送此邮件</p>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">邮件主题</label>
+            {field("opc_welcome_email_subject", "【接单吧】欢迎成为 OPC 超级个体")}
+            <p className="text-xs text-slate-400 mt-1">收件人看到的邮件标题</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">正文内容</label>
+            <textarea
+              value={form["opc_welcome_email_body"] ?? ""}
+              onChange={e => setForm(v => ({ ...v, opc_welcome_email_body: e.target.value }))}
+              rows={4}
+              placeholder="欢迎加入接单吧！您已成功注册为 OPC 超级个体…"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition resize-y"
+            />
+            <p className="text-xs text-slate-400 mt-1">支持换行，每段独立渲染为一行文字</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">入群引导语</label>
+            {field("opc_welcome_email_group_tip", "扫码加入 OPC 专属交流群，与更多超级个体一起交流成长：")}
+            <p className="text-xs text-slate-400 mt-1">显示在二维码图片上方（二维码为空时不显示）</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-2">微信入群二维码</label>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+                {form["opc_wechat_group_qr"] ? (
+                  <img src={form["opc_wechat_group_qr"]} alt="OPC微信入群二维码" className="w-full h-full object-contain p-1" />
+                ) : (
+                  <ImageIcon size={22} className="text-slate-300" />
+                )}
+              </div>
+              <div className="flex-1">
+                <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition-colors ${
+                  uploading["opc_wechat_group_qr"] ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                }`}>
+                  {uploading["opc_wechat_group_qr"] ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {uploading["opc_wechat_group_qr"] ? "上传中…" : "上传图片"}
+                  <input
+                    type="file" accept="image/*" className="hidden"
+                    disabled={uploading["opc_wechat_group_qr"]}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload("opc_wechat_group_qr", f); }}
+                  />
+                </label>
+                <input
+                  value={form["opc_wechat_group_qr"] ?? ""}
+                  onChange={e => setForm(v => ({ ...v, opc_wechat_group_qr: e.target.value }))}
+                  placeholder="或直接粘贴图片 URL"
+                  className="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 text-slate-500 transition"
+                />
+                <p className="text-xs text-slate-400 mt-1">上传后 OPC 注册欢迎邮件中将自动显示此二维码</p>
               </div>
             </div>
           </div>
