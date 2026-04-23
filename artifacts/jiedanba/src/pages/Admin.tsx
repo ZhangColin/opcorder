@@ -4480,8 +4480,8 @@ function LevelCertReview() {
   const pendingTotal = pendingResp?.total ?? 0;
 
   const reviewMut = useMutation({
-    mutationFn: ({ portfolioId, result, downgradeTo }: { portfolioId: number; result: string; downgradeTo?: string }) =>
-      adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note: reviewNote, downgradeTo }),
+    mutationFn: ({ portfolioId, result, downgradeTo, note }: { portfolioId: number; result: string; downgradeTo?: string; note: string }) =>
+      adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note, downgradeTo }),
     onSuccess: () => {
       toast({ title: "评审已提交", description: "评审结果已发送通知给OPC" });
       setReviewing(null);
@@ -4532,7 +4532,7 @@ function LevelCertReview() {
         ] as const).map(tab => (
           <button
             key={tab.val}
-            onClick={() => { setFilterStatus(tab.val); setPage(1); }}
+            onClick={() => { setFilterStatus(tab.val); setPage(1); setReviewing(null); setReviewNote(""); }}
             className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
               filterStatus === tab.val
                 ? "border-primary text-primary"
@@ -4578,7 +4578,13 @@ function LevelCertReview() {
                 {/* 主行 */}
                 <div
                   className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
-                  onClick={() => setExpanded(isOpen ? null : row.id)}>
+                  onClick={() => {
+                    if (!isOpen) {
+                      setReviewing(null);
+                      setReviewNote("");
+                    }
+                    setExpanded(isOpen ? null : row.id);
+                  }}>
                   {row.cover_image ? (
                     <img
                       src={row.cover_image}
@@ -4732,7 +4738,7 @@ function LevelCertReview() {
                           {/* 认证通过 */}
                           {canApprove && (
                             <button
-                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "approved" })}
+                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "approved", note: reviewNote })}
                               disabled={reviewMut.isPending}
                               className="py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
                               <CheckCircle2 size={14} />
@@ -4743,7 +4749,7 @@ function LevelCertReview() {
                           {downgradeLevels.map(lvl => (
                             <button
                               key={lvl}
-                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "downgraded", downgradeTo: lvl })}
+                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "downgraded", downgradeTo: lvl, note: reviewNote })}
                               disabled={reviewMut.isPending}
                               className="py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
                               <Award size={14} />
@@ -4752,7 +4758,7 @@ function LevelCertReview() {
                           ))}
                           {/* 还需努力 */}
                           <button
-                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "rejected" })}
+                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "rejected", note: reviewNote })}
                             disabled={reviewMut.isPending}
                             className="py-2.5 bg-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
                             <XCircle size={14} />
