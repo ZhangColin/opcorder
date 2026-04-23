@@ -36,3 +36,21 @@ id = "IECDJRa3GLIIkQjuUXz4c"
 uri = "file://exports/接单吧数据导出_V1_2026-04-23.xlsx"
 type = "table"
 title = "接单吧数据导出_V1_2026-04-23.xlsx"
+
+[[outputs]]
+id = "Q7iZIrM8GbfueZ9MI4mcZ"
+uri = "file://screenshots/demand7_full.jpg"
+type = "image"
+title = "截图1：社区运营数据分析报告（JDB-20260324-0007，已匹配）"
+
+[[outputs]]
+id = "Cv6brkH8KMhJKHhzMZFb7"
+uri = "file://screenshots/demand2_6milestones_full.jpg"
+type = "image"
+title = "截图2：政企AI培训需求——全部 6 个交付里程碑"
+
+[[outputs]]
+id = "QiMDlTNbyRKQU_Ee5LP4v"
+uri = "file://screenshots/publisher_demands.jpg"
+type = "image"
+title = "截图3：发单方视角—⌔3 个已匹配案例列表"
