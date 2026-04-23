@@ -19,6 +19,7 @@ const loginLimiter = rateLimit({
 });
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const resendForgotPwd = new Resend(process.env.RESEND_API_KEY_FORGOT_PWD ?? process.env.RESEND_API_KEY);
 
 const router: IRouter = Router();
 
@@ -441,7 +442,7 @@ router.post("/auth/forgot-password", async (req, res) => {
       .set({ passwordHash: newHash })
       .where(eq(usersTable.id, user.id));
 
-    const { error: sendError } = await resend.emails.send({
+    const { error: sendError } = await resendForgotPwd.emails.send({
       from: "接单吧 <noreply@aieducenter.com>",
       to: normalizedEmail,
       subject: "【接单吧】您的临时密码",
