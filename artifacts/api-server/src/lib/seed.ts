@@ -6,6 +6,7 @@ import {
   adminRolesTable,
   adminRoleAssignmentsTable,
   agentConfigsTable,
+  siteSettingsTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { logger } from "./logger";
@@ -330,6 +331,19 @@ form_suggestion_json:{"title":"需求标题（50字以内）","type":"类型代�
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
+  }
+
+  try {
+    await db
+      .insert(siteSettingsTable)
+      .values({ key: "icp_number", value: "京ICP备2025138186号-5" })
+      .onConflictDoUpdate({
+        target: siteSettingsTable.key,
+        set: { value: "京ICP备2025138186号-5", updatedAt: new Date() },
+      });
+    logger.info("Ensured icp_number is up to date");
+  } catch (err) {
+    logger.warn({ err }, "ICP number seed step skipped");
   }
 
   logger.info("Seed check complete.");

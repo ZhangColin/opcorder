@@ -1693,7 +1693,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   site_logo:    "",
   site_favicon: "",
   footer_text:  "© 2026 接单吧 · 海创元 × 东升原点OPC社区",
-  icp_number:   "",
+  icp_number:   "京ICP备2025138186号-5",
   copyright:    "© 2026 接单吧 All Rights Reserved",
   footer_slogan:       "引领企业数字生态转型的超级个体撮合交易平台。精准匹配，担保交易，赋能数字建设。",
   footer_copyright:    "© 2026 海创元数字交易中心. 保留所有权利. 国资监管机构.",
