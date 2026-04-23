@@ -314,7 +314,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
 
         if (opcUser?.email) {
           resend.emails.send({
-            from: "接单吧 <noreply@aieducenter.com>",
+            from: "接单吧 <jiedanba@opcorder.com>",
             to: opcUser.email,
             subject: `恭喜中标！需求「${demand.title}」 - 接单吧`,
             html: buildWinnerEmail(opcUser.nickname ?? opcUser.email, demand.title, orderNo),

@@ -429,7 +429,7 @@ router.post("/admin/demands/:id/send-email", async (req, res) => {
       .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
     if (!pub?.email) return res.status(400).json({ error: "该用户未绑定邮箱" });
     const { error } = await resend.emails.send({
-      from: "接单吧 <noreply@aieducenter.com>",
+      from: "接单吧 <jiedanba@opcorder.com>",
       to: pub.email,
       subject: subject!.trim(),
       html: buildBulkEmail(pub.nickname ?? pub.email, content.trim()),
@@ -468,7 +468,7 @@ router.patch("/admin/demands/:id", async (req, res) => {
       // Email notification
       if (pub?.email) {
         await resend.emails.send({
-          from: "接单吧 <noreply@aieducenter.com>",
+          from: "接单吧 <jiedanba@opcorder.com>",
           to: pub.email,
           subject: "您的需求已通过审核，请缴纳保证金 - 接单吧",
           html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核。\n\n请登录接单吧，在需求详情页缴纳保证金，保证金到账确认后需求将自动发布至需求大厅，OPC 可以查看并投标。`),
@@ -492,7 +492,7 @@ router.patch("/admin/demands/:id", async (req, res) => {
       // Email notification
       if (pub?.email) {
         await resend.emails.send({
-          from: "接单吧 <noreply@aieducenter.com>",
+          from: "接单吧 <jiedanba@opcorder.com>",
           to: pub.email,
           subject: "您的需求未通过审核 - 接单吧",
           html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」未通过平台审核。\n\n审核意见：${reasonText}\n\n请根据上述意见修改后重新提交审核。`),
@@ -1186,7 +1186,7 @@ router.post("/admin/users/bulk-email", async (req, res) => {
       return res.json({ total: 0, message: "没有符合条件的用户" });
     }
 
-    const FROM = "接单吧 <noreply@aieducenter.com>";
+    const FROM = "接单吧 <jiedanba@opcorder.com>";
     const jobs = users.map(u => ({ email: u.email!, nickname: u.nickname ?? u.email! }));
     const total = jobs.length;
     const operatorId = req.user?.id;
@@ -1324,7 +1324,7 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
       return res.json({ total: 0, message: "没有符合条件的学员" });
     }
 
-    const FROM = "接单吧 <noreply@aieducenter.com>";
+    const FROM = "接单吧 <jiedanba@opcorder.com>";
     const jobs = list.map(r => ({ email: r.email, nickname: r.nickname ?? r.email }));
     const total = jobs.length;
     const operatorId = req.user?.id;

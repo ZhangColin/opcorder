@@ -297,7 +297,7 @@ router.post("/auth/register", async (req, res) => {
         }
 
         const { error: sendError } = await resend.emails.send({
-          from: "接单吧 <noreply@aieducenter.com>",
+          from: "接单吧 <jiedanba@opcorder.com>",
           to: normalizedEmail,
           subject: s.welcome_email_subject,
           html: buildWelcomeEmail(user.nickname, s, qrSrc),
@@ -443,7 +443,7 @@ router.post("/auth/forgot-password", async (req, res) => {
       .where(eq(usersTable.id, user.id));
 
     const { error: sendError } = await resendForgotPwd.emails.send({
-      from: "接单吧 <noreply@aieducenter.com>",
+      from: "接单吧 <jiedanba@opcorder.com>",
       to: normalizedEmail,
       subject: "【接单吧】您的临时密码",
       html: `
