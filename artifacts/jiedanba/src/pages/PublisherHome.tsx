@@ -99,7 +99,7 @@ export default function PublisherHome() {
         </header>
 
         {/* Body */}
-        <div className="pt-16 px-4 md:px-6 pb-12 space-y-8 max-w-[1400px]">
+        <div className="pt-20 px-4 md:px-6 pb-12 space-y-8 max-w-[1400px]">
 
           {/* ── Welcome + Stats ── */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
