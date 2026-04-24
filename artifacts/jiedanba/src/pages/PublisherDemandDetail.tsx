@@ -757,75 +757,6 @@ export default function PublisherDemandDetail() {
                   );
                 })()}
 
-                {/* ── 需求参数调整（招募中 / 已匹配状态） ── */}
-                {(demand.status === "published" || demand.status === "matched") && (
-                  <div className="mt-5 pt-5 border-t border-slate-100">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        <Edit2 size={14} className="text-slate-500" />
-                        调整需求参数
-                      </p>
-                      <button
-                        onClick={() => setShowAdjustPanel(v => !v)}
-                        className="text-xs text-primary font-bold hover:underline"
-                      >
-                        {showAdjustPanel ? "收起" : "展开"}
-                      </button>
-                    </div>
-                    {showAdjustPanel && (
-                      <div className="bg-slate-50 rounded-xl p-4 space-y-4">
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          可调整 OPC 等级要求（降低门槛以吸引更多 OPC 参与），或延长抢单截止时间（截止时间只能往后调整）。
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1.5">OPC 等级要求</label>
-                            <select
-                              value={adjustOpcLevel}
-                              onChange={e => setAdjustOpcLevel(e.target.value)}
-                              className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/30"
-                            >
-                              <option value="">不修改（当前：{demand.opcLevel === "any" || !demand.opcLevel ? "不限" : `${demand.opcLevel}级及以上`}）</option>
-                              <option value="any">不限</option>
-                              <option value="C">C级及以上</option>
-                              <option value="B">B级及以上</option>
-                              <option value="A">A级（专家）</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1.5">
-                              抢单截止时间
-                              {(demand as any).bidDeadline && (
-                                <span className="font-normal ml-1">（当前：{new Date((demand as any).bidDeadline).toLocaleDateString("zh-CN")}）</span>
-                              )}
-                            </label>
-                            <input
-                              type="date"
-                              value={adjustBidDeadline}
-                              min={
-                                (demand as any).bidDeadline
-                                  ? new Date(new Date((demand as any).bidDeadline).getTime() + 86400000).toISOString().split("T")[0]
-                                  : new Date().toISOString().split("T")[0]
-                              }
-                              onChange={e => setAdjustBidDeadline(e.target.value)}
-                              className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-end">
-                          <button
-                            onClick={handleAdjustDemand}
-                            disabled={adjustLoading || (!adjustOpcLevel && !adjustBidDeadline)}
-                            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {adjustLoading ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                            {adjustLoading ? "保存中…" : "保存调整"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               {actionError && (
@@ -1272,6 +1203,14 @@ export default function PublisherDemandDetail() {
                         </span>
                       </div>
                     </div>
+                    {(demand.status === "published" || demand.status === "matched") && (
+                      <button
+                        onClick={() => setShowAdjustPanel(true)}
+                        className="mt-4 w-full flex items-center justify-center gap-2 border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors"
+                      >
+                        <Edit2 size={14} /> 调整需求参数
+                      </button>
+                    )}
                   </div>
 
                   {/* Status Info */}
@@ -1357,6 +1296,99 @@ export default function PublisherDemandDetail() {
         onConfirm={doCloseDemand}
         onCancel={() => setShowCloseDialog(false)}
       />
+
+      {/* ── 调整需求参数 Modal ── */}
+      {showAdjustPanel && demand && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowAdjustPanel(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 space-y-5"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Edit2 size={15} className="text-primary" />
+                </div>
+                <h3 className="text-base font-extrabold text-blue-900">调整需求参数</h3>
+              </div>
+              <button
+                onClick={() => setShowAdjustPanel(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 rounded-xl p-3">
+              可降低 OPC 等级要求以吸引更多人才参与，或延长抢单截止时间（只能往后延长，不能提前）。
+            </p>
+
+            {/* OPC Level */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-600">
+                OPC 等级要求
+                <span className="ml-2 font-normal text-slate-400">
+                  当前：{demand.opcLevel === "any" || !demand.opcLevel ? "不限" : `${demand.opcLevel}级及以上`}
+                </span>
+              </label>
+              <select
+                value={adjustOpcLevel}
+                onChange={e => setAdjustOpcLevel(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">不修改</option>
+                <option value="any">不限</option>
+                <option value="C">C级及以上</option>
+                <option value="B">B级及以上</option>
+                <option value="A">A级（专家）</option>
+              </select>
+            </div>
+
+            {/* Bid Deadline */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-600">
+                抢单截止时间
+                {(demand as any).bidDeadline && (
+                  <span className="ml-2 font-normal text-slate-400">
+                    当前：{new Date((demand as any).bidDeadline).toLocaleDateString("zh-CN")}
+                  </span>
+                )}
+              </label>
+              <input
+                type="date"
+                value={adjustBidDeadline}
+                min={
+                  (demand as any).bidDeadline
+                    ? new Date(new Date((demand as any).bidDeadline).getTime() + 86400000).toISOString().split("T")[0]
+                    : new Date().toISOString().split("T")[0]
+                }
+                onChange={e => setAdjustBidDeadline(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => { setShowAdjustPanel(false); setAdjustOpcLevel(""); setAdjustBidDeadline(""); }}
+                className="flex-1 h-11 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleAdjustDemand}
+                disabled={adjustLoading || (!adjustOpcLevel && !adjustBidDeadline)}
+                className="flex-1 h-11 flex items-center justify-center gap-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                {adjustLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {adjustLoading ? "保存中…" : "确认调整"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
