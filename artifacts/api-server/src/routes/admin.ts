@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -2562,6 +2562,95 @@ router.get("/admin/system-logs", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "查询系统日志失败" });
+  }
+});
+
+/* ─── SETTLEMENT ACCOUNT REVIEW ───────────────────── */
+
+router.get("/admin/settlement-accounts", requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query as { status?: string };
+    const rows = await db
+      .select({
+        id: settlementAccountsTable.id,
+        userId: settlementAccountsTable.userId,
+        userNickname: usersTable.nickname,
+        userEmail: usersTable.email,
+        companyName: settlementAccountsTable.companyName,
+        creditCode: settlementAccountsTable.creditCode,
+        bankName: settlementAccountsTable.bankName,
+        bankBranch: settlementAccountsTable.bankBranch,
+        bankAccount: settlementAccountsTable.bankAccount,
+        accountName: settlementAccountsTable.accountName,
+        contactName: settlementAccountsTable.contactName,
+        contactPhone: settlementAccountsTable.contactPhone,
+        businessLicenseUrl: settlementAccountsTable.businessLicenseUrl,
+        rejectReason: settlementAccountsTable.rejectReason,
+        status: settlementAccountsTable.status,
+        createdAt: settlementAccountsTable.createdAt,
+        updatedAt: settlementAccountsTable.updatedAt,
+      })
+      .from(settlementAccountsTable)
+      .leftJoin(usersTable, eq(settlementAccountsTable.userId, usersTable.id))
+      .where(
+        status && status !== "all"
+          ? eq(settlementAccountsTable.status, status as any)
+          : undefined
+      )
+      .orderBy(desc(settlementAccountsTable.updatedAt));
+
+    return res.json(rows.map(r => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    })));
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取结算账户列表失败" });
+  }
+});
+
+router.patch("/admin/settlement-accounts/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id as string);
+    const { action, rejectReason } = req.body as { action: "approve" | "reject"; rejectReason?: string };
+
+    if (!["approve", "reject"].includes(action)) {
+      return res.status(400).json({ error: "action 只能是 approve 或 reject" });
+    }
+    if (action === "reject" && !rejectReason?.trim()) {
+      return res.status(400).json({ error: "驳回时必须填写原因" });
+    }
+
+    const [row] = await db
+      .update(settlementAccountsTable)
+      .set({
+        status: action === "approve" ? "verified" : "rejected",
+        rejectReason: action === "reject" ? rejectReason!.trim() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(settlementAccountsTable.id, id))
+      .returning();
+
+    if (!row) return res.status(404).json({ error: "记录不存在" });
+
+    // Send in-app notification to the OPC
+    const notifContent = action === "approve"
+      ? "您的结算账户已通过审核，现在可以正常抢单了"
+      : `您的结算账户审核未通过，原因：${rejectReason}，请修改后重新提交`;
+
+    await db.insert(notificationsTable).values({
+      userId: row.userId,
+      type: "system",
+      title: action === "approve" ? "结算账户审核通过" : "结算账户审核未通过",
+      content: notifContent,
+      isRead: false,
+    }).catch(() => {});
+
+    return res.json({ ok: true, status: row.status });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "审核操作失败" });
   }
 });
 

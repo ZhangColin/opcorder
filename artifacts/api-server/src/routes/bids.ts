@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable } from "@workspace/db";
+import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable, settlementAccountsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import {
   CreateBidBody,
@@ -188,6 +188,29 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
     if (budgetCap !== undefined && demand.budget > budgetCap) {
       return res.status(403).json({
         error: `该需求预算 ¥${demand.budget.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
+      });
+    }
+
+    // Check settlement account: OPC must have a verified settlement account before bidding
+    const [settlement] = await db
+      .select({ status: settlementAccountsTable.status })
+      .from(settlementAccountsTable)
+      .where(eq(settlementAccountsTable.userId, opcId))
+      .limit(1);
+
+    if (!settlement) {
+      return res.status(403).json({
+        error: "您尚未提交结算账户信息，请前往「结算账户」完善信息并通过审核后再抢单",
+        code: "SETTLEMENT_ACCOUNT_MISSING",
+      });
+    }
+    if (settlement.status !== "verified") {
+      const statusMsg = settlement.status === "pending"
+        ? "结算账户审核中，请耐心等待审核通过后再抢单"
+        : "结算账户审核未通过，请修改信息后重新提交审核";
+      return res.status(403).json({
+        error: statusMsg,
+        code: "SETTLEMENT_ACCOUNT_NOT_VERIFIED",
       });
     }
 

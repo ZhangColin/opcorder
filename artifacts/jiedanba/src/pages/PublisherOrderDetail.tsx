@@ -304,7 +304,7 @@ export default function PublisherOrderDetail() {
   const canAccept = order?.status === "pending_acceptance" && !hasMilestones;
 
   return (
-    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
+    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e] overflow-x-hidden">
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 md:ml-64 min-h-screen">
@@ -333,7 +333,7 @@ export default function PublisherOrderDetail() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 ml-auto">
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />

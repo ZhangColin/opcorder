@@ -99,7 +99,7 @@ export default function PublisherNotifications() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
+    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e] overflow-x-hidden">
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 md:ml-64 min-h-screen">
@@ -120,7 +120,7 @@ export default function PublisherNotifications() {
               className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
             />
           </div>
-          <div className="flex items-center gap-4 ml-6">
+          <div className="flex items-center gap-4 ml-auto">
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               {unreadCount > 0 && (

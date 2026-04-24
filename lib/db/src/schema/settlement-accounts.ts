@@ -14,6 +14,8 @@ export const settlementAccountsTable = pgTable("settlement_accounts", {
   accountName: varchar("account_name", { length: 100 }),
   contactName: varchar("contact_name", { length: 50 }),
   contactPhone: varchar("contact_phone", { length: 20 }),
+  businessLicenseUrl: text("business_license_url"),
+  rejectReason: text("reject_reason"),
   status: settlementStatusEnum("status").notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -31,6 +31,7 @@ router.put("/opc/settlement-account", requireAuth, async (req, res) => {
     accountName,
     contactName,
     contactPhone,
+    businessLicenseUrl,
   } = req.body as {
     companyName?: string;
     creditCode?: string;
@@ -40,6 +41,7 @@ router.put("/opc/settlement-account", requireAuth, async (req, res) => {
     accountName?: string;
     contactName?: string;
     contactPhone?: string;
+    businessLicenseUrl?: string;
   };
 
   const existing = await db
@@ -57,13 +59,16 @@ router.put("/opc/settlement-account", requireAuth, async (req, res) => {
     accountName: accountName ?? null,
     contactName: contactName ?? null,
     contactPhone: contactPhone ?? null,
+    businessLicenseUrl: businessLicenseUrl ?? null,
+    status: "pending" as const,
+    rejectReason: null,
     updatedAt: new Date(),
   };
 
   if (existing.length === 0) {
     const [row] = await db
       .insert(settlementAccountsTable)
-      .values({ userId, ...payload, status: "pending" })
+      .values({ userId, ...payload })
       .returning();
     return res.json({ data: row });
   } else {

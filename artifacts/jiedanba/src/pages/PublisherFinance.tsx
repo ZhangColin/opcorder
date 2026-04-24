@@ -81,7 +81,7 @@ export default function PublisherFinance() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
+    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e] overflow-x-hidden">
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 md:ml-64 min-h-screen">

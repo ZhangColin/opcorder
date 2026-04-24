@@ -368,7 +368,7 @@ export default function PublisherProfile() {
   const avatarChar = displayName.slice(0, 1).toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-[#f3f3f6] text-[#1a1c1e]">
+    <div className="flex min-h-screen bg-[#f3f3f6] text-[#1a1c1e] overflow-x-hidden">
       {cropSrc && (
         <CropModal
           src={cropSrc}
@@ -396,7 +396,7 @@ export default function PublisherProfile() {
             <ChevronRight size={14} className="text-slate-300" />
             <span className="text-blue-900 font-bold">企业信息</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 ml-auto">
             <PublisherHeaderUser onLogout={logout} />
           </div>
         </header>

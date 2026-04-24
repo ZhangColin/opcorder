@@ -363,6 +363,63 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
   }
 });
 
+/* PATCH /demands/:demandId/adjust — Publisher adjusts opcLevel and/or bidDeadline for active demands */
+router.patch("/demands/:demandId/adjust", requireAuth, async (req, res) => {
+  try {
+    const demandId = parseInt(req.params.demandId as string);
+    const { opcLevel, bidDeadline } = req.body as { opcLevel?: string; bidDeadline?: string };
+
+    const [existing] = await db
+      .select({
+        publisherId: demandsTable.publisherId,
+        status: demandsTable.status,
+        bidDeadline: demandsTable.bidDeadline,
+      })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ error: "需求不存在" });
+    if (existing.publisherId !== req.user!.id) return res.status(403).json({ error: "无权操作" });
+
+    const adjustableStatuses = ["published", "matched"];
+    if (!adjustableStatuses.includes(existing.status)) {
+      return res.status(400).json({ error: "只有「招募中」或「已匹配」状态的需求才能调整参数" });
+    }
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+
+    if (opcLevel !== undefined) {
+      const validLevels = ["any", "C", "B", "A"];
+      if (!validLevels.includes(opcLevel)) {
+        return res.status(400).json({ error: "无效的 OPC 等级要求" });
+      }
+      updateData.opcLevel = opcLevel as any;
+    }
+
+    if (bidDeadline !== undefined) {
+      const newDate = new Date(bidDeadline);
+      if (isNaN(newDate.getTime())) return res.status(400).json({ error: "无效的日期格式" });
+
+      // Can only extend (not shorten) the bid deadline
+      if (existing.bidDeadline && newDate <= existing.bidDeadline) {
+        return res.status(400).json({ error: "抢单截止时间只能往后调整，不能提前" });
+      }
+      updateData.bidDeadline = newDate;
+    }
+
+    const [updated] = await db.update(demandsTable).set(updateData).where(eq(demandsTable.id, demandId)).returning();
+
+    return res.json({
+      ...updated,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "调整需求参数失败" });
+  }
+});
+
 router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId as string);

@@ -8,7 +8,7 @@ import {
   Zap, ArrowLeft, User, ChevronRight, CheckCircle2, Clock,
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
   FileText, Download, FileImage, FileSpreadsheet, FileArchive, File,
-  Menu, Edit2, Send, X, Undo2, CreditCard, Upload, RotateCcw, Loader2,
+  Menu, Edit2, Send, X, Undo2, CreditCard, Upload, RotateCcw, Loader2, Save,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -96,6 +96,10 @@ export default function PublisherDemandDetail() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [refundReason, setRefundReason] = useState("");
+  const [showAdjustPanel, setShowAdjustPanel] = useState(false);
+  const [adjustOpcLevel, setAdjustOpcLevel] = useState<string>("");
+  const [adjustBidDeadline, setAdjustBidDeadline] = useState<string>("");
+  const [adjustLoading, setAdjustLoading] = useState(false);
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("online");
@@ -188,6 +192,37 @@ export default function PublisherDemandDetail() {
   };
 
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleAdjustDemand = async () => {
+    if (!adjustOpcLevel && !adjustBidDeadline) {
+      toast({ title: "请至少修改一项", variant: "destructive" });
+      return;
+    }
+    setAdjustLoading(true);
+    try {
+      const body: Record<string, string> = {};
+      if (adjustOpcLevel) body.opcLevel = adjustOpcLevel;
+      if (adjustBidDeadline) body.bidDeadline = adjustBidDeadline;
+      const res = await fetch(`${BASE}/api/demands/${demandId}/adjust`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error ?? "调整失败");
+      }
+      toast({ title: "调整成功", description: "需求参数已更新" });
+      setShowAdjustPanel(false);
+      setAdjustOpcLevel("");
+      setAdjustBidDeadline("");
+      refetchDemand();
+    } catch (err: any) {
+      toast({ title: "调整失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
+    } finally {
+      setAdjustLoading(false);
+    }
+  };
 
   const requestRefundMut = useMutation({
     mutationFn: async (reason: string) => {
@@ -363,7 +398,7 @@ export default function PublisherDemandDetail() {
   const processedBids = (bids as any[]).filter((b: any) => b.status !== "pending");
 
   return (
-    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
+    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e] overflow-x-hidden">
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 md:ml-64 min-h-screen">
@@ -393,8 +428,8 @@ export default function PublisherDemandDetail() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+          <div className="flex items-center gap-4 ml-auto">
+            <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors" onClick={() => navigate("/publisher/notifications")}>
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
             </button>
@@ -721,6 +756,76 @@ export default function PublisherDemandDetail() {
                     </div>
                   );
                 })()}
+
+                {/* ── 需求参数调整（招募中 / 已匹配状态） ── */}
+                {(demand.status === "published" || demand.status === "matched") && (
+                  <div className="mt-5 pt-5 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                        <Edit2 size={14} className="text-slate-500" />
+                        调整需求参数
+                      </p>
+                      <button
+                        onClick={() => setShowAdjustPanel(v => !v)}
+                        className="text-xs text-primary font-bold hover:underline"
+                      >
+                        {showAdjustPanel ? "收起" : "展开"}
+                      </button>
+                    </div>
+                    {showAdjustPanel && (
+                      <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          可调整 OPC 等级要求（降低门槛以吸引更多 OPC 参与），或延长抢单截止时间（截止时间只能往后调整）。
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5">OPC 等级要求</label>
+                            <select
+                              value={adjustOpcLevel}
+                              onChange={e => setAdjustOpcLevel(e.target.value)}
+                              className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                              <option value="">不修改（当前：{demand.opcLevel === "any" || !demand.opcLevel ? "不限" : `${demand.opcLevel}级及以上`}）</option>
+                              <option value="any">不限</option>
+                              <option value="C">C级及以上</option>
+                              <option value="B">B级及以上</option>
+                              <option value="A">A级（专家）</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5">
+                              抢单截止时间
+                              {(demand as any).bidDeadline && (
+                                <span className="font-normal ml-1">（当前：{new Date((demand as any).bidDeadline).toLocaleDateString("zh-CN")}）</span>
+                              )}
+                            </label>
+                            <input
+                              type="date"
+                              value={adjustBidDeadline}
+                              min={
+                                (demand as any).bidDeadline
+                                  ? new Date(new Date((demand as any).bidDeadline).getTime() + 86400000).toISOString().split("T")[0]
+                                  : new Date().toISOString().split("T")[0]
+                              }
+                              onChange={e => setAdjustBidDeadline(e.target.value)}
+                              className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            onClick={handleAdjustDemand}
+                            disabled={adjustLoading || (!adjustOpcLevel && !adjustBidDeadline)}
+                            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {adjustLoading ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                            {adjustLoading ? "保存中…" : "保存调整"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {actionError && (

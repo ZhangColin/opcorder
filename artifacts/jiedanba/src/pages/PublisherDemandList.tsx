@@ -321,7 +321,7 @@ export default function PublisherDemandList() {
   }, [demands.map((d: any) => `${d.id}:${d.status}`).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
+    <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e] overflow-x-hidden">
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 md:ml-64 min-h-screen">
@@ -339,7 +339,7 @@ export default function PublisherDemandList() {
             <ChevronRight size={14} className="text-slate-300" />
             <span className="text-blue-900 font-bold">需求管理</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 ml-auto">
             <div className="relative w-72">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input

@@ -100,7 +100,7 @@ export type Module =
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments" | "activities"
-  | "roles" | "adminusers" | "screen" | "agent";
+  | "roles" | "adminusers" | "screen" | "agent" | "settlement";
 
 const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string }[] = [
   { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板",    permKey: "dashboard" },
@@ -111,6 +111,7 @@ const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly
   { key: "orders",         icon: ShoppingBag,         label: "订单管理",    permKey: "orders" },
   { key: "disputes",       icon: Gavel,               label: "争议管理",    permKey: "disputes" },
   { key: "finance",        icon: Wallet,              label: "财务管理",    permKey: "finance" },
+  { key: "settlement",     icon: CreditCard,          label: "结算账户审核", permKey: "finance" },
   { key: "ecosystem",      icon: Network,             label: "OPC 生态池",  permKey: "ecosystem" },
   { key: "training",       icon: GraduationCap,       label: "认证培训",    permKey: "training" },
   { key: "levelcert",      icon: Trophy,              label: "等级认证",    permKey: "levelcert" },
@@ -5982,6 +5983,203 @@ function AgentConfigManagement() {
   );
 }
 
+/* ─── Settlement Account Review ───────────────────────── */
+
+type SettlementRecord = {
+  id: number;
+  userId: number;
+  userNickname: string | null;
+  userEmail: string | null;
+  companyName: string | null;
+  creditCode: string | null;
+  bankName: string | null;
+  bankBranch: string | null;
+  bankAccount: string | null;
+  accountName: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  businessLicenseUrl: string | null;
+  rejectReason: string | null;
+  status: "pending" | "verified" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+};
+
+function SettlementManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState("pending");
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const { data: records = [], isLoading, refetch } = useQuery<SettlementRecord[]>({
+    queryKey: ["admin-settlement-accounts", statusFilter],
+    queryFn: () => adminGet(`/api/admin/settlement-accounts?status=${statusFilter}`),
+    staleTime: 30_000,
+  });
+
+  async function handleAction(id: number, action: "approve" | "reject", reason?: string) {
+    setSubmitting(true);
+    try {
+      await adminPatch(`/api/admin/settlement-accounts/${id}`, { action, rejectReason: reason });
+      toast({ title: action === "approve" ? "已审核通过" : "已驳回", description: "操作成功，已通知 OPC" });
+      setRejectingId(null);
+      setRejectReason("");
+      qc.invalidateQueries({ queryKey: ["admin-settlement-accounts"] });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const STATUS_TABS = [
+    { key: "all", label: "全部" },
+    { key: "pending", label: "待审核" },
+    { key: "verified", label: "已通过" },
+    { key: "rejected", label: "已驳回" },
+  ];
+
+  const statusLabel = (s: string) => {
+    if (s === "pending") return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-600 border border-amber-200">待审核</span>;
+    if (s === "verified") return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-50 text-green-600 border border-green-200">已通过</span>;
+    return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">已驳回</span>;
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="结算账户审核" sub="审核 OPC 提交的结算账户信息，通过后 OPC 方可抢单" />
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {STATUS_TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setStatusFilter(t.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${statusFilter === t.key ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-200"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-slate-400" /></div>
+      ) : records.length === 0 ? (
+        <div className="bg-white rounded-2xl p-12 text-center text-slate-400 shadow-sm">
+          <CreditCard size={36} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">暂无结算账户记录</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {records.map(r => (
+            <div key={r.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center font-extrabold text-primary">
+                    {(r.userNickname ?? "O")[0]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800">{r.userNickname ?? `用户 #${r.userId}`}</p>
+                    <p className="text-xs text-slate-400">{r.userEmail} · 提交于 {new Date(r.updatedAt).toLocaleDateString("zh-CN")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {statusLabel(r.status)}
+                  {r.status === "pending" && (
+                    <>
+                      <button
+                        onClick={() => handleAction(r.id, "approve")}
+                        disabled={submitting}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      >
+                        <Check size={12} /> 通过
+                      </button>
+                      <button
+                        onClick={() => { setRejectingId(r.id); setRejectReason(""); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors"
+                      >
+                        <XCircle size={12} /> 驳回
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
+                <div><p className="text-xs text-slate-400 mb-0.5">企业名称</p><p className="font-medium text-slate-700">{r.companyName || "—"}</p></div>
+                <div><p className="text-xs text-slate-400 mb-0.5">统一社会信用代码</p><p className="font-mono text-slate-700">{r.creditCode || "—"}</p></div>
+                <div><p className="text-xs text-slate-400 mb-0.5">开户名称</p><p className="font-medium text-slate-700">{r.accountName || "—"}</p></div>
+                <div><p className="text-xs text-slate-400 mb-0.5">银行账号</p><p className="font-mono text-slate-700">{r.bankAccount || "—"}</p></div>
+                <div><p className="text-xs text-slate-400 mb-0.5">开户银行</p><p className="font-medium text-slate-700">{r.bankName || "—"}</p></div>
+                <div><p className="text-xs text-slate-400 mb-0.5">开户支行</p><p className="font-medium text-slate-700">{r.bankBranch || "—"}</p></div>
+                <div><p className="text-xs text-slate-400 mb-0.5">联系人</p><p className="font-medium text-slate-700">{r.contactName || "—"}</p></div>
+                <div><p className="text-xs text-slate-400 mb-0.5">联系电话</p><p className="font-medium text-slate-700">{r.contactPhone || "—"}</p></div>
+                {r.businessLicenseUrl && (
+                  <div className="col-span-2 md:col-span-3">
+                    <p className="text-xs text-slate-400 mb-1">营业执照</p>
+                    <button
+                      onClick={() => setPreviewUrl(r.businessLicenseUrl)}
+                      className="text-primary text-xs font-bold hover:underline flex items-center gap-1"
+                    >
+                      <Eye size={12} /> 查看营业执照
+                    </button>
+                  </div>
+                )}
+                {r.status === "rejected" && r.rejectReason && (
+                  <div className="col-span-2 md:col-span-3">
+                    <p className="text-xs text-slate-400 mb-0.5">驳回原因</p>
+                    <p className="text-sm text-red-600 font-medium">{r.rejectReason}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Reject reason input */}
+              {rejectingId === r.id && (
+                <div className="px-6 pb-5 pt-2 bg-red-50 border-t border-red-100">
+                  <label className="block text-xs font-bold text-red-700 mb-1.5">驳回原因（必填）</label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={e => setRejectReason(e.target.value)}
+                    rows={2}
+                    placeholder="请说明驳回原因，系统将通知 OPC 修改…"
+                    className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-200 resize-none bg-white mb-3"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setRejectingId(null)} className="px-4 py-2 text-sm text-slate-500 hover:bg-white rounded-xl transition-colors">取消</button>
+                    <button
+                      onClick={() => handleAction(r.id, "reject", rejectReason)}
+                      disabled={submitting || !rejectReason.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    >
+                      {submitting ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />} 确认驳回
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Image preview modal */}
+      {previewUrl && (
+        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4" onClick={() => setPreviewUrl(null)}>
+          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setPreviewUrl(null)} className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center text-slate-500 shadow-lg z-10 hover:bg-slate-100 transition-colors">
+              <X size={16} />
+            </button>
+            <img src={previewUrl} alt="营业执照" className="w-full rounded-2xl object-contain bg-white shadow-2xl max-h-[80vh]" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── ModuleContent ───────────────────────────────── */
 
 function ModuleContent({ module }: { module: Module }) {
@@ -6001,6 +6199,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "payments":       return <><DepositPaymentManagement /><DemandRefundManagement /></>;
     case "activities":     return <AdminActivities />;
     case "agent":          return <AgentConfigManagement />;
+    case "settlement":     return <SettlementManagement />;
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;
