@@ -99,38 +99,38 @@ export default function PublisherHome() {
         </header>
 
         {/* Body */}
-        <div className="pt-16 px-4 md:px-8 pb-12 space-y-10">
+        <div className="pt-16 px-4 md:px-6 pb-12 space-y-8 max-w-[1400px]">
 
           {/* ── Welcome + Stats ── */}
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-12 lg:col-span-7 bg-white p-8 rounded-2xl shadow-sm relative overflow-hidden group">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="md:col-span-7 bg-white p-6 rounded-2xl shadow-sm relative overflow-hidden group">
               <div className="relative z-10">
-                <h1 className="font-display text-3xl font-extrabold text-primary mb-2 tracking-tight">
+                <h1 className="font-display text-xl sm:text-2xl font-extrabold text-primary mb-2 tracking-tight leading-snug">
                   欢迎回来，{nickname || "发单方"}
                 </h1>
-                <p className="text-slate-500 max-w-md mb-8 leading-relaxed">
+                <p className="text-slate-500 text-sm mb-6 leading-relaxed">
                   您的项目生态运转高效。今日有{" "}
                   <span className="text-primary font-bold">3 个</span>{" "}
                   质检审核待处理。
                 </p>
                 <div className="flex gap-3 flex-wrap">
-                  <button onClick={() => navigate("/publisher/demands")} className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-95">
+                  <button onClick={() => navigate("/publisher/demands")} className="bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-95">
                     查看进行中的项目
                   </button>
-                  <button onClick={() => navigate("/publisher/cockpit")} className="bg-slate-100 text-primary px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all">
+                  <button onClick={() => navigate("/publisher/cockpit")} className="bg-slate-100 text-primary px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all">
                     审计日志
                   </button>
                 </div>
               </div>
-              <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-blue-50 to-transparent pointer-events-none" />
-              <BarChart2 size={120} className="absolute -bottom-6 -right-6 text-slate-100/60 rotate-12 group-hover:rotate-0 transition-transform duration-700" />
+              <div className="absolute top-0 right-0 w-48 h-full bg-gradient-to-l from-blue-50 to-transparent pointer-events-none" />
+              <BarChart2 size={90} className="absolute -bottom-4 -right-4 text-slate-100/60 rotate-12 group-hover:rotate-0 transition-transform duration-700" />
             </div>
 
-            <div className="col-span-12 lg:col-span-5 grid grid-cols-2 gap-4">
-              <div className="col-span-2 bg-primary/5 p-6 rounded-2xl border-l-4 border-primary">
+            <div className="md:col-span-5 grid grid-cols-2 gap-3">
+              <div className="col-span-2 bg-primary/5 p-5 rounded-2xl border-l-4 border-primary">
                 <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">资金托管余额</p>
                 <div className="flex items-end gap-2">
-                  <span className="text-3xl font-extrabold text-blue-900">
+                  <span className="text-2xl font-extrabold text-blue-900">
                     ¥{((stats?.totalSettlements ?? 107000) + 1141500).toLocaleString()}
                   </span>
                   <span className="text-secondary text-xs font-bold mb-1 flex items-center gap-0.5">
@@ -138,13 +138,13 @@ export default function PublisherHome() {
                   </span>
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm">
+              <div className="bg-white p-5 rounded-2xl shadow-sm">
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-2">活跃需求</p>
                 <p className="text-2xl font-extrabold text-blue-900">
                   {stats?.activeDemands ?? demandsData?.total ?? 42}
                 </p>
               </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm">
+              <div className="bg-white p-5 rounded-2xl shadow-sm">
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-2">累计支出</p>
                 <p className="text-2xl font-extrabold text-blue-900">
                   ¥{((stats?.totalSettlements ?? 107000) / 1000).toFixed(1)}万
@@ -168,7 +168,7 @@ export default function PublisherHome() {
               </span>
             </div>
 
-            <div className="flex gap-5 overflow-x-auto pb-3 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+            <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
               {opcList.slice(0, 5).map((u, i) => {
                 const matchPct = [98, 94, 91, 87, 85][i] ?? 85;
                 const skills = [
@@ -183,7 +183,7 @@ export default function PublisherHome() {
                 return (
                   <div
                     key={u.id}
-                    className="min-w-[300px] bg-white p-5 rounded-2xl shadow-sm border border-transparent hover:border-secondary/30 transition-all group cursor-pointer shrink-0"
+                    className="min-w-[220px] sm:min-w-[260px] bg-white p-4 rounded-2xl shadow-sm border border-transparent hover:border-secondary/30 transition-all group cursor-pointer shrink-0"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -226,13 +226,13 @@ export default function PublisherHome() {
           </section>
 
           {/* ── Bottom Grid ── */}
-          <div className="grid grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
 
             {/* Active Demands Table — matches reference design columns */}
-            <div className="col-span-12 xl:col-span-8">
+            <div className="md:col-span-8">
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-                  <h3 className="font-display text-lg font-bold text-blue-900">需求进度追踪</h3>
+                <div className="p-5 border-b border-slate-50 flex items-center justify-between gap-3">
+                  <h3 className="font-display text-base font-bold text-blue-900 shrink-0">需求进度追踪</h3>
                   <div className="flex gap-2">
                     {(["all", "open", "in_progress"] as DemandFilter[]).map(f => (
                       <button
@@ -250,8 +250,8 @@ export default function PublisherHome() {
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <table className="w-full text-left border-collapse">
+                <div className="p-4 overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[480px]">
                     <thead>
                       <tr className="text-[10px] uppercase tracking-wider text-slate-400 font-bold border-b border-slate-50">
                         <th className="px-4 py-3">ID / 需求标题</th>
@@ -337,7 +337,7 @@ export default function PublisherHome() {
             </div>
 
             {/* Right: Metrics + Activity */}
-            <div className="col-span-12 xl:col-span-4 flex flex-col gap-5">
+            <div className="md:col-span-4 flex flex-col gap-4">
 
               {/* Operational Efficiency */}
               <div className="bg-white p-6 rounded-2xl shadow-sm">

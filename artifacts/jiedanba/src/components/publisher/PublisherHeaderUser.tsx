@@ -29,9 +29,9 @@ export function PublisherHeaderUser({ onLogout }: Props) {
 
   return (
     <div className="relative flex items-center gap-3" ref={ref}>
-      <div className="text-right">
-        <p className="text-sm font-bold text-blue-900">{nickname || "发单方"}</p>
-        <p className="text-[10px] text-slate-500 font-medium">{roleLabel}</p>
+      <div className="text-right hidden sm:block max-w-[140px]">
+        <p className="text-sm font-bold text-blue-900 truncate">{nickname || "发单方"}</p>
+        <p className="text-[10px] text-slate-500 font-medium truncate">{roleLabel}</p>
       </div>
       <button
         onClick={() => setOpen(v => !v)}
