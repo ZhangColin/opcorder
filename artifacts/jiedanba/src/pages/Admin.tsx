@@ -4559,6 +4559,7 @@ function LevelCertReview() {
       setReviewNote("");
       refetch();
       qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
+      qc.invalidateQueries({ queryKey: ["admin-level-certs-pending-total"] });
     },
     onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
