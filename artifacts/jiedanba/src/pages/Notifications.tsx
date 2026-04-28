@@ -124,22 +124,30 @@ function NotifCard({ n, onRead, onNavigate, onAcceptInvite, onRejectInvite, isAc
 
           {/* Directed invite — Accept / Reject CTAs */}
           {isDirectedInvite && n.relatedId && (
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => onAcceptInvite(n)}
-                disabled={isActing}
-                className="flex-1 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {isActing ? "处理中…" : "接受邀约"}
-              </button>
-              <button
-                onClick={() => onRejectInvite(n)}
-                disabled={isActing}
-                className="flex-1 py-2 border-2 border-border text-sm font-bold rounded-xl hover:border-red-300 hover:text-red-600 disabled:opacity-50 transition-colors"
-              >
-                婉拒邀约
-              </button>
-            </div>
+            n.respondedAction ? (
+              <p className={`mt-3 text-sm font-bold ${
+                n.respondedAction === "accepted" ? "text-green-600" : "text-muted-foreground"
+              }`}>
+                {n.respondedAction === "accepted" ? "您已接受此邀约" : "您已婉拒此邀约"}
+              </p>
+            ) : (
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => onAcceptInvite(n)}
+                  disabled={isActing}
+                  className="flex-1 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {isActing ? "处理中…" : "接受邀约"}
+                </button>
+                <button
+                  onClick={() => onRejectInvite(n)}
+                  disabled={isActing}
+                  className="flex-1 py-2 border-2 border-border text-sm font-bold rounded-xl hover:border-red-300 hover:text-red-600 disabled:opacity-50 transition-colors"
+                >
+                  婉拒邀约
+                </button>
+              </div>
+            )
           )}
 
           {/* Jump link for non-invite notifications */}

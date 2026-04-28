@@ -2436,6 +2436,10 @@ components:
           type: string
         isRead:
           type: boolean
+        respondedAction:
+          type: string
+          enum: [accepted, rejected]
+          nullable: true
         relatedId:
           type: integer
         relatedType:

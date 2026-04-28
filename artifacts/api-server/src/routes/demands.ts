@@ -671,6 +671,24 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
       return res.status(400).json({ error: "opcId and action required" });
     }
 
+    if (req.user!.id !== opcId) {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    if (notificationId) {
+      const [notif] = await db
+        .select({ userId: notificationsTable.userId, respondedAction: notificationsTable.respondedAction })
+        .from(notificationsTable)
+        .where(eq(notificationsTable.id, notificationId))
+        .limit(1);
+      if (!notif || notif.userId !== req.user!.id) {
+        return res.status(403).json({ error: "无权操作此通知" });
+      }
+      if (notif.respondedAction) {
+        return res.status(409).json({ error: "该邀约已处理过，请勿重复操作" });
+      }
+    }
+
     const [demand] = await db
       .select()
       .from(demandsTable)
@@ -683,9 +701,25 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
       if (notificationId) {
         await db
           .update(notificationsTable)
-          .set({ isRead: true })
+          .set({ isRead: true, respondedAction: "rejected" })
           .where(eq(notificationsTable.id, notificationId));
       }
+
+      const [opc] = await db
+        .select({ nickname: usersTable.nickname })
+        .from(usersTable)
+        .where(eq(usersTable.id, opcId))
+        .limit(1);
+
+      await db.insert(notificationsTable).values({
+        userId: demand.publisherId,
+        type: "system",
+        title: "OPC 婉拒了您的邀约",
+        content: `OPC「${opc?.nickname ?? "未知"}」婉拒了您对「${demand.title}」的定向邀约。您可将需求改为公开抢单，或重新邀约其他 OPC。`,
+        relatedId: demand.id,
+        relatedType: "demand",
+      });
+
       return res.json({ success: true, action: "rejected" });
     }
 
@@ -769,7 +803,7 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
     if (notificationId) {
       await db
         .update(notificationsTable)
-        .set({ isRead: true })
+        .set({ isRead: true, respondedAction: "accepted" })
         .where(eq(notificationsTable.id, notificationId));
     }
 

@@ -16,6 +16,7 @@ export const notificationsTable = pgTable("notifications", {
   title: varchar("title", { length: 200 }).notNull(),
   content: text("content").notNull(),
   isRead: boolean("is_read").notNull().default(false),
+  respondedAction: varchar("responded_action", { length: 20 }),
   relatedId: integer("related_id"),
   relatedType: varchar("related_type", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -30,7 +30,12 @@ import type {
   AdminListRegistrationsParams,
   AdminToggleActivity200,
   AdminUpdateRegistrationNoteBody,
+  AgentChatInput,
+  AgentConfig,
+  AgentHistoryResponse,
   BidApplication,
+  BindAgentConversationToDemand200,
+  BindAgentConversationToDemandBody,
   Course,
   CreateBidInput,
   CreateDeliverableInput,
@@ -47,6 +52,8 @@ import type {
   EnrollCourseBody,
   Enrollment,
   EnrollmentWithCourse,
+  GetAgentDemandAnalysisStatus200,
+  GetAgentDemandHistoryParams,
   GetOpcLeaderboardParams,
   HealthStatus,
   ListCoursesParams,
@@ -79,6 +86,7 @@ import type {
   SubmitRegistrationInput,
   TogglePostLike200,
   TogglePostLikeBody,
+  UpdateAgentConfigInput,
   UpdateBidStatusBody,
   UpdateDemandInput,
   UpdateDemandStatusBody,
@@ -5147,4 +5155,630 @@ export const useAdminDeleteRegistrationTag = <
   TContext
 > => {
   return useMutation(getAdminDeleteRegistrationTagMutationOptions(options));
+};
+
+/**
+ * @summary Get demand analysis agent enabled status
+ */
+export const getGetAgentDemandAnalysisStatusUrl = () => {
+  return `/api/agent/demand-analysis/status`;
+};
+
+export const getAgentDemandAnalysisStatus = async (
+  options?: RequestInit,
+): Promise<GetAgentDemandAnalysisStatus200> => {
+  return customFetch<GetAgentDemandAnalysisStatus200>(
+    getGetAgentDemandAnalysisStatusUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAgentDemandAnalysisStatusQueryKey = () => {
+  return [`/api/agent/demand-analysis/status`] as const;
+};
+
+export const getGetAgentDemandAnalysisStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentDemandAnalysisStatus>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentDemandAnalysisStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAgentDemandAnalysisStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentDemandAnalysisStatus>>
+  > = ({ signal }) =>
+    getAgentDemandAnalysisStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentDemandAnalysisStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentDemandAnalysisStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentDemandAnalysisStatus>>
+>;
+export type GetAgentDemandAnalysisStatusQueryError = ErrorType<void>;
+
+/**
+ * @summary Get demand analysis agent enabled status
+ */
+
+export function useGetAgentDemandAnalysisStatus<
+  TData = Awaited<ReturnType<typeof getAgentDemandAnalysisStatus>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentDemandAnalysisStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentDemandAnalysisStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send a message to the demand analysis agent (SSE streaming)
+ */
+export const getAgentDemandAnalysisChatUrl = () => {
+  return `/api/agent/demand-analysis/chat`;
+};
+
+export const agentDemandAnalysisChat = async (
+  agentChatInput: AgentChatInput,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getAgentDemandAnalysisChatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(agentChatInput),
+  });
+};
+
+export const getAgentDemandAnalysisChatMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentDemandAnalysisChat>>,
+    TError,
+    { data: BodyType<AgentChatInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof agentDemandAnalysisChat>>,
+  TError,
+  { data: BodyType<AgentChatInput> },
+  TContext
+> => {
+  const mutationKey = ["agentDemandAnalysisChat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof agentDemandAnalysisChat>>,
+    { data: BodyType<AgentChatInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return agentDemandAnalysisChat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AgentDemandAnalysisChatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof agentDemandAnalysisChat>>
+>;
+export type AgentDemandAnalysisChatMutationBody = BodyType<AgentChatInput>;
+export type AgentDemandAnalysisChatMutationError = ErrorType<void>;
+
+/**
+ * @summary Send a message to the demand analysis agent (SSE streaming)
+ */
+export const useAgentDemandAnalysisChat = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof agentDemandAnalysisChat>>,
+    TError,
+    { data: BodyType<AgentChatInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof agentDemandAnalysisChat>>,
+  TError,
+  { data: BodyType<AgentChatInput> },
+  TContext
+> => {
+  return useMutation(getAgentDemandAnalysisChatMutationOptions(options));
+};
+
+/**
+ * @summary Get conversation history for a demand or session
+ */
+export const getGetAgentDemandHistoryUrl = (
+  demandId: string,
+  params?: GetAgentDemandHistoryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/agent/demand-analysis/history/${demandId}?${stringifiedParams}`
+    : `/api/agent/demand-analysis/history/${demandId}`;
+};
+
+export const getAgentDemandHistory = async (
+  demandId: string,
+  params?: GetAgentDemandHistoryParams,
+  options?: RequestInit,
+): Promise<AgentHistoryResponse> => {
+  return customFetch<AgentHistoryResponse>(
+    getGetAgentDemandHistoryUrl(demandId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAgentDemandHistoryQueryKey = (
+  demandId: string,
+  params?: GetAgentDemandHistoryParams,
+) => {
+  return [
+    `/api/agent/demand-analysis/history/${demandId}`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetAgentDemandHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentDemandHistory>>,
+  TError = ErrorType<void>,
+>(
+  demandId: string,
+  params?: GetAgentDemandHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentDemandHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetAgentDemandHistoryQueryKey(demandId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentDemandHistory>>
+  > = ({ signal }) =>
+    getAgentDemandHistory(demandId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!demandId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentDemandHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentDemandHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentDemandHistory>>
+>;
+export type GetAgentDemandHistoryQueryError = ErrorType<void>;
+
+/**
+ * @summary Get conversation history for a demand or session
+ */
+
+export function useGetAgentDemandHistory<
+  TData = Awaited<ReturnType<typeof getAgentDemandHistory>>,
+  TError = ErrorType<void>,
+>(
+  demandId: string,
+  params?: GetAgentDemandHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentDemandHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentDemandHistoryQueryOptions(
+    demandId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Bind a temporary session conversation to a saved demand ID
+ */
+export const getBindAgentConversationToDemandUrl = () => {
+  return `/api/agent/demand-analysis/bind-demand`;
+};
+
+export const bindAgentConversationToDemand = async (
+  bindAgentConversationToDemandBody: BindAgentConversationToDemandBody,
+  options?: RequestInit,
+): Promise<BindAgentConversationToDemand200> => {
+  return customFetch<BindAgentConversationToDemand200>(
+    getBindAgentConversationToDemandUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(bindAgentConversationToDemandBody),
+    },
+  );
+};
+
+export const getBindAgentConversationToDemandMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bindAgentConversationToDemand>>,
+    TError,
+    { data: BodyType<BindAgentConversationToDemandBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bindAgentConversationToDemand>>,
+  TError,
+  { data: BodyType<BindAgentConversationToDemandBody> },
+  TContext
+> => {
+  const mutationKey = ["bindAgentConversationToDemand"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bindAgentConversationToDemand>>,
+    { data: BodyType<BindAgentConversationToDemandBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bindAgentConversationToDemand(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BindAgentConversationToDemandMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bindAgentConversationToDemand>>
+>;
+export type BindAgentConversationToDemandMutationBody =
+  BodyType<BindAgentConversationToDemandBody>;
+export type BindAgentConversationToDemandMutationError = ErrorType<void>;
+
+/**
+ * @summary Bind a temporary session conversation to a saved demand ID
+ */
+export const useBindAgentConversationToDemand = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bindAgentConversationToDemand>>,
+    TError,
+    { data: BodyType<BindAgentConversationToDemandBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bindAgentConversationToDemand>>,
+  TError,
+  { data: BodyType<BindAgentConversationToDemandBody> },
+  TContext
+> => {
+  return useMutation(getBindAgentConversationToDemandMutationOptions(options));
+};
+
+/**
+ * @summary List all agent configurations (admin only)
+ */
+export const getListAgentConfigsUrl = () => {
+  return `/api/admin/agent-configs`;
+};
+
+export const listAgentConfigs = async (
+  options?: RequestInit,
+): Promise<AgentConfig[]> => {
+  return customFetch<AgentConfig[]>(getListAgentConfigsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAgentConfigsQueryKey = () => {
+  return [`/api/admin/agent-configs`] as const;
+};
+
+export const getListAgentConfigsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAgentConfigs>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAgentConfigs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAgentConfigsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAgentConfigs>>
+  > = ({ signal }) => listAgentConfigs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAgentConfigs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAgentConfigsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAgentConfigs>>
+>;
+export type ListAgentConfigsQueryError = ErrorType<void>;
+
+/**
+ * @summary List all agent configurations (admin only)
+ */
+
+export function useListAgentConfigs<
+  TData = Awaited<ReturnType<typeof listAgentConfigs>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAgentConfigs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAgentConfigsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get agent configuration by ID (admin only)
+ */
+export const getGetAgentConfigByIdUrl = (id: number) => {
+  return `/api/admin/agent-configs/${id}`;
+};
+
+export const getAgentConfigById = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AgentConfig> => {
+  return customFetch<AgentConfig>(getGetAgentConfigByIdUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAgentConfigByIdQueryKey = (id: number) => {
+  return [`/api/admin/agent-configs/${id}`] as const;
+};
+
+export const getGetAgentConfigByIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAgentConfigById>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentConfigById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAgentConfigByIdQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAgentConfigById>>
+  > = ({ signal }) => getAgentConfigById(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAgentConfigById>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAgentConfigByIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAgentConfigById>>
+>;
+export type GetAgentConfigByIdQueryError = ErrorType<void>;
+
+/**
+ * @summary Get agent configuration by ID (admin only)
+ */
+
+export function useGetAgentConfigById<
+  TData = Awaited<ReturnType<typeof getAgentConfigById>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAgentConfigById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAgentConfigByIdQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update agent configuration (admin only)
+ */
+export const getUpdateAgentConfigUrl = (id: number) => {
+  return `/api/admin/agent-configs/${id}`;
+};
+
+export const updateAgentConfig = async (
+  id: number,
+  updateAgentConfigInput: UpdateAgentConfigInput,
+  options?: RequestInit,
+): Promise<AgentConfig> => {
+  return customFetch<AgentConfig>(getUpdateAgentConfigUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAgentConfigInput),
+  });
+};
+
+export const getUpdateAgentConfigMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAgentConfig>>,
+    TError,
+    { id: number; data: BodyType<UpdateAgentConfigInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAgentConfig>>,
+  TError,
+  { id: number; data: BodyType<UpdateAgentConfigInput> },
+  TContext
+> => {
+  const mutationKey = ["updateAgentConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAgentConfig>>,
+    { id: number; data: BodyType<UpdateAgentConfigInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAgentConfig(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAgentConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAgentConfig>>
+>;
+export type UpdateAgentConfigMutationBody = BodyType<UpdateAgentConfigInput>;
+export type UpdateAgentConfigMutationError = ErrorType<void>;
+
+/**
+ * @summary Update agent configuration (admin only)
+ */
+export const useUpdateAgentConfig = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAgentConfig>>,
+    TError,
+    { id: number; data: BodyType<UpdateAgentConfigInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAgentConfig>>,
+  TError,
+  { id: number; data: BodyType<UpdateAgentConfigInput> },
+  TContext
+> => {
+  return useMutation(getUpdateAgentConfigMutationOptions(options));
 };

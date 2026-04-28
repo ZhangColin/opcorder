@@ -1150,6 +1150,7 @@ export const ListNotificationsResponse = zod.object({
       title: zod.string(),
       content: zod.string(),
       isRead: zod.boolean(),
+      respondedAction: zod.enum(["accepted", "rejected"]).nullish(),
       relatedId: zod.number().optional(),
       relatedType: zod.enum(["demand", "order", "bid"]).optional(),
       createdAt: zod.date(),
@@ -1185,6 +1186,7 @@ export const MarkNotificationReadResponse = zod.object({
   title: zod.string(),
   content: zod.string(),
   isRead: zod.boolean(),
+  respondedAction: zod.enum(["accepted", "rejected"]).nullish(),
   relatedId: zod.number().optional(),
   relatedType: zod.enum(["demand", "order", "bid"]).optional(),
   createdAt: zod.date(),
@@ -1933,4 +1935,115 @@ export const AdminDeleteRegistrationTagParams = zod.object({
 
 export const AdminDeleteRegistrationTagResponse = zod.object({
   tags: zod.array(zod.string()),
+});
+
+/**
+ * @summary Get demand analysis agent enabled status
+ */
+export const GetAgentDemandAnalysisStatusResponse = zod.object({
+  isEnabled: zod.boolean(),
+});
+
+/**
+ * @summary Send a message to the demand analysis agent (SSE streaming)
+ */
+export const AgentDemandAnalysisChatBody = zod.object({
+  message: zod.string(),
+  demandId: zod.number().nullish(),
+  sessionKey: zod.string().nullish(),
+  conversationId: zod.number().nullish(),
+});
+
+/**
+ * @summary Get conversation history for a demand or session
+ */
+export const GetAgentDemandHistoryParams = zod.object({
+  demandId: zod.coerce
+    .string()
+    .describe('Demand ID (integer) or \"session\" for session-based lookup'),
+});
+
+export const GetAgentDemandHistoryQueryParams = zod.object({
+  sessionKey: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      'Session key for pre-draft conversations (used when demandId is \"session\")',
+    ),
+});
+
+export const GetAgentDemandHistoryResponse = zod.object({
+  messages: zod.array(
+    zod.object({
+      role: zod.enum(["user", "assistant"]),
+      content: zod.string().nullable(),
+      timestamp: zod.date(),
+    }),
+  ),
+  conversationId: zod.number().nullable(),
+});
+
+/**
+ * @summary Bind a temporary session conversation to a saved demand ID
+ */
+export const BindAgentConversationToDemandBody = zod.object({
+  conversationId: zod.number(),
+  demandId: zod.number(),
+});
+
+export const BindAgentConversationToDemandResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary List all agent configurations (admin only)
+ */
+export const ListAgentConfigsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  sceneKey: zod.string(),
+  systemPrompt: zod.string(),
+  isEnabled: zod.boolean(),
+  model: zod.string(),
+  createdAt: zod.date(),
+});
+export const ListAgentConfigsResponse = zod.array(ListAgentConfigsResponseItem);
+
+/**
+ * @summary Get agent configuration by ID (admin only)
+ */
+export const GetAgentConfigByIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAgentConfigByIdResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  sceneKey: zod.string(),
+  systemPrompt: zod.string(),
+  isEnabled: zod.boolean(),
+  model: zod.string(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Update agent configuration (admin only)
+ */
+export const UpdateAgentConfigParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAgentConfigBody = zod.object({
+  systemPrompt: zod.string().optional(),
+  isEnabled: zod.boolean().optional(),
+});
+
+export const UpdateAgentConfigResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  sceneKey: zod.string(),
+  systemPrompt: zod.string(),
+  isEnabled: zod.boolean(),
+  model: zod.string(),
+  createdAt: zod.date(),
 });

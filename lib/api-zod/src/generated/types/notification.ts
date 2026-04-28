@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { NotificationRelatedType } from "./notificationRelatedType";
+import type { NotificationRespondedAction } from "./notificationRespondedAction";
 import type { NotificationType } from "./notificationType";
 
 export interface Notification {
@@ -15,6 +16,7 @@ export interface Notification {
   title: string;
   content: string;
   isRead: boolean;
+  respondedAction?: NotificationRespondedAction;
   relatedId?: number;
   relatedType?: NotificationRelatedType;
   createdAt: Date;

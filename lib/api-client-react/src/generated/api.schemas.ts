@@ -552,6 +552,15 @@ export const NotificationType = {
   system: "system",
 } as const;
 
+export type NotificationRespondedAction =
+  | (typeof NotificationRespondedAction)[keyof typeof NotificationRespondedAction]
+  | null;
+
+export const NotificationRespondedAction = {
+  accepted: "accepted",
+  rejected: "rejected",
+} as const;
+
 export type NotificationRelatedType =
   (typeof NotificationRelatedType)[keyof typeof NotificationRelatedType];
 
@@ -568,6 +577,7 @@ export interface Notification {
   title: string;
   content: string;
   isRead: boolean;
+  respondedAction?: NotificationRespondedAction;
   relatedId?: number;
   relatedType?: NotificationRelatedType;
   createdAt: string;
@@ -792,6 +802,47 @@ export type RegistrationDetail = Registration & {
   extraData: RegistrationDetailExtraData;
   fields: ActivityField[];
 };
+
+export interface AgentConfig {
+  id: number;
+  name: string;
+  sceneKey: string;
+  systemPrompt: string;
+  isEnabled: boolean;
+  model: string;
+  createdAt: string;
+}
+
+export type AgentMessageRole =
+  (typeof AgentMessageRole)[keyof typeof AgentMessageRole];
+
+export const AgentMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface AgentMessage {
+  role: AgentMessageRole;
+  content: string | null;
+  timestamp: string;
+}
+
+export interface AgentHistoryResponse {
+  messages: AgentMessage[];
+  conversationId: number | null;
+}
+
+export interface AgentChatInput {
+  message: string;
+  demandId?: number | null;
+  sessionKey?: string | null;
+  conversationId?: number | null;
+}
+
+export interface UpdateAgentConfigInput {
+  systemPrompt?: string;
+  isEnabled?: boolean;
+}
 
 export type GetOpcLeaderboardParams = {
   limit?: number;
@@ -1128,4 +1179,24 @@ export type AdminAddRegistrationTag200 = {
 
 export type AdminDeleteRegistrationTag200 = {
   tags: string[];
+};
+
+export type GetAgentDemandAnalysisStatus200 = {
+  isEnabled: boolean;
+};
+
+export type GetAgentDemandHistoryParams = {
+  /**
+   * Session key for pre-draft conversations (used when demandId is "session")
+   */
+  sessionKey?: string;
+};
+
+export type BindAgentConversationToDemandBody = {
+  conversationId: number;
+  demandId: number;
+};
+
+export type BindAgentConversationToDemand200 = {
+  success: boolean;
 };
