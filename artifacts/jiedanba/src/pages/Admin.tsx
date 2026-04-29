@@ -4542,13 +4542,27 @@ function LevelCertReview() {
   });
   const filtered = resp?.data ?? [];
 
-  // 单独查待审核总数，用于 Tab 角标
+  // 单独查各状态总数，用于 Tab 角标
   const { data: pendingResp } = useQuery<PagedResp<LevelCertRow>>({
     queryKey: ["admin-level-certs-pending-total"],
     queryFn: () => adminGet("/api/admin/level-certs?status=pending&page=1&pageSize=1"),
     refetchInterval: 60000,
   });
   const pendingTotal = pendingResp?.total ?? 0;
+
+  const { data: reviewedResp } = useQuery<PagedResp<LevelCertRow>>({
+    queryKey: ["admin-level-certs-reviewed-total"],
+    queryFn: () => adminGet("/api/admin/level-certs?status=reviewed&page=1&pageSize=1"),
+    refetchInterval: 60000,
+  });
+  const reviewedTotal = reviewedResp?.total ?? 0;
+
+  const { data: rejectedResp } = useQuery<PagedResp<LevelCertRow>>({
+    queryKey: ["admin-level-certs-rejected-total"],
+    queryFn: () => adminGet("/api/admin/level-certs?status=rejected&page=1&pageSize=1"),
+    refetchInterval: 60000,
+  });
+  const rejectedTotal = rejectedResp?.total ?? 0;
 
   const reviewMut = useMutation({
     mutationFn: ({ portfolioId, result, downgradeTo, note }: { portfolioId: number; result: string; downgradeTo?: string; note: string }) =>
@@ -4560,6 +4574,8 @@ function LevelCertReview() {
       refetch();
       qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
       qc.invalidateQueries({ queryKey: ["admin-level-certs-pending-total"] });
+      qc.invalidateQueries({ queryKey: ["admin-level-certs-reviewed-total"] });
+      qc.invalidateQueries({ queryKey: ["admin-level-certs-rejected-total"] });
     },
     onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
@@ -4615,6 +4631,16 @@ function LevelCertReview() {
             {tab.val === "pending" && pendingTotal > 0 && filterStatus !== "pending" && (
               <span className="ml-1.5 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {pendingTotal}
+              </span>
+            )}
+            {tab.val === "reviewed" && reviewedTotal > 0 && filterStatus !== "reviewed" && (
+              <span className="ml-1.5 bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {reviewedTotal}
+              </span>
+            )}
+            {tab.val === "rejected" && rejectedTotal > 0 && filterStatus !== "rejected" && (
+              <span className="ml-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {rejectedTotal}
               </span>
             )}
           </button>
