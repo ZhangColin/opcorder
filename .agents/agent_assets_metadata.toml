@@ -54,3 +54,9 @@ id = "QiMDlTNbyRKQU_Ee5LP4v"
 uri = "file://screenshots/publisher_demands.jpg"
 type = "image"
 title = "截图3：发单方视角—⌔3 个已匹配案例列表"
+
+[[outputs]]
+id = "7jT4GXpOYDt-wcqQmr68j"
+uri = "file://backup_production_2026-05-07.sql.gz"
+type = "unspecified"
+title = "接单吧生产环境数据库全量备份 2026-05-07"
