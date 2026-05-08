@@ -6,6 +6,16 @@ import { requireAdmin, requirePermission } from "../middleware/adminAuth";
 
 const router: IRouter = Router();
 
+function relativeTime(d: Date): string {
+  const diff = Date.now() - d.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '刚刚';
+  if (min < 60) return `${min}分钟前`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}小时前`;
+  return `${Math.floor(hr / 24)}天前`;
+}
+
 function daysAgo(n: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -192,6 +202,41 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       .orderBy(desc(demandsTable.createdAt))
       .limit(20);
 
+    /* ── Recent order list (structured, for miniscreen) ─── */
+
+    const ORDER_STATUS_LABELS: Record<string, string> = {
+      in_progress:        '进行中',
+      pending_acceptance: '待验收',
+      completed:          '已完成',
+      closed:             '已关闭',
+      disputed:           '争议中',
+    };
+
+    const orderListRows = await db
+      .select({
+        id:          ordersTable.id,
+        title:       demandsTable.title,
+        amount:      ordersTable.amount,
+        status:      ordersTable.status,
+        createdAt:   ordersTable.createdAt,
+        opcNickname: usersTable.nickname,
+      })
+      .from(ordersTable)
+      .innerJoin(demandsTable, eq(ordersTable.demandId, demandsTable.id))
+      .innerJoin(usersTable,   eq(ordersTable.opcId,    usersTable.id))
+      .orderBy(desc(ordersTable.createdAt))
+      .limit(12);
+
+    const recentOrderList = orderListRows.map(o => ({
+      id:          o.id,
+      title:       o.title,
+      opcNickname: o.opcNickname,
+      amount:      Number(o.amount),
+      status:      o.status,
+      statusLabel: ORDER_STATUS_LABELS[o.status] ?? o.status,
+      timeAgo:     relativeTime(new Date(o.createdAt)),
+    }));
+
     const ticker1 = [
       ...recentOpcs.map(u => ({ text: `欢迎 ${u.nickname} 注册成为 OPC` })),
       ...recentOrders.map(o => ({ text: `恭喜 ${o.opcNickname} 中标《${o.demandTitle}》项目` })),
@@ -209,6 +254,7 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       userRoleChart,
       ticker1,
       ticker2,
+      recentOrderList,
     });
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
