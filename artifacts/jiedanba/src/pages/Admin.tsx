@@ -5386,6 +5386,12 @@ const PERM_LABELS: Record<string, string> = {
   screen:         "数据大屏",
 };
 
+const PERM_SUB: Record<string, string> = {
+  finance:  "财务管理 · 结算账户审核",
+  settings: "站点设置 · 智能体配置",
+  screen:   "横屏大屏 · 竖屏大屏",
+};
+
 const ALL_PERM_KEYS = Object.keys(PERM_LABELS);
 
 type AdminRole = {
@@ -5496,14 +5502,21 @@ function AdminRolesPanel() {
               <label className="block text-xs font-bold text-slate-500 mb-2">可访问模块</label>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {ALL_PERM_KEYS.map(key => (
-                  <label key={key} className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer text-sm transition-colors ${
+                  <label key={key} className={`flex items-start gap-2 px-3 py-2 rounded-xl border cursor-pointer text-sm transition-colors ${
                     form.permissions.includes(key)
                       ? "bg-primary/10 border-primary text-primary font-bold"
                       : "border-slate-200 text-slate-600 hover:border-primary/40"
                   }`}>
                     <input type="checkbox" className="hidden" checked={form.permissions.includes(key)} onChange={() => togglePerm(key)} />
-                    <Check size={13} className={form.permissions.includes(key) ? "text-primary" : "text-transparent"} />
-                    {PERM_LABELS[key]}
+                    <Check size={13} className={`mt-0.5 shrink-0 ${form.permissions.includes(key) ? "text-primary" : "text-transparent"}`} />
+                    <span className="flex flex-col min-w-0">
+                      <span>{PERM_LABELS[key]}</span>
+                      {PERM_SUB[key] && (
+                        <span className={`text-[9px] leading-tight mt-0.5 font-normal truncate ${
+                          form.permissions.includes(key) ? "text-primary/60" : "text-slate-400"
+                        }`}>{PERM_SUB[key]}</span>
+                      )}
+                    </span>
                   </label>
                 ))}
               </div>
