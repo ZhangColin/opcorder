@@ -234,7 +234,7 @@ function Screen1({ kpi, active }: { kpi: ScreenData['kpi'] | undefined; active: 
 // ─── Screen 2: 订单趋势 ───────────────────────────────────────────────────────
 
 function Screen2({ timeSeries, kpi }: { timeSeries: ScreenData['timeSeries']; kpi: ScreenData['kpi'] | undefined }) {
-  const last7 = timeSeries.slice(-7);
+  const last7 = timeSeries.slice(-7).map(d => ({ ...d, shortLabel: d.label.slice(3) }));
   const maxVal = Math.max(...last7.map(d => d.newOrders), 1);
   const todayData = last7[last7.length - 1];
   const week7Orders = last7.reduce((s, d) => s + d.newOrders, 0);
@@ -288,8 +288,8 @@ function Screen2({ timeSeries, kpi }: { timeSeries: ScreenData['timeSeries']; kp
                   <stop offset="100%" stopColor="#0044aa" stopOpacity={0.25} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="label" tick={{ fill: '#3a5870', fontSize: 8, fontFamily: FONT }}
-                tickLine={false} axisLine={{ stroke: `${C.border}60` }} />
+              <XAxis dataKey="shortLabel" tick={{ fill: '#3a5870', fontSize: 8, fontFamily: FONT }}
+                tickLine={false} axisLine={{ stroke: `${C.border}60` }} interval={0} />
               <YAxis tick={{ fill: '#3a5870', fontSize: 8 }} tickLine={false} axisLine={false} tickCount={4} />
               <Bar dataKey="newOrders" radius={[4, 4, 0, 0]}>
                 {last7.map((entry, i) => (
@@ -554,9 +554,9 @@ export default function MiniScreen() {
               style={{ position: 'absolute', inset: -3, borderRadius: '50%',
                 border: `1px solid ${C.cyan}40` }} />
           </div>
-          <span style={{ fontSize: 11, color: C.cyan, fontWeight: 600, letterSpacing: '0.06em',
+          <span style={{ fontSize: 10, color: C.cyan, fontWeight: 600, letterSpacing: '0.04em',
             textShadow: `0 0 12px ${C.cyan}60`, fontFamily: FONT }}>
-            OPC 接单平台
+            接单吧 OPC 撮合交易平台
           </span>
         </div>
         <div style={{ textAlign: 'right' }}>
