@@ -231,13 +231,18 @@ function Screen1({ kpi, active }: { kpi: ScreenData['kpi'] | undefined; active: 
   );
 }
 
-// ─── Screen 2: 订单趋势 ───────────────────────────────────────────────────────
+// ─── Screen 2: 用户注册 ───────────────────────────────────────────────────────
 
-function Screen2({ timeSeries, kpi }: { timeSeries: ScreenData['timeSeries']; kpi: ScreenData['kpi'] | undefined }) {
+function Screen2({ timeSeries, kpi, active }: {
+  timeSeries: ScreenData['timeSeries']; kpi: ScreenData['kpi'] | undefined; active: boolean;
+}) {
   const last7 = timeSeries.slice(-7).map(d => ({ ...d, shortLabel: d.label.slice(3) }));
-  const maxVal = Math.max(...last7.map(d => d.newOrders), 1);
-  const todayData = last7[last7.length - 1];
-  const week7Orders = last7.reduce((s, d) => s + d.newOrders, 0);
+  const maxVal = Math.max(...last7.map(d => d.newUsers), 1);
+  const todayUsers  = last7[last7.length - 1]?.newUsers ?? 0;
+  const week7Users  = last7.reduce((s, d) => s + d.newUsers, 0);
+  const totalUsers  = useCounter(kpi?.totalUsers ?? 0, active, 80);
+  const opcPct      = kpi && kpi.totalUsers > 0
+    ? Math.round((kpi.opcCount / kpi.totalUsers) * 100) : 0;
 
   return (
     <motion.div key="s2"
@@ -245,13 +250,14 @@ function Screen2({ timeSeries, kpi }: { timeSeries: ScreenData['timeSeries']; kp
       transition={{ duration: 0.4, ease: 'easeInOut' }}
       style={{ height: '100%', padding: '10px 12px 8px', display: 'flex', flexDirection: 'column' }}
     >
-      <SectionTitle title="需求趋势" sub="近7天" />
+      <SectionTitle title="用户注册" sub="近7天" />
 
+      {/* 3 stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 7, marginBottom: 10 }}>
         {[
-          { label: '今日订单', val: todayData?.newOrders ?? 0, color: C.cyan },
-          { label: '进行中',   val: kpi?.inProgressOrders ?? 0, color: C.amber },
-          { label: '已完成',   val: kpi?.completedOrders ?? 0, color: C.green },
+          { label: '今日新增', val: todayUsers,       color: C.cyan  },
+          { label: '近7天合计', val: week7Users,      color: C.purple },
+          { label: '累计用户', val: totalUsers,        color: C.green },
         ].map(s => (
           <div key={s.label} style={{
             background: C.card, border: `1px solid ${s.color}22`, borderRadius: 9,
@@ -261,11 +267,12 @@ function Screen2({ timeSeries, kpi }: { timeSeries: ScreenData['timeSeries']; kp
               background: `linear-gradient(90deg, transparent, ${s.color}60, transparent)` }} />
             <div style={{ fontSize: 9, color: '#4a7090', marginBottom: 4, fontFamily: FONT }}>{s.label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1, fontFamily: MONO,
-              textShadow: `0 0 14px ${s.color}60` }}>{s.val}</div>
+              textShadow: `0 0 14px ${s.color}60` }}>{s.val.toLocaleString()}</div>
           </div>
         ))}
       </div>
 
+      {/* Bar chart */}
       <div style={{
         flex: 1, background: `linear-gradient(180deg, #071828 0%, #040e1c 100%)`,
         border: `1px solid ${C.border}`, borderRadius: 10,
@@ -273,41 +280,48 @@ function Screen2({ timeSeries, kpi }: { timeSeries: ScreenData['timeSeries']; kp
       }}>
         <div style={{ fontSize: 9, color: '#2a4a60', marginBottom: 6, paddingLeft: 8,
           letterSpacing: '0.05em', fontFamily: FONT }}>
-          近7天订单走势
+          近7天每日注册人数
         </div>
         <div style={{ flex: 1, minHeight: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={last7} barSize={18} margin={{ top: 4, right: 6, bottom: 0, left: -20 }}>
               <defs>
-                <linearGradient id="barGradActive" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00d4ff" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#0055aa" stopOpacity={0.8} />
+                <linearGradient id="uBarActive" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={C.purple} stopOpacity={1} />
+                  <stop offset="100%" stopColor="#4400aa" stopOpacity={0.8} />
                 </linearGradient>
-                <linearGradient id="barGradNormal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00d4ff" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#0044aa" stopOpacity={0.25} />
+                <linearGradient id="uBarNormal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={C.purple} stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#3300aa" stopOpacity={0.25} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="shortLabel" tick={{ fill: '#3a5870', fontSize: 8, fontFamily: FONT }}
                 tickLine={false} axisLine={{ stroke: `${C.border}60` }} interval={0} />
               <YAxis tick={{ fill: '#3a5870', fontSize: 8 }} tickLine={false} axisLine={false} tickCount={4} />
-              <Bar dataKey="newOrders" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="newUsers" radius={[4, 4, 0, 0]}>
                 {last7.map((entry, i) => (
-                  <Cell key={i}
-                    fill={entry.newOrders === maxVal ? 'url(#barGradActive)' : 'url(#barGradNormal)'} />
+                  <Cell key={i} fill={entry.newUsers === maxVal ? 'url(#uBarActive)' : 'url(#uBarNormal)'} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-          paddingRight: 8, marginTop: 4, gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: C.cyan }} />
-            <span style={{ fontSize: 8, color: '#3a6080', fontFamily: FONT }}>
-              近7天合计 {week7Orders} 单
-            </span>
-          </div>
+
+        {/* OPC / 发单方 breakdown */}
+        <div style={{ display: 'flex', gap: 6, padding: '6px 8px 2px', borderTop: `1px solid ${C.border}30`, marginTop: 4 }}>
+          {[
+            { label: 'OPC',   val: kpi?.opcCount ?? 0,       color: C.cyan,   pct: opcPct },
+            { label: '发单方', val: kpi?.publisherCount ?? 0, color: C.amber,  pct: kpi && kpi.totalUsers > 0 ? Math.round((kpi.publisherCount / kpi.totalUsers) * 100) : 0 },
+          ].map(s => (
+            <div key={s.label} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 8, color: '#3a6080', fontFamily: FONT }}>{s.label}</span>
+              <span style={{ fontSize: 10, color: s.color, fontWeight: 700, fontFamily: MONO, marginLeft: 'auto' }}>
+                {s.val.toLocaleString()}
+              </span>
+              <span style={{ fontSize: 8, color: `${s.color}70`, fontFamily: FONT }}>{s.pct}%</span>
+            </div>
+          ))}
         </div>
       </div>
     </motion.div>
@@ -510,7 +524,7 @@ export default function MiniScreen() {
 
   const timeStr = time.toLocaleTimeString('zh-CN', { hour12: false });
   const dateStr = time.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '/');
-  const screenNames = ['核心指标', '需求趋势', '实时订单', '平台动态'];
+  const screenNames = ['核心指标', '用户注册', '实时订单', '平台动态'];
 
   return (
     <div style={{
@@ -570,7 +584,7 @@ export default function MiniScreen() {
       <div style={{ position: 'absolute', top: 36, left: 0, right: 0, bottom: 20, zIndex: 10 }}>
         <AnimatePresence mode="wait">
           {screen === 0 && <Screen1 kpi={kpi} active={screen === 0} />}
-          {screen === 1 && <Screen2 timeSeries={timeSeries} kpi={kpi} />}
+          {screen === 1 && <Screen2 timeSeries={timeSeries} kpi={kpi} active={screen === 1} />}
           {screen === 2 && <Screen3 orders={recentOrders} kpi={kpi} />}
           {screen === 3 && <Screen4 ticker1={ticker1} ticker2={ticker2} />}
         </AnimatePresence>
