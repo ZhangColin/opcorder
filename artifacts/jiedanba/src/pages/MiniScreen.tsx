@@ -333,12 +333,8 @@ export default function MiniScreen() {
               {format(time, "HH:mm:ss")}
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 3 }}>
-            <span style={{ fontSize: 10, color: "#67e8f9", letterSpacing: "0.06em", fontFamily: FONT }}>数据大屏</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", display: "inline-block", animation: "msLiveDot 2s ease-in-out infinite" }} />
-              <span style={{ fontSize: 9, color: "#34d399", fontFamily: FONT }}>运行正常</span>
-            </div>
+          <div style={{ marginTop: 3 }}>
+            <span style={{ fontSize: 10, color: "#67e8f9", letterSpacing: "0.06em", fontFamily: FONT }}>OPC 撮合交易平台</span>
           </div>
         </div>
 
