@@ -6252,7 +6252,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;
-    case "screen":         return <ScreenLauncher />;
+    case "screen":         return null;
   }
 }
 
