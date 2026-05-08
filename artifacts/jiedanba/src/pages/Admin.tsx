@@ -6252,7 +6252,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;
-    case "screen":         return null;
+    case "screen":         return <ScreenLauncher />;
   }
 }
 
@@ -6317,16 +6317,10 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
   const visibleNav = NAV.filter(canSee);
 
   // If the current active module is no longer accessible, jump to the first visible one.
-  // Special case: if the only/first accessible module is "screen" (group), navigate to /screen.
   useEffect(() => {
     const allowed = visibleNav.some(n => n.key === active);
     if (!allowed && visibleNav.length > 0) {
-      const first = visibleNav[0];
-      if (first.children?.length) {
-        navigate(first.children[0].href);
-      } else {
-        setActive(first.key);
-      }
+      setActive(visibleNav[0].key);
     }
   }, [visibleNav.map(n => n.key).join(",")]);
 
