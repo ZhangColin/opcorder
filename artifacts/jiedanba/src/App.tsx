@@ -38,6 +38,7 @@ import OpcMyBids from "@/pages/OpcMyBids";
 import SettlementAccount from "@/pages/SettlementAccount";
 import Admin from "@/pages/Admin";
 import ScreenDisplay from "@/pages/ScreenDisplay";
+import MiniScreen from "@/pages/MiniScreen";
 import ActivityRegister from "@/pages/ActivityRegister";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
@@ -197,6 +198,9 @@ function Router() {
       <Route path="/activity/:id" component={ActivityRegister} />
       <Route path="/screen">
         {() => <AdminGate><ScreenDisplay /></AdminGate>}
+      </Route>
+      <Route path="/miniscreen">
+        {() => <AdminGate><MiniScreen /></AdminGate>}
       </Route>
 
       {/* 管理员专属 */}

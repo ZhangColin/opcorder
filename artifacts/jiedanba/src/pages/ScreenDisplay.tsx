@@ -586,7 +586,7 @@ export default function ScreenDisplay() {
       <style>{KF}</style>
       <div
         className="text-slate-200 flex flex-col font-sans selection:bg-cyan-500/30 relative"
-        style={{ background: "linear-gradient(155deg, #040b17 0%, #060f1e 50%, #040c18 100%)", width: "100vw", height: "100vh", overflow: "hidden" }}
+        style={{ background: "linear-gradient(155deg, #040b17 0%, #060f1e 50%, #040c18 100%)", width: "100vw", height: "100vh", overflow: "hidden", fontFamily: "'PingFang SC','Hiragino Sans GB','Microsoft YaHei UI','Microsoft YaHei','微软雅黑','SimHei','STHeiti','Noto Sans SC',system-ui,sans-serif" }}
       >
         {/* Background effects */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
