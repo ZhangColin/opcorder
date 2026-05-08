@@ -16,7 +16,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
-  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot,
+  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -102,7 +102,10 @@ export type Module =
   | "sensitivewords" | "payments" | "activities"
   | "roles" | "adminusers" | "screen" | "agent" | "settlement";
 
-const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string }[] = [
+type NavChild = { key: string; label: string; href: string; icon: React.ElementType };
+type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
+
+const NAV: NavItem[] = [
   { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板",    permKey: "dashboard" },
   { key: "cockpit",        icon: BarChart3,           label: "平台驾驶舱",  permKey: "cockpit" },
   { key: "users",          icon: Users,              label: "用户管理",    permKey: "users" },
@@ -122,7 +125,13 @@ const NAV: { key: Module; icon: React.ElementType; label: string; superAdminOnly
   { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
   { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
   { key: "adminusers",     icon: UserCog,             label: "管理员管理",  superAdminOnly: true },
-  { key: "screen",         icon: Monitor,             label: "数据大屏",    permKey: "screen" },
+  {
+    key: "screen", icon: Monitor, label: "数据大屏", permKey: "screen",
+    children: [
+      { key: "screen_h", label: "横屏大屏", href: "/screen",     icon: Monitor },
+      { key: "screen_v", label: "竖屏大屏", href: "/miniscreen", icon: Tablet  },
+    ],
+  },
 ];
 
 /* ─── Admin profile hook ─────────────────────────── */
@@ -6253,6 +6262,7 @@ function AdminSidebarLogo() {
 
 export default function Admin({ initialModule }: { initialModule?: Module } = {}) {
   const [active, setActive] = useState<Module>(initialModule ?? "dashboard");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["screen"]));
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -6294,15 +6304,15 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
   const visibleNav = NAV.filter(canSee);
 
   // If the current active module is no longer accessible, jump to the first visible one.
-  // Special case: if the only/first accessible module is "screen", navigate directly to it.
+  // Special case: if the only/first accessible module is "screen" (group), navigate to /screen.
   useEffect(() => {
     const allowed = visibleNav.some(n => n.key === active);
     if (!allowed && visibleNav.length > 0) {
-      const first = visibleNav[0].key;
-      if (first === "screen") {
-        navigate("/screen");
+      const first = visibleNav[0];
+      if (first.children?.length) {
+        navigate(first.children[0].href);
       } else {
-        setActive(first);
+        setActive(first.key);
       }
     }
   }, [visibleNav.map(n => n.key).join(",")]);
@@ -6321,26 +6331,64 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
         <AdminSidebarLogo />
 
         <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto">
-          {visibleNav.map(item => (
-            <button
-              key={item.key}
-              onClick={() => {
-                if (item.key === "screen") { navigate("/screen"); return; }
-                setActive(item.key);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
-                active === item.key
-                  ? "bg-primary text-white shadow-lg shadow-primary/20"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <item.icon size={17} />
-              {item.label}
-              {item.key === "screen" && (
-                <span className="ml-auto text-[9px] font-bold uppercase tracking-widest text-slate-500 opacity-70">全屏</span>
-              )}
-            </button>
-          ))}
+          {visibleNav.map(item => {
+            if (item.children?.length) {
+              const isExpanded = expandedGroups.has(item.key);
+              return (
+                <div key={item.key}>
+                  {/* Group header — toggles expand/collapse */}
+                  <button
+                    onClick={() => setExpandedGroups(prev => {
+                      const next = new Set(prev);
+                      if (next.has(item.key)) next.delete(item.key);
+                      else next.add(item.key);
+                      return next;
+                    })}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left text-slate-400 hover:text-white hover:bg-white/5"
+                  >
+                    <item.icon size={17} />
+                    <span className="flex-1">{item.label}</span>
+                    {isExpanded
+                      ? <ChevronDown size={14} className="text-slate-500" />
+                      : <ChevronRight size={14} className="text-slate-500" />
+                    }
+                  </button>
+                  {/* Sub-items */}
+                  {isExpanded && (
+                    <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-3">
+                      {item.children.map(child => (
+                        <a
+                          key={child.key}
+                          href={`${BASE}${child.href}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                        >
+                          <child.icon size={15} />
+                          {child.label}
+                          <ArrowUpRight size={11} className="ml-auto text-slate-600" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActive(item.key)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+                  active === item.key
+                    ? "bg-primary text-white shadow-lg shadow-primary/20"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <item.icon size={17} />
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="border-t border-white/10 pt-4 flex flex-col gap-1">
