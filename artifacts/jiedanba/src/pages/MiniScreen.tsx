@@ -16,7 +16,7 @@ type ScreenData = {
 };
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const SLIDE_DURATION = 8000;
+const SLIDE_DURATIONS = [8000, 8000, 8000, 8000, 20000]; // 最后一屏（实时动态）停留 20s
 const SLIDE_COUNT = 5;
 
 const FONT = "'PingFang SC','Hiragino Sans GB','Microsoft YaHei UI','Microsoft YaHei','微软雅黑','SimHei','STHeiti','Noto Sans SC',system-ui,sans-serif";
@@ -188,12 +188,12 @@ export default function MiniScreen() {
   }, []);
 
   useEffect(() => {
-    const t = setInterval(() => {
+    const t = setTimeout(() => {
       setVisible(false);
       setTimeout(() => { setSlide(s => (s + 1) % SLIDE_COUNT); setVisible(true); }, 380);
-    }, SLIDE_DURATION);
-    return () => clearInterval(t);
-  }, []);
+    }, SLIDE_DURATIONS[slide]);
+    return () => clearTimeout(t);
+  }, [slide]);
 
   const { data } = useQuery<ScreenData>({
     queryKey: ["screen-mini"], queryFn: fetchScreen,
