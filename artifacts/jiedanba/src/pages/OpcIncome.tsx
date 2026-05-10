@@ -97,14 +97,6 @@ export default function OpcIncome() {
         </div>
       </div>
 
-      {/* Settlement notice */}
-      <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-        <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-        <p className="text-sm text-amber-800">
-          结算规则：验收通过后3个工作日内到账，OPC分成比例为订单金额的<strong> 90%</strong>，平台服务费10%。
-        </p>
-      </div>
-
       {/* Order table */}
       <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 px-6 py-4 border-b border-border">
