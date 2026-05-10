@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -1778,6 +1778,103 @@ router.get("/site-settings", async (_req, res) => {
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
     return res.status(500).json({ error: "获取站点设置失败" });
+  }
+});
+
+/* ─── ANNOUNCEMENTS ─────────────────────────────── */
+
+router.get("/admin/announcements", requireAdmin, requirePermission("settings"), async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(announcementsTable)
+      .orderBy(desc(announcementsTable.isPinned), desc(announcementsTable.createdAt));
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取公告列表失败" });
+  }
+});
+
+router.post("/admin/announcements", requireAdmin, requirePermission("settings"), async (req, res) => {
+  try {
+    const { title, fileUrl, fileName, fileType, isPinned } = req.body as {
+      title?: string;
+      fileUrl?: string;
+      fileName?: string;
+      fileType?: string;
+      isPinned?: boolean;
+    };
+    if (!title?.trim()) return res.status(400).json({ error: "公告标题不能为空" });
+    const [row] = await db
+      .insert(announcementsTable)
+      .values({
+        title: title.trim(),
+        fileUrl: fileUrl ?? null,
+        fileName: fileName ?? null,
+        fileType: fileType ?? null,
+        isPinned: isPinned ?? false,
+      })
+      .returning();
+    return res.status(201).json(row);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "发布公告失败" });
+  }
+});
+
+router.patch("/admin/announcements/:id", requireAdmin, requirePermission("settings"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    const { title, fileUrl, fileName, fileType, isPinned } = req.body as {
+      title?: string;
+      fileUrl?: string;
+      fileName?: string;
+      fileType?: string;
+      isPinned?: boolean;
+    };
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (title !== undefined) updateData.title = title.trim();
+    if (fileUrl !== undefined) updateData.fileUrl = fileUrl;
+    if (fileName !== undefined) updateData.fileName = fileName;
+    if (fileType !== undefined) updateData.fileType = fileType;
+    if (isPinned !== undefined) updateData.isPinned = isPinned;
+    const [row] = await db
+      .update(announcementsTable)
+      .set(updateData)
+      .where(eq(announcementsTable.id, id))
+      .returning();
+    if (!row) return res.status(404).json({ error: "公告不存在" });
+    return res.json(row);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "更新公告失败" });
+  }
+});
+
+router.delete("/admin/announcements/:id", requireAdmin, requirePermission("settings"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    await db.delete(announcementsTable).where(eq(announcementsTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "删除公告失败" });
+  }
+});
+
+/* ─── PUBLIC: Announcements (no auth required) ─── */
+
+router.get("/announcements", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(announcementsTable)
+      .orderBy(desc(announcementsTable.isPinned), desc(announcementsTable.createdAt));
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取公告列表失败" });
   }
 });
 

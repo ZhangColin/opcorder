@@ -18,3 +18,4 @@ export * from "./admin-roles";
 export * from "./activities";
 export * from "./system-logs";
 export * from "./agent";
+export * from "./announcements";

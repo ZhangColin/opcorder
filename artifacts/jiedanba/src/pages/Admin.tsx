@@ -17,6 +17,7 @@ import {
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet,
+  Pin, Paperclip,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -4378,8 +4379,258 @@ function SiteSettingsManagement() {
           </button>
         </div>
 
+        {/* 官方公告管理 */}
+        <AnnouncementsManagement />
+
         {/* 修改密码 */}
         <ChangePasswordCard />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Announcements Management ───────────────────── */
+
+type AnnRow = {
+  id: number;
+  title: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileType: string | null;
+  isPinned: boolean;
+  createdAt: string;
+};
+
+function AnnouncementsManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: annList = [], isLoading: annLoading } = useQuery<AnnRow[]>({
+    queryKey: ["admin-announcements"],
+    queryFn: () => adminGet("/api/admin/announcements"),
+  });
+
+  const [newTitle, setNewTitle] = useState("");
+  const [newFileUrl, setNewFileUrl] = useState("");
+  const [newFileName, setNewFileName] = useState("");
+  const [newFileType, setNewFileType] = useState("");
+  const [newIsPinned, setNewIsPinned] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+
+  async function handleFileUpload(file: File) {
+    setFileUploading(true);
+    try {
+      const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
+      const { uploadURL, objectPath } = await res.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      setNewFileUrl(`${BASE}/api/storage${objectPath}`);
+      setNewFileName(file.name);
+      setNewFileType(file.type);
+      toast({ title: "附件上传成功" });
+    } catch (e) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setFileUploading(false);
+    }
+  }
+
+  async function addAnn() {
+    if (!newTitle.trim()) return;
+    setAddLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/announcements`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          fileUrl: newFileUrl || null,
+          fileName: newFileName || null,
+          fileType: newFileType || null,
+          isPinned: newIsPinned,
+        }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error ?? "发布失败");
+      }
+      toast({ title: "公告已发布" });
+      setNewTitle("");
+      setNewFileUrl("");
+      setNewFileName("");
+      setNewFileType("");
+      setNewIsPinned(false);
+      qc.invalidateQueries({ queryKey: ["admin-announcements"] });
+    } catch (e) {
+      toast({ title: "发布失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setAddLoading(false);
+    }
+  }
+
+  async function togglePin(id: number, isPinned: boolean) {
+    try {
+      await fetch(`${BASE}/api/admin/announcements/${id}`, {
+        method: "PATCH",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ isPinned }),
+      });
+      qc.invalidateQueries({ queryKey: ["admin-announcements"] });
+    } catch {
+      toast({ title: "操作失败", variant: "destructive" });
+    }
+  }
+
+  async function deleteAnn(id: number) {
+    try {
+      await fetch(`${BASE}/api/admin/announcements/${id}`, {
+        method: "DELETE",
+        headers: getAdminHeaders(),
+      });
+      toast({ title: "公告已删除" });
+      qc.invalidateQueries({ queryKey: ["admin-announcements"] });
+    } catch {
+      toast({ title: "删除失败", variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+      <div>
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+          <Megaphone size={14} /> 官方公告管理
+        </h3>
+        <p className="text-xs text-slate-400 mt-1">公告显示在话题广场侧边栏，置顶公告永远排在最前</p>
+      </div>
+
+      {/* 现有公告列表 */}
+      {annLoading ? (
+        <div className="flex items-center gap-2 text-slate-400 text-xs py-3"><Loader2 size={14} className="animate-spin" /> 加载中…</div>
+      ) : annList.length === 0 ? (
+        <p className="text-xs text-slate-400 py-2">暂无公告，请在下方发布</p>
+      ) : (
+        <div className="space-y-2">
+          {annList.map(ann => (
+            <div key={ann.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {ann.isPinned && <Pin size={11} className="text-amber-500 shrink-0" />}
+                  <span className="text-sm font-bold text-slate-700 truncate">{ann.title}</span>
+                  {ann.isPinned && (
+                    <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold shrink-0">置顶</span>
+                  )}
+                </div>
+                {ann.fileUrl && (
+                  <a
+                    href={ann.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary mt-1 hover:underline"
+                  >
+                    <Paperclip size={10} />
+                    <span className="truncate max-w-[220px]">{ann.fileName ?? "附件"}</span>
+                  </a>
+                )}
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  {new Date(ann.createdAt).toLocaleDateString("zh-CN")}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => togglePin(ann.id, !ann.isPinned)}
+                  title={ann.isPinned ? "取消置顶" : "设为置顶"}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    ann.isPinned
+                      ? "bg-amber-100 text-amber-600 hover:bg-amber-200"
+                      : "text-slate-300 hover:bg-slate-100 hover:text-amber-500"
+                  }`}
+                >
+                  <Pin size={14} />
+                </button>
+                <button
+                  onClick={() => deleteAnn(ann.id)}
+                  title="删除公告"
+                  className="p-1.5 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 发布新公告 */}
+      <div className="border-t border-slate-100 pt-5 space-y-3">
+        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">发布新公告</h4>
+
+        <div>
+          <label className="block text-xs font-bold text-blue-900 mb-1.5">公告标题 <span className="text-red-400">*</span></label>
+          <input
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            placeholder="请输入公告标题"
+            maxLength={200}
+            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-blue-900 mb-1.5">附件（可选）</label>
+          {newFileUrl ? (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-primary/20 bg-primary/5">
+              <Paperclip size={14} className="text-primary shrink-0" />
+              <span className="text-sm text-primary font-medium flex-1 truncate">{newFileName}</span>
+              <button
+                onClick={() => { setNewFileUrl(""); setNewFileName(""); setNewFileType(""); }}
+                className="text-slate-400 hover:text-red-500 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <label className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-colors border border-dashed ${
+              fileUploading ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed" : "border-slate-300 text-slate-500 hover:border-primary hover:text-primary hover:bg-primary/5"
+            }`}>
+              {fileUploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
+              {fileUploading ? "上传中…" : "点击上传附件"}
+              <input
+                type="file"
+                className="hidden"
+                disabled={fileUploading}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }}
+              />
+            </label>
+          )}
+          <p className="text-xs text-slate-400 mt-1">支持 PDF、Word、图片等各类文件</p>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={newIsPinned}
+              onChange={e => setNewIsPinned(e.target.checked)}
+              className="w-4 h-4 accent-amber-500 rounded"
+            />
+            <span className="text-slate-600 font-medium">永久置顶</span>
+            <Pin size={12} className="text-amber-500" />
+          </label>
+          <button
+            onClick={addAnn}
+            disabled={!newTitle.trim() || addLoading}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {addLoading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            发布公告
+          </button>
+        </div>
       </div>
     </div>
   );

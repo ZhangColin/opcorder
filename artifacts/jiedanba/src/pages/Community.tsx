@@ -7,14 +7,14 @@ import {
   Eye, Share2, TrendingUp, Megaphone, CalendarDays, Trophy,
   ArrowRight, Filter, Plus, X, Send, Loader2,
   ChevronDown, LogOut, ArrowLeft, ChevronUp,
-  ChevronLeft, ChevronRight, ShieldCheck, Flame,
+  ChevronLeft, ChevronRight, ShieldCheck, Flame, Pin, Paperclip,
 } from "lucide-react";
 import {
   useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile,
   useListPosts, useCreatePost, useTogglePostLike,
   useListPostComments, useCreatePostComment,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePublisherCompanyLogo } from "@/hooks/use-publisher-profile";
 
 /* ─── Contact info detection ─────────────────── */
@@ -36,12 +36,6 @@ function detectContactInfo(text: string): string | null {
 }
 
 /* ─── Static sidebar data ────────────────────── */
-
-const ANNOUNCEMENTS = [
-  { date: "2026.03.20", text: "接单吧 V2.0 社区激励计划正式启动" },
-  { date: "2026.03.15", text: "关于提升社区讨论质量的规范建议" },
-  { date: "2026.03.10", text: "OPC 认证体系更新：L3 级别考核标准升级" },
-];
 
 const TRENDING = [
   { rank: "01", tag: "#混合算力分配算法", heat: "HOT", heatCls: "bg-red-100 text-red-700" },
@@ -570,6 +564,17 @@ function PostDetailModal({ postId, userId, isGuest, onClose }: PostDetailModalPr
   );
 }
 
+type AnnItem = {
+  id: number;
+  title: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  isPinned: boolean;
+  createdAt: string;
+};
+
+const COMM_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export default function Community() {
   const [, navigate]          = useLocation();
   const [feedTab, setFeedTab] = useState<FeedTab>("latest");
@@ -585,6 +590,16 @@ export default function Community() {
   const role     = getStoredUser()?.role ?? null;
   const isGuest  = !role;
   const siteName = useSiteName();
+
+  const { data: announcements = [] } = useQuery<AnnItem[]>({
+    queryKey: ["public-announcements"],
+    queryFn: async () => {
+      const res = await fetch(`${COMM_BASE}/api/announcements`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: user }        = useGetCurrentUser({ query: { enabled: !isGuest } });
   const { data: opcProfile }  = useGetOpcProfile(user?.id ?? 0, { query: { enabled: !!user?.id && role === "opc" } });
@@ -940,14 +955,35 @@ export default function Community() {
               <h2 className="font-extrabold text-primary flex items-center gap-2 mb-5 text-sm">
                 <Megaphone size={16} className="fill-primary" /> 官方公告
               </h2>
-              <ul className="space-y-4">
-                {ANNOUNCEMENTS.map(a => (
-                  <li key={a.date} className="group cursor-pointer">
-                    <div className="text-[10px] text-slate-400 mb-0.5">{a.date}</div>
-                    <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2">{a.text}</div>
-                  </li>
-                ))}
-              </ul>
+              {announcements.length === 0 ? (
+                <p className="text-xs text-slate-400">暂无公告</p>
+              ) : (
+                <ul className="space-y-4">
+                  {announcements.map(a => (
+                    <li key={a.id} className="group">
+                      <div className="flex items-center gap-1 mb-0.5">
+                        {a.isPinned && <Pin size={10} className="text-amber-500 shrink-0" />}
+                        <div className="text-[10px] text-slate-400">
+                          {new Date(a.createdAt).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\//g, ".")}
+                        </div>
+                      </div>
+                      <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2">{a.title}</div>
+                      {a.fileUrl && (
+                        <a
+                          href={a.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary mt-1 hover:underline"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <Paperclip size={10} />
+                          <span className="truncate max-w-[160px]">{a.fileName ?? "查看附件"}</span>
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             <section className="bg-white rounded-2xl p-6 border border-slate-100">
