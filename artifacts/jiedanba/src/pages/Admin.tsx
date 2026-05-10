@@ -4573,6 +4573,13 @@ function LevelCertReview() {
   });
   const rejectedTotal = rejectedResp?.total ?? 0;
 
+  const { data: allResp } = useQuery<PagedResp<LevelCertRow>>({
+    queryKey: ["admin-level-certs-all-total"],
+    queryFn: () => adminGet("/api/admin/level-certs?status=all&page=1&pageSize=1"),
+    refetchInterval: 60000,
+  });
+  const allTotal = allResp?.total ?? 0;
+
   const reviewMut = useMutation({
     mutationFn: ({ portfolioId, result, downgradeTo, note }: { portfolioId: number; result: string; downgradeTo?: string; note: string }) =>
       adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note, downgradeTo }),
@@ -4585,6 +4592,7 @@ function LevelCertReview() {
       qc.invalidateQueries({ queryKey: ["admin-level-certs-pending-total"] });
       qc.invalidateQueries({ queryKey: ["admin-level-certs-reviewed-total"] });
       qc.invalidateQueries({ queryKey: ["admin-level-certs-rejected-total"] });
+      qc.invalidateQueries({ queryKey: ["admin-level-certs-all-total"] });
     },
     onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
@@ -4637,6 +4645,11 @@ function LevelCertReview() {
             }`}
           >
             {tab.label}
+            {tab.val === "all" && allTotal > 0 && (
+              <span className="ml-1.5 bg-slate-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {allTotal}
+              </span>
+            )}
             {tab.val === "pending" && pendingTotal > 0 && filterStatus !== "pending" && (
               <span className="ml-1.5 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {pendingTotal}
