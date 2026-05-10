@@ -363,17 +363,18 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
   }
 });
 
-/* PATCH /demands/:demandId/adjust — Publisher adjusts opcLevel and/or bidDeadline for active demands */
+/* PATCH /demands/:demandId/adjust — Publisher adjusts opcLevel and/or bidDeadline and/or budget for active demands */
 router.patch("/demands/:demandId/adjust", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId as string);
-    const { opcLevel, bidDeadline } = req.body as { opcLevel?: string; bidDeadline?: string };
+    const { opcLevel, bidDeadline, budget } = req.body as { opcLevel?: string; bidDeadline?: string; budget?: number };
 
     const [existing] = await db
       .select({
         publisherId: demandsTable.publisherId,
         status: demandsTable.status,
         bidDeadline: demandsTable.bidDeadline,
+        budget: demandsTable.budget,
       })
       .from(demandsTable)
       .where(eq(demandsTable.id, demandId))
@@ -406,6 +407,21 @@ router.patch("/demands/:demandId/adjust", requireAuth, async (req, res) => {
         return res.status(400).json({ error: "抢单截止时间只能往后调整，不能提前" });
       }
       updateData.bidDeadline = newDate;
+    }
+
+    if (budget !== undefined) {
+      // Budget can only be adjusted before an OPC has accepted (status must be "published")
+      if (existing.status !== "published") {
+        return res.status(400).json({ error: "OPC 已接单，预算不可修改" });
+      }
+      if (typeof budget !== "number" || !Number.isInteger(budget) || budget <= 0) {
+        return res.status(400).json({ error: "预算金额无效" });
+      }
+      const currentBudget = Number(existing.budget ?? 0);
+      if (budget <= currentBudget) {
+        return res.status(400).json({ error: "预算只能往上调，不可降低" });
+      }
+      updateData.budget = budget;
     }
 
     const [updated] = await db.update(demandsTable).set(updateData).where(eq(demandsTable.id, demandId)).returning();

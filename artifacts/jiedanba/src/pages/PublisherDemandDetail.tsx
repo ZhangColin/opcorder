@@ -99,6 +99,7 @@ export default function PublisherDemandDetail() {
   const [showAdjustPanel, setShowAdjustPanel] = useState(false);
   const [adjustOpcLevel, setAdjustOpcLevel] = useState<string>("");
   const [adjustBidDeadline, setAdjustBidDeadline] = useState<string>("");
+  const [adjustBudget, setAdjustBudget] = useState<string>("");
   const [adjustLoading, setAdjustLoading] = useState(false);
 
   // Payment state
@@ -194,15 +195,27 @@ export default function PublisherDemandDetail() {
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const handleAdjustDemand = async () => {
-    if (!adjustOpcLevel && !adjustBidDeadline) {
+    if (!adjustOpcLevel && !adjustBidDeadline && !adjustBudget) {
       toast({ title: "请至少修改一项", variant: "destructive" });
       return;
     }
+    if (adjustBudget) {
+      const newBudget = parseInt(adjustBudget);
+      if (isNaN(newBudget) || newBudget <= 0) {
+        toast({ title: "请输入有效预算金额", variant: "destructive" });
+        return;
+      }
+      if (demand && newBudget <= (demand.budget ?? 0)) {
+        toast({ title: "预算只能上调", description: "新预算必须高于当前预算", variant: "destructive" });
+        return;
+      }
+    }
     setAdjustLoading(true);
     try {
-      const body: Record<string, string> = {};
+      const body: Record<string, string | number> = {};
       if (adjustOpcLevel) body.opcLevel = adjustOpcLevel;
       if (adjustBidDeadline) body.bidDeadline = adjustBidDeadline;
+      if (adjustBudget) body.budget = parseInt(adjustBudget);
       const res = await fetch(`${BASE}/api/demands/${demandId}/adjust`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
@@ -216,6 +229,7 @@ export default function PublisherDemandDetail() {
       setShowAdjustPanel(false);
       setAdjustOpcLevel("");
       setAdjustBidDeadline("");
+      setAdjustBudget("");
       refetchDemand();
     } catch (err: any) {
       toast({ title: "调整失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
@@ -1322,7 +1336,7 @@ export default function PublisherDemandDetail() {
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 rounded-xl p-3">
-              可降低 OPC 等级要求以吸引更多人才参与，或延长抢单截止时间（只能往后延长，不能提前）。
+              可降低 OPC 等级要求以吸引更多人才参与，或延长抢单截止时间（只能往后延长，不能提前）。预算金额只能上调，且仅在 OPC 未接单前可修改。
             </p>
 
             {/* OPC Level */}
@@ -1369,10 +1383,38 @@ export default function PublisherDemandDetail() {
               />
             </div>
 
+            {/* Budget */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-600">
+                预算金额（元）
+                <span className="ml-2 font-normal text-slate-400">
+                  当前：¥{demand.budget?.toLocaleString() ?? "面议"}
+                </span>
+              </label>
+              {demand.status === "matched" ? (
+                <div className="flex items-center gap-2 h-11 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                  <span>OPC 已接单，预算不可修改</span>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    value={adjustBudget}
+                    min={(demand.budget ?? 0) + 1}
+                    step={100}
+                    placeholder={`高于 ¥${demand.budget?.toLocaleString() ?? 0}`}
+                    onChange={e => setAdjustBudget(e.target.value)}
+                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <p className="text-[11px] text-slate-400">预算只能往上调，不可降低</p>
+                </>
+              )}
+            </div>
+
             {/* Actions */}
             <div className="flex gap-3 pt-1">
               <button
-                onClick={() => { setShowAdjustPanel(false); setAdjustOpcLevel(""); setAdjustBidDeadline(""); }}
+                onClick={() => { setShowAdjustPanel(false); setAdjustOpcLevel(""); setAdjustBidDeadline(""); setAdjustBudget(""); }}
                 className="flex-1 h-11 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
               >
                 取消
