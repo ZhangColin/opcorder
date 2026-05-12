@@ -155,12 +155,19 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
       contactEmail: publisherProfilesTable.contactEmail,
     }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, order.publisherId));
 
+    const isAdmin = userRole === "admin";
+    const isPublisher = userId === order.publisherId;
+    const safeProfile = pubProfile ? {
+      ...pubProfile,
+      contactEmail: (isAdmin || isPublisher) ? pubProfile.contactEmail : null,
+    } : null;
+
     return res.json({
       ...order,
       opcNickname: opcUser?.nickname,
       publisherName: pubUser?.nickname,
       publisherLogo: pubProfile?.companyLogo ?? null,
-      publisherProfile: pubProfile ?? null,
+      publisherProfile: safeProfile,
       deliverables: deliverables.map(d => ({
         ...d,
         submittedAt: d.submittedAt.toISOString(),

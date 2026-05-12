@@ -92,10 +92,12 @@ router.get("/users/:userId", requireAuth, async (req, res) => {
     const userId = parseInt(req.params.userId as string);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) return res.status(404).json({ error: "User not found" });
+    const isSelf = req.user!.id === userId;
+    const isAdmin = req.user!.role === "admin";
     return res.json({
       id:        user.id,
       nickname:  user.nickname,
-      phone:     user.phone,
+      phone:     (isSelf || isAdmin) ? user.phone : undefined,
       avatar:    user.avatar,
       role:      user.role,
       status:    user.status,

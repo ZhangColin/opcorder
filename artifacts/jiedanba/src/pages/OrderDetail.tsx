@@ -3,7 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import {
   ArrowLeft, CheckCircle2, Clock, XCircle, UploadCloud, AlertCircle,
   ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag, Star, Send, Loader2,
-  Building2, MapPin, Globe, Mail, Users, CalendarDays, ChevronRight, Link2,
+  Building2, MapPin, Globe, Users, CalendarDays, ChevronRight, Link2,
   Plus, X, Upload,
 } from "lucide-react";
 
@@ -755,7 +755,6 @@ interface PublisherProfileData {
   teamSize: string | null;
   foundedYear: string | null;
   website: string | null;
-  contactEmail: string | null;
 }
 
 function PublisherProfileModal({
@@ -826,12 +825,6 @@ function PublisherProfileModal({
                   className="text-primary underline truncate hover:text-primary/80 transition-colors">
                   {profile.website.replace(/^https?:\/\//, "")}
                 </a>
-              </div>
-            )}
-            {profile?.contactEmail && (
-              <div className="flex items-center gap-2 text-sm text-slate-600 col-span-2">
-                <Mail size={14} className="text-slate-400 shrink-0" />
-                <span>{profile.contactEmail}</span>
               </div>
             )}
           </div>

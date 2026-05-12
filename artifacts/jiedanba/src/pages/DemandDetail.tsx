@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File, Building2, MapPin, Globe, Mail, Users, CalendarDays, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File, Building2, MapPin, Globe, Users, CalendarDays, ChevronRight, X } from "lucide-react";
 import { useGetDemandById, useCreateBid } from "@workspace/api-client-react";
 import { DEMAND_TYPES, DEMAND_STATUSES, OPC_LEVELS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +27,6 @@ function PublisherModal({
     teamSize?: string | null;
     foundedYear?: string | null;
     website?: string | null;
-    contactEmail?: string | null;
   } | null;
   onClose: () => void;
 }) {
@@ -80,11 +79,6 @@ function PublisherModal({
                   className="text-primary underline truncate hover:text-primary/80 transition-colors">
                   {profile.website.replace(/^https?:\/\//, "")}
                 </a>
-              </div>
-            )}
-            {profile?.contactEmail && (
-              <div className="flex items-center gap-2 text-sm text-slate-600 col-span-2">
-                <Mail size={14} className="text-slate-400 shrink-0" /><span>{profile.contactEmail}</span>
               </div>
             )}
           </div>

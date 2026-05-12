@@ -267,12 +267,19 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
       contactEmail: publisherProfilesTable.contactEmail,
     }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, demand.publisherId));
 
+    const isAdmin = req.user!.role === "admin";
+    const isPublisher = req.user!.id === demand.publisherId;
+    const safeProfile = pubProfile ? {
+      ...pubProfile,
+      contactEmail: (isAdmin || isPublisher) ? pubProfile.contactEmail : null,
+    } : null;
+
     return res.json({
       ...demand,
       typeLabel: DEMAND_TYPE_LABELS[demand.type] || demand.type,
       bidCount: 0,
       publisherLogo:    pubProfile?.companyLogo ?? null,
-      publisherProfile: pubProfile ?? null,
+      publisherProfile: safeProfile,
       createdAt: demand.createdAt.toISOString(),
       updatedAt: demand.updatedAt.toISOString(),
       bidDeadline: demand.bidDeadline?.toISOString(),
