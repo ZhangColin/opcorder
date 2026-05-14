@@ -18,6 +18,16 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+async function detectMimeType(file: File): Promise<string> {
+  const buf = await file.slice(0, 8).arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return "image/jpeg";
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return "image/png";
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "application/pdf";
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+  return file.type || "application/octet-stream";
+}
+
 interface SettlementAccountData {
   id?: number;
   companyName?: string;
@@ -97,10 +107,11 @@ export default function SettlementAccount() {
     setLicenseUploading(true);
     const token = getAccessToken();
     try {
+      const contentType = await detectMimeType(file);
       const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType }),
       });
       if (!reqRes.ok) throw new Error("上传失败");
       const { uploadURL, objectPath, sessionToken } = await reqRes.json();
@@ -108,7 +119,7 @@ export default function SettlementAccount() {
       const putRes = await fetch(uploadURL, {
         method: "PUT",
         body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+        headers: { "Content-Type": contentType },
       });
       if (!putRes.ok) throw new Error("上传失败");
 
