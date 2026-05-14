@@ -96,18 +96,30 @@ export default function SettlementAccount() {
     if (!file) return;
     setLicenseUploading(true);
     const token = getAccessToken();
-    const fd = new FormData();
-    fd.append("file", file);
     try {
-      const res = await fetch(`${BASE}/api/storage/upload`, {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
       });
-      if (!res.ok) throw new Error("上传失败");
-      const data = await res.json();
-      const url = data.url ?? data.fileUrl ?? data.path;
-      if (!url) throw new Error("上传响应异常");
+      if (!reqRes.ok) throw new Error("上传失败");
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
+
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!putRes.ok) throw new Error("上传失败");
+
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
+
+      const url = `${BASE}/api/storage${objectPath}`;
       setForm((prev) => ({ ...prev, businessLicenseUrl: url }));
       toast({ title: "上传成功", description: "营业执照已上传" });
     } catch {

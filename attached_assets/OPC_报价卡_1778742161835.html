@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<!-- saved from url=(0025)http://192.168.1.17:4173/ -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OPC 报价卡</title>
+    <link rel="stylesheet" href="./OPC 报价卡_files/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">OPC</span>
+        <div>
+          <h1>OPC 报价卡</h1>
+          <p>需求编号 <strong>#20260509-0087</strong></p>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="视图切换">
+        <button class="tab is-active" type="button" data-tab="quote">报价填报</button>
+        <button class="tab" type="button" data-tab="compare">买家对比</button>
+        <button class="tab" type="button" data-tab="rules">规则说明</button>
+      </nav>
+      <div class="top-actions">
+        <button class="button secondary" type="button" id="resetDraft">重置</button>
+        <button class="button secondary" type="button" id="saveDraft">保存草稿</button>
+        <button class="button primary" type="button" id="submitQuote">提交报价</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="view is-active" data-view="quote">
+        <form class="quote-grid" id="quoteForm">
+          <div class="form-column">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <span class="step">01</span>
+                  <h2>基准层</h2>
+                </div>
+                <output id="baseSubtotal">15,000 元</output>
+              </div>
+              <div class="rows" id="baseRows">
+      <fieldset class="dimension-row" data-dimension="D1">
+        <legend>
+          <strong>D1 页面/屏数</strong>
+          <span>独立视图数</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="1-3">
+          <input type="radio" name="D1" value="S">
+          <span>S</span>
+        </label>
+      
+        <label class="choice" title="4-10">
+          <input type="radio" name="D1" value="M" checked="">
+          <span>M</span>
+        </label>
+      
+        <label class="choice" title="11-25">
+          <input type="radio" name="D1" value="L">
+          <span>L</span>
+        </label>
+      
+        <label class="choice" title="25+">
+          <input type="radio" name="D1" value="XL">
+          <span>XL</span>
+        </label>
+      </div>
+        <output class="line-price" data-price-for="D1">6,000 元</output>
+      </fieldset>
+    
+      <fieldset class="dimension-row" data-dimension="D2">
+        <legend>
+          <strong>D2 数据模型数</strong>
+          <span>核心业务实体数</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="1-2">
+          <input type="radio" name="D2" value="S">
+          <span>S</span>
+        </label>
+      
+        <label class="choice" title="3-6">
+          <input type="radio" name="D2" value="M" checked="">
+          <span>M</span>
+        </label>
+      
+        <label class="choice" title="7-15">
+          <input type="radio" name="D2" value="L">
+          <span>L</span>
+        </label>
+      
+        <label class="choice" title="15+">
+          <input type="radio" name="D2" value="XL">
+          <span>XL</span>
+        </label>
+      </div>
+        <output class="line-price" data-price-for="D2">5,000 元</output>
+      </fieldset>
+    
+      <fieldset class="dimension-row" data-dimension="D3">
+        <legend>
+          <strong>D3 第三方集成</strong>
+          <span>需对接的外部系统</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="0">
+          <input type="radio" name="D3" value="S" checked="">
+          <span>S</span>
+        </label>
+      
+        <label class="choice" title="1-2">
+          <input type="radio" name="D3" value="M">
+          <span>M</span>
+        </label>
+      
+        <label class="choice" title="3-5">
+          <input type="radio" name="D3" value="L">
+          <span>L</span>
+        </label>
+      
+        <label class="choice" title="5+">
+          <input type="radio" name="D3" value="XL">
+          <span>XL</span>
+        </label>
+      </div>
+        <output class="line-price" data-price-for="D3">0 元</output>
+      </fieldset>
+    
+      <fieldset class="dimension-row" data-dimension="D4">
+        <legend>
+          <strong>D4 用户角色</strong>
+          <span>权限/身份区分</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="1">
+          <input type="radio" name="D4" value="S">
+          <span>S</span>
+        </label>
+      
+        <label class="choice" title="2-3">
+          <input type="radio" name="D4" value="M" checked="">
+          <span>M</span>
+        </label>
+      
+        <label class="choice" title="4-6">
+          <input type="radio" name="D4" value="L">
+          <span>L</span>
+        </label>
+      
+        <label class="choice" title="6+">
+          <input type="radio" name="D4" value="XL">
+          <span>XL</span>
+        </label>
+      </div>
+        <output class="line-price" data-price-for="D4">3,000 元</output>
+      </fieldset>
+    
+      <fieldset class="dimension-row" data-dimension="D5">
+        <legend>
+          <strong>D5 数据/并发量级</strong>
+          <span>峰值 QPS 或 DAU 量级</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="&lt;100">
+          <input type="radio" name="D5" value="S" checked="">
+          <span>S</span>
+        </label>
+      
+        <label class="choice" title="100-1k">
+          <input type="radio" name="D5" value="M">
+          <span>M</span>
+        </label>
+      
+        <label class="choice" title="1k-10k">
+          <input type="radio" name="D5" value="L">
+          <span>L</span>
+        </label>
+      
+        <label class="choice" title="10k+">
+          <input type="radio" name="D5" value="XL">
+          <span>XL</span>
+        </label>
+      </div>
+        <output class="line-price" data-price-for="D5">1,000 元</output>
+      </fieldset>
+    </div>
+              <div class="calibration">
+                <label for="baseAdjustment">OPC 自主微调</label>
+                <div class="range-line">
+                  <input id="baseAdjustment" type="range" min="-20" max="20" value="0" step="1">
+                  <input id="baseAdjustmentNumber" type="number" min="-20" max="20" value="0" step="1">
+                  <span>%</span>
+                </div>
+                <textarea id="adjustmentReason" rows="3" placeholder="非 0% 时填写微调原因"></textarea>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <span class="step">02</span>
+                  <h2>调整层</h2>
+                </div>
+                <output id="factorProduct">×0.99</output>
+              </div>
+              <div class="rows" id="coefficientRows">
+      <fieldset class="dimension-row coefficient-row" data-coefficient="C1">
+        <legend>
+          <strong>C1 需求明确度</strong>
+          <span>PRD/原型完备度</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="完整 PRD">
+          <input type="radio" name="C1" value="low" checked="">
+          <span>低</span>
+        </label>
+      
+        <label class="choice" title="文档 + 口头">
+          <input type="radio" name="C1" value="medium">
+          <span>中</span>
+        </label>
+      
+        <label class="choice" title="一句话想法">
+          <input type="radio" name="C1" value="high">
+          <span>高</span>
+        </label>
+      </div>
+        <output class="line-price" data-factor-for="C1">×0.9</output>
+      </fieldset>
+    
+      <fieldset class="dimension-row coefficient-row" data-coefficient="C2">
+        <legend>
+          <strong>C2 合规/数据敏感</strong>
+          <span>金融/医疗/个人数据/出海合规</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="常规数据">
+          <input type="radio" name="C2" value="low" checked="">
+          <span>低</span>
+        </label>
+      
+        <label class="choice" title="部分敏感">
+          <input type="radio" name="C2" value="medium">
+          <span>中</span>
+        </label>
+      
+        <label class="choice" title="强合规">
+          <input type="radio" name="C2" value="high">
+          <span>高</span>
+        </label>
+      </div>
+        <output class="line-price" data-factor-for="C2">×1.0</output>
+      </fieldset>
+    
+      <fieldset class="dimension-row coefficient-row" data-coefficient="C3">
+        <legend>
+          <strong>C3 第三方依赖稳定</strong>
+          <span>对接方 API 文档/可用性</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="文档稳定">
+          <input type="radio" name="C3" value="low" checked="">
+          <span>低</span>
+        </label>
+      
+        <label class="choice" title="少量不确定">
+          <input type="radio" name="C3" value="medium">
+          <span>中</span>
+        </label>
+      
+        <label class="choice" title="依赖不稳定">
+          <input type="radio" name="C3" value="high">
+          <span>高</span>
+        </label>
+      </div>
+        <output class="line-price" data-factor-for="C3">×1.0</output>
+      </fieldset>
+    
+      <fieldset class="dimension-row coefficient-row" data-coefficient="C4">
+        <legend>
+          <strong>C4 验收标准清晰</strong>
+          <span>是否有可量化验收条件</span>
+        </legend>
+        <div class="segmented">
+        <label class="choice" title="可量化">
+          <input type="radio" name="C4" value="low">
+          <span>低</span>
+        </label>
+      
+        <label class="choice" title="部分明确">
+          <input type="radio" name="C4" value="medium" checked="">
+          <span>中</span>
+        </label>
+      
+        <label class="choice" title="标准模糊">
+          <input type="radio" name="C4" value="high">
+          <span>高</span>
+        </label>
+      </div>
+        <output class="line-price" data-factor-for="C4">×1.1</output>
+      </fieldset>
+    </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <span class="step">03</span>
+                  <h2>可选层</h2>
+                </div>
+                <output id="optionalSubtotal">+2,228 元</output>
+              </div>
+
+              <div class="option-block">
+                <div class="option-title">
+                  <h3>维护包</h3>
+                  <output id="maintenanceFee">+2,228 元</output>
+                </div>
+                <div class="segmented wide" id="maintenanceOptions">
+      <label class="choice">
+        <input type="radio" name="maintenancePackage" value="none">
+        <span>不选<small>0%</small></span>
+      </label>
+    
+      <label class="choice">
+        <input type="radio" name="maintenancePackage" value="M3" checked="">
+        <span>M3<small>15%</small></span>
+      </label>
+    
+      <label class="choice">
+        <input type="radio" name="maintenancePackage" value="M6">
+        <span>M6<small>25%</small></span>
+      </label>
+    
+      <label class="choice">
+        <input type="radio" name="maintenancePackage" value="M12">
+        <span>M12<small>40%</small></span>
+      </label>
+    </div>
+              </div>
+
+              <div class="option-grid">
+                <label class="toggle-row">
+                  <input id="escrowEnabled" type="checkbox" checked="">
+                  <span>交付保证金</span>
+                </label>
+                <div class="compact-control">
+                  <select id="escrowRate" aria-label="保证金比例">
+                    <option value="0.1">10%</option>
+                    <option value="0.15" selected="">15%</option>
+                    <option value="0.2">20%</option>
+                  </select>
+                  <output id="escrowAmount">托管 2,562 元</output>
+                </div>
+              </div>
+
+              <div class="option-grid">
+                <label class="toggle-row">
+                  <input id="milestoneEnabled" type="checkbox">
+                  <span>里程碑奖金</span>
+                </label>
+                <div class="compact-control">
+                  <input id="milestoneRate" type="number" min="10" max="30" value="15" step="1" aria-label="里程碑奖金比例">
+                  <span>%</span>
+                  <output id="milestonePotential">未启用</output>
+                </div>
+              </div>
+
+              <div class="option-grid">
+                <label class="toggle-row">
+                  <input id="revenueShareEnabled" type="checkbox">
+                  <span>收入分成</span>
+                </label>
+                <div class="compact-control">
+                  <input id="revenueShareRate" type="number" min="3" max="10" value="5" step="1" aria-label="收入分成比例">
+                  <span>%</span>
+                  <select id="revenueShareMonths" aria-label="分成周期">
+                    <option value="12">12 个月</option>
+                    <option value="18">18 个月</option>
+                    <option value="24">24 个月</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="summary">
+            <section class="receipt">
+              <div class="receipt-head">
+                <span>最终报价</span>
+                <strong id="finalPrice">17,078 元</strong>
+              </div>
+              <dl class="money-list">
+                <div>
+                  <dt>基准层</dt>
+                  <dd id="receiptBase">15,000 元</dd>
+                </div>
+                <div>
+                  <dt>微调后基准</dt>
+                  <dd id="receiptCalibratedBase">15,000 元</dd>
+                </div>
+                <div>
+                  <dt>调整后价格</dt>
+                  <dd id="receiptAdjusted">14,850 元</dd>
+                </div>
+                <div>
+                  <dt>维护费用</dt>
+                  <dd id="receiptMaintenance">2,228 元</dd>
+                </div>
+              </dl>
+              <div class="meta-grid">
+                <label>
+                  <span>交付周期</span>
+                  <input id="deliveryWeeks" type="number" min="1" max="52" value="3" step="1">
+                </label>
+                <label>
+                  <span>信任档案</span>
+                  <select id="trustScore">
+                    <option value="2">★★☆☆☆</option>
+                    <option value="3" selected="">★★★☆☆</option>
+                    <option value="4">★★★★☆</option>
+                    <option value="5">★★★★★</option>
+                  </select>
+                </label>
+              </div>
+              <div class="summary-strip">
+                <div>
+                  <span>质保</span>
+                  <strong id="warrantyMonths">3 个月</strong>
+                </div>
+                <div>
+                  <span>保证金</span>
+                  <strong id="receiptEscrow">2,562 元</strong>
+                </div>
+                <div>
+                  <span>推荐度</span>
+                  <strong id="recommendationDots">●●●●●</strong>
+                </div>
+              </div>
+              <pre id="structuredSummary" aria-label="结构化报价摘要">{
+  "demandId": "20260509-0087",
+  "status": "draft",
+  "baseLevels": {
+    "D1": "M",
+    "D2": "M",
+    "D3": "S",
+    "D4": "M",
+    "D5": "S"
+  },
+  "coefficients": {
+    "C1": "low",
+    "C2": "low",
+    "C3": "low",
+    "C4": "medium"
+  },
+  "adjustmentPercent": 0,
+  "maintenancePackage": "M3",
+  "escrow": {
+    "enabled": true,
+    "rate": 0.15,
+    "amount": 2562
+  },
+  "deliveryWeeks": 3,
+  "trustScore": 3,
+  "totals": {
+    "rawBase": 15000,
+    "calibratedBase": 15000,
+    "factorProduct": 0.99,
+    "adjustedPrice": 14850,
+    "maintenanceFee": 2228,
+    "finalPrice": 17078
+  }
+}</pre>
+            </section>
+          </aside>
+        </form>
+      </section>
+
+      <section class="view" data-view="compare">
+        <section class="panel compare-panel">
+          <div class="panel-head">
+            <div>
+              <span class="step">BUY</span>
+              <h2>买家对比表</h2>
+            </div>
+            <span id="quoteCount">共收到 3 份报价</span>
+          </div>
+          <div class="table-wrap">
+            <table class="compare-table" id="compareTable">
+    <thead>
+      <tr>
+        <th>需求 #20260509-0087</th>
+        <th>OPC-A</th><th>OPC-B</th><th>OPC-C</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <th>基准层</th>
+          <td>15,000 元</td><td>18,000 元</td><td>14,000 元</td>
+        </tr>
+      
+        <tr>
+          <th>调整层系数</th>
+          <td>×0.99</td><td>×1.21</td><td>×0.95</td>
+        </tr>
+      
+        <tr>
+          <th>维护 + 可选</th>
+          <td>+2,228 元</td><td>+3,600 元</td><td>+1,400 元</td>
+        </tr>
+      
+        <tr>
+          <th>最终报价</th>
+          <td>17,078 元</td><td>25,380 元</td><td>14,700 元</td>
+        </tr>
+      
+        <tr>
+          <th>交付周期</th>
+          <td>3 周</td><td>2 周</td><td>5 周</td>
+        </tr>
+      
+        <tr>
+          <th>信任档案</th>
+          <td>★★★☆☆</td><td>★★★★★</td><td>★★☆☆☆</td>
+        </tr>
+      
+        <tr>
+          <th>平台推荐度</th>
+          <td>●●●●●</td><td>●●●●●</td><td>●●○○○</td>
+        </tr>
+      
+    </tbody>
+  </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" data-view="rules">
+        <section class="rules-layout">
+          <article class="panel copy-panel">
+            <div class="panel-head">
+              <div>
+                <span class="step">TALK</span>
+                <h2>客户话术</h2>
+              </div>
+            </div>
+            <p class="lead">我们不按“写代码的小时数”收费。我们按要交付什么规模的系统、在什么不确定性下、承担多长时间的责任来定价。</p>
+            <p>传统外包常用“人工时 × 单价”，但 AI 让代码产出效率不再稳定代表工作价值。三层报价法把范围、风险与关系拆开，让买家看到每一分钱买到的内容。</p>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="step">EDGE</span>
+                <h2>适用边界</h2>
+              </div>
+            </div>
+            <ul class="edge-list">
+              <li>极短交付微任务走固定价。</li>
+              <li>纯咨询或方案设计另建 SKU。</li>
+              <li>长期驻场按周或月包处理。</li>
+              <li>新手 OPC 默认带交付保证金。</li>
+            </ul>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./OPC 报价卡_files/app.mjs"></script>
+  
+
+</body></html>

@@ -329,8 +329,19 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
         body: JSON.stringify({ name: "avatar.jpg", size: blob.size, contentType: "image/jpeg" }),
       });
-      const { uploadURL, objectPath } = await reqRes.json();
-      await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": "image/jpeg" } });
+      if (!reqRes.ok) throw new Error("获取上传地址失败");
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
+
+      const putRes = await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": "image/jpeg" } });
+      if (!putRes.ok) throw new Error("头像上传失败");
+
+      const verifyRes = await fetch(`${API_BASE}/api/storage/uploads/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("头像验证失败");
+
       const avatarUrl = `${API_BASE}/api/storage${objectPath}`;
       setAvatarPreview(avatarUrl);
       set("avatar", avatarUrl);
