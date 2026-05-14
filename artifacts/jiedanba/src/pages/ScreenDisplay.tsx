@@ -7,7 +7,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { Users, FileText, CheckCircle, Clock, TrendingUp, DollarSign, Hexagon } from "lucide-react";
+import { Users, FileText, CheckCircle, Clock, TrendingUp, JapaneseYen, Hexagon } from "lucide-react";
 
 /* ════════════════════════════════════════
    Types
@@ -578,7 +578,7 @@ export default function ScreenDisplay() {
     { title: "进行中订单",   value: kpi?.inProgressOrders ?? 0,   unit: "",    icon: <Clock className="w-full h-full" />,        colorType: "amber"   as ColorType, delay: 200 },
     { title: "已完成订单",   value: kpi?.completedOrders ?? 0,    unit: "",    icon: <CheckCircle className="w-full h-full" />,  colorType: "emerald" as ColorType, delay: 250 },
     { title: "订单完成率",   value: kpi?.completionRate ?? 0,     unit: "%",   icon: <TrendingUp className="w-full h-full" />,   colorType: "rose"    as ColorType, delay: 300 },
-    { title: "平台累计结算", value: kpi?.totalSettled ?? 0,       unit: "元",  icon: <DollarSign className="w-full h-full" />,   colorType: "amber"   as ColorType, delay: 350 },
+    { title: "平台累计结算", value: kpi?.totalSettled ?? 0,       unit: "元",  icon: <JapaneseYen className="w-full h-full" />,  colorType: "amber"   as ColorType, delay: 350 },
   ];
 
   return (
