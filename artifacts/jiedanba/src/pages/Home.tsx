@@ -290,7 +290,7 @@ export default function Home() {
           {/* Leaderboard */}
           <div className="bg-card rounded-2xl md:rounded-3xl shadow-lg shadow-black/5 border border-border p-5 md:p-8">
             <div className="flex items-center justify-between mb-5 md:mb-8">
-              <h3 className="text-xl font-black text-foreground font-display">成交金额排行榜</h3>
+              <h3 className="text-xl font-black text-foreground font-display">OPC 排行榜</h3>
               <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
                 <Award size={20} />
               </div>
