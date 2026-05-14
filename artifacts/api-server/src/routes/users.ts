@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, opcProfilesTable, publisherProfilesTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { db, usersTable, opcProfilesTable, publisherProfilesTable, ordersTable } from "@workspace/db";
+import { eq, desc, sql } from "drizzle-orm";
 import { GetOpcLeaderboardQueryParams, UpdateOpcProfileBody } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
 
@@ -61,6 +61,7 @@ router.get("/users/me", requireAuth, async (req, res) => {
 router.get("/users/opc-leaderboard", async (req, res) => {
   try {
     const { limit } = GetOpcLeaderboardQueryParams.parse(req.query);
+    const liveEarningsSq = sql<number>`COALESCE((SELECT SUM(${ordersTable.amount}) FROM ${ordersTable} WHERE ${ordersTable.opcId} = ${opcProfilesTable.userId} AND ${ordersTable.status} = 'completed'), 0)`;
     const profiles = await db
       .select({
         nickname:       usersTable.nickname,
@@ -73,13 +74,13 @@ router.get("/users/opc-leaderboard", async (req, res) => {
         totalOrders:    opcProfilesTable.totalOrders,
         completionRate: opcProfilesTable.completionRate,
         avgRating:      opcProfilesTable.avgRating,
-        totalEarnings:  opcProfilesTable.totalEarnings,
+        totalEarnings:  liveEarningsSq,
         activityScore:  opcProfilesTable.activityScore,
         title:          opcProfilesTable.title,
       })
       .from(opcProfilesTable)
       .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
-      .orderBy(desc(opcProfilesTable.activityScore))
+      .orderBy(desc(liveEarningsSq))
       .limit(limit ?? 10);
     return res.json(profiles);
   } catch {

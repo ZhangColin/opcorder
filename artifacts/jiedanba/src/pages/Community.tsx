@@ -1032,23 +1032,30 @@ export default function Community() {
 
             <section id="leaderboard" className="bg-white rounded-2xl p-6 border border-slate-100">
               <h2 className="font-extrabold text-foreground flex items-center gap-2 mb-5 text-sm">
-                <Trophy size={16} className="text-amber-400 fill-amber-400" /> 本月贡献榜 · 完整排名
+                <Trophy size={16} className="text-amber-400 fill-amber-400" /> 累计成交榜 · 完整排名
               </h2>
               <div className="space-y-4">
                 {(leaderboard ?? []).map((u, i) => {
-                  const mock = LEADERBOARD_MOCK[i];
+                  const rankColors = ["bg-amber-400", "bg-slate-400", "bg-orange-400"];
                   const initials = (u.nickname ?? "OC").slice(0, 2);
+                  const earnings = u.totalEarnings ?? 0;
+                  const earningsLabel = earnings >= 10000
+                    ? `¥${(earnings / 10000).toFixed(1)}万`
+                    : `¥${earnings.toLocaleString()}`;
                   return (
-                    <div key={u.id} className="flex items-center gap-3">
+                    <div key={u.id ?? i} className="flex items-center gap-3">
                       <div className="relative shrink-0">
                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-xs">{initials}</div>
-                        <span className={`absolute -bottom-0.5 -right-0.5 ${mock?.color ?? "bg-slate-400"} text-[9px] text-white font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white`}>{i + 1}</span>
+                        <span className={`absolute -bottom-0.5 -right-0.5 ${rankColors[i] ?? "bg-slate-300"} text-[9px] text-white font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white`}>{i + 1}</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-bold truncate">{u.nickname}</div>
-                        <div className="text-[10px] text-slate-400">贡献度: {mock?.score ?? "10,000+"}</div>
+                        <div className="text-[10px] text-slate-400">{u.level === "newbie" ? "新手" : `Lv.${u.level}`} · ★ {(u.avgRating ?? 5.0).toFixed(1)}</div>
                       </div>
-                      <button onClick={() => requireLogin()} className="text-xs text-primary font-bold hover:underline shrink-0">+ 关注</button>
+                      <div className="shrink-0 text-right">
+                        <div className="text-sm font-black text-amber-500">{earningsLabel}</div>
+                        <div className="text-[9px] text-slate-400">累计成交</div>
+                      </div>
                     </div>
                   );
                 })}

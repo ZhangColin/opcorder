@@ -28,7 +28,7 @@ function LeaderboardModal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <h2 className="text-xl font-extrabold text-white font-display">活跃 OPC 完整榜单</h2>
-              <p className="text-white/70 text-xs font-medium mt-0.5">按活跃积分排名 · 实时更新</p>
+              <p className="text-white/70 text-xs font-medium mt-0.5">按累计成交金额排名 · 实时更新</p>
             </div>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white">
@@ -90,12 +90,14 @@ function LeaderboardModal({ onClose }: { onClose: () => void }) {
                       </div>
                     </div>
 
-                    {/* Activity Score */}
+                    {/* Earnings */}
                     <div className="shrink-0 text-right">
-                      <div className={`text-lg font-black ${isTop3 ? "text-primary" : "text-slate-700"}`}>
-                        {(opc.activityScore ?? 0).toLocaleString()}
+                      <div className={`text-lg font-black ${isTop3 ? "text-amber-500" : "text-slate-700"}`}>
+                        ¥{(opc.totalEarnings ?? 0) >= 10000
+                          ? `${((opc.totalEarnings ?? 0) / 10000).toFixed(1)}万`
+                          : (opc.totalEarnings ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-medium">活跃积分</div>
+                      <div className="text-[10px] text-slate-400 font-medium">累计成交</div>
                     </div>
                   </div>
                 );
@@ -106,7 +108,7 @@ function LeaderboardModal({ onClose }: { onClose: () => void }) {
 
         {/* Footer */}
         <div className="shrink-0 px-6 py-4 border-t border-border/50 bg-muted/30 text-center text-xs text-muted-foreground font-medium">
-          积分根据接单量、好评率、完成率综合计算 · 每日更新
+          按历史已完成订单累计成交金额排名 · 实时计算
         </div>
       </div>
     </div>
@@ -288,7 +290,7 @@ export default function Home() {
           {/* Leaderboard */}
           <div className="bg-card rounded-2xl md:rounded-3xl shadow-lg shadow-black/5 border border-border p-5 md:p-8">
             <div className="flex items-center justify-between mb-5 md:mb-8">
-              <h3 className="text-xl font-black text-foreground font-display">活跃 OPC 榜单</h3>
+              <h3 className="text-xl font-black text-foreground font-display">成交金额排行榜</h3>
               <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
                 <Award size={20} />
               </div>
@@ -315,17 +317,20 @@ export default function Home() {
                         {index + 1}
                       </span>
                     </div>
-                    <div className="flex-1">
-                      <h5 className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">{opc.nickname}</h5>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-bold">{opc.level === "newbie" ? "新手" : `Lv.${opc.level}`}</span>
-                        </div>
-                        <div className="w-1 h-1 rounded-full bg-border"></div>
-                        <div className="flex items-center text-xs font-bold text-secondary">
-                          ★ {(opc.avgRating || 5.0).toFixed(1)}
-                        </div>
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-bold text-foreground text-sm group-hover:text-primary transition-colors truncate">{opc.nickname}</h5>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-bold shrink-0">{opc.level === "newbie" ? "新手" : `Lv.${opc.level}`}</span>
+                        <span className="text-xs font-bold text-secondary shrink-0">★ {(opc.avgRating || 5.0).toFixed(1)}</span>
                       </div>
+                    </div>
+                    <div className="shrink-0 text-right ml-2">
+                      <div className="text-base font-black text-amber-500">
+                        ¥{(opc.totalEarnings ?? 0) >= 10000
+                          ? `${((opc.totalEarnings ?? 0) / 10000).toFixed(1)}万`
+                          : (opc.totalEarnings ?? 0).toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-medium">累计成交</div>
                     </div>
                   </div>
                 ))
