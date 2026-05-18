@@ -60,3 +60,9 @@ id = "7jT4GXpOYDt-wcqQmr68j"
 uri = "file://backup_production_2026-05-07.sql.gz"
 type = "unspecified"
 title = "接单吧生产环境数据库全量备份 2026-05-07"
+
+[[outputs]]
+id = "ERWE4H6bPStB-rKOxyubq"
+uri = "file://backups/prod_backup_20260518_151156.sql.gz"
+type = "unspecified"
+title = "生产数据库备份 2026-05-18 (gzip)"
