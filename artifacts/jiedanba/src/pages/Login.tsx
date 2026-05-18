@@ -211,6 +211,7 @@ export default function Login() {
                   <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">密码</label>
                   <button
                     type="button"
+                    tabIndex={-1}
                     onClick={() => setShowForgot(true)}
                     className="text-xs font-semibold text-secondary hover:underline"
                   >忘记密码？</button>

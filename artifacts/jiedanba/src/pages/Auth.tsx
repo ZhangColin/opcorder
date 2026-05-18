@@ -320,7 +320,7 @@ export default function Auth() {
                     密码
                   </label>
                   {tab === "login" && (
-                    <button type="button" onClick={() => setShowForgot(true)} className="text-xs font-semibold text-secondary hover:underline">忘记密码？</button>
+                    <button type="button" tabIndex={-1} onClick={() => setShowForgot(true)} className="text-xs font-semibold text-secondary hover:underline">忘记密码？</button>
                   )}
                 </div>
                 <div className="relative">
