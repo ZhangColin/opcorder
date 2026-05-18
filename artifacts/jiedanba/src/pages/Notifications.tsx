@@ -212,7 +212,7 @@ export default function Notifications() {
     else if (n.relatedType === "portfolio" && n.relatedId) navigate(`/profile?portfolio=${n.relatedId}`);
   };
 
-  const respondInvite = async (n: NotificationItem, action: "accept" | "reject") => {
+  const rejectInvite = async (n: NotificationItem) => {
     if (!n.relatedId || !userId) return;
     setActingId(n.id);
     try {
@@ -224,18 +224,12 @@ export default function Notifications() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${getAccessToken() ?? ""}`,
           },
-          body: JSON.stringify({ opcId: userId, action, notificationId: n.id }),
+          body: JSON.stringify({ opcId: userId, action: "reject", notificationId: n.id }),
         }
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "操作失败");
-
-      if (action === "accept") {
-        toast({ title: "已接受邀约", description: "订单已创建，请及时跟进。" });
-        qc.invalidateQueries({ queryKey: ["/api/orders"] });
-      } else {
-        toast({ title: "已婉拒邀约" });
-      }
+      toast({ title: "已婉拒邀约" });
       qc.invalidateQueries({ queryKey: ["/api/notifications"] });
       refetch();
     } catch (err: any) {
@@ -245,8 +239,12 @@ export default function Notifications() {
     }
   };
 
-  const handleAcceptInvite = (n: NotificationItem) => respondInvite(n, "accept");
-  const handleRejectInvite = (n: NotificationItem) => respondInvite(n, "reject");
+  const handleAcceptInvite = (n: NotificationItem) => {
+    if (!n.relatedId) return;
+    if (!n.isRead) handleRead(n.id);
+    navigate(`/demands/${n.relatedId}?action=quote&notifId=${n.id}`);
+  };
+  const handleRejectInvite = (n: NotificationItem) => rejectInvite(n);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

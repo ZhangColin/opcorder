@@ -1,11 +1,12 @@
-import { useState, useMemo } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useState, useMemo, useEffect } from "react";
+import { useRoute, useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File, Building2, MapPin, Globe, Users, CalendarDays, ChevronRight, X, CheckCircle2 } from "lucide-react";
 import { useGetDemandById, useCreateBid } from "@workspace/api-client-react";
 import { DEMAND_TYPES, DEMAND_STATUSES, OPC_LEVELS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
+import { getAccessToken } from "@/lib/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -146,9 +147,11 @@ function PublisherModal({
 export default function DemandDetail() {
   const [, params] = useRoute("/demands/:id");
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const { toast } = useToast();
   
   const id = parseInt(params?.id || "0", 10);
+  const draftKey = id > 0 ? `quote-draft-${id}` : null;
   const { data: demand, isLoading } = useGetDemandById(id);
   const { mutate: submitBid, isPending: isSubmitting } = useCreateBid();
 
@@ -159,6 +162,46 @@ export default function DemandDetail() {
   const [adjustmentPercent, setAdjustmentPercent] = useState(0);
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [maintenancePackage, setMaintenancePackage] = useState<string>("none");
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [fromInviteNotifId, setFromInviteNotifId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!search) return;
+    const p = new URLSearchParams(search);
+    if (p.get("action") === "quote") {
+      setShowBidForm(true);
+      const notifId = p.get("notifId");
+      if (notifId) setFromInviteNotifId(parseInt(notifId, 10));
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [search, id]);
+
+  useEffect(() => {
+    if (!showBidForm || !draftKey) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      let restored = false;
+      if (draft.quoteSelections && typeof draft.quoteSelections === "object") { setQuoteSelections(draft.quoteSelections); restored = true; }
+      if (typeof draft.adjustmentPercent === "number") { setAdjustmentPercent(draft.adjustmentPercent); restored = true; }
+      if (typeof draft.adjustmentReason === "string" && draft.adjustmentReason) { setAdjustmentReason(draft.adjustmentReason); restored = true; }
+      if (typeof draft.maintenancePackage === "string") { setMaintenancePackage(draft.maintenancePackage); restored = true; }
+      if (draft.bidForm && typeof draft.bidForm === "object") { setBidForm(draft.bidForm); restored = true; }
+      if (restored) setDraftRestored(true);
+    } catch {
+      // ignore corrupt draft
+    }
+  }, [showBidForm]);
+
+  useEffect(() => {
+    if (!showBidForm || !draftKey) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ quoteSelections, adjustmentPercent, adjustmentReason, maintenancePackage, bidForm }));
+    } catch {
+      // ignore storage errors
+    }
+  }, [showBidForm, quoteSelections, adjustmentPercent, adjustmentReason, maintenancePackage, bidForm]);
 
   const category = demand ? (DEMAND_CATEGORY_MAP[demand.type] ?? null) : null;
   const { data: quoteConfig } = useQuoteCategoryConfig(category);
@@ -209,6 +252,7 @@ export default function DemandDetail() {
     setAdjustmentPercent(0);
     setAdjustmentReason("");
     setMaintenancePackage("none");
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
   };
 
   const handleBidSubmit = (e: React.FormEvent) => {
@@ -257,6 +301,15 @@ export default function DemandDetail() {
     }, {
       onSuccess: () => {
         toast({ title: "接单申请已提交", description: "发单方将尽快审核您的申请。" });
+        if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
+        if (fromInviteNotifId) {
+          fetch(`${BASE}/api/notifications/${fromInviteNotifId}/invite-responded`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
+          }).catch(() => {/* best-effort */});
+          setFromInviteNotifId(null);
+        }
+        setDraftRestored(false);
         setShowBidForm(false);
         resetQuoteState();
         setBidForm({ proposal: "", estimatedDays: 7, portfolioLinks: "" });
@@ -470,16 +523,21 @@ export default function DemandDetail() {
                 <h2 className="text-sm font-black text-slate-900 leading-none">OPC 报价卡</h2>
                 <p className="text-xs text-slate-500 mt-0.5 truncate">需求：{demand.title}</p>
               </div>
+              {draftRestored && (
+                <span className="shrink-0 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  草稿已恢复
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => { resetQuoteState(); setBidForm({ proposal: "", estimatedDays: 7, portfolioLinks: "" }); }}
+                onClick={() => { resetQuoteState(); setBidForm({ proposal: "", estimatedDays: 7, portfolioLinks: "" }); setDraftRestored(false); }}
                 className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
               >重置</button>
               <button
                 type="button"
-                onClick={() => { setShowBidForm(false); resetQuoteState(); }}
+                onClick={() => { setShowBidForm(false); setDraftRestored(false); resetQuoteState(); }}
                 className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-1.5"
               ><X size={14} /> 关闭</button>
               <button

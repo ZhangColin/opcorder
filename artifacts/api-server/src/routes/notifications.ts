@@ -82,4 +82,30 @@ router.post("/notifications/read-all", requireAuth, async (req, res) => {
   }
 });
 
+router.patch("/notifications/:notificationId/invite-responded", requireAuth, async (req, res) => {
+  try {
+    const notificationId = parseInt(req.params.notificationId as string);
+    const userId = req.user!.id;
+
+    const [existing] = await db
+      .select({ userId: notificationsTable.userId, type: notificationsTable.type, respondedAction: notificationsTable.respondedAction })
+      .from(notificationsTable)
+      .where(eq(notificationsTable.id, notificationId));
+
+    if (!existing) return res.status(404).json({ error: "通知不存在" });
+    if (existing.userId !== userId) return res.status(403).json({ error: "无权操作" });
+    if (existing.type !== "directed_invite") return res.status(400).json({ error: "非邀约通知" });
+    if (existing.respondedAction) return res.json({ success: true, alreadyResponded: true });
+
+    await db
+      .update(notificationsTable)
+      .set({ isRead: true, respondedAction: "accepted" })
+      .where(eq(notificationsTable.id, notificationId));
+
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: "操作失败" });
+  }
+});
+
 export default router;
