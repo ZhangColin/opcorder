@@ -4,7 +4,14 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const demandTypeEnum = pgEnum("demand_type", [
-  "education", "software", "marketing", "content", "other"
+  // Current canonical values
+  "education", "software", "marketing", "content", "other",
+  // Legacy values: kept in schema so Replit's publish diff only needs ADD VALUE,
+  // never an ALTER COLUMN (which would fail while old rows still exist).
+  // runtime migrations.ts converts these to the new values above.
+  // Remove only after all production rows have been migrated.
+  "ai_education", "gov_training", "ai_research",
+  "party_building", "livestream_media", "ai_tool_dev",
 ]);
 
 export const demandStatusEnum = pgEnum("demand_status", [
