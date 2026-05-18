@@ -22,6 +22,8 @@ router.get("/opc/settlement-account", requireAuth, async (req, res) => {
 router.put("/opc/settlement-account", requireAuth, async (req, res) => {
   const userId = req.user!.id;
 
+  req.log.info({ body: req.body }, "[settlement-account PUT] received body");
+
   const {
     companyName,
     creditCode,

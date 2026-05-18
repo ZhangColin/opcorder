@@ -332,19 +332,12 @@ export default function AccountSettings() {
     });
   }, []);
 
-  /* Settlement field helpers — update state + ref, then compute dirty outside the updater */
+  /* Settlement field helpers — update ref synchronously, then trigger state update */
   const setS = useCallback(<K extends keyof SettlementForm>(k: K, v: SettlementForm[K]) => {
-    setSettlementForm(prev => {
-      const next = { ...prev, [k]: v };
-      settlementFormRef.current = next;
-      return next;
-    });
-    /* Compute dirty after the state update, outside the updater to avoid nested setState */
-    setTimeout(() => {
-      setSettlementDirty(
-        JSON.stringify(settlementFormRef.current) !== JSON.stringify(settlementInitialRef.current),
-      );
-    }, 0);
+    const next = { ...settlementFormRef.current, [k]: v };
+    settlementFormRef.current = next;
+    setSettlementForm(next);
+    setSettlementDirty(JSON.stringify(next) !== JSON.stringify(settlementInitialRef.current));
   }, []);
 
   /* Avatar: file selected → open crop modal */
