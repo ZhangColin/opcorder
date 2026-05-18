@@ -488,5 +488,20 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 008b failed in production: ${err}`);
   }
 
+  // Migration 009a: add legal rep ID card columns to settlement_accounts (non-critical)
+  // Stores front and back photo URLs for the legal representative's identity card.
+  // Added in AccountSettings unified page (Task #64). IF NOT EXISTS makes it idempotent.
+  try {
+    await db.execute(sql`
+      ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS legal_rep_id_front_url text
+    `);
+    await db.execute(sql`
+      ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS legal_rep_id_back_url text
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 009a: could not add legal rep ID card columns to settlement_accounts");
+    if (!isDev) throw new Error(`Migration 009a failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

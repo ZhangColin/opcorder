@@ -536,12 +536,17 @@ export default function AccountSettings() {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify(settlementForm),
           })
-            .then(r => r.json())
-            .then(({ data }) => {
-              if (data) {
-                setSettlementStatus(data.status ?? "pending");
-                setRejectReason(data.rejectReason ?? null);
+            .then(async res => {
+              if (!res.ok) {
+                const text = await res.text().catch(() => "");
+                throw new Error(`结算账户保存失败 (${res.status})${text ? ": " + text : ""}`);
               }
+              return res.json();
+            })
+            .then(({ data }) => {
+              if (!data) throw new Error("结算账户保存失败：服务器未返回有效数据");
+              setSettlementStatus(data.status ?? "pending");
+              setRejectReason(data.rejectReason ?? null);
             }),
         );
       }
