@@ -371,31 +371,12 @@ export default function AccountSettings() {
   async function uploadDoc(
     file: File,
     setUploading: (v: boolean) => void,
-    field: keyof SettlementForm,
+    onSuccess: (url: string) => void,
   ) {
     setUploading(true);
     try {
       const url = await secureUpload(file);
-
-      /* Update form state */
-      setS(field, url);
-
-      /* Auto-save immediately so the URL survives a page refresh */
-      const updatedForm = { ...settlementForm, [field]: url };
-      const token = getAccessToken();
-      const res = await fetch(`${API_BASE}/api/opc/settlement-account`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(updatedForm),
-      });
-      if (!res.ok) throw new Error("自动保存失败");
-      const { data } = await res.json();
-      if (data) {
-        /* Keep initial snapshot in sync so dirty flag stays accurate */
-        settlementInitialRef.current = { ...settlementInitialRef.current, [field]: url };
-        setSettlementStatus(data.status ?? "pending");
-        setRejectReason(data.rejectReason ?? null);
-      }
+      onSuccess(url);
     } catch {
       toast({ title: "上传失败，请重试", variant: "destructive" });
     } finally {
@@ -461,6 +442,7 @@ export default function AccountSettings() {
             })
             .then(({ data }) => {
               if (!data) throw new Error("结算账户保存失败：服务器未返回有效数据");
+              settlementInitialRef.current = { ...settlementForm };
               setSettlementStatus(data.status ?? "pending");
               setRejectReason(data.rejectReason ?? null);
             }),
@@ -693,7 +675,7 @@ export default function AccountSettings() {
                     value={settlementForm.businessLicenseUrl}
                     uploading={licenseUploading}
                     accept="image/*,.pdf"
-                    onFileSelect={file => uploadDoc(file, setLicenseUploading, "businessLicenseUrl")}
+                    onFileSelect={file => uploadDoc(file, setLicenseUploading, url => setS("businessLicenseUrl", url))}
                     onClear={() => setS("businessLicenseUrl", "")}
                   />
                   <DocCardUpload
@@ -703,7 +685,7 @@ export default function AccountSettings() {
                     value={settlementForm.legalRepIdFrontUrl}
                     uploading={idFrontUploading}
                     accept="image/*"
-                    onFileSelect={file => uploadDoc(file, setIdFrontUploading, "legalRepIdFrontUrl")}
+                    onFileSelect={file => uploadDoc(file, setIdFrontUploading, url => setS("legalRepIdFrontUrl", url))}
                     onClear={() => setS("legalRepIdFrontUrl", "")}
                   />
                   <DocCardUpload
@@ -713,7 +695,7 @@ export default function AccountSettings() {
                     value={settlementForm.legalRepIdBackUrl}
                     uploading={idBackUploading}
                     accept="image/*"
-                    onFileSelect={file => uploadDoc(file, setIdBackUploading, "legalRepIdBackUrl")}
+                    onFileSelect={file => uploadDoc(file, setIdBackUploading, url => setS("legalRepIdBackUrl", url))}
                     onClear={() => setS("legalRepIdBackUrl", "")}
                   />
                 </div>
