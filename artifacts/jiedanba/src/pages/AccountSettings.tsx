@@ -334,6 +334,7 @@ export default function AccountSettings() {
 
   /* Settlement field helpers — update ref synchronously, then trigger state update */
   const setS = useCallback(<K extends keyof SettlementForm>(k: K, v: SettlementForm[K]) => {
+    console.log("[setS]", k, "=", String(v).slice(0, 80));
     const next = { ...settlementFormRef.current, [k]: v };
     settlementFormRef.current = next;
     setSettlementForm(next);
@@ -428,11 +429,13 @@ export default function AccountSettings() {
 
       if (settlementDirty) {
         const token = getAccessToken();
+        console.log("[handleSave] settlementForm =", JSON.stringify(settlementForm));
+        console.log("[handleSave] ref =", JSON.stringify(settlementFormRef.current));
         tasks.push(
           fetch(`${API_BASE}/api/opc/settlement-account`, {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify(settlementFormRef.current),
+            body: JSON.stringify(settlementForm),
           })
             .then(async res => {
               if (!res.ok) {
