@@ -4427,9 +4427,18 @@ function AnnouncementsManagement() {
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
-      const { uploadURL, objectPath } = await res.json();
+      const { uploadURL, objectPath, sessionToken } = await res.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) {
+        const e = await verifyRes.json().catch(() => ({}));
+        throw new Error(e.error ?? `文件验证失败: ${verifyRes.status}`);
+      }
       setNewFileUrl(`${BASE}/api/storage${objectPath}`);
       setNewFileName(file.name);
       setNewFileType(file.type);
