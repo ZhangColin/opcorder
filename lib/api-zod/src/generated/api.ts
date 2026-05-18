@@ -199,15 +199,7 @@ export const ListDemandsResponse = zod.object({
       id: zod.number(),
       demandNo: zod.string(),
       title: zod.string(),
-      type: zod.enum([
-        "ai_education",
-        "gov_training",
-        "ai_research",
-        "party_building",
-        "livestream_media",
-        "ai_tool_dev",
-        "other",
-      ]),
+      type: zod.enum(["education", "software", "marketing", "content", "other"]),
       typeLabel: zod.string().optional(),
       description: zod.string(),
       skillTags: zod.array(zod.string()),
@@ -283,19 +275,16 @@ export const createDemandBodyIsUrgentDefault = false;
 
 export const CreateDemandBody = zod.object({
   title: zod.string().max(createDemandBodyTitleMax),
-  type: zod.enum([
-    "ai_education",
-    "gov_training",
-    "ai_research",
-    "party_building",
-    "livestream_media",
-    "ai_tool_dev",
-    "other",
-  ]),
+  type: zod.enum(["education", "software", "marketing", "content", "other"]),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),
-  budget: zod.number(),
+  /** @deprecated Use budgetMin/budgetMax instead. */
+  budget: zod.number().optional(),
+  /** Minimum budget (price range lower bound). */
+  budgetMin: zod.number().optional(),
+  /** Maximum budget (price range upper bound). */
+  budgetMax: zod.number().optional(),
   deadline: zod.coerce.date(),
   milestones: zod
     .array(
@@ -334,15 +323,7 @@ export const GetDemandByIdResponse = zod.object({
   id: zod.number(),
   demandNo: zod.string(),
   title: zod.string(),
-  type: zod.enum([
-    "ai_education",
-    "gov_training",
-    "ai_research",
-    "party_building",
-    "livestream_media",
-    "ai_tool_dev",
-    "other",
-  ]),
+  type: zod.enum(["education", "software", "marketing", "content", "other"]),
   typeLabel: zod.string().optional(),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
@@ -436,15 +417,7 @@ export const UpdateDemandResponse = zod.object({
   id: zod.number(),
   demandNo: zod.string(),
   title: zod.string(),
-  type: zod.enum([
-    "ai_education",
-    "gov_training",
-    "ai_research",
-    "party_building",
-    "livestream_media",
-    "ai_tool_dev",
-    "other",
-  ]),
+  type: zod.enum(["education", "software", "marketing", "content", "other"]),
   typeLabel: zod.string().optional(),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
@@ -534,15 +507,7 @@ export const UpdateDemandStatusResponse = zod.object({
   id: zod.number(),
   demandNo: zod.string(),
   title: zod.string(),
-  type: zod.enum([
-    "ai_education",
-    "gov_training",
-    "ai_research",
-    "party_building",
-    "livestream_media",
-    "ai_tool_dev",
-    "other",
-  ]),
+  type: zod.enum(["education", "software", "marketing", "content", "other"]),
   typeLabel: zod.string().optional(),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
@@ -637,9 +602,16 @@ export const CreateBidParams = zod.object({
 });
 
 export const CreateBidBody = zod.object({
-  proposal: zod.string(),
+  /** Text proposal / cover letter. Optional when quoteCardData is provided. */
+  proposal: zod.string().optional(),
   estimatedDays: zod.number(),
   portfolioLinks: zod.array(zod.string()).optional(),
+  /** Structured quote card: maps dimension code (e.g. "D1") to tier code (e.g. "M"). */
+  quoteCardData: zod.record(zod.string(), zod.string()).optional(),
+  /** Final quoted price in yuan, computed from quote card selections. */
+  quotedPrice: zod.number().optional(),
+  /** Full immutable snapshot of the quote card at submission time. */
+  quoteCardSnapshot: zod.record(zod.string(), zod.unknown()).optional(),
 });
 
 /**
@@ -708,6 +680,7 @@ export const listOrdersQueryLimitDefault = 20;
 export const ListOrdersQueryParams = zod.object({
   status: zod
     .enum([
+      "pending_payment",
       "in_progress",
       "pending_acceptance",
       "completed",
@@ -2036,6 +2009,121 @@ export const UpdateAgentConfigParams = zod.object({
 export const UpdateAgentConfigBody = zod.object({
   systemPrompt: zod.string().optional(),
   isEnabled: zod.boolean().optional(),
+});
+
+/**
+ * @summary Submit order deposit payment (publisher only)
+ */
+export const SubmitOrderPaymentParams = zod.object({
+  orderId: zod.coerce.number(),
+});
+
+export const SubmitOrderPaymentBody = zod.object({
+  method: zod.enum(["online", "offline"]),
+  receiptUrl: zod.string().optional().describe("Receipt URL for offline payments"),
+  paymentNote: zod.string().optional(),
+});
+
+/**
+ * @summary Close a pending_payment order (publisher or admin)
+ */
+export const CloseOrderParams = zod.object({
+  orderId: zod.coerce.number(),
+});
+
+export const CloseOrderBody = zod.object({
+  reason: zod.string().optional(),
+});
+
+/**
+ * Quote card config item (one dimension + tier combination)
+ */
+export const QuoteCardConfigItem = zod.object({
+  id: zod.number(),
+  dimensionCode: zod.string(),
+  dimensionLabel: zod.string(),
+  tier: zod.enum(["S", "M", "L", "XL"]),
+  tierLabel: zod.string(),
+  basePrice: zod.number(),
+  coefficient: zod.number().nullish(),
+  description: zod.string().nullish(),
+  updatedAt: zod.date().optional(),
+});
+export const QuoteCardConfigResponse = zod.array(QuoteCardConfigItem);
+
+export const PutQuoteCardConfigBody = zod.object({
+  items: zod.array(
+    zod.object({
+      dimensionCode: zod.string(),
+      dimensionLabel: zod.string(),
+      tier: zod.string(),
+      tierLabel: zod.string(),
+      basePrice: zod.number().min(0),
+      coefficient: zod.number().nullish(),
+      description: zod.string().optional(),
+    })
+  ),
+});
+
+// ── Quote Card v2 (dynamic dimensions + tiers) ────────────────────────────
+
+export const QuoteDimTier = zod.object({
+  id: zod.number(),
+  tier: zod.string(),
+  tierLabel: zod.string(),
+  basePrice: zod.number(),
+  coefficient: zod.number().nullish(),
+  description: zod.string().nullish(),
+  sortOrder: zod.number(),
+});
+
+export const QuoteDim = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  label: zod.string(),
+  description: zod.string().nullish(),
+  sortOrder: zod.number(),
+  tiers: zod.array(QuoteDimTier),
+});
+
+export const QuoteCategoryConfig = zod.object({
+  category: zod.string(),
+  base: zod.array(QuoteDim),
+  adjustment: zod.array(QuoteDim),
+});
+
+export const CreateQuoteDimensionBody = zod.object({
+  category: zod.enum(["software", "education", "marketing", "content"]),
+  layer: zod.enum(["base", "adjustment"]),
+  code: zod.string().min(1).max(20),
+  label: zod.string().min(1),
+  description: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateQuoteDimensionBody = zod.object({
+  label: zod.string().min(1).optional(),
+  description: zod.string().nullish(),
+  sortOrder: zod.number().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const CreateQuoteTierBody = zod.object({
+  dimensionId: zod.number(),
+  tier: zod.string().min(1).max(20),
+  tierLabel: zod.string().min(1),
+  basePrice: zod.number().min(0).optional(),
+  coefficient: zod.number().min(0.01).max(10).optional(),
+  description: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+export const UpdateQuoteTierBody = zod.object({
+  tierLabel: zod.string().min(1).optional(),
+  basePrice: zod.number().min(0).optional(),
+  coefficient: zod.number().min(0.01).max(10).nullish(),
+  description: zod.string().nullish(),
+  sortOrder: zod.number().optional(),
 });
 
 export const UpdateAgentConfigResponse = zod.object({

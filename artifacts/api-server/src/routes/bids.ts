@@ -22,12 +22,13 @@ function buildWinnerEmail(nickname: string, demandTitle: string, orderNo: string
           </div>
           <span style="display:inline-block;vertical-align:middle;font-weight:900;font-size:20px;color:#0047ab;margin-left:10px;">接单吧</span>
         </div>
-        <h2 style="font-size:22px;font-weight:800;color:#1a1c1e;margin:0 0 20px;">恭喜您中标！🎉</h2>
+        <h2 style="font-size:22px;font-weight:800;color:#1a1c1e;margin:0 0 20px;">您的报价已被选中！🎉</h2>
         <div style="border-left:3px solid #0047ab;padding-left:16px;margin-bottom:24px;">
           <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">您好，${n(nickname)}！</p>
-          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">您的申请已被发单方选中，需求「<strong>${n(demandTitle)}</strong>」已正式进入执行阶段。</p>
+          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">您对需求「<strong>${n(demandTitle)}</strong>」的报价已被发单方选中！</p>
           <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">订单编号：<span style="font-family:monospace;background:#f3f4f6;padding:2px 8px;border-radius:6px;">${n(orderNo)}</span></p>
-          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">请登录接单吧，在「我的订单」中查看订单详情并开始执行。请务必在约定期限内按时完成各里程碑交付。</p>
+          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">订单目前处于「待付款」状态，发单方正在完成付款。付款到账后订单将正式进入执行阶段，届时系统将再次通知您。</p>
+          <p style="color:#4b5563;font-size:15px;margin:0 0 12px;line-height:1.7;">请登录接单吧，在「我的订单」中查看订单详情，提前做好执行准备。</p>
         </div>
         <p style="color:#9ca3af;font-size:13px;line-height:1.6;margin:16px 0 0;border-top:1px solid #f3f4f6;padding-top:16px;">
           此邮件由系统自动发送，请勿直接回复。
@@ -55,10 +56,14 @@ router.get("/bids/my", requireAuth, async (req, res) => {
         demandTitle: demandsTable.title,
         demandStatus: demandsTable.status,
         demandBudget: demandsTable.budget,
+        demandBudgetMin: demandsTable.budgetMin,
+        demandBudgetMax: demandsTable.budgetMax,
         demandDeadline: demandsTable.deadline,
         proposal: bidsTable.proposal,
         estimatedDays: bidsTable.estimatedDays,
         portfolioLinks: bidsTable.portfolioLinks,
+        quoteCardData: bidsTable.quoteCardData,
+        quotedPrice: bidsTable.quotedPrice,
         status: bidsTable.status,
         createdAt: bidsTable.createdAt,
       })
@@ -69,7 +74,7 @@ router.get("/bids/my", requireAuth, async (req, res) => {
 
     return res.json(bids.map(b => ({
       ...b,
-      demandDeadline: b.demandDeadline ?? null,   // date column returns string, not Date
+      demandDeadline: b.demandDeadline ?? null,
       createdAt: b.createdAt.toISOString(),
     })));
   } catch (error) {
@@ -97,7 +102,6 @@ router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
       return res.status(400).json({ error: `当前申请状态「${bid.status}」无法撤消，仅「申请中」状态可撤消` });
     }
 
-    // Atomic update: only succeeds if status is still 'pending' at write time (prevents race condition)
     const rows = await db
       .update(bidsTable)
       .set({ status: "withdrawn" })
@@ -130,6 +134,9 @@ router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
         proposal: bidsTable.proposal,
         estimatedDays: bidsTable.estimatedDays,
         portfolioLinks: bidsTable.portfolioLinks,
+        quoteCardData: bidsTable.quoteCardData,
+        quoteCardSnapshot: bidsTable.quoteCardSnapshot,
+        quotedPrice: bidsTable.quotedPrice,
         status: bidsTable.status,
         createdAt: bidsTable.createdAt,
       })
@@ -159,6 +166,7 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
         title:        demandsTable.title,
         opcLevel:     demandsTable.opcLevel,
         budget:       demandsTable.budget,
+        budgetMin:    demandsTable.budgetMin,
         status:       demandsTable.status,
       })
       .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
@@ -184,10 +192,12 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       }
     }
 
+    // Budget cap check uses budgetMin (new) with fallback to legacy budget
+    const effectiveBudgetMin = (demand.budgetMin && demand.budgetMin > 0) ? demand.budgetMin : (demand.budget ?? 0);
     const budgetCap = LEVEL_BUDGET_CAP[opcActualLevel];
-    if (budgetCap !== undefined && demand.budget > budgetCap) {
+    if (budgetCap !== undefined && effectiveBudgetMin > budgetCap) {
       return res.status(403).json({
-        error: `该需求预算 ¥${demand.budget.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
+        error: `该需求预算下限 ¥${effectiveBudgetMin.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
       });
     }
 
@@ -225,17 +235,36 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
     let bid;
     let isNew = false;
 
+    const proposalText = body.proposal?.trim() || "";
+    const quoteCardData = body.quoteCardData || {};
+    const quotedPrice = body.quotedPrice ?? null;
+    const quoteCardSnapshot = (body as any).quoteCardSnapshot ?? null;
+
+    // Validate: at least one of quoteCardData or a non-empty proposal must be provided
+    const hasQuoteCard = Object.keys(quoteCardData).length > 0;
+    const hasProposal = proposalText.length > 0;
+    if (!hasQuoteCard && !hasProposal) {
+      return res.status(400).json({ error: "请填写报价方案：提交报价卡选项或文字方案（二选一）" });
+    }
+
+    // Validate: if quoteCardData is provided, quotedPrice must be a positive number
+    if (hasQuoteCard && (!quotedPrice || quotedPrice <= 0)) {
+      return res.status(400).json({ error: "选择报价卡后必须填写有效的报价金额（须大于0）" });
+    }
+
     if (existingBid) {
       if (existingBid.status === "accepted") {
         return res.status(400).json({ error: "您已中标该需求，无法再次修改申请" });
       }
-      // Update existing bid (reset to pending so publisher sees latest version)
       const [updated] = await db
         .update(bidsTable)
         .set({
-          proposal: body.proposal,
+          proposal: proposalText,
           estimatedDays: body.estimatedDays,
           portfolioLinks: body.portfolioLinks || [],
+          quoteCardData,
+          quoteCardSnapshot,
+          quotedPrice,
           status: "pending",
         })
         .where(eq(bidsTable.id, existingBid.id))
@@ -245,9 +274,12 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       const [inserted] = await db.insert(bidsTable).values({
         demandId,
         opcId,
-        proposal: body.proposal,
+        proposal: proposalText,
         estimatedDays: body.estimatedDays,
         portfolioLinks: body.portfolioLinks || [],
+        quoteCardData,
+        quoteCardSnapshot,
+        quotedPrice,
         status: "pending",
       }).returning();
       bid = inserted;
@@ -261,8 +293,8 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       await db.insert(notificationsTable).values({
         userId: demand.publisherId,
         type: "bid_received",
-        title: "有新的抢单申请",
-        content: `OPC「${opc?.nickname ?? "未知"}」已对您的需求「${demand.title}」发起抢单申请，请及时查看并处理。`,
+        title: "有新的报价申请",
+        content: `OPC「${opc?.nickname ?? "未知"}」已对您的需求「${demand.title}」提交报价${quotedPrice ? `（报价：¥${quotedPrice.toLocaleString()}）` : ""}，请及时查看并对比报价。`,
         relatedId: demandId,
         relatedType: "demand",
       });
@@ -280,16 +312,70 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
 router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
   try {
     const bidId = parseInt(req.params.bidId as string);
+    if (isNaN(bidId) || bidId <= 0) return res.status(400).json({ error: "无效的申请ID" });
+
     const body = UpdateBidStatusBody.parse(req.body);
+    const caller = req.user!;
+
+    // Fetch bid + associated demand for authorization
+    const [bid] = await db
+      .select({
+        id: bidsTable.id,
+        demandId: bidsTable.demandId,
+        opcId: bidsTable.opcId,
+        status: bidsTable.status,
+        quotedPrice: bidsTable.quotedPrice,
+        estimatedDays: bidsTable.estimatedDays,
+      })
+      .from(bidsTable)
+      .where(eq(bidsTable.id, bidId))
+      .limit(1);
+
+    if (!bid) return res.status(404).json({ error: "报价申请不存在" });
+
+    const [demand] = await db.select().from(demandsTable).where(eq(demandsTable.id, bid.demandId)).limit(1);
+    if (!demand) return res.status(404).json({ error: "关联需求不存在" });
+
+    // Only the demand publisher or an admin may accept/reject bids
+    const isAdmin = caller.role === "admin";
+    const isPublisher = demand.publisherId === caller.id;
+
+    if (["accepted", "rejected"].includes(body.status)) {
+      if (!isPublisher && !isAdmin) {
+        return res.status(403).json({ error: "只有发单方或管理员可以选中/拒绝报价" });
+      }
+    }
+
+    // Prevent re-accepting an already-accepted bid
+    if (body.status === "accepted" && bid.status === "accepted") {
+      return res.status(400).json({ error: "该报价已处于选中状态" });
+    }
+
+    // Prevent accepting a bid when another bid is already accepted for this demand
+    if (body.status === "accepted") {
+      const [alreadyAccepted] = await db
+        .select({ id: bidsTable.id })
+        .from(bidsTable)
+        .where(and(eq(bidsTable.demandId, bid.demandId), eq(bidsTable.status, "accepted")))
+        .limit(1);
+      if (alreadyAccepted) {
+        return res.status(400).json({ error: "该需求已有选中的报价，请先关闭相关订单后再重新选择" });
+      }
+    }
 
     const [updated] = await db.update(bidsTable).set({
-      status: body.status as any,
+      status: body.status as "pending" | "accepted" | "rejected" | "withdrawn",
     }).where(eq(bidsTable.id, bidId)).returning();
 
     if (body.status === "accepted") {
-      const [demand] = await db.select().from(demandsTable).where(eq(demandsTable.id, updated.demandId));
       if (demand) {
-        const amount = demand.budget;
+        // Require quotedPrice from the structured quote card; refuse silent fallback to legacy budget
+        if (!updated.quotedPrice || updated.quotedPrice <= 0) {
+          // Roll back the accept
+          await db.update(bidsTable).set({ status: "pending" }).where(eq(bidsTable.id, bidId));
+          return res.status(400).json({ error: "该报价缺少有效的报价金额，请要求OPC补充后重新提交" });
+        }
+        const amount = updated.quotedPrice;
         const opcShare = amount * 0.9;
         const publisherShare = 0;
         const platformFee = amount * 0.1;
@@ -299,6 +385,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
         const seq = String(Math.floor(Math.random() * 9999)).padStart(4, "0");
         const orderNo = `ORD-${ym}-${seq}`;
 
+        // Create order with pending_payment status — publisher must pay before work begins
         await db.insert(ordersTable).values({
           orderNo,
           demandId: demand.id,
@@ -308,7 +395,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
           opcShare,
           publisherShare,
           platformFee,
-          status: "in_progress",
+          status: "pending_payment",
           milestones: demand.milestones || [],
           deadline: demand.deadline,
         });
@@ -318,28 +405,49 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
           updatedAt: new Date(),
         }).where(eq(demandsTable.id, demand.id));
 
+        // Reject all other pending bids
         await db.update(bidsTable).set({ status: "rejected" }).where(
           and(eq(bidsTable.demandId, demand.id), eq(bidsTable.status, "pending"))
         );
 
-        // Send winner notification to OPC
+        // Notify winning OPC that their bid was selected but payment is pending
         const [opcUser] = await db.select({ nickname: usersTable.nickname, email: usersTable.email })
           .from(usersTable).where(eq(usersTable.id, updated.opcId)).limit(1);
 
         await db.insert(notificationsTable).values({
           userId: updated.opcId,
           type: "system",
-          title: "恭喜您中标！",
-          content: `您对需求「${demand.title}」的申请已被发单方选中。订单编号：${orderNo}。请登录接单吧查看订单详情并开始执行，请务必在约定期限内完成交付。`,
+          title: "您的报价已被选中！（等待发单方付款）",
+          content: `您对需求「${demand.title}」的报价已被发单方选中。订单编号：${orderNo}。目前订单处于「待付款」状态，发单方完成付款后订单将正式启动。`,
           relatedId: demand.id,
           relatedType: "demand",
         });
+
+        // Notify losing OPCs
+        const losingBids = await db
+          .select({ opcId: bidsTable.opcId })
+          .from(bidsTable)
+          .where(and(eq(bidsTable.demandId, demand.id), eq(bidsTable.status, "rejected")));
+
+        const uniqueLosingOpcIds = [...new Set(losingBids.map(b => b.opcId).filter(id => id !== updated.opcId))];
+        if (uniqueLosingOpcIds.length > 0) {
+          await db.insert(notificationsTable).values(
+            uniqueLosingOpcIds.map(opcId => ({
+              userId: opcId,
+              type: "system" as const,
+              title: "该需求已选定其他OPC",
+              content: `您对需求「${demand.title}」的报价未被选中，感谢您的参与。`,
+              relatedId: demand.id,
+              relatedType: "demand",
+            }))
+          );
+        }
 
         if (opcUser?.email) {
           resend.emails.send({
             from: "接单吧 <jiedanba@opcorder.com>",
             to: opcUser.email,
-            subject: `恭喜中标！需求「${demand.title}」 - 接单吧`,
+            subject: `您的报价已被选中！需求「${demand.title}」- 接单吧`,
             html: buildWinnerEmail(opcUser.nickname ?? opcUser.email, demand.title, orderNo),
           }).catch(() => {});
         }

@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, demandsTable, demandPaymentsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable } from "@workspace/db";
+import { db, demandsTable, demandPaymentsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
 import {
   ListDemandsQueryParams,
@@ -19,12 +19,10 @@ const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 const router: IRouter = Router();
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
-  ai_education: "AI教育课程开发",
-  gov_training: "政企AI培训",
-  ai_research: "AI研学项目",
-  party_building: "党建AI应用",
-  livestream_media: "直播与新媒体",
-  ai_tool_dev: "AI工具开发定制",
+  education: "教育培训",
+  software: "软件开发",
+  marketing: "营销",
+  content: "内容设计",
   other: "其他",
 };
 
@@ -65,8 +63,8 @@ router.get("/demands", requireAuth, async (req, res) => {
     if (params.status) conditions.push(eq(demandsTable.status, params.status as any));
     if (params.type) conditions.push(eq(demandsTable.type, params.type as any));
     if (params.opcLevel && params.opcLevel !== "any") conditions.push(eq(demandsTable.opcLevel, params.opcLevel));
-    if (params.minBudget) conditions.push(gte(demandsTable.budget, params.minBudget));
-    if (params.maxBudget) conditions.push(lte(demandsTable.budget, params.maxBudget));
+    if (params.minBudget) conditions.push(gte(demandsTable.budgetMin, params.minBudget));
+    if (params.maxBudget) conditions.push(lte(demandsTable.budgetMax, params.maxBudget));
     if (params.eligibleLevel) {
       conditions.push(
         sql`(${demandsTable.opcLevel} = ${params.eligibleLevel} OR ${demandsTable.opcLevel} = 'any')`
@@ -119,6 +117,8 @@ router.get("/demands", requireAuth, async (req, res) => {
         skillTags: demandsTable.skillTags,
         opcLevel: demandsTable.opcLevel,
         budget: demandsTable.budget,
+        budgetMin: demandsTable.budgetMin,
+        budgetMax: demandsTable.budgetMax,
         deadline: demandsTable.deadline,
         milestones: demandsTable.milestones,
         attachments: demandsTable.attachments,
@@ -189,6 +189,11 @@ router.post("/demands", requireAuth, async (req, res) => {
 
     const publisherId = req.user!.id;
 
+    // Support both legacy budget and new budgetMin/budgetMax
+    const budgetMin = body.budgetMin ?? body.budget ?? 0;
+    const budgetMax = body.budgetMax ?? body.budget ?? 0;
+    const budgetLegacy = body.budget ?? budgetMin;
+
     const [demand] = await db.insert(demandsTable).values({
       demandNo,
       title: body.title,
@@ -196,7 +201,9 @@ router.post("/demands", requireAuth, async (req, res) => {
       description: body.description,
       skillTags: body.skillTags,
       opcLevel: body.opcLevel,
-      budget: body.budget,
+      budget: budgetLegacy,
+      budgetMin,
+      budgetMax,
       deadline: body.deadline instanceof Date ? body.deadline.toISOString().split("T")[0] : String(body.deadline),
       milestones,
       attachments: rawAttachments,
@@ -234,6 +241,8 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
         skillTags: demandsTable.skillTags,
         opcLevel: demandsTable.opcLevel,
         budget: demandsTable.budget,
+        budgetMin: demandsTable.budgetMin,
+        budgetMax: demandsTable.budgetMax,
         deadline: demandsTable.deadline,
         milestones: demandsTable.milestones,
         attachments: demandsTable.attachments,
@@ -443,6 +452,12 @@ router.patch("/demands/:demandId/adjust", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * @deprecated Demand-level deposit payment has been superseded by order-level payment.
+ * Deposits are now collected via POST /orders/:orderId/payment after a bid is accepted.
+ * This endpoint is retained for backward compatibility with existing demands in
+ * pending_payment status but MUST NOT be used for new demand flows.
+ */
 router.post("/demands/:demandId/payment", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId as string);
@@ -792,7 +807,7 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
         opcShare: amount * 0.9,
         publisherShare: 0,
         platformFee: amount * 0.1,
-        status: "in_progress",
+        status: "pending_payment",
         milestones: demand.milestones || [],
         deadline: demand.deadline,
       })
@@ -814,11 +829,12 @@ router.post("/demands/:demandId/invite/respond", requireAuth, async (req, res) =
       .where(eq(usersTable.id, opcId))
       .limit(1);
 
+    // Notify publisher: OPC accepted, but payment is still required to start
     await db.insert(notificationsTable).values({
       userId: demand.publisherId,
       type: "order_created",
-      title: "OPC 已接受邀约",
-      content: `OPC「${opc?.nickname ?? "未知"}」已接受您的定向邀约并承接「${demand.title}」，订单已自动生成。`,
+      title: "OPC 已接受邀约，请完成付款",
+      content: `OPC「${opc?.nickname ?? "未知"}」已接受您对「${demand.title}」的定向邀约，订单已生成（编号：${orderNo}）。请前往「我的订单」完成保证金付款，付款确认后订单正式开始。`,
       relatedId: order.id,
       relatedType: "order",
     });
@@ -967,6 +983,50 @@ router.post("/demands/:demandId/sync-refund-status", requireAuth, async (req, re
   } catch (err) {
     logger.error({ err: err }, "[sync-refund-status] error:");
     return res.status(500).json({ error: "查询退款状态失败" });
+  }
+});
+
+/* ─── Public: GET /quote-card/config?category=X — OPC reads pricing config ── */
+router.get("/quote-card/config", async (req, res) => {
+  try {
+    const category = req.query.category as string | undefined;
+    if (!category) return res.status(400).json({ error: "category 参数必填" });
+
+    const dims = await db.select().from(quoteDimensionsTable)
+      .where(and(eq(quoteDimensionsTable.category, category), eq(quoteDimensionsTable.isActive, true)))
+      .orderBy(asc(quoteDimensionsTable.layer), asc(quoteDimensionsTable.sortOrder));
+
+    if (dims.length === 0) return res.json({ category, base: [], adjustment: [], optional: [] });
+
+    const dimIds = dims.map(d => d.id);
+    const tiers = await db.select().from(quoteTiersTable)
+      .where(inArray(quoteTiersTable.dimensionId, dimIds))
+      .orderBy(asc(quoteTiersTable.sortOrder));
+
+    const tiersByDim = new Map<number, typeof tiers>();
+    for (const t of tiers) {
+      if (!tiersByDim.has(t.dimensionId)) tiersByDim.set(t.dimensionId, []);
+      tiersByDim.get(t.dimensionId)!.push(t);
+    }
+
+    const mapDim = (d: typeof dims[0]) => ({
+      id: d.id, code: d.code, label: d.label, description: d.description, sortOrder: d.sortOrder,
+      tiers: (tiersByDim.get(d.id) ?? []).map(t => ({
+        id: t.id, tier: t.tier, tierLabel: t.tierLabel,
+        basePrice: t.basePrice, coefficient: t.coefficient,
+        description: t.description, sortOrder: t.sortOrder,
+      })),
+    });
+
+    return res.json({
+      category,
+      base: dims.filter(d => d.layer === "base").map(mapDim),
+      adjustment: dims.filter(d => d.layer === "adjustment").map(mapDim),
+      optional: dims.filter(d => d.layer === "optional").map(mapDim),
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /quote-card/config error");
+    return res.status(500).json({ error: "获取报价卡配置失败" });
   }
 });
 

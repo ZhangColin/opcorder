@@ -1,12 +1,10 @@
 import { type LLMTool } from "./llm";
 
 export const DEMAND_TYPES = [
-  { value: "ai_education", label: "AI教育课程开发", description: "面向学校、教育机构的AI课程内容开发与交付" },
-  { value: "gov_training", label: "政企AI培训", description: "面向政府机关、国有企业的AI技能培训项目" },
-  { value: "ai_research", label: "AI研学项目", description: "AI主题研学营、体验课、科技参观等活动策划与执行" },
-  { value: "party_building", label: "党建AI应用", description: "党建活动与AI技术结合的应用场景开发" },
-  { value: "livestream_media", label: "直播与新媒体", description: "AI赋能直播带货、短视频内容生产、新媒体运营" },
-  { value: "ai_tool_dev", label: "AI工具开发定制", description: "面向企业的AI工具、插件、系统定制开发" },
+  { value: "education", label: "教育培训", description: "AI课程开发、政企培训、研学项目等教育类服务" },
+  { value: "software", label: "软件开发", description: "AI工具定制、插件开发、系统集成等软件交付" },
+  { value: "marketing", label: "营销", description: "AI赋能直播、短视频、新媒体及品牌营销推广" },
+  { value: "content", label: "内容设计", description: "图文、视频、H5等内容创作与设计服务" },
   { value: "other", label: "其他", description: "不属于以上分类的其他AI相关服务需求" },
 ];
 

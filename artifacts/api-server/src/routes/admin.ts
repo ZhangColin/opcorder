@@ -1,10 +1,10 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
-import { ReviewDemandPaymentBody } from "@workspace/api-zod";
+import { ReviewDemandPaymentBody, PutQuoteCardConfigBody, CreateQuoteDimensionBody, UpdateQuoteDimensionBody, CreateQuoteTierBody, UpdateQuoteTierBody } from "@workspace/api-zod";
 import { createRefund } from "../lib/payment";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -323,6 +323,8 @@ router.get("/admin/demands", async (req, res) => {
       status: demandsTable.status,
       mode: demandsTable.mode,
       budget: demandsTable.budget,
+      budgetMin: demandsTable.budgetMin,
+      budgetMax: demandsTable.budgetMax,
       isUrgent: demandsTable.isUrgent,
       createdAt: demandsTable.createdAt,
       publisherId: demandsTable.publisherId,
@@ -455,13 +457,14 @@ router.patch("/admin/demands/:id", async (req, res) => {
       .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
 
     if (action === "approve") {
-      await db.update(demandsTable).set({ status: "pending_payment" }).where(eq(demandsTable.id, id));
+      // Approve: directly publish the demand (no longer requires payment at this stage)
+      await db.update(demandsTable).set({ status: "published" }).where(eq(demandsTable.id, id));
       // In-app notification
       await db.insert(notificationsTable).values({
         userId: d.publisherId,
         type: "system",
-        title: "您的需求已通过审核，请缴纳保证金",
-        content: `您的需求「${d.title}」已通过平台审核。请在需求详情页缴纳保证金，保证金到账确认后需求将自动发布至需求大厅。`,
+        title: "您的需求已通过审核并发布",
+        content: `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布，OPC 可以查看并提交报价。`,
         relatedId: id,
         relatedType: "demand",
       });
@@ -470,8 +473,8 @@ router.patch("/admin/demands/:id", async (req, res) => {
         await resend.emails.send({
           from: "接单吧 <jiedanba@opcorder.com>",
           to: pub.email,
-          subject: "您的需求已通过审核，请缴纳保证金 - 接单吧",
-          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核。\n\n请登录接单吧，在需求详情页缴纳保证金，保证金到账确认后需求将自动发布至需求大厅，OPC 可以查看并投标。`),
+          subject: "您的需求已通过审核并发布 - 接单吧",
+          html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布。\n\nOPC 将根据您的需求提交结构化报价卡，您可以在平台上对比各家报价后选择最合适的 OPC。`),
         }).catch(() => {/* ignore email errors */});
       }
     } else if (action === "reject") {
@@ -525,7 +528,7 @@ router.get("/admin/orders", async (req, res) => {
     const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const conditions = [];
-    if (status && status !== "all") conditions.push(eq(ordersTable.status, status as "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed"));
+    if (status && status !== "all") conditions.push(eq(ordersTable.status, status as "pending_payment" | "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed"));
     if (q) conditions.push(or(
       ilike(ordersTable.orderNo, `%${q}%`),
       sql`${ordersTable.demandId} IN (SELECT id FROM demands WHERE title ILIKE ${`%${q}%`})`,
@@ -548,6 +551,10 @@ router.get("/admin/orders", async (req, res) => {
       demandId: ordersTable.demandId,
       createdAt: ordersTable.createdAt,
       milestones: ordersTable.milestones,
+      paymentMethod: ordersTable.paymentMethod,
+      paymentReceiptUrl: ordersTable.paymentReceiptUrl,
+      paymentRejectReason: ordersTable.paymentRejectReason,
+      paidAt: ordersTable.paidAt,
     })
       .from(ordersTable)
       .where(where)
@@ -2138,6 +2145,8 @@ router.get("/admin/demand-refunds", async (req, res) => {
         title: demandsTable.title,
         status: demandsTable.status,
         budget: demandsTable.budget,
+        budgetMin: demandsTable.budgetMin,
+        budgetMax: demandsTable.budgetMax,
         publisherId: demandsTable.publisherId,
         createdAt: demandsTable.createdAt,
         updatedAt: demandsTable.updatedAt,
@@ -2750,6 +2759,312 @@ router.patch("/admin/settlement-accounts/:id", requireAdmin, async (req, res) =>
   } catch (err) {
     logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "审核操作失败" });
+  }
+});
+
+/* ─── ADMIN: Quote Card v2 – structured dimensions + tiers ──────────────── */
+
+async function buildAllCategoryConfigs(filterCategory?: string) {
+  const dims = await db.select().from(quoteDimensionsTable)
+    .where(filterCategory
+      ? and(eq(quoteDimensionsTable.isActive, true), eq(quoteDimensionsTable.category, filterCategory))
+      : eq(quoteDimensionsTable.isActive, true))
+    .orderBy(asc(quoteDimensionsTable.category), asc(quoteDimensionsTable.layer), asc(quoteDimensionsTable.sortOrder));
+
+  if (dims.length === 0) return filterCategory ? { category: filterCategory, base: [], adjustment: [] } : [];
+
+  const dimIds = dims.map(d => d.id);
+  const tiers = await db.select().from(quoteTiersTable)
+    .where(inArray(quoteTiersTable.dimensionId, dimIds))
+    .orderBy(asc(quoteTiersTable.sortOrder));
+
+  const tiersByDim = new Map<number, typeof tiers>();
+  for (const t of tiers) {
+    if (!tiersByDim.has(t.dimensionId)) tiersByDim.set(t.dimensionId, []);
+    tiersByDim.get(t.dimensionId)!.push(t);
+  }
+
+  const mapDim = (d: typeof dims[0]) => ({
+    id: d.id, code: d.code, label: d.label, description: d.description,
+    sortOrder: d.sortOrder, isActive: d.isActive,
+    tiers: (tiersByDim.get(d.id) ?? []).map(t => ({
+      id: t.id, tier: t.tier, tierLabel: t.tierLabel, basePrice: t.basePrice,
+      coefficient: t.coefficient, description: t.description, sortOrder: t.sortOrder,
+    })),
+  });
+
+  const catMap = new Map<string, { base: ReturnType<typeof mapDim>[]; adjustment: ReturnType<typeof mapDim>[]; optional: ReturnType<typeof mapDim>[] }>();
+  for (const d of dims) {
+    if (!catMap.has(d.category)) catMap.set(d.category, { base: [], adjustment: [], optional: [] });
+    const c = catMap.get(d.category)!;
+    if (d.layer === "base") c.base.push(mapDim(d));
+    else if (d.layer === "optional") c.optional.push(mapDim(d));
+    else c.adjustment.push(mapDim(d));
+  }
+
+  if (filterCategory) {
+    const c = catMap.get(filterCategory) ?? { base: [], adjustment: [], optional: [] };
+    return { category: filterCategory, ...c };
+  }
+  return Array.from(catMap.entries()).map(([cat, c]) => ({ category: cat, ...c }));
+}
+
+router.get("/admin/quote-card/config", requireAdmin, async (req, res) => {
+  try {
+    const category = req.query.category as string | undefined;
+    const result = await buildAllCategoryConfigs(category);
+    return res.json(result);
+  } catch (err) {
+    logger.error({ err }, "GET /admin/quote-card/config error");
+    return res.status(500).json({ error: "获取报价卡配置失败" });
+  }
+});
+
+router.post("/admin/quote-card/dimensions", requireAdmin, async (req, res) => {
+  try {
+    const parsed = CreateQuoteDimensionBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "参数无效", details: parsed.error.flatten().fieldErrors });
+    const { category, layer, code, label, description, sortOrder } = parsed.data;
+    const [dim] = await db.insert(quoteDimensionsTable).values({
+      category, layer, code, label, description: description ?? null, sortOrder: sortOrder ?? 0,
+    }).returning();
+    return res.status(201).json(dim);
+  } catch (err: any) {
+    if (err?.code === "23505") return res.status(409).json({ error: "该分类/层级下维度代码已存在" });
+    logger.error({ err }, "POST /admin/quote-card/dimensions error");
+    return res.status(500).json({ error: "创建维度失败" });
+  }
+});
+
+router.put("/admin/quote-card/dimensions/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const parsed = UpdateQuoteDimensionBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "参数无效" });
+    const { label, description, sortOrder, isActive } = parsed.data;
+    const set: Record<string, any> = { updatedAt: new Date() };
+    if (label !== undefined) set.label = label;
+    if (description !== undefined) set.description = description;
+    if (sortOrder !== undefined) set.sortOrder = sortOrder;
+    if (isActive !== undefined) set.isActive = isActive;
+    const [dim] = await db.update(quoteDimensionsTable).set(set).where(eq(quoteDimensionsTable.id, id)).returning();
+    if (!dim) return res.status(404).json({ error: "维度不存在" });
+    return res.json(dim);
+  } catch (err) {
+    logger.error({ err }, "PUT /admin/quote-card/dimensions/:id error");
+    return res.status(500).json({ error: "更新维度失败" });
+  }
+});
+
+router.delete("/admin/quote-card/dimensions/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const [dim] = await db.delete(quoteDimensionsTable).where(eq(quoteDimensionsTable.id, id)).returning();
+    if (!dim) return res.status(404).json({ error: "维度不存在" });
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "DELETE /admin/quote-card/dimensions/:id error");
+    return res.status(500).json({ error: "删除维度失败" });
+  }
+});
+
+router.post("/admin/quote-card/tiers", requireAdmin, async (req, res) => {
+  try {
+    const parsed = CreateQuoteTierBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "参数无效", details: parsed.error.flatten().fieldErrors });
+    const { dimensionId, tier, tierLabel, basePrice, coefficient, description, sortOrder } = parsed.data;
+    const [t] = await db.insert(quoteTiersTable).values({
+      dimensionId, tier, tierLabel, basePrice: basePrice ?? 0,
+      coefficient: coefficient ?? null, description: description ?? null, sortOrder: sortOrder ?? 0,
+    }).returning();
+    return res.status(201).json(t);
+  } catch (err: any) {
+    if (err?.code === "23505") return res.status(409).json({ error: "该维度下档位代码已存在" });
+    logger.error({ err }, "POST /admin/quote-card/tiers error");
+    return res.status(500).json({ error: "创建档位失败" });
+  }
+});
+
+router.put("/admin/quote-card/tiers/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const parsed = UpdateQuoteTierBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "参数无效" });
+    const { tierLabel, basePrice, coefficient, description, sortOrder } = parsed.data;
+    const set: Record<string, any> = { updatedAt: new Date() };
+    if (tierLabel !== undefined) set.tierLabel = tierLabel;
+    if (basePrice !== undefined) set.basePrice = basePrice;
+    if (coefficient !== undefined) set.coefficient = coefficient;
+    if (description !== undefined) set.description = description;
+    if (sortOrder !== undefined) set.sortOrder = sortOrder;
+    const [t] = await db.update(quoteTiersTable).set(set).where(eq(quoteTiersTable.id, id)).returning();
+    if (!t) return res.status(404).json({ error: "档位不存在" });
+    return res.json(t);
+  } catch (err) {
+    logger.error({ err }, "PUT /admin/quote-card/tiers/:id error");
+    return res.status(500).json({ error: "更新档位失败" });
+  }
+});
+
+router.delete("/admin/quote-card/tiers/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const [t] = await db.delete(quoteTiersTable).where(eq(quoteTiersTable.id, id)).returning();
+    if (!t) return res.status(404).json({ error: "档位不存在" });
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "DELETE /admin/quote-card/tiers/:id error");
+    return res.status(500).json({ error: "删除档位失败" });
+  }
+});
+
+/* ─── ADMIN: confirm pending_payment order (offline payment) ─────────────── */
+router.post("/admin/orders/:orderId/confirm-payment", async (req, res) => {
+  try {
+    const orderId = Number(req.params.orderId as string);
+    const [order] = await db
+      .select({ id: ordersTable.id, status: ordersTable.status, opcId: ordersTable.opcId, publisherId: ordersTable.publisherId, orderNo: ordersTable.orderNo })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.status !== "pending_payment") {
+      return res.status(400).json({ error: "只有待付款状态的订单可以确认付款" });
+    }
+
+    const now = new Date();
+    const [updated] = await db
+      .update(ordersTable)
+      .set({ status: "in_progress", paidAt: now, updatedAt: now })
+      .where(eq(ordersTable.id, orderId))
+      .returning();
+
+    // Notify OPC that work can begin
+    await db.insert(notificationsTable).values({
+      userId: order.opcId,
+      type: "system",
+      title: "发单方已付款，订单正式开始",
+      content: `订单「${order.orderNo}」的保证金已到账确认，订单现已正式进入执行阶段，请按时完成交付。`,
+      relatedId: orderId,
+      relatedType: "order",
+    });
+
+    // Notify publisher too
+    await db.insert(notificationsTable).values({
+      userId: order.publisherId,
+      type: "system",
+      title: "付款确认，订单正式开始",
+      content: `您的订单「${order.orderNo}」付款已确认，OPC 已开始执行，请关注交付进度。`,
+      relatedId: orderId,
+      relatedType: "order",
+    });
+
+    return res.json({ ok: true, orderId, status: updated.status, paidAt: updated.paidAt?.toISOString() });
+  } catch (err) {
+    logger.error({ err }, "admin confirm-payment error");
+    return res.status(500).json({ error: "确认付款失败" });
+  }
+});
+
+/* ─── ADMIN: reject offline payment receipt for an order ──────────────────── */
+router.post("/admin/orders/:orderId/reject-payment", async (req, res) => {
+  try {
+    const orderId = Number(req.params.orderId as string);
+    const { reason } = req.body as { reason?: string };
+
+    const [order] = await db
+      .select({ id: ordersTable.id, status: ordersTable.status, publisherId: ordersTable.publisherId, orderNo: ordersTable.orderNo })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.status !== "pending_payment") {
+      return res.status(400).json({ error: "只有待付款状态的订单可以拒绝付款凭证" });
+    }
+
+    const reasonText = reason?.trim() || "付款凭证有误，请重新提交";
+    const now = new Date();
+
+    await db.update(ordersTable).set({
+      paymentRejectReason: reasonText,
+      paymentReceiptUrl: null,
+      paymentMethod: null,
+      updatedAt: now,
+    }).where(eq(ordersTable.id, orderId));
+
+    await db.insert(notificationsTable).values({
+      userId: order.publisherId,
+      type: "system",
+      title: "付款凭证审核未通过",
+      content: `订单「${order.orderNo}」的付款凭证审核未通过。原因：${reasonText}。请重新提交付款凭证。`,
+      relatedId: orderId,
+      relatedType: "order",
+    });
+
+    return res.json({ ok: true, orderId });
+  } catch (err) {
+    logger.error({ err }, "admin reject-payment error");
+    return res.status(500).json({ error: "拒绝付款失败" });
+  }
+});
+
+/* ─── ADMIN: force close a pending_payment order ───────────────────────────── */
+router.post("/admin/orders/:orderId/force-close", async (req, res) => {
+  try {
+    const orderId = Number(req.params.orderId as string);
+    const { reason } = req.body as { reason?: string };
+
+    const [order] = await db
+      .select({ id: ordersTable.id, status: ordersTable.status, opcId: ordersTable.opcId, publisherId: ordersTable.publisherId, orderNo: ordersTable.orderNo, demandId: ordersTable.demandId })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.status !== "pending_payment") {
+      return res.status(400).json({ error: "只有「待付款」状态的订单可以强制关闭" });
+    }
+
+    const now = new Date();
+    await db.update(ordersTable).set({ status: "closed", updatedAt: now }).where(eq(ordersTable.id, orderId));
+
+    // Reopen demand to published if it was matched
+    const [demand] = await db
+      .select({ status: demandsTable.status })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, order.demandId))
+      .limit(1);
+
+    if (demand?.status === "matched") {
+      await db.update(demandsTable).set({ status: "published", updatedAt: now }).where(eq(demandsTable.id, order.demandId));
+    }
+
+    const reasonText = reason?.trim() || "管理员关闭";
+    await db.insert(notificationsTable).values([
+      {
+        userId: order.opcId,
+        type: "system",
+        title: "订单已关闭",
+        content: `订单「${order.orderNo}」已被管理员关闭。原因：${reasonText}`,
+        relatedId: orderId,
+        relatedType: "order",
+      },
+      {
+        userId: order.publisherId,
+        type: "system",
+        title: "订单已关闭",
+        content: `订单「${order.orderNo}」已被管理员关闭。原因：${reasonText}`,
+        relatedId: orderId,
+        relatedType: "order",
+      },
+    ]);
+
+    return res.json({ ok: true, orderId, status: "closed" });
+  } catch (err) {
+    logger.error({ err }, "admin force-close order error");
+    return res.status(500).json({ error: "强制关闭订单失败" });
   }
 });
 

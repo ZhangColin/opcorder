@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { useListDemands } from "@workspace/api-client-react";
 import { ChevronLeft, ChevronRight, Clock, LayoutGrid, List } from "lucide-react";
 import type { ListDemandsParams, ListDemandsStatus, Demand } from "@workspace/api-client-react";
+import { formatBudget } from "@/lib/utils";
 import { DEMAND_TYPES, OPC_LEVELS } from "@/lib/constants";
 
 const DEADLINE_OPTIONS = [
@@ -82,8 +83,8 @@ function MarketplaceCard({ demand }: { demand: Demand }) {
           </div>
           <div className="text-right shrink-0 ml-2">
             <span className="block text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-0.5">预算</span>
-            <span className="block text-lg font-extrabold text-primary tracking-tight leading-none">
-              ¥{demand.budget.toLocaleString()}
+            <span className="block text-base font-extrabold text-primary tracking-tight leading-none">
+              {formatBudget(demand.budgetMin, demand.budgetMax, demand.budget)}
             </span>
           </div>
         </div>
@@ -160,8 +161,7 @@ function MarketplaceListRow({ demand }: { demand: Demand }) {
         ))}
       </div>
       <div className="shrink-0 text-right">
-        <span className="block text-lg font-extrabold text-primary leading-none">¥{demand.budget.toLocaleString()}</span>
-        <span className="text-[10px] text-muted-foreground">起</span>
+        <span className="block text-sm font-extrabold text-primary leading-none">{formatBudget(demand.budgetMin, demand.budgetMax, demand.budget)}</span>
       </div>
       <span className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">
         <Clock size={12} className="shrink-0" /> {daysRemaining(demand.bidDeadline)}

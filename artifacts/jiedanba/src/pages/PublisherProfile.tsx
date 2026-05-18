@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { clearSession, getAccessToken, updateStoredUserField } from "@/lib/auth";
 import { useLocation } from "wouter";
+import { formatBudget } from "@/lib/utils";
 import {
   ArrowLeft, Building2, MapPin, Users, Calendar, Globe,
   Mail, Phone, Pencil, Save, X, CheckCircle, Briefcase,
@@ -648,7 +649,7 @@ export default function PublisherProfile() {
                             </div>
                             <h3 className="font-bold text-base text-slate-800 mb-2 line-clamp-2 group-hover:text-primary transition-colors">{d.title}</h3>
                             <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
-                              <span className="text-xs text-slate-400 font-medium">预算 ¥{d.budget.toLocaleString()}</span>
+                              <span className="text-xs text-slate-400 font-medium">预算 {formatBudget(d.budgetMin, d.budgetMax, d.budget)}</span>
                               <span className="text-[10px] font-bold text-primary uppercase">
                                 {d.deadline ? `截止 ${String(d.deadline).slice(0, 10)}` : ""}
                               </span>
@@ -691,7 +692,7 @@ export default function PublisherProfile() {
                           </div>
                           <div className="flex items-center gap-5">
                             <div className="text-right">
-                              <p className="text-sm font-bold text-slate-700">¥{d.budget.toLocaleString()}</p>
+                              <p className="text-sm font-bold text-slate-700">{formatBudget(d.budgetMin, d.budgetMax, d.budget)}</p>
                               <p className="text-[10px] text-slate-400 uppercase font-bold">预算金额</p>
                             </div>
                             <ChevronRight size={16} className="text-slate-300" />

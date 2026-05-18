@@ -42,8 +42,10 @@ async function start() {
   // build phase, so build-time migrate.mjs may have been skipped — we must
   // sync schema at runtime.
   try {
-    await syncSchema();
+    // runMigrations MUST run before syncSchema so data is migrated to new enum values
+    // before drizzle-kit push tries to remove old enum values from the schema.
     await runMigrations();
+    await syncSchema();
     await runSeed();
   } catch (e) {
     logger.error({ err: e }, "Startup initialization failed — server continues but may be degraded");

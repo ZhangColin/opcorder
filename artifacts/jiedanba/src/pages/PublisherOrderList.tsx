@@ -4,7 +4,7 @@ import { useLocation, Link } from "wouter";
 import {
   Search, Bell, ClipboardList, ChevronRight,
   AlertCircle, Clock, CheckCircle2, XCircle, Zap,
-  Menu,
+  Menu, CreditCard,
 } from "lucide-react";
 import { useListOrders } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
@@ -13,6 +13,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 
 const STATUS_TABS = [
   { key: "all",                label: "全部" },
+  { key: "pending_payment",    label: "待付款" },
   { key: "in_progress",        label: "进行中" },
   { key: "pending_acceptance", label: "待验收" },
   { key: "completed",          label: "已完成" },
@@ -21,11 +22,12 @@ const STATUS_TABS = [
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  in_progress:        { label: "进行中", color: "bg-green-100 text-green-700" },
-  pending_acceptance: { label: "待验收", color: "bg-orange-100 text-orange-700" },
-  completed:          { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
-  disputed:           { label: "争议中", color: "bg-red-100 text-red-600" },
-  closed:             { label: "已关闭", color: "bg-slate-100 text-slate-500" },
+  pending_payment:    { label: "待付款",  color: "bg-orange-100 text-orange-700" },
+  in_progress:        { label: "进行中",  color: "bg-green-100 text-green-700" },
+  pending_acceptance: { label: "待验收",  color: "bg-amber-100 text-amber-700" },
+  completed:          { label: "已完成",  color: "bg-emerald-100 text-emerald-700" },
+  disputed:           { label: "争议中",  color: "bg-red-100 text-red-600" },
+  closed:             { label: "已关闭",  color: "bg-slate-100 text-slate-500" },
 };
 
 export default function PublisherOrderList() {
@@ -206,6 +208,14 @@ export default function PublisherOrderList() {
                           </div>
                         );
                       })()}
+
+                      {/* Pending payment prompt */}
+                      {order.status === "pending_payment" && (
+                        <div className="mt-4 pt-4 border-t border-orange-100 flex items-center gap-2 text-orange-600 text-xs font-medium">
+                          <CreditCard size={13} />
+                          <span>请点击进入完成付款，订单付款后 OPC 将正式开始执行</span>
+                        </div>
+                      )}
 
                       {/* Status actions hint */}
                       {order.status === "completed" && (

@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import type { Demand } from "@workspace/api-client-react";
+import { formatBudget } from "@/lib/utils";
 import { DEMAND_TYPES, DEMAND_STATUSES } from "@/lib/constants";
 
 export function DemandCard({ demand }: { demand: Demand }) {
@@ -67,7 +68,7 @@ export function DemandCard({ demand }: { demand: Demand }) {
           <span className="block text-muted-foreground text-[10px] uppercase font-bold tracking-widest mb-1">项目预算</span>
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-black text-secondary">
-              ¥{demand.budget.toLocaleString()}
+              {formatBudget(demand.budgetMin, demand.budgetMax, demand.budget)}
             </span>
           </div>
         </div>

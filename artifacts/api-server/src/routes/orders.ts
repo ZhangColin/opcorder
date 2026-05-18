@@ -1,17 +1,22 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable, publisherProfilesTable } from "@workspace/db";
+import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable, publisherProfilesTable, bidsTable } from "@workspace/db";
 import { eq, desc, count, sql, and } from "drizzle-orm";
 
-type OrderStatus = "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed";
+type OrderStatus = "pending_payment" | "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed";
 
 import {
   ListOrdersQueryParams,
   SubmitDeliverableBody,
   AcceptOrderBody,
   RejectDeliveryBody,
+  SubmitOrderPaymentBody,
+  CloseOrderBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
+import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
+
+const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
 const router: IRouter = Router();
 
@@ -60,6 +65,12 @@ router.get("/orders", requireAuth, async (req, res) => {
         opcRating: ordersTable.opcRating,
         opcReviewComment: ordersTable.opcReviewComment,
         deadline: ordersTable.deadline,
+        paymentMethod: ordersTable.paymentMethod,
+        paymentReceiptUrl: ordersTable.paymentReceiptUrl,
+        paymentNote: ordersTable.paymentNote,
+        paymentOrderNo: ordersTable.paymentOrderNo,
+        paymentRejectReason: ordersTable.paymentRejectReason,
+        paidAt: ordersTable.paidAt,
         createdAt: ordersTable.createdAt,
         updatedAt: ordersTable.updatedAt,
       })
@@ -111,6 +122,11 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
         demandId: ordersTable.demandId,
         demandTitle: demandsTable.title,
         demandType: demandsTable.type,
+        demandDescription: demandsTable.description,
+        demandBudgetMin: demandsTable.budgetMin,
+        demandBudgetMax: demandsTable.budgetMax,
+        demandSkillTags: demandsTable.skillTags,
+        demandAttachments: demandsTable.attachments,
         opcId: ordersTable.opcId,
         publisherId: ordersTable.publisherId,
         amount: ordersTable.amount,
@@ -124,6 +140,12 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
         opcRating: ordersTable.opcRating,
         opcReviewComment: ordersTable.opcReviewComment,
         deadline: ordersTable.deadline,
+        paymentMethod: ordersTable.paymentMethod,
+        paymentReceiptUrl: ordersTable.paymentReceiptUrl,
+        paymentNote: ordersTable.paymentNote,
+        paymentOrderNo: ordersTable.paymentOrderNo,
+        paymentRejectReason: ordersTable.paymentRejectReason,
+        paidAt: ordersTable.paidAt,
         createdAt: ordersTable.createdAt,
         updatedAt: ordersTable.updatedAt,
       })
@@ -141,19 +163,29 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "无权查看他人订单" });
     }
 
-    const deliverables = await db.select().from(deliverablesTable).where(eq(deliverablesTable.orderId, orderId));
-    const [opcUser] = await db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, order.opcId));
-    const [pubUser] = await db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, order.publisherId));
-    const [pubProfile] = await db.select({
-      companyLogo: publisherProfilesTable.companyLogo,
-      companyDesc: publisherProfilesTable.companyDesc,
-      industry: publisherProfilesTable.industry,
-      location: publisherProfilesTable.location,
-      teamSize: publisherProfilesTable.teamSize,
-      foundedYear: publisherProfilesTable.foundedYear,
-      website: publisherProfilesTable.website,
-      contactEmail: publisherProfilesTable.contactEmail,
-    }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, order.publisherId));
+    const [deliverables, opcUser, pubUser, pubProfile, acceptedBid] = await Promise.all([
+      db.select().from(deliverablesTable).where(eq(deliverablesTable.orderId, orderId)),
+      db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, order.opcId)).then(r => r[0]),
+      db.select({ nickname: usersTable.nickname }).from(usersTable).where(eq(usersTable.id, order.publisherId)).then(r => r[0]),
+      db.select({
+        companyLogo: publisherProfilesTable.companyLogo,
+        companyDesc: publisherProfilesTable.companyDesc,
+        industry: publisherProfilesTable.industry,
+        location: publisherProfilesTable.location,
+        teamSize: publisherProfilesTable.teamSize,
+        foundedYear: publisherProfilesTable.foundedYear,
+        website: publisherProfilesTable.website,
+        contactEmail: publisherProfilesTable.contactEmail,
+      }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, order.publisherId)).then(r => r[0]),
+      db.select({
+        proposal: bidsTable.proposal,
+        quoteCardSnapshot: bidsTable.quoteCardSnapshot,
+        quotedPrice: bidsTable.quotedPrice,
+        estimatedDays: bidsTable.estimatedDays,
+      }).from(bidsTable).where(
+        and(eq(bidsTable.demandId, order.demandId), eq(bidsTable.opcId, order.opcId), eq(bidsTable.status, "accepted"))
+      ).then(r => r[0]),
+    ]);
 
     const isAdmin = userRole === "admin";
     const isPublisher = userId === order.publisherId;
@@ -168,6 +200,10 @@ router.get("/orders/:orderId", requireAuth, async (req, res) => {
       publisherName: pubUser?.nickname,
       publisherLogo: pubProfile?.companyLogo ?? null,
       publisherProfile: safeProfile,
+      opcProposal: acceptedBid?.proposal ?? null,
+      opcQuoteCardSnapshot: acceptedBid?.quoteCardSnapshot ?? null,
+      opcQuotedPrice: acceptedBid?.quotedPrice ?? null,
+      opcEstimatedDays: acceptedBid?.estimatedDays ?? null,
       deliverables: deliverables.map(d => ({
         ...d,
         submittedAt: d.submittedAt.toISOString(),
@@ -185,6 +221,32 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
     const orderId = parseInt(req.params.orderId as string);
     const body = SubmitDeliverableBody.parse(req.body);
 
+    // Load order first to enforce ownership and status gate
+    const [ord] = await db
+      .select({ opcId: ordersTable.opcId, status: ordersTable.status, milestones: ordersTable.milestones })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!ord) return res.status(404).json({ error: "订单不存在" });
+
+    // Only the OPC assigned to this order may submit deliverables
+    if (ord.opcId !== req.user!.id) {
+      return res.status(403).json({ error: "无权操作：只有订单承接方（OPC）可以提交交付物" });
+    }
+
+    // Deliverables can only be submitted once the order is in_progress
+    if (ord.status !== "in_progress") {
+      const statusMsg: Record<string, string> = {
+        pending_payment: "订单尚未开始，请等待发单方完成付款后再提交交付物",
+        pending_acceptance: "订单已进入验收阶段，请等待发单方验收",
+        completed: "订单已完成，无法再提交交付物",
+        closed: "订单已关闭",
+        disputed: "订单存在争议，请联系管理员",
+      };
+      return res.status(400).json({ error: statusMsg[ord.status] ?? `当前订单状态「${ord.status}」不允许提交交付物` });
+    }
+
     const [deliverable] = await db.insert(deliverablesTable).values({
       orderId,
       milestoneId: body.milestoneId,
@@ -194,13 +256,6 @@ router.post("/orders/:orderId/deliverables", requireAuth, async (req, res) => {
       fileName: body.fileName,
       status: "submitted",
     }).returning();
-
-    // Load the order to check whether it has milestones (not derived from the request body,
-    // which is an untrusted signal for this invariant).
-    const [ord] = await db
-      .select({ milestones: ordersTable.milestones })
-      .from(ordersTable)
-      .where(eq(ordersTable.id, orderId));
 
     // Milestone orders ALWAYS stay in_progress — per-milestone review drives completion.
     // Non-milestone orders transition to pending_acceptance on submission.
@@ -289,27 +344,45 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
       .limit(1);
 
     if (!submittedDeliv) {
-      return res.status(400).json({ error: "该里程碑没有待审核的交付物" });
-    }
+      // Recovery path: check if milestone was already approved (e.g. due to a prior partial failure)
+      const [alreadyApproved] = await db
+        .select({ id: deliverablesTable.id })
+        .from(deliverablesTable)
+        .where(and(
+          eq(deliverablesTable.orderId, orderId),
+          eq(deliverablesTable.milestoneId, milestoneId),
+          eq(deliverablesTable.status, "approved"),
+        ))
+        .limit(1);
 
-    // Mark the deliverable as approved
-    await db.update(deliverablesTable).set({
-      status: "approved",
-    }).where(eq(deliverablesTable.id, submittedDeliv.id));
+      if (!alreadyApproved) {
+        return res.status(400).json({ error: "该里程碑没有待审核的交付物" });
+      }
+      // Already approved — fall through to the "check if all done" section below
+    } else {
+      // Normal path: mark deliverable approved and update JSONB milestone status
+      await db.update(deliverablesTable).set({
+        status: "approved",
+      }).where(eq(deliverablesTable.id, submittedDeliv.id));
 
-    // Update the milestone JSONB status to 'approved' (and optionally rating/comment)
-    await db.execute(
-      sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},status}'`)}, '"approved"'::jsonb), updated_at = NOW() WHERE id = ${orderId}`
-    );
-    if (body.rating) {
       await db.execute(
-        sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},rating}'`)}, to_jsonb(${body.rating})) WHERE id = ${orderId}`
+        sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},status}'`)}, '"approved"'::jsonb), updated_at = NOW() WHERE id = ${orderId}`
       );
-    }
-    if (body.comment) {
-      await db.execute(
-        sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},comment}'`)}, to_jsonb(${body.comment})) WHERE id = ${orderId}`
-      );
+      // Optional: save rating / comment — non-critical, ignore failures
+      try {
+        if (body.rating) {
+          await db.execute(
+            sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},rating}'`)}, to_jsonb(${sql.raw(String(body.rating))})) WHERE id = ${orderId}`
+          );
+        }
+        if (body.comment) {
+          await db.execute(
+            sql`UPDATE orders SET milestones = jsonb_set(milestones::jsonb, ${sql.raw(`'{${milestoneIdx},comment}'`)}, to_jsonb(${body.comment}::text)) WHERE id = ${orderId}`
+          );
+        }
+      } catch (ratingErr) {
+        req.log.warn({ msg: "milestone rating/comment save failed (non-critical)", err: String(ratingErr) });
+      }
     }
 
     // Re-fetch milestones to check if all are approved
@@ -633,6 +706,247 @@ router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ error: "Failed to reject delivery" });
+  }
+});
+
+/* ─── Order payment (publisher submits deposit) ─── */
+router.post("/orders/:orderId/payment", requireAuth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId as string);
+    const parsed = SubmitOrderPaymentBody.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "请求参数无效", details: parsed.error.flatten().fieldErrors });
+    }
+    const { method, receiptUrl, paymentNote } = parsed.data;
+
+    const [order] = await db
+      .select({
+        id: ordersTable.id,
+        status: ordersTable.status,
+        publisherId: ordersTable.publisherId,
+        opcId: ordersTable.opcId,
+        amount: ordersTable.amount,
+        orderNo: ordersTable.orderNo,
+        demandId: ordersTable.demandId,
+      })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.status !== "pending_payment") {
+      return res.status(400).json({ error: "该订单当前状态无需缴纳保证金" });
+    }
+    if (order.publisherId !== req.user!.id) {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    const [demandRow] = await db
+      .select({ title: demandsTable.title })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, order.demandId))
+      .limit(1);
+
+    if (method === "online") {
+      const businessOrderNo = `ORDER-DEP-${orderId}-${Date.now()}`;
+      const amountFen = Math.round(order.amount * 100);
+
+      const payOrder = await createPaymentOrder({
+        businessOrderNo,
+        amount: amountFen,
+        subject: `订单保证金-${demandRow?.title ?? orderId}`,
+        body: `订单保证金`,
+        businessName: "订单保证金",
+        notifyUrl: NOTIFY_URL,
+      });
+
+      await db.update(ordersTable).set({
+        paymentMethod: "online",
+        paymentOrderNo: payOrder.paymentOrderNo,
+        paymentNote: paymentNote?.trim() || null,
+        paymentRejectReason: null,
+        updatedAt: new Date(),
+      }).where(eq(ordersTable.id, orderId));
+
+      return res.status(201).json({
+        orderId,
+        method: "online",
+        qrCodeUrl: payOrder.qrCodeUrl,
+        paymentOrderNo: payOrder.paymentOrderNo,
+      });
+    }
+
+    // Offline payment: store receipt and wait for admin confirmation
+    await db.update(ordersTable).set({
+      paymentMethod: "offline",
+      paymentReceiptUrl: receiptUrl?.trim() || null,
+      paymentNote: paymentNote?.trim() || null,
+      paymentRejectReason: null,
+      updatedAt: new Date(),
+    }).where(eq(ordersTable.id, orderId));
+
+    return res.status(201).json({
+      orderId,
+      method: "offline",
+      message: "线下付款信息已提交，请等待管理员确认",
+    });
+  } catch (error) {
+    logger.error({ err: error }, "POST /orders/:orderId/payment error");
+    return res.status(500).json({ error: "提交付款失败" });
+  }
+});
+
+/* ─── Poll online payment status for an order ─── */
+router.post("/orders/:orderId/payment-status", requireAuth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId as string);
+
+    const [order] = await db
+      .select({
+        publisherId: ordersTable.publisherId,
+        status: ordersTable.status,
+        paymentOrderNo: ordersTable.paymentOrderNo,
+        opcId: ordersTable.opcId,
+        orderNo: ordersTable.orderNo,
+        demandId: ordersTable.demandId,
+      })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+    if (order.publisherId !== req.user!.id) return res.status(403).json({ error: "无权操作" });
+
+    if (order.status !== "pending_payment") {
+      return res.json({ status: PAYMENT_STATUS.PAID, paid: true, terminal: true, confirmed: true });
+    }
+
+    if (!order.paymentOrderNo) return res.status(400).json({ error: "尚未创建在线支付订单" });
+
+    const payStatus = await queryPaymentStatus(order.paymentOrderNo);
+
+    if (payStatus.status === PAYMENT_STATUS.PAID) {
+      const now = new Date();
+      await db.update(ordersTable).set({
+        status: "in_progress",
+        paidAt: now,
+        updatedAt: now,
+      }).where(eq(ordersTable.id, orderId));
+
+      await db.insert(notificationsTable).values([
+        {
+          userId: order.opcId,
+          type: "system",
+          title: "发单方已付款，订单正式开始",
+          content: `订单「${order.orderNo}」的保证金已到账，订单现已正式进入执行阶段，请按时完成交付。`,
+          relatedId: orderId,
+          relatedType: "order",
+        },
+        {
+          userId: order.publisherId,
+          type: "system",
+          title: "付款成功，订单正式开始",
+          content: `订单「${order.orderNo}」付款已确认，OPC 已开始执行，请关注交付进度。`,
+          relatedId: orderId,
+          relatedType: "order",
+        },
+      ]);
+    }
+
+    return res.json({
+      status: payStatus.status,
+      statusName: payStatus.statusName,
+      paid: payStatus.status === PAYMENT_STATUS.PAID,
+      terminal: TERMINAL_STATUSES.includes(payStatus.status as 2 | 3 | 4 | 5),
+      confirmed: payStatus.status === PAYMENT_STATUS.PAID,
+      paidAt: payStatus.paidAt,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "查询失败";
+    return res.status(500).json({ error: msg });
+  }
+});
+
+/* ─── Publisher close a pending_payment order ─── */
+router.post("/orders/:orderId/close", requireAuth, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId as string);
+    const parsed = CloseOrderBody.safeParse(req.body);
+    const reason = parsed.success ? (parsed.data.reason?.trim() || "发单方主动关闭") : "发单方主动关闭";
+
+    const [order] = await db
+      .select({
+        id: ordersTable.id,
+        status: ordersTable.status,
+        publisherId: ordersTable.publisherId,
+        opcId: ordersTable.opcId,
+        orderNo: ordersTable.orderNo,
+        demandId: ordersTable.demandId,
+      })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "订单不存在" });
+
+    const isPublisher = order.publisherId === req.user!.id;
+    const isAdmin = req.user!.role === "admin";
+
+    if (!isPublisher && !isAdmin) {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    // Both publishers and admins may only close pending_payment orders via this endpoint
+    if (order.status !== "pending_payment") {
+      return res.status(400).json({ error: "只有「待付款」状态的订单才能关闭" });
+    }
+
+    const now = new Date();
+    const [updated] = await db
+      .update(ordersTable)
+      .set({ status: "closed", updatedAt: now })
+      .where(eq(ordersTable.id, orderId))
+      .returning();
+
+    // Re-open demand back to published if it was matched
+    const [demand] = await db
+      .select({ status: demandsTable.status })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, order.demandId))
+      .limit(1);
+
+    if (demand?.status === "matched") {
+      await db.update(demandsTable).set({ status: "published", updatedAt: now })
+        .where(eq(demandsTable.id, order.demandId));
+    }
+
+    await db.insert(notificationsTable).values([
+      {
+        userId: order.opcId,
+        type: "system",
+        title: "订单已关闭",
+        content: `订单「${order.orderNo}」已被关闭。原因：${reason}`,
+        relatedId: orderId,
+        relatedType: "order",
+      },
+      {
+        userId: order.publisherId,
+        type: "system",
+        title: "订单已关闭",
+        content: `订单「${order.orderNo}」已关闭。原因：${reason}`,
+        relatedId: orderId,
+        relatedType: "order",
+      },
+    ]);
+
+    return res.json({
+      ...updated,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    logger.error({ err: error }, "POST /orders/:orderId/close error");
+    return res.status(500).json({ error: "关闭订单失败" });
   }
 });
 

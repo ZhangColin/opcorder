@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { clearSession, getAccessToken } from "@/lib/auth";
 import { useLocation } from "wouter";
 import {
   Search, Bell, ArrowLeft, CheckCircle2, Clock,
   XCircle, Star, AlertCircle, Zap, FileText, Download,
   ChevronRight, Trophy, RefreshCw, Loader2,
-  Menu,
+  Menu, CreditCard, Upload, X, Tag, Paperclip,
+  MessageSquare, Calculator, CalendarDays,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   useGetOrderById,
   useAcceptOrder,
@@ -16,6 +18,7 @@ import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -89,8 +92,9 @@ function parseDelivFiles(
 }
 
 const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  pending_payment:    { label: "待付款",  color: "bg-orange-100 text-orange-700" },
   in_progress:        { label: "进行中",  color: "bg-green-100 text-green-700" },
-  pending_acceptance: { label: "待验收",  color: "bg-orange-100 text-orange-700" },
+  pending_acceptance: { label: "待验收",  color: "bg-amber-100 text-amber-700" },
   completed:          { label: "已完成",  color: "bg-emerald-100 text-emerald-700" },
   disputed:           { label: "争议中",  color: "bg-red-100 text-red-600" },
   closed:             { label: "已关闭",  color: "bg-slate-100 text-slate-500" },
@@ -157,6 +161,18 @@ export default function PublisherOrderDetail() {
   const params = useParams<{ id: string }>();
   const orderId = parseInt(params.id ?? "0", 10);
   const qc = useQueryClient();
+  const { toast } = useToast();
+
+  // ── Payment state (for pending_payment orders) ───────────────────────────
+  const [orderPaymentMethod, setOrderPaymentMethod] = useState<"online" | "offline">("online");
+  const [orderReceiptUrl, setOrderReceiptUrl] = useState("");
+  const [orderReceiptUploading, setOrderReceiptUploading] = useState(false);
+  const [orderOnlineQrUrl, setOrderOnlineQrUrl] = useState<string | null>(null);
+  const [orderOnlinePaid, setOrderOnlinePaid] = useState(false);
+  const [orderQrGenerating, setOrderQrGenerating] = useState(false);
+  const [orderPaymentSubmitting, setOrderPaymentSubmitting] = useState(false);
+  const [orderPaymentNote, setOrderPaymentNote] = useState("");
+  const orderPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Global accept/reject state (non-milestone orders only)
   const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -177,9 +193,111 @@ export default function PublisherOrderDetail() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  const { data: order, isLoading } = useGetOrderById(orderId, {
+  const { data: order, isLoading, refetch: refetchOrder } = useGetOrderById(orderId, {
     query: { enabled: orderId > 0 },
   });
+
+  // ── Payment handlers ──────────────────────────────────────────────────────
+  const handleOrderReceiptUpload = async (file: File) => {
+    setOrderReceiptUploading(true);
+    try {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!reqRes.ok) throw new Error("上传请求失败");
+      const { uploadURL, objectPath } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error("文件上传失败");
+      setOrderReceiptUrl(`${BASE}/api/storage${objectPath}`);
+      toast({ title: "截图上传成功" });
+    } catch (err: unknown) {
+      toast({ title: "上传失败", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setOrderReceiptUploading(false);
+    }
+  };
+
+  const handleOrderGenerateQr = async () => {
+    setOrderQrGenerating(true);
+    try {
+      const r = await fetch(`${BASE}/api/orders/${orderId}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        body: JSON.stringify({ method: "online", paymentNote: orderPaymentNote.trim() || undefined }),
+      }).then(r => r.json());
+      if (r.qrCodeUrl) {
+        setOrderOnlineQrUrl(r.qrCodeUrl);
+        setOrderOnlinePaid(false);
+      } else {
+        toast({ title: "创建支付订单失败", description: "未收到二维码，请稍后重试", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "生成支付二维码失败", variant: "destructive" });
+    } finally {
+      setOrderQrGenerating(false);
+    }
+  };
+
+  const handleOrderSubmitOffline = async () => {
+    if (!orderReceiptUrl.trim()) return;
+    setOrderPaymentSubmitting(true);
+    try {
+      const r = await fetch(`${BASE}/api/orders/${orderId}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        body: JSON.stringify({ method: "offline", receiptUrl: orderReceiptUrl.trim(), paymentNote: orderPaymentNote.trim() || undefined }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error((e as any).error ?? "提交失败");
+      }
+      toast({ title: "凭证已提交", description: "请等待财务审核，审核通过后订单正式开始" });
+      setOrderReceiptUrl("");
+      await refetchOrder();
+    } catch (err: unknown) {
+      toast({ title: "提交失败", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setOrderPaymentSubmitting(false);
+    }
+  };
+
+  // Poll order online payment status every 3 seconds while QR is shown
+  useEffect(() => {
+    if (!orderOnlineQrUrl || orderOnlinePaid || !order || order.status !== "pending_payment") return;
+    orderPollTimerRef.current = setInterval(async () => {
+      try {
+        const result = await fetch(`${BASE}/api/orders/${orderId}/payment-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        }).then(r => r.json());
+        if (result.paid || result.confirmed) {
+          setOrderOnlinePaid(true);
+          if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current);
+          await refetchOrder();
+          toast({ title: "✅ 付款已到账", description: "订单已正式开始，请关注交付进度" });
+        } else if (result.terminal) {
+          if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current);
+          toast({ title: "支付未完成", description: `支付状态：${result.statusName ?? "已结束"}`, variant: "destructive" });
+          setOrderOnlineQrUrl(null);
+        }
+      } catch { /* silent */ }
+    }, 3000);
+    return () => { if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderOnlineQrUrl, orderOnlinePaid, order?.status]);
+
+  // Auto-generate QR when entering pending_payment with online mode
+  useEffect(() => {
+    if (!order || order.status !== "pending_payment") return;
+    if (orderPaymentMethod !== "online" || orderOnlineQrUrl || orderOnlinePaid || orderQrGenerating) return;
+    const hasOfflineReceipt = order.paymentMethod === "offline" && order.paymentReceiptUrl;
+    if (!hasOfflineReceipt || order.paymentRejectReason) {
+      handleOrderGenerateQr();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.status, order?.id, orderPaymentMethod]);
 
   const acceptOrder = useAcceptOrder();
   const rejectDelivery = useRejectDelivery();
@@ -214,13 +332,16 @@ export default function PublisherOrderDetail() {
       return res.json();
     },
     onSuccess: async (data: { allCompleted?: boolean }) => {
+      await refetchOrder();
       await invalidate();
       setAcceptMilestoneId(null);
       setMilestoneAcceptRating(0);
       setMilestoneAcceptComment("");
       setActionSuccess(data?.allCompleted ? "订单已完成，结算流程已触发。" : "里程碑已通过审核。");
     },
-    onError: (e: Error) => {
+    onError: async (e: Error) => {
+      await refetchOrder();
+      setAcceptMilestoneId(null);
       setActionError(e.message || "操作失败，请稍后重试");
     },
   });
@@ -240,12 +361,15 @@ export default function PublisherOrderDetail() {
       return res.json();
     },
     onSuccess: async () => {
+      await refetchOrder();
       await invalidate();
       setRejectMilestoneId(null);
       setMilestoneRejectReason("");
       setActionSuccess("已打回该里程碑，OPC 可重新提交。");
     },
-    onError: (e: Error) => {
+    onError: async (e: Error) => {
+      await refetchOrder();
+      setRejectMilestoneId(null);
       setActionError(e.message || "操作失败，请稍后重试");
     },
   });
@@ -377,6 +501,31 @@ export default function PublisherOrderDetail() {
                 </div>
               )}
 
+              {/* ── Pending payment banner ── */}
+              {order.status === "pending_payment" && !orderOnlinePaid && (
+                <div className="mb-6 bg-orange-50 border border-orange-200 rounded-2xl p-6 flex items-center gap-4 flex-wrap">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                    <CreditCard size={18} className="text-orange-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-orange-800">请完成付款，订单将正式开始</p>
+                    <p className="text-xs text-orange-600 mt-0.5">
+                      您已选定 OPC <span className="font-semibold">{order.opcNickname ?? `#${order.opcId}`}</span>，
+                      请支付 <span className="font-bold">¥{order.amount.toLocaleString()}</span> 后项目正式启动
+                    </p>
+                  </div>
+                </div>
+              )}
+              {order.status === "pending_payment" && orderOnlinePaid && (
+                <div className="mb-6 bg-green-50 border border-green-200 rounded-2xl p-5 flex items-center gap-3">
+                  <CheckCircle2 size={20} className="text-green-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-green-800">付款成功，订单正式开始</p>
+                    <p className="text-xs text-green-600 mt-0.5">OPC 已收到通知，请关注交付进度</p>
+                  </div>
+                </div>
+              )}
+
               {/* Pending acceptance banner (non-milestone orders only) */}
               {order.status === "pending_acceptance" && !hasMilestones && (
                 <div className="mb-6 bg-orange-50 border border-orange-200 rounded-2xl p-6 flex items-center justify-between gap-4">
@@ -418,6 +567,310 @@ export default function PublisherOrderDetail() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left: Main Content */}
                 <div className="lg:col-span-2 space-y-8">
+
+                  {/* ── Payment UI (pending_payment orders) ── */}
+                  {order.status === "pending_payment" && !orderOnlinePaid && (
+                    <section className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6 space-y-5">
+                      <h2 className="text-base font-bold text-orange-700 flex items-center gap-2">
+                        <CreditCard size={16} /> 请完成付款
+                      </h2>
+
+                      {/* Rejection notice */}
+                      {order.paymentRejectReason && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                          <p className="text-sm font-bold text-red-700 mb-1">付款凭证审核未通过</p>
+                          <p className="text-xs text-red-600">原因：{order.paymentRejectReason}</p>
+                          <p className="text-xs text-red-500 mt-1">请重新选择支付方式并提交凭证</p>
+                        </div>
+                      )}
+
+                      {/* Awaiting review state */}
+                      {order.paymentMethod === "offline" && order.paymentReceiptUrl && !order.paymentRejectReason ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                            <p className="text-sm font-bold text-blue-800">付款凭证已提交，等待财务审核</p>
+                          </div>
+                          <p className="text-xs text-blue-700">财务确认到账后订单将自动正式开始，请耐心等待。</p>
+                          <a href={order.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={order.paymentReceiptUrl}
+                              alt="付款凭证"
+                              className="max-h-48 rounded-xl border border-blue-200 object-contain bg-white hover:opacity-90 transition-opacity cursor-zoom-in"
+                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Method tabs */}
+                          <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+                            {(["online", "offline"] as const).map(m => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => {
+                                  setOrderPaymentMethod(m);
+                                  if (m === "offline") {
+                                    setOrderOnlineQrUrl(null);
+                                    if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current);
+                                  }
+                                }}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  orderPaymentMethod === m ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                }`}
+                              >
+                                {m === "online" ? "📱 扫码支付" : "🏦 线下转账"}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Online: QR */}
+                          {orderPaymentMethod === "online" && (
+                            <div className="text-center space-y-3">
+                              {orderQrGenerating ? (
+                                <div className="py-10 space-y-2">
+                                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                                  <p className="text-xs text-slate-500">正在生成支付二维码…</p>
+                                </div>
+                              ) : orderOnlineQrUrl ? (
+                                <>
+                                  <p className="text-xs font-medium text-slate-600">扫描二维码完成支付 · ¥{order.amount.toLocaleString()}</p>
+                                  <div className="w-52 h-52 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white p-3">
+                                    <QRCodeSVG value={orderOnlineQrUrl} size={192} />
+                                  </div>
+                                  <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
+                                    <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                    <span>等待支付确认中…</span>
+                                  </div>
+                                  <button onClick={() => { setOrderOnlineQrUrl(null); handleOrderGenerateQr(); }} className="text-xs text-slate-400 hover:text-slate-600 underline">刷新二维码</button>
+                                </>
+                              ) : (
+                                <div className="py-8 space-y-2">
+                                  <div className="w-8 h-8 border-2 border-slate-200 border-t-primary rounded-full animate-spin mx-auto" />
+                                  <p className="text-xs text-slate-400">正在准备支付…</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Offline: bank + receipt */}
+                          {orderPaymentMethod === "offline" && (
+                            <div className="space-y-4">
+                              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">收款账号信息</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                  <div>
+                                    <p className="text-xs text-slate-400 mb-0.5">开户行</p>
+                                    <p className="font-medium text-slate-700">中国工商银行股份有限公司北京海淀支行</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-slate-400 mb-0.5">账户名</p>
+                                    <p className="font-medium text-slate-700">北京海创元人工智能教育科技有限公司</p>
+                                  </div>
+                                  <div className="col-span-full">
+                                    <p className="text-xs text-slate-400 mb-0.5">账号</p>
+                                    <p className="font-mono font-bold text-slate-800 text-base tracking-wider">0200049619201891562</p>
+                                  </div>
+                                  <div className="col-span-full">
+                                    <p className="text-xs text-slate-400 mb-0.5">转账备注（必填）</p>
+                                    <p className="font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded-lg text-xs">订单编号: {order.orderNo}</p>
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-500 mb-2">上传转账截图 / 凭证</p>
+                                {orderReceiptUrl ? (
+                                  <div className="relative">
+                                    <img src={orderReceiptUrl} alt="付款凭证" className="max-h-48 rounded-xl border border-slate-200 object-contain w-full bg-slate-50" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                    <button type="button" onClick={() => setOrderReceiptUrl("")} className="absolute top-2 right-2 bg-white/90 border border-slate-200 rounded-full p-1 hover:bg-red-50 hover:text-red-600 transition-colors"><X size={12} /></button>
+                                    <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1"><CheckCircle2 size={12} /> 截图已上传</p>
+                                  </div>
+                                ) : (
+                                  <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition-colors ${orderReceiptUploading ? "border-primary/40 bg-primary/5" : "border-slate-200 hover:border-primary/40 hover:bg-slate-50"}`}>
+                                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={e => e.target.files?.[0] && handleOrderReceiptUpload(e.target.files[0])} disabled={orderReceiptUploading} />
+                                    {orderReceiptUploading ? (
+                                      <><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /><span className="text-xs text-primary font-medium">上传中…</span></>
+                                    ) : (
+                                      <><Upload size={20} className="text-slate-400" /><span className="text-xs text-slate-500 font-medium">点击上传转账截图</span><span className="text-[11px] text-slate-400">支持 JPG / PNG / PDF</span></>
+                                    )}
+                                  </label>
+                                )}
+                              </div>
+                              <button
+                                onClick={handleOrderSubmitOffline}
+                                disabled={orderPaymentSubmitting || orderReceiptUploading || !orderReceiptUrl.trim()}
+                                className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <Upload size={14} />
+                                {orderPaymentSubmitting ? "提交中…" : "提交付款凭证"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {/* ── Demand Details ── */}
+                  {(order.demandDescription || (order.demandSkillTags && order.demandSkillTags.length > 0) || order.demandBudgetMin != null || (order.demandAttachments && order.demandAttachments.length > 0)) && (
+                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+                      <h2 className="text-base font-bold text-primary font-display flex items-center gap-2">
+                        <FileText size={16} /> 需求详情
+                      </h2>
+
+                      {/* Description */}
+                      {order.demandDescription && (
+                        <div>
+                          <p className="text-sm font-bold text-slate-500 mb-2">需求描述</p>
+                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-xl px-4 py-3">
+                            {order.demandDescription}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Budget + Skill tags row */}
+                      <div className="flex flex-wrap gap-4">
+                        {(order.demandBudgetMin != null || order.demandBudgetMax != null) && (
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">预算范围</p>
+                            <p className="text-sm font-extrabold text-primary">
+                              ¥{(order.demandBudgetMin ?? 0).toLocaleString()}
+                              {order.demandBudgetMax && order.demandBudgetMax !== order.demandBudgetMin
+                                ? ` – ¥${order.demandBudgetMax.toLocaleString()}`
+                                : ""}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Skill tags */}
+                      {order.demandSkillTags && order.demandSkillTags.length > 0 && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                            <Tag size={11} /> 技能标签
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {order.demandSkillTags.map((tag, i) => (
+                              <span key={i} className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Attachments */}
+                      {order.demandAttachments && order.demandAttachments.length > 0 && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                            <Paperclip size={11} /> 需求附件
+                          </p>
+                          <div className="space-y-2">
+                            {order.demandAttachments.map((att, i) => (
+                              <a
+                                key={i}
+                                href={att.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 transition-colors group"
+                              >
+                                <FileText size={14} className="text-slate-400 shrink-0" />
+                                <span className="text-sm font-medium text-slate-700 flex-1 truncate">{att.name}</span>
+                                <span className="text-xs text-slate-400">{att.size}</span>
+                                <Download size={13} className="text-primary shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {/* ── OPC 提案 ── */}
+                  {(order.opcProposal || order.opcQuoteCardSnapshot) && (
+                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+                      <h2 className="text-base font-bold text-primary font-display flex items-center gap-2">
+                        <MessageSquare size={16} /> OPC 提案
+                      </h2>
+
+                      {/* Meta row */}
+                      <div className="flex flex-wrap gap-6 text-sm">
+                        {order.opcQuotedPrice != null && (
+                          <div>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-0.5">报价</p>
+                            <p className="font-extrabold text-primary text-base">¥{order.opcQuotedPrice.toLocaleString()}</p>
+                          </div>
+                        )}
+                        {order.opcEstimatedDays != null && (
+                          <div>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1">
+                              <CalendarDays size={10} /> 预计工期
+                            </p>
+                            <p className="font-bold text-slate-700">{order.opcEstimatedDays} 天</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Proposal text */}
+                      {order.opcProposal && (
+                        <div>
+                          <p className="text-sm font-bold text-slate-500 mb-2">OPC 提案说明</p>
+                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 rounded-xl px-4 py-3">
+                            {order.opcProposal}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Quote card snapshot */}
+                      {order.opcQuoteCardSnapshot && (
+                        <div>
+                          <p className="text-sm font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                            <Calculator size={13} /> 报价明细
+                          </p>
+                          <div className="rounded-xl border border-slate-200 overflow-hidden text-sm">
+                            {/* Base layers */}
+                            {order.opcQuoteCardSnapshot.baseLayers.length > 0 && (
+                              <div className="divide-y divide-slate-100">
+                                {order.opcQuoteCardSnapshot.baseLayers.map((row, i) => (
+                                  <div key={i} className="flex items-center justify-between px-4 py-2.5 bg-white">
+                                    <div>
+                                      <span className="font-medium text-slate-700">{row.label}</span>
+                                      <span className="ml-2 text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">{row.tierLabel}</span>
+                                    </div>
+                                    {row.price != null && (
+                                      <span className="font-bold text-slate-800">¥{row.price.toLocaleString()}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Adjust layers */}
+                            {order.opcQuoteCardSnapshot.adjustLayers.length > 0 && (
+                              <div className="divide-y divide-slate-100 bg-amber-50/50">
+                                {order.opcQuoteCardSnapshot.adjustLayers.map((row, i) => (
+                                  <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                                    <div>
+                                      <span className="font-medium text-slate-600">{row.label}</span>
+                                      <span className="ml-2 text-xs text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">{row.tierLabel}</span>
+                                    </div>
+                                    {row.coefficient != null && (
+                                      <span className="text-xs font-bold text-amber-700">× {row.coefficient}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Total */}
+                            <div className="flex items-center justify-between px-4 py-3 bg-primary/5 border-t border-primary/20">
+                              <span className="font-bold text-slate-700">最终报价</span>
+                              <span className="font-extrabold text-primary text-base">¥{order.opcQuoteCardSnapshot.finalPrice.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  )}
 
                   {/* Milestone Progress */}
                   {order.milestones && order.milestones.length > 0 && (
@@ -837,15 +1290,85 @@ export default function PublisherOrderDetail() {
                     </div>
                   )}
 
-                  {/* Related Demand Link */}
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">关联需求</h3>
+                  {/* Payment info (when paid or pending review) */}
+                  {(order.paymentMethod || order.paidAt) && (
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">付款信息</h3>
+                      <div className="space-y-3 text-sm">
+                        {order.paymentMethod && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-500">支付方式</span>
+                            <span className="font-medium text-slate-700">
+                              {order.paymentMethod === "online" ? "📱 扫码支付" : "🏦 线下转账"}
+                            </span>
+                          </div>
+                        )}
+                        {order.paidAt && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-500">付款时间</span>
+                            <span className="font-medium text-slate-700">
+                              {new Date(order.paidAt).toLocaleDateString("zh-CN")}
+                            </span>
+                          </div>
+                        )}
+                        {order.paymentNote && (
+                          <div>
+                            <p className="text-slate-500 mb-1">备注</p>
+                            <p className="text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-2">{order.paymentNote}</p>
+                          </div>
+                        )}
+                        {order.paymentReceiptUrl && (
+                          <div>
+                            <p className="text-slate-500 mb-1.5">付款凭证</p>
+                            <a href={order.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={order.paymentReceiptUrl}
+                                alt="付款凭证"
+                                className="w-full max-h-32 object-contain rounded-xl border border-slate-200 bg-slate-50 hover:opacity-90 transition-opacity cursor-zoom-in"
+                                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              />
+                            </a>
+                          </div>
+                        )}
+                        {order.status === "pending_payment" && !order.paidAt && (
+                          <div className="pt-1">
+                            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
+                              order.paymentReceiptUrl && !order.paymentRejectReason
+                                ? "bg-blue-100 text-blue-700"
+                                : order.paymentRejectReason
+                                ? "bg-red-100 text-red-700"
+                                : "bg-orange-100 text-orange-700"
+                            }`}>
+                              {order.paymentReceiptUrl && !order.paymentRejectReason
+                                ? "⏳ 等待财务审核"
+                                : order.paymentRejectReason
+                                ? "❌ 凭证已拒绝"
+                                : "⚠️ 待付款"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Related Demand */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">关联需求</h3>
                     <button
                       onClick={() => navigate(`/publisher/demand/${order.demandId}`)}
-                      className="w-full flex items-center justify-between text-sm font-medium text-slate-700 hover:text-primary transition-colors group"
+                      className="w-full flex items-start justify-between gap-2 text-sm font-bold text-slate-800 hover:text-primary transition-colors group text-left"
                     >
-                      <span className="line-clamp-2 text-left">{order.demandTitle}</span>
-                      <ChevronRight size={16} className="shrink-0 group-hover:translate-x-1 transition-transform" />
+                      <span className="line-clamp-3">{order.demandTitle}</span>
+                      <ChevronRight size={16} className="shrink-0 mt-0.5 group-hover:translate-x-1 transition-transform text-primary" />
+                    </button>
+                    {order.demandType && (
+                      <span className="inline-block text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">{order.demandType}</span>
+                    )}
+                    <button
+                      onClick={() => navigate(`/publisher/demand/${order.demandId}`)}
+                      className="w-full text-center text-xs text-primary font-bold hover:underline"
+                    >
+                      查看需求详情 →
                     </button>
                   </div>
                 </div>

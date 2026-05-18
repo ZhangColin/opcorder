@@ -14,13 +14,11 @@ import { useQueryClient } from "@tanstack/react-query";
 /* ─── Constants ──────────────────────────────── */
 
 export const DEMAND_TYPES = [
-  { value: "ai_education",     label: "AI 教育课程开发" },
-  { value: "gov_training",     label: "政企 AI 培训" },
-  { value: "ai_research",      label: "AI 研学项目" },
-  { value: "party_building",   label: "党建数字化" },
-  { value: "livestream_media", label: "直播与新媒体" },
-  { value: "ai_tool_dev",      label: "AI 工具开发" },
-  { value: "other",            label: "综合其他" },
+  { value: "education", label: "教育培训" },
+  { value: "software",  label: "软件开发" },
+  { value: "marketing", label: "营销" },
+  { value: "content",   label: "内容设计" },
+  { value: "other",     label: "其他" },
 ];
 
 export const TYPE_LABEL: Record<string, string> = Object.fromEntries(

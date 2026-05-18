@@ -200,7 +200,7 @@ export default function PublisherDisputes() {
               className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
             />
           </div>
-          <div className="flex items-center gap-4 ml-6">
+          <div className="flex items-center gap-4 ml-auto">
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />

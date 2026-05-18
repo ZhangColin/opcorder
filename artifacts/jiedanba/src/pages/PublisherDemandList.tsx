@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { clearSession, getAccessToken } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
+import { formatBudget } from "@/lib/utils";
 import {
   Search, Bell, PlusCircle, Filter,
   Eye, Edit2, X, Zap, ChevronRight, Clock, CheckCircle2,
@@ -48,13 +49,11 @@ const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
 };
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
-  ai_education:    "AI教育",
-  gov_training:    "政企培训",
-  ai_research:     "AI研学",
-  party_building:  "党建AI",
-  livestream_media:"直播媒体",
-  ai_tool_dev:     "AI工具",
-  other:           "其他",
+  education: "教育培训",
+  software:  "软件开发",
+  marketing: "营销",
+  content:   "内容设计",
+  other:     "其他",
 };
 
 /* ─── DemandCard ──────────────────────────────── */
@@ -73,7 +72,7 @@ function DemandCard({
   const [, navigate] = useLocation();
   const statusInfo = STATUS_BADGES[demand.status] ?? { label: demand.status, cls: "bg-slate-100 text-slate-500" };
   const typeLabel = DEMAND_TYPE_LABELS[demand.type] ?? demand.type;
-  const budgetText = demand.budget ? `¥${Number(demand.budget).toLocaleString()}` : "面议";
+  const budgetText = formatBudget(demand.budgetMin, demand.budgetMax, demand.budget);
 
   const isDraft = demand.status === "draft";
   const isPendingReview = demand.status === "pending_review";

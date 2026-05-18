@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle2, Clock, XCircle, UploadCloud, AlertCircle,
   ChevronDown, ChevronUp, FileText, ExternalLink, RotateCcw, Flag, Star, Send, Loader2,
   Building2, MapPin, Globe, Users, CalendarDays, ChevronRight, Link2,
-  Plus, X, Upload,
+  Plus, X, Upload, Tag, Banknote, BookOpen,
 } from "lucide-react";
 
 import {
@@ -959,16 +959,112 @@ export default function OrderDetail() {
             <span>截止日期: <span className="text-foreground">{order.deadline ?? "—"}</span></span>
           </div>
         </div>
-        <div className="bg-muted/50 rounded-xl border border-border p-5 text-left md:text-right min-w-[160px]">
-          <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-1">我的分成</p>
-          <p className="text-3xl font-black text-secondary">
-            ¥{Math.round(order.amount * 0.9).toLocaleString()}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            订单总额 ¥{order.amount.toLocaleString()}
-          </p>
+        <div className="bg-muted/50 rounded-xl border border-border p-5 text-left md:text-right min-w-[200px] space-y-2">
+          <div>
+            <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-1">我的分成</p>
+            <p className="text-3xl font-black text-secondary">
+              ¥{(order.opcShare ?? Math.round(order.amount * 0.9)).toLocaleString()}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              订单总额 ¥{order.amount.toLocaleString()}
+            </p>
+          </div>
+          {(order.platformFee != null || order.publisherShare != null) && (
+            <div className="border-t border-border pt-2 text-xs text-muted-foreground space-y-0.5">
+              {order.publisherShare != null && (
+                <div className="flex justify-between gap-4">
+                  <span>发单方支付</span>
+                  <span className="text-foreground font-semibold">¥{order.publisherShare.toLocaleString()}</span>
+                </div>
+              )}
+              {order.platformFee != null && (
+                <div className="flex justify-between gap-4">
+                  <span>平台服务费</span>
+                  <span className="text-foreground font-semibold">¥{order.platformFee.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Demand details + bid proposal */}
+      {((order as any).demandDescription || (order as any).demandSkillTags?.length > 0 || (order as any).demandAttachments?.length > 0 || (order as any).opcProposal || (order as any).opcQuotedPrice) && (
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6 space-y-5">
+          <h2 className="font-bold text-foreground flex items-center gap-2">
+            <BookOpen size={16} className="text-primary" /> 需求 &amp; 方案信息
+          </h2>
+
+          {/* Demand description */}
+          {(order as any).demandDescription && (
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <FileText size={12} /> 需求描述
+              </p>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                {(order as any).demandDescription}
+              </p>
+            </div>
+          )}
+
+          {/* Skill tags */}
+          {(order as any).demandSkillTags?.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Tag size={12} /> 技能标签
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {((order as any).demandSkillTags as string[]).map((tag: string) => (
+                  <span key={tag} className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Demand attachments */}
+          {(order as any).demandAttachments?.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <Link2 size={12} /> 需求附件
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {((order as any).demandAttachments as Array<{ name: string; url: string }>).map((att, i) => (
+                  <a key={i} href={att.url} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border text-xs font-medium text-foreground hover:bg-muted/70 transition-colors">
+                    <ExternalLink size={11} className="text-muted-foreground" />
+                    {att.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* OPC proposal & quote */}
+          {((order as any).opcProposal || (order as any).opcQuotedPrice) && (
+            <div className="border-t border-border pt-5 space-y-3">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <Banknote size={12} /> 我的中标方案
+              </p>
+              {(order as any).opcQuotedPrice && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">报价：</span>
+                  <span className="font-bold text-secondary text-base">¥{Number((order as any).opcQuotedPrice).toLocaleString()}</span>
+                  {(order as any).opcEstimatedDays && (
+                    <span className="text-xs text-muted-foreground ml-2">预计 {(order as any).opcEstimatedDays} 天</span>
+                  )}
+                </div>
+              )}
+              {(order as any).opcProposal && (
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-muted/40 rounded-xl p-4 border border-border">
+                  {(order as any).opcProposal}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Milestone progress summary */}
       {hasMilestones && (
@@ -1129,12 +1225,54 @@ export default function OrderDetail() {
             <div>
               <p className="font-bold text-green-800">订单已完成</p>
               <p className="text-sm text-green-700 mt-0.5">
-                您的分成 ¥{Math.round(order.amount * 0.9).toLocaleString()} 将在 3 个工作日内到账。
+                您的分成 ¥{(order.opcShare ?? Math.round(order.amount * 0.9)).toLocaleString()} 将在 3 个工作日内到账。
               </p>
             </div>
           </div>
 
-          {!(order as any).opcRating && (
+          {/* Publisher's rating of OPC */}
+          {(order.rating != null) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <Star size={13} className="fill-amber-400 text-amber-400" /> 发单方对您的评价
+              </p>
+              <div className="flex items-center gap-2 mb-2">
+                {[1,2,3,4,5].map(s => (
+                  <Star key={s} size={18} className={s <= (order.rating ?? 0) ? "fill-amber-400 text-amber-400" : "text-slate-200"} />
+                ))}
+                <span className="text-sm text-amber-700 font-bold ml-1">
+                  {["","较差","一般","良好","优秀","完美"][order.rating ?? 0]}
+                </span>
+              </div>
+              {order.reviewComment && (
+                <p className="text-sm text-amber-800 bg-amber-100/60 rounded-xl px-4 py-2.5 leading-relaxed">
+                  {order.reviewComment}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* OPC review of publisher — show form if not yet submitted, show result if already submitted */}
+          {(order as any).opcRating != null ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+              <p className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <Star size={13} className="fill-amber-400 text-amber-400" /> 您对发单方的评价
+              </p>
+              <div className="flex items-center gap-2 mb-2">
+                {[1,2,3,4,5].map(s => (
+                  <Star key={s} size={18} className={s <= ((order as any).opcRating ?? 0) ? "fill-amber-400 text-amber-400" : "text-slate-200"} />
+                ))}
+                <span className="text-sm text-blue-700 font-bold ml-1">
+                  {["","较差","一般","良好","优秀","完美"][(order as any).opcRating ?? 0]}
+                </span>
+              </div>
+              {(order as any).opcReviewComment && (
+                <p className="text-sm text-blue-800 bg-blue-100/60 rounded-xl px-4 py-2.5 leading-relaxed">
+                  {(order as any).opcReviewComment}
+                </p>
+              )}
+            </div>
+          ) : (
             <OpcReviewPanel orderId={id} onDone={onRefetch} />
           )}
         </div>

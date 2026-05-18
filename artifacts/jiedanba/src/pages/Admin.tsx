@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import AdminActivities from "./AdminActivities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatBudget } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
 import { clearSession, getAccessToken, getStoredUser } from "@/lib/auth";
@@ -101,7 +102,7 @@ export type Module =
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments" | "activities"
-  | "roles" | "adminusers" | "screen" | "agent" | "settlement";
+  | "roles" | "adminusers" | "screen" | "agent" | "settlement" | "quotecard";
 
 type NavChild = { key: string; label: string; href: string; icon: React.ElementType };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -111,7 +112,6 @@ const NAV: NavItem[] = [
   { key: "cockpit",        icon: BarChart3,           label: "平台驾驶舱",  permKey: "cockpit" },
   { key: "users",          icon: Users,              label: "用户管理",    permKey: "users" },
   { key: "demands",        icon: FileText,            label: "需求管理",    permKey: "demands" },
-  { key: "payments",       icon: Receipt,             label: "保证金审核",  permKey: "payments" },
   { key: "orders",         icon: ShoppingBag,         label: "订单管理",    permKey: "orders" },
   { key: "disputes",       icon: Gavel,               label: "争议管理",    permKey: "disputes" },
   { key: "finance",        icon: Wallet,              label: "财务管理",    permKey: "finance" },
@@ -122,6 +122,7 @@ const NAV: NavItem[] = [
   { key: "content",        icon: Shield,              label: "内容审核",    permKey: "content" },
   { key: "sensitivewords", icon: Flame,               label: "敏感词管理",  permKey: "sensitivewords" },
   { key: "activities",     icon: ClipboardList,       label: "活动报名",    permKey: "activities" },
+  { key: "quotecard",      icon: BadgeCent,            label: "报价卡配置",  permKey: "settings" },
   { key: "agent",          icon: Bot,                 label: "智能体配置",  permKey: "settings" },
   { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
   { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
@@ -904,6 +905,8 @@ interface AdminDemand {
   status: string;
   mode: string;
   budget: number;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
   isUrgent: boolean;
   createdAt: string;
   publisherName: string;
@@ -940,8 +943,7 @@ interface AdminDemandDetail extends AdminDemand {
 }
 
 const DEMAND_TYPE_CN: Record<string, string> = {
-  ai_education: "AI教育", gov_training: "政务培训", ai_research: "AI研究",
-  party_building: "党建", livestream_media: "直播媒体", ai_tool_dev: "AI工具开发", other: "其他",
+  education: "教育培训", software: "软件开发", marketing: "营销", content: "内容设计", other: "其他",
 };
 
 function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
@@ -1357,7 +1359,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
-                <p className="font-bold text-blue-900">¥{d.budget.toLocaleString()}</p>
+                <p className="font-bold text-blue-900">{formatBudget(d.budgetMin, d.budgetMax, d.budget)}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">交付截止</p>
@@ -1574,7 +1576,7 @@ function DemandManagement() {
               </td>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">{d.demandNo}</td>
               <td className="px-6 py-4 text-sm text-slate-500">{d.publisherName}</td>
-              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{d.budget.toLocaleString()}</td>
+              <td className="px-6 py-4 font-bold text-sm text-blue-900">{formatBudget(d.budgetMin, d.budgetMax, d.budget)}</td>
               <td className="px-6 py-4 text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</td>
               <td className="px-6 py-4"><StatusBadge label={statusCN[d.status] ?? d.status} color={statusColor(d.status)} /></td>
               <td className="px-6 py-4">
@@ -1690,6 +1692,9 @@ interface AdminOrder {
   completedMilestones: number;
   daysSinceCreated: number;
   createdAt: string;
+  paymentMethod?: string | null;
+  paymentReceiptUrl?: string | null;
+  paymentRejectReason?: string | null;
 }
 
 function OrderManagement() {
@@ -1698,11 +1703,44 @@ function OrderManagement() {
   const { askConfirm, confirmDialog } = useConfirm();
   const { q, qInput, setQInput, filter, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter } = useAdminListState("all");
 
+  const [rejectOrderId, setRejectOrderId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
   const { data: resp, isLoading } = useQuery<PagedResp<AdminOrder>>({
     queryKey: ["admin-orders", filter, q, page, pageSize],
     queryFn: () => adminGet(`/api/admin/orders?status=${filter === "all" ? "" : filter}&q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`),
   });
   const orders = resp?.data ?? [];
+
+  // Pending offline payment receipt orders
+  const { data: pendingPayResp, refetch: refetchPendingPay } = useQuery<PagedResp<AdminOrder>>({
+    queryKey: ["admin-orders-pending-pay"],
+    queryFn: () => adminGet(`/api/admin/orders?status=pending_payment&pageSize=50`),
+    refetchInterval: 30000,
+  });
+  const pendingPayOrders = (pendingPayResp?.data ?? []).filter(o => o.paymentMethod === "offline" && o.paymentReceiptUrl);
+
+  const confirmPayMut = useMutation({
+    mutationFn: (orderId: number) => adminPost(`/api/admin/orders/${orderId}/confirm-payment`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-orders-pending-pay"] });
+      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      toast({ title: "已确认收款", description: "订单正式开始，OPC 和发单方均已收到通知" });
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
+
+  const rejectPayMut = useMutation({
+    mutationFn: ({ orderId, reason }: { orderId: number; reason: string }) =>
+      adminPost(`/api/admin/orders/${orderId}/reject-payment`, { reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-orders-pending-pay"] });
+      setRejectOrderId(null);
+      setRejectReason("");
+      toast({ title: "已拒绝凭证", description: "已通知发单方重新提交付款凭证" });
+    },
+    onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
+  });
 
   const mutate = useMutation({
     mutationFn: ({ id, action }: { id: number; action: string }) =>
@@ -1712,16 +1750,19 @@ function OrderManagement() {
   });
 
   const STATUS_FILTERS = [
-    { val: "all", label: "全部" }, { val: "in_progress", label: "进行中" },
+    { val: "all", label: "全部" }, { val: "pending_payment", label: "待付款" },
+    { val: "in_progress", label: "进行中" },
     { val: "disputed", label: "争议中" }, { val: "pending_acceptance", label: "待验收" },
     { val: "completed", label: "已完成" },
   ];
 
   const statusCN: Record<string, string> = {
+    pending_payment: "待付款",
     in_progress: "进行中", pending_acceptance: "待验收",
     completed: "已完成", closed: "已关闭", disputed: "争议中",
   };
   const statusColor = (s: string) => ({
+    pending_payment: "bg-orange-100 text-orange-700",
     in_progress: "bg-blue-100 text-blue-700",
     disputed: "bg-red-100 text-red-700",
     pending_acceptance: "bg-purple-100 text-purple-700",
@@ -1731,7 +1772,102 @@ function OrderManagement() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
+
+      {/* Reject payment dialog */}
+      {rejectOrderId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 space-y-4">
+            <h3 className="text-base font-bold text-slate-800">拒绝付款凭证</h3>
+            <p className="text-sm text-slate-500">请填写拒绝原因，发单方将收到通知并可重新提交凭证。</p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="例：转账金额不符、截图模糊无法核验…"
+              rows={3}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-red-200 resize-none"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setRejectOrderId(null); setRejectReason(""); }}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => rejectPayMut.mutate({ orderId: rejectOrderId, reason: rejectReason.trim() || "凭证审核未通过" })}
+                disabled={rejectPayMut.isPending}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {rejectPayMut.isPending ? "提交中…" : "确认拒绝"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <SectionHeader title="订单管理" sub="订单全生命周期跟踪、争议介入、强制结算" />
+
+      {/* ── 待审核付款凭证 ── */}
+      {pendingPayOrders.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-orange-700">待审核付款凭证</span>
+            <span className="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded-full">{pendingPayOrders.length}</span>
+            <button onClick={() => refetchPendingPay()} className="ml-auto text-xs text-slate-400 hover:text-slate-600 transition-colors">刷新</button>
+          </div>
+          <div className="grid gap-3">
+            {pendingPayOrders.map(o => (
+              <div key={o.id} className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex flex-wrap gap-4 items-start">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-primary">{o.orderNo}</span>
+                    <span className="text-xs text-slate-500">{o.publisherName}</span>
+                    <span className="text-xs text-slate-400">→</span>
+                    <span className="text-xs text-slate-600">{o.opcName}</span>
+                  </div>
+                  <p className="text-sm text-slate-700 font-medium line-clamp-1">{o.demandTitle}</p>
+                  <p className="text-sm font-bold text-blue-900">¥{o.amount?.toLocaleString()}</p>
+                </div>
+                {o.paymentReceiptUrl && (
+                  <a href={o.paymentReceiptUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    <img
+                      src={o.paymentReceiptUrl}
+                      alt="付款凭证"
+                      className="w-24 h-24 object-contain rounded-xl border border-orange-200 bg-white hover:opacity-90 transition-opacity cursor-zoom-in"
+                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  </a>
+                )}
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() => askConfirm({
+                      title: "确认收款",
+                      description: `确认已到账 ¥${o.amount?.toLocaleString()}？订单将正式开始，双方均会收到通知。`,
+                      confirmLabel: "确认收款",
+                      confirmVariant: "default",
+                      onConfirm: () => confirmPayMut.mutate(o.id),
+                    })}
+                    disabled={confirmPayMut.isPending}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white text-xs font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle2 size={13} />
+                    确认收款
+                  </button>
+                  <button
+                    onClick={() => { setRejectOrderId(o.id); setRejectReason(""); }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-red-100 text-red-700 text-xs font-bold rounded-xl hover:bg-red-200 transition-colors"
+                  >
+                    <X size={13} />
+                    拒绝凭证
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 flex-wrap">
         {STATUS_FILTERS.map(f => (
           <button key={f.val} onClick={() => applyFilter(f.val)}
@@ -1841,12 +1977,13 @@ function FinanceManagement() {
   ] : [];
 
   const statusColor = (s: string) => ({
+    pending_payment: "bg-orange-100 text-orange-700",
     completed: "bg-green-100 text-green-700",
     in_progress: "bg-amber-100 text-amber-700",
     pending_acceptance: "bg-blue-100 text-blue-700",
     closed: "bg-slate-100 text-slate-500",
   }[s] ?? "bg-slate-100 text-slate-500");
-  const statusCN: Record<string, string> = { completed: "已完成", in_progress: "进行中", pending_acceptance: "待验收", closed: "已关闭", disputed: "争议中" };
+  const statusCN: Record<string, string> = { pending_payment: "待付款", completed: "已完成", in_progress: "进行中", pending_acceptance: "待验收", closed: "已关闭", disputed: "争议中" };
 
   const TX_FILTERS = [
     { val: "all", label: "全部" }, { val: "completed", label: "已完成" },
@@ -4010,6 +4147,275 @@ function DisputeManagement() {
           }
         </TableShell>
       </div>
+    </div>
+  );
+}
+
+/* ─── Quote Card Config ──────────────────────────── */
+
+type AdminTier = { id: number; tier: string; tierLabel: string; basePrice: number; coefficient: number | null; sortOrder: number };
+type AdminDim = { id: number; code: string; label: string; sortOrder: number; isActive: boolean; tiers: AdminTier[] };
+type AdminCatConfig = { category: string; base: AdminDim[]; adjustment: AdminDim[]; optional: AdminDim[] };
+
+function QuoteCardConfigManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const CAT_LABELS: Record<string, string> = { software: "软件开发", education: "教育培训", marketing: "营销", content: "内容设计", other: "其他" };
+  const [activeCategory, setActiveCategory] = useState("software");
+  const [localEdits, setLocalEdits] = useState<Record<string, string>>({});
+  const [addingDim, setAddingDim] = useState<{ layer: string } | null>(null);
+  const [newDimForm, setNewDimForm] = useState({ code: "", label: "" });
+  const [addingTier, setAddingTier] = useState<{ dimId: number; layer: string } | null>(null);
+  const [newTierForm, setNewTierForm] = useState({ tier: "", tierLabel: "", basePrice: "0", coefficient: "1.00" });
+
+  const { data: configs = [], isLoading } = useQuery<AdminCatConfig[]>({
+    queryKey: ["admin-quote-card-v2"],
+    queryFn: () => adminGet("/api/admin/quote-card/config"),
+    staleTime: 30_000,
+  });
+
+  const activeCfg = configs.find(c => c.category === activeCategory);
+
+  const saveTierField = async (tierId: number, layer: string) => {
+    const key = String(tierId);
+    const editVal = localEdits[key];
+    if (editVal === undefined) return;
+    const parsed = parseFloat(editVal) || 0;
+    const body = layer === "base" ? { basePrice: parsed } : { coefficient: parsed };
+    try {
+      await adminPut(`/api/admin/quote-card/tiers/${tierId}`, body);
+      await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
+    } catch (err: any) {
+      toast({ title: "保存失败", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const deleteDim = async (dimId: number) => {
+    if (!window.confirm("确定删除此维度及其所有档位？此操作不可撤销。")) return;
+    try {
+      const res = await fetch(`${BASE}/api/admin/quote-card/dimensions/${dimId}`, { method: "DELETE", headers: getAdminHeaders() });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? "删除失败"); }
+      await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
+      toast({ title: "维度已删除" });
+    } catch (err: any) { toast({ title: "删除失败", description: err.message, variant: "destructive" }); }
+  };
+
+  const deleteTier = async (tierId: number) => {
+    if (!window.confirm("确定删除此档位？")) return;
+    try {
+      const res = await fetch(`${BASE}/api/admin/quote-card/tiers/${tierId}`, { method: "DELETE", headers: getAdminHeaders() });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? "删除失败"); }
+      await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
+      toast({ title: "档位已删除" });
+    } catch (err: any) { toast({ title: "删除失败", description: err.message, variant: "destructive" }); }
+  };
+
+  const addDim = async (layer: string) => {
+    if (!newDimForm.code.trim() || !newDimForm.label.trim()) { toast({ title: "请填写代码和名称", variant: "destructive" }); return; }
+    try {
+      await adminPost("/api/admin/quote-card/dimensions", { category: activeCategory, layer, code: newDimForm.code.trim(), label: newDimForm.label.trim() });
+      await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
+      setAddingDim(null); setNewDimForm({ code: "", label: "" });
+      toast({ title: "维度已添加" });
+    } catch (err: any) { toast({ title: "添加失败", description: err.message, variant: "destructive" }); }
+  };
+
+  const addTier = async (dimId: number, layer: string) => {
+    if (!newTierForm.tier.trim() || !newTierForm.tierLabel.trim()) { toast({ title: "请填写档位代码和标签", variant: "destructive" }); return; }
+    const body: Record<string, unknown> = { dimensionId: dimId, tier: newTierForm.tier.trim(), tierLabel: newTierForm.tierLabel.trim() };
+    if (layer === "base") body.basePrice = parseFloat(newTierForm.basePrice) || 0;
+    else body.coefficient = parseFloat(newTierForm.coefficient) || 1.00;
+    try {
+      await adminPost("/api/admin/quote-card/tiers", body);
+      await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
+      setAddingTier(null); setNewTierForm({ tier: "", tierLabel: "", basePrice: "0", coefficient: "1.00" });
+      toast({ title: "档位已添加" });
+    } catch (err: any) { toast({ title: "添加失败", description: err.message, variant: "destructive" }); }
+  };
+
+  const renderSection = (dims: AdminDim[], layer: "base" | "adjustment" | "optional") => {
+    const isBase = layer === "base";
+    const isOptional = layer === "optional";
+    const sectionLabel = isBase ? "基准层 · 价格累加" : isOptional ? "可选层 · 费率叠加（维护包等）" : "调整层 · 系数相乘";
+    const sectionColor = isBase ? "text-primary" : isOptional ? "text-green-700" : "text-amber-600";
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className={`text-xs font-black uppercase tracking-widest ${sectionColor}`}>{sectionLabel}</h3>
+          <button
+            onClick={() => { setAddingDim({ layer }); setNewDimForm({ code: "", label: "" }); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+          ><Plus size={12} /> 添加维度</button>
+        </div>
+
+        {dims.length === 0 && addingDim?.layer !== layer && (
+          <p className="text-sm text-slate-400 text-center py-6 bg-white rounded-2xl border border-dashed border-slate-200">暂无维度</p>
+        )}
+
+        {dims.map(dim => (
+          <div key={dim.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className={`px-5 py-3 flex items-center gap-3 border-b border-slate-100 ${isBase ? "bg-slate-50" : isOptional ? "bg-green-50/60" : "bg-amber-50/60"}`}>
+              <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isBase ? "text-primary bg-primary/10" : isOptional ? "text-green-700 bg-green-100" : "text-amber-700 bg-amber-100"}`}>{dim.code}</span>
+              <span className="font-bold text-slate-800 text-sm flex-1">{dim.label}</span>
+              {!isBase && <span className={`text-xs ${isOptional ? "text-green-600" : "text-slate-400"}`}>{isOptional ? "费率 ×" : "系数 ×"}</span>}
+              <button onClick={() => deleteDim(dim.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除维度"><Trash2 size={13} /></button>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-50 bg-slate-50/50">
+                  <th className="px-5 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider w-20">档位</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">标签</th>
+                  <th className="px-4 py-2 text-right text-xs font-bold text-slate-400 uppercase tracking-wider w-44">{isBase ? "价格（元）" : isOptional ? "费率（× 如 0.15=+15%）" : "系数（×）"}</th>
+                  <th className="px-3 py-2 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {dim.tiers.map(t => {
+                  const key = String(t.id);
+                  const displayVal = localEdits[key] !== undefined ? localEdits[key] : (isBase ? String(t.basePrice) : String(t.coefficient ?? 0));
+                  return (
+                    <tr key={t.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
+                      <td className="px-5 py-2.5">
+                        <span className={`inline-block text-xs font-black px-2 py-0.5 rounded ${isBase ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-700"}`}>{t.tier}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-700">{t.tierLabel}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="relative inline-flex items-center">
+                          <span className={`absolute left-3 text-sm font-bold pointer-events-none ${isBase ? "text-slate-400" : isOptional ? "text-green-600" : "text-amber-500"}`}>{isBase ? "¥" : "×"}</span>
+                          <input
+                            type="number"
+                            min={isBase ? 0 : 0}
+                            max={isBase ? undefined : isOptional ? 1 : 10}
+                            step={isBase ? 100 : isOptional ? 0.01 : 0.05}
+                            value={displayVal}
+                            onChange={e => setLocalEdits(prev => ({ ...prev, [key]: e.target.value }))}
+                            onBlur={() => saveTierField(t.id, layer)}
+                            className={`w-28 border border-slate-200 rounded-lg pl-7 pr-3 py-1.5 text-sm text-right outline-none transition ${isBase ? "focus:ring-2 focus:ring-primary/20 focus:border-primary" : isOptional ? "focus:ring-2 focus:ring-green-300/40 focus:border-green-500" : "focus:ring-2 focus:ring-amber-300/40 focus:border-amber-400"}`}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <button onClick={() => deleteTier(t.id)} className="p-1 text-slate-300 hover:text-red-400 transition-colors" title="删除档位"><X size={13} /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {addingTier?.dimId === dim.id ? (
+                  <tr className="border-b border-slate-50 bg-primary/5">
+                    <td className="px-3 py-2.5">
+                      <input type="text" placeholder="代码" value={newTierForm.tier} onChange={e => setNewTierForm(p => ({...p, tier: e.target.value}))}
+                        className="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary" />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <input type="text" placeholder="标签描述" value={newTierForm.tierLabel} onChange={e => setNewTierForm(p => ({...p, tierLabel: e.target.value}))}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-primary" />
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {isBase
+                        ? <input type="number" placeholder="0" min={0} step={100} value={newTierForm.basePrice} onChange={e => setNewTierForm(p => ({...p, basePrice: e.target.value}))}
+                            className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right outline-none focus:border-primary" />
+                        : <input type="number" placeholder="1.00" min={0.01} max={10} step={0.05} value={newTierForm.coefficient} onChange={e => setNewTierForm(p => ({...p, coefficient: e.target.value}))}
+                            className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right outline-none focus:border-amber-400" />
+                      }
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => addTier(dim.id, layer)} className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"><CheckCircle2 size={14} /></button>
+                        <button onClick={() => setAddingTier(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded transition-colors"><X size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-2">
+                      <button
+                        onClick={() => { setAddingTier({ dimId: dim.id, layer }); setNewTierForm({ tier: "", tierLabel: "", basePrice: "0", coefficient: "1.00" }); }}
+                        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-primary transition-colors"
+                      ><Plus size={12} /> 添加档位</button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ))}
+
+        {addingDim?.layer === layer && (
+          <div className="bg-white rounded-2xl border-2 border-dashed border-primary/30 p-5">
+            <p className="text-sm font-bold text-slate-700 mb-3">新建维度</p>
+            <div className="flex gap-3 items-end">
+              <div>
+                <label className="text-xs text-slate-500 font-bold block mb-1">代码（如 D6 / A4）</label>
+                <input type="text" placeholder="D6" value={newDimForm.code} onChange={e => setNewDimForm(p => ({...p, code: e.target.value}))}
+                  className="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary" />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-slate-500 font-bold block mb-1">名称</label>
+                <input type="text" placeholder="维度名称" value={newDimForm.label} onChange={e => setNewDimForm(p => ({...p, label: e.target.value}))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary" />
+              </div>
+              <button onClick={() => addDim(layer)} className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors">确认</button>
+              <button onClick={() => setAddingDim(null)} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors">取消</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="报价卡配置"
+        sub="为五类需求（软件开发、教育培训、营销、内容设计、其他）配置报价维度和档位；OPC 报价时自动按需求类型呈现对应报价卡"
+      />
+
+      <div className="flex gap-2 flex-wrap">
+        {Object.entries(CAT_LABELS).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setActiveCategory(key)}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+              activeCategory === key
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white border border-slate-200 text-slate-600 hover:border-primary/40 hover:bg-primary/5"
+            }`}
+          >{label}</button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-slate-400"><Loader2 className="animate-spin mx-auto mb-2" size={24} />加载中…</div>
+      ) : activeCategory === "other" ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 space-y-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-1 flex-shrink-0 w-8 h-8 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 text-sm font-bold">?</span>
+            <div>
+              <p className="font-bold text-slate-800 mb-1">「其他」类型说明</p>
+              <p className="text-sm text-slate-500 leading-relaxed">此类型作为兜底分类，适用于不属于教育培训、软件开发、营销、内容设计的 AI 相关需求。OPC 对此类需求报价时没有标准报价卡，需与需求方直接协商定价。</p>
+              <p className="text-sm text-slate-400 mt-2">运营人员可在下方添加维度和档位，作为 OPC 报价时的参考指引；也可保持空白，让 OPC 完全自定义报价。</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div>{renderSection(activeCfg?.base ?? [], "base")}</div>
+            <div>{renderSection(activeCfg?.adjustment ?? [], "adjustment")}</div>
+          </div>
+          <div>{renderSection(activeCfg?.optional ?? [], "optional")}</div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div>{renderSection(activeCfg?.base ?? [], "base")}</div>
+            <div>{renderSection(activeCfg?.adjustment ?? [], "adjustment")}</div>
+          </div>
+          <div>{renderSection(activeCfg?.optional ?? [], "optional")}</div>
+        </>
+      )}
+
+      <p className="text-xs text-slate-400 text-center">
+        价格/系数输入框失焦后自动保存 · 删除操作不可撤销
+      </p>
     </div>
   );
 }
@@ -6585,6 +6991,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "sensitivewords": return <SensitiveWordsManagement />;
     case "payments":       return <><DepositPaymentManagement /><DemandRefundManagement /></>;
     case "activities":     return <AdminActivities />;
+    case "quotecard":      return <QuoteCardConfigManagement />;
     case "agent":          return <AgentConfigManagement />;
     case "settlement":     return <SettlementManagement />;
     case "settings":       return <SiteSettingsManagement />;

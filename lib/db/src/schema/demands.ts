@@ -4,8 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const demandTypeEnum = pgEnum("demand_type", [
-  "ai_education", "gov_training", "ai_research", "party_building",
-  "livestream_media", "ai_tool_dev", "other"
+  "education", "software", "marketing", "content", "other"
 ]);
 
 export const demandStatusEnum = pgEnum("demand_status", [
@@ -24,7 +23,12 @@ export const demandsTable = pgTable("demands", {
   description: text("description").notNull(),
   skillTags: jsonb("skill_tags").$type<string[]>().notNull().default([]),
   opcLevel: varchar("opc_level", { length: 10 }).notNull().default("any"),
+  /** @deprecated Use budgetMin / budgetMax instead. Kept for backward compatibility. */
   budget: real("budget").notNull().default(0),
+  /** Minimum budget (price range lower bound). Replaces the legacy budget field. */
+  budgetMin: real("budget_min").notNull().default(0),
+  /** Maximum budget (price range upper bound). */
+  budgetMax: real("budget_max").notNull().default(0),
   deadline: date("deadline").notNull(),
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>>().default([]),
   attachments: jsonb("attachments").$type<Array<{ name: string; size: string; type: string; url: string }>>().default([]),

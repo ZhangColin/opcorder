@@ -1,10 +1,8 @@
 export const DEMAND_TYPES: Record<string, string> = {
-  ai_education: "AI教育课程开发",
-  gov_training: "政企AI培训",
-  ai_research: "AI研学项目",
-  party_building: "党建AI应用",
-  livestream_media: "直播与新媒体",
-  ai_tool_dev: "AI工具开发定制",
+  education: "教育培训",
+  software: "软件开发",
+  marketing: "营销",
+  content: "内容设计",
   other: "其他",
 };
 

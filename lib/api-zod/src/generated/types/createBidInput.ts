@@ -7,7 +7,12 @@
  */
 
 export interface CreateBidInput {
-  proposal: string;
+  /** Free-text proposal (optional when quoteCardData is provided) */
+  proposal?: string;
   estimatedDays: number;
   portfolioLinks?: string[];
+  /** Structured quote card selections: dimension code → tier code (e.g. { D1: "M", C2: "L" }) */
+  quoteCardData?: Record<string, string>;
+  /** Total quoted price in yuan, calculated from quoteCardData selections */
+  quotedPrice?: number;
 }

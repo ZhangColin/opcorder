@@ -18,7 +18,12 @@ export interface CreateDemandInput {
   description: string;
   skillTags: string[];
   opcLevel: CreateDemandInputOpcLevel;
-  budget: number;
+  /** @deprecated Use budgetMin / budgetMax */
+  budget?: number;
+  /** Minimum expected budget in yuan */
+  budgetMin?: number;
+  /** Maximum expected budget in yuan */
+  budgetMax?: number;
   deadline: Date;
   milestones?: CreateDemandInputMilestonesItem[];
   mode: CreateDemandInputMode;

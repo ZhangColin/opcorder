@@ -104,12 +104,10 @@ export interface Milestone {
 export type DemandType = (typeof DemandType)[keyof typeof DemandType];
 
 export const DemandType = {
-  ai_education: "ai_education",
-  gov_training: "gov_training",
-  ai_research: "ai_research",
-  party_building: "party_building",
-  livestream_media: "livestream_media",
-  ai_tool_dev: "ai_tool_dev",
+  education: "education",
+  software: "software",
+  marketing: "marketing",
+  content: "content",
   other: "other",
 } as const;
 
@@ -164,6 +162,8 @@ export interface Demand {
   skillTags: string[];
   opcLevel: DemandOpcLevel;
   budget: number;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
   deadline: string;
   milestones?: Milestone[];
   mode: DemandMode;
@@ -369,6 +369,8 @@ export interface MyBidItem {
   demandTitle?: string | null;
   demandStatus?: string | null;
   demandBudget?: number | null;
+  demandBudgetMin?: number | null;
+  demandBudgetMax?: number | null;
   demandDeadline?: string | null;
   proposal: string;
   estimatedDays?: number | null;
@@ -399,6 +401,9 @@ export interface BidApplication {
   proposal: string;
   estimatedDays?: number;
   portfolioLinks?: string[];
+  quotedPrice?: number | null;
+  quoteCardData?: Record<string, unknown> | null;
+  quoteCardSnapshot?: Record<string, unknown> | null;
   status: BidApplicationStatus;
   createdAt: string;
 }
@@ -447,8 +452,24 @@ export interface Order {
   demandId: number;
   demandTitle: string;
   demandType?: string;
+  demandDescription?: string | null;
+  demandBudgetMin?: number | null;
+  demandBudgetMax?: number | null;
+  demandSkillTags?: string[] | null;
+  demandAttachments?: Array<{ name: string; size: string; type: string; url: string }> | null;
   opcId: number;
   opcNickname?: string;
+  opcProposal?: string | null;
+  opcQuoteCardSnapshot?: {
+    category: string;
+    baseLayers: Array<{ code: string; label: string; tier: string; tierLabel: string; price?: number; coefficient?: number }>;
+    adjustLayers: Array<{ code: string; label: string; tier: string; tierLabel: string; price?: number; coefficient?: number }>;
+    baseTotal: number;
+    factorProduct: number;
+    finalPrice: number;
+  } | null;
+  opcQuotedPrice?: number | null;
+  opcEstimatedDays?: number | null;
   publisherId: number;
   publisherName?: string;
   amount: number;
@@ -461,6 +482,12 @@ export interface Order {
   rating?: number;
   reviewComment?: string;
   deadline?: string;
+  paymentMethod?: string | null;
+  paymentReceiptUrl?: string | null;
+  paymentNote?: string | null;
+  paymentOrderNo?: string | null;
+  paymentRejectReason?: string | null;
+  paidAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

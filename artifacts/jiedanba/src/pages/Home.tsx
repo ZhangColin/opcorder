@@ -123,12 +123,25 @@ export default function Home() {
   const { data: opcProfile } = useGetOpcProfile(currentUser?.id ?? 0, {
     query: { enabled: !!currentUser?.id },
   });
-  const eligibleLevel = opcProfile?.level as "C" | "B" | "A" | undefined;
   const { data: demandsResponse, isLoading: demandsLoading } = useListDemands({
-    limit: 8,
+    limit: 16,
     status: 'published',
-    ...(eligibleLevel ? { eligibleLevel } : {}),
   });
+
+  // 按用户等级软排序：能接的需求优先展示，不强制过滤，保证不空
+  const eligibleOpcLevels: Record<string, string[]> = {
+    A: ["A", "B", "C", "any"],
+    B: ["B", "C", "any"],
+    C: ["C", "any"],
+    newbie: ["any"],
+  };
+  const userLevel = opcProfile?.level ?? "";
+  const eligible = eligibleOpcLevels[userLevel] ?? [];
+  const sortedDemands = [...(demandsResponse?.items ?? [])].sort((a, b) => {
+    const aMatch = eligible.includes(a.opcLevel) ? 0 : 1;
+    const bMatch = eligible.includes(b.opcLevel) ? 0 : 1;
+    return aMatch - bMatch;
+  }).slice(0, 8);
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
   const { data: notifData } = useListNotifications({ limit: 1 }, { query: { enabled: !!currentUser?.id } });
   const { data: activeOrdersData } = useListOrders({ status: "in_progress", limit: 1 }, { query: { enabled: !!currentUser?.id } });
@@ -272,10 +285,10 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {demandsResponse?.items?.map(demand => (
+              {sortedDemands.map(demand => (
                 <DemandCard key={demand.id} demand={demand} />
               ))}
-              {(!demandsResponse?.items || demandsResponse.items.length === 0) && (
+              {sortedDemands.length === 0 && (
                 <div className="col-span-2 py-20 text-center bg-muted/30 rounded-2xl border border-dashed border-border">
                   <p className="text-muted-foreground font-medium">暂无推荐需求</p>
                 </div>

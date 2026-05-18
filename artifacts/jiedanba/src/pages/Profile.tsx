@@ -174,13 +174,11 @@ function CropModal({ src, onConfirm, onCancel }: CropModalProps) {
 /* ─── Static ─────────────────────────────────── */
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
-  ai_education:     "AI 教育",
-  gov_training:     "政企培训",
-  ai_research:      "AI 研究",
-  ai_tool_dev:      "AI 工具开发",
-  party_building:   "党建数字化",
-  livestream_media: "直播媒体",
-  other:            "综合",
+  education: "教育培训",
+  software:  "软件开发",
+  marketing: "营销",
+  content:   "内容设计",
+  other:     "其他",
 };
 
 const CERT_BY_LEVEL: Record<string, { label: string; detail: string; type: "done" | "current" | "locked" }[]> = {

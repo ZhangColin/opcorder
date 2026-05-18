@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { formatBudget } from "@/lib/utils";
 import {
   ClipboardList, Clock, CheckCircle2, XCircle, Undo2,
   ChevronRight, AlertCircle, Loader2, Trophy, CalendarDays,
@@ -73,7 +74,7 @@ function BidCard({
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <DollarSign size={11} />
-              预算 ¥{bid.demandBudget?.toLocaleString() ?? "—"}
+              预算 {formatBudget(bid.demandBudgetMin, bid.demandBudgetMax, bid.demandBudget)}
             </span>
             {bid.demandDeadline && (
               <span className="flex items-center gap-1">

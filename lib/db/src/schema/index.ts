@@ -19,3 +19,5 @@ export * from "./activities";
 export * from "./system-logs";
 export * from "./agent";
 export * from "./announcements";
+export * from "./quote-dimensions";
+export * from "./quote-tiers";

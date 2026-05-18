@@ -14,13 +14,11 @@ const STATUS_CFG: Record<string, { label: string; color: string }> = {
 };
 
 const DEMAND_TYPES: Record<string, string> = {
-  ai_education:     "AI教育",
-  gov_training:     "政企培训",
-  ai_research:      "AI研学",
-  party_building:   "党建AI",
-  livestream_media: "直播媒体",
-  ai_tool_dev:      "AI工具开发",
-  other:            "其他",
+  education: "教育培训",
+  software:  "软件开发",
+  marketing: "营销",
+  content:   "内容设计",
+  other:     "其他",
 };
 
 export default function OpcIncome() {

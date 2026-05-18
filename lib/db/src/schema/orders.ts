@@ -5,7 +5,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const orderStatusEnum = pgEnum("order_status", [
-  "in_progress", "pending_acceptance", "completed", "closed", "disputed"
+  "pending_payment", "in_progress", "pending_acceptance", "completed", "closed", "disputed"
 ]);
 
 export const ordersTable = pgTable("orders", {
@@ -18,13 +18,25 @@ export const ordersTable = pgTable("orders", {
   opcShare: real("opc_share").notNull(),
   publisherShare: real("publisher_share").notNull(),
   platformFee: real("platform_fee").notNull(),
-  status: orderStatusEnum("status").notNull().default("in_progress"),
+  status: orderStatusEnum("status").notNull().default("pending_payment"),
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>>().default([]),
   rating: real("rating"),
   reviewComment: text("review_comment"),
   opcRating: real("opc_rating"),
   opcReviewComment: text("opc_review_comment"),
   deadline: date("deadline"),
+  /** Payment method used for the order deposit (online or offline). */
+  paymentMethod: varchar("payment_method", { length: 20 }),
+  /** Receipt URL for offline payment proof. */
+  paymentReceiptUrl: text("payment_receipt_url"),
+  /** Note accompanying the payment. */
+  paymentNote: text("payment_note"),
+  /** Payment order number from the online payment provider. */
+  paymentOrderNo: varchar("payment_order_no", { length: 100 }),
+  /** Timestamp when payment was confirmed and order became in_progress. */
+  paidAt: timestamp("paid_at"),
+  /** Rejection reason set by admin when rejecting an offline payment receipt. */
+  paymentRejectReason: text("payment_reject_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

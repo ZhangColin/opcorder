@@ -16,13 +16,11 @@ import { useToast } from "@/hooks/use-toast";
 /* ─── Constants ───────────────────────────────── */
 
 const DEMAND_TYPES = [
-  { value: "ai_education",    label: "AI教育课程开发" },
-  { value: "gov_training",    label: "政企AI培训" },
-  { value: "ai_research",     label: "AI研学项目" },
-  { value: "party_building",  label: "党建AI应用" },
-  { value: "livestream_media",label: "直播与新媒体" },
-  { value: "ai_tool_dev",     label: "AI工具开发定制" },
-  { value: "other",           label: "其他" },
+  { value: "education", label: "教育培训" },
+  { value: "software",  label: "软件开发" },
+  { value: "marketing", label: "营销" },
+  { value: "content",   label: "内容设计" },
+  { value: "other",     label: "其他" },
 ];
 
 const SKILL_TAGS_OPTIONS = [
@@ -292,7 +290,8 @@ export default function PublisherCreateDemand() {
   const [description, setDescription] = useState("");
   const [skillTags, setSkillTags] = useState<string[]>([]);
   const [opcLevel, setOpcLevel] = useState("any");
-  const [budget, setBudget] = useState("");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
   const [deadline, setDeadline] = useState("");
   const [mode, setMode] = useState<"open" | "directed">("open");
   const [bidDeadline, setBidDeadline] = useState("");
@@ -303,17 +302,17 @@ export default function PublisherCreateDemand() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  /* ── 实时预算等级上限校验 ── */
+  /* ── 实时预算等级上限校验（以上限值为准）── */
   const budgetCapError = useMemo(() => {
-    const val = Number(budget);
-    if (!budget || isNaN(val) || val <= 0) return "";
+    const val = Number(budgetMax);
+    if (!budgetMax || isNaN(val) || val <= 0) return "";
     const cap = LEVEL_BUDGET_CAP[opcLevel] ?? 200_000;
     if (val > cap) {
       const levelLabel = opcLevel === "any" ? "当前设置" : `${opcLevel}级OPC`;
-      return `${levelLabel}接单上限为 ¥${cap.toLocaleString()}，预算 ¥${val.toLocaleString()} 超出限额，请降低预算或提高OPC等级要求`;
+      return `${levelLabel}接单上限为 ¥${cap.toLocaleString()}，预算上限 ¥${val.toLocaleString()} 超出限额，请降低预算或提高OPC等级要求`;
     }
     return "";
-  }, [opcLevel, budget]);
+  }, [opcLevel, budgetMax]);
 
   const minDeadlineDate = new Date().toISOString().split("T")[0];
 
@@ -325,7 +324,8 @@ export default function PublisherCreateDemand() {
       setDescription(existingDemand.description ?? "");
       setSkillTags((existingDemand.skillTags as string[]) ?? []);
       setOpcLevel(existingDemand.opcLevel ?? "any");
-      setBudget(String(existingDemand.budget ?? ""));
+      setBudgetMin(String(existingDemand.budgetMin ?? existingDemand.budget ?? ""));
+      setBudgetMax(String(existingDemand.budgetMax ?? existingDemand.budget ?? ""));
       setDeadline(existingDemand.deadline ? String(existingDemand.deadline).split("T")[0] : "");
       setMode((existingDemand.mode as "open" | "directed") ?? "open");
       setBidDeadline(existingDemand.bidDeadline ? String(existingDemand.bidDeadline).split("T")[0] : "");
@@ -344,7 +344,9 @@ export default function PublisherCreateDemand() {
     if (!type) e.type = "请选择需求类型";
     if (!description.trim()) e.description = "请填写需求描述";
     if (skillTags.length === 0) e.skillTags = "请至少选择一个技能标签";
-    if (!budget || isNaN(Number(budget)) || Number(budget) <= 0) e.budget = "请填写预算金额";
+    if (!budgetMin || isNaN(Number(budgetMin)) || Number(budgetMin) <= 0) e.budget = "请填写最低预算金额";
+    else if (!budgetMax || isNaN(Number(budgetMax)) || Number(budgetMax) <= 0) e.budget = "请填写最高预算金额";
+    else if (Number(budgetMax) < Number(budgetMin)) e.budget = "最高预算不能低于最低预算";
     else if (budgetCapError) e.budget = budgetCapError;
     if (!deadline) e.deadline = "请选择交付截止日期";
     else if (deadline < minDeadlineDate) e.deadline = "截止日期不能早于今天";
@@ -388,7 +390,9 @@ export default function PublisherCreateDemand() {
       if (!type) currentErrors.type = "请选择需求类型";
       if (!description.trim()) currentErrors.description = "请填写需求描述";
       if (skillTags.length === 0) currentErrors.skillTags = "请至少选择一个技能标签";
-      if (!budget || isNaN(Number(budget)) || Number(budget) <= 0) currentErrors.budget = "请填写预算金额";
+      if (!budgetMin || isNaN(Number(budgetMin)) || Number(budgetMin) <= 0) currentErrors.budget = "请填写最低预算金额";
+      else if (!budgetMax || isNaN(Number(budgetMax)) || Number(budgetMax) <= 0) currentErrors.budget = "请填写最高预算金额";
+      else if (Number(budgetMax) < Number(budgetMin)) currentErrors.budget = "最高预算不能低于最低预算";
       if (!deadline) currentErrors.deadline = "请选择交付截止日期";
       if (mode === "open" && !bidDeadline) currentErrors.bidDeadline = "请设置抢单截止时间";
       if (mode === "directed" && directedOpcIds.length === 0) currentErrors.directedOpcIds = "请选择目标OPC";
@@ -405,7 +409,8 @@ export default function PublisherCreateDemand() {
         description: description.trim(),
         skillTags,
         opcLevel,
-        budget: Number(budget),
+        budgetMin: Number(budgetMin),
+        budgetMax: Number(budgetMax),
         deadline,
         mode: mode as any,
         isUrgent,
@@ -485,7 +490,9 @@ export default function PublisherCreateDemand() {
     if (suggestion.description) { setDescription(suggestion.description); scrollTarget = scrollTarget ?? "section-detail"; }
     if (suggestion.skillTags?.length) { setSkillTags(suggestion.skillTags); scrollTarget = scrollTarget ?? "section-detail"; }
     if (suggestion.opcLevel) { setOpcLevel(suggestion.opcLevel); scrollTarget = scrollTarget ?? "section-matching"; }
-    if (suggestion.budget) { setBudget(String(suggestion.budget)); scrollTarget = scrollTarget ?? "section-budget"; }
+    if (suggestion.budgetMin) { setBudgetMin(String(suggestion.budgetMin)); scrollTarget = scrollTarget ?? "section-budget"; }
+    if (suggestion.budgetMax) { setBudgetMax(String(suggestion.budgetMax)); scrollTarget = scrollTarget ?? "section-budget"; }
+    else if (suggestion.budget) { setBudgetMin(String(suggestion.budget)); setBudgetMax(String(suggestion.budget)); scrollTarget = scrollTarget ?? "section-budget"; }
     if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
     if (suggestion.milestones?.length) {
       setMilestones(suggestion.milestones.map(m => ({
@@ -535,7 +542,7 @@ export default function PublisherCreateDemand() {
             <ChevronRight size={14} className="text-slate-300" />
             <span className="text-blue-900 font-bold">{isEdit ? "编辑需求" : "发布新需求"}</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 ml-auto">
             <div className="relative w-72 hidden lg:block">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -670,8 +677,8 @@ export default function PublisherCreateDemand() {
               <div className="grid grid-cols-2 gap-3">
                 {OPC_LEVELS.map(lvl => {
                   const cap = LEVEL_BUDGET_CAP[lvl.value] ?? 200_000;
-                  const budgetNum = Number(budget);
-                  const exceedsCap = budget && !isNaN(budgetNum) && budgetNum > cap;
+                  const budgetNum = Number(budgetMax);
+                  const exceedsCap = budgetMax && !isNaN(budgetNum) && budgetNum > cap;
                   const isSelected = opcLevel === lvl.value;
                   return (
                     <button
@@ -786,27 +793,37 @@ export default function PublisherCreateDemand() {
           {/* ── Section 4: 预算与时间 ── */}
           <Section id="section-budget" title="预算与时间" subtitle="设置项目预算范围和交付截止日期">
 
-            <FormField label="预算金额（元）" required error={budgetCapError || errors.budget}
-              hint="设置合理的预算，吸引优质OPC投标">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
-                <input
-                  type="number"
-                  value={budget}
-                  onChange={e => setBudget(e.target.value)}
-                  placeholder="请填写预算金额"
-                  min={0}
-                  className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
-                    errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
-                  }`}
-                />
+            <FormField label="预算区间（元）" required error={budgetCapError || errors.budget}
+              hint="设置合理的预算区间，OPC将在此范围内报价">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
+                  <input
+                    type="number"
+                    value={budgetMin}
+                    onChange={e => setBudgetMin(e.target.value)}
+                    placeholder="最低预算"
+                    min={0}
+                    className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
+                      errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
+                    }`}
+                  />
+                </div>
+                <span className="text-slate-400 font-bold text-sm flex-shrink-0">—</span>
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
+                  <input
+                    type="number"
+                    value={budgetMax}
+                    onChange={e => setBudgetMax(e.target.value)}
+                    placeholder="最高预算"
+                    min={0}
+                    className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
+                      errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
+                    }`}
+                  />
+                </div>
               </div>
-              {budget && Number(budget) > 0 && (
-                <p className="text-xs text-secondary font-semibold mt-1.5 flex items-center gap-1">
-                  <Info size={12} />
-                  OPC实际到手约：¥{Math.floor(Number(budget) * 0.9).toLocaleString()}（平台收取10%服务费）
-                </p>
-              )}
             </FormField>
 
             <FormField label="交付截止日期" required error={errors.deadline}

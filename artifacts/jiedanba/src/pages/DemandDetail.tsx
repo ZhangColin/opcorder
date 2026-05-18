@@ -1,10 +1,59 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File, Building2, MapPin, Globe, Users, CalendarDays, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File, Building2, MapPin, Globe, Users, CalendarDays, ChevronRight, X, CheckCircle2 } from "lucide-react";
 import { useGetDemandById, useCreateBid } from "@workspace/api-client-react";
 import { DEMAND_TYPES, DEMAND_STATUSES, OPC_LEVELS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const DEMAND_CATEGORY_MAP: Record<string, string | null> = {
+  education: "education",
+  software: "software",
+  marketing: "marketing",
+  content: "content",
+  other: null,
+};
+
+interface QuoteTierData {
+  id: number;
+  tier: string;
+  tierLabel: string;
+  basePrice: number;
+  coefficient?: number | null;
+  description?: string | null;
+  sortOrder: number;
+}
+
+interface QuoteDimData {
+  id: number;
+  code: string;
+  label: string;
+  sortOrder: number;
+  tiers: QuoteTierData[];
+}
+
+interface QuoteCategoryConfig {
+  category: string;
+  base: QuoteDimData[];
+  adjustment: QuoteDimData[];
+  optional: QuoteDimData[];
+}
+
+function useQuoteCategoryConfig(category: string | null) {
+  return useQuery<QuoteCategoryConfig>({
+    queryKey: ["quote-category-config", category],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/quote-card/config?category=${category}`);
+      if (!res.ok) throw new Error("获取报价卡配置失败");
+      return res.json();
+    },
+    enabled: !!category,
+    staleTime: 300_000,
+  });
+}
 
 function AttachmentIcon({ type }: { type: string }) {
   if (type === "image") return <FileImage size={18} className="text-blue-500" />;
@@ -106,6 +155,41 @@ export default function DemandDetail() {
   const [showBidForm, setShowBidForm] = useState(false);
   const [bidForm, setBidForm] = useState({ proposal: "", estimatedDays: 7, portfolioLinks: "" });
   const [showPublisherModal, setShowPublisherModal] = useState(false);
+  const [quoteSelections, setQuoteSelections] = useState<Record<string, string>>({});
+  const [adjustmentPercent, setAdjustmentPercent] = useState(0);
+  const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [maintenancePackage, setMaintenancePackage] = useState<string>("none");
+
+  const category = demand ? (DEMAND_CATEGORY_MAP[demand.type] ?? null) : null;
+  const { data: quoteConfig } = useQuoteCategoryConfig(category);
+
+  const baseDims = quoteConfig?.base ?? [];
+  const adjustDims = quoteConfig?.adjustment ?? [];
+  const hasQuoteCard = baseDims.length > 0 || adjustDims.length > 0;
+  const adjustDimIds = useMemo(() => new Set(adjustDims.map(d => d.id)), [adjustDims]);
+
+  const maintDim = (quoteConfig?.optional ?? []).find(d => d.code === "MAINT");
+  const maintTiers = maintDim?.tiers ?? [];
+  const selectedMaintTier = maintTiers.find(t => t.tier === maintenancePackage);
+
+  const quoteTotals = useMemo(() => {
+    const rawBase = baseDims.reduce((sum, dim) => {
+      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+      return sum + (tier?.basePrice ?? 0);
+    }, 0);
+    const clampedAdj = Math.max(-20, Math.min(20, adjustmentPercent || 0));
+    const calibratedBase = Math.round(rawBase * (1 + clampedAdj / 100));
+    const factorProduct = adjustDims.reduce((prod, dim) => {
+      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+      return prod * (tier?.coefficient ?? 1);
+    }, 1);
+    const adjustedPrice = Math.round(calibratedBase * factorProduct);
+    const optMaintTier = ((quoteConfig?.optional ?? []).find(d => d.code === "MAINT")?.tiers ?? []).find(t => t.tier === maintenancePackage);
+    const maintRate = optMaintTier?.coefficient ?? 0;
+    const maintenanceFee = Math.round(adjustedPrice * maintRate);
+    const finalPrice = adjustedPrice + maintenanceFee;
+    return { rawBase, clampedAdj, calibratedBase, factorProduct, adjustedPrice, maintenanceFee, finalPrice };
+  }, [quoteSelections, quoteConfig, adjustmentPercent, maintenancePackage, baseDims, adjustDims]);
 
   if (isLoading || !demand) {
     return <div className="animate-pulse h-96 bg-card rounded-3xl border border-border mt-8"></div>;
@@ -120,19 +204,62 @@ export default function DemandDetail() {
       ? (demand as any).attachments
       : [];
 
+  const resetQuoteState = () => {
+    setQuoteSelections({});
+    setAdjustmentPercent(0);
+    setAdjustmentReason("");
+    setMaintenancePackage("none");
+  };
+
   const handleBidSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (adjustmentPercent !== 0 && !adjustmentReason.trim()) {
+      toast({ title: "请填写微调原因", description: "OPC 自主微调非零时必须填写说明。", variant: "destructive" });
+      return;
+    }
+
+    const hasSelections = Object.keys(quoteSelections).length > 0;
+    let quoteCardSnapshot: Record<string, unknown> | undefined;
+    if (hasSelections && quoteConfig && category) {
+      const { rawBase, clampedAdj, calibratedBase, factorProduct, adjustedPrice, maintenanceFee, finalPrice } = quoteTotals;
+      quoteCardSnapshot = {
+        category,
+        baseLayers: baseDims.filter(d => quoteSelections[d.code]).map(dim => {
+          const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+          return { code: dim.code, label: dim.label, tier: quoteSelections[dim.code], tierLabel: tier?.tierLabel ?? "", price: tier?.basePrice };
+        }),
+        adjustmentPercent: clampedAdj,
+        adjustmentReason: adjustmentReason.trim(),
+        rawBase,
+        calibratedBase,
+        adjustLayers: adjustDims.filter(d => quoteSelections[d.code]).map(dim => {
+          const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+          return { code: dim.code, label: dim.label, tier: quoteSelections[dim.code], tierLabel: tier?.tierLabel ?? "", coefficient: tier?.coefficient };
+        }),
+        factorProduct,
+        adjustedPrice,
+        maintenancePackage,
+        maintenanceTierLabel: selectedMaintTier?.tierLabel ?? "",
+        maintenanceFee,
+        finalPrice,
+      };
+    }
+
     submitBid({
       demandId: id,
       data: {
         proposal: bidForm.proposal,
         estimatedDays: bidForm.estimatedDays,
-        portfolioLinks: bidForm.portfolioLinks ? bidForm.portfolioLinks.split(",").map(s => s.trim()) : []
-      }
+        portfolioLinks: bidForm.portfolioLinks ? bidForm.portfolioLinks.split(",").map(s => s.trim()) : [],
+        ...(hasSelections ? { quoteCardData: quoteSelections, quotedPrice: quoteTotals.finalPrice, quoteCardSnapshot } : {}),
+      } as any
     }, {
       onSuccess: () => {
         toast({ title: "接单申请已提交", description: "发单方将尽快审核您的申请。" });
         setShowBidForm(false);
+        resetQuoteState();
+        setBidForm({ proposal: "", estimatedDays: 7, portfolioLinks: "" });
       },
       onError: (err: any) => {
         const msg = err?.data?.error ?? err?.message ?? "请稍后重试";
@@ -315,7 +442,7 @@ export default function DemandDetail() {
             <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
               <CheckCircle className="text-secondary" /> 交付里程碑
             </h3>
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-3 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+            <div className="space-y-6 relative before:absolute before:top-0 before:bottom-0 before:left-3 before:-translate-x-px before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
               {demand.milestones?.map((ms, idx) => (
                 <div key={idx} className="relative flex items-start gap-4">
                   <div className="w-6 h-6 rounded-full bg-card border-4 border-primary flex items-center justify-center shrink-0 mt-1 relative z-10"></div>
@@ -331,63 +458,384 @@ export default function DemandDetail() {
         </div>
       </div>
 
-      {/* Bid Modal */}
+      {/* Bid Form — full-screen overlay matching reference quote card design */}
       {showBidForm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-card w-full max-w-lg rounded-3xl p-8 shadow-2xl border border-border relative animate-in fade-in zoom-in duration-200">
-            <button onClick={() => setShowBidForm(false)} className="absolute top-6 right-6 text-muted-foreground hover:text-foreground">
-              ✕
-            </button>
-            <h2 className="text-2xl font-black font-display mb-2">提交接单申请</h2>
-            <p className="text-muted-foreground mb-8 text-sm">请详细填写您的解决方案和优势，提高中标率。</p>
-            
-            <form onSubmit={handleBidSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-2">解决方案与执行计划 *</label>
-                <textarea 
-                  required
-                  rows={5}
-                  className="w-full bg-background border-2 border-border rounded-xl p-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
-                  placeholder="请描述您对该需求的理解、具体执行步骤及技术路线..."
-                  value={bidForm.proposal}
-                  onChange={e => setBidForm(p => ({...p, proposal: e.target.value}))}
-                ></textarea>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-2">预计交付天数 *</label>
-                <div className="relative">
-                  <input 
-                    type="number" required min="1"
-                    className="w-full bg-background border-2 border-border rounded-xl p-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
-                    value={bidForm.estimatedDays}
-                    onChange={e => setBidForm(p => ({...p, estimatedDays: parseInt(e.target.value)}))}
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">天</span>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-foreground mb-2">相关作品/案例链接 (选填)</label>
-                <input 
-                  type="text"
-                  className="w-full bg-background border-2 border-border rounded-xl p-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
-                  placeholder="多个链接请用逗号分隔"
-                  value={bidForm.portfolioLinks}
-                  onChange={e => setBidForm(p => ({...p, portfolioLinks: e.target.value}))}
-                />
-              </div>
+        <div className="fixed inset-0 z-[100] bg-[#f3f4f6] flex flex-col animate-in fade-in duration-200">
 
-              <div className="pt-4 flex gap-4">
-                <button type="button" onClick={() => setShowBidForm(false)} className="flex-1 px-6 py-3.5 rounded-xl font-bold border-2 border-border text-foreground hover:bg-muted transition-colors">
-                  取消
-                </button>
-                <button type="submit" disabled={isSubmitting} className="flex-1 px-6 py-3.5 rounded-xl font-bold bg-primary text-white shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all disabled:opacity-50">
-                  {isSubmitting ? "提交中..." : "确认提交"}
-                </button>
+          {/* ── Top bar ── */}
+          <header className="shrink-0 bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <span className="text-xs font-black text-white bg-primary px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">OPC</span>
+              <div className="min-w-0">
+                <h2 className="text-sm font-black text-slate-900 leading-none">OPC 报价卡</h2>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">需求：{demand.title}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => { resetQuoteState(); setBidForm({ proposal: "", estimatedDays: 7, portfolioLinks: "" }); }}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
+              >重置</button>
+              <button
+                type="button"
+                onClick={() => { setShowBidForm(false); resetQuoteState(); }}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+              ><X size={14} /> 关闭</button>
+              <button
+                form="bid-form"
+                type="submit"
+                disabled={isSubmitting}
+                className="px-5 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >{isSubmitting ? "提交中…" : "提交报价"}</button>
+            </div>
+          </header>
+
+          {/* ── Main ── */}
+          <main className="flex-1 overflow-y-auto">
+            <form id="bid-form" onSubmit={handleBidSubmit}>
+              <div className="max-w-6xl mx-auto px-4 py-6 flex gap-6 items-start">
+
+                {/* ── Left: panels ── */}
+                <div className="flex-1 space-y-5 min-w-0">
+
+                  {/* Panel 01: 基准层 */}
+                  {baseDims.length > 0 && (() => {
+                    const baseTotal = baseDims.reduce((sum, dim) => {
+                      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+                      return sum + (tier?.basePrice ?? 0);
+                    }, 0);
+                    return (
+                      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md">01</span>
+                            <h3 className="font-black text-slate-900">基准层</h3>
+                          </div>
+                          <span className="font-bold text-slate-700 text-sm">{baseTotal > 0 ? `${baseTotal.toLocaleString()} 元` : "—"}</span>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {baseDims.map(dim => {
+                            const sel = quoteSelections[dim.code];
+                            const selRow = dim.tiers.find(t => t.tier === sel);
+                            return (
+                              <div key={dim.code} className="px-6 py-4 flex items-center gap-4">
+                                <div className="w-44 shrink-0">
+                                  <p className="text-sm font-bold text-slate-800 leading-tight">{dim.code} {dim.label}</p>
+                                </div>
+                                <div className="flex gap-1.5 flex-1">
+                                  {dim.tiers.map(t => (
+                                    <button
+                                      key={t.tier}
+                                      type="button"
+                                      title={`${t.tierLabel}${t.basePrice > 0 ? ` · ¥${t.basePrice.toLocaleString()}` : ""}`}
+                                      onClick={() => setQuoteSelections(prev => ({ ...prev, [dim.code]: t.tier }))}
+                                      className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-all ${
+                                        sel === t.tier
+                                          ? "bg-primary text-white border-primary shadow-sm"
+                                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-primary/50 hover:bg-primary/5"
+                                      }`}
+                                    >{t.tier}</button>
+                                  ))}
+                                </div>
+                                <div className="w-28 text-right shrink-0">
+                                  <span className={`text-sm font-bold ${sel ? "text-primary" : "text-slate-300"}`}>
+                                    {selRow ? (selRow.basePrice > 0 ? `${selRow.basePrice.toLocaleString()} 元` : "0 元") : "— 元"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })()}
+
+                  {/* OPC 自主微调 */}
+                  {baseDims.length > 0 && (
+                    <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                        <span className="text-xs font-black text-violet-700 bg-violet-100 px-2 py-0.5 rounded-md">±%</span>
+                        <h3 className="font-black text-slate-900">OPC 自主微调</h3>
+                        <span className="text-xs text-slate-400">基准层 ±20% 范围内调整；非零时必须填写原因</span>
+                      </div>
+                      <div className="px-6 py-5 space-y-4">
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-slate-500 w-16 shrink-0">调整幅度</span>
+                          <input
+                            type="range" min={-20} max={20} step={1}
+                            value={adjustmentPercent}
+                            onChange={e => setAdjustmentPercent(parseInt(e.target.value))}
+                            className="flex-1 accent-violet-600"
+                          />
+                          <div className="relative w-24 shrink-0">
+                            <input
+                              type="number" min={-20} max={20} step={1}
+                              value={adjustmentPercent}
+                              onChange={e => setAdjustmentPercent(Math.max(-20, Math.min(20, parseInt(e.target.value) || 0)))}
+                              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-right pr-7 outline-none focus:border-violet-400"
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
+                          </div>
+                          <div className="w-36 text-right shrink-0">
+                            {adjustmentPercent !== 0 ? (
+                              <span className={`text-sm font-bold ${adjustmentPercent > 0 ? "text-red-500" : "text-green-600"}`}>
+                                {adjustmentPercent > 0 ? "+" : ""}{adjustmentPercent}% → {quoteTotals.calibratedBase.toLocaleString()} 元
+                              </span>
+                            ) : (
+                              <span className="text-sm text-slate-400">不调整</span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1.5">
+                            微调原因{adjustmentPercent !== 0 ? " *（必填）" : "（非零时必填）"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="例：需求文档特别完备，定制化程度超出标准范围…"
+                            value={adjustmentReason}
+                            onChange={e => setAdjustmentReason(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-violet-400 focus:ring-2 focus:ring-violet-400/10 transition-all outline-none"
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Panel 02: 调整层 (multiplicative coefficients) */}
+                  {adjustDims.length > 0 && (() => {
+                    const cFactor = adjustDims.reduce((prod, dim) => {
+                      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+                      return prod * (tier?.coefficient ?? 1);
+                    }, 1);
+                    return (
+                      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">02</span>
+                            <h3 className="font-black text-slate-900">调整层</h3>
+                            <span className="text-xs text-slate-400">各项系数相乘作用于基准层</span>
+                          </div>
+                          <span className="font-bold text-amber-700 text-sm">×{cFactor.toFixed(2)}</span>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {adjustDims.map(dim => {
+                            const sel = quoteSelections[dim.code];
+                            const selRow = dim.tiers.find(t => t.tier === sel);
+                            return (
+                              <div key={dim.code} className="px-6 py-4 flex items-center gap-4">
+                                <div className="w-44 shrink-0">
+                                  <p className="text-sm font-bold text-slate-800 leading-tight">{dim.code} {dim.label}</p>
+                                </div>
+                                <div className="flex gap-1.5 flex-1">
+                                  {dim.tiers.map(t => (
+                                    <button
+                                      key={t.tier}
+                                      type="button"
+                                      title={`${t.tierLabel}（×${(t.coefficient ?? 1).toFixed(2)}）`}
+                                      onClick={() => setQuoteSelections(prev => ({ ...prev, [dim.code]: t.tier }))}
+                                      className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold border transition-all leading-tight ${
+                                        sel === t.tier
+                                          ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-amber-400/50 hover:bg-amber-50"
+                                      }`}
+                                    >
+                                      <span className="block">{t.tierLabel}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="w-20 text-right shrink-0">
+                                  <span className={`text-sm font-bold ${sel ? "text-amber-600" : "text-slate-300"}`}>
+                                    {selRow?.coefficient != null ? `×${selRow.coefficient.toFixed(2)}` : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })()}
+
+                  {/* Panel 03: 可选层 */}
+                  {hasQuoteCard && (
+                    <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                        <span className="text-xs font-black text-green-700 bg-green-100 px-2 py-0.5 rounded-md">03</span>
+                        <h3 className="font-black text-slate-900">可选层</h3>
+                        <span className="text-xs text-slate-400">叠加至最终报价（维护包按调整后价格计算）</span>
+                      </div>
+                      <div className="px-6 py-5">
+                        <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">维护包</p>
+                        <div className="grid grid-cols-4 gap-3">
+                          {maintTiers.map(t => {
+                            const rate = t.coefficient ?? 0;
+                            const fee = rate > 0 ? Math.round(quoteTotals.adjustedPrice * rate) : 0;
+                            return (
+                              <button
+                                key={t.tier}
+                                type="button"
+                                onClick={() => setMaintenancePackage(t.tier)}
+                                title={t.description ?? ""}
+                                className={`py-3.5 px-2 rounded-xl border text-center transition-all ${
+                                  maintenancePackage === t.tier
+                                    ? "bg-green-600 text-white border-green-600 shadow-md"
+                                    : "bg-slate-50 text-slate-600 border-slate-200 hover:border-green-400/60 hover:bg-green-50/50"
+                                }`}
+                              >
+                                <p className="text-xs font-black leading-none">{t.tierLabel}</p>
+                                {rate > 0 ? (
+                                  <>
+                                    <p className={`text-xs mt-1 ${maintenancePackage === t.tier ? "text-white/80" : "text-slate-400"}`}>
+                                      +{Math.round(rate * 100)}%
+                                    </p>
+                                    {quoteTotals.adjustedPrice > 0 && (
+                                      <p className={`text-xs font-bold mt-0.5 ${maintenancePackage === t.tier ? "text-white/90" : "text-green-600"}`}>
+                                        +{fee.toLocaleString()} 元
+                                      </p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className={`text-xs mt-1 ${maintenancePackage === t.tier ? "text-white/80" : "text-slate-400"}`}>不叠加</p>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {selectedMaintTier && (selectedMaintTier.coefficient ?? 0) > 0 && selectedMaintTier.description && (
+                          <p className="text-xs text-slate-500 mt-3 pl-1">{selectedMaintTier.description}</p>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Panel 04: 补充信息 */}
+                  <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                      <span className="text-xs font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">04</span>
+                      <h3 className="font-black text-slate-900">补充说明</h3>
+                    </div>
+                    <div className="px-6 py-5 space-y-5">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                          执行方案{hasQuoteCard ? "（选填）" : " *"}
+                        </label>
+                        <textarea
+                          required={!hasQuoteCard}
+                          rows={4}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none resize-none"
+                          placeholder="请描述您对该需求的理解、具体执行步骤及技术路线…"
+                          value={bidForm.proposal}
+                          onChange={e => setBidForm(p => ({...p, proposal: e.target.value}))}
+                        />
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="block text-sm font-bold text-slate-700 mb-1.5">预计交付天数 *</label>
+                          <div className="relative">
+                            <input
+                              type="number" required min="1"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-10 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none"
+                              value={bidForm.estimatedDays}
+                              onChange={e => setBidForm(p => ({...p, estimatedDays: parseInt(e.target.value)}))}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">天</span>
+                          </div>
+                        </div>
+                        <div className="flex-[2]">
+                          <label className="block text-sm font-bold text-slate-700 mb-1.5">作品/案例链接（选填）</label>
+                          <input
+                            type="text"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none"
+                            placeholder="多个链接请用逗号分隔"
+                            value={bidForm.portfolioLinks}
+                            onChange={e => setBidForm(p => ({...p, portfolioLinks: e.target.value}))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                {/* ── Right: receipt sidebar ── */}
+                <aside className="w-72 shrink-0 sticky top-6">
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-5 bg-primary text-white">
+                      <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">最终报价</p>
+                      <p className="text-3xl font-black">{quoteTotals.finalPrice > 0 ? `${quoteTotals.finalPrice.toLocaleString()} 元` : "—"}</p>
+                    </div>
+                    {/* Receipt breakdown */}
+                    <div className="px-6 py-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">基准层合计</span>
+                        <span className="font-bold text-slate-800">{quoteTotals.rawBase > 0 ? `${quoteTotals.rawBase.toLocaleString()} 元` : "—"}</span>
+                      </div>
+                      {quoteTotals.clampedAdj !== 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">OPC 微调</span>
+                          <span className={`font-bold ${quoteTotals.clampedAdj > 0 ? "text-red-500" : "text-green-600"}`}>
+                            {quoteTotals.clampedAdj > 0 ? "+" : ""}{quoteTotals.clampedAdj}% → {quoteTotals.calibratedBase.toLocaleString()} 元
+                          </span>
+                        </div>
+                      )}
+                      {adjustDims.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">风险系数</span>
+                          <span className="font-bold text-amber-600">×{quoteTotals.factorProduct.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {(selectedMaintTier?.coefficient ?? 0) > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">{selectedMaintTier!.tierLabel}</span>
+                          <span className="font-bold text-green-600">+{quoteTotals.maintenanceFee.toLocaleString()} 元</span>
+                        </div>
+                      )}
+                      <div className="border-t border-slate-100 pt-2">
+                        <div className="flex justify-between text-sm font-black">
+                          <span className="text-slate-800">最终报价</span>
+                          <span className="text-primary">{quoteTotals.finalPrice > 0 ? `${quoteTotals.finalPrice.toLocaleString()} 元` : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Per-dimension detail */}
+                    {Object.values(quoteSelections).some(Boolean) && (
+                      <div className="border-t border-slate-100 px-6 py-3 space-y-1.5">
+                        {[...baseDims, ...adjustDims].map(dim => {
+                          const sel = quoteSelections[dim.code];
+                          if (!sel) return null;
+                          const tier = dim.tiers.find(t => t.tier === sel);
+                          const isAdjust = adjustDimIds.has(dim.id);
+                          return (
+                            <div key={dim.code} className="flex justify-between text-xs">
+                              <span className="text-slate-400">{dim.code} · {tier?.tierLabel ?? sel}</span>
+                              <span className="font-medium text-slate-600">
+                                {isAdjust
+                                  ? (tier?.coefficient != null ? `×${tier.coefficient.toFixed(2)}` : "—")
+                                  : (tier ? (tier.basePrice > 0 ? `${tier.basePrice.toLocaleString()} 元` : "0 元") : "—")}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="px-6 pb-5">
+                      <button
+                        form="bid-form"
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        {isSubmitting ? "提交中…" : "提交报价"}
+                      </button>
+                      <p className="text-xs text-slate-400 text-center mt-2">发单方将收到您的结构化报价单</p>
+                    </div>
+                  </div>
+                </aside>
+
               </div>
             </form>
-          </div>
+          </main>
         </div>
       )}
     </div>
