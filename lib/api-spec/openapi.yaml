@@ -430,7 +430,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BidApplication"
+                allOf:
+                  - $ref: "#/components/schemas/BidApplication"
+                  - type: object
+                    properties:
+                      orderId:
+                        type: integer
+                        description: Created order ID (present when bid is accepted)
 
   /orders:
     get:
@@ -2177,6 +2183,9 @@ components:
           type: number
         opcAvgRating:
           type: number
+        opcCompletedOrders:
+          type: integer
+          description: Number of completed orders by this OPC
         proposal:
           type: string
         estimatedDays:

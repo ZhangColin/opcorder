@@ -398,6 +398,7 @@ export interface BidApplication {
   opcLevel?: string;
   opcCreditScore?: number;
   opcAvgRating?: number;
+  opcCompletedOrders?: number;
   proposal: string;
   estimatedDays?: number;
   portfolioLinks?: string[];
@@ -997,6 +998,10 @@ export const UpdateBidStatusBodyStatus = {
 
 export type UpdateBidStatusBody = {
   status: UpdateBidStatusBodyStatus;
+};
+
+export type UpdateBidStatusResponse = BidApplication & {
+  orderId?: number;
 };
 
 export type ListOrdersParams = {

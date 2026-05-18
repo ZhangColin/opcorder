@@ -121,6 +121,7 @@ router.patch("/bids/:bidId/withdraw", requireAuth, async (req, res) => {
 router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId as string);
+    const { sql } = await import("drizzle-orm");
     const bids = await db
       .select({
         id: bidsTable.id,
@@ -131,6 +132,7 @@ router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
         opcLevel: opcProfilesTable.level,
         opcCreditScore: opcProfilesTable.creditScore,
         opcAvgRating: opcProfilesTable.avgRating,
+        opcCompletedOrders: sql<number>`COALESCE((SELECT COUNT(*) FROM ${ordersTable} WHERE ${ordersTable.opcId} = ${bidsTable.opcId} AND ${ordersTable.status} = 'completed'), 0)`,
         proposal: bidsTable.proposal,
         estimatedDays: bidsTable.estimatedDays,
         portfolioLinks: bidsTable.portfolioLinks,
@@ -367,6 +369,8 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
       status: body.status as "pending" | "accepted" | "rejected" | "withdrawn",
     }).where(eq(bidsTable.id, bidId)).returning();
 
+    let createdOrder: { id: number } | undefined;
+
     if (body.status === "accepted") {
       if (demand) {
         // Require quotedPrice from the structured quote card; refuse silent fallback to legacy budget
@@ -386,7 +390,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
         const orderNo = `ORD-${ym}-${seq}`;
 
         // Create order with pending_payment status — publisher must pay before work begins
-        await db.insert(ordersTable).values({
+        [createdOrder] = await db.insert(ordersTable).values({
           orderNo,
           demandId: demand.id,
           opcId: updated.opcId,
@@ -398,7 +402,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
           status: "pending_payment",
           milestones: demand.milestones || [],
           deadline: demand.deadline,
-        });
+        }).returning({ id: ordersTable.id });
 
         await db.update(demandsTable).set({
           status: "matched",
@@ -457,6 +461,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
     return res.json({
       ...updated,
       createdAt: updated.createdAt.toISOString(),
+      ...(createdOrder ? { orderId: createdOrder.id } : {}),
     });
   } catch (error) {
     return res.status(500).json({ error: "Failed to update bid status" });

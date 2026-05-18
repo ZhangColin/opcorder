@@ -22,9 +22,11 @@ import {
   useUpdateBidStatus,
   useUpdateDemandStatus,
 } from "@workspace/api-client-react";
+import type { BidApplication } from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
+import { QuoteCardCompareView } from "@/components/publisher/QuoteCardCompareView";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -170,11 +172,12 @@ export default function PublisherDemandDetail() {
   const [adjustBidDeadline, setAdjustBidDeadline] = useState<string>("");
   const [adjustBudget, setAdjustBudget] = useState<string>("");
   const [adjustLoading, setAdjustLoading] = useState(false);
-  const [showComparison, setShowComparison] = useState(false);
+  const [showComparison, setShowComparison] = useState(true);
   const [expandedQuoteId, setExpandedQuoteId] = useState<number | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCloseOrderDialog, setShowCloseOrderDialog] = useState(false);
+  const [closeOrderLoading, setCloseOrderLoading] = useState(false);
 
-  // Payment state
+  // Payment state (for demand deposit / pending_payment demand)
   const [paymentMethod, setPaymentMethod] = useState<"online" | "offline">("online");
   const [paymentNote, setPaymentNote] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
@@ -184,17 +187,6 @@ export default function PublisherDemandDetail() {
   const [onlinePaid, setOnlinePaid] = useState(false);
   const [qrGenerating, setQrGenerating] = useState(false);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Order payment state (for matched demands pending order payment)
-  const [orderPaymentMethod, setOrderPaymentMethod] = useState<"online" | "offline">("online");
-  const [orderPaymentNote, setOrderPaymentNote] = useState("");
-  const [orderReceiptUrl, setOrderReceiptUrl] = useState("");
-  const [orderReceiptUploading, setOrderReceiptUploading] = useState(false);
-  const [orderOnlineQrUrl, setOrderOnlineQrUrl] = useState<string | null>(null);
-  const [orderOnlinePaid, setOrderOnlinePaid] = useState(false);
-  const [orderQrGenerating, setOrderQrGenerating] = useState(false);
-  const [orderPaymentSubmitting, setOrderPaymentSubmitting] = useState(false);
-  const orderPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: demand, isLoading: demandLoading, refetch: refetchDemand } = useGetDemandById(demandId, {
     query: { enabled: demandId > 0 },
@@ -282,6 +274,30 @@ export default function PublisherDemandDetail() {
     }
   };
 
+  const doCloseOrder = async () => {
+    if (!pendingPaymentOrder) return;
+    setShowCloseOrderDialog(false);
+    setCloseOrderLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/orders/${pendingPaymentOrder.id}/close`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
+        body: JSON.stringify({ reason: "发单方主动关闭" }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error ?? "关闭失败");
+      }
+      toast({ title: "订单已关闭", description: "您可重新发布需求重新招募 OPC" });
+      await refetchPendingOrders();
+      await refetchDemand();
+    } catch (err: any) {
+      toast({ title: "关闭失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
+    } finally {
+      setCloseOrderLoading(false);
+    }
+  };
+
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const handleAdjustDemand = async () => {
@@ -355,69 +371,6 @@ export default function PublisherDemandDetail() {
       setReceiptUploading(false);
     }
 
-  // ─── Order payment handlers ────────────────────────────────────────────────
-  };
-  const handleOrderReceiptUpload = async (file: File) => {
-    setOrderReceiptUploading(true);
-    try {
-      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-      });
-      if (!reqRes.ok) throw new Error("上传请求失败");
-      const { uploadURL, objectPath } = await reqRes.json();
-      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      if (!putRes.ok) throw new Error("文件上传失败");
-      setOrderReceiptUrl(`${BASE}/api/storage${objectPath}`);
-      toast({ title: "截图上传成功" });
-    } catch (err: unknown) {
-      toast({ title: "上传失败", description: (err as Error).message, variant: "destructive" });
-    } finally {
-      setOrderReceiptUploading(false);
-    }
-  };
-  const handleOrderGenerateQr = async (orderId: number) => {
-    setOrderQrGenerating(true);
-    try {
-      const r = await fetch(`${BASE}/api/orders/${orderId}/payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
-        body: JSON.stringify({ method: "online", paymentNote: orderPaymentNote.trim() || undefined }),
-      }).then(r => r.json());
-      if (r.qrCodeUrl) {
-        setOrderOnlineQrUrl(r.qrCodeUrl);
-        setOrderOnlinePaid(false);
-      } else {
-        toast({ title: "创建支付订单失败", description: "未收到二维码，请稍后重试", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "生成支付二维码失败", description: "请稍后重试", variant: "destructive" });
-    } finally {
-      setOrderQrGenerating(false);
-    }
-  };
-  const handleOrderSubmitOffline = async (orderId: number) => {
-    if (!orderReceiptUrl.trim()) return;
-    setOrderPaymentSubmitting(true);
-    try {
-      const r = await fetch(`${BASE}/api/orders/${orderId}/payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
-        body: JSON.stringify({ method: "offline", receiptUrl: orderReceiptUrl.trim(), paymentNote: orderPaymentNote.trim() || undefined }),
-      });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        throw new Error(e.error ?? "提交失败");
-      }
-      toast({ title: "凭证已提交", description: "请等待财务审核，审核通过后订单正式开始" });
-      setOrderReceiptUrl("");
-      await refetchPendingOrders();
-    } catch (err: any) {
-      toast({ title: "提交失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
-    } finally {
-      setOrderPaymentSubmitting(false);
-    }
   };
 
   // Poll online payment status every 3 seconds while QR is shown
@@ -487,46 +440,6 @@ export default function PublisherDemandDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demand?.status, paymentMethod, existingPayment?.status, existingPayment?.method]);
 
-  // Poll order online payment status every 3 seconds while QR is shown
-  useEffect(() => {
-    if (!orderOnlineQrUrl || orderOnlinePaid || !pendingPaymentOrder) return;
-    const orderId = pendingPaymentOrder.id;
-    orderPollTimerRef.current = setInterval(async () => {
-      try {
-        const result = await fetch(`${BASE}/api/orders/${orderId}/payment-status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken()}` },
-        }).then(r => r.json());
-        if (result.paid || result.confirmed) {
-          setOrderOnlinePaid(true);
-          if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current);
-          await refetchPendingOrders();
-          await refetchDemand();
-          toast({ title: "✅ 付款已到账", description: "订单已正式开始，请关注交付进度" });
-        } else if (result.terminal) {
-          if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current);
-          toast({ title: "支付未完成", description: `支付状态：${result.statusName ?? "已结束"}`, variant: "destructive" });
-          setOrderOnlineQrUrl(null);
-        }
-      } catch {
-        // silent
-      }
-    }, 3000);
-    return () => { if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderOnlineQrUrl, orderOnlinePaid, pendingPaymentOrder?.id]);
-
-  // Auto-generate QR when entering matched state with pending order (online mode)
-  useEffect(() => {
-    if (!pendingPaymentOrder || orderPaymentMethod !== "online" || orderOnlineQrUrl || orderOnlinePaid || orderQrGenerating) return;
-    const hasOfflineReceipt = pendingPaymentOrder.paymentMethod === "offline" && pendingPaymentOrder.paymentReceiptUrl;
-    const isRejected = !!pendingPaymentOrder.paymentRejectReason;
-    if (!hasOfflineReceipt || isRejected) {
-      handleOrderGenerateQr(pendingPaymentOrder.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingPaymentOrder?.id, orderPaymentMethod, demand?.status]);
-
   const handleSubmitPayment = async () => {
     try {
       if (paymentMethod === "online") {
@@ -561,11 +474,15 @@ export default function PublisherDemandDetail() {
   const handleConfirm = async (bidId: number) => {
     setActionError(null);
     try {
-      await updateBidStatus.mutateAsync({ bidId, data: { status: "accepted" } });
+      const result = await updateBidStatus.mutateAsync({ bidId, data: { status: "accepted" } });
       await qc.invalidateQueries({ queryKey: [`/api/demands/${demandId}/bids`] });
       await qc.invalidateQueries({ queryKey: [`/api/demands/${demandId}`] });
       setConfirmingBidId(null);
-      setShowPaymentModal(true);
+      if (result.orderId) {
+        navigate(`/publisher/orders/${result.orderId}`);
+      } else {
+        navigate("/publisher/orders");
+      }
     } catch {
       setActionError("操作失败，请稍后重试");
     }
@@ -586,9 +503,9 @@ export default function PublisherDemandDetail() {
   const typeLabel = demand?.type ? (DEMAND_TYPE_LABELS[demand.type] ?? demand.type) : "综合";
   const statusCfg = demand?.status ? (STATUS_CONFIG[demand.status] ?? STATUS_CONFIG.draft) : STATUS_CONFIG.draft;
 
-  const pendingBids = (bids as any[]).filter((b: any) => b.status === "pending");
-  const processedBids = (bids as any[]).filter((b: any) => b.status !== "pending");
-  const comparisonBids = [...pendingBids].sort((a: any, b: any) => {
+  const pendingBids = bids.filter((b: BidApplication) => b.status === "pending");
+  const processedBids = bids.filter((b: BidApplication) => b.status !== "pending");
+  const comparisonBids = [...pendingBids].sort((a: BidApplication, b: BidApplication) => {
     const pa = (a.quotedPrice ?? 0) as number;
     const pb = (b.quotedPrice ?? 0) as number;
     if (pa === 0 && pb === 0) return 0;
@@ -676,10 +593,16 @@ export default function PublisherDemandDetail() {
                     <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">{demand.description}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs text-slate-400 mb-1">预算金额</p>
-                    <p className="text-2xl font-extrabold text-primary">
-                      ¥{demand.budget?.toLocaleString() ?? "面议"}
-                    </p>
+                    <p className="text-xs text-slate-400 mb-1">预算区间</p>
+                    {demand.budgetMin && demand.budgetMax ? (
+                      <p className="text-xl font-extrabold text-primary">
+                        ¥{Number(demand.budgetMin).toLocaleString()}<span className="text-slate-400 font-normal mx-1">~</span>¥{Number(demand.budgetMax).toLocaleString()}
+                      </p>
+                    ) : (
+                      <p className="text-2xl font-extrabold text-primary">
+                        ¥{demand.budget?.toLocaleString() ?? "面议"}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-400 mt-1 flex items-center justify-end gap-1">
                       <Calendar size={12} />
                       截止 {new Date(demand.deadline).toLocaleDateString("zh-CN")}
@@ -955,192 +878,42 @@ export default function PublisherDemandDetail() {
                         </div>
                       )}
 
-                      {/* ── 订单支付 UI（已匹配，待付款）── */}
+                      {/* ── 订单待付款提示（已匹配）── */}
+                      {isMatched && !pendingPaymentOrder && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                          <p className="text-sm text-slate-600">正在生成订单，请稍候…</p>
+                        </div>
+                      )}
                       {isMatched && pendingPaymentOrder && (
                         <div className="space-y-4">
-                          {orderOnlinePaid ? (
-                            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                              <CheckCircle2 size={18} className="text-green-600 shrink-0" />
-                              <div>
-                                <p className="text-sm font-bold text-green-800">付款成功，订单正式开始</p>
-                                <p className="text-xs text-green-700 mt-0.5">OPC 已开始执行，请关注交付进度</p>
-                              </div>
+                          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CreditCard size={16} className="text-orange-600 shrink-0" />
+                              <p className="text-sm font-bold text-orange-800">待付款：¥{pendingPaymentOrder.amount.toLocaleString()}</p>
                             </div>
-                          ) : pendingPaymentOrder.paymentMethod === "offline" && pendingPaymentOrder.paymentReceiptUrl && !pendingPaymentOrder.paymentRejectReason ? (
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                                <p className="text-sm font-bold text-blue-800">付款凭证已提交，等待财务审核</p>
-                              </div>
-                              <p className="text-xs text-blue-700">财务确认到账后订单将自动正式开始，请耐心等待。</p>
-                              <a href={pendingPaymentOrder.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
-                                <img
-                                  src={pendingPaymentOrder.paymentReceiptUrl}
-                                  alt="付款凭证"
-                                  className="max-h-40 rounded-xl border border-blue-200 object-contain bg-white hover:opacity-90 transition-opacity cursor-zoom-in"
-                                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                />
-                              </a>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              {pendingPaymentOrder.paymentRejectReason && (
-                                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                                  <p className="text-sm font-bold text-red-700 mb-1">付款凭证审核未通过</p>
-                                  <p className="text-xs text-red-600">原因：{pendingPaymentOrder.paymentRejectReason}</p>
-                                  <p className="text-xs text-red-500 mt-1">请重新选择支付方式并提交凭证</p>
-                                </div>
-                              )}
-                              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <CreditCard size={16} className="text-orange-600 shrink-0" />
-                                  <p className="text-sm font-bold text-orange-800">请完成付款，订单将正式开始</p>
-                                </div>
-                                <p className="text-xs text-orange-700 leading-relaxed">
-                                  您已选定 OPC，请支付订单金额 <span className="font-bold">¥{pendingPaymentOrder.amount.toLocaleString()}</span>，
-                                  付款成功后 OPC 将正式开始执行。
-                                </p>
-                              </div>
-
-                              {/* Payment method tabs */}
-                              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
-                                <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-                                  {(["online", "offline"] as const).map(m => (
-                                    <button
-                                      key={m}
-                                      type="button"
-                                      onClick={() => {
-                                        setOrderPaymentMethod(m);
-                                        if (m === "offline") {
-                                          setOrderOnlineQrUrl(null);
-                                          if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current);
-                                        }
-                                      }}
-                                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        orderPaymentMethod === m ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
-                                      }`}
-                                    >
-                                      {m === "online" ? "📱 扫码支付" : "🏦 线下转账"}
-                                    </button>
-                                  ))}
-                                </div>
-
-                                {/* Online: QR code */}
-                                {orderPaymentMethod === "online" && (
-                                  <div className="text-center space-y-3">
-                                    {orderQrGenerating ? (
-                                      <div className="py-8 space-y-2">
-                                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                                        <p className="text-xs text-slate-500">正在生成支付二维码…</p>
-                                      </div>
-                                    ) : orderOnlineQrUrl ? (
-                                      <>
-                                        <p className="text-xs font-medium text-slate-600">扫描二维码完成支付 · ¥{pendingPaymentOrder.amount.toLocaleString()}</p>
-                                        <div className="w-52 h-52 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white p-3">
-                                          <QRCodeSVG value={orderOnlineQrUrl} size={192} />
-                                        </div>
-                                        <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
-                                          <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                          <span>等待支付确认中，到账后订单自动开始…</span>
-                                        </div>
-                                        <button
-                                          onClick={() => { setOrderOnlineQrUrl(null); handleOrderGenerateQr(pendingPaymentOrder.id); }}
-                                          className="text-xs text-slate-400 hover:text-slate-600 underline"
-                                        >
-                                          刷新二维码
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <div className="py-6 space-y-2">
-                                        <div className="w-8 h-8 border-2 border-slate-200 border-t-primary rounded-full animate-spin mx-auto" />
-                                        <p className="text-xs text-slate-400">正在准备支付…</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Offline: bank account + receipt upload */}
-                                {orderPaymentMethod === "offline" && (
-                                  <>
-                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">收款账号信息</p>
-                                      <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                          <p className="text-xs text-slate-400 mb-0.5">开户行</p>
-                                          <p className="font-medium text-slate-700">中国工商银行股份有限公司北京海淀支行</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-xs text-slate-400 mb-0.5">账户名</p>
-                                          <p className="font-medium text-slate-700">北京海创元人工智能教育科技有限公司</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                          <p className="text-xs text-slate-400 mb-0.5">账号</p>
-                                          <p className="font-mono font-bold text-slate-800 text-base tracking-wider">0200049619201891562</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                          <p className="text-xs text-slate-400 mb-0.5">转账备注（必填）</p>
-                                          <p className="font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded-lg text-xs">订单编号: {pendingPaymentOrder.orderNo}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-slate-500 mb-2">上传转账截图 / 凭证</p>
-                                      {orderReceiptUrl ? (
-                                        <div className="relative">
-                                          <img
-                                            src={orderReceiptUrl}
-                                            alt="付款凭证"
-                                            className="max-h-48 rounded-xl border border-slate-200 object-contain w-full bg-slate-50"
-                                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() => setOrderReceiptUrl("")}
-                                            className="absolute top-2 right-2 bg-white/90 border border-slate-200 rounded-full p-1 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                          >
-                                            <X size={12} />
-                                          </button>
-                                          <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
-                                            <CheckCircle2 size={12} /> 截图已上传
-                                          </p>
-                                        </div>
-                                      ) : (
-                                        <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition-colors ${orderReceiptUploading ? "border-primary/40 bg-primary/5" : "border-slate-200 hover:border-primary/40 hover:bg-slate-50"}`}>
-                                          <input
-                                            type="file"
-                                            accept="image/*,.pdf"
-                                            className="hidden"
-                                            onChange={e => e.target.files?.[0] && handleOrderReceiptUpload(e.target.files[0])}
-                                            disabled={orderReceiptUploading}
-                                          />
-                                          {orderReceiptUploading ? (
-                                            <>
-                                              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                              <span className="text-xs text-primary font-medium">上传中…</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Upload size={20} className="text-slate-400" />
-                                              <span className="text-xs text-slate-500 font-medium">点击上传转账截图</span>
-                                              <span className="text-[11px] text-slate-400">支持 JPG / PNG / PDF</span>
-                                            </>
-                                          )}
-                                        </label>
-                                      )}
-                                    </div>
-                                    <button
-                                      onClick={() => handleOrderSubmitOffline(pendingPaymentOrder.id)}
-                                      disabled={orderPaymentSubmitting || orderReceiptUploading || !orderReceiptUrl.trim()}
-                                      className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                      <Upload size={14} />
-                                      {orderPaymentSubmitting ? "提交中…" : "提交付款凭证"}
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                            <p className="text-xs text-orange-700 leading-relaxed mb-3">
+                              您已选定 OPC，请前往订单页完成付款，付款成功后 OPC 将正式开始执行。
+                            </p>
+                            <button
+                              onClick={() => navigate(`/publisher/orders/${pendingPaymentOrder.id}`)}
+                              className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                            >
+                              <CreditCard size={14} /> 前往订单页完成付款
+                            </button>
+                          </div>
+                          <div className="border-t border-slate-100 pt-4">
+                            <p className="text-xs text-slate-400 mb-3">
+                              若长时间未完成付款，管理员可能介入关闭订单。您也可以主动关闭此订单并重新招募 OPC。
+                            </p>
+                            <button
+                              onClick={() => setShowCloseOrderDialog(true)}
+                              disabled={closeOrderLoading}
+                              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl border border-slate-200 hover:border-red-200 transition-colors disabled:opacity-50"
+                            >
+                              <XCircle size={13} /> {closeOrderLoading ? "关闭中…" : "关闭此订单"}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1273,14 +1046,14 @@ export default function PublisherDemandDetail() {
                   <section>
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-lg font-bold text-primary font-display flex items-center gap-2">
-                        <User size={18} /> 抢单申请
+                        <User size={18} /> 报价对比
                         {pendingBids.length > 0 && (
                           <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
                             {pendingBids.length}
                           </span>
                         )}
                       </h2>
-                      {pendingBids.length >= 2 && (
+                      {pendingBids.length >= 1 && (
                         <button
                           onClick={() => setShowComparison(!showComparison)}
                           className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
@@ -1289,7 +1062,7 @@ export default function PublisherDemandDetail() {
                               : "border-slate-200 text-slate-600 hover:border-primary/40 hover:text-primary"
                           }`}
                         >
-                          <Scale size={13} /> {showComparison ? "列表视图" : "比价对比"}
+                          <Scale size={13} /> {showComparison ? "列表视图" : "对比视图"}
                         </button>
                       )}
                     </div>
@@ -1309,147 +1082,16 @@ export default function PublisherDemandDetail() {
                         </p>
                       </div>
                     ) : showComparison ? (
-                      <div className="space-y-3">
-                        <p className="text-xs text-slate-400">已按报价金额从低到高排列 · 共 {comparisonBids.length} 份申请</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {comparisonBids.map((bid: any, idx: number) => {
-                            const snap = bid.quoteCardSnapshot as QuoteSnapshot | null;
-                            const hasPrice = (bid.quotedPrice ?? 0) > 0;
-                            const isLowest = idx === 0 && hasPrice;
-                            return (
-                              <div key={bid.id} className={`bg-white rounded-2xl border-2 flex flex-col overflow-hidden ${isLowest ? "border-green-400 shadow-md shadow-green-100" : "border-slate-200"}`}>
-                                {isLowest && (
-                                  <div className="bg-green-500 text-white text-xs font-black text-center py-1.5 tracking-wide">
-                                    🏆 最低报价
-                                  </div>
-                                )}
-                                <div className="p-5 flex flex-col flex-1">
-                                  <div className="flex items-start justify-between mb-4">
-                                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-black flex items-center justify-center shrink-0">
-                                      {idx + 1}
-                                    </span>
-                                    <div className="text-right">
-                                      {hasPrice ? (
-                                        <div className="text-2xl font-black text-green-600">
-                                          ¥{(bid.quotedPrice as number).toLocaleString()}
-                                        </div>
-                                      ) : (
-                                        <div className="text-sm text-slate-400 italic">未报价</div>
-                                      )}
-                                      {bid.estimatedDays && (
-                                        <div className="flex items-center justify-end gap-1 text-slate-400 text-xs mt-0.5">
-                                          <Timer size={11} />{bid.estimatedDays} 天
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2.5 mb-4">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-sm shrink-0 overflow-hidden">
-                                      {bid.opcAvatar
-                                        ? <img src={bid.opcAvatar} alt={bid.opcNickname} className="w-full h-full object-cover" />
-                                        : (bid.opcNickname?.[0] ?? "O")}
-                                    </div>
-                                    <div>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="font-bold text-sm">{bid.opcNickname ?? `OPC #${bid.opcId}`}</span>
-                                        {bid.opcLevel && (
-                                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${OPC_LEVEL_COLOR[bid.opcLevel] ?? "bg-slate-100 text-slate-600"}`}>
-                                            {bid.opcLevel}级
-                                          </span>
-                                        )}
-                                      </div>
-                                      {bid.opcCreditScore !== undefined && <StarRating score={bid.opcCreditScore} />}
-                                    </div>
-                                  </div>
-                                  {snap && hasPrice ? (
-                                    <div className="bg-slate-50 rounded-xl p-3 mb-4 text-xs space-y-1 flex-1">
-                                      {(snap.baseLayers ?? []).map((l: any, i: number) => (
-                                        <div key={i} className="flex justify-between text-slate-500">
-                                          <span>{l.label}：{l.tierLabel}</span>
-                                          <span>+¥{Number(l.price).toLocaleString()}</span>
-                                        </div>
-                                      ))}
-                                      {(snap.adjustmentPercent ?? 0) !== 0 && (
-                                        <div className="flex justify-between text-violet-600">
-                                          <span>OPC 自调 {snap.adjustmentPercent}%</span>
-                                          <span>→ ¥{(snap.calibratedBase ?? 0).toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {(snap.adjustLayers ?? []).filter((l: any) => (l.coefficient ?? 1) !== 1).map((l: any, i: number) => (
-                                        <div key={i} className="flex justify-between text-amber-600">
-                                          <span>{l.label}：{l.tierLabel}</span>
-                                          <span>×{l.coefficient}</span>
-                                        </div>
-                                      ))}
-                                      {(snap.adjustLayers ?? []).length > 0 && (
-                                        <div className="flex justify-between text-slate-500">
-                                          <span>系数 ×{(snap.factorProduct ?? 1).toFixed(2)}</span>
-                                          <span>→ ¥{(snap.adjustedPrice ?? 0).toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {(snap.maintenanceFee ?? 0) > 0 && (
-                                        <div className="flex justify-between text-green-600">
-                                          <span>{snap.maintenanceTierLabel ?? "维护包"}</span>
-                                          <span>+¥{(snap.maintenanceFee ?? 0).toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      <div className="border-t border-slate-200 pt-1 mt-1 flex justify-between font-bold text-slate-700">
-                                        <span>最终报价</span>
-                                        <span className="text-green-600">¥{(snap.finalPrice ?? bid.quotedPrice ?? 0).toLocaleString()}</span>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-slate-50 rounded-xl p-3 mb-4 text-xs text-slate-400 flex-1">
-                                      <p className="line-clamp-3">{bid.proposal}</p>
-                                    </div>
-                                  )}
-                                  {confirmingBidId === bid.id ? (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs">
-                                      <p className="font-bold text-blue-800 mb-2">确认选择 {bid.opcNickname} 接单？</p>
-                                      <div className="flex gap-2">
-                                        <button onClick={() => handleConfirm(bid.id)} disabled={updateBidStatus.isPending}
-                                          className="flex-1 bg-primary text-white py-1.5 rounded-lg font-bold text-xs hover:bg-primary/90 disabled:opacity-50">
-                                          {updateBidStatus.isPending ? "处理中…" : "确认"}
-                                        </button>
-                                        <button onClick={() => setConfirmingBidId(null)}
-                                          className="flex-1 bg-slate-100 text-slate-600 py-1.5 rounded-lg font-bold text-xs">取消</button>
-                                      </div>
-                                    </div>
-                                  ) : rejectingBidId === bid.id ? (
-                                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs">
-                                      <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                                        placeholder="婉拒原因（选填）" rows={2}
-                                        className="w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 mb-2 resize-none outline-none text-xs" />
-                                      <div className="flex gap-2">
-                                        <button onClick={() => handleReject(bid.id)} disabled={updateBidStatus.isPending}
-                                          className="flex-1 bg-red-600 text-white py-1.5 rounded-lg font-bold text-xs hover:bg-red-700 disabled:opacity-50">
-                                          {updateBidStatus.isPending ? "处理中…" : "确认婉拒"}
-                                        </button>
-                                        <button onClick={() => { setRejectingBidId(null); setRejectReason(""); }}
-                                          className="flex-1 bg-slate-100 text-slate-600 py-1.5 rounded-lg font-bold text-xs">取消</button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex gap-2 mt-auto pt-1">
-                                      <button onClick={() => setConfirmingBidId(bid.id)}
-                                        className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-white py-2 rounded-xl text-xs font-bold hover:bg-primary/90 shadow-sm">
-                                        <CheckCircle2 size={12} /> 选定接单
-                                      </button>
-                                      <button onClick={() => setRejectingBidId(bid.id)}
-                                        className="px-3 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs hover:bg-slate-50">
-                                        <XCircle size={12} />
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <QuoteCardCompareView
+                        bids={bids}
+                        budgetMin={demand.budgetMin ?? demand.budget}
+                        budgetMax={demand.budgetMax ?? demand.budget}
+                        onSelectBid={(bid) => setConfirmingBidId(bid.id)}
+                        selectedBidId={confirmingBidId}
+                      />
                     ) : (
                       <div className="space-y-4">
-                        {pendingBids.map((bid: any) => (
+                        {pendingBids.map((bid: BidApplication) => (
                           <div
                             key={bid.id}
                             className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-6"
@@ -1516,7 +1158,7 @@ export default function PublisherDemandDetail() {
                                 </button>
                                 {expandedQuoteId === bid.id && (
                                   bid.quoteCardSnapshot
-                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as QuoteSnapshot} />
+                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} />
                                     : <div className="bg-slate-50 rounded-xl p-4 text-sm text-center text-slate-500">
                                         最终报价：<span className="font-black text-green-600 text-base">¥{(bid.quotedPrice as number).toLocaleString()}</span>
                                       </div>
@@ -1722,7 +1364,7 @@ export default function PublisherDemandDetail() {
                       )}
                       <div className="flex justify-between items-center">
                         <span className="text-slate-500">已收申请</span>
-                        <span className="font-bold text-primary">{(bids as any[]).length} 份</span>
+                        <span className="font-bold text-primary">{bids.length} 份</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-slate-500">待审核</span>
@@ -1753,9 +1395,9 @@ export default function PublisherDemandDetail() {
 
                     {demand.status === "matched" && (
                       <div className="mt-4">
-                        <Link href={`/publisher/orders`}>
+                        <Link href={pendingPaymentOrder ? `/publisher/orders/${pendingPaymentOrder.id}` : `/publisher/orders`}>
                           <button className="w-full flex items-center justify-center gap-2 bg-primary text-white rounded-xl px-4 py-3 text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
-                            查看关联订单 <ChevronRight size={16} />
+                            前往订单完成付款 <ChevronRight size={16} />
                           </button>
                         </Link>
                       </div>
@@ -1823,6 +1465,33 @@ export default function PublisherDemandDetail() {
         confirmVariant="destructive"
         onConfirm={doCloseDemand}
         onCancel={() => setShowCloseDialog(false)}
+      />
+
+      {showComparison && confirmingBidId !== null && (() => {
+        const bid = bids.find((b: BidApplication) => b.id === confirmingBidId);
+        if (!bid) return null;
+        return (
+          <ConfirmDialog
+            open={true}
+            title={`选择 ${bid.opcNickname ?? `OPC #${bid.opcId}`} 接单？`}
+            description={`${(bid.quotedPrice ?? 0) > 0 ? `报价金额：¥${Number(bid.quotedPrice).toLocaleString()}。` : ""}确认后将生成待付款订单，其余报价方将收到落选通知。`}
+            confirmLabel={updateBidStatus.isPending ? "处理中…" : "确认选择"}
+            cancelLabel="取消"
+            onConfirm={() => handleConfirm(confirmingBidId)}
+            onCancel={() => setConfirmingBidId(null)}
+          />
+        );
+      })()}
+
+      <ConfirmDialog
+        open={showCloseOrderDialog}
+        title="确认关闭此订单？"
+        description="关闭后订单将终止，已选定的 OPC 将收到通知。您可以重新招募其他 OPC。"
+        confirmLabel="确认关闭"
+        cancelLabel="取消"
+        confirmVariant="destructive"
+        onConfirm={doCloseOrder}
+        onCancel={() => setShowCloseOrderDialog(false)}
       />
 
       {/* ── 调整需求参数 Modal ── */}
@@ -1946,239 +1615,6 @@ export default function PublisherDemandDetail() {
         </div>
       )}
 
-      {/* ── 付款弹窗（选定 OPC 后即时弹出）── */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <CreditCard size={18} className="text-primary" />
-                <h2 className="text-base font-bold text-slate-800">完成付款</h2>
-              </div>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div className="px-6 py-5 space-y-4">
-              {/* Loading state while waiting for order data */}
-              {!pendingPaymentOrder && !orderOnlinePaid && (
-                <div className="flex flex-col items-center justify-center py-10 gap-3">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  <p className="text-sm text-slate-500">正在生成订单，请稍候…</p>
-                </div>
-              )}
-
-              {/* Already paid */}
-              {orderOnlinePaid && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                  <CheckCircle2 size={18} className="text-green-600 shrink-0" />
-                  <div>
-                    <p className="text-sm font-bold text-green-800">付款成功，订单正式开始</p>
-                    <p className="text-xs text-green-700 mt-0.5">OPC 已开始执行，请关注交付进度</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Receipt submitted, awaiting review */}
-              {!orderOnlinePaid && pendingPaymentOrder?.paymentMethod === "offline" && pendingPaymentOrder?.paymentReceiptUrl && !pendingPaymentOrder?.paymentRejectReason && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                    <p className="text-sm font-bold text-blue-800">付款凭证已提交，等待财务审核</p>
-                  </div>
-                  <p className="text-xs text-blue-700">财务确认到账后订单将自动正式开始，请耐心等待。</p>
-                </div>
-              )}
-
-              {/* Payment form */}
-              {pendingPaymentOrder && !orderOnlinePaid && !(pendingPaymentOrder.paymentMethod === "offline" && pendingPaymentOrder.paymentReceiptUrl && !pendingPaymentOrder.paymentRejectReason) && (
-                <div className="space-y-4">
-                  {pendingPaymentOrder.paymentRejectReason && (
-                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                      <p className="text-sm font-bold text-red-700 mb-1">付款凭证审核未通过</p>
-                      <p className="text-xs text-red-600">原因：{pendingPaymentOrder.paymentRejectReason}</p>
-                      <p className="text-xs text-red-500 mt-1">请重新选择支付方式并提交凭证</p>
-                    </div>
-                  )}
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <CreditCard size={15} className="text-orange-600 shrink-0" />
-                      <p className="text-sm font-bold text-orange-800">请完成付款，订单将正式开始</p>
-                    </div>
-                    <p className="text-xs text-orange-700 leading-relaxed">
-                      您已选定 OPC，请支付订单金额{" "}
-                      <span className="font-bold">¥{pendingPaymentOrder.amount.toLocaleString()}</span>，
-                      付款成功后 OPC 将正式开始执行。
-                    </p>
-                  </div>
-
-                  {/* Payment method tabs */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
-                    <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-                      {(["online", "offline"] as const).map(m => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => {
-                            setOrderPaymentMethod(m);
-                            if (m === "offline") {
-                              setOrderOnlineQrUrl(null);
-                              if (orderPollTimerRef.current) clearInterval(orderPollTimerRef.current);
-                            }
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            orderPaymentMethod === m ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
-                          }`}
-                        >
-                          {m === "online" ? "📱 扫码支付" : "🏦 线下转账"}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Online: QR code */}
-                    {orderPaymentMethod === "online" && (
-                      <div className="text-center space-y-3">
-                        {orderQrGenerating ? (
-                          <div className="py-8 space-y-2">
-                            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                            <p className="text-xs text-slate-500">正在生成支付二维码…</p>
-                          </div>
-                        ) : orderOnlineQrUrl ? (
-                          <>
-                            <p className="text-xs font-medium text-slate-600">扫描二维码完成支付 · ¥{pendingPaymentOrder.amount.toLocaleString()}</p>
-                            <div className="w-52 h-52 mx-auto rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white p-3">
-                              <QRCodeSVG value={orderOnlineQrUrl} size={192} />
-                            </div>
-                            <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
-                              <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                              <span>等待支付确认中，到账后订单自动开始…</span>
-                            </div>
-                            <button
-                              onClick={() => { setOrderOnlineQrUrl(null); handleOrderGenerateQr(pendingPaymentOrder.id); }}
-                              className="text-xs text-slate-400 hover:text-slate-600 underline"
-                            >
-                              刷新二维码
-                            </button>
-                          </>
-                        ) : (
-                          <div className="py-6 space-y-2">
-                            <div className="w-8 h-8 border-2 border-slate-200 border-t-primary rounded-full animate-spin mx-auto" />
-                            <p className="text-xs text-slate-400">正在准备支付…</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Offline: bank account + receipt upload */}
-                    {orderPaymentMethod === "offline" && (
-                      <>
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">收款账号信息</p>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <p className="text-xs text-slate-400 mb-0.5">开户行</p>
-                              <p className="font-medium text-slate-700">中国工商银行股份有限公司北京海淀支行</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-slate-400 mb-0.5">账户名</p>
-                              <p className="font-medium text-slate-700">北京海创元人工智能教育科技有限公司</p>
-                            </div>
-                            <div className="col-span-2">
-                              <p className="text-xs text-slate-400 mb-0.5">账号</p>
-                              <p className="font-mono font-bold text-slate-800 text-base tracking-wider">0200049619201891562</p>
-                            </div>
-                            <div className="col-span-2">
-                              <p className="text-xs text-slate-400 mb-0.5">转账备注（必填）</p>
-                              <p className="font-medium text-orange-700 bg-orange-50 px-2 py-1 rounded-lg text-xs">订单编号: {pendingPaymentOrder.orderNo}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500 mb-2">上传转账截图 / 凭证</p>
-                          {orderReceiptUrl ? (
-                            <div className="relative">
-                              <img
-                                src={orderReceiptUrl}
-                                alt="付款凭证"
-                                className="max-h-48 rounded-xl border border-slate-200 object-contain w-full bg-slate-50"
-                                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setOrderReceiptUrl("")}
-                                className="absolute top-2 right-2 bg-white/90 border border-slate-200 rounded-full p-1 hover:bg-red-50 hover:text-red-600 transition-colors"
-                              >
-                                <X size={12} />
-                              </button>
-                              <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1">
-                                <CheckCircle2 size={12} /> 截图已上传
-                              </p>
-                            </div>
-                          ) : (
-                            <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition-colors ${orderReceiptUploading ? "border-primary/40 bg-primary/5" : "border-slate-200 hover:border-primary/40 hover:bg-slate-50"}`}>
-                              <input
-                                type="file"
-                                accept="image/*,.pdf"
-                                className="hidden"
-                                onChange={e => e.target.files?.[0] && handleOrderReceiptUpload(e.target.files[0])}
-                                disabled={orderReceiptUploading}
-                              />
-                              {orderReceiptUploading ? (
-                                <>
-                                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                  <span className="text-xs text-primary font-medium">上传中…</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Upload size={20} className="text-slate-400" />
-                                  <span className="text-xs text-slate-500 font-medium">点击上传转账截图</span>
-                                  <span className="text-[11px] text-slate-400">支持 JPG / PNG / PDF</span>
-                                </>
-                              )}
-                            </label>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleOrderSubmitOffline(pendingPaymentOrder.id)}
-                          disabled={orderPaymentSubmitting || orderReceiptUploading || !orderReceiptUrl.trim()}
-                          className="flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          <Upload size={14} />
-                          {orderPaymentSubmitting ? "提交中…" : "提交付款凭证"}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Close / later button */}
-              {(orderOnlinePaid || (pendingPaymentOrder?.paymentMethod === "offline" && pendingPaymentOrder?.paymentReceiptUrl)) && (
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className="w-full h-11 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors"
-                >
-                  关闭
-                </button>
-              )}
-              {!orderOnlinePaid && !(pendingPaymentOrder?.paymentMethod === "offline" && pendingPaymentOrder?.paymentReceiptUrl) && (
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className="w-full h-10 text-slate-400 text-sm hover:text-slate-600 transition-colors"
-                >
-                  稍后再付
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

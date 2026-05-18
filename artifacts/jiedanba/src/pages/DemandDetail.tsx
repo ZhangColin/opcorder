@@ -343,8 +343,14 @@ export default function DemandDetail() {
             
             <div className="flex flex-wrap gap-6 mb-8">
               <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-xs uppercase font-bold tracking-widest">预算金额</span>
-                <span className="text-2xl font-black text-secondary">¥{demand.budget.toLocaleString()}</span>
+                <span className="text-muted-foreground text-xs uppercase font-bold tracking-widest">预算区间</span>
+                {demand.budgetMin && demand.budgetMax ? (
+                  <span className="text-xl font-black text-secondary">
+                    ¥{Number(demand.budgetMin).toLocaleString()}<span className="text-muted-foreground font-normal mx-1 text-base">~</span>¥{Number(demand.budgetMax).toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="text-2xl font-black text-secondary">¥{demand.budget.toLocaleString()}</span>
+                )}
               </div>
               <div className="w-px bg-border"></div>
               <div className="flex flex-col gap-1">

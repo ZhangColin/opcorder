@@ -88,6 +88,7 @@ import type {
   TogglePostLikeBody,
   UpdateAgentConfigInput,
   UpdateBidStatusBody,
+  UpdateBidStatusResponse,
   UpdateDemandInput,
   UpdateDemandStatusBody,
   UpdateOpcProfileInput,
@@ -1464,8 +1465,8 @@ export const updateBidStatus = async (
   bidId: number,
   updateBidStatusBody: UpdateBidStatusBody,
   options?: RequestInit,
-): Promise<BidApplication> => {
-  return customFetch<BidApplication>(getUpdateBidStatusUrl(bidId), {
+): Promise<UpdateBidStatusResponse> => {
+  return customFetch<UpdateBidStatusResponse>(getUpdateBidStatusUrl(bidId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },
