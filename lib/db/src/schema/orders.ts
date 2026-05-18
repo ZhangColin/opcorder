@@ -18,7 +18,7 @@ export const ordersTable = pgTable("orders", {
   opcShare: real("opc_share").notNull(),
   publisherShare: real("publisher_share").notNull(),
   platformFee: real("platform_fee").notNull(),
-  status: orderStatusEnum("status").notNull().default("pending_payment"),
+  status: orderStatusEnum("status").notNull(),
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline: string; deliverableDesc?: string; status?: string }>>().default([]),
   rating: real("rating"),
   reviewComment: text("review_comment"),
