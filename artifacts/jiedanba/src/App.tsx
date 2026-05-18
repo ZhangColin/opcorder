@@ -36,6 +36,7 @@ import Notifications from "@/pages/Notifications";
 import OpcIncome from "@/pages/OpcIncome";
 import OpcMyBids from "@/pages/OpcMyBids";
 import SettlementAccount from "@/pages/SettlementAccount";
+import AccountSettings from "@/pages/AccountSettings";
 import Admin from "@/pages/Admin";
 import ScreenDisplay from "@/pages/ScreenDisplay";
 import MiniScreen from "@/pages/MiniScreen";
@@ -271,6 +272,7 @@ function Router() {
                 <Route path="/income" component={OpcIncome} />
                 <Route path="/my-bids" component={OpcMyBids} />
                 <Route path="/settlement-account" component={SettlementAccount} />
+                <Route path="/account-settings" component={AccountSettings} />
                 <Route component={NotFound} />
               </Switch>
             </Layout>

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { getAccessToken } from "@/lib/auth";
-import { Link, useSearch } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
@@ -620,17 +620,17 @@ const PREVIEW_COUNT = 4;
 
 export default function Profile() {
   const search = useSearch();
-  const [editOpen,         setEditOpen]         = useState(false);
+  const [, navigate] = useLocation();
   const [portfolioDrawer,  setPortfolioDrawer]  = useState(false);
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null);
 
-  /* Auto-open edit drawer when navigated here with ?edit=1 */
+  /* Redirect ?edit=1 → /account-settings */
   useEffect(() => {
     if (new URLSearchParams(search).get("edit") === "1") {
-      setEditOpen(true);
       window.history.replaceState(null, "", window.location.pathname);
+      navigate("/account-settings");
     }
-  }, [search]);
+  }, [search, navigate]);
 
   const openAddPortfolio  = () => { setEditingPortfolio(null); setPortfolioDrawer(true); };
   const openEditPortfolio = (p: Portfolio) => { setEditingPortfolio(p); setPortfolioDrawer(true); };
@@ -678,31 +678,10 @@ export default function Profile() {
 
   const isNew = !profile?.bio && !profile?.title && skills.length === 0;
 
-  const formInitial: FormState = {
-    nickname: name,
-    title,
-    bio,
-    avatar,
-    skills,
-    location,
-    website: website ?? "",
-    yearsExp: yearsExp ?? 0,
-    phone,
-    wechat,
-  };
-
   const reviewItems = portfolios?.filter(p => p.clientFeedback).slice(0, 2) ?? [];
 
   return (
     <>
-      {user && (
-        <EditDrawer
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
-          userId={user.id}
-          initial={formInitial}
-        />
-      )}
       <PortfolioDrawer
         open={portfolioDrawer}
         onClose={() => setPortfolioDrawer(false)}
@@ -725,7 +704,7 @@ export default function Profile() {
                 完整的头像、职业简介和技能标签能显著提升接单成功率。
               </p>
             </div>
-            <button onClick={() => setEditOpen(true)}
+            <button onClick={() => navigate("/account-settings")}
               className="shrink-0 px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl hover:bg-amber-600">
               立即完善
             </button>
@@ -759,9 +738,9 @@ export default function Profile() {
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button onClick={() => setEditOpen(true)}
+                <button onClick={() => navigate("/account-settings")}
                   className="flex items-center gap-1.5 px-4 py-2 border border-primary/30 text-primary text-sm font-bold rounded-xl hover:bg-primary/5 transition-colors">
-                  <Pencil size={14} /> 编辑资料
+                  <Pencil size={14} /> 账户设置
                 </button>
               </div>
             </div>
@@ -832,7 +811,7 @@ export default function Profile() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">核心技能</h3>
-                <button onClick={() => setEditOpen(true)}
+                <button onClick={() => navigate("/account-settings")}
                   className="text-primary text-[10px] font-bold flex items-center gap-1 hover:underline">
                   <Pencil size={10} /> 编辑
                 </button>
@@ -846,7 +825,7 @@ export default function Profile() {
                   ))}
                 </div>
               ) : (
-                <button onClick={() => setEditOpen(true)}
+                <button onClick={() => navigate("/account-settings")}
                   className="w-full text-center text-sm text-slate-400 border-2 border-dashed border-slate-200 rounded-xl py-4 hover:border-primary/30 hover:text-primary transition-colors">
                   + 添加核心技能
                 </button>
@@ -857,7 +836,7 @@ export default function Profile() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">职业简介</h3>
-                <button onClick={() => setEditOpen(true)}
+                <button onClick={() => navigate("/account-settings")}
                   className="text-primary text-[10px] font-bold flex items-center gap-1 hover:underline">
                   <Pencil size={10} /> 编辑
                 </button>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, KeyRound, Landmark, X } from "lucide-react";
+import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, KeyRound, X } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile, useListNotifications } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
@@ -54,10 +54,10 @@ export function Navbar() {
     { href: "/community",  label: "社区" },
   ];
 
-  function handleEditProfile() {
+  function handleAccountSettings() {
     setMenuOpen(false);
     setMobileOpen(false);
-    navigate("/profile?edit=1");
+    navigate("/account-settings");
   }
 
   async function handleLogout() {
@@ -157,22 +157,16 @@ export function Navbar() {
                 </div>
                 <div className="py-1.5">
                   <button
-                    onClick={handleEditProfile}
+                    onClick={handleAccountSettings}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
                     <UserPen size={15} className="shrink-0" />
-                    编辑个人信息
+                    账户设置
                   </button>
                   <button
                     onClick={() => { setMenuOpen(false); setShowChangePw(true); }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
                     <KeyRound size={15} className="shrink-0" />
                     修改密码
-                  </button>
-                  <button
-                    onClick={() => { setMenuOpen(false); navigate("/settlement-account"); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
-                    <Landmark size={15} className="shrink-0" />
-                    结算账户
                   </button>
                   <div className="mx-4 my-1 border-t border-slate-100" />
                   <button
@@ -264,22 +258,16 @@ export function Navbar() {
           {/* Actions */}
           <div className="border-t border-slate-100 py-3">
             <button
-              onClick={handleEditProfile}
+              onClick={handleAccountSettings}
               className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors">
               <UserPen size={15} className="shrink-0" />
-              编辑个人信息
+              账户设置
             </button>
             <button
               onClick={() => { setMobileOpen(false); setShowChangePw(true); }}
               className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors">
               <KeyRound size={15} className="shrink-0" />
               修改密码
-            </button>
-            <button
-              onClick={() => { setMobileOpen(false); navigate("/settlement-account"); }}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors">
-              <Landmark size={15} className="shrink-0" />
-              结算账户
             </button>
             <div className="mx-5 my-1 border-t border-slate-100" />
             <button
