@@ -243,6 +243,7 @@ export default function AccountSettings() {
 
   const [profileForm, setProfileForm] = useState<ProfileForm>(EMPTY_PROFILE);
   const [settlementForm, setSettlementForm] = useState<SettlementForm>(EMPTY_SETTLEMENT);
+  const settlementFormRef = useRef<SettlementForm>(EMPTY_SETTLEMENT);
   const [profileDirty, setProfileDirty] = useState(false);
   const [settlementDirty, setSettlementDirty] = useState(false);
   const [settlementStatus, setSettlementStatus] = useState<"pending" | "verified" | "rejected" | null>(null);
@@ -311,6 +312,7 @@ export default function AccountSettings() {
             contactPhone: data.contactPhone ?? "",
           };
           settlementInitialRef.current = f;
+          settlementFormRef.current = f;
           setSettlementForm(f);
           setSettlementStatus(data.status ?? null);
           setRejectReason(data.rejectReason ?? null);
@@ -330,13 +332,19 @@ export default function AccountSettings() {
     });
   }, []);
 
-  /* Settlement field helpers — compare against initial snapshot to determine dirty */
+  /* Settlement field helpers — update state + ref, then compute dirty outside the updater */
   const setS = useCallback(<K extends keyof SettlementForm>(k: K, v: SettlementForm[K]) => {
     setSettlementForm(prev => {
       const next = { ...prev, [k]: v };
-      setSettlementDirty(JSON.stringify(next) !== JSON.stringify(settlementInitialRef.current));
+      settlementFormRef.current = next;
       return next;
     });
+    /* Compute dirty after the state update, outside the updater to avoid nested setState */
+    setTimeout(() => {
+      setSettlementDirty(
+        JSON.stringify(settlementFormRef.current) !== JSON.stringify(settlementInitialRef.current),
+      );
+    }, 0);
   }, []);
 
   /* Avatar: file selected → open crop modal */
@@ -431,7 +439,7 @@ export default function AccountSettings() {
           fetch(`${API_BASE}/api/opc/settlement-account`, {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify(settlementForm),
+            body: JSON.stringify(settlementFormRef.current),
           })
             .then(async res => {
               if (!res.ok) {
@@ -442,7 +450,7 @@ export default function AccountSettings() {
             })
             .then(({ data }) => {
               if (!data) throw new Error("结算账户保存失败：服务器未返回有效数据");
-              settlementInitialRef.current = { ...settlementForm };
+              settlementInitialRef.current = { ...settlementFormRef.current };
               setSettlementStatus(data.status ?? "pending");
               setRejectReason(data.rejectReason ?? null);
             }),
