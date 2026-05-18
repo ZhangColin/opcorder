@@ -481,7 +481,7 @@ export default function AccountSettings() {
     <>
       {cropSrc && <CropModal src={cropSrc} onConfirm={handleCropConfirm} onCancel={() => setCropSrc(null)} />}
 
-      <div className="max-w-2xl mx-auto py-8 px-4 pb-24 space-y-6">
+      <div className="max-w-4xl mx-auto py-8 px-6 pb-24 space-y-6">
 
         {/* Page header */}
         <div className="flex items-center gap-3">
@@ -543,9 +543,6 @@ export default function AccountSettings() {
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Field label="显示姓名" value={profileForm.nickname} onChange={v => setP("nickname", v)} placeholder="张明远" required />
-              </div>
-              <div className="col-span-2">
-                <Field label="职业头衔" value={profileForm.title} onChange={v => setP("title", v)} placeholder="AI 系统架构师" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5"><MapPin size={10} className="inline mr-1" />所在城市</label>
@@ -745,7 +742,7 @@ export default function AccountSettings() {
 
         {/* ══════════ Save button (sticky) ══════════ */}
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-slate-100 px-4 py-3">
-          <div className="max-w-2xl mx-auto flex items-center gap-3">
+          <div className="max-w-4xl mx-auto flex items-center gap-3">
             <div className="flex-1 text-xs text-slate-400">
               {(profileDirty || settlementDirty) ? (
                 <span className="text-amber-600 font-semibold">
