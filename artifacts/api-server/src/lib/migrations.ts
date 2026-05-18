@@ -1130,5 +1130,25 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 013a: could not auto-complete stuck orders (non-critical)");
   }
 
+  // Migration 014a: reclassify historical 'other' demands to canonical types
+  // Based on manual review of titles — idempotent (WHERE type = 'other' only matches un-migrated rows)
+  try {
+    await db.execute(sql`
+      UPDATE demands SET type = 'marketing'::demand_type
+      WHERE id IN (7, 29) AND type::text = 'other'
+    `);
+    await db.execute(sql`
+      UPDATE demands SET type = 'education'::demand_type
+      WHERE id IN (26) AND type::text = 'other'
+    `);
+    await db.execute(sql`
+      UPDATE demands SET type = 'software'::demand_type
+      WHERE id IN (28, 41) AND type::text = 'other'
+    `);
+    logger.info("Migration 014a: reclassified historical other-type demands");
+  } catch (err) {
+    logger.warn({ err }, "Migration 014a: could not reclassify other-type demands (non-critical)");
+  }
+
   logger.info("Startup data migrations complete.");
 }
