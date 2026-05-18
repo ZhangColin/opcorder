@@ -355,8 +355,16 @@ export default function PublisherProfile() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
         body: JSON.stringify({ name: "logo.jpg", size: blob.size, contentType: "image/jpeg" }),
       });
-      const { uploadURL, objectPath } = await reqRes.json();
-      await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": "image/jpeg" } });
+      if (!reqRes.ok) throw new Error("获取上传地址失败");
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: blob, headers: { "Content-Type": "image/jpeg" } });
+      if (!putRes.ok) throw new Error("上传失败");
+      const verifyRes = await fetch(`${API_BASE}/api/storage/uploads/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAccessToken() ?? ""}` },
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
       const logoUrl = `${API_BASE}/api/storage${objectPath}`;
       setForm(prev => ({ ...prev, companyLogo: logoUrl }));
     } finally {

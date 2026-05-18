@@ -1014,9 +1014,14 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!reqRes.ok) throw new Error("上传请求失败");
-      const { uploadURL, objectPath } = await reqRes.json();
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!putRes.ok) throw new Error("上传失败");
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST", headers: getAdminHeaders(),
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
       setOfflineRefundReceiptUrl(`${BASE}/api/storage${objectPath}`);
       toast({ title: "凭证上传成功" });
     } catch (e: any) {
@@ -2143,9 +2148,14 @@ function CourseModal({
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!reqRes.ok) throw new Error("上传请求失败");
-      const { uploadURL, objectPath } = await reqRes.json();
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!putRes.ok) throw new Error("文件上传失败");
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST", headers: getAdminHeaders(),
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
       const url = `${BASE}/api/storage${objectPath}`;
       set("syllabusUrl", url);
       toast({ title: "课纲上传成功" });
@@ -2739,9 +2749,14 @@ function DemandRefundManagement() {
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!reqRes.ok) throw new Error("上传请求失败");
-      const { uploadURL, objectPath } = await reqRes.json();
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!putRes.ok) throw new Error("文件上传失败");
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST", headers: getAdminHeaders(),
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
       setOfflineReceipt(`${BASE}/api/storage${objectPath}`);
       toast({ title: "凭证上传成功" });
     } catch (err: any) {
@@ -3375,8 +3390,14 @@ function ResourceManagement() {
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!reqRes.ok) throw new Error("上传请求失败");
-      const { uploadURL, objectPath } = await reqRes.json();
-      await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error("文件上传失败");
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST", headers: getAdminHeaders(),
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
       const url = `${BASE}/api/storage${objectPath}`;
       const ext = file.name.split(".").pop()?.toLowerCase() || "file";
       setForm(f => ({ ...f, fileUrl: url, fileType: ext, fileSize: file.size }));
@@ -4036,9 +4057,14 @@ function SiteSettingsManagement() {
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
-      const { uploadURL, objectPath } = await res.json();
+      const { uploadURL, objectPath, sessionToken } = await res.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST", headers: getAdminHeaders(),
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error(`文件验证失败: ${verifyRes.status}`);
       const imageUrl = `${BASE}/api/storage${objectPath}`;
       setForm(v => ({ ...v, [fieldKey]: imageUrl }));
       toast({ title: "图片上传成功" });

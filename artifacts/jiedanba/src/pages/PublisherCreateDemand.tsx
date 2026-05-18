@@ -159,7 +159,7 @@ function AttachmentInput({ onAdd, onUploadError }: {
           }),
         });
         if (!resp.ok) throw new Error("获取上传链接失败");
-        const { uploadURL, objectPath } = await resp.json();
+        const { uploadURL, objectPath, sessionToken } = await resp.json();
 
         const put = await fetch(uploadURL, {
           method: "PUT",
@@ -167,6 +167,13 @@ function AttachmentInput({ onAdd, onUploadError }: {
           headers: { "Content-Type": file.type || "application/octet-stream" },
         });
         if (!put.ok) throw new Error("文件上传失败");
+
+        const verifyRes = await fetch(`${API_BASE}/api/storage/uploads/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionToken }),
+        });
+        if (!verifyRes.ok) throw new Error("文件验证失败");
 
         const servingUrl = `${API_BASE}/api/storage${objectPath}`;
         const sizeLabel = file.size >= 1048576

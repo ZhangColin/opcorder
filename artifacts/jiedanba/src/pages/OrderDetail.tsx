@@ -151,9 +151,15 @@ function EmptyDelivForm({
         body: JSON.stringify({ name: file.name, size: file.size, contentType }),
       });
       if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
-      const { uploadURL, objectPath } = await res.json();
+      const { uploadURL, objectPath, sessionToken } = await res.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
       if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAccessToken() ?? ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error(`文件验证失败: ${verifyRes.status}`);
       const fileUrl = `${BASE}/api/storage${objectPath}`;
       setFiles((f) => [...f, { url: fileUrl, label: file.name }]);
       toast({ title: `${file.name} 上传成功` });
@@ -371,9 +377,15 @@ function EditDelivForm({
         body: JSON.stringify({ name: file.name, size: file.size, contentType }),
       });
       if (!res.ok) throw new Error(`请求上传地址失败: ${res.status}`);
-      const { uploadURL, objectPath } = await res.json();
+      const { uploadURL, objectPath, sessionToken } = await res.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
       if (!putRes.ok) throw new Error(`上传文件失败: ${putRes.status}`);
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAccessToken() ?? ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error(`文件验证失败: ${verifyRes.status}`);
       const fileUrl = `${BASE}/api/storage${objectPath}`;
       setFiles((f) => [...f, { url: fileUrl, label: file.name }]);
       toast({ title: `${file.name} 上传成功` });

@@ -271,9 +271,15 @@ export default function PublisherDemandDetail() {
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!reqRes.ok) throw new Error("上传请求失败");
-      const { uploadURL, objectPath } = await reqRes.json();
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
       const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!putRes.ok) throw new Error("文件上传失败");
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
       setReceiptUrl(`${BASE}/api/storage${objectPath}`);
       toast({ title: "截图上传成功", description: "已附加到缴费凭证" });
     } catch (err: unknown) {
