@@ -365,6 +365,7 @@ export default function AccountSettings() {
   const [settlementStatus, setSettlementStatus] = useState<"pending" | "verified" | "rejected" | null>(null);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [loadingSettlement, setLoadingSettlement] = useState(true);
+  const [settlementLoadError, setSettlementLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -426,7 +427,7 @@ export default function AccountSettings() {
           setRejectReason(data.rejectReason ?? null);
         }
       })
-      .catch(() => {})
+      .catch(() => { setSettlementLoadError(true); })
       .finally(() => setLoadingSettlement(false));
   }, [user?.id]);
 
@@ -739,6 +740,19 @@ export default function AccountSettings() {
 
           {loadingSettlement ? (
             <div className="p-8 text-center text-slate-400 text-sm">加载中…</div>
+          ) : settlementLoadError ? (
+            <div className="m-6 flex items-start gap-3 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">加载结算信息失败</p>
+                <button
+                  onClick={() => { setSettlementLoadError(false); setLoadingSettlement(true); settlementInitialized.current = false; }}
+                  className="text-xs text-red-600 underline mt-0.5 hover:text-red-800"
+                >
+                  点击重试
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="p-6 space-y-6">
 
