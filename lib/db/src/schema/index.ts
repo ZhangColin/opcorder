@@ -21,3 +21,4 @@ export * from "./agent";
 export * from "./announcements";
 export * from "./quote-dimensions";
 export * from "./quote-tiers";
+export * from "./quote-card-config";
