@@ -2682,6 +2682,8 @@ router.get("/admin/settlement-accounts", requireAdmin, async (req, res) => {
         contactName: settlementAccountsTable.contactName,
         contactPhone: settlementAccountsTable.contactPhone,
         businessLicenseUrl: settlementAccountsTable.businessLicenseUrl,
+        legalRepIdFrontUrl: settlementAccountsTable.legalRepIdFrontUrl,
+        legalRepIdBackUrl: settlementAccountsTable.legalRepIdBackUrl,
         rejectReason: settlementAccountsTable.rejectReason,
         status: settlementAccountsTable.status,
         createdAt: settlementAccountsTable.createdAt,

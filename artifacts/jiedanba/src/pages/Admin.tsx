@@ -6347,11 +6347,42 @@ type SettlementRecord = {
   contactName: string | null;
   contactPhone: string | null;
   businessLicenseUrl: string | null;
+  legalRepIdFrontUrl: string | null;
+  legalRepIdBackUrl: string | null;
   rejectReason: string | null;
   status: "pending" | "verified" | "rejected";
   createdAt: string;
   updatedAt: string;
 };
+
+function DocThumb({ url, label, onClick }: { url: string | null; label: string; onClick: (url: string) => void }) {
+  const safe = safeUrl(url);
+  if (!safe) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <p className="text-[11px] text-slate-400 font-medium">{label}</p>
+        <div className="w-full h-28 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-1.5">
+          <ImageIcon size={18} className="text-slate-300" />
+          <span className="text-[11px] text-slate-400">未上传</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-[11px] text-slate-400 font-medium">{label}</p>
+      <button
+        onClick={() => onClick(safe)}
+        className="relative w-full h-28 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group hover:border-primary/40 transition-colors"
+      >
+        <img src={safe} alt={label} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+          <Eye size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </button>
+    </div>
+  );
+}
 
 function SettlementManagement() {
   const { toast } = useToast();
@@ -6361,12 +6392,18 @@ function SettlementManagement() {
   const [rejectReason, setRejectReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLabel, setPreviewLabel] = useState("");
 
   const { data: records = [], isLoading, refetch } = useQuery<SettlementRecord[]>({
     queryKey: ["admin-settlement-accounts", statusFilter],
     queryFn: () => adminGet(`/api/admin/settlement-accounts?status=${statusFilter}`),
     staleTime: 30_000,
   });
+
+  function openPreview(url: string, label = "证件图片") {
+    setPreviewUrl(url);
+    setPreviewLabel(label);
+  }
 
   async function handleAction(id: number, action: "approve" | "reject", reason?: string) {
     setSubmitting(true);
@@ -6391,10 +6428,10 @@ function SettlementManagement() {
     { key: "rejected", label: "已驳回" },
   ];
 
-  const statusLabel = (s: string) => {
-    if (s === "pending") return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-600 border border-amber-200">待审核</span>;
-    if (s === "verified") return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-50 text-green-600 border border-green-200">已通过</span>;
-    return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">已驳回</span>;
+  const statusBadge = (s: string) => {
+    if (s === "pending")  return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-600 border border-amber-200">待审核</span>;
+    if (s === "verified") return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-50  text-green-600  border border-green-200">已通过</span>;
+    return                       <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50    text-red-600    border border-red-200">已驳回</span>;
   };
 
   return (
@@ -6404,11 +6441,8 @@ function SettlementManagement() {
       {/* Filter tabs */}
       <div className="flex gap-2 flex-wrap">
         {STATUS_TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setStatusFilter(t.key)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${statusFilter === t.key ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-200"}`}
-          >
+          <button key={t.key} onClick={() => setStatusFilter(t.key)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${statusFilter === t.key ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-200"}`}>
             {t.label}
           </button>
         ))}
@@ -6422,12 +6456,14 @@ function SettlementManagement() {
           <p className="text-sm">暂无结算账户记录</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {records.map(r => (
             <div key={r.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
+
+              {/* Card header */}
+              <div className="flex items-center justify-between px-6 py-4 bg-slate-50/60 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center font-extrabold text-primary">
+                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center font-extrabold text-primary text-sm">
                     {(r.userNickname ?? "O")[0]}
                   </div>
                   <div>
@@ -6435,21 +6471,16 @@ function SettlementManagement() {
                     <p className="text-xs text-slate-400">{r.userEmail} · 提交于 {new Date(r.updatedAt).toLocaleDateString("zh-CN")}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {statusLabel(r.status)}
+                <div className="flex items-center gap-2">
+                  {statusBadge(r.status)}
                   {r.status === "pending" && (
                     <>
-                      <button
-                        onClick={() => handleAction(r.id, "approve")}
-                        disabled={submitting}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
-                      >
+                      <button onClick={() => handleAction(r.id, "approve")} disabled={submitting}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 disabled:opacity-50 transition-colors">
                         <Check size={12} /> 通过
                       </button>
-                      <button
-                        onClick={() => { setRejectingId(r.id); setRejectReason(""); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors"
-                      >
+                      <button onClick={() => { setRejectingId(r.id); setRejectReason(""); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">
                         <XCircle size={12} /> 驳回
                       </button>
                     </>
@@ -6457,52 +6488,56 @@ function SettlementManagement() {
                 </div>
               </div>
 
-              <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
-                <div><p className="text-xs text-slate-400 mb-0.5">企业名称</p><p className="font-medium text-slate-700">{r.companyName || "—"}</p></div>
-                <div><p className="text-xs text-slate-400 mb-0.5">统一社会信用代码</p><p className="font-mono text-slate-700">{r.creditCode || "—"}</p></div>
-                <div><p className="text-xs text-slate-400 mb-0.5">开户名称</p><p className="font-medium text-slate-700">{r.accountName || "—"}</p></div>
-                <div><p className="text-xs text-slate-400 mb-0.5">银行账号</p><p className="font-mono text-slate-700">{r.bankAccount || "—"}</p></div>
-                <div><p className="text-xs text-slate-400 mb-0.5">开户银行</p><p className="font-medium text-slate-700">{r.bankName || "—"}</p></div>
-                <div><p className="text-xs text-slate-400 mb-0.5">开户支行</p><p className="font-medium text-slate-700">{r.bankBranch || "—"}</p></div>
-                <div><p className="text-xs text-slate-400 mb-0.5">联系人</p><p className="font-medium text-slate-700">{r.contactName || "—"}</p></div>
-                <div><p className="text-xs text-slate-400 mb-0.5">联系电话</p><p className="font-medium text-slate-700">{r.contactPhone || "—"}</p></div>
-                {r.businessLicenseUrl && (
-                  <div className="col-span-2 md:col-span-3">
-                    <p className="text-xs text-slate-400 mb-1">营业执照</p>
-                    <button
-                      onClick={() => setPreviewUrl(r.businessLicenseUrl)}
-                      className="text-primary text-xs font-bold hover:underline flex items-center gap-1"
-                    >
-                      <Eye size={12} /> 查看营业执照
-                    </button>
+              <div className="px-6 py-5 space-y-5">
+                {/* Company & bank info */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">企业 & 银行信息</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
+                    <div><p className="text-xs text-slate-400 mb-0.5">企业名称</p><p className="font-medium text-slate-700">{r.companyName || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">统一社会信用代码</p><p className="font-mono text-slate-700 text-xs">{r.creditCode || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">开户名称</p><p className="font-medium text-slate-700">{r.accountName || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">银行账号</p><p className="font-mono text-slate-700 text-xs">{r.bankAccount || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">开户银行</p><p className="font-medium text-slate-700">{r.bankName || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">开户支行</p><p className="font-medium text-slate-700">{r.bankBranch || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">联系人</p><p className="font-medium text-slate-700">{r.contactName || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">联系电话</p><p className="font-medium text-slate-700">{r.contactPhone || "—"}</p></div>
                   </div>
-                )}
+                </div>
+
+                {/* Documents */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">证件资料</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <DocThumb url={r.businessLicenseUrl} label="营业执照" onClick={u => openPreview(u, "营业执照")} />
+                    <DocThumb url={r.legalRepIdFrontUrl} label="法人身份证（正面）" onClick={u => openPreview(u, "法人身份证（正面）")} />
+                    <DocThumb url={r.legalRepIdBackUrl}  label="法人身份证（背面）" onClick={u => openPreview(u, "法人身份证（背面）")} />
+                  </div>
+                </div>
+
+                {/* Reject reason display */}
                 {r.status === "rejected" && r.rejectReason && (
-                  <div className="col-span-2 md:col-span-3">
-                    <p className="text-xs text-slate-400 mb-0.5">驳回原因</p>
-                    <p className="text-sm text-red-600 font-medium">{r.rejectReason}</p>
+                  <div className="flex items-start gap-2 px-4 py-3 bg-red-50 rounded-xl border border-red-100">
+                    <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-red-700 mb-0.5">驳回原因</p>
+                      <p className="text-sm text-red-600">{r.rejectReason}</p>
+                    </div>
                   </div>
                 )}
               </div>
 
               {/* Reject reason input */}
               {rejectingId === r.id && (
-                <div className="px-6 pb-5 pt-2 bg-red-50 border-t border-red-100">
+                <div className="px-6 pb-5 pt-3 bg-red-50/60 border-t border-red-100">
                   <label className="block text-xs font-bold text-red-700 mb-1.5">驳回原因（必填）</label>
-                  <textarea
-                    value={rejectReason}
-                    onChange={e => setRejectReason(e.target.value)}
-                    rows={2}
+                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={2}
                     placeholder="请说明驳回原因，系统将通知 OPC 修改…"
-                    className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-200 resize-none bg-white mb-3"
-                  />
+                    className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-200 resize-none bg-white mb-3" />
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setRejectingId(null)} className="px-4 py-2 text-sm text-slate-500 hover:bg-white rounded-xl transition-colors">取消</button>
-                    <button
-                      onClick={() => handleAction(r.id, "reject", rejectReason)}
+                    <button onClick={() => handleAction(r.id, "reject", rejectReason)}
                       disabled={submitting || !rejectReason.trim()}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
-                    >
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50 transition-colors">
                       {submitting ? <Loader2 size={13} className="animate-spin" /> : <XCircle size={13} />} 确认驳回
                     </button>
                   </div>
@@ -6515,12 +6550,16 @@ function SettlementManagement() {
 
       {/* Image preview modal */}
       {previewUrl && (
-        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4" onClick={() => setPreviewUrl(null)}>
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6" onClick={() => setPreviewUrl(null)}>
           <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setPreviewUrl(null)} className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center text-slate-500 shadow-lg z-10 hover:bg-slate-100 transition-colors">
-              <X size={16} />
-            </button>
-            <img src={previewUrl} alt="营业执照" className="w-full rounded-2xl object-contain bg-white shadow-2xl max-h-[80vh]" />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white text-sm font-bold">{previewLabel}</span>
+              <button onClick={() => setPreviewUrl(null)}
+                className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <img src={previewUrl} alt={previewLabel} className="w-full rounded-2xl object-contain bg-white shadow-2xl max-h-[75vh]" />
           </div>
         </div>
       )}
