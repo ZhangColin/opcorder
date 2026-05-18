@@ -3,7 +3,6 @@ import { logger } from "./lib/logger";
 import { startScheduler } from "./lib/scheduler";
 import { runSeed } from "./lib/seed";
 import { runMigrations } from "./lib/migrations";
-import { syncSchema } from "./lib/syncSchema";
 import { generateManualPdf } from "./lib/generateManualPdf";
 
 process.on("uncaughtException", (err) => {
@@ -38,14 +37,10 @@ async function start() {
   });
 
   // Run startup tasks after the port is open.
-  // In production Replit deployments DATABASE_URL is unavailable during the
-  // build phase, so build-time migrate.mjs may have been skipped — we must
-  // sync schema at runtime.
+  // Schema sync is handled at build time by migrate.mjs and by Replit's
+  // publish-time diff — no startup-time DDL needed here.
   try {
-    // runMigrations MUST run before syncSchema so data is migrated to new enum values
-    // before drizzle-kit push tries to remove old enum values from the schema.
     await runMigrations();
-    await syncSchema();
     await runSeed();
   } catch (e) {
     logger.error({ err: e }, "Startup initialization failed — server continues but may be degraded");
