@@ -48,3 +48,6 @@ Thumbs.db
 .cache/
 .local/
 backups/
+
+# Agent-generated workspace attachments (HTML mockups, branding JSON, screenshots)
+attached_assets/
