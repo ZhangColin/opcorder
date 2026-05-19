@@ -531,25 +531,22 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     );
   }
 
-  // Desktop: large centered overlay panel
+  // Desktop: full-height right-side drawer (wider for comfortable reading)
   return (
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-0 z-40 bg-black/25 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Panel */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none`}>
-        <div
-          className={`pointer-events-auto w-full max-w-[760px] bg-white rounded-2xl shadow-2xl flex flex-col transition-all duration-300 ease-out ${
-            open ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
-          }`}
-          style={{ height: "82vh", maxHeight: "820px" }}
-        >
-          {panelContent}
-        </div>
+      {/* Drawer */}
+      <div
+        className={`fixed top-0 right-0 bottom-0 z-50 w-[600px] max-w-[92vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {panelContent}
       </div>
     </>
   );
