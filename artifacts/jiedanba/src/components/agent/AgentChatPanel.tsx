@@ -531,14 +531,26 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     );
   }
 
-  // Desktop: full content-area panel (covers everything to the right of the sidebar)
+  // Desktop: wide right-side panel (leaves ~15% on the left as a visible backdrop sliver)
   return (
-    <div
-      className={`fixed top-0 bottom-0 right-0 z-50 bg-white flex flex-col shadow-[-8px_0_32px_-4px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-in-out md:left-64`}
-      style={{ transform: open ? "translateX(0)" : "translateX(100%)" }}
-    >
-      {panelContent}
-    </div>
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      {/* Panel – starts at 15% from left edge, full height */}
+      <div
+        className={`fixed top-0 bottom-0 right-0 z-50 bg-white flex flex-col shadow-[-8px_0_40px_-4px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-in-out`}
+        style={{
+          left: "15%",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+        }}
+      >
+        {panelContent}
+      </div>
+    </>
   );
 }
 
