@@ -653,7 +653,6 @@ export default function PublisherCreateDemand() {
                 value={description}
                 onChange={setDescription}
                 hasError={!!errors.description}
-                minHeight={220}
               />
             </FormField>
 

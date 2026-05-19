@@ -4,15 +4,15 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
 import { useEffect } from "react";
 import {
-  Bold, Italic, List, ListOrdered, Heading2, Heading3,
-  Undo2, Redo2, Minus,
+  Bold, Italic, Strikethrough, Code, Quote,
+  List, ListOrdered, Heading2, Heading3,
+  Undo2, Redo2, Minus, RemoveFormatting,
 } from "lucide-react";
 
 interface MarkdownEditorProps {
   value: string;
   onChange: (markdown: string) => void;
   placeholder?: string;
-  minHeight?: number;
   hasError?: boolean;
 }
 
@@ -20,15 +20,12 @@ export function MarkdownEditor({
   value,
   onChange,
   placeholder = "请详细描述任务要求、工作内容、交付物规格、验收标准等…",
-  minHeight = 220,
   hasError = false,
 }: MarkdownEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable code block to keep it simple
         codeBlock: false,
-        code: false,
       }),
       Placeholder.configure({
         placeholder,
@@ -47,17 +44,16 @@ export function MarkdownEditor({
     },
     editorProps: {
       attributes: {
-        class: "outline-none min-h-full prose prose-sm max-w-none text-slate-700 leading-relaxed",
+        class: "md-editor-inner outline-none prose prose-sm max-w-none text-slate-700 leading-relaxed",
       },
     },
   });
 
-  // Sync external value changes (e.g. AI fill-in) into editor
+  // Sync external value into editor (e.g. AI fill-in)
   useEffect(() => {
     if (!editor) return;
     const currentMd = (editor.storage.markdown as { getMarkdown: () => string }).getMarkdown();
     if (currentMd !== value) {
-      // Set markdown content without triggering onUpdate loop
       editor.commands.setContent(value, false, { preserveWhitespace: "full" });
     }
   }, [value, editor]);
@@ -92,16 +88,17 @@ export function MarkdownEditor({
     </button>
   );
 
-  const Divider = () => <div className="w-px h-5 bg-slate-200 mx-0.5" />;
+  const Divider = () => <div className="w-px h-5 bg-slate-200 mx-0.5 shrink-0" />;
 
   return (
     <div
-      className={`border rounded-xl overflow-hidden transition focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary ${
+      className={`border rounded-xl transition focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary ${
         hasError ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
       }`}
     >
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 border-b border-slate-100 bg-slate-50">
+      <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 border-b border-slate-100 bg-slate-50 rounded-t-xl">
+        {/* Headings */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           active={editor.isActive("heading", { level: 2 })}
@@ -117,6 +114,7 @@ export function MarkdownEditor({
           <Heading3 size={15} />
         </ToolbarBtn>
         <Divider />
+        {/* Inline formatting */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")}
@@ -131,7 +129,29 @@ export function MarkdownEditor({
         >
           <Italic size={15} />
         </ToolbarBtn>
+        <ToolbarBtn
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={editor.isActive("strike")}
+          title="删除线"
+        >
+          <Strikethrough size={15} />
+        </ToolbarBtn>
+        <ToolbarBtn
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          active={editor.isActive("code")}
+          title="行内代码"
+        >
+          <Code size={15} />
+        </ToolbarBtn>
         <Divider />
+        {/* Block formatting */}
+        <ToolbarBtn
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={editor.isActive("blockquote")}
+          title="引用块"
+        >
+          <Quote size={15} />
+        </ToolbarBtn>
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           active={editor.isActive("bulletList")}
@@ -153,6 +173,14 @@ export function MarkdownEditor({
           <Minus size={15} />
         </ToolbarBtn>
         <Divider />
+        {/* Clear + History */}
+        <ToolbarBtn
+          onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+          title="清除格式"
+        >
+          <RemoveFormatting size={15} />
+        </ToolbarBtn>
+        <Divider />
         <ToolbarBtn
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
@@ -169,11 +197,10 @@ export function MarkdownEditor({
         </ToolbarBtn>
       </div>
 
-      {/* Editor area */}
+      {/* Editor area — grows with content */}
       <EditorContent
         editor={editor}
         className="px-4 py-3 cursor-text"
-        style={{ minHeight }}
         onClick={() => editor.commands.focus()}
       />
     </div>
