@@ -94,7 +94,7 @@ function MarketplaceCard({ demand }: { demand: Demand }) {
           {demand.title}
         </h3>
         <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">
-          {stripMarkdown(demand.description)}
+          {demand.summary || stripMarkdown(demand.description)}
         </p>
 
         <div className="flex flex-wrap gap-2 mb-5">

@@ -591,7 +591,7 @@ export default function PublisherDemandDetail() {
                     <h1 className="text-2xl font-extrabold text-primary tracking-tight mb-3 font-display leading-tight">
                       {demand.title}
                     </h1>
-                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">{stripMarkdown(demand.description)}</p>
+                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">{demand.summary || stripMarkdown(demand.description)}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-slate-400 mb-1">预算区间</p>

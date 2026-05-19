@@ -45,6 +45,7 @@ export const demandsTable = pgTable("demands", {
   bidDeadline: timestamp("bid_deadline"),
   publisherId: integer("publisher_id").notNull().references(() => usersTable.id),
   directedOpcIds: jsonb("directed_opc_ids").$type<number[]>().default([]),
+  summary: text("summary"),
   rejectionReason: text("rejection_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

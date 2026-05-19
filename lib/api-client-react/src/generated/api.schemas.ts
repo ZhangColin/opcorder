@@ -159,6 +159,7 @@ export interface Demand {
   type: DemandType;
   typeLabel?: string;
   description: string;
+  summary?: string | null;
   skillTags: string[];
   opcLevel: DemandOpcLevel;
   budget: number;

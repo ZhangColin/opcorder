@@ -1,4 +1,5 @@
 import { logger } from "../lib/logger";
+import { callLLM } from "../lib/llm";
 import { Router, type IRouter } from "express";
 import { db, demandsTable, demandPaymentsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
@@ -340,7 +341,7 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
 
     // Look up the demand for ownership and transition validation
     const [existing] = await db
-      .select({ publisherId: demandsTable.publisherId, status: demandsTable.status })
+      .select({ publisherId: demandsTable.publisherId, status: demandsTable.status, title: demandsTable.title, description: demandsTable.description })
       .from(demandsTable)
       .where(eq(demandsTable.id, demandId))
       .limit(1);
@@ -362,9 +363,24 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
       }
     }
 
+    // Generate AI summary when submitting for review
+    let summary: string | undefined;
+    if (body.status === "pending_review" && existing.description) {
+      try {
+        const result = await callLLM([
+          { role: "system", content: "你是一个专业的需求摘要助手。请用1-2句话（不超过80字）简洁概括需求的核心内容，语言专业，适合在列表页展示。直接输出摘要文字，不要加任何前缀、标点符号或解释。" },
+          { role: "user", content: `需求标题：${existing.title}\n\n需求详情：${existing.description.slice(0, 2000)}` },
+        ], [], "deepseek-chat");
+        if (result.content) summary = result.content.trim().slice(0, 150);
+      } catch (e) {
+        logger.warn({ e }, "Failed to generate demand summary, skipping");
+      }
+    }
+
     const [updated] = await db.update(demandsTable).set({
       status: body.status as any,
       ...(body.status === "pending_review" ? { rejectionReason: null } : {}),
+      ...(summary ? { summary } : {}),
       updatedAt: new Date(),
     }).where(eq(demandsTable.id, demandId)).returning();
 

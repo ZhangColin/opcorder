@@ -1150,5 +1150,13 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 014a: could not reclassify other-type demands (non-critical)");
   }
 
+  // Migration 015a: add summary column to demands
+  try {
+    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS summary TEXT`);
+    logger.info("Migration 015a: added summary column to demands");
+  } catch (err) {
+    logger.warn({ err }, "Migration 015a: could not add summary column (non-critical)");
+  }
+
   logger.info("Startup data migrations complete.");
 }

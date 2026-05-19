@@ -126,7 +126,7 @@ function DemandCard({
 
           {/* Description preview */}
           <p className="text-sm text-slate-500 line-clamp-2 mb-3">
-            {stripMarkdown(demand.description)}
+            {demand.summary || stripMarkdown(demand.description)}
           </p>
 
           {/* Rejection reason hint */}
