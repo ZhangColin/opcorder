@@ -594,12 +594,14 @@ export default function DemandDetail() {
                                       type="button"
                                       title={`${t.tierLabel}${t.basePrice > 0 ? ` · ¥${t.basePrice.toLocaleString()}` : ""}`}
                                       onClick={() => setQuoteSelections(prev => ({ ...prev, [dim.code]: t.tier }))}
-                                      className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-all ${
+                                      className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold border transition-all leading-tight ${
                                         sel === t.tier
                                           ? "bg-primary text-white border-primary shadow-sm"
                                           : "bg-slate-50 text-slate-600 border-slate-200 hover:border-primary/50 hover:bg-primary/5"
                                       }`}
-                                    >{t.tier}</button>
+                                    >
+                                      <span className="block">{t.tierLabel}</span>
+                                    </button>
                                   ))}
                                 </div>
                                 <div className="w-28 text-right shrink-0">
