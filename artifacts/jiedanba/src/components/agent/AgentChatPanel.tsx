@@ -531,24 +531,14 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     );
   }
 
-  // Desktop: full-height right-side drawer (wider for comfortable reading)
+  // Desktop: full content-area panel (covers everything to the right of the sidebar)
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 z-40 bg-black/25 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      {/* Drawer */}
-      <div
-        className={`fixed top-0 right-0 bottom-0 z-50 w-[600px] max-w-[92vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        {panelContent}
-      </div>
-    </>
+    <div
+      className={`fixed top-0 bottom-0 right-0 z-50 bg-white flex flex-col shadow-[-8px_0_32px_-4px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-in-out md:left-64`}
+      style={{ transform: open ? "translateX(0)" : "translateX(100%)" }}
+    >
+      {panelContent}
+    </div>
   );
 }
 
