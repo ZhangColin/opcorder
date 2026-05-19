@@ -15,6 +15,8 @@ export interface FormSuggestion {
   budgetMin?: number;
   budgetMax?: number;
   isUrgent?: boolean;
+  deadline?: string;
+  bidDeadline?: string;
   milestones?: Array<{ name: string; deadline: string; deliverableDesc: string }>;
 }
 

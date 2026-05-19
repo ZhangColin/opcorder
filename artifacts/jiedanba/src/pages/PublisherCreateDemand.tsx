@@ -495,6 +495,8 @@ export default function PublisherCreateDemand() {
     if (suggestion.budgetMax) { setBudgetMax(String(suggestion.budgetMax)); scrollTarget = scrollTarget ?? "section-budget"; }
     else if (suggestion.budget) { setBudgetMin(String(suggestion.budget)); setBudgetMax(String(suggestion.budget)); scrollTarget = scrollTarget ?? "section-budget"; }
     if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
+    if (suggestion.deadline) { setDeadline(suggestion.deadline); scrollTarget = scrollTarget ?? "section-deadline"; }
+    if (suggestion.bidDeadline) { setBidDeadline(suggestion.bidDeadline); scrollTarget = scrollTarget ?? "section-deadline"; }
     if (suggestion.milestones?.length) {
       setMilestones(suggestion.milestones.map(m => ({
         name: m.name,

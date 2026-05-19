@@ -23,16 +23,18 @@ export const OPC_LEVELS = [
   {
     level: "C",
     name: "C级OPC",
-    description: "入门级OPC，适合基础AI教育和培训任务",
-    budgetCap: 50000,
+    description: "入门级OPC，适合小型基础任务",
+    budgetCap: 3000,
+    budgetCapNote: "预算上限 ¥3,000，超过此金额无法选择C级",
     qualifications: "具备基础AI知识，通过C级认证考核",
-    suitableFor: ["基础AI课程讲授", "简单培训执行", "AI体验活动"],
+    suitableFor: ["基础AI体验活动", "简单内容制作", "小型培训执行"],
   },
   {
     level: "B",
     name: "B级OPC",
     description: "中级OPC，具备较强的AI应用和培训能力",
-    budgetCap: 200000,
+    budgetCap: 20000,
+    budgetCapNote: "预算上限 ¥20,000，超过此金额无法选择B级",
     qualifications: "3年以上AI相关经验，通过B级认证考核",
     suitableFor: ["企业定制培训", "AI工具开发", "研学项目设计"],
   },
@@ -40,17 +42,19 @@ export const OPC_LEVELS = [
     level: "A",
     name: "A级OPC",
     description: "高级OPC，可承接复杂大型AI项目",
-    budgetCap: 1000000,
+    budgetCap: 200000,
+    budgetCapNote: "预算上限 ¥200,000，超过此金额请使用不限级别",
     qualifications: "5年以上AI深度应用经验，通过A级认证考核",
     suitableFor: ["大型AI系统集成", "政企战略AI转型", "高端研究项目"],
   },
   {
     level: "any",
     name: "不限级别",
-    description: "对OPC级别无要求，所有级别均可投标",
-    budgetCap: null,
+    description: "对OPC级别无要求，所有级别均可投标，预算上限同A级（¥200,000）",
+    budgetCap: 200000,
+    budgetCapNote: "预算上限 ¥200,000",
     qualifications: "无要求",
-    suitableFor: ["简单任务", "快速交付项目"],
+    suitableFor: ["各类规模项目"],
   },
 ];
 
@@ -187,8 +191,34 @@ export const AGENT_TOOLS: LLMTool[] = [
   {
     type: "function",
     function: {
+      name: "validate_timeline",
+      description: "验证用户期望的交付时间是否合理，并倒推出抢单截止日期和各里程碑节点日期。在第四阶段用户提供期望交付时间后立即调用，用于校验合理性并生成时间框架。",
+      parameters: {
+        type: "object",
+        properties: {
+          expectedDeliveryDate: {
+            type: "string",
+            description: "用户期望的交付日期，格式 YYYY-MM-DD",
+          },
+          demandType: {
+            type: "string",
+            description: "需求类型，如 education、software、marketing、content、other",
+          },
+          complexity: {
+            type: "string",
+            enum: ["simple", "medium", "complex"],
+            description: "项目复杂度：simple=简单，medium=中等，complex=复杂",
+          },
+        },
+        required: ["expectedDeliveryDate", "demandType"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "suggest_milestones",
-      description: "根据需求类型和交付周期，建议详细的里程碑拆分方案。每个里程碑包含阶段名称、交付物详细说明、支付比例建议。",
+      description: "根据需求类型、抢单截止日期和交付截止日期，建议详细的里程碑拆分方案。每个里程碑包含阶段名称、交付物详细说明、支付比例建议。应在 validate_timeline 返回合理时间后调用，使用工具返回的 bidDeadline 和 deliveryDate。",
       parameters: {
         type: "object",
         properties: {
@@ -196,16 +226,20 @@ export const AGENT_TOOLS: LLMTool[] = [
             type: "string",
             description: "需求类型，如 education、software、marketing、content、other",
           },
-          deliveryDays: {
-            type: "integer",
-            description: "项目总交付天数",
+          bidDeadline: {
+            type: "string",
+            description: "抢单截止日期，格式 YYYY-MM-DD，由 validate_timeline 工具返回",
+          },
+          deliveryDate: {
+            type: "string",
+            description: "最终交付截止日期，格式 YYYY-MM-DD，由 validate_timeline 工具返回",
           },
           budget: {
             type: "number",
             description: "项目总预算（元）",
           },
         },
-        required: ["demandType", "deliveryDays"],
+        required: ["demandType", "deliveryDate"],
       },
     },
   },
@@ -266,13 +300,85 @@ export function executeTool(name: string, args: Record<string, unknown>): ToolRe
     case "get_opc_levels":
       return OPC_LEVELS;
 
+    case "validate_timeline": {
+      const expectedDeliveryDate = args.expectedDeliveryDate as string;
+      const demandType = args.demandType as string;
+      const complexity = (args.complexity as string) || "medium";
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const delivery = new Date(expectedDeliveryDate);
+      delivery.setHours(0, 0, 0, 0);
+      const totalDays = Math.round((delivery.getTime() - today.getTime()) / 86400000);
+
+      const minDays: Record<string, number> = {
+        simple: 7, medium: 14, complex: 21,
+      };
+      const minRequired = minDays[complexity] ?? 14;
+
+      const addDays = (d: Date, n: number) => {
+        const r = new Date(d);
+        r.setDate(r.getDate() + n);
+        return r.toISOString().split("T")[0];
+      };
+
+      if (totalDays <= 0) {
+        return {
+          isReasonable: false,
+          issues: ["交付日期不能是过去或今天，请选择未来的日期。"],
+          suggestedDeliveryDate: addDays(today, minRequired + 7),
+          totalDays: 0,
+        };
+      }
+
+      if (totalDays < minRequired) {
+        const typeLabel: Record<string, string> = {
+          education: "教育培训", software: "软件开发",
+          marketing: "营销", content: "内容设计", other: "项目",
+        };
+        return {
+          isReasonable: false,
+          issues: [
+            `${typeLabel[demandType] ?? "该类型"}项目（${complexity === "simple" ? "简单" : complexity === "complex" ? "复杂" : "中等"}复杂度）至少需要 ${minRequired} 天，当前只有 ${totalDays} 天，时间明显不够。`,
+            "建议：留出足够时间让 OPC 竞标和准备（至少 3 天），以及完整的执行周期。",
+          ],
+          suggestedDeliveryDate: addDays(today, minRequired + 7),
+          totalDays,
+        };
+      }
+
+      // Bid deadline: 3~14 days from today, at most 30% of total time
+      const bidDays = Math.min(Math.max(3, Math.round(totalDays * 0.15)), 14);
+      const bidDeadline = addDays(today, bidDays);
+      const deliveryDate = expectedDeliveryDate;
+      const workDays = totalDays - bidDays;
+
+      return {
+        isReasonable: true,
+        totalDays,
+        bidDeadline,
+        deliveryDate,
+        workDays,
+        notes: [
+          `今天到抢单截止：${bidDays} 天（${bidDeadline}）`,
+          `抢单截止到最终交付：${workDays} 天（${deliveryDate}）`,
+          "请将这两个日期用于后续里程碑生成和表单填写。",
+        ],
+      };
+    }
+
     case "suggest_milestones": {
       const demandType = args.demandType as string;
-      const deliveryDays = (args.deliveryDays as number) || 30;
+      const deliveryDate = args.deliveryDate as string;
+      const bidDeadline = (args.bidDeadline as string) || new Date().toISOString().split("T")[0];
       const budget = (args.budget as number) || 0;
 
-      const milestones = generateMilestones(demandType, deliveryDays, budget);
-      return { milestones };
+      const start = new Date(bidDeadline);
+      const end = new Date(deliveryDate);
+      const workDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+
+      const milestones = generateMilestones(demandType, workDays, budget, bidDeadline);
+      return { milestones, bidDeadline, deliveryDate };
     }
 
     case "estimate_budget": {
@@ -292,9 +398,10 @@ export function executeTool(name: string, args: Record<string, unknown>): ToolRe
 function generateMilestones(
   demandType: string,
   deliveryDays: number,
-  _budget: number
+  _budget: number,
+  startDateStr?: string,
 ): Array<{ name: string; deadline: string; description: string; paymentRatio: number }> {
-  const today = new Date();
+  const today = startDateStr ? new Date(startDateStr) : new Date();
 
   const addDays = (d: Date, days: number) => {
     const result = new Date(d);

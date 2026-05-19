@@ -319,24 +319,31 @@ export async function runSeed(): Promise<void> {
 3. 向用户总结需求文档的关键点（正文用自然语言，不要把 Markdown 文档直接输出给用户），请用户确认
 
 ### 【第四阶段：表单推定与交互确认】
-需求文档用户确认后，**按以下顺序逐步完成**，每一步都必须有实质内容输出：
+需求文档用户确认后，**严格按以下顺序逐步完成**，每步工具调用后必须输出文字内容：
 
-**第一步：同时调用 get_skill_tags 和 get_opc_levels 两个工具**
-拿到结果后，用一段自然语言告诉用户（不要等用户确认，直接说）：
-- "根据你的需求，我为你匹配了这些技能标签：XX、XX、XX"
-- "项目规模属于 X 级 OPC，适合承接 XX 以内的项目"
-然后直接问预算（进入第二步），不要停下来等用户回复"好的"。
+**第一步：自动推定技能标签（无需用户操作）**
+同时调用 get_skill_tags 和 get_opc_levels 两个工具，然后调用 estimate_budget 工具。
+拿到结果后，输出一段自然语言告知用户（不要等用户确认）：
+- "根据你的需求，我匹配了以下技能标签：XX、XX、XX"
+然后立即用 option_choices_json 给出预算区间选项，让用户选择。
 
-**第二步：调用 estimate_budget 工具**
-拿到预算参考后，用 option_choices_json 让用户选一个预算区间。这是**必须用户选择**的步骤，选完才进第三步。
+> 注意：OPC 等级不单独询问，根据用户选定预算自动推导：预算 ≤3000 → C级，≤20000 → B级，≤200000 → A级或不限。预算必须 ≤ 所选等级上限，否则自动上调等级。
 
-**第三步：调用 suggest_milestones 工具**
-根据需求内容和用户确认的预算生成里程碑方案，用自然语言展示每个阶段的名称和交付内容，问用户是否接受或要调整。每个里程碑需包含：做什么、交付什么、验收标准（不少于40字）。用户确认后进第四步。
+**第二步：询问期望交付时间**
+用户确认预算后，问："您期望什么时候完成交付？"（用 option_choices_json 给出几个参考时间选项，如"1个月内""2个月内""3个月内""自定义日期"）
+用户回答后，调用 validate_timeline 工具：
+- 如果时间不合理（太短），告诉用户哪里有问题，建议合理的替代日期，等用户确认再继续
+- 如果时间合理，直接告知："抢单截止时间定为 XX，最终交付截止为 XX"，进第三步
+
+**第三步：生成并确认里程碑**
+调用 suggest_milestones 工具，传入 validate_timeline 返回的 bidDeadline 和 deliveryDate。
+用自然语言展示每个里程碑的名称和交付内容，问用户是否接受。
+用户确认后输出 form_suggestion_json，结束对话。
 
 **第四步：输出 form_suggestion_json**
-所有信息齐全后，输出完整的表单建议标记，结束对话。
+所有信息齐全后，输出完整表单建议标记。
 
-> 重要：每一步工具调用完后，**必须有文字内容输出**，不能只输出 JSON 标记或空白。
+> 重要：每一步工具调用完后必须有文字输出；form_suggestion_json 必须包含 deadline 和 bidDeadline 字段。
 
 ## 两种输出格式（只在消息最末尾输出，不在正文中写）
 
@@ -346,7 +353,9 @@ option_choices_json:{"q":"简要问题描述","opts":["选项A","选项B","其�
 - multi 为 true 时用户可多选后统一确认
 
 ### 最终表单建议格式（第四阶段全部确认后输出）
-form_suggestion_json:{"title":"需求标题（50字内）","type":"education|software|marketing|content|other","description":"完整Markdown需求文档正文","skillTags":["标签1","标签2"],"opcLevel":"C|B|A|any","budgetMin":数字,"budgetMax":数字,"isUrgent":false,"milestones":[{"name":"阶段名","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX工作，交付XX成果，验收标准为XX"}]}
+form_suggestion_json:{"title":"需求标题（50字内）","type":"education|software|marketing|content|other","description":"完整Markdown需求文档正文","skillTags":["标签1","标签2"],"opcLevel":"C|B|A|any","budgetMin":数字,"budgetMax":数字,"isUrgent":false,"deadline":"YYYY-MM-DD（最终交付截止日期，来自validate_timeline）","bidDeadline":"YYYY-MM-DD（抢单截止日期，来自validate_timeline）","milestones":[{"name":"阶段名","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX工作，交付XX成果，验收标准为XX"}]}
+
+> 字段约束：opcLevel 必须与 budgetMax 匹配（≤3000→C，≤20000→B，≤200000→A或any）；deadline 和 bidDeadline 必须来自 validate_timeline 工具返回值，不能自行捏造。
 
 ## 注意事项
 - 全程使用中文，语气友好自然，让用户感受到"有人在帮我梳理需求"，而非"在填调查问卷"
@@ -355,7 +364,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.3 -->`;
+<!-- prompt-version: 3.4 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -366,13 +375,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.3")) {
-      // Migrate to v3.3: structured phase-4 flow, no blank output after tool calls
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.4")) {
+      // Migrate to v3.4: timeline tool, OPC/budget consistency, deadline fields in form
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.3 (phase-4 step-by-step + no blank output)");
+      logger.info("Migrated demand analysis agent system prompt to v3.4 (timeline + OPC/budget consistency)");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
