@@ -490,10 +490,23 @@ export default function PublisherCreateDemand() {
     if (suggestion.type) { setType(normalizeType(suggestion.type)); scrollTarget = scrollTarget ?? "section-basic"; }
     if (suggestion.description) { setDescription(suggestion.description); scrollTarget = scrollTarget ?? "section-detail"; }
     if (suggestion.skillTags?.length) { setSkillTags(suggestion.skillTags); scrollTarget = scrollTarget ?? "section-detail"; }
-    if (suggestion.opcLevel) { setOpcLevel(suggestion.opcLevel); scrollTarget = scrollTarget ?? "section-matching"; }
-    if (suggestion.budgetMin) { setBudgetMin(String(suggestion.budgetMin)); scrollTarget = scrollTarget ?? "section-budget"; }
-    if (suggestion.budgetMax) { setBudgetMax(String(suggestion.budgetMax)); scrollTarget = scrollTarget ?? "section-budget"; }
-    else if (suggestion.budget) { setBudgetMin(String(suggestion.budget)); setBudgetMax(String(suggestion.budget)); scrollTarget = scrollTarget ?? "section-budget"; }
+
+    // Budget: set min/max first, then derive opcLevel from actual budgetMax to guarantee consistency
+    const rawMax = suggestion.budgetMax ?? suggestion.budget;
+    const rawMin = suggestion.budgetMin ?? suggestion.budget;
+    if (rawMax) { setBudgetMax(String(rawMax)); scrollTarget = scrollTarget ?? "section-budget"; }
+    if (rawMin) { setBudgetMin(String(rawMin)); scrollTarget = scrollTarget ?? "section-budget"; }
+
+    // Auto-derive opcLevel from budgetMax — ignore whatever AI suggested to avoid validation errors
+    if (rawMax) {
+      const derivedLevel = rawMax <= 3000 ? "C" : rawMax <= 20000 ? "B" : "any";
+      setOpcLevel(derivedLevel);
+      scrollTarget = scrollTarget ?? "section-matching";
+    } else if (suggestion.opcLevel) {
+      setOpcLevel(suggestion.opcLevel);
+      scrollTarget = scrollTarget ?? "section-matching";
+    }
+
     if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
     if (suggestion.deadline) { setDeadline(suggestion.deadline); scrollTarget = scrollTarget ?? "section-deadline"; }
     if (suggestion.bidDeadline) { setBidDeadline(suggestion.bidDeadline); scrollTarget = scrollTarget ?? "section-deadline"; }

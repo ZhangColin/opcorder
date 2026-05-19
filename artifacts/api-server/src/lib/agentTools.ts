@@ -301,15 +301,40 @@ export function executeTool(name: string, args: Record<string, unknown>): ToolRe
       return OPC_LEVELS;
 
     case "validate_timeline": {
-      const expectedDeliveryDate = args.expectedDeliveryDate as string;
+      let expectedDeliveryDate = args.expectedDeliveryDate as string;
       const demandType = args.demandType as string;
       const complexity = (args.complexity as string) || "medium";
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split("T")[0];
+
+      // Parse relative Chinese time expressions into absolute dates
+      const relativeMatch = expectedDeliveryDate.match(/^(\d+)\s*个?月/);
+      const weekMatch = expectedDeliveryDate.match(/^(\d+)\s*周/);
+      const dayMatch = expectedDeliveryDate.match(/^(\d+)\s*[天日]/);
+      if (relativeMatch) {
+        const months = parseInt(relativeMatch[1]);
+        const d = new Date(today);
+        d.setMonth(d.getMonth() + months);
+        expectedDeliveryDate = d.toISOString().split("T")[0];
+      } else if (weekMatch) {
+        const weeks = parseInt(weekMatch[1]);
+        const d = new Date(today);
+        d.setDate(d.getDate() + weeks * 7);
+        expectedDeliveryDate = d.toISOString().split("T")[0];
+      } else if (dayMatch) {
+        const days = parseInt(dayMatch[1]);
+        const d = new Date(today);
+        d.setDate(d.getDate() + days);
+        expectedDeliveryDate = d.toISOString().split("T")[0];
+      }
+
       const delivery = new Date(expectedDeliveryDate);
       delivery.setHours(0, 0, 0, 0);
-      const totalDays = Math.round((delivery.getTime() - today.getTime()) / 86400000);
+      const totalDays = isNaN(delivery.getTime())
+        ? -1
+        : Math.round((delivery.getTime() - today.getTime()) / 86400000);
 
       const minDays: Record<string, number> = {
         simple: 7, medium: 14, complex: 21,
@@ -325,7 +350,11 @@ export function executeTool(name: string, args: Record<string, unknown>): ToolRe
       if (totalDays <= 0) {
         return {
           isReasonable: false,
-          issues: ["交付日期不能是过去或今天，请选择未来的日期。"],
+          todayDate: todayStr,
+          parsedDeliveryDate: expectedDeliveryDate,
+          issues: [totalDays === -1
+            ? `无法识别日期格式"${args.expectedDeliveryDate}"，请使用 YYYY-MM-DD 格式或"N个月内""N周内"等表达。今天是 ${todayStr}。`
+            : "交付日期不能是过去或今天，请选择未来的日期。"],
           suggestedDeliveryDate: addDays(today, minRequired + 7),
           totalDays: 0,
         };
@@ -355,14 +384,16 @@ export function executeTool(name: string, args: Record<string, unknown>): ToolRe
 
       return {
         isReasonable: true,
+        todayDate: todayStr,
+        parsedDeliveryDate: expectedDeliveryDate,
         totalDays,
         bidDeadline,
         deliveryDate,
         workDays,
         notes: [
-          `今天到抢单截止：${bidDays} 天（${bidDeadline}）`,
+          `今天（${todayStr}）到抢单截止：${bidDays} 天（${bidDeadline}）`,
           `抢单截止到最终交付：${workDays} 天（${deliveryDate}）`,
-          "请将这两个日期用于后续里程碑生成和表单填写。",
+          "请将 bidDeadline 和 deliveryDate 原样填入 form_suggestion_json，不得改动。",
         ],
       };
     }
