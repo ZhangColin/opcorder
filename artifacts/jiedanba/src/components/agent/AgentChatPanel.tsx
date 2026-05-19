@@ -510,12 +510,10 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
         />
         <div
           ref={drawerRef}
-          className={`fixed left-0 right-0 bottom-0 z-50 bg-white flex flex-col rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out`}
+          className="fixed left-0 right-0 bottom-0 z-50 bg-white flex flex-col rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out"
           style={{
-            height: "75vh",
-            transform: open
-              ? `translateY(${dragOffset}px)`
-              : "translateY(100%)",
+            height: "78vh",
+            transform: open ? `translateY(${dragOffset}px)` : "translateY(100%)",
             transition: dragOffset > 0 ? "none" : undefined,
           }}
         >
@@ -533,16 +531,25 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     );
   }
 
-  // Desktop: right-side drawer (fallback, normally inline is used)
+  // Desktop: large centered overlay panel
   return (
     <>
+      {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className={`fixed top-0 right-0 bottom-0 z-50 w-[440px] max-w-[95vw] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "translate-x-full"}`}>
-        {panelContent}
+      {/* Panel */}
+      <div className={`fixed inset-0 z-50 flex items-center justify-center p-6 pointer-events-none`}>
+        <div
+          className={`pointer-events-auto w-full max-w-[760px] bg-white rounded-2xl shadow-2xl flex flex-col transition-all duration-300 ease-out ${
+            open ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
+          }`}
+          style={{ height: "82vh", maxHeight: "820px" }}
+        >
+          {panelContent}
+        </div>
       </div>
     </>
   );

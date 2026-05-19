@@ -475,12 +475,7 @@ export default function PublisherCreateDemand() {
         });
         if (res.ok) {
           const data = await res.json();
-          const enabled = !!data.isEnabled;
-          setAgentEnabled(enabled);
-          // Auto-open panel on desktop when agent is available
-          if (enabled && typeof window !== "undefined" && window.innerWidth >= 768) {
-            setAgentPanelOpen(true);
-          }
+          setAgentEnabled(!!data.isEnabled);
         }
       } catch {
         setAgentEnabled(false);
@@ -529,7 +524,7 @@ export default function PublisherCreateDemand() {
       <div className="flex-1 md:ml-64 flex min-h-screen">
       <main className="flex-1 min-w-0 min-h-screen">
         {/* Top bar */}
-        <header className={`fixed top-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2 transition-all duration-300 ${agentPanelOpen ? "right-0 md:right-[420px]" : "right-0"}`}>
+        <header className="fixed top-0 md:left-64 left-0 right-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
           {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
@@ -556,26 +551,6 @@ export default function PublisherCreateDemand() {
                 className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
               />
             </div>
-            {agentEnabled && (
-              <button
-                type="button"
-                onClick={() => setAgentPanelOpen(prev => !prev)}
-                className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border-2 ${
-                  agentPanelOpen
-                    ? "border-primary/30 bg-primary/5 text-primary"
-                    : "border-slate-200 text-slate-600 hover:border-primary/30 hover:text-primary bg-white"
-                }`}
-              >
-                <Bot size={15} />
-                AI 助手
-                {!agentPanelOpen && (
-                  <span className="flex h-1.5 w-1.5 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
-                  </span>
-                )}
-              </button>
-            )}
             <button className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-white" />
@@ -1037,50 +1012,34 @@ export default function PublisherCreateDemand() {
         </div>
       </main>
 
-      {/* Desktop inline chat panel – sticky right column (40% of content area) */}
-      {agentPanelOpen && (
-        <div className="hidden md:flex flex-col w-[420px] shrink-0 sticky top-0 self-start h-screen border-l border-slate-200 bg-white overflow-hidden shadow-none">
-          <AgentChatPanel
-            mode="inline"
-            open={true}
-            onClose={() => setAgentPanelOpen(false)}
-            sessionKey={agentSessionKey}
-            demandId={isEdit ? editId : undefined}
-            onFillForm={handleFillForm}
-            onConversationId={handleConversationId}
-          />
-        </div>
-      )}
       </div>{/* end split-content-area */}
 
-      {/* Mobile: floating AI button (bottom-right) – only shown on mobile when panel is closed */}
+      {/* Floating AI button – shown when panel is closed */}
       {agentEnabled && !agentPanelOpen && (
         <button
           type="button"
           onClick={() => setAgentPanelOpen(true)}
-          className="md:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl bg-primary text-white font-bold text-sm hover:scale-105 transition-all"
+          className="fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl bg-primary text-white font-bold text-sm hover:scale-105 hover:shadow-primary/30 transition-all duration-200"
         >
-          <Bot size={16} />
+          <Bot size={18} />
           AI 助手
-          <span className="flex h-1.5 w-1.5 relative">
+          <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
           </span>
         </button>
       )}
 
-      {/* Mobile slide-in bottom drawer */}
-      <div className="md:hidden">
-        <AgentChatPanel
-          mode="drawer"
-          open={agentPanelOpen}
-          onClose={() => setAgentPanelOpen(false)}
-          sessionKey={agentSessionKey}
-          demandId={isEdit ? editId : undefined}
-          onFillForm={handleFillForm}
-          onConversationId={handleConversationId}
-        />
-      </div>
+      {/* AI assistant panel (large centered overlay on desktop, bottom sheet on mobile) */}
+      <AgentChatPanel
+        mode="drawer"
+        open={agentPanelOpen}
+        onClose={() => setAgentPanelOpen(false)}
+        sessionKey={agentSessionKey}
+        demandId={isEdit ? editId : undefined}
+        onFillForm={handleFillForm}
+        onConversationId={handleConversationId}
+      />
     </div>
   );
 }
