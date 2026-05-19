@@ -25,6 +25,7 @@ import {
 import type { BidApplication } from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
+import { MarkdownContent, stripMarkdown } from "@/components/MarkdownContent";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { QuoteCardCompareView } from "@/components/publisher/QuoteCardCompareView";
 import { useQueryClient } from "@tanstack/react-query";
@@ -590,7 +591,7 @@ export default function PublisherDemandDetail() {
                     <h1 className="text-2xl font-extrabold text-primary tracking-tight mb-3 font-display leading-tight">
                       {demand.title}
                     </h1>
-                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">{demand.description}</p>
+                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-4">{stripMarkdown(demand.description)}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-slate-400 mb-1">预算区间</p>
@@ -938,11 +939,7 @@ export default function PublisherDemandDetail() {
                     <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2 font-display">
                       <FileText size={16} /> 需求详细说明
                     </h3>
-                    <div className="text-sm text-slate-600 leading-relaxed space-y-2">
-                      {(demand.description || "").split('\n').map((para, i) => (
-                        <p key={i}>{para}</p>
-                      ))}
-                    </div>
+                    <MarkdownContent content={demand.description || ""} className="text-sm" />
                   </section>
 
                   {/* ── 附件资料 ── */}

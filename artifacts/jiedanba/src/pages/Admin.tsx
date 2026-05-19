@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
+import { MarkdownContent } from "@/components/MarkdownContent";
 
 /* ─── API helpers ────────────────────────────────── */
 
@@ -1383,7 +1384,9 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
             )}
             <div>
               <p className="text-xs font-bold text-slate-400 mb-2">需求描述</p>
-              <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{d.description}</div>
+              <div className="bg-slate-50 rounded-xl p-4">
+                <MarkdownContent content={d.description} className="text-sm" />
+              </div>
             </div>
             {d.milestones && d.milestones.length > 0 && (
               <div>

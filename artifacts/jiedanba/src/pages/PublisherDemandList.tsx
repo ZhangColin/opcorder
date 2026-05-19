@@ -9,6 +9,7 @@ import {
   Menu, Undo2,
 } from "lucide-react";
 import { useListDemands, useUpdateDemandStatus } from "@workspace/api-client-react";
+import { stripMarkdown } from "@/components/MarkdownContent";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useToast } from "@/hooks/use-toast";
@@ -125,7 +126,7 @@ function DemandCard({
 
           {/* Description preview */}
           <p className="text-sm text-slate-500 line-clamp-2 mb-3">
-            {demand.description}
+            {stripMarkdown(demand.description)}
           </p>
 
           {/* Rejection reason hint */}

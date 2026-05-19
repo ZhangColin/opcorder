@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useListDemands } from "@workspace/api-client-react";
+import { stripMarkdown } from "@/components/MarkdownContent";
 import { ChevronLeft, ChevronRight, Clock, LayoutGrid, List } from "lucide-react";
 import type { ListDemandsParams, ListDemandsStatus, Demand } from "@workspace/api-client-react";
 import { formatBudget } from "@/lib/utils";
@@ -93,7 +94,7 @@ function MarketplaceCard({ demand }: { demand: Demand }) {
           {demand.title}
         </h3>
         <p className="text-muted-foreground text-sm line-clamp-2 mb-4 leading-relaxed">
-          {demand.description}
+          {stripMarkdown(demand.description)}
         </p>
 
         <div className="flex flex-wrap gap-2 mb-5">

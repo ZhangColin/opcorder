@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeft, Clock, ShieldAlert, CheckCircle, FileText, Download, FileImage, FileSpreadsheet, FileArchive, File, Building2, MapPin, Globe, Users, CalendarDays, ChevronRight, X, CheckCircle2 } from "lucide-react";
 import { useGetDemandById, useCreateBid } from "@workspace/api-client-react";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import { DEMAND_TYPES, DEMAND_STATUSES, OPC_LEVELS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { getAccessToken } from "@/lib/auth";
@@ -440,11 +441,7 @@ export default function DemandDetail() {
             <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
               <FileText className="text-primary" /> 需求详情
             </h3>
-            <div className="prose prose-slate dark:prose-invert max-w-none text-muted-foreground leading-loose">
-              {demand.description.split('\n').map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
-            </div>
+            <MarkdownContent content={demand.description} />
           </div>
 
           {/* Attachments */}
