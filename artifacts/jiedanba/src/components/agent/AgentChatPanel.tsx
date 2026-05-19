@@ -478,7 +478,10 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
                 {msg.formSuggestion && !msg.isStreaming && (
                   <FormSuggestionCard
                     suggestion={msg.formSuggestion}
-                    onFill={() => onFillForm?.(msg.formSuggestion!)}
+                    onFill={() => {
+                      onFillForm?.(msg.formSuggestion!);
+                      onClose();
+                    }}
                   />
                 )}
               </div>
@@ -564,11 +567,11 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Panel – starts at 15% from left edge, full height */}
+      {/* Panel – leaves ~15% of content area (right of sidebar) visible on the left */}
       <div
         className={`fixed top-0 bottom-0 right-0 z-50 bg-white flex flex-col shadow-[-8px_0_40px_-4px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-in-out`}
         style={{
-          left: "15%",
+          left: "calc(16rem + (100vw - 16rem) * 0.15)",
           transform: open ? "translateX(0)" : "translateX(100%)",
         }}
       >
