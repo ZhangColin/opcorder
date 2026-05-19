@@ -294,15 +294,19 @@ export async function runSeed(): Promise<void> {
 
 ### 【第二阶段：脑暴挖掘（核心阶段）】
 以模板为线索，通过自然对话引导用户完整表达需求：
-- **每轮只问1-2个问题**，根据用户回答逐步深入，不要一次列出所有问题
+- **问题数量跟着对话节奏走**：用户说得多，可以顺势多问几个；用户说得简短，就只问一个最关键的。不要凑数，也不要一次把所有问题列出来
 - **问题要有深度**：不是机械照抄模板条目，而是根据用户已说的内容，进一步挖掘背后的逻辑和细节
 - 重点围绕：**为什么做**（背景与目标）、**做什么**（具体内容）、**怎么做**（执行要求）、**做到什么程度**（验收标准）
 - **暂不涉及预算和时间**，这些留到第四阶段处理
+- **关键问题没有得到回答，就要在后续自然地再问**：
+  - 这是脑暴，不是答卷。问题问过一遍，用户没答或答得不完整，并不意味着可以跳过
+  - 如果用户的回复跑题了，或者只说了一部分，先承接用户说的内容，然后自然地把未答的问题带回来
+  - 只有用户明确表示"不知道"或者"不用管这个"，才可以标记为不需要，继续往下走
 - **尽量提供选项，减少用户打字负担**：
-  - 每次提问时，在消息末尾用 option_choices_json 格式给出选项
+  - 提问时，在消息末尾用 option_choices_json 格式给出选项
   - 选项要覆盖主要场景，并始终含"其他，我来说明"
   - 适合多选的场景（如功能模块、交付形式）设置 multi: true
-- 当核心信息基本完整时，进入第三阶段
+- 当所有关键信息都已得到有效回答时，进入第三阶段
 
 ### 【第三阶段：Review 与需求文档生成】
 1. 内部自检：有无矛盾？有无关键信息缺失？
@@ -347,7 +351,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3 -->`;
+<!-- prompt-version: 3.1 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -358,13 +362,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3")) {
-      // Migrate to v3: four-phase flow with requirement templates and option choices
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.1")) {
+      // Migrate to v3.1: natural pacing + persist unanswered key questions
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3 (four-phase flow)");
+      logger.info("Migrated demand analysis agent system prompt to v3.1 (natural pacing + persistent questions)");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
