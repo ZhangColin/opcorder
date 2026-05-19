@@ -915,12 +915,12 @@ export default function PublisherCreateDemand() {
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-bold text-slate-500 mb-1.5">交付物说明</label>
-                        <input
-                          type="text"
+                        <textarea
                           value={ms.deliverableDesc}
                           onChange={e => updateMilestone(i, "deliverableDesc", e.target.value)}
                           placeholder="描述本阶段需提交的具体交付物"
-                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
+                          rows={3}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition resize-y"
                         />
                       </div>
                     </div>
