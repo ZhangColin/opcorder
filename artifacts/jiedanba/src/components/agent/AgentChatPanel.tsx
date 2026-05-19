@@ -723,18 +723,22 @@ function OptionChoicesCard({
   if (!choices.multi) {
     return (
       <div className="space-y-2">
-        {choices.q && (
-          <p className="text-xs text-slate-400 px-1">{choices.q}</p>
-        )}
+        <div className="flex items-center gap-1.5 px-1">
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+            单选·点击即发送
+          </span>
+          {choices.q && <p className="text-xs text-slate-400">{choices.q}</p>}
+        </div>
         <div className="flex flex-wrap gap-2">
           {choices.opts.map((opt, i) => (
             <button
               key={i}
               onClick={() => handleSingleClick(opt)}
-              className={`flex items-center gap-1 text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
+              className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
                 opt === CUSTOM_OPT
                   ? "border-slate-200 text-slate-500 bg-white hover:bg-slate-50"
-                  : "border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50"
+                  : "border-primary/30 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/60 active:bg-primary active:text-white"
               }`}
             >
               {opt === CUSTOM_OPT ? (
@@ -742,7 +746,12 @@ function OptionChoicesCard({
                   <span>{opt}</span>
                   <ChevronRight size={11} className="opacity-60" />
                 </>
-              ) : opt}
+              ) : (
+                <>
+                  <span className="w-3 h-3 rounded-full border-2 border-primary/50 inline-block shrink-0" />
+                  {opt}
+                </>
+              )}
             </button>
           ))}
         </div>
@@ -753,9 +762,13 @@ function OptionChoicesCard({
   // Multi-select
   return (
     <div className="space-y-2">
-      {choices.q && (
-        <p className="text-xs text-slate-400 px-1">{choices.q}（可多选）</p>
-      )}
+      <div className="flex items-center gap-1.5 px-1">
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-600 bg-violet-50 rounded-full px-2 py-0.5 border border-violet-200">
+          <span className="w-3 h-3 rounded-sm border-2 border-violet-500 inline-block" />
+          多选·选完点确认
+        </span>
+        {choices.q && <p className="text-xs text-slate-400">{choices.q}</p>}
+      </div>
       <div className="flex flex-wrap gap-2">
         {choices.opts.map((opt, i) => {
           const isSelected = selected.has(opt);
@@ -775,26 +788,28 @@ function OptionChoicesCard({
             <button
               key={i}
               onClick={() => handleMultiToggle(opt)}
-              className={`text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
+              className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
                 isSelected
-                  ? "border-primary bg-primary text-white shadow-sm"
-                  : "border-primary/30 text-primary bg-primary/5 hover:bg-primary/10"
+                  ? "border-violet-500 bg-violet-500 text-white shadow-sm"
+                  : "border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100"
               }`}
             >
+              <span className={`w-3 h-3 rounded-sm border-2 inline-block shrink-0 transition-all ${
+                isSelected ? "border-white bg-white/30" : "border-violet-400"
+              }`} />
               {opt}
             </button>
           );
         })}
       </div>
-      {selected.size > 0 && (
-        <button
-          onClick={handleMultiConfirm}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
-        >
-          <CheckCircle2 size={13} />
-          确认选择（{selected.size} 项）
-        </button>
-      )}
+      <button
+        onClick={handleMultiConfirm}
+        disabled={selected.size === 0}
+        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-violet-500 text-white text-xs font-bold hover:bg-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+      >
+        <CheckCircle2 size={13} />
+        {selected.size > 0 ? `确认选择（已选 ${selected.size} 项）` : "请先选择选项"}
+      </button>
     </div>
   );
 }
