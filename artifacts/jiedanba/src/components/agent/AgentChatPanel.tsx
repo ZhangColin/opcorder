@@ -39,12 +39,36 @@ interface AgentChatPanelProps {
 }
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
+  // Standard form values
   education: "教育培训",
   software:  "软件开发",
   marketing: "营销",
   content:   "内容设计",
   other:     "其他",
+  // Internal AI tool aliases → map to nearest standard label
+  ai_education:  "教育培训",
+  gov_training:  "教育培训",
+  ai_research:   "软件开发",
+  ai_tool_dev:   "软件开发",
+  ai_marketing:  "营销",
+  ai_content:    "内容设计",
+  // Chinese labels returned directly by the model
+  "教育培训": "教育培训",
+  "软件开发": "软件开发",
+  "营销":    "营销",
+  "内容设计": "内容设计",
+  "其他":    "其他",
 };
+
+/** Normalize AI-returned type value to one of the 5 standard form values */
+export function normalizeType(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes("education") || lower.includes("training") || lower.includes("教育") || lower.includes("培训")) return "education";
+  if (lower.includes("software") || lower.includes("dev") || lower.includes("软件") || lower.includes("开发") || lower.includes("research")) return "software";
+  if (lower.includes("marketing") || lower.includes("营销")) return "marketing";
+  if (lower.includes("content") || lower.includes("design") || lower.includes("内容") || lower.includes("设计")) return "content";
+  return "other";
+}
 
 const OPC_LEVEL_LABELS: Record<string, string> = {
   C:   "C级·新手（上限 ¥3,000）",
@@ -559,7 +583,10 @@ function FormSuggestionCard({ suggestion, onFill }: { suggestion: FormSuggestion
 
   const rows: Array<{ label: string; value: string }> = [];
   if (suggestion.title) rows.push({ label: "需求标题", value: suggestion.title });
-  if (suggestion.type) rows.push({ label: "需求类型", value: DEMAND_TYPE_LABELS[suggestion.type] ?? suggestion.type });
+  if (suggestion.type) {
+    const normalized = normalizeType(suggestion.type);
+    rows.push({ label: "需求类型", value: DEMAND_TYPE_LABELS[normalized] ?? DEMAND_TYPE_LABELS[suggestion.type] ?? suggestion.type });
+  }
   if (suggestion.description) rows.push({ label: "需求描述", value: suggestion.description.slice(0, 80) + (suggestion.description.length > 80 ? "…" : "") });
   if (suggestion.skillTags?.length) rows.push({ label: "技能标签", value: suggestion.skillTags.join("、") });
   if (suggestion.opcLevel) rows.push({ label: "OPC等级", value: OPC_LEVEL_LABELS[suggestion.opcLevel] ?? suggestion.opcLevel });

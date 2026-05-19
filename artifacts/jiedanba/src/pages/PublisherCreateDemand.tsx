@@ -7,7 +7,7 @@ import {
   CheckCircle2, ChevronRight, Info, Zap, Upload, X, FileText, Link2,
   Menu, Bot,
 } from "lucide-react";
-import { AgentChatPanel, type FormSuggestion } from "@/components/agent/AgentChatPanel";
+import { AgentChatPanel, normalizeType, type FormSuggestion } from "@/components/agent/AgentChatPanel";
 import { useCreateDemand, useUpdateDemand, useUpdateDemandStatus, useGetDemandById, useGetOpcLeaderboard } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
@@ -486,7 +486,7 @@ export default function PublisherCreateDemand() {
   const handleFillForm = useCallback((suggestion: FormSuggestion) => {
     let scrollTarget: string | null = null;
     if (suggestion.title) { setTitle(suggestion.title.slice(0, 50)); scrollTarget = scrollTarget ?? "section-basic"; }
-    if (suggestion.type) { setType(suggestion.type); scrollTarget = scrollTarget ?? "section-basic"; }
+    if (suggestion.type) { setType(normalizeType(suggestion.type)); scrollTarget = scrollTarget ?? "section-basic"; }
     if (suggestion.description) { setDescription(suggestion.description); scrollTarget = scrollTarget ?? "section-detail"; }
     if (suggestion.skillTags?.length) { setSkillTags(suggestion.skillTags); scrollTarget = scrollTarget ?? "section-detail"; }
     if (suggestion.opcLevel) { setOpcLevel(suggestion.opcLevel); scrollTarget = scrollTarget ?? "section-matching"; }
