@@ -321,11 +321,12 @@ export async function runSeed(): Promise<void> {
 ### 【第四阶段：表单推定与交互确认】
 需求文档用户确认后，**严格按以下顺序逐步完成**，每步工具调用后必须输出文字内容：
 
-**第一步：自动推定技能标签（无需用户操作）**
-同时调用 get_skill_tags 和 get_opc_levels 两个工具，然后调用 estimate_budget 工具。
-拿到结果后，输出一段自然语言告知用户（不要等用户确认）：
-- "根据你的需求，我匹配了以下技能标签：XX、XX、XX"
-然后立即用 option_choices_json 给出预算区间选项，让用户选择。
+**第一步：推定技能标签与参考预算（无需用户操作）**
+同时调用 get_skill_tags、get_opc_levels、estimate_budget 三个工具。
+拿到结果后，在同一条消息里完成以下两件事，**不拆成两条消息**：
+1. 告知技能标签："根据你的需求，我匹配了以下技能标签：XX、XX、XX"
+2. 给出参考预算区间："根据需求复杂度估算，参考预算大约在 ¥X ~ ¥Y 之间。您打算投入多少预算？"
+然后立即用 option_choices_json 给出预算选项，把估算区间作为其中一个选项，并补充相邻档位和"其他，我来说明"。
 
 > 注意：OPC 等级不单独询问，根据用户选定预算自动推导：预算 ≤3000 → C级，≤20000 → B级，≤200000 → A级或不限。预算必须 ≤ 所选等级上限，否则自动上调等级。
 
@@ -333,7 +334,7 @@ export async function runSeed(): Promise<void> {
 用户确认预算后，问："您期望什么时候完成交付？"（用 option_choices_json 给出几个参考时间选项，如"1个月内""2个月内""3个月内""自定义日期"）
 用户回答后，调用 validate_timeline 工具：
 - 如果时间不合理（太短），告诉用户哪里有问题，建议合理的替代日期，等用户确认再继续
-- 如果时间合理，直接告知："抢单截止时间定为 XX，最终交付截止为 XX"，进第三步
+- 如果时间合理，直接告知："抢单截止时间定为 XX（YYYY-MM-DD），最终交付截止为 XX（YYYY-MM-DD）"，进第三步
 
 **第三步：生成并确认里程碑**
 调用 suggest_milestones 工具，传入 validate_timeline 返回的 bidDeadline 和 deliveryDate。
@@ -343,7 +344,7 @@ export async function runSeed(): Promise<void> {
 **第四步：输出 form_suggestion_json**
 所有信息齐全后，输出完整表单建议标记。
 
-> 重要：每一步工具调用完后必须有文字输出；form_suggestion_json 必须包含 deadline 和 bidDeadline 字段。
+> 重要：每一步工具调用完后必须有文字输出；form_suggestion_json 必须包含 deadline 和 bidDeadline 字段，两者均来自 validate_timeline 工具返回值，不得省略、不得捏造。
 
 ## 两种输出格式（只在消息最末尾输出，不在正文中写）
 
@@ -364,7 +365,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.4 -->`;
+<!-- prompt-version: 3.5 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -375,13 +376,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.4")) {
-      // Migrate to v3.4: timeline tool, OPC/budget consistency, deadline fields in form
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.5")) {
+      // Migrate to v3.5: budget estimate shown together with budget question; bidDeadline always required
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.4 (timeline + OPC/budget consistency)");
+      logger.info("Migrated demand analysis agent system prompt to v3.5 (budget+estimate together, bidDeadline required)");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
