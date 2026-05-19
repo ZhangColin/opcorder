@@ -301,18 +301,27 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
         continue;
       }
 
-      let finalContent = "";
+      // Re-use the already-generated callLLM content to avoid a second LLM call.
+      // A second streamLLM call (without tools) tends to produce inconsistent output
+      // (e.g. omitting option_choices_json), so we stream the first response directly.
+      let finalContent = response.content ?? "";
 
-      try {
-        for await (const token of streamLLM(llmMessages, config.model)) {
-          finalContent += token;
-          sendEvent({ type: "token", content: token });
+      if (finalContent) {
+        // Stream in word-sized chunks for a natural feel
+        const words = finalContent.split(/(?<=\s)|(?=\s)/);
+        for (const chunk of words) {
+          if (chunk) sendEvent({ type: "token", content: chunk });
         }
-      } catch (streamErr) {
-        logger.warn({ streamErr }, "streamLLM failed, using last callLLM response as fallback");
-        finalContent = response.content ?? "";
-        for (const char of finalContent) {
-          sendEvent({ type: "token", content: char });
+      } else {
+        // Fallback: model returned no content in the non-streaming call, use streamLLM
+        try {
+          for await (const token of streamLLM(llmMessages, config.model)) {
+            finalContent += token;
+            sendEvent({ type: "token", content: token });
+          }
+        } catch (streamErr) {
+          logger.warn({ streamErr }, "streamLLM fallback also failed");
+          finalContent = "";
         }
       }
 

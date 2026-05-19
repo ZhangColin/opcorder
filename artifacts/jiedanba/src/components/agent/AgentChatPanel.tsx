@@ -969,6 +969,7 @@ const TOOL_LABEL_MAP: Record<string, string> = {
   get_opc_levels: "OPC等级信息",
   suggest_milestones: "里程碑方案",
   estimate_budget: "预算参考",
+  validate_timeline: "时间合理性验证",
 };
 
 // Keep backward compat export
