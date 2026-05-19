@@ -113,3 +113,27 @@
 .glass-panel {
   @apply bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl shadow-black/5 dark:bg-black/60 dark:border-white/10;
 }
+
+/* ── TipTap / ProseMirror editor styles ── */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Prose overrides for editor */
+.ProseMirror h2 { font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.4rem; color: #1e3a5f; }
+.ProseMirror h3 { font-size: 1rem; font-weight: 700; margin: 0.8rem 0 0.3rem; color: #1e3a5f; }
+.ProseMirror ul { list-style-type: disc; padding-left: 1.4rem; margin: 0.4rem 0; }
+.ProseMirror ol { list-style-type: decimal; padding-left: 1.4rem; margin: 0.4rem 0; }
+.ProseMirror li { margin: 0.2rem 0; }
+.ProseMirror strong { font-weight: 700; }
+.ProseMirror em { font-style: italic; }
+.ProseMirror hr { border: none; border-top: 1px solid #e2e8f0; margin: 0.8rem 0; }
+.ProseMirror p { margin: 0.25rem 0; }

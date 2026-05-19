@@ -8,6 +8,7 @@ import {
   Menu, Bot,
 } from "lucide-react";
 import { AgentChatPanel, normalizeType, type FormSuggestion } from "@/components/agent/AgentChatPanel";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useCreateDemand, useUpdateDemand, useUpdateDemandStatus, useGetDemandById, useGetOpcLeaderboard } from "@workspace/api-client-react";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
@@ -647,15 +648,12 @@ export default function PublisherCreateDemand() {
           <Section id="section-detail" title="需求详情" subtitle="详细说明任务内容和交付要求">
 
             <FormField label="需求描述" required error={errors.description}
-              hint="详细说明任务内容、交付标准、验收条件等">
-              <textarea
+              hint="详细说明任务内容、交付标准、验收条件等，支持标题、列表、加粗等格式">
+              <MarkdownEditor
                 value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="请详细描述任务要求、工作内容、交付物规格、验收标准等…"
-                rows={8}
-                className={`w-full border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none transition ${
-                  errors.description ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
-                }`}
+                onChange={setDescription}
+                hasError={!!errors.description}
+                minHeight={220}
               />
             </FormField>
 
