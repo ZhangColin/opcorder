@@ -5,7 +5,7 @@ import { Markdown } from "tiptap-markdown";
 import { useEffect } from "react";
 import {
   Bold, Italic, Strikethrough, Code, Quote,
-  List, ListOrdered, Heading2, Heading3,
+  List, ListOrdered, Heading1, Heading2, Heading3,
   Undo2, Redo2, Minus, RemoveFormatting,
 } from "lucide-react";
 
@@ -99,6 +99,13 @@ export function MarkdownEditor({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 border-b border-slate-100 bg-slate-50 rounded-t-xl">
         {/* Headings */}
+        <ToolbarBtn
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          active={editor.isActive("heading", { level: 1 })}
+          title="一级标题"
+        >
+          <Heading1 size={15} />
+        </ToolbarBtn>
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           active={editor.isActive("heading", { level: 2 })}
