@@ -724,9 +724,9 @@ function OptionChoicesCard({
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 px-1">
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
-            单选·点击即发送
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary/70 bg-primary/8 border border-primary/15 rounded-full px-2 py-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary/60 inline-block" />
+            单选
           </span>
           {choices.q && <p className="text-xs text-slate-400">{choices.q}</p>}
         </div>
@@ -738,7 +738,7 @@ function OptionChoicesCard({
               className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
                 opt === CUSTOM_OPT
                   ? "border-slate-200 text-slate-500 bg-white hover:bg-slate-50"
-                  : "border-primary/30 text-primary bg-primary/5 hover:bg-primary/15 hover:border-primary/60 active:bg-primary active:text-white"
+                  : "border-primary/25 text-primary bg-primary/5 hover:bg-primary/12 hover:border-primary/50"
               }`}
             >
               {opt === CUSTOM_OPT ? (
@@ -748,7 +748,7 @@ function OptionChoicesCard({
                 </>
               ) : (
                 <>
-                  <span className="w-3 h-3 rounded-full border-2 border-primary/50 inline-block shrink-0" />
+                  <span className="w-3 h-3 rounded-full border-2 border-primary/40 inline-block shrink-0" />
                   {opt}
                 </>
               )}
@@ -763,8 +763,8 @@ function OptionChoicesCard({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5 px-1">
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-violet-600 bg-violet-50 rounded-full px-2 py-0.5 border border-violet-200">
-          <span className="w-3 h-3 rounded-sm border-2 border-violet-500 inline-block" />
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary/70 bg-primary/8 border border-primary/15 rounded-full px-2 py-0.5">
+          <span className="w-3 h-3 rounded-sm border-2 border-primary/50 inline-block" />
           多选·选完点确认
         </span>
         {choices.q && <p className="text-xs text-slate-400">{choices.q}</p>}
@@ -790,12 +790,12 @@ function OptionChoicesCard({
               onClick={() => handleMultiToggle(opt)}
               className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
                 isSelected
-                  ? "border-violet-500 bg-violet-500 text-white shadow-sm"
-                  : "border-violet-200 text-violet-700 bg-violet-50 hover:bg-violet-100"
+                  ? "border-primary bg-primary text-white shadow-sm"
+                  : "border-primary/25 text-primary bg-primary/5 hover:bg-primary/12"
               }`}
             >
               <span className={`w-3 h-3 rounded-sm border-2 inline-block shrink-0 transition-all ${
-                isSelected ? "border-white bg-white/30" : "border-violet-400"
+                isSelected ? "border-white/70 bg-white/20" : "border-primary/40"
               }`} />
               {opt}
             </button>
@@ -805,7 +805,7 @@ function OptionChoicesCard({
       <button
         onClick={handleMultiConfirm}
         disabled={selected.size === 0}
-        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-violet-500 text-white text-xs font-bold hover:bg-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-sm"
       >
         <CheckCircle2 size={13} />
         {selected.size > 0 ? `确认选择（已选 ${selected.size} 项）` : "请先选择选项"}

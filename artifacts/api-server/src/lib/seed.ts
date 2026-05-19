@@ -319,20 +319,24 @@ export async function runSeed(): Promise<void> {
 3. 向用户总结需求文档的关键点（正文用自然语言，不要把 Markdown 文档直接输出给用户），请用户确认
 
 ### 【第四阶段：表单推定与交互确认】
-文档确认后，处理表单的各个字段：
+需求文档用户确认后，**按以下顺序逐步完成**，每一步都必须有实质内容输出：
 
-**自动推定（仅告知用户结果，不需要用户操作）：**
-- 需求类型（已确认）
-- 推荐技能标签（调用 get_skill_tags 工具，根据需求内容匹配）
-- 建议OPC等级（调用 get_opc_levels 工具，根据项目规模和复杂度判断）
+**第一步：同时调用 get_skill_tags 和 get_opc_levels 两个工具**
+拿到结果后，用一段自然语言告诉用户（不要等用户确认，直接说）：
+- "根据你的需求，我为你匹配了这些技能标签：XX、XX、XX"
+- "项目规模属于 X 级 OPC，适合承接 XX 以内的项目"
+然后直接问预算（进入第二步），不要停下来等用户回复"好的"。
 
-**交互确认（给出建议，用户可以选择或调整）：**
-- 预算区间：调用 estimate_budget 工具给出参考区间，以选项形式请用户确认
-- 里程碑方案：调用 suggest_milestones 工具生成拆分方案，展示给用户确认
-  - 每个里程碑需包含：阶段名称、详细交付说明（做什么、交付什么、达到什么标准，不少于40字）、建议日期
-  - 用户可选择接受建议或提出调整
+**第二步：调用 estimate_budget 工具**
+拿到预算参考后，用 option_choices_json 让用户选一个预算区间。这是**必须用户选择**的步骤，选完才进第三步。
 
-全部确认后，输出 form_suggestion_json 标记。
+**第三步：调用 suggest_milestones 工具**
+根据需求内容和用户确认的预算生成里程碑方案，用自然语言展示每个阶段的名称和交付内容，问用户是否接受或要调整。每个里程碑需包含：做什么、交付什么、验收标准（不少于40字）。用户确认后进第四步。
+
+**第四步：输出 form_suggestion_json**
+所有信息齐全后，输出完整的表单建议标记，结束对话。
+
+> 重要：每一步工具调用完后，**必须有文字内容输出**，不能只输出 JSON 标记或空白。
 
 ## 两种输出格式（只在消息最末尾输出，不在正文中写）
 
@@ -351,7 +355,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.2 -->`;
+<!-- prompt-version: 3.3 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -362,13 +366,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.2")) {
-      // Migrate to v3.2: strict one-question-at-a-time rule
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.3")) {
+      // Migrate to v3.3: structured phase-4 flow, no blank output after tool calls
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.2 (one question at a time)");
+      logger.info("Migrated demand analysis agent system prompt to v3.3 (phase-4 step-by-step + no blank output)");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");

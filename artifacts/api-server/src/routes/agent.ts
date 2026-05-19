@@ -198,7 +198,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 
   sendEvent({ type: "conversation_id", conversationId: conversation.id });
 
-  const MAX_TOOL_ITERATIONS = 5;
+  const MAX_TOOL_ITERATIONS = 10;
   let iteration = 0;
   const intermediateMessages: PersistedMessage[] = [];
   const llmMessages = buildLLMMessages(config.systemPrompt, historyMessages, userMessageTrimmed);
