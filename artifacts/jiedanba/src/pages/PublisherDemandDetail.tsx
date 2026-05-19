@@ -996,6 +996,36 @@ export default function PublisherDemandDetail() {
                     );
                   })()}
 
+                  {/* ── 里程碑计划 ── */}
+                  {demand.milestones && (demand.milestones as any[]).length > 0 && (
+                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
+                      <h3 className="text-base font-bold text-primary mb-6 flex items-center gap-2 font-display">
+                        <Zap size={16} /> 里程碑计划
+                      </h3>
+                      <div className="space-y-4">
+                        {(demand.milestones as any[]).map((m: any, i: number) => (
+                          <div key={i} className="flex items-start gap-4">
+                            <div className="flex flex-col items-center">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
+                                {i + 1}
+                              </div>
+                              {i < (demand.milestones as any[]).length - 1 && (
+                                <div className="w-px h-8 bg-slate-200 mt-2" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 pb-2">
+                              <p className="font-bold text-foreground text-sm">{m.name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">截止：{new Date(m.deadline).toLocaleDateString("zh-CN")}</p>
+                              {m.deliverableDesc && (
+                                <p className="text-sm text-slate-600 mt-2 bg-slate-50 border border-slate-100 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">{m.deliverableDesc}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
                   {/* Refund button hidden: refund only applicable after payment+order creation */}
 
                   {/* ── Refund status banners ── */}
@@ -1304,35 +1334,6 @@ export default function PublisherDemandDetail() {
                     </section>
                   )}
 
-                  {/* Milestone Roadmap */}
-                  {demand.milestones && demand.milestones.length > 0 && (
-                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
-                      <h3 className="text-base font-bold text-primary mb-6 flex items-center gap-2 font-display">
-                        <Zap size={16} /> 里程碑计划
-                      </h3>
-                      <div className="space-y-4">
-                        {demand.milestones.map((m: any, i: number) => (
-                          <div key={i} className="flex items-start gap-4">
-                            <div className="flex flex-col items-center">
-                              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
-                                {i + 1}
-                              </div>
-                              {i < (demand.milestones?.length ?? 0) - 1 && (
-                                <div className="w-px h-8 bg-slate-200 mt-2" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0 pb-4">
-                              <p className="font-bold text-foreground text-sm">{m.name}</p>
-                              <p className="text-xs text-slate-500 mt-0.5">截止：{new Date(m.deadline).toLocaleDateString("zh-CN")}</p>
-                              {m.deliverableDesc && (
-                                <p className="text-xs text-slate-400 mt-1">{m.deliverableDesc}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
                 </div>
 
                 {/* Right Sidebar */}

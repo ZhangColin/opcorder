@@ -251,6 +251,7 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
         status: demandsTable.status,
         isUrgent: demandsTable.isUrgent,
         bidDeadline: demandsTable.bidDeadline,
+        summary: demandsTable.summary,
         publisherId: demandsTable.publisherId,
         publisherName: usersTable.nickname,
         publisherTitle: usersTable.title,
