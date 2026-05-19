@@ -499,7 +499,7 @@ export default function PublisherCreateDemand() {
 
     // Auto-derive opcLevel from budgetMax — ignore whatever AI suggested to avoid validation errors
     if (rawMax) {
-      const derivedLevel = rawMax <= 3000 ? "C" : rawMax <= 20000 ? "B" : "any";
+      const derivedLevel = rawMax <= 3000 ? "C" : rawMax <= 20000 ? "B" : "A";
       setOpcLevel(derivedLevel);
       scrollTarget = scrollTarget ?? "section-matching";
     } else if (suggestion.opcLevel) {

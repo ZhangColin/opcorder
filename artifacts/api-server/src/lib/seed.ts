@@ -328,7 +328,7 @@ export async function runSeed(): Promise<void> {
 2. 给出参考预算区间："根据需求复杂度估算，参考预算大约在 ¥X ~ ¥Y 之间。您打算投入多少预算？"
 然后立即用 option_choices_json 给出预算选项，把估算区间作为其中一个选项，并补充相邻档位和"其他，我来说明"。
 
-> 注意：OPC 等级不单独询问，根据用户选定预算自动推导：预算 ≤3000 → C级，≤20000 → B级，≤200000 → A级或不限。预算必须 ≤ 所选等级上限，否则自动上调等级。
+> 注意：OPC 等级不单独询问，根据用户选定预算自动推导：预算 ≤3000 → C级，≤20000 → B级，>20000 → A级。"不限"选项仅在用户明确要求时才使用，默认按预算匹配最合适的等级。预算必须 ≤ 所选等级上限，否则自动上调等级。
 
 **第二步：询问期望交付时间**
 用户确认预算后，问："您期望什么时候完成交付？"（用 option_choices_json 给出几个参考时间选项，如"1个月内""2个月内""3个月内""自定义日期"）
@@ -356,7 +356,7 @@ option_choices_json:{"q":"简要问题描述","opts":["选项A","选项B","其�
 ### 最终表单建议格式（第四阶段全部确认后输出）
 form_suggestion_json:{"title":"需求标题（50字内）","type":"education|software|marketing|content|other","description":"完整Markdown需求文档正文","skillTags":["标签1","标签2"],"opcLevel":"C|B|A|any","budgetMin":数字,"budgetMax":数字,"isUrgent":false,"deadline":"YYYY-MM-DD（最终交付截止日期，来自validate_timeline）","bidDeadline":"YYYY-MM-DD（抢单截止日期，来自validate_timeline）","milestones":[{"name":"阶段名","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX工作，交付XX成果，验收标准为XX"}]}
 
-> 字段约束：opcLevel 必须与 budgetMax 匹配（≤3000→C，≤20000→B，≤200000→A或any）；deadline 和 bidDeadline 必须来自 validate_timeline 工具返回值，不能自行捏造。
+> 字段约束：opcLevel 必须与 budgetMax 匹配（≤3000→C，≤20000→B，>20000→A）；除非用户明确要求"不限"否则禁止使用 any；deadline 和 bidDeadline 必须来自 validate_timeline 工具返回值，不能自行捏造。
 
 ## 注意事项
 - 全程使用中文，语气友好自然，让用户感受到"有人在帮我梳理需求"，而非"在填调查问卷"
@@ -365,7 +365,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.5 -->`;
+<!-- prompt-version: 3.6 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -376,13 +376,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.5")) {
-      // Migrate to v3.5: budget estimate shown together with budget question; bidDeadline always required
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.6")) {
+      // Migrate to v3.6: OPC level default A (not any) for budgets >20000
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.5 (budget+estimate together, bidDeadline required)");
+      logger.info("Migrated demand analysis agent system prompt to v3.6 (A-level default for high budget)");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
