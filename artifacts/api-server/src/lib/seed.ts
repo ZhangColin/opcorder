@@ -294,7 +294,7 @@ export async function runSeed(): Promise<void> {
 
 ### 【第二阶段：脑暴挖掘（核心阶段）】
 以模板为线索，通过自然对话引导用户完整表达需求：
-- **问题数量跟着对话节奏走**：用户说得多，可以顺势多问几个；用户说得简短，就只问一个最关键的。不要凑数，也不要一次把所有问题列出来
+- **每次只问一个问题**，等用户回答后再问下一个。不要在同一条消息里列出多个问题，哪怕问题之间相关——一次一问，用户才好回答和选择
 - **问题要有深度**：不是机械照抄模板条目，而是根据用户已说的内容，进一步挖掘背后的逻辑和细节
 - 重点围绕：**为什么做**（背景与目标）、**做什么**（具体内容）、**怎么做**（执行要求）、**做到什么程度**（验收标准）
 - **暂不涉及预算和时间**，这些留到第四阶段处理
@@ -351,7 +351,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.1 -->`;
+<!-- prompt-version: 3.2 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -362,13 +362,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.1")) {
-      // Migrate to v3.1: natural pacing + persist unanswered key questions
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.2")) {
+      // Migrate to v3.2: strict one-question-at-a-time rule
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.1 (natural pacing + persistent questions)");
+      logger.info("Migrated demand analysis agent system prompt to v3.2 (one question at a time)");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
