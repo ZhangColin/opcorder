@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, Bot, Loader2, Sparkles, RotateCcw, Wrench, CheckCircle2, ClipboardList } from "lucide-react";
+import { X, Send, Bot, Loader2, Sparkles, RotateCcw, Wrench, CheckCircle2, ClipboardList, ChevronRight } from "lucide-react";
 import { getValidAccessToken } from "@/lib/auth";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -18,12 +18,19 @@ export interface FormSuggestion {
   milestones?: Array<{ name: string; deadline: string; deliverableDesc: string }>;
 }
 
+interface OptionChoices {
+  q: string;
+  opts: string[];
+  multi: boolean;
+}
+
 interface ChatMessage {
   role: "user" | "assistant" | "tool_indicator";
   content: string;
   timestamp: string;
   isStreaming?: boolean;
   formSuggestion?: FormSuggestion;
+  optionChoices?: OptionChoices;
 }
 
 interface AgentChatPanelProps {
@@ -39,20 +46,17 @@ interface AgentChatPanelProps {
 }
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
-  // Standard form values
   education: "教育培训",
   software:  "软件开发",
   marketing: "营销",
   content:   "内容设计",
   other:     "其他",
-  // Internal AI tool aliases → map to nearest standard label
   ai_education:  "教育培训",
   gov_training:  "教育培训",
   ai_research:   "软件开发",
   ai_tool_dev:   "软件开发",
   ai_marketing:  "营销",
   ai_content:    "内容设计",
-  // Chinese labels returned directly by the model
   "教育培训": "教育培训",
   "软件开发": "软件开发",
   "营销":    "营销",
@@ -109,71 +113,136 @@ function extractJsonObject(str: string): { json: string; end: number } | null {
   return null;
 }
 
+function extractJsonArray(str: string): { json: string; end: number } | null {
+  const start = str.indexOf("[");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < str.length; i++) {
+    const c = str[i];
+    if (escaped) { escaped = false; continue; }
+    if (c === "\\" && inString) { escaped = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === "[") depth++;
+    else if (c === "]") { depth--; if (depth === 0) return { json: str.slice(start, i + 1), end: i + 1 }; }
+  }
+  return null;
+}
+
 function stripCodeBlocks(text: string): string {
   return text.replace(/```[\w]*\n?[\s\S]*?```/g, "").trim();
 }
 
 /** Strip DeepSeek DSML tool-call markup and other structural content users should not see */
 function stripStructuralContent(text: string): string {
-  // Remove DSML tool-call blocks (DeepSeek format)
   let result = text
     .replace(/<｜｜DSML｜｜tool_calls>[\s\S]*?<\/｜｜DSML｜｜tool_calls>/g, "")
     .replace(/<｜｜DSML｜｜invoke[\s\S]*?<\/｜｜DSML｜｜invoke>/g, "")
     .replace(/<｜｜DSML｜｜parameter[\s\S]*?<\/｜｜DSML｜｜parameter>/g, "")
     .replace(/<｜｜DSML｜｜[\s\S]*?>/g, "")
-    // Remove XML-style tool calls
     .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "")
     .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, "")
-    // Remove raw JSON objects that span one or more lines (likely tool results / suggestions)
     .replace(/^\s*\{[\s\S]*?\}\s*$/gm, "")
-    // Remove lines that are obviously JSON key-value pairs
     .replace(/^\s*"[\w]+":\s*[\[{"].*/gm, "")
     .trim();
-
-  // Clean up multiple consecutive blank lines
   result = result.replace(/\n{3,}/g, "\n\n");
   return result;
 }
 
-function parseFormSuggestion(content: string): { text: string; suggestion: FormSuggestion | null } {
-  // Format 1 (new): form_suggestion_json:{...} — marker + inline JSON
-  const marker = "form_suggestion_json:";
-  const idx = content.indexOf(marker);
-  if (idx !== -1) {
-    const afterMarker = content.slice(idx + marker.length);
+function parseMessage(content: string): {
+  text: string;
+  suggestion: FormSuggestion | null;
+  optionChoices: OptionChoices | null;
+} {
+  let workingContent = content;
+  let suggestion: FormSuggestion | null = null;
+  let optionChoices: OptionChoices | null = null;
+
+  // Extract form_suggestion_json:
+  const formMarker = "form_suggestion_json:";
+  const formIdx = workingContent.indexOf(formMarker);
+  if (formIdx !== -1) {
+    const afterMarker = workingContent.slice(formIdx + formMarker.length);
     const extracted = extractJsonObject(afterMarker);
     if (extracted) {
       try {
-        const suggestion = JSON.parse(extracted.json) as FormSuggestion;
-        const textBefore = content.slice(0, idx).trim();
-        const textAfter = afterMarker.slice(extracted.end).trim();
-        const displayText = textAfter ? `${textBefore}\n\n${textAfter}` : textBefore;
-        return { text: stripStructuralContent(stripCodeBlocks(displayText)).trim(), suggestion };
-      } catch { /* fall through */ }
+        suggestion = JSON.parse(extracted.json) as FormSuggestion;
+        const before = workingContent.slice(0, formIdx).trim();
+        const after = afterMarker.slice(extracted.end).trim();
+        workingContent = after ? `${before}\n\n${after}` : before;
+      } catch { /* ignore */ }
     }
   }
 
-  // Format 2 (old): ```json { "formSuggestion": {...} } ``` code block
-  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (codeBlockMatch) {
-    try {
-      const parsed = JSON.parse(codeBlockMatch[1]) as Record<string, unknown>;
-      const fs = parsed.formSuggestion as FormSuggestion | undefined;
-      if (fs && typeof fs === "object") {
-        const textWithout = stripCodeBlocks(content);
-        return { text: stripStructuralContent(textWithout), suggestion: fs };
+  // Extract option_choices_json:
+  const optMarker = "option_choices_json:";
+  const optIdx = workingContent.indexOf(optMarker);
+  if (optIdx !== -1) {
+    const afterMarker = workingContent.slice(optIdx + optMarker.length);
+    // Try object format first
+    const extracted = extractJsonObject(afterMarker);
+    if (extracted) {
+      try {
+        const parsed = JSON.parse(extracted.json) as { q?: string; opts?: string[]; multi?: boolean };
+        if (parsed.opts && Array.isArray(parsed.opts)) {
+          optionChoices = {
+            q: parsed.q ?? "",
+            opts: parsed.opts,
+            multi: parsed.multi ?? false,
+          };
+          const before = workingContent.slice(0, optIdx).trim();
+          const after = afterMarker.slice(extracted.end).trim();
+          workingContent = after ? `${before}\n\n${after}` : before;
+        }
+      } catch { /* ignore */ }
+    }
+    // Fallback: try array format
+    if (!optionChoices) {
+      const arrExtracted = extractJsonArray(afterMarker);
+      if (arrExtracted) {
+        try {
+          const opts = JSON.parse(arrExtracted.json) as string[];
+          if (Array.isArray(opts)) {
+            optionChoices = { q: "", opts, multi: false };
+            const before = workingContent.slice(0, optIdx).trim();
+            workingContent = before;
+          }
+        } catch { /* ignore */ }
       }
-    } catch { /* fall through */ }
+    }
   }
 
-  // No suggestion — still strip stray code blocks and structural content
-  const stripped = stripStructuralContent(stripCodeBlocks(content));
-  return { text: stripped !== content ? stripped : content, suggestion: null };
+  // Old code block format
+  if (!suggestion) {
+    const codeBlockMatch = workingContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1]) as Record<string, unknown>;
+        const fs = parsed.formSuggestion as FormSuggestion | undefined;
+        if (fs && typeof fs === "object") {
+          suggestion = fs;
+          workingContent = stripCodeBlocks(workingContent);
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  const displayText = stripStructuralContent(stripCodeBlocks(workingContent)).trim();
+
+  return { text: displayText || workingContent, suggestion, optionChoices };
+}
+
+/** @deprecated Use parseMessage */
+function parseFormSuggestion(content: string): { text: string; suggestion: FormSuggestion | null } {
+  const { text, suggestion } = parseMessage(content);
+  return { text, suggestion };
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
-  content: `你好！我是需求分析助手\n\n我会通过几个简短的问题，帮您：\n- 理清需求描述，让OPC一看就懂\n- 拆解合理的里程碑阶段\n- 估算合适的预算范围\n\n**请先告诉我：您想发布什么类型的需求？** 可以用一句话简单描述，例如：我需要开发一套AI赋能党建培训课程。`,
+  content: `你好！我是需求分析助手\n\n跟我说说您想发布什么需求，我会帮您：\n- 梳理清楚需求内容，让 OPC 一看就懂\n- 生成一份专业的需求文档\n- 推荐合适的预算范围和里程碑拆分\n\n**请先告诉我：您大概想做什么？** 一句话就行，例如：我要给公司员工做一次AI工具应用培训。`,
   timestamp: new Date().toISOString(),
 };
 
@@ -207,7 +276,6 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     }
   }, [messages]);
 
-  // Reset drag offset when drawer opens/closes
   useEffect(() => {
     setDragOffset(0);
   }, [open]);
@@ -229,12 +297,13 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
       if (data.messages && data.messages.length > 0) {
         setMessages(
           data.messages.map((m: { role: string; content: string; timestamp: string }) => {
-            const { text, suggestion } = parseFormSuggestion(m.content ?? "");
+            const { text, suggestion, optionChoices } = parseMessage(m.content ?? "");
             return {
               role: m.role as "user" | "assistant",
               content: text,
               timestamp: m.timestamp,
               formSuggestion: suggestion ?? undefined,
+              optionChoices: optionChoices ?? undefined,
             };
           })
         );
@@ -256,9 +325,8 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     }
   }, [open, loadHistory]);
 
-  const sendMessage = async () => {
-    const text = input.trim();
-    if (!text || loading) return;
+  const sendMessageText = useCallback(async (text: string) => {
+    if (!text.trim() || loading) return;
     setInput("");
 
     setMessages((prev) => [...prev, { role: "user", content: text, timestamp: new Date().toISOString() }]);
@@ -275,7 +343,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text, sessionKey, conversationId: conversationId ?? undefined, demandId: demandId ?? undefined }),
+        body: JSON.stringify({ message: text.trim(), sessionKey, conversationId: conversationId ?? undefined, demandId: demandId ?? undefined }),
         signal: abortRef.current.signal,
       });
 
@@ -314,11 +382,12 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
             setConversationId(event.conversationId);
           } else if (event.type === "token" && typeof event.content === "string") {
             rawContent += event.content;
-            const { text: displayText, suggestion } = parseFormSuggestion(rawContent);
+            const { text: displayText, suggestion, optionChoices } = parseMessage(rawContent);
             updateLastMsg({
               content: displayText,
               isStreaming: true,
               formSuggestion: suggestion ?? undefined,
+              optionChoices: optionChoices ?? undefined,
             });
           } else if (event.type === "tool_call" && typeof event.tool === "string") {
             const label = TOOL_LABEL_MAP[event.tool as string] ?? event.tool as string;
@@ -335,10 +404,11 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
               return next;
             });
           } else if (event.type === "done") {
-            const { text: finalText, suggestion: finalSuggestion } = parseFormSuggestion(rawContent);
+            const { text: finalText, suggestion: finalSuggestion, optionChoices: finalChoices } = parseMessage(rawContent);
             updateLastMsg({
               content: finalText,
               formSuggestion: finalSuggestion ?? undefined,
+              optionChoices: finalChoices ?? undefined,
               isStreaming: false,
             });
           } else if (event.type === "error") {
@@ -362,7 +432,13 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
       setLoading(false);
       abortRef.current = null;
     }
-  };
+  }, [loading, sessionKey, conversationId, demandId]);
+
+  const sendMessage = useCallback(() => {
+    const text = input.trim();
+    if (!text) return;
+    sendMessageText(text);
+  }, [input, sendMessageText]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -399,6 +475,14 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     setDragOffset(0);
   };
 
+  // Determine which message should show choices (last non-streaming assistant msg)
+  const lastAssistantIdx = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant" && !messages[i].isStreaming) return i;
+    }
+    return -1;
+  })();
+
   const panelContent = (
     <>
       {/* Header */}
@@ -409,7 +493,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           </div>
           <div>
             <p className="text-sm font-extrabold text-blue-900">需求分析助手</p>
-            <p className="text-xs text-slate-400">一步步帮您填好表单</p>
+            <p className="text-xs text-slate-400">帮您梳理需求、生成文档</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -453,6 +537,8 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
             );
           }
 
+          const isLastAssistant = idx === lastAssistantIdx;
+
           return (
             <div key={idx} className="flex gap-3">
               <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -475,6 +561,20 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
                     </span>
                   </div>
                 )}
+
+                {/* Option choices — only on last assistant message, when not loading */}
+                {isLastAssistant && msg.optionChoices && !loading && (
+                  <OptionChoicesCard
+                    choices={msg.optionChoices}
+                    onSelect={(text) => sendMessageText(text)}
+                    onCustom={(prefill) => {
+                      setInput(prefill);
+                      setTimeout(() => textareaRef.current?.focus(), 50);
+                    }}
+                  />
+                )}
+
+                {/* Form suggestion card */}
                 {msg.formSuggestion && !msg.isStreaming && (
                   <FormSuggestionCard
                     suggestion={msg.formSuggestion}
@@ -500,7 +600,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="告诉我您的需求… (Enter 发送，Shift+Enter 换行)"
+            placeholder="直接输入，或选择上方选项… (Enter 发送，Shift+Enter 换行)"
             rows={2}
             className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none leading-relaxed"
             disabled={loading}
@@ -558,16 +658,14 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     );
   }
 
-  // Desktop: wide right-side panel (leaves ~15% on the left as a visible backdrop sliver)
+  // Desktop: wide right-side panel
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Panel – leaves ~15% of content area (right of sidebar) visible on the left */}
       <div
         className={`fixed top-0 bottom-0 right-0 z-50 bg-white flex flex-col shadow-[-8px_0_40px_-4px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-in-out`}
         style={{
@@ -580,6 +678,128 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     </>
   );
 }
+
+/* ─── Option Choices Card ─────────────────────────────────────────── */
+
+function OptionChoicesCard({
+  choices,
+  onSelect,
+  onCustom,
+}: {
+  choices: OptionChoices;
+  onSelect: (text: string) => void;
+  onCustom: (prefill: string) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const CUSTOM_OPT = "其他，我来说明";
+
+  const handleSingleClick = (opt: string) => {
+    if (opt === CUSTOM_OPT) {
+      onCustom("");
+      return;
+    }
+    onSelect(opt);
+  };
+
+  const handleMultiToggle = (opt: string) => {
+    if (opt === CUSTOM_OPT) {
+      onCustom(Array.from(selected).filter(o => o !== CUSTOM_OPT).join("、"));
+      return;
+    }
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(opt)) next.delete(opt);
+      else next.add(opt);
+      return next;
+    });
+  };
+
+  const handleMultiConfirm = () => {
+    if (selected.size === 0) return;
+    onSelect(Array.from(selected).join("、"));
+  };
+
+  if (!choices.multi) {
+    return (
+      <div className="space-y-2">
+        {choices.q && (
+          <p className="text-xs text-slate-400 px-1">{choices.q}</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {choices.opts.map((opt, i) => (
+            <button
+              key={i}
+              onClick={() => handleSingleClick(opt)}
+              className={`flex items-center gap-1 text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
+                opt === CUSTOM_OPT
+                  ? "border-slate-200 text-slate-500 bg-white hover:bg-slate-50"
+                  : "border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50"
+              }`}
+            >
+              {opt === CUSTOM_OPT ? (
+                <>
+                  <span>{opt}</span>
+                  <ChevronRight size={11} className="opacity-60" />
+                </>
+              ) : opt}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Multi-select
+  return (
+    <div className="space-y-2">
+      {choices.q && (
+        <p className="text-xs text-slate-400 px-1">{choices.q}（可多选）</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {choices.opts.map((opt, i) => {
+          const isSelected = selected.has(opt);
+          if (opt === CUSTOM_OPT) {
+            return (
+              <button
+                key={i}
+                onClick={() => handleMultiToggle(opt)}
+                className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-500 bg-white hover:bg-slate-50 transition-all font-medium"
+              >
+                <span>{opt}</span>
+                <ChevronRight size={11} className="opacity-60" />
+              </button>
+            );
+          }
+          return (
+            <button
+              key={i}
+              onClick={() => handleMultiToggle(opt)}
+              className={`text-xs px-3 py-2 rounded-xl border transition-all font-medium ${
+                isSelected
+                  ? "border-primary bg-primary text-white shadow-sm"
+                  : "border-primary/30 text-primary bg-primary/5 hover:bg-primary/10"
+              }`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+      {selected.size > 0 && (
+        <button
+          onClick={handleMultiConfirm}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all shadow-sm"
+        >
+          <CheckCircle2 size={13} />
+          确认选择（{selected.size} 项）
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ─── Form Suggestion Card ────────────────────────────────────────── */
 
 function FormSuggestionCard({ suggestion, onFill }: { suggestion: FormSuggestion; onFill: () => void }) {
   const [filled, setFilled] = useState(false);
@@ -594,7 +814,6 @@ function FormSuggestionCard({ suggestion, onFill }: { suggestion: FormSuggestion
   if (suggestion.skillTags?.length) rows.push({ label: "技能标签", value: suggestion.skillTags.join("、") });
   if (suggestion.opcLevel) rows.push({ label: "OPC等级", value: OPC_LEVEL_LABELS[suggestion.opcLevel] ?? suggestion.opcLevel });
 
-  // Budget: prefer range (budgetMin/budgetMax), fall back to legacy budget
   const bMin = suggestion.budgetMin ?? suggestion.budget;
   const bMax = suggestion.budgetMax ?? suggestion.budget;
   if (bMin && bMax && bMin !== bMax) {
@@ -646,6 +865,8 @@ function FormSuggestionCard({ suggestion, onFill }: { suggestion: FormSuggestion
   );
 }
 
+/* ─── Markdown Renderer ───────────────────────────────────────────── */
+
 /** Render inline markdown: **bold**, *italic*, `code` */
 function renderInline(text: string): React.ReactNode {
   const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
@@ -677,13 +898,9 @@ function renderInline(text: string): React.ReactNode {
 function isStructuralLine(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
-  // DSML or XML tool call tags
   if (t.includes("｜｜DSML｜｜") || t.startsWith("<tool_call") || t.startsWith("</tool_call") || t.startsWith("<function_call")) return true;
-  // Standalone JSON object or array start/end
   if ((t === "{" || t === "}" || t === "[" || t === "]" || t === "}," || t === "]," )) return true;
-  // JSON key-value pair like "key": value
   if (/^"[\w]+":\s*/.test(t)) return true;
-  // Full inline JSON object
   if (t.startsWith("{") && t.endsWith("}") && t.length > 2) {
     try { JSON.parse(t); return true; } catch { /* not valid JSON */ }
   }
@@ -695,21 +912,17 @@ function FormattedContent({ content }: { content: string }) {
   return (
     <div className="space-y-1">
       {lines.map((line, i) => {
-        // Skip lines that are fenced code blocks, markers, or raw structural data
-        if (line.startsWith("```") || line.startsWith("form_suggestion_json:")) return null;
+        if (line.startsWith("```") || line.startsWith("form_suggestion_json:") || line.startsWith("option_choices_json:")) return null;
         if (isStructuralLine(line)) return null;
 
-        // Headings
         if (line.startsWith("### ")) return <p key={i} className="font-extrabold text-blue-900 text-sm mt-2 first:mt-0">{renderInline(line.slice(4))}</p>;
         if (line.startsWith("## ")) return <p key={i} className="font-extrabold text-blue-900 mt-2 first:mt-0">{renderInline(line.slice(3))}</p>;
         if (line.startsWith("# ")) return <p key={i} className="font-extrabold text-blue-900 text-base mt-2 first:mt-0">{renderInline(line.slice(2))}</p>;
 
-        // Standalone bold line (entire line is **text**)
         if (/^\*\*[^*]+\*\*$/.test(line.trim())) {
           return <p key={i} className="font-bold text-slate-800">{line.trim().slice(2, -2)}</p>;
         }
 
-        // Bullet points
         if (line.startsWith("- ") || line.startsWith("• ")) {
           return (
             <p key={i} className="flex gap-2">
@@ -719,16 +932,13 @@ function FormattedContent({ content }: { content: string }) {
           );
         }
 
-        // Numbered lists
         if (line.match(/^\d+\.\s/)) {
           const m = line.match(/^(\d+)\.\s(.*)/)!;
           return <p key={i} className="flex gap-2"><span className="shrink-0 font-bold text-primary">{m[1]}.</span><span>{renderInline(m[2])}</span></p>;
         }
 
-        // Empty lines → small gap
         if (line.trim() === "") return <div key={i} className="h-1" />;
 
-        // Regular paragraph with inline markdown
         return <p key={i}>{renderInline(line)}</p>;
       })}
     </div>
@@ -736,9 +946,13 @@ function FormattedContent({ content }: { content: string }) {
 }
 
 const TOOL_LABEL_MAP: Record<string, string> = {
+  get_requirement_template: "需求文档模板",
   get_demand_types: "需求类型",
   get_skill_tags: "技能标签",
   get_opc_levels: "OPC等级信息",
   suggest_milestones: "里程碑方案",
   estimate_budget: "预算参考",
 };
+
+// Keep backward compat export
+export { parseFormSuggestion };

@@ -15,6 +15,8 @@ export const SKILL_TAGS = [
   "直播运营", "短视频制作", "新媒体运营", "内容创作", "品牌营销",
   "研学策划", "活动执行", "项目管理", "党建工作", "政府采购",
   "企业培训", "讲师认证", "课件制作", "在线教育", "教学设计",
+  "PPT设计", "视频剪辑", "图文设计", "H5开发", "海报设计",
+  "Web开发", "小程序开发", "系统集成", "数据爬取", "自动化脚本",
 ];
 
 export const OPC_LEVELS = [
@@ -52,12 +54,105 @@ export const OPC_LEVELS = [
   },
 ];
 
+const REQUIREMENT_TEMPLATES: Record<string, {
+  name: string;
+  description: string;
+  sections: Array<{ name: string; guide: string; required: boolean }>;
+}> = {
+  education: {
+    name: "教育培训",
+    description: "适用于AI课程开发、政企培训、研学活动、讲师输出等教育类需求",
+    sections: [
+      { name: "背景与目标", guide: "为什么要做这次培训？要解决什么问题或达成什么目标？（如：提升员工AI工具应用能力、推动政府部门AI认知普及等）", required: true },
+      { name: "目标学员", guide: "学员是谁？（企业员工/政府人员/在校学生等），总人数大概多少？学员目前对AI的了解程度如何？", required: true },
+      { name: "课程内容与大纲", guide: "希望培训哪些内容？有哪些核心模块？每个模块的重点是什么？", required: true },
+      { name: "交付形式", guide: "线上还是线下？现场授课、录播课还是直播课？还是线上线下混合？", required: true },
+      { name: "时间安排", guide: "总培训时长是多少？分几天完成？每天大概几小时？有没有硬性的时间节点要求？", required: true },
+      { name: "配套资料", guide: "是否需要配套PPT课件、学员手册、练习题、案例库等材料？", required: false },
+      { name: "考核与认证", guide: "培训结束后是否需要考核？是否需要颁发结业证书或认证？", required: false },
+      { name: "场地与设备", guide: "线下课是否需要OPC协助安排场地和设备？有什么特殊要求（如实操电脑、投影仪、网络环境等）？", required: false },
+      { name: "验收标准", guide: "如何判断培训效果达标？（如学员满意度评分、考核通过率、实操能力测评等）", required: true },
+    ],
+  },
+  software: {
+    name: "软件开发",
+    description: "适用于AI工具定制、插件开发、系统集成、自动化流程等软件交付需求",
+    sections: [
+      { name: "背景与目标", guide: "为什么要开发这个软件/工具？解决的核心业务痛点是什么？当前是如何处理这个问题的？", required: true },
+      { name: "目标用户", guide: "谁来使用这个软件？主要用户群体是什么？用户规模大概多少人？", required: true },
+      { name: "核心功能需求", guide: "最重要的功能模块有哪些？每个功能的核心逻辑是什么？优先级怎么排？", required: true },
+      { name: "技术要求", guide: "是否有技术栈偏好？（前端框架、后端语言、数据库等）需要与哪些现有系统或API对接集成？", required: false },
+      { name: "数据与安全", guide: "会处理哪类数据？有没有数据安全、隐私保护或合规方面的要求？", required: false },
+      { name: "UI/UX要求", guide: "对界面设计有没有具体要求或参考案例？需要OPC输出设计稿吗？还是以功能实现为主？", required: false },
+      { name: "验收标准", guide: "功能验收的标准是什么？有没有性能指标要求（如响应时间、并发量）？", required: true },
+      { name: "部署与运维", guide: "软件部署在云端还是客户本地？需要培训文档或运维支持吗？", required: false },
+    ],
+  },
+  marketing: {
+    name: "营销",
+    description: "适用于AI赋能直播、短视频制作、新媒体运营、品牌推广等营销类需求",
+    sections: [
+      { name: "背景与目标", guide: "品牌/产品/服务是什么？本次营销要达成的核心目标是什么？（品牌曝光/用户获取/转化销售/品牌公关等）", required: true },
+      { name: "目标受众", guide: "目标用户/客户的画像是什么？（年龄段、职业、兴趣、消费习惯、地域等）", required: true },
+      { name: "渠道与平台", guide: "主要投放哪些平台？（微信公众号/视频号/抖音/小红书/B站/微博/私域社群等）", required: true },
+      { name: "内容形式", guide: "需要什么形式的内容或执行？（短视频/图文推文/直播活动/KOL合作/活动策划/文案撰写等）", required: true },
+      { name: "核心卖点与传播主题", guide: "产品/服务的核心卖点是什么？本次传播的主题方向或slogan？", required: true },
+      { name: "预期效果指标", guide: "希望达到的KPI是什么？（播放量、涨粉数量、点击率、转化率、GMV等）", required: false },
+      { name: "时间节点", guide: "活动或内容上线的时间节点？持续运营多长时间？有没有重要的节假日或营销节点要配合？", required: true },
+      { name: "品牌调性与禁忌", guide: "品牌的调性风格是什么？（活泼/专业/高端/亲民等）有哪些内容红线或品牌禁忌不能触碰？", required: false },
+    ],
+  },
+  content: {
+    name: "内容设计",
+    description: "适用于PPT制作、视频剪辑、图文创作、H5、海报、品牌视觉等内容创作需求",
+    sections: [
+      { name: "背景与目标", guide: "这批内容用在什么场景？要达到什么效果？（对内汇报/对外宣传/社交媒体传播/活动现场展示等）", required: true },
+      { name: "内容类型与数量", guide: "需要哪种类型的内容？（PPT/短视频/长视频/海报/Banner/H5/图文等）数量是多少？有没有具体规格尺寸要求？", required: true },
+      { name: "使用场景", guide: "这些内容在哪里展示或使用？给谁看？（公司内部/发给客户/投放到社交媒体/线下大屏等）", required: true },
+      { name: "风格要求", guide: "有没有参考案例或设计风格偏好？色彩倾向？简约还是丰富？科技感还是温情感？", required: false },
+      { name: "文字素材", guide: "文字内容（文案、数据、介绍文字等）由甲方提供，还是需要OPC协助撰写？", required: true },
+      { name: "品牌规范", guide: "是否有品牌VI规范文件需要遵循？（Logo、字体、色值、设计规范手册等）", required: false },
+      { name: "交付格式", guide: "需要交付哪些格式的文件？（如PPT源文件/PDF/MP4/PSD/AE工程等）是否需要可编辑的源文件？", required: true },
+      { name: "修改与验收", guide: "修改次数如何约定？以什么为最终验收标准？", required: false },
+    ],
+  },
+  other: {
+    name: "其他",
+    description: "不属于以上四类的AI相关需求",
+    sections: [
+      { name: "背景与目标", guide: "请描述需求的背景，以及希望达成的核心目标", required: true },
+      { name: "具体需求内容", guide: "详细描述需要做什么？有哪些具体的任务或工作内容？", required: true },
+      { name: "目标受众或使用者", guide: "这个项目/成果最终是给谁用的？", required: false },
+      { name: "交付物", guide: "期望的交付物是什么形式？（报告/系统/课程/方案等）", required: true },
+      { name: "验收标准", guide: "如何判断项目完成？以什么为验收依据？", required: true },
+    ],
+  },
+};
+
 export const AGENT_TOOLS: LLMTool[] = [
   {
     type: "function",
     function: {
+      name: "get_requirement_template",
+      description: "根据需求类型获取需求文档模板。在第一阶段确认需求类型后立即调用，获取该类型需要收集的信息模块清单，作为第二阶段脑暴提问的框架依据。",
+      parameters: {
+        type: "object",
+        properties: {
+          demandType: {
+            type: "string",
+            enum: ["education", "software", "marketing", "content", "other"],
+            description: "需求类型代码",
+          },
+        },
+        required: ["demandType"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_demand_types",
-      description: "获取平台支持的所有需求分类列表，包括分类标识、名称和描述。当用户描述需求内容时，用此工具确认最合适的需求分类。",
+      description: "获取平台支持的所有需求分类列表，包括分类标识、名称和描述。当需要确认需求分类时使用。",
       parameters: {
         type: "object",
         properties: {},
@@ -69,7 +164,7 @@ export const AGENT_TOOLS: LLMTool[] = [
     type: "function",
     function: {
       name: "get_skill_tags",
-      description: "获取平台支持的所有技能标签列表。根据用户需求内容推荐合适的技能标签。",
+      description: "获取平台支持的所有技能标签列表。在第四阶段根据需求内容推荐合适的技能标签时使用。",
       parameters: {
         type: "object",
         properties: {},
@@ -81,7 +176,7 @@ export const AGENT_TOOLS: LLMTool[] = [
     type: "function",
     function: {
       name: "get_opc_levels",
-      description: "获取OPC等级说明、适用范围和预算上限。根据需求复杂度和预算帮助用户选择合适的OPC等级要求。",
+      description: "获取OPC等级说明、适用范围和预算上限。在第四阶段根据需求复杂度和规模推荐合适的OPC等级时使用。",
       parameters: {
         type: "object",
         properties: {},
@@ -93,13 +188,13 @@ export const AGENT_TOOLS: LLMTool[] = [
     type: "function",
     function: {
       name: "suggest_milestones",
-      description: "根据需求类型和交付周期，建议合理的里程碑拆分方案。",
+      description: "根据需求类型和交付周期，建议详细的里程碑拆分方案。每个里程碑包含阶段名称、交付物详细说明、支付比例建议。",
       parameters: {
         type: "object",
         properties: {
           demandType: {
             type: "string",
-            description: "需求类型，如 ai_education、gov_training 等",
+            description: "需求类型，如 education、software、marketing、content、other",
           },
           deliveryDays: {
             type: "integer",
@@ -118,7 +213,7 @@ export const AGENT_TOOLS: LLMTool[] = [
     type: "function",
     function: {
       name: "estimate_budget",
-      description: "根据需求类型、复杂度和工期，估算参考预算区间（元）。",
+      description: "根据需求类型、复杂度和工期，估算参考预算区间（元）。在第四阶段给用户预算参考时使用。",
       parameters: {
         type: "object",
         properties: {
@@ -150,6 +245,18 @@ type ToolResult = unknown;
 
 export function executeTool(name: string, args: Record<string, unknown>): ToolResult {
   switch (name) {
+    case "get_requirement_template": {
+      const demandType = (args.demandType as string) || "other";
+      const template = REQUIREMENT_TEMPLATES[demandType] ?? REQUIREMENT_TEMPLATES.other;
+      return {
+        demandType,
+        templateName: template.name,
+        description: template.description,
+        sections: template.sections,
+        usage: "按照 sections 中的模块逐步引导用户，每次提问1-2个相关问题，重点了解背景目标、具体内容、执行要求和验收标准",
+      };
+    }
+
     case "get_demand_types":
       return DEMAND_TYPES;
 
@@ -195,42 +302,127 @@ function generateMilestones(
     return result.toISOString().split("T")[0];
   };
 
-  if (demandType === "ai_education" || demandType === "gov_training") {
-    const p1 = Math.round(deliveryDays * 0.3);
-    const p2 = Math.round(deliveryDays * 0.7);
-    return [
-      { name: "课程方案设计", deadline: addDays(today, p1), description: "完成课程大纲、教学设计方案、PPT初稿", paymentRatio: 30 },
-      { name: "培训实施交付", deadline: addDays(today, p2), description: "完成培训现场实施，提交签到表和现场照片", paymentRatio: 50 },
-      { name: "项目结项验收", deadline: addDays(today, deliveryDays), description: "提交总结报告、学员反馈，完成验收", paymentRatio: 20 },
-    ];
-  }
-
-  if (demandType === "ai_research") {
+  if (demandType === "education") {
     const p1 = Math.round(deliveryDays * 0.25);
-    const p2 = Math.round(deliveryDays * 0.75);
+    const p2 = Math.round(deliveryDays * 0.65);
     return [
-      { name: "研学方案设计", deadline: addDays(today, p1), description: "完成研学路线、活动方案、安全预案设计", paymentRatio: 30 },
-      { name: "研学活动执行", deadline: addDays(today, p2), description: "完成研学活动现场执行，提交过程记录", paymentRatio: 50 },
-      { name: "总结报告交付", deadline: addDays(today, deliveryDays), description: "提交研学总结报告和成果资料包", paymentRatio: 20 },
+      {
+        name: "课程方案设计与确认",
+        deadline: addDays(today, p1),
+        description: `完成课程大纲设计、教学内容规划及授课PPT初稿（不少于80%的内容），提交甲方审阅并完成修改确认。交付物：课程大纲文档、PPT初稿文件。验收标准：甲方书面确认课程方向和内容框架符合预期。`,
+        paymentRatio: 30,
+      },
+      {
+        name: "培训实施交付",
+        deadline: addDays(today, p2),
+        description: `按计划完成全部培训课时的现场或线上授课，全程配合甲方做好学员服务。交付物：培训签到表（含学员签名）、课堂照片或录屏记录、每日培训简报。验收标准：培训按约定时间和内容完成，学员出席率达标。`,
+        paymentRatio: 50,
+      },
+      {
+        name: "项目结项与总结验收",
+        deadline: addDays(today, deliveryDays),
+        description: `完成培训效果评估并提交项目总结报告。交付物：学员满意度调查汇总、培训效果评估报告（含考核成绩/通过率）、完整培训材料包（PPT终稿、学员手册等）。验收标准：甲方完成验收确认，所有约定材料齐全交付。`,
+        paymentRatio: 20,
+      },
     ];
   }
 
-  if (demandType === "ai_tool_dev") {
+  if (demandType === "software") {
+    const p1 = Math.round(deliveryDays * 0.15);
+    const p2 = Math.round(deliveryDays * 0.55);
+    const p3 = Math.round(deliveryDays * 0.85);
+    return [
+      {
+        name: "需求确认与原型设计",
+        deadline: addDays(today, p1),
+        description: `深入理解业务需求，完成详细需求文档和交互原型设计。交付物：详细需求规格说明书（含功能清单和优先级）、UI交互原型（Figma或Axure文件）、技术架构设计文档。验收标准：甲方书面确认需求文档和原型，作为后续开发基准。`,
+        paymentRatio: 20,
+      },
+      {
+        name: "核心功能开发完成",
+        deadline: addDays(today, p2),
+        description: `完成所有核心功能模块的开发，提供可测试的版本。交付物：部署在测试环境的完整可运行系统、功能测试报告（含已知缺陷清单）、接口文档（如有API对接需求）。验收标准：核心功能按需求文档实现，甲方可在测试环境完整体验主要流程。`,
+        paymentRatio: 40,
+      },
+      {
+        name: "测试优化与修复",
+        deadline: addDays(today, p3),
+        description: `根据甲方测试反馈完成Bug修复和功能优化，确保系统稳定性。交付物：更新后的测试版本、修复记录文档、性能测试报告（如有性能指标要求）。验收标准：甲方反馈的全部P0/P1级缺陷均已修复，系统功能符合验收标准。`,
+        paymentRatio: 30,
+      },
+      {
+        name: "正式上线与交付",
+        deadline: addDays(today, deliveryDays),
+        description: `完成生产环境部署和上线，交付全部项目成果。交付物：生产环境正式运行的系统、完整源代码（含注释）、部署文档和运维手册、用户操作手册。验收标准：系统在生产环境稳定运行，甲方签署项目验收单。`,
+        paymentRatio: 10,
+      },
+    ];
+  }
+
+  if (demandType === "marketing") {
     const p1 = Math.round(deliveryDays * 0.2);
     const p2 = Math.round(deliveryDays * 0.6);
-    const p3 = Math.round(deliveryDays * 0.9);
     return [
-      { name: "需求确认与原型设计", deadline: addDays(today, p1), description: "完成详细需求文档和交互原型", paymentRatio: 20 },
-      { name: "核心功能开发完成", deadline: addDays(today, p2), description: "核心功能开发完成，提交测试版本", paymentRatio: 40 },
-      { name: "测试与优化", deadline: addDays(today, p3), description: "完成功能测试、性能优化", paymentRatio: 30 },
-      { name: "正式交付上线", deadline: addDays(today, deliveryDays), description: "部署上线，交付源代码和文档", paymentRatio: 10 },
+      {
+        name: "策略方案设计与确认",
+        deadline: addDays(today, p1),
+        description: `完成营销策略制定和内容创作方案。交付物：营销策略方案（含受众分析、渠道规划、内容方向、排期计划）、示例内容样稿（如首批内容脚本/图文样稿）。验收标准：甲方书面确认整体方案方向，作为后续执行依据。`,
+        paymentRatio: 30,
+      },
+      {
+        name: "内容执行与投放",
+        deadline: addDays(today, p2),
+        description: `按计划完成内容创作和平台投放执行。交付物：所有约定内容的成品文件（视频/图文/直播回放等）、各平台投放截图和数据记录、阶段性数据报告（含曝光量、互动率等核心指标）。验收标准：内容按约定数量和时间节点发布，核心数据指标达到阶段目标。`,
+        paymentRatio: 50,
+      },
+      {
+        name: "项目总结与收尾",
+        deadline: addDays(today, deliveryDays),
+        description: `完成最终数据汇总和项目复盘。交付物：完整营销数据报告（含所有渠道核心指标汇总）、内容素材资产包（所有创作的成品源文件）、项目复盘总结（经验沉淀与建议）。验收标准：甲方确认数据报告，所有承诺交付物齐全。`,
+        paymentRatio: 20,
+      },
     ];
   }
 
-  const mid = Math.round(deliveryDays * 0.6);
+  if (demandType === "content") {
+    const p1 = Math.round(deliveryDays * 0.3);
+    const p2 = Math.round(deliveryDays * 0.75);
+    return [
+      {
+        name: "方案沟通与初稿设计",
+        deadline: addDays(today, p1),
+        description: `深入理解内容需求，完成创作方向确认和初稿设计。交付物：创意方向提案（含风格参考、色彩方案）、初稿文件（完成约60%的内容）。验收标准：甲方确认整体风格方向和初稿方案，作为深化设计的基准。`,
+        paymentRatio: 30,
+      },
+      {
+        name: "内容深化与修改确认",
+        deadline: addDays(today, p2),
+        description: `根据初稿反馈完成内容深化，进行约定次数内的修改优化。交付物：修改后的完整内容文件（达到约定修改轮次）、各内容模块的完成稿。验收标准：甲方对内容质量和完成度满意，确认进入最终交付环节。`,
+        paymentRatio: 50,
+      },
+      {
+        name: "最终交付",
+        deadline: addDays(today, deliveryDays),
+        description: `完成所有内容的最终整理和格式输出，交付完整成果包。交付物：约定格式的所有成品文件（如PDF/MP4/PNG等）、源文件（如PSD/AE/PPTX等，如有约定）、文件整理说明文档。验收标准：甲方签署验收确认，所有文件完整可用。`,
+        paymentRatio: 20,
+      },
+    ];
+  }
+
+  const mid = Math.round(deliveryDays * 0.5);
   return [
-    { name: "方案设计与确认", deadline: addDays(today, mid), description: "完成方案设计和甲方确认", paymentRatio: 40 },
-    { name: "项目交付验收", deadline: addDays(today, deliveryDays), description: "完成项目交付和验收", paymentRatio: 60 },
+    {
+      name: "方案设计与确认",
+      deadline: addDays(today, mid),
+      description: `完成项目方案设计并获得甲方确认。交付物：详细项目方案文档（含工作计划、交付清单、执行方法说明）、阶段性成果样稿（如适用）。验收标准：甲方书面确认方案方向和内容，作为后续执行依据。`,
+      paymentRatio: 40,
+    },
+    {
+      name: "项目交付与验收",
+      deadline: addDays(today, deliveryDays),
+      description: `按方案完成全部工作，交付所有约定成果。交付物：项目全部交付物（按方案约定）、工作记录和过程文档、项目总结说明。验收标准：甲方确认所有交付物符合约定要求，签署项目验收单。`,
+      paymentRatio: 60,
+    },
   ];
 }
 
@@ -245,20 +437,22 @@ function estimateBudget(
   let base = 10000;
   let basis = "";
 
-  if (demandType === "ai_education" || demandType === "gov_training") {
+  if (demandType === "education") {
     const perPersonBase = complexity === "simple" ? 200 : complexity === "complex" ? 800 : 400;
     const count = participantCount > 0 ? participantCount : 30;
     base = perPersonBase * count + deliveryDays * 500;
     basis = `按 ${count} 人规模、${deliveryDays} 天工期估算`;
-  } else if (demandType === "ai_research") {
-    const perPersonBase = complexity === "simple" ? 300 : complexity === "complex" ? 1000 : 600;
-    const count = participantCount > 0 ? participantCount : 30;
-    base = perPersonBase * count + 5000;
-    basis = `按 ${count} 人规模估算，含活动策划及执行`;
-  } else if (demandType === "ai_tool_dev") {
+  } else if (demandType === "software") {
     const dayRate = complexity === "simple" ? 1500 : complexity === "complex" ? 4000 : 2500;
     base = dayRate * deliveryDays;
     basis = `按 ${deliveryDays} 天工期、日均开发费用估算`;
+  } else if (demandType === "marketing") {
+    base = 8000 * complexityMultiplier * Math.max(1, deliveryDays / 15);
+    basis = `按 ${deliveryDays} 天运营周期、项目规模估算`;
+  } else if (demandType === "content") {
+    const dayRate = complexity === "simple" ? 800 : complexity === "complex" ? 2500 : 1500;
+    base = dayRate * deliveryDays;
+    basis = `按 ${deliveryDays} 天工期、内容类型和复杂度估算`;
   } else {
     base = 10000 * complexityMultiplier * Math.max(1, deliveryDays / 10);
     basis = "综合项目规模和工期估算";
