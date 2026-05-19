@@ -86,8 +86,29 @@ function extractJsonObject(str: string): { json: string; end: number } | null {
 }
 
 function stripCodeBlocks(text: string): string {
-  // Remove ```lang...``` fenced code blocks entirely (they contain JSON not meant for display)
   return text.replace(/```[\w]*\n?[\s\S]*?```/g, "").trim();
+}
+
+/** Strip DeepSeek DSML tool-call markup and other structural content users should not see */
+function stripStructuralContent(text: string): string {
+  // Remove DSML tool-call blocks (DeepSeek format)
+  let result = text
+    .replace(/<｜｜DSML｜｜tool_calls>[\s\S]*?<\/｜｜DSML｜｜tool_calls>/g, "")
+    .replace(/<｜｜DSML｜｜invoke[\s\S]*?<\/｜｜DSML｜｜invoke>/g, "")
+    .replace(/<｜｜DSML｜｜parameter[\s\S]*?<\/｜｜DSML｜｜parameter>/g, "")
+    .replace(/<｜｜DSML｜｜[\s\S]*?>/g, "")
+    // Remove XML-style tool calls
+    .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "")
+    .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, "")
+    // Remove raw JSON objects that span one or more lines (likely tool results / suggestions)
+    .replace(/^\s*\{[\s\S]*?\}\s*$/gm, "")
+    // Remove lines that are obviously JSON key-value pairs
+    .replace(/^\s*"[\w]+":\s*[\[{"].*/gm, "")
+    .trim();
+
+  // Clean up multiple consecutive blank lines
+  result = result.replace(/\n{3,}/g, "\n\n");
+  return result;
 }
 
 function parseFormSuggestion(content: string): { text: string; suggestion: FormSuggestion | null } {
@@ -103,7 +124,7 @@ function parseFormSuggestion(content: string): { text: string; suggestion: FormS
         const textBefore = content.slice(0, idx).trim();
         const textAfter = afterMarker.slice(extracted.end).trim();
         const displayText = textAfter ? `${textBefore}\n\n${textAfter}` : textBefore;
-        return { text: stripCodeBlocks(displayText).trim(), suggestion };
+        return { text: stripStructuralContent(stripCodeBlocks(displayText)).trim(), suggestion };
       } catch { /* fall through */ }
     }
   }
@@ -116,13 +137,13 @@ function parseFormSuggestion(content: string): { text: string; suggestion: FormS
       const fs = parsed.formSuggestion as FormSuggestion | undefined;
       if (fs && typeof fs === "object") {
         const textWithout = stripCodeBlocks(content);
-        return { text: textWithout, suggestion: fs };
+        return { text: stripStructuralContent(textWithout), suggestion: fs };
       }
     } catch { /* fall through */ }
   }
 
-  // No suggestion — still strip any stray code blocks so JSON never shows raw
-  const stripped = stripCodeBlocks(content);
+  // No suggestion — still strip stray code blocks and structural content
+  const stripped = stripStructuralContent(stripCodeBlocks(content));
   return { text: stripped !== content ? stripped : content, suggestion: null };
 }
 
@@ -356,6 +377,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
 
   const panelContent = (
     <>
+      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-primary/5 to-blue-50 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-sm">
@@ -370,12 +392,13 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           <button onClick={handleClear} title="清空对话" className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
             <RotateCcw size={15} />
           </button>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+          <button onClick={onClose} title="收起助手" className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
             <X size={15} />
           </button>
         </div>
       </div>
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && !historyLoaded && (
           <div className="flex flex-col items-center justify-center h-full text-center py-12 space-y-4">
@@ -442,6 +465,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input */}
       <div className="px-4 py-4 border-t border-slate-100 bg-white shrink-0">
         <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
           <textarea
@@ -479,25 +503,22 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
   if (isMobile) {
     return (
       <>
-        {/* Backdrop */}
         <div
           className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
           onClick={onClose}
           aria-hidden="true"
         />
-        {/* Bottom sheet */}
         <div
           ref={drawerRef}
           className={`fixed left-0 right-0 bottom-0 z-50 bg-white flex flex-col rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out`}
           style={{
-            height: "70vh",
+            height: "75vh",
             transform: open
               ? `translateY(${dragOffset}px)`
               : "translateY(100%)",
             transition: dragOffset > 0 ? "none" : undefined,
           }}
         >
-          {/* Drag handle */}
           <div
             className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing touch-none"
             onTouchStart={handleTouchStart}
@@ -512,10 +533,9 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     );
   }
 
-  // Desktop: right-side drawer
+  // Desktop: right-side drawer (fallback, normally inline is used)
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
@@ -537,7 +557,16 @@ function FormSuggestionCard({ suggestion, onFill }: { suggestion: FormSuggestion
   if (suggestion.description) rows.push({ label: "需求描述", value: suggestion.description.slice(0, 80) + (suggestion.description.length > 80 ? "…" : "") });
   if (suggestion.skillTags?.length) rows.push({ label: "技能标签", value: suggestion.skillTags.join("、") });
   if (suggestion.opcLevel) rows.push({ label: "OPC等级", value: OPC_LEVEL_LABELS[suggestion.opcLevel] ?? suggestion.opcLevel });
-  if (suggestion.budget) rows.push({ label: "预算金额", value: `¥${suggestion.budget.toLocaleString()}` });
+
+  // Budget: prefer range (budgetMin/budgetMax), fall back to legacy budget
+  const bMin = suggestion.budgetMin ?? suggestion.budget;
+  const bMax = suggestion.budgetMax ?? suggestion.budget;
+  if (bMin && bMax && bMin !== bMax) {
+    rows.push({ label: "预算区间", value: `¥${bMin.toLocaleString()} — ¥${bMax.toLocaleString()}` });
+  } else if (bMin || bMax) {
+    rows.push({ label: "预算金额", value: `¥${(bMin ?? bMax)!.toLocaleString()}` });
+  }
+
   if (suggestion.milestones?.length) rows.push({ label: "里程碑", value: `共 ${suggestion.milestones.length} 个阶段` });
 
   const handleFill = () => {
@@ -581,29 +610,90 @@ function FormSuggestionCard({ suggestion, onFill }: { suggestion: FormSuggestion
   );
 }
 
+/** Render inline markdown: **bold**, *italic*, `code` */
+function renderInline(text: string): React.ReactNode {
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    if (match[2] !== undefined) {
+      parts.push(<strong key={key++} className="font-bold text-slate-800">{match[2]}</strong>);
+    } else if (match[3] !== undefined) {
+      parts.push(<em key={key++} className="italic text-slate-700">{match[3]}</em>);
+    } else if (match[4] !== undefined) {
+      parts.push(<code key={key++} className="bg-slate-100 rounded px-1 text-xs font-mono text-slate-700">{match[4]}</code>);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length === 0 ? text : parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
+/** Returns true if a line looks like raw JSON or structural markup users shouldn't see */
+function isStructuralLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  // DSML or XML tool call tags
+  if (t.includes("｜｜DSML｜｜") || t.startsWith("<tool_call") || t.startsWith("</tool_call") || t.startsWith("<function_call")) return true;
+  // Standalone JSON object or array start/end
+  if ((t === "{" || t === "}" || t === "[" || t === "]" || t === "}," || t === "]," )) return true;
+  // JSON key-value pair like "key": value
+  if (/^"[\w]+":\s*/.test(t)) return true;
+  // Full inline JSON object
+  if (t.startsWith("{") && t.endsWith("}") && t.length > 2) {
+    try { JSON.parse(t); return true; } catch { /* not valid JSON */ }
+  }
+  return false;
+}
+
 function FormattedContent({ content }: { content: string }) {
   const lines = content.split("\n");
   return (
     <div className="space-y-1">
       {lines.map((line, i) => {
+        // Skip lines that are fenced code blocks, markers, or raw structural data
         if (line.startsWith("```") || line.startsWith("form_suggestion_json:")) return null;
-        if (line.startsWith("### ")) return <p key={i} className="font-extrabold text-blue-900 text-sm mt-2 first:mt-0">{line.slice(4)}</p>;
-        if (line.startsWith("## ")) return <p key={i} className="font-extrabold text-blue-900 mt-2 first:mt-0">{line.slice(3)}</p>;
-        if (line.startsWith("**") && line.endsWith("**") && line.length > 4) return <p key={i} className="font-bold text-slate-800">{line.slice(2, -2)}</p>;
+        if (isStructuralLine(line)) return null;
+
+        // Headings
+        if (line.startsWith("### ")) return <p key={i} className="font-extrabold text-blue-900 text-sm mt-2 first:mt-0">{renderInline(line.slice(4))}</p>;
+        if (line.startsWith("## ")) return <p key={i} className="font-extrabold text-blue-900 mt-2 first:mt-0">{renderInline(line.slice(3))}</p>;
+        if (line.startsWith("# ")) return <p key={i} className="font-extrabold text-blue-900 text-base mt-2 first:mt-0">{renderInline(line.slice(2))}</p>;
+
+        // Standalone bold line (entire line is **text**)
+        if (/^\*\*[^*]+\*\*$/.test(line.trim())) {
+          return <p key={i} className="font-bold text-slate-800">{line.trim().slice(2, -2)}</p>;
+        }
+
+        // Bullet points
         if (line.startsWith("- ") || line.startsWith("• ")) {
           return (
             <p key={i} className="flex gap-2">
               <span className="shrink-0 text-primary mt-0.5">·</span>
-              <span>{line.slice(2)}</span>
+              <span>{renderInline(line.slice(2))}</span>
             </p>
           );
         }
+
+        // Numbered lists
         if (line.match(/^\d+\.\s/)) {
           const m = line.match(/^(\d+)\.\s(.*)/)!;
-          return <p key={i} className="flex gap-2"><span className="shrink-0 font-bold text-primary">{m[1]}.</span><span>{m[2]}</span></p>;
+          return <p key={i} className="flex gap-2"><span className="shrink-0 font-bold text-primary">{m[1]}.</span><span>{renderInline(m[2])}</span></p>;
         }
+
+        // Empty lines → small gap
         if (line.trim() === "") return <div key={i} className="h-1" />;
-        return <p key={i}>{line}</p>;
+
+        // Regular paragraph with inline markdown
+        return <p key={i}>{renderInline(line)}</p>;
       })}
     </div>
   );
