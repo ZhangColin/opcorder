@@ -998,7 +998,7 @@ export default function PublisherDemandDetail() {
                             onClick={() => setExpandedQuoteId(expandedQuoteId === bid.id ? null : bid.id)}
                           >
                             {/* ── 主行 ── */}
-                            <div className="flex items-center gap-3 px-5 py-4">
+                            <div className="flex items-center gap-4 px-5 py-4">
                               {/* 左：头像 + 姓名 + 等级 + 评分 */}
                               <div className="flex items-center gap-3 flex-1 min-w-0">
                                 <div className="w-11 h-11 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary shrink-0">
@@ -1023,25 +1023,7 @@ export default function PublisherDemandDetail() {
                                 </div>
                               </div>
 
-                              {/* 中：操作按钮（常态） */}
-                              {confirmingBidId !== bid.id && rejectingBidId !== bid.id && (
-                                <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    onClick={() => setConfirmingBidId(bid.id)}
-                                    className="flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors shadow-sm"
-                                  >
-                                    <CheckCircle2 size={13} /> 确认接单
-                                  </button>
-                                  <button
-                                    onClick={() => setRejectingBidId(bid.id)}
-                                    className="flex items-center gap-1.5 border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors"
-                                  >
-                                    <XCircle size={13} /> 婉拒
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* 右：价格 + 天数 + 日期 + 展开图标 */}
+                              {/* 中：价格 + 天数 + 日期 + 展开图标 */}
                               <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                                 {(bid.quotedPrice ?? 0) > 0 && (
                                   <div className="text-xl font-black text-green-600">
@@ -1063,6 +1045,24 @@ export default function PublisherDemandDetail() {
                                     : <ChevronDown size={14} className="text-slate-400" />}
                                 </div>
                               </div>
+
+                              {/* 右：操作按钮竖排（常态） */}
+                              {confirmingBidId !== bid.id && rejectingBidId !== bid.id && (
+                                <div className="flex flex-col gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => setConfirmingBidId(bid.id)}
+                                    className="flex items-center justify-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors shadow-sm whitespace-nowrap"
+                                  >
+                                    <CheckCircle2 size={13} /> 确认接单
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectingBidId(bid.id)}
+                                    className="flex items-center justify-center gap-1.5 border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors whitespace-nowrap"
+                                  >
+                                    <XCircle size={13} /> 婉拒
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             {/* ── 确认接单面板 ── */}
