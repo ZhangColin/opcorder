@@ -704,7 +704,7 @@ export default function ScreenDisplay() {
                         style={{ width: 88, height: 88, objectFit: "cover" }}
                       />
                     </div>
-                    <span className="text-[12px] font-bold text-cyan-300 tracking-wide drop-shadow-[0_0_6px_rgba(6,182,212,0.7)] text-center leading-tight">
+                    <span className="text-[16px] font-extrabold text-cyan-300 tracking-wide drop-shadow-[0_0_8px_rgba(6,182,212,0.9)] text-center leading-tight">
                       www.opcorder.com
                     </span>
                   </div>
