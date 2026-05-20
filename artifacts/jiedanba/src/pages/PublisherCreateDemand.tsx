@@ -597,8 +597,8 @@ export default function PublisherCreateDemand() {
                 </span>
               )}
               {!isEdit && agentEnabled && (
-                <div className="relative">
-                  <span className="absolute -top-2 -right-2 z-10 bg-amber-400 text-[9px] font-black text-amber-900 px-2 py-0.5 rounded-full leading-tight shadow-sm">推荐</span>
+                <div className="relative inline-flex">
+                  <span className="absolute top-0 right-0 z-10 bg-amber-400 text-[9px] font-black text-amber-900 px-1.5 py-0.5 rounded-bl-lg rounded-tr-2xl leading-tight">推荐</span>
                   <button
                     type="button"
                     onClick={() => setAgentPanelOpen(true)}
