@@ -597,22 +597,24 @@ export default function PublisherCreateDemand() {
                 </span>
               )}
               {!isEdit && agentEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setAgentPanelOpen(true)}
-                  className="group relative flex items-center gap-2.5 bg-primary text-white font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary/90 hover:scale-105 hover:shadow-primary/40 transition-all duration-200 overflow-hidden"
-                >
-                  <span className="absolute top-0 right-0 bg-amber-400 text-[9px] font-black text-amber-900 px-1.5 py-0.5 rounded-bl-lg rounded-tr-2xl leading-tight">推荐</span>
-                  <Bot size={16} />
-                  <div className="text-left">
-                    <div className="text-sm leading-tight">AI 需求助手</div>
-                    <div className="text-[10px] font-normal opacity-80 leading-tight">描述想法，自动生成需求</div>
-                  </div>
-                  <span className="flex h-2 w-2 relative ml-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                  </span>
-                </button>
+                <div className="relative">
+                  <span className="absolute -top-2 -right-2 z-10 bg-amber-400 text-[9px] font-black text-amber-900 px-2 py-0.5 rounded-full leading-tight shadow-sm">推荐</span>
+                  <button
+                    type="button"
+                    onClick={() => setAgentPanelOpen(true)}
+                    className="group flex items-center gap-2.5 bg-primary text-white font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary/90 hover:scale-105 hover:shadow-primary/40 transition-all duration-200"
+                  >
+                    <Bot size={16} />
+                    <div className="text-left">
+                      <div className="text-sm leading-tight">AI 需求助手</div>
+                      <div className="text-[10px] font-normal opacity-80 leading-tight">描述想法，自动生成需求</div>
+                    </div>
+                    <span className="flex h-2 w-2 relative ml-1">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                    </span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
