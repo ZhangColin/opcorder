@@ -6900,14 +6900,6 @@ function AgentConfigManagement() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-slate-400" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <LlmProviderManagement />
@@ -6920,7 +6912,13 @@ function AgentConfigManagement() {
           </div>
         </div>
 
-      {(!configs || configs.length === 0) && (
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 size={24} className="animate-spin text-slate-400" />
+        </div>
+      )}
+
+      {!isLoading && (!configs || configs.length === 0) && (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
           <Bot size={32} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">暂无智能体配置</p>
