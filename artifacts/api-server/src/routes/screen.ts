@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, ordersTable, portfoliosTable, opcProfilesTable } from "@workspace/db";
+import { db, usersTable, demandsTable, ordersTable, portfoliosTable } from "@workspace/db";
 import { eq, gte, sql, count, and, inArray, desc } from "drizzle-orm";
 import { requireAdmin, requirePermission } from "../middleware/adminAuth";
 
@@ -36,6 +36,33 @@ function buildDailyBuckets(days: number): Record<string, number> {
   }
   return buckets;
 }
+
+function maskName(name: string | null | undefined): string {
+  if (!name) return '***';
+  if (name.length <= 1) return name;
+  return name[0] + '**';
+}
+
+function formatBudget(min: number, max: number): string {
+  const fmt = (n: number) => {
+    if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
+    if (n >= 1000) return `${(n / 1000).toFixed(0)}k`;
+    return `${Math.round(n)}`;
+  };
+  if (!min && !max) return '面议';
+  if (!min && max) return `≤¥${fmt(max)}`;
+  if (min && !max) return `¥${fmt(min)}+`;
+  return `¥${fmt(min)}–${fmt(max)}`;
+}
+
+const CANONICAL_TYPES = new Set(["education", "software", "marketing", "content", "other"]);
+const DEMAND_TYPE_LABELS: Record<string, string> = {
+  education:  "教育培训",
+  software:   "软件开发",
+  marketing:  "营销推广",
+  content:    "内容创作",
+  other:      "其它",
+};
 
 router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, res) => {
   try {
@@ -137,6 +164,25 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       newOrders:  orderBuckets[date],
     }));
 
+    /* ── Cumulative OPC / Publisher series (14 days) ───── */
+
+    const allOpcDates = await db
+      .select({ createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(and(eq(usersTable.role, "opc"), eq(usersTable.status, "active")));
+
+    const allPubDates = await db
+      .select({ createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(and(eq(usersTable.role, "publisher"), eq(usersTable.status, "active")));
+
+    const cumulativeSeries = dates.map(date => {
+      const dayEnd = new Date(date + "T23:59:59.999Z");
+      const totalOpc       = allOpcDates.filter(u => new Date(u.createdAt) <= dayEnd).length;
+      const totalPublisher = allPubDates.filter(u => new Date(u.createdAt) <= dayEnd).length;
+      return { date, label: date.slice(5), totalOpc, totalPublisher };
+    });
+
     /* ── Chart: demand status distribution ─────────────── */
 
     const DEMAND_STATUS_LABELS: Record<string, string> = {
@@ -152,12 +198,60 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
       value:  demandStatusMap[s] ?? 0,
     }));
 
-    /* ── Chart: user role distribution ──────────────────── */
+    /* ── Chart: order type distribution ─────────────────── */
 
-    const userRoleChart = [
-      { role: "opc",       label: "OPC",  value: opcCount },
-      { role: "publisher", label: "发单方", value: pubCount },
-    ];
+    const orderTypeRows = await db
+      .select({ type: demandsTable.type, cnt: count() })
+      .from(ordersTable)
+      .innerJoin(demandsTable, eq(ordersTable.demandId, demandsTable.id))
+      .groupBy(demandsTable.type);
+
+    const typeCountMap: Record<string, number> = {};
+    for (const row of orderTypeRows) {
+      const key = CANONICAL_TYPES.has(row.type) ? row.type : "other";
+      typeCountMap[key] = (typeCountMap[key] ?? 0) + Number(row.cnt);
+    }
+
+    const orderTypeChart = (["education", "software", "marketing", "content", "other"] as const).map(t => ({
+      type:  t,
+      label: DEMAND_TYPE_LABELS[t],
+      value: typeCountMap[t] ?? 0,
+    }));
+
+    /* ── Demand list (for top panel) ─────────────────────── */
+
+    const DEMAND_STATUS_SHORT_LABELS: Record<string, string> = {
+      published:          "已发布",
+      matched:            "匹配中",
+      in_progress:        "进行中",
+      pending_acceptance: "待验收",
+      completed:          "已完成",
+    };
+
+    const recentDemandsRaw = await db
+      .select({
+        id:         demandsTable.id,
+        title:      demandsTable.title,
+        budgetMin:  demandsTable.budgetMin,
+        budgetMax:  demandsTable.budgetMax,
+        status:     demandsTable.status,
+        createdAt:  demandsTable.createdAt,
+        nickname:   usersTable.nickname,
+      })
+      .from(demandsTable)
+      .innerJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
+      .where(inArray(demandsTable.status, POSITIVE_DEMAND_STATUSES))
+      .orderBy(desc(demandsTable.createdAt))
+      .limit(30);
+
+    const demandList = recentDemandsRaw.map(d => ({
+      id:           d.id,
+      publisher:    maskName(d.nickname),
+      title:        d.title,
+      budget:       formatBudget(Number(d.budgetMin), Number(d.budgetMax)),
+      status:       d.status,
+      statusLabel:  DEMAND_STATUS_SHORT_LABELS[d.status] ?? d.status,
+    }));
 
     /* ── Ticker events ───────────────────────────────────── */
 
@@ -238,20 +332,22 @@ router.get("/screen", requireAdmin, requirePermission("screen"), async (_req, re
     }));
 
     const ticker1 = [
-      ...recentOpcs.map(u => ({ text: `欢迎 ${u.nickname} 注册成为 OPC` })),
-      ...recentOrders.map(o => ({ text: `恭喜 ${o.opcNickname} 中标《${o.demandTitle}》项目` })),
+      ...recentOpcs.map(u => ({ text: `欢迎 ${maskName(u.nickname)} 注册成为 OPC` })),
+      ...recentOrders.map(o => ({ text: `恭喜 ${maskName(o.opcNickname)} 中标《${o.demandTitle}》项目` })),
     ].sort(() => Math.random() - 0.5);
 
     const ticker2 = [
-      ...recentCerts.map(c => ({ text: `${c.nickname} 成功晋升为 ${c.applyLevel} 级 OPC` })),
-      ...recentDemands.map(d => ({ text: `${d.nickname} 发布新需求《${d.title}》` })),
+      ...recentCerts.map(c => ({ text: `${maskName(c.nickname)} 成功晋升为 ${c.applyLevel} 级 OPC` })),
+      ...recentDemands.map(d => ({ text: `${maskName(d.nickname)} 发布新需求《${d.title}》` })),
     ].sort(() => Math.random() - 0.5);
 
     return res.json({
       kpi: { totalUsers, opcCount, publisherCount: pubCount, publishedDemands, inProgressOrders, completedOrders, completionRate, totalSettled },
       timeSeries,
+      cumulativeSeries,
       demandStatusChart,
-      userRoleChart,
+      orderTypeChart,
+      demandList,
       ticker1,
       ticker2,
       recentOrderList,

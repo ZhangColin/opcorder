@@ -123,6 +123,35 @@ export class ObjectStorageService {
    * inspection and deletion on failure), and the final published objectPath
    * (used as the stable reference returned to the client).
    */
+  /**
+   * Accept a Node.js Readable stream and write it directly to a GCS quarantine
+   * path (server-side upload). Avoids browser→GCS direct PUT / CORS issues.
+   * The caller must verify and promote the file after this returns.
+   */
+  async streamToQuarantine(
+    contentType: string,
+    readable: Readable
+  ): Promise<{ quarantineGCSPath: string; publishedGCSPath: string; publishedObjectPath: string }> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+    const quarantineGCSPath = `${privateObjectDir}/pending/${objectId}`;
+    const publishedGCSPath  = `${privateObjectDir}/uploads/${objectId}`;
+    const publishedObjectPath = `/objects/uploads/${objectId}`;
+
+    const { bucketName, objectName } = parseObjectPath(quarantineGCSPath);
+    const file = objectStorageClient.bucket(bucketName).file(objectName);
+
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = file.createWriteStream({ contentType, resumable: false });
+      readable.pipe(writeStream);
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+      readable.on("error", reject);
+    });
+
+    return { quarantineGCSPath, publishedGCSPath, publishedObjectPath };
+  }
+
   async getObjectEntityQuarantineUploadURL(): Promise<{
     uploadURL: string;
     quarantineGCSPath: string;

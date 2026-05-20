@@ -17,7 +17,7 @@ import {
   Gavel, AlertCircle, Loader2, Trash2,
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
-  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet,
+  Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet, Video,
   Pin, Paperclip,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -103,9 +103,9 @@ export type Module =
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments" | "activities"
-  | "roles" | "adminusers" | "screen" | "agent" | "settlement" | "quotecard";
+  | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard";
 
-type NavChild = { key: string; label: string; href: string; icon: React.ElementType };
+type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
 
 const NAV: NavItem[] = [
@@ -131,8 +131,9 @@ const NAV: NavItem[] = [
   {
     key: "screen", icon: Monitor, label: "数据大屏", permKey: "screen",
     children: [
-      { key: "screen_h", label: "横屏大屏", href: "/screen",     icon: Monitor },
-      { key: "screen_v", label: "竖屏大屏", href: "/miniscreen", icon: Tablet  },
+      { key: "screen_h",      label: "横屏大屏",   href: "/screen",     icon: Monitor },
+      { key: "screen_v",      label: "竖屏大屏",   href: "/miniscreen", icon: Tablet  },
+      { key: "screenvideos",  label: "视频管理",   moduleKey: "screenvideos", icon: Video },
     ],
   },
 ];
@@ -7244,6 +7245,225 @@ function SettlementManagement() {
 
 /* ─── ModuleContent ───────────────────────────────── */
 
+/* ─── Screen Videos Management ──────────────────── */
+
+type ScreenVideo = { id: number; title: string; objectPath: string; sortOrder: number; createdAt: string };
+
+function ScreenVideosModule() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingTitle, setPendingTitle] = useState("");
+  const [pendingSortOrder, setPendingSortOrder] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSortOrder, setEditSortOrder] = useState(0);
+
+  const { data: videos = [], isLoading } = useQuery<ScreenVideo[]>({
+    queryKey: ["admin-screen-videos"],
+    queryFn: () => adminGet("/api/admin/screen-videos"),
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setPendingFile(f);
+    setPendingTitle(f.name.replace(/\.[^.]+$/, ""));
+    setPendingSortOrder(0);
+    e.target.value = "";
+  };
+
+  const handleUpload = async () => {
+    if (!pendingFile) return;
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const objectPath = await new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const url = `${BASE}/api/admin/screen-videos/upload?name=${encodeURIComponent(pendingFile.name)}`;
+        xhr.open("POST", url);
+        const h = getAdminHeaders();
+        if (h.Authorization) xhr.setRequestHeader("Authorization", h.Authorization);
+        xhr.setRequestHeader("Content-Type", pendingFile.type);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText).objectPath); }
+            catch { reject(new Error("响应解析失败")); }
+          } else {
+            try { reject(new Error(JSON.parse(xhr.responseText).error ?? `上传失败 (${xhr.status})`)); }
+            catch { reject(new Error(`上传失败 (${xhr.status})`)); }
+          }
+        };
+        xhr.onerror = () => reject(new Error("网络错误，请重试"));
+        xhr.send(pendingFile);
+      });
+
+      const saveRes = await fetch(`${BASE}/api/admin/screen-videos`, {
+        method: "POST", headers: getAdminHeaders(),
+        body: JSON.stringify({ title: pendingTitle, objectPath, sortOrder: pendingSortOrder }),
+      });
+      if (!saveRes.ok) { const b = await saveRes.json(); throw new Error(b.error ?? "保存失败"); }
+
+      toast({ title: "视频上传成功" });
+      qc.invalidateQueries({ queryKey: ["admin-screen-videos"] });
+      setPendingFile(null); setPendingTitle(""); setPendingSortOrder(0); setUploadProgress(0);
+    } catch (e: any) {
+      toast({ title: "上传失败", description: e.message, variant: "destructive" });
+      setUploadProgress(0);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      const r = await fetch(`${BASE}/api/admin/screen-videos/${id}`, { method: "DELETE", headers: getAdminHeaders() });
+      if (!r.ok) throw new Error("删除失败");
+      toast({ title: "已删除" });
+      qc.invalidateQueries({ queryKey: ["admin-screen-videos"] });
+    } catch (e: any) {
+      toast({ title: "删除失败", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleSaveEdit = async (id: number) => {
+    try {
+      const r = await fetch(`${BASE}/api/admin/screen-videos/${id}`, {
+        method: "PATCH", headers: getAdminHeaders(),
+        body: JSON.stringify({ title: editTitle, sortOrder: editSortOrder }),
+      });
+      if (!r.ok) throw new Error("保存失败");
+      toast({ title: "已保存" });
+      qc.invalidateQueries({ queryKey: ["admin-screen-videos"] });
+      setEditId(null);
+    } catch (e: any) {
+      toast({ title: "保存失败", description: e.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-extrabold text-blue-900">大屏视频管理</h2>
+          <p className="text-slate-500 text-sm mt-0.5">上传 9:16 竖屏视频，数据大屏右侧将自动循环播放</p>
+        </div>
+        <button onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">
+          <Upload size={15} /> 上传视频
+        </button>
+        <input ref={fileInputRef} type="file" accept="video/mp4,video/webm" className="hidden" onChange={handleFileChange} />
+      </div>
+
+      {pendingFile && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-4">
+          <p className="text-sm font-bold text-blue-800 flex items-center gap-2"><Video size={15} /> 待上传：{pendingFile.name}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">视频标题</label>
+              <input value={pendingTitle} onChange={e => setPendingTitle(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">排列顺序（数字越小越靠前）</label>
+              <input type="number" value={pendingSortOrder} onChange={e => setPendingSortOrder(Number(e.target.value))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={handleUpload} disabled={uploading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-sm font-bold transition-colors">
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploading ? (uploadProgress < 100 ? `上传中 ${uploadProgress}%` : "处理中…") : "确认上传"}
+            </button>
+            <button onClick={() => setPendingFile(null)} disabled={uploading} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 disabled:opacity-40 rounded-lg hover:bg-slate-100 transition-colors">取消</button>
+          </div>
+          {uploading && (
+            <div className="space-y-1">
+              <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress < 100 ? uploadProgress : 100}%` }} />
+              </div>
+              <p className="text-xs text-slate-500">
+                {uploadProgress < 100 ? `已传输 ${uploadProgress}%，请勿关闭页面` : "正在服务端校验，请稍候…"}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12 text-slate-400"><Loader2 size={20} className="animate-spin mr-2" /> 加载中…</div>
+        ) : videos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
+            <Video size={36} className="text-slate-300" />
+            <p className="text-sm">暂无视频，点击右上角上传</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">标题</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-28">排列顺序</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-40">上传时间</th>
+                <th className="text-right px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-24">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {videos.map(v => (
+                <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-5 py-3">
+                    {editId === v.id ? (
+                      <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                        className="border border-blue-300 rounded-lg px-2 py-1 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    ) : (
+                      <span className="font-medium text-slate-800">{v.title || <span className="text-slate-400 italic">无标题</span>}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {editId === v.id ? (
+                      <input type="number" value={editSortOrder} onChange={e => setEditSortOrder(Number(e.target.value))}
+                        className="border border-blue-300 rounded-lg px-2 py-1 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    ) : (
+                      <span className="text-slate-500">{v.sortOrder}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400 text-xs">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {editId === v.id ? (
+                        <>
+                          <button onClick={() => handleSaveEdit(v.id)} className="text-blue-600 hover:text-blue-800 font-bold text-xs px-2 py-1 rounded hover:bg-blue-50 transition-colors"><Save size={13} /></button>
+                          <button onClick={() => setEditId(null)} className="text-slate-400 hover:text-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-100 transition-colors"><X size={13} /></button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => { setEditId(v.id); setEditTitle(v.title); setEditSortOrder(v.sortOrder); }}
+                            className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"><Edit2 size={14} /></button>
+                          <button onClick={() => handleDelete(v.id)} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"><Trash2 size={14} /></button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
     case "dashboard":      return <Dashboard />;
@@ -7267,6 +7487,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;
     case "screen":         return null;
+    case "screenvideos":   return <ScreenVideosModule />;
   }
 }
 
@@ -7377,19 +7598,38 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
                   {/* Sub-items */}
                   {isExpanded && (
                     <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-3">
-                      {item.children.map(child => (
-                        <a
-                          key={child.key}
-                          href={`${BASE}${child.href}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all"
-                        >
-                          <child.icon size={15} />
-                          {child.label}
-                          <ArrowUpRight size={11} className="ml-auto text-slate-600" />
-                        </a>
-                      ))}
+                      {item.children.map(child => {
+                        const isChildActive = child.moduleKey && active === child.moduleKey;
+                        if (child.moduleKey) {
+                          return (
+                            <button
+                              key={child.key}
+                              onClick={() => setActive(child.moduleKey!)}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-semibold transition-all text-left ${
+                                isChildActive
+                                  ? "bg-primary/20 text-white"
+                                  : "text-slate-400 hover:text-white hover:bg-white/5"
+                              }`}
+                            >
+                              <child.icon size={15} />
+                              {child.label}
+                            </button>
+                          );
+                        }
+                        return (
+                          <a
+                            key={child.key}
+                            href={`${BASE}${child.href}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                          >
+                            <child.icon size={15} />
+                            {child.label}
+                            <ArrowUpRight size={11} className="ml-auto text-slate-600" />
+                          </a>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

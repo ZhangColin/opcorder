@@ -4,10 +4,10 @@ import { getValidAccessToken, clearSession } from "@/lib/auth";
 import { format } from "date-fns";
 import clsx from "clsx";
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { Users, FileText, CheckCircle, Clock, TrendingUp, JapaneseYen, Hexagon } from "lucide-react";
+import { Users, FileText } from "lucide-react";
 
 /* ════════════════════════════════════════
    Types
@@ -19,8 +19,10 @@ type ScreenData = {
     completionRate: number; totalSettled: number;
   };
   timeSeries: { date: string; label: string; newUsers: number; newDemands: number; newOrders: number }[];
+  cumulativeSeries: { date: string; label: string; totalOpc: number; totalPublisher: number }[];
   demandStatusChart: { status: string; label: string; value: number }[];
-  userRoleChart: { role: string; label: string; value: number }[];
+  orderTypeChart: { type: string; label: string; value: number }[];
+  demandList: { id: number; publisher: string; title: string; budget: string; status: string; statusLabel: string }[];
   ticker1: { text: string }[];
   ticker2: { text: string }[];
 };
@@ -54,6 +56,7 @@ const KF = `
   @keyframes orb1  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(55px,-40px)} }
   @keyframes orb2  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(-40px,45px)} }
   @keyframes feedScroll { from{transform:translateY(0)} to{transform:translateY(-50%)} }
+  @keyframes tickerScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
   @keyframes liveDot { 0%,100%{opacity:1} 50%{opacity:0.3} }
   @keyframes kpiIn { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
   @keyframes chartIn { from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
@@ -212,14 +215,127 @@ function Panel({ children, title, borderColor = "border-cyan-500/50", className 
 }
 
 /* ════════════════════════════════════════
-   TrendChart — Figma Design with real data
+   ScreenVideoPlayer — auto-cycling video
 ════════════════════════════════════════ */
-function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
+type ScreenVideoItem = { id: number; title: string; objectPath: string };
+
+function ScreenVideoPlayer() {
+  const [videos, setVideos] = useState<ScreenVideoItem[]>([]);
+  const [idx, setIdx] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const loadVideos = () => {
+    fetch(`${BASE}/api/screen/videos`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setVideos(d); })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadVideos();
+    const t = setInterval(loadVideos, 300_000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (el && videos.length > 0) {
+      el.load();
+      el.play().catch(() => {});
+    }
+  }, [idx, videos.length]);
+
+  const handleEnded = () => setIdx(i => i + 1);
+
+  if (videos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-600">
+        <div className="w-14 h-14 rounded-2xl border border-slate-700/60 flex items-center justify-center">
+          <span className="text-2xl">🎬</span>
+        </div>
+        <span className="text-[11px] tracking-wider uppercase">暂无视频</span>
+      </div>
+    );
+  }
+
+  const current = videos[idx % videos.length];
+  return (
+    <video
+      ref={videoRef}
+      key={idx}
+      src={`${BASE}/api/storage${current.objectPath}`}
+      className="flex-1 min-h-0 w-full object-cover"
+      autoPlay
+      muted
+      playsInline
+      loop={videos.length === 1}
+      onEnded={handleEnded}
+    />
+  );
+}
+
+/* ════════════════════════════════════════
+   DemandList — scrolling demand feed
+════════════════════════════════════════ */
+const DEMAND_STATUS_STYLE: Record<string, { text: string; bg: string; border: string }> = {
+  published:          { text: "text-cyan-400",    bg: "bg-cyan-950/40",    border: "border-cyan-500/40" },
+  matched:            { text: "text-blue-400",    bg: "bg-blue-950/40",    border: "border-blue-500/40" },
+  in_progress:        { text: "text-purple-400",  bg: "bg-purple-950/40",  border: "border-purple-500/40" },
+  pending_acceptance: { text: "text-amber-400",   bg: "bg-amber-950/40",   border: "border-amber-500/40" },
+  completed:          { text: "text-emerald-400", bg: "bg-emerald-950/40", border: "border-emerald-500/40" },
+};
+
+function DemandList({ items }: { items: ScreenData["demandList"] }) {
+  const doubled = useMemo(() => (items.length ? [...items, ...items] : []), [items]);
+  const half = Math.max(1, items.length);
+  const duration = half * 3;
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.style.animation = "none";
+    void el.offsetHeight;
+    el.style.animation = `feedScroll ${duration}s linear infinite`;
+  }, [items]);
+
+  if (!items.length) return (
+    <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">暂无需求</div>
+  );
+
+  return (
+    <div className="flex-1 overflow-hidden relative min-h-0">
+      {/* Fade masks */}
+      <div className="absolute top-0 inset-x-0 h-6 bg-gradient-to-b from-[#0a1530] to-transparent pointer-events-none z-10" />
+      <div className="absolute bottom-0 inset-x-0 h-6 bg-gradient-to-t from-[#0a1530] to-transparent pointer-events-none z-10" />
+
+      <div ref={trackRef} style={{ animation: `feedScroll ${duration}s linear infinite` }}>
+        {doubled.map((item, i) => {
+          const s = DEMAND_STATUS_STYLE[item.status] ?? { text: "text-slate-400", bg: "bg-slate-900/40", border: "border-slate-500/40" };
+          return (
+            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0 px-1">
+              <span className="text-[13px] font-bold text-slate-400 shrink-0 w-12 truncate">{item.publisher}</span>
+              <span className="flex-1 text-[13px] text-slate-300 truncate min-w-0">{item.title}</span>
+              <span className="text-[11px] font-bold text-amber-400 shrink-0 whitespace-nowrap">{item.budget}</span>
+              <span className={clsx("text-[11px] font-bold px-1.5 py-0.5 rounded border shrink-0 whitespace-nowrap", s.text, s.bg, s.border)}>
+                {item.statusLabel}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════
+   TrendChart — cumulative OPC/publisher
+════════════════════════════════════════ */
+function TrendChart({ data }: { data: ScreenData["cumulativeSeries"] }) {
   const chartData = data.map(d => ({
     date: d.label || d.date,
-    users: d.newUsers,
-    demands: d.newDemands,
-    orders: d.newOrders,
+    opc: d.totalOpc,
+    publisher: d.totalPublisher,
   }));
 
   return (
@@ -227,15 +343,11 @@ function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
           <defs>
-            <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="colorOpc" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.5} />
               <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
             </linearGradient>
-            <linearGradient id="colorDemands" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.5} />
-              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="colorPublisher" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#a855f7" stopOpacity={0.5} />
               <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
             </linearGradient>
@@ -250,11 +362,9 @@ function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
           />
           <Legend verticalAlign="top" height={40} iconType="diamond"
             formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 18 }}>{value}</span>} />
-          <Area type="monotone" name="新用户" dataKey="users" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorUsers)"
+          <Area type="monotone" name="OPC 累计" dataKey="opc" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorOpc)"
             dot={{ r: 3, fill: "#06b6d4", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#06b6d4", stroke: "#fff", strokeWidth: 2 }} />
-          <Area type="monotone" name="新需求" dataKey="demands" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorDemands)"
-            dot={{ r: 3, fill: "#3b82f6", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#3b82f6", stroke: "#fff", strokeWidth: 2 }} />
-          <Area type="monotone" name="新订单" dataKey="orders" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorOrders)"
+          <Area type="monotone" name="发单方累计" dataKey="publisher" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorPublisher)"
             dot={{ r: 3, fill: "#a855f7", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#a855f7", stroke: "#fff", strokeWidth: 2 }} />
         </AreaChart>
       </ResponsiveContainer>
@@ -267,9 +377,9 @@ function TrendChart({ data }: { data: ScreenData["timeSeries"] }) {
 ════════════════════════════════════════ */
 function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; newDemands: number; newOrders: number }) {
   const items = [
-    { label: "新用户", value: newUsers,   colorClass: "text-cyan-400",    borderClass: "border-cyan-500/40",   bgClass: "bg-cyan-950/30",   icon: "👤" },
-    { label: "新需求", value: newDemands, colorClass: "text-teal-400",    borderClass: "border-teal-500/40",   bgClass: "bg-teal-950/30",   icon: "📋" },
-    { label: "新订单", value: newOrders,  colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
+    { label: "今日新用户", value: newUsers,   colorClass: "text-cyan-400",    borderClass: "border-cyan-500/40",   bgClass: "bg-cyan-950/30",   icon: "👤" },
+    { label: "今日新需求", value: newDemands, colorClass: "text-teal-400",    borderClass: "border-teal-500/40",   bgClass: "bg-teal-950/30",   icon: "📋" },
+    { label: "今日新订单", value: newOrders,  colorClass: "text-emerald-400", borderClass: "border-emerald-500/40", bgClass: "bg-emerald-950/30", icon: "🤝" },
   ];
   return (
     <div className="grid grid-cols-3 gap-2.5 h-full">
@@ -333,133 +443,58 @@ function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; 
 }
 
 /* ════════════════════════════════════════
-   OrderOverview — Figma Design with real data
+   OrderTypeChart — pie + list by demand type
 ════════════════════════════════════════ */
-function OrderOverview({ completionRate, completedOrders, inProgressOrders, totalSettled }: {
-  completionRate: number; completedOrders: number; inProgressOrders: number; totalSettled: number;
-}) {
-  const settled = totalSettled >= 10000 ? `${(totalSettled / 10000).toFixed(1)}万` : totalSettled.toLocaleString("zh-CN");
+const ORDER_TYPE_COLORS = ["#06b6d4", "#3b82f6", "#f59e0b", "#a855f7", "#64748b"];
 
-  /* Ring fills container height — use a viewBox so SVG scales freely */
+function OrderTypeChart({ data }: { data: ScreenData["orderTypeChart"] }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const pieData = data.filter(d => d.value > 0);
+
   return (
-    <div className="flex-1 min-h-0 flex items-center gap-4 px-2">
-
-      {/* Left block — ring + legend, 3/5 width */}
-      <div className="flex-[3] flex items-center justify-center gap-6 min-w-0">
-        {/* Ring — fixed 150px */}
-        <div className="relative shrink-0" style={{ width: 150, height: 150 }}>
-          <svg width="100%" height="100%" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
-            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(16,185,129,0.12)" strokeWidth="8" />
-            <circle cx="50" cy="50" r="42" fill="none" stroke="#10b981"
-              strokeWidth="8"
-              strokeDasharray={`${2 * Math.PI * 42}`}
-              strokeDashoffset={`${2 * Math.PI * 42 * (1 - completionRate / 100)}`}
-              strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1.2s ease", filter: "drop-shadow(0 0 4px #10b981)" }} />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[26px] font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]">
-              {completionRate}%
-            </span>
-          </div>
-        </div>
-
-        {/* Legend — right of ring */}
-        <div className="flex flex-col gap-3 min-w-0 shrink-0">
-          <span className="text-[16px] font-bold text-slate-400 whitespace-nowrap">订单完成率</span>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_#10b981]" />
-            <span className="text-[15px] text-slate-400 whitespace-nowrap">完成</span>
-            <span className="text-[22px] font-black text-emerald-400 font-mono leading-none">{completedOrders}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-teal-400 shrink-0 shadow-[0_0_6px_#2dd4bf]" />
-            <span className="text-[15px] text-slate-400 whitespace-nowrap">进行中</span>
-            <span className="text-[22px] font-black text-teal-400 font-mono leading-none">{inProgressOrders}</span>
-          </div>
-        </div>
+    <div className="flex-1 min-h-0 flex items-stretch gap-3 px-1">
+      {/* Left: pie chart */}
+      <div className="flex-[3] min-w-0 flex items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={pieData.length ? pieData : [{ label: "暂无", value: 1 }]}
+              dataKey="value"
+              nameKey="label"
+              cx="50%"
+              cy="50%"
+              innerRadius="40%"
+              outerRadius="72%"
+              paddingAngle={3}
+              strokeWidth={0}
+            >
+              {(pieData.length ? pieData : [{ label: "暂无", value: 1 }]).map((_, i) => (
+                <Cell key={i} fill={pieData.length ? ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length] : "#1e293b"} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ backgroundColor: "rgba(2,13,36,0.9)", borderColor: "rgba(6,182,212,0.3)", color: "#e2e8f0", borderRadius: 6 }}
+              itemStyle={{ fontSize: 15, fontWeight: "bold" }}
+              formatter={(value: number) => [`${value} 单`, ""]}
+            />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Vertical divider */}
-      <div className="self-stretch w-px bg-white/5 my-4 shrink-0" />
+      <div className="self-stretch w-px bg-white/5 my-3 shrink-0" />
 
-      {/* Right block — 累计结算, 2/5 width */}
-      <div className="flex-[2] flex flex-col justify-center items-center gap-3">
-        <span className="text-[16px] font-bold text-slate-400 tracking-widest">累计结算</span>
-        <div className="flex items-baseline gap-1">
-          <span className="text-[46px] font-black font-mono text-amber-400 leading-none drop-shadow-[0_0_18px_rgba(245,158,11,0.9)]">
-            {settled}
-          </span>
-          <span className="text-[20px] font-bold text-slate-300">元</span>
-        </div>
-      </div>
-
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════
-   LiveFeed — Figma Design with real data
-════════════════════════════════════════ */
-type FeedItem = { text: string; type: "activity" | "achieve" };
-
-function LiveFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticker2: { text: string }[] }) {
-  const items = useMemo(() => {
-    const all: FeedItem[] = [
-      ...ticker1.map(t => ({ text: t.text, type: "activity" as const })),
-      ...ticker2.map(t => ({ text: t.text, type: "achieve" as const })),
-    ];
-    for (let i = all.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [all[i], all[j]] = [all[j], all[i]];
-    }
-    return all.length ? [...all, ...all] : [];
-  }, [ticker1, ticker2]);
-
-  const half = Math.max(1, items.length / 2);
-  const duration = half * 2.8;
-
-  if (!items.length) return (
-    <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">暂无动态</div>
-  );
-
-  return (
-    <div className="flex-1 overflow-hidden relative min-h-0 pl-4">
-      {/* Timeline track */}
-      <div className="absolute left-[29px] top-4 bottom-4 w-px bg-cyan-900/60 shadow-[0_0_5px_rgba(6,182,212,0.3)]" />
-
-      {/* Fade masks */}
-      <div className="absolute top-0 inset-x-0 h-8 bg-gradient-to-b from-[#0a1530] to-transparent pointer-events-none z-10" />
-      <div className="absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[#0a1530] to-transparent pointer-events-none z-10" />
-
-      <div style={{ animation: `feedScroll ${duration}s linear infinite` }} className="flex flex-col gap-3 py-2">
-        {items.map((item, i) => (
-          <div key={i} className="relative pl-10 flex items-center">
-            {/* Timeline Dot */}
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[14px] h-[14px] rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center shadow-[0_0_8px_rgba(6,182,212,0.8)] z-10">
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-200" />
+      {/* Right: list */}
+      <div className="flex-[2] flex flex-col justify-center gap-2 py-1">
+        {data.map((item, i) => (
+          <div key={i} className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length], boxShadow: `0 0 6px ${ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length]}` }} />
+              <span className="text-[14px] text-slate-300 truncate">{item.label}</span>
             </div>
-            {/* Content */}
-            <div className={clsx(
-              "flex-1 flex items-center justify-between p-2.5 rounded-lg border transition-all",
-              item.type === "activity"
-                ? "bg-gradient-to-r from-cyan-900/30 to-[#020b1e]/50 border-cyan-500/30 shadow-[inset_0_0_15px_rgba(6,182,212,0.08)]"
-                : "bg-gradient-to-r from-amber-900/20 to-[#020b1e]/50 border-amber-500/25 shadow-[inset_0_0_15px_rgba(245,158,11,0.05)]"
-            )}>
-              <p className={clsx("text-[17px] leading-snug font-medium tracking-wide",
-                item.type === "activity" ? "text-cyan-50" : "text-amber-100")}>
-                {item.text}
-              </p>
-              <div className={clsx(
-                "ml-2 w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md border",
-                item.type === "activity"
-                  ? "bg-cyan-900/40 border-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.3)_inset]"
-                  : "bg-amber-900/30 border-amber-500/25"
-              )}>
-                <Hexagon className={clsx("w-3.5 h-3.5 drop-shadow-[0_0_5px_rgba(6,182,212,1)]",
-                  item.type === "activity" ? "text-cyan-300" : "text-amber-300")} />
-              </div>
-            </div>
+            <span className="text-[16px] font-black font-mono tabular-nums shrink-0" style={{ color: ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length] }}>
+              {total > 0 ? `${Math.round((item.value / total) * 100)}%` : "—"}
+            </span>
           </div>
         ))}
       </div>
@@ -468,33 +503,33 @@ function LiveFeed({ ticker1, ticker2 }: { ticker1: { text: string }[]; ticker2: 
 }
 
 /* ════════════════════════════════════════
-   Ticker — horizontal scroll
+   Ticker — horizontal scrolling bar
 ════════════════════════════════════════ */
-function Ticker({ items, color, label }: { items: { text: string }[]; color: string; label: string }) {
+function Ticker({ items, color, label }: { items: { text: string }[]; color: "cyan" | "amber"; label: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const text = items.length ? items.map(i => `◆  ${i.text}`).join("      ") : "暂无数据";
-  const doubled = `${text}      ${text}`;
-  const speed = 55;
+  const sep = "　｜　";
+  const raw = items.map(i => i.text).join(sep);
+  const doubled = raw ? raw + sep + raw : "";
 
   useEffect(() => {
     const el = trackRef.current;
-    if (!el) return;
-    const half = el.scrollWidth / 2;
-    let pos = 0, raf: number;
-    const step = () => {
-      pos += speed / 60;
-      if (pos >= half) pos -= half;
-      el.style.transform = `translateX(-${pos}px)`;
-      raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [items]);
+    if (!el || !doubled) return;
+    const speed = 60;
+    const totalWidth = el.scrollWidth / 2;
+    const dur = totalWidth / speed;
+    el.style.animation = "none";
+    void el.offsetHeight;
+    el.style.animation = `tickerScroll ${dur}s linear infinite`;
+    el.style.animationDirection = "normal";
+    el.style.animationPlayState = "running";
+  }, [doubled]);
+
+  if (!items.length) return null;
 
   return (
     <div className={clsx(
-      "flex items-center border-t",
-      color === "cyan" ? "bg-cyan-900/10 border-cyan-500/10" : "bg-amber-900/8 border-amber-500/8"
+      "flex items-center h-9 border-t overflow-hidden shrink-0",
+      color === "cyan" ? "border-cyan-900/40 bg-[#020d24]/80" : "border-amber-900/40 bg-[#040c18]/80"
     )}>
       <div className={clsx(
         "shrink-0 px-4 text-[14px] font-black tracking-[0.08em] whitespace-nowrap",
@@ -570,15 +605,23 @@ export default function ScreenDisplay() {
   const totalDemands = useMemo(() =>
     (data?.demandStatusChart ?? []).reduce((s, d) => s + d.value, 0), [data]);
 
-  const statsData = [
-    { title: "平台总用户",   value: kpi?.totalUsers ?? 0,        unit: "",    icon: <Users className="w-full h-full" />,        colorType: "cyan"    as ColorType, delay: 0   },
-    { title: "OPC 数量",     value: kpi?.opcCount ?? 0,           unit: "",    icon: <Users className="w-full h-full" />,        colorType: "blue"    as ColorType, delay: 50  },
-    { title: "发单企业",     value: kpi?.publisherCount ?? 0,     unit: "",    icon: <FileText className="w-full h-full" />,     colorType: "purple"  as ColorType, delay: 100 },
-    { title: "已发布需求",   value: kpi?.publishedDemands ?? 0,   unit: "",    icon: <FileText className="w-full h-full" />,     colorType: "emerald" as ColorType, delay: 150 },
-    { title: "进行中订单",   value: kpi?.inProgressOrders ?? 0,   unit: "",    icon: <Clock className="w-full h-full" />,        colorType: "amber"   as ColorType, delay: 200 },
-    { title: "已完成订单",   value: kpi?.completedOrders ?? 0,    unit: "",    icon: <CheckCircle className="w-full h-full" />,  colorType: "emerald" as ColorType, delay: 250 },
-    { title: "订单完成率",   value: kpi?.completionRate ?? 0,     unit: "%",   icon: <TrendingUp className="w-full h-full" />,   colorType: "rose"    as ColorType, delay: 300 },
-    { title: "平台累计结算", value: kpi?.totalSettled ?? 0,       unit: "元",  icon: <JapaneseYen className="w-full h-full" />,  colorType: "amber"   as ColorType, delay: 350 },
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [demandColWidth, setDemandColWidth] = useState(0);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setDemandColWidth(Math.floor(entry.contentRect.height * 9 / 16));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const kpiCards = [
+    { title: "平台总用户",   value: kpi?.totalUsers ?? 0,      icon: <Users className="w-full h-full" />,       colorType: "cyan"    as ColorType, delay: 0   },
+    { title: "OPC 数量",     value: kpi?.opcCount ?? 0,         icon: <Users className="w-full h-full" />,       colorType: "blue"    as ColorType, delay: 50  },
+    { title: "发单企业",     value: kpi?.publisherCount ?? 0,   icon: <FileText className="w-full h-full" />,    colorType: "purple"  as ColorType, delay: 100 },
+    { title: "已发布需求",   value: kpi?.publishedDemands ?? 0, icon: <FileText className="w-full h-full" />,    colorType: "emerald" as ColorType, delay: 150 },
   ];
 
   return (
@@ -609,78 +652,80 @@ export default function ScreenDisplay() {
             <CountdownRing n={countdown} total={REFRESH_SEC} />
           </div>
 
-          {/* ═══ KPI STATS ROW ═══ */}
-          <div className="grid grid-cols-8 gap-3 px-6 mb-3 shrink-0" style={{ height: 148 }}>
-            {statsData.map((s, i) => (
-              <StatCard key={i} {...s} ready={ready} />
-            ))}
-          </div>
-
           {/* ═══ MAIN CONTENT ═══ */}
-          <div className="flex-1 min-h-0 flex gap-3 px-6 pb-2">
+          <div ref={contentRef} className="flex-1 min-h-0 flex gap-3 px-6 pb-2">
 
-            {/* Left column — 72% */}
-            <div className="flex-[7.5] flex flex-col gap-3 min-w-0">
+            {/* Left column — takes all space not used by demand list */}
+            <div className="flex-1 flex flex-col gap-3 min-w-0">
+
+              {/* ═══ KPI STATS ROW ═══ */}
+              <div className="grid grid-cols-4 gap-3 shrink-0" style={{ height: 148 }}>
+                {kpiCards.map((s, i) => (
+                  <StatCard key={i} {...s} ready={ready} />
+                ))}
+              </div>
 
               {/* Trend Chart */}
               <Panel title="近14天增长趋势" borderColor="border-cyan-500/40" className="flex-[5.5] min-h-0">
-                {data?.timeSeries?.length
-                  ? <TrendChart data={data.timeSeries} />
+                {data?.cumulativeSeries?.length
+                  ? <TrendChart data={data.cumulativeSeries} />
                   : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
                 }
               </Panel>
 
-              {/* Bottom section — left/right split */}
+              {/* Bottom section */}
               <div className="flex-[4.5] min-h-0 flex gap-3">
 
-                {/* Left: today stats (compact) stacked above progress bars */}
-                <div className="flex-[5.5] flex flex-col gap-3 min-h-0 min-w-0">
-                  <Panel borderColor="border-blue-500/40" className="shrink-0" style={{ height: 78 }}>
-                    <TodayStats newUsers={today.newUsers} newDemands={today.newDemands} newOrders={today.newOrders} />
-                  </Panel>
-                  <Panel title="需求全周期进度" borderColor="border-cyan-500/40" className="flex-1 min-h-0 min-w-0">
-                    {data
-                      ? <ProgressBars data={data.demandStatusChart} total={totalDemands} />
-                      : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
-                    }
-                  </Panel>
-                </div>
-
-                {/* Right: order overview — full height */}
-                <Panel title="订单概览" borderColor="border-emerald-500/40" className="flex-[4.5] min-w-0">
-                  {kpi
-                    ? <OrderOverview
-                        completionRate={kpi.completionRate}
-                        completedOrders={kpi.completedOrders}
-                        inProgressOrders={kpi.inProgressOrders}
-                        totalSettled={kpi.totalSettled}
-                      />
+                {/* Left: demand list */}
+                <Panel title="近期需求" borderColor="border-cyan-500/40" className="flex-[5.5] min-h-0 min-w-0 overflow-hidden">
+                  {data
+                    ? <DemandList items={data.demandList ?? []} />
                     : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
                   }
+                </Panel>
+
+                {/* Right: order type chart */}
+                <Panel title="订单占比" borderColor="border-emerald-500/40" className="flex-[4] min-w-0">
+                  {data?.orderTypeChart
+                    ? <OrderTypeChart data={data.orderTypeChart} />
+                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                  }
+                </Panel>
+
+                {/* QR code + URL — small panel right of 订单占比 */}
+                <Panel borderColor="border-cyan-500/30" className="flex-[1.8] min-w-0 min-h-0">
+                  <div className="flex flex-col items-center justify-center h-full gap-2">
+                    <span className="text-[11px] font-bold text-slate-500 tracking-[0.1em] uppercase">扫码联系客服</span>
+                    <div className="p-1.5 rounded-lg bg-white shadow-[0_0_16px_rgba(6,182,212,0.5)]">
+                      <img
+                        src={`${BASE}/qrcode.jpg`}
+                        alt="客服二维码"
+                        className="block rounded"
+                        style={{ width: 88, height: 88, objectFit: "cover" }}
+                      />
+                    </div>
+                    <span className="text-[12px] font-bold text-cyan-300 tracking-wide drop-shadow-[0_0_6px_rgba(6,182,212,0.7)] text-center leading-tight">
+                      www.opcorder.com
+                    </span>
+                  </div>
                 </Panel>
 
               </div>
             </div>
 
-            {/* Right column — 28% (Live Feed) */}
-            <Panel title="实时动态" borderColor="border-purple-500/40" className="flex-[2.5] min-h-0">
-              <div className="flex items-center gap-1.5 mb-2 shrink-0">
-                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,1)]"
-                  style={{ animation: "liveDot 2s ease-in-out infinite" }} />
-                <span className="text-[14px] font-bold text-slate-400 tracking-wider uppercase">LIVE</span>
+            {/* Right column — 视频播放器，精确宽度 = 高度 × 9/16 */}
+            <div className="shrink-0 flex flex-col min-h-0" style={{ width: demandColWidth > 0 ? demandColWidth : undefined }}>
+              <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-purple-500/40 bg-[#0a1530]/80 shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm overflow-hidden">
+                <ScreenVideoPlayer />
               </div>
-              {data
-                ? <LiveFeed ticker1={data.ticker1} ticker2={data.ticker2} />
-                : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
-              }
-            </Panel>
+            </div>
 
           </div>
 
           {/* ═══ TICKERS ═══ */}
           <div className="shrink-0 z-10">
-            <Ticker items={data?.ticker1 ?? []} color="cyan" label="🎉 平台动态" />
-            <Ticker items={data?.ticker2 ?? []} color="amber" label="🏆 喜报连连" />
+            <Ticker items={data?.ticker1 ?? []} color="cyan" label="👥 用户动态" />
+            <Ticker items={data?.ticker2 ?? []} color="amber" label="📢 平台信息" />
           </div>
 
         </div>

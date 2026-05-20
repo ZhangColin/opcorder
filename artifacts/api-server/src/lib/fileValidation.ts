@@ -23,6 +23,9 @@ import { fileTypeFromBuffer } from "file-type";
 import { File } from "@google-cloud/storage";
 
 export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+export const VIDEO_MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB (for screen videos)
+
+const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
 
 /** Bytes to sample for magic-number detection (file-type needs ≤ 4100). */
 const MAGIC_BYTES_SAMPLE = 4100;
@@ -40,6 +43,9 @@ export const ALLOWED_MIME_TYPES: Record<string, readonly string[]> = {
   "image/png": ["png"],
   "image/gif": ["gif"],
   "image/webp": ["webp"],
+
+  "video/mp4":  ["mp4"],
+  "video/webm": ["webm"],
 
   "application/pdf": ["pdf"],
 
@@ -93,10 +99,11 @@ export function extractExtension(filename: string): string {
 export function validateFileUpload(input: FileValidationInput): FileValidationError | null {
   const { name, size, contentType } = input;
 
-  if (size > MAX_FILE_SIZE_BYTES) {
+  const maxBytes = VIDEO_MIME_TYPES.has(contentType) ? VIDEO_MAX_FILE_SIZE_BYTES : MAX_FILE_SIZE_BYTES;
+  if (size > maxBytes) {
     return {
       code: "SIZE_EXCEEDED",
-      message: `文件大小超出限制，最大允许 ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB`,
+      message: `文件大小超出限制，最大允许 ${maxBytes / (1024 * 1024)} MB`,
     };
   }
 
@@ -153,7 +160,8 @@ export async function verifyUploadedFile(
   const [metadata] = await quarantineFile.getMetadata();
   const actualSize = Number(metadata.size ?? 0);
 
-  if (actualSize > MAX_FILE_SIZE_BYTES) {
+  const maxBytes = VIDEO_MIME_TYPES.has(expectedContentType) ? VIDEO_MAX_FILE_SIZE_BYTES : MAX_FILE_SIZE_BYTES;
+  if (actualSize > maxBytes) {
     return {
       code: "ACTUAL_SIZE_EXCEEDED",
       message: `文件实际大小（${(actualSize / (1024 * 1024)).toFixed(1)} MB）超出服务端限制`,
@@ -201,7 +209,18 @@ export async function verifyUploadedFile(
     return null;
   }
 
-  // 6. For all other types, detected MIME must be allowed and match expected
+  // 6. For video types, accept any video/* detected MIME (MP4 may be detected as video/quicktime)
+  if (VIDEO_MIME_TYPES.has(expectedContentType)) {
+    if (!detectedMime.startsWith("video/")) {
+      return {
+        code: "MAGIC_MIME_MISMATCH",
+        message: `文件实际类型（${detectedMime}）不是视频文件`,
+      };
+    }
+    return null;
+  }
+
+  // 7. For all other types, detected MIME must be allowed and match expected
   if (!ALLOWED_MIME_TYPES[detectedMime]) {
     return {
       code: "MAGIC_MIME_MISMATCH",

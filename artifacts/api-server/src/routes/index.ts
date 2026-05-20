@@ -16,6 +16,7 @@ import settlementAccountsRouter from "./settlement-accounts";
 import paymentCallbackRouter from "./payment-callback";
 import downloadRouter from "./download";
 import screenRouter from "./screen";
+import screenVideosRouter from "./screen-videos";
 import activitiesRouter from "./activities";
 import agentRouter from "./agent";
 
@@ -38,6 +39,7 @@ router.use(settlementAccountsRouter);
 router.use(paymentCallbackRouter);
 router.use(downloadRouter);
 router.use(screenRouter);
+router.use(screenVideosRouter);
 router.use(activitiesRouter);
 router.use(agentRouter);
 

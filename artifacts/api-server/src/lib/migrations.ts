@@ -1217,5 +1217,22 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 016b: could not seed DeepSeek provider");
   }
 
+  // Migration 018a: create screen_videos table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS screen_videos (
+        id         serial  PRIMARY KEY,
+        title      text    NOT NULL DEFAULT '',
+        object_path text   NOT NULL,
+        sort_order integer NOT NULL DEFAULT 0,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    logger.info("Migration 018a: created screen_videos table");
+  } catch (err) {
+    logger.warn({ err }, "Migration 018a: could not create screen_videos table");
+    if (!isDev) throw new Error(`Migration 018a failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }
