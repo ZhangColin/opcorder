@@ -17,6 +17,7 @@ type PersistedMessage = {
   toolCallId?: string;
   toolName?: string;
   toolCalls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
+  reasoningContent?: string;
   timestamp: string;
 };
 
@@ -117,6 +118,7 @@ function buildLLMMessages(systemPrompt: string, history: PersistedMessage[], use
         role: "assistant",
         content: m.content ?? null,
         tool_calls: m.toolCalls,
+        ...(m.reasoningContent !== undefined ? { reasoning_content: m.reasoningContent } : {}),
       });
     } else if (m.role === "tool") {
       messages.push({
@@ -257,6 +259,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
             type: tc.type,
             function: { name: tc.function.name, arguments: tc.function.arguments },
           })),
+          ...(response.reasoningContent !== undefined ? { reasoningContent: response.reasoningContent } : {}),
           timestamp: new Date().toISOString(),
         });
 
@@ -296,6 +299,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
           role: "assistant",
           content: response.content ?? null,
           tool_calls: toolCalls,
+          ...(response.reasoningContent !== undefined ? { reasoning_content: response.reasoningContent } : {}),
         });
         llmMessages.push(...toolResultLLMMessages);
         continue;

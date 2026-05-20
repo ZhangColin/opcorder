@@ -9,6 +9,7 @@ export type LLMMessage = {
   tool_call_id?: string;
   name?: string;
   tool_calls?: ToolCall[];
+  reasoning_content?: string;
 };
 
 export type LLMTool = {
@@ -33,6 +34,7 @@ export type LLMResponse = {
   content: string | null;
   toolCalls?: ToolCall[];
   finishReason: string;
+  reasoningContent?: string;
 };
 
 async function getActiveClient(): Promise<{ client: OpenAI; model: string }> {
@@ -78,10 +80,14 @@ export async function callLLM(
   const completion = await client.chat.completions.create(params);
   const choice = completion.choices[0];
 
+  const reasoningContent: string | undefined =
+    (choice.message as any).reasoning_content ?? undefined;
+
   return {
     content: choice.message.content,
     toolCalls: choice.message.tool_calls as ToolCall[] | undefined,
     finishReason: choice.finish_reason,
+    ...(reasoningContent !== undefined ? { reasoningContent } : {}),
   };
 }
 
