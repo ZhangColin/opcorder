@@ -88,19 +88,11 @@ export function PublisherSidebar({ onLogout, mobileOpen = false, onMobileClose }
         <SidebarLink icon={MessageSquare}   label="社区"      href="/community"          active={isActive("/community")} onClick={handleLinkClick} />
       </nav>
 
-      <div className="flex flex-col gap-1.5">
-        <Link href="/publisher/demands/new?ai=1" onClick={handleLinkClick}>
-          <div className="relative flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer overflow-hidden">
-            <Sparkles size={15} /> AI 发布需求
-            <span className="absolute top-0 right-0 bg-amber-400 text-[9px] font-black text-amber-900 px-1.5 py-0.5 rounded-bl-lg rounded-tr-xl leading-tight">推荐</span>
-          </div>
-        </Link>
-        <Link href="/publisher/demands/new" onClick={handleLinkClick}>
-          <div className="flex items-center justify-center gap-1.5 text-slate-400 hover:text-primary text-xs font-bold py-1 transition-colors cursor-pointer">
-            <PlusCircle size={12} /> 手动填写
-          </div>
-        </Link>
-      </div>
+      <Link href="/publisher/demands/new" onClick={handleLinkClick}>
+        <div className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer">
+          <PlusCircle size={16} /> 发布新需求
+        </div>
+      </Link>
 
       <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5">
         <button

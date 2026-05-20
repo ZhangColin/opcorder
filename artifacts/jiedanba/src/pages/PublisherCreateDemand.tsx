@@ -458,9 +458,7 @@ export default function PublisherCreateDemand() {
   };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [agentPanelOpen, setAgentPanelOpen] = useState(() =>
-    new URLSearchParams(window.location.search).get("ai") === "1"
-  );
+  const [agentPanelOpen, setAgentPanelOpen] = useState(false);
   const [agentEnabled, setAgentEnabled] = useState(false);
   const agentSessionKey = useRef(`create-demand-${Date.now()}`).current;
   const agentConversationId = useRef<number | null>(null);
@@ -583,9 +581,25 @@ export default function PublisherCreateDemand() {
           {/* Page title */}
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-extrabold text-blue-900 font-display tracking-tight">
-                {isEdit ? "编辑需求" : "发布新需求"}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-extrabold text-blue-900 font-display tracking-tight">
+                  {isEdit ? "编辑需求" : "发布新需求"}
+                </h1>
+                {!isEdit && agentEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setAgentPanelOpen(true)}
+                    className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-md shadow-primary/25 hover:bg-primary/90 hover:scale-105 transition-all"
+                  >
+                    <Bot size={13} />
+                    AI 助手
+                    <span className="flex h-1.5 w-1.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-70" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                    </span>
+                  </button>
+                )}
+              </div>
               <p className="text-sm text-slate-500 mt-1">
                 {isEdit
                   ? "修改需求信息，保存后进入重新审核流程"

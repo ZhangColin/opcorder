@@ -367,20 +367,11 @@ export default function PublisherDemandList() {
               <h1 className="text-2xl font-extrabold text-blue-900 font-display">需求管理</h1>
               <p className="text-sm text-slate-500 mt-1">管理所有发布的需求，跟踪进展</p>
             </div>
-            <div className="flex items-center gap-3">
-              <Link href="/publisher/demands/new?ai=1">
-                <button className="relative flex items-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-5 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all overflow-hidden">
-                  <Sparkles size={15} />
-                  AI 助手发布需求
-                  <span className="absolute top-0 right-0 bg-amber-400 text-[9px] font-black text-amber-900 px-1.5 py-0.5 rounded-bl-lg rounded-tr-xl leading-tight">推荐</span>
-                </button>
-              </Link>
-              <Link href="/publisher/demands/new">
-                <button className="flex items-center gap-2 border border-slate-200 text-slate-500 hover:text-primary hover:border-primary/40 rounded-xl px-4 py-3 text-sm font-bold transition-all">
-                  <PlusCircle size={15} /> 手动填写
-                </button>
-              </Link>
-            </div>
+            <Link href="/publisher/demands/new">
+              <button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-5 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all">
+                <PlusCircle size={16} /> 发布新需求
+              </button>
+            </Link>
           </div>
 
           {/* Status tabs */}
