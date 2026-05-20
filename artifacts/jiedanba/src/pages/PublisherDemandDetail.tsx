@@ -994,19 +994,20 @@ export default function PublisherDemandDetail() {
                         {sortedPendingBids.map((bid: BidApplication) => (
                           <div
                             key={bid.id}
-                            className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-6"
+                            className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer select-none"
+                            onClick={() => setExpandedQuoteId(expandedQuoteId === bid.id ? null : bid.id)}
                           >
-                            <div className="flex items-start justify-between gap-4 mb-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary">
+                            {/* ── 主行 ── */}
+                            <div className="flex items-center gap-3 px-5 py-4">
+                              {/* 左：头像 + 姓名 + 等级 + 评分 */}
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="w-11 h-11 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary shrink-0">
                                   {bid.opcAvatar ? (
                                     <img src={bid.opcAvatar} alt={bid.opcNickname} className="w-full h-full rounded-full object-cover" />
-                                  ) : (
-                                    (bid.opcNickname?.[0] ?? "O")
-                                  )}
+                                  ) : (bid.opcNickname?.[0] ?? "O")}
                                 </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <span className="font-bold text-foreground">{bid.opcNickname ?? `OPC #${bid.opcId}`}</span>
                                     {bid.opcLevel && (
                                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${OPC_LEVEL_COLOR[bid.opcLevel] ?? "bg-slate-100 text-slate-600"}`}>
@@ -1015,113 +1016,137 @@ export default function PublisherDemandDetail() {
                                     )}
                                   </div>
                                   {bid.opcCreditScore !== undefined && (
-                                    <div className="mt-1">
+                                    <div className="mt-0.5">
                                       <StarRating score={bid.opcCreditScore} />
                                     </div>
                                   )}
                                 </div>
                               </div>
-                              <div className="text-right shrink-0">
+
+                              {/* 中：操作按钮（常态） */}
+                              {confirmingBidId !== bid.id && rejectingBidId !== bid.id && (
+                                <div className="flex gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => setConfirmingBidId(bid.id)}
+                                    className="flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                                  >
+                                    <CheckCircle2 size={13} /> 确认接单
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectingBidId(bid.id)}
+                                    className="flex items-center gap-1.5 border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors"
+                                  >
+                                    <XCircle size={13} /> 婉拒
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* 右：价格 + 天数 + 日期 + 展开图标 */}
+                              <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                                 {(bid.quotedPrice ?? 0) > 0 && (
-                                  <div className="text-2xl font-black text-green-600 mb-1">
+                                  <div className="text-xl font-black text-green-600">
                                     ¥{(bid.quotedPrice as number).toLocaleString()}
                                   </div>
                                 )}
                                 {bid.estimatedDays && (
-                                  <div className="flex items-center justify-end gap-1 text-slate-500 text-sm">
-                                    <Timer size={14} />
+                                  <div className="flex items-center gap-1 text-slate-500 text-xs">
+                                    <Timer size={12} />
                                     <span>预计 {bid.estimatedDays} 天完成</span>
                                   </div>
                                 )}
-                                <p className="text-xs text-slate-400 mt-1">
-                                  申请时间：{new Date(bid.createdAt).toLocaleDateString("zh-CN")}
+                                <p className="text-xs text-slate-400">
+                                  {new Date(bid.createdAt).toLocaleDateString("zh-CN")}
                                 </p>
+                                <div className="mt-0.5">
+                                  {expandedQuoteId === bid.id
+                                    ? <ChevronUp size={14} className="text-slate-400" />
+                                    : <ChevronDown size={14} className="text-slate-400" />}
+                                </div>
                               </div>
                             </div>
-                            <div className="bg-slate-50 rounded-xl p-4 mb-4">
-                              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">接单方案描述</p>
-                              <p className="text-sm text-slate-700 leading-relaxed">{bid.proposal}</p>
-                            </div>
-                            {(bid.quotedPrice ?? 0) > 0 && (
-                              <div className="mb-4">
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedQuoteId(expandedQuoteId === bid.id ? null : bid.id)}
-                                  className="flex items-center gap-1.5 text-xs font-bold text-primary mb-2 hover:text-primary/80 transition-colors"
-                                >
-                                  {expandedQuoteId === bid.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                  {expandedQuoteId === bid.id ? "收起报价明细" : "展开报价明细"}
-                                </button>
-                                {expandedQuoteId === bid.id && (
+
+                            {/* ── 确认接单面板 ── */}
+                            {confirmingBidId === bid.id && (
+                              <div
+                                className="border-t border-slate-100 px-5 py-4 bg-blue-50/60 rounded-b-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-sm font-bold text-blue-800 mb-1">
+                                  确认选择 <span className="text-primary">{bid.opcNickname}</span> 接单？
+                                </p>
+                                <p className="text-xs text-blue-600 mb-3">确认后将自动生成交易订单，其余申请将自动婉拒。</p>
+                                <div className="flex gap-2">
+                                  <button onClick={() => handleConfirm(bid.id)} disabled={updateBidStatus.isPending}
+                                    className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                                    <CheckCircle2 size={14} />
+                                    {updateBidStatus.isPending ? "处理中…" : "确认接单"}
+                                  </button>
+                                  <button onClick={() => setConfirmingBidId(null)}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors">
+                                    取消
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ── 婉拒面板 ── */}
+                            {rejectingBidId === bid.id && (
+                              <div
+                                className="border-t border-slate-100 px-5 py-4 bg-red-50/60 rounded-b-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-sm font-bold text-red-700 mb-2">
+                                  婉拒 <span className="font-bold">{bid.opcNickname}</span> 的申请
+                                </p>
+                                <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+                                  placeholder="请填写婉拒原因（选填）" rows={2}
+                                  className="w-full text-sm rounded-lg border border-red-200 bg-white px-3 py-2 mb-3 focus:ring-2 focus:ring-red-200 outline-none resize-none" />
+                                <div className="flex gap-2">
+                                  <button onClick={() => handleReject(bid.id)} disabled={updateBidStatus.isPending}
+                                    className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50">
+                                    <XCircle size={14} />
+                                    {updateBidStatus.isPending ? "处理中…" : "确认婉拒"}
+                                  </button>
+                                  <button onClick={() => { setRejectingBidId(null); setRejectReason(""); }}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors">
+                                    取消
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* ── 展开：报价明细 + 作品集 ── */}
+                            {expandedQuoteId === bid.id && (
+                              <div
+                                className="border-t border-slate-100 px-5 py-4"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {(bid.quotedPrice ?? 0) > 0 && (
                                   bid.quoteCardSnapshot
                                     ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} />
                                     : <div className="bg-slate-50 rounded-xl p-4 text-sm text-center text-slate-500">
                                         最终报价：<span className="font-black text-green-600 text-base">¥{(bid.quotedPrice as number).toLocaleString()}</span>
                                       </div>
                                 )}
-                              </div>
-                            )}
-                            {bid.portfolioLinks && bid.portfolioLinks.length > 0 && (
-                              <div className="mb-4">
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">作品集链接</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {bid.portfolioLinks.map((link: string, idx: number) => (
-                                    <a key={idx} href={link} target="_blank" rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-full">
-                                      <ExternalLink size={10} /> 查看作品 {idx + 1}
-                                    </a>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {confirmingBidId === bid.id ? (
-                              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <p className="text-sm font-bold text-blue-800 mb-3">
-                                  确认选择 <span className="text-primary">{bid.opcNickname}</span> 接单？
-                                </p>
-                                <p className="text-xs text-blue-600 mb-4">确认后将自动生成交易订单，其余申请将自动婉拒。</p>
-                                <div className="flex gap-3">
-                                  <button onClick={() => handleConfirm(bid.id)} disabled={updateBidStatus.isPending}
-                                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
-                                    <CheckCircle2 size={14} />
-                                    {updateBidStatus.isPending ? "处理中…" : "确认接单"}
-                                  </button>
-                                  <button onClick={() => setConfirmingBidId(null)}
-                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
-                                    取消
-                                  </button>
-                                </div>
-                              </div>
-                            ) : rejectingBidId === bid.id ? (
-                              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                                <p className="text-sm font-bold text-red-700 mb-3">
-                                  婉拒 <span className="font-bold">{bid.opcNickname}</span> 的申请
-                                </p>
-                                <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
-                                  placeholder="请填写婉拒原因（选填）" rows={2}
-                                  className="w-full text-sm rounded-lg border border-red-200 bg-white px-3 py-2 mb-3 focus:ring-2 focus:ring-red-200 outline-none resize-none" />
-                                <div className="flex gap-3">
-                                  <button onClick={() => handleReject(bid.id)} disabled={updateBidStatus.isPending}
-                                    className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50">
-                                    <XCircle size={14} />
-                                    {updateBidStatus.isPending ? "处理中…" : "确认婉拒"}
-                                  </button>
-                                  <button onClick={() => { setRejectingBidId(null); setRejectReason(""); }}
-                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
-                                    取消
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex gap-3">
-                                <button onClick={() => setConfirmingBidId(bid.id)}
-                                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
-                                  <CheckCircle2 size={14} /> 确认接单
-                                </button>
-                                <button onClick={() => setRejectingBidId(bid.id)}
-                                  className="flex items-center gap-2 border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">
-                                  <XCircle size={14} /> 婉拒
-                                </button>
+                                {bid.proposal && (
+                                  <div className="mt-3 bg-slate-50 rounded-xl p-4">
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">接单方案描述</p>
+                                    <p className="text-sm text-slate-700 leading-relaxed">{bid.proposal}</p>
+                                  </div>
+                                )}
+                                {bid.portfolioLinks && bid.portfolioLinks.length > 0 && (
+                                  <div className="mt-3">
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">作品集链接</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {bid.portfolioLinks.map((link: string, idx: number) => (
+                                        <a key={idx} href={link} target="_blank" rel="noopener noreferrer"
+                                          className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-full">
+                                          <ExternalLink size={10} /> 查看作品 {idx + 1}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
