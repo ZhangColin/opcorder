@@ -2,6 +2,21 @@ import { pgTable, serial, integer, text, varchar, boolean, timestamp, jsonb } fr
 import { usersTable } from "./users";
 import { demandsTable } from "./demands";
 
+export const llmProvidersTable = pgTable("llm_providers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  displayName: varchar("display_name", { length: 100 }).notNull(),
+  baseUrl: varchar("base_url", { length: 500 }).notNull(),
+  apiKey: text("api_key").notNull(),
+  defaultModel: varchar("default_model", { length: 100 }).notNull(),
+  isActive: boolean("is_active").notNull().default(false),
+  remark: text("remark"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type LlmProvider = typeof llmProvidersTable.$inferSelect;
+
 export const agentConfigsTable = pgTable("agent_configs", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),

@@ -1158,5 +1158,51 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 015a: could not add summary column (non-critical)");
   }
 
+  // Migration 016a: create llm_providers table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS llm_providers (
+        id serial PRIMARY KEY,
+        name varchar(100) NOT NULL UNIQUE,
+        display_name varchar(100) NOT NULL,
+        base_url varchar(500) NOT NULL,
+        api_key text NOT NULL,
+        default_model varchar(100) NOT NULL,
+        is_active boolean NOT NULL DEFAULT false,
+        remark text,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    logger.info("Migration 016a: created llm_providers table");
+  } catch (err) {
+    logger.warn({ err }, "Migration 016a: could not create llm_providers table");
+    if (!isDev) throw new Error(`Migration 016a failed in production: ${err}`);
+  }
+
+  // Migration 016b: seed default DeepSeek provider if none exists
+  try {
+    const { rows } = await db.execute(sql`SELECT COUNT(*) FROM llm_providers`);
+    const count = Number((rows[0] as any).count);
+    if (count === 0) {
+      const deepseekKey = process.env.DEEPSEEK_API_KEY ?? "";
+      await db.execute(sql`
+        INSERT INTO llm_providers (name, display_name, base_url, api_key, default_model, is_active, remark)
+        VALUES (
+          'deepseek',
+          'DeepSeek',
+          'https://api.deepseek.com',
+          ${deepseekKey},
+          'deepseek-chat',
+          true,
+          '默认接入，兼容 OpenAI SDK'
+        )
+      `);
+      logger.info("Migration 016b: seeded default DeepSeek provider");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Migration 016b: could not seed DeepSeek provider");
+  }
+
   logger.info("Startup data migrations complete.");
 }

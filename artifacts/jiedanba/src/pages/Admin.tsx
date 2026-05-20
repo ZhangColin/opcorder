@@ -6572,6 +6572,270 @@ function AdminUsersPanel() {
   );
 }
 
+/* ─── LlmProviderManagement ──────────────────────── */
+
+type LlmProvider = {
+  id: number;
+  name: string;
+  displayName: string;
+  baseUrl: string;
+  apiKey: string;
+  defaultModel: string;
+  isActive: boolean;
+  remark: string | null;
+  createdAt: string;
+};
+
+const PRESET_PROVIDERS = [
+  { label: "DeepSeek", name: "deepseek", baseUrl: "https://api.deepseek.com", defaultModel: "deepseek-chat" },
+  { label: "OpenAI", name: "openai", baseUrl: "https://api.openai.com/v1", defaultModel: "gpt-4o" },
+  { label: "Moonshot (Kimi)", name: "moonshot", baseUrl: "https://api.moonshot.cn/v1", defaultModel: "moonshot-v1-8k" },
+  { label: "Qwen (通义)", name: "qwen", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultModel: "qwen-turbo" },
+  { label: "Zhipu (智谱)", name: "zhipu", baseUrl: "https://open.bigmodel.cn/api/paas/v4", defaultModel: "glm-4" },
+  { label: "自定义", name: "", baseUrl: "", defaultModel: "" },
+];
+
+function LlmProviderManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: providers, isLoading } = useQuery<LlmProvider[]>({
+    queryKey: ["admin-llm-providers"],
+    queryFn: () => adminGet("/api/admin/llm-providers"),
+  });
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [activating, setActivating] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  const emptyForm = { name: "", displayName: "", baseUrl: "", apiKey: "", defaultModel: "", remark: "" };
+  const [form, setForm] = useState(emptyForm);
+
+  const applyPreset = (preset: typeof PRESET_PROVIDERS[0]) => {
+    setForm(prev => ({
+      ...prev,
+      name: preset.name,
+      displayName: preset.label === "自定义" ? prev.displayName : preset.label,
+      baseUrl: preset.baseUrl,
+      defaultModel: preset.defaultModel,
+    }));
+  };
+
+  const startEdit = (p: LlmProvider) => {
+    setEditingId(p.id);
+    setForm({ name: p.name, displayName: p.displayName, baseUrl: p.baseUrl, apiKey: "", defaultModel: p.defaultModel, remark: p.remark ?? "" });
+    setShowAdd(false);
+  };
+
+  const cancelForm = () => { setShowAdd(false); setEditingId(null); setForm(emptyForm); };
+
+  const submitForm = async () => {
+    if (!form.displayName || !form.baseUrl || !form.defaultModel) {
+      toast({ title: "请填写必填字段", variant: "destructive" }); return;
+    }
+    setSubmitting(true);
+    try {
+      if (editingId !== null) {
+        await adminPut(`/api/admin/llm-providers/${editingId}`, form);
+        toast({ title: "更新成功" });
+      } else {
+        if (!form.name || !form.apiKey) { toast({ title: "名称和 API Key 为必填", variant: "destructive" }); return; }
+        await adminPost("/api/admin/llm-providers", form);
+        toast({ title: "添加成功" });
+      }
+      await qc.invalidateQueries({ queryKey: ["admin-llm-providers"] });
+      cancelForm();
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err?.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const activate = async (id: number) => {
+    setActivating(id);
+    try {
+      await adminPost(`/api/admin/llm-providers/${id}/activate`, {});
+      await qc.invalidateQueries({ queryKey: ["admin-llm-providers"] });
+      toast({ title: "已切换激活供应商" });
+    } catch (err: any) {
+      toast({ title: "激活失败", description: err?.message, variant: "destructive" });
+    } finally {
+      setActivating(null);
+    }
+  };
+
+  const deleteProvider = async (id: number) => {
+    setDeleting(id);
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/admin/llm-providers/${id}`, {
+        method: "DELETE",
+        headers: getAdminHeaders(),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? "删除失败"); }
+      await qc.invalidateQueries({ queryKey: ["admin-llm-providers"] });
+      toast({ title: "已删除供应商" });
+    } catch (err: any) {
+      toast({ title: "删除失败", description: err?.message, variant: "destructive" });
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const ProviderForm = (
+    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+      <p className="text-sm font-extrabold text-slate-800">{editingId !== null ? "编辑供应商" : "添加供应商"}</p>
+
+      {editingId === null && (
+        <div>
+          <p className="text-xs font-bold text-slate-500 mb-2">快速预设</p>
+          <div className="flex flex-wrap gap-2">
+            {PRESET_PROVIDERS.map(p => (
+              <button
+                key={p.name || "custom"}
+                type="button"
+                onClick={() => applyPreset(p)}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-white hover:bg-primary/5 hover:border-primary/30 text-slate-600 transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-slate-600 mb-1">显示名称 *</label>
+          <input value={form.displayName} onChange={e => setForm(p => ({ ...p, displayName: e.target.value }))}
+            placeholder="如：DeepSeek" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white" />
+        </div>
+        {editingId === null && (
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">唯一标识 *</label>
+            <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="如：deepseek（小写字母）" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white" />
+          </div>
+        )}
+        <div className={editingId !== null ? "col-span-2" : ""}>
+          <label className="block text-xs font-bold text-slate-600 mb-1">Base URL *</label>
+          <input value={form.baseUrl} onChange={e => setForm(p => ({ ...p, baseUrl: e.target.value }))}
+            placeholder="https://api.deepseek.com" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-600 mb-1">
+            API Key {editingId !== null ? <span className="font-normal text-slate-400">（留空则不修改）</span> : "*"}
+          </label>
+          <input type="password" value={form.apiKey} onChange={e => setForm(p => ({ ...p, apiKey: e.target.value }))}
+            placeholder={editingId !== null ? "不修改请留空" : "sk-..."} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-600 mb-1">默认模型 *</label>
+          <input value={form.defaultModel} onChange={e => setForm(p => ({ ...p, defaultModel: e.target.value }))}
+            placeholder="如：deepseek-chat" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white" />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-xs font-bold text-slate-600 mb-1">备注</label>
+          <input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
+            placeholder="可选" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white" />
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-1">
+        <button onClick={submitForm} disabled={submitting}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+          {submitting ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          {editingId !== null ? "保存修改" : "添加供应商"}
+        </button>
+        <button onClick={cancelForm} className="px-5 py-2.5 border border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">
+          取消
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-extrabold text-slate-900">大模型供应商</h3>
+          <p className="text-xs text-slate-500 mt-0.5">激活哪个，智能体就走哪个接口。支持所有兼容 OpenAI 格式的供应商。</p>
+        </div>
+        {!showAdd && editingId === null && (
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors">
+            <Plus size={14} /> 添加供应商
+          </button>
+        )}
+      </div>
+
+      {showAdd && editingId === null && ProviderForm}
+
+      {isLoading ? (
+        <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-slate-400" /></div>
+      ) : (
+        <div className="space-y-3">
+          {(!providers || providers.length === 0) && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400 text-sm">暂无供应商</div>
+          )}
+          {providers?.map(p => (
+            <div key={p.id} className={`bg-white rounded-2xl border overflow-hidden transition-all ${p.isActive ? "border-primary/40 shadow-sm shadow-primary/10" : "border-slate-200"}`}>
+              {editingId === p.id ? (
+                <div className="p-5">{ProviderForm}</div>
+              ) : (
+                <div className="flex items-center gap-4 px-5 py-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${p.isActive ? "bg-primary text-white" : "bg-slate-100 text-slate-400"}`}>
+                    <Bot size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-extrabold text-slate-900">{p.displayName}</p>
+                      {p.isActive && (
+                        <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded-full">当前激活</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">{p.baseUrl} · <span className="font-mono">{p.defaultModel}</span></p>
+                    {p.remark && <p className="text-xs text-slate-400 mt-0.5">{p.remark}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!p.isActive && (
+                      <button
+                        onClick={() => activate(p.id)}
+                        disabled={activating === p.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {activating === p.id ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+                        激活
+                      </button>
+                    )}
+                    <button
+                      onClick={() => startEdit(p)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                      <Edit2 size={11} /> 编辑
+                    </button>
+                    {!p.isActive && (
+                      <button
+                        onClick={() => deleteProvider(p.id)}
+                        disabled={deleting === p.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-400 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {deleting === p.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── AgentConfigManagement ──────────────────────── */
 
 type AgentConfig = {
@@ -6645,13 +6909,16 @@ function AgentConfigManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-900">智能体配置</h2>
-          <p className="text-sm text-slate-500 mt-0.5">管理平台各场景的 AI 智能体系统提示词与启用状态</p>
+    <div className="space-y-8">
+      <LlmProviderManagement />
+
+      <div className="border-t border-slate-100 pt-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900">智能体场景配置</h3>
+            <p className="text-sm text-slate-500 mt-0.5">管理各场景的系统提示词与启用状态</p>
+          </div>
         </div>
-      </div>
 
       {(!configs || configs.length === 0) && (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
@@ -6736,6 +7003,7 @@ function AgentConfigManagement() {
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }

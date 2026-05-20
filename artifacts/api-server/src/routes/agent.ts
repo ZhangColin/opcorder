@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, agentConfigsTable, agentConversationsTable } from "@workspace/db";
+import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
@@ -496,6 +496,129 @@ router.put("/admin/agent-configs/:id", requireAdmin, async (req: Request, res: R
   } catch (error) {
     logger.error({ error }, "Failed to update agent config");
     return res.status(500).json({ error: "更新智能体配置失败" });
+  }
+});
+
+/* ─── LLM Providers CRUD ─────────────────────────────────────────── */
+
+router.get("/admin/llm-providers", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const providers = await db.select().from(llmProvidersTable).orderBy(llmProvidersTable.id);
+    const masked = providers.map(p => ({
+      ...p,
+      apiKey: p.apiKey ? "••••••••" + p.apiKey.slice(-4) : "",
+    }));
+    return res.json(masked);
+  } catch (error) {
+    logger.error({ error }, "Failed to list llm providers");
+    return res.status(500).json({ error: "获取供应商列表失败" });
+  }
+});
+
+router.post("/admin/llm-providers", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { name, displayName, baseUrl, apiKey, defaultModel, remark } = req.body as {
+      name: string;
+      displayName: string;
+      baseUrl: string;
+      apiKey: string;
+      defaultModel: string;
+      remark?: string;
+    };
+
+    if (!name || !displayName || !baseUrl || !apiKey || !defaultModel) {
+      return res.status(400).json({ error: "缺少必填字段" });
+    }
+
+    const [created] = await db
+      .insert(llmProvidersTable)
+      .values({ name, displayName, baseUrl, apiKey, defaultModel, remark: remark ?? null, isActive: false })
+      .returning();
+
+    return res.json({ ...created, apiKey: "••••••••" + created.apiKey.slice(-4) });
+  } catch (error: any) {
+    if (error?.code === "23505") {
+      return res.status(400).json({ error: "供应商名称已存在" });
+    }
+    logger.error({ error }, "Failed to create llm provider");
+    return res.status(500).json({ error: "创建供应商失败" });
+  }
+});
+
+router.put("/admin/llm-providers/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { displayName, baseUrl, apiKey, defaultModel, remark } = req.body as {
+      displayName?: string;
+      baseUrl?: string;
+      apiKey?: string;
+      defaultModel?: string;
+      remark?: string;
+    };
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (baseUrl !== undefined) updateData.baseUrl = baseUrl;
+    if (defaultModel !== undefined) updateData.defaultModel = defaultModel;
+    if (remark !== undefined) updateData.remark = remark;
+    if (apiKey && !apiKey.startsWith("••••")) updateData.apiKey = apiKey;
+
+    const [updated] = await db
+      .update(llmProvidersTable)
+      .set(updateData)
+      .where(eq(llmProvidersTable.id, id))
+      .returning();
+
+    if (!updated) return res.status(404).json({ error: "供应商不存在" });
+
+    return res.json({ ...updated, apiKey: "••••••••" + updated.apiKey.slice(-4) });
+  } catch (error) {
+    logger.error({ error }, "Failed to update llm provider");
+    return res.status(500).json({ error: "更新供应商失败" });
+  }
+});
+
+router.post("/admin/llm-providers/:id/activate", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const [target] = await db
+      .select()
+      .from(llmProvidersTable)
+      .where(eq(llmProvidersTable.id, id))
+      .limit(1);
+
+    if (!target) return res.status(404).json({ error: "供应商不存在" });
+
+    await db.update(llmProvidersTable).set({ isActive: false, updatedAt: new Date() });
+    await db.update(llmProvidersTable).set({ isActive: true, updatedAt: new Date() }).where(eq(llmProvidersTable.id, id));
+
+    return res.json({ success: true, activatedId: id });
+  } catch (error) {
+    logger.error({ error }, "Failed to activate llm provider");
+    return res.status(500).json({ error: "激活供应商失败" });
+  }
+});
+
+router.delete("/admin/llm-providers/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    const [target] = await db
+      .select()
+      .from(llmProvidersTable)
+      .where(eq(llmProvidersTable.id, id))
+      .limit(1);
+
+    if (!target) return res.status(404).json({ error: "供应商不存在" });
+    if (target.isActive) return res.status(400).json({ error: "当前激活的供应商无法删除，请先切换到其他供应商" });
+
+    await db.delete(llmProvidersTable).where(eq(llmProvidersTable.id, id));
+
+    return res.json({ success: true });
+  } catch (error) {
+    logger.error({ error }, "Failed to delete llm provider");
+    return res.status(500).json({ error: "删除供应商失败" });
   }
 });
 

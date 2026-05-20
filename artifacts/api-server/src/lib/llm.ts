@@ -1,15 +1,7 @@
 import OpenAI from "openai";
-
-function getDeepSeekClient(): OpenAI {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY environment variable is not set");
-  }
-  return new OpenAI({
-    baseURL: "https://api.deepseek.com",
-    apiKey,
-  });
-}
+import { db, llmProvidersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { logger } from "./logger";
 
 export type LLMMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -43,15 +35,42 @@ export type LLMResponse = {
   finishReason: string;
 };
 
+async function getActiveClient(): Promise<{ client: OpenAI; model: string }> {
+  try {
+    const [provider] = await db
+      .select()
+      .from(llmProvidersTable)
+      .where(eq(llmProvidersTable.isActive, true))
+      .limit(1);
+
+    if (provider && provider.apiKey) {
+      return {
+        client: new OpenAI({ baseURL: provider.baseUrl, apiKey: provider.apiKey }),
+        model: provider.defaultModel,
+      };
+    }
+  } catch (err) {
+    logger.warn({ err }, "llm: failed to load active provider from DB, falling back to env");
+  }
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error("没有可用的大模型配置，请在后台激活一个供应商");
+  return {
+    client: new OpenAI({ baseURL: "https://api.deepseek.com", apiKey }),
+    model: "deepseek-chat",
+  };
+}
+
 export async function callLLM(
   messages: LLMMessage[],
   tools?: LLMTool[],
-  model = "deepseek-chat"
+  model?: string
 ): Promise<LLMResponse> {
-  const client = getDeepSeekClient();
+  const { client, model: defaultModel } = await getActiveClient();
+  const resolvedModel = model ?? defaultModel;
 
   const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
-    model,
+    model: resolvedModel,
     messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
     ...(tools && tools.length > 0 ? { tools } : {}),
   };
@@ -68,12 +87,13 @@ export async function callLLM(
 
 export async function* streamLLM(
   messages: LLMMessage[],
-  model = "deepseek-chat"
+  model?: string
 ): AsyncGenerator<string> {
-  const client = getDeepSeekClient();
+  const { client, model: defaultModel } = await getActiveClient();
+  const resolvedModel = model ?? defaultModel;
 
   const stream = await client.chat.completions.create({
-    model,
+    model: resolvedModel,
     messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
     stream: true,
   });
@@ -86,6 +106,15 @@ export async function* streamLLM(
   }
 }
 
-export function isLLMAvailable(): boolean {
+export async function isLLMAvailable(): Promise<boolean> {
+  try {
+    const [provider] = await db
+      .select({ id: llmProvidersTable.id })
+      .from(llmProvidersTable)
+      .where(eq(llmProvidersTable.isActive, true))
+      .limit(1);
+    if (provider) return true;
+  } catch {
+  }
   return !!process.env.DEEPSEEK_API_KEY;
 }
