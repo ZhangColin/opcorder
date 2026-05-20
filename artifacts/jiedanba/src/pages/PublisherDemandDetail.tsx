@@ -953,7 +953,7 @@ export default function PublisherDemandDetail() {
                           </span>
                         )}
                       </h2>
-                      {pendingBids.length >= 2 && (
+                      {pendingBids.length >= 1 && (
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {(["default", "price", "days", "level", "score"] as const).map((key) => {
                             const label: Record<string, string> = { default: "默认", price: "价格", days: "完成时间", level: "OPC等级", score: "OPC评分" };
