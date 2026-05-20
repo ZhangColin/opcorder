@@ -1180,6 +1180,19 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 016a failed in production: ${err}`);
   }
 
+  // Migration 017a: widen quote_card_configs.tier from varchar(5) to varchar(10)
+  // Fixes a drizzle-kit push bug triggered by varchar(5) columns during schema diff computation.
+  // Existing tier values (S, M, L, XL) are all ≤ 4 chars so no data is affected.
+  try {
+    await db.execute(sql`
+      ALTER TABLE quote_card_configs
+        ALTER COLUMN tier TYPE varchar(10)
+    `);
+    logger.info("Migration 017a: widened quote_card_configs.tier to varchar(10)");
+  } catch (err) {
+    logger.warn({ err }, "Migration 017a: could not widen tier column (may already be varchar(10))");
+  }
+
   // Migration 016b: seed default DeepSeek provider if none exists
   try {
     const { rows } = await db.execute(sql`SELECT COUNT(*) FROM llm_providers`);

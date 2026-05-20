@@ -15,7 +15,7 @@ export const quoteCardConfigTable = pgTable(
     id: serial("id").primaryKey(),
     dimensionCode: varchar("dimension_code", { length: 10 }).notNull(),
     dimensionLabel: text("dimension_label").notNull(),
-    tier: varchar("tier", { length: 5 }).notNull(),
+    tier: varchar("tier", { length: 10 }).notNull(),
     tierLabel: text("tier_label").notNull(),
     basePrice: real("base_price").notNull().default(0),
     coefficient: real("coefficient"),
