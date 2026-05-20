@@ -600,8 +600,9 @@ export default function PublisherCreateDemand() {
                 <button
                   type="button"
                   onClick={() => setAgentPanelOpen(true)}
-                  className="group flex items-center gap-2.5 bg-primary text-white font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary/90 hover:scale-105 hover:shadow-primary/40 transition-all duration-200"
+                  className="group relative flex items-center gap-2.5 bg-primary text-white font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary/90 hover:scale-105 hover:shadow-primary/40 transition-all duration-200 overflow-hidden"
                 >
+                  <span className="absolute top-0 right-0 bg-amber-400 text-[9px] font-black text-amber-900 px-1.5 py-0.5 rounded-bl-lg rounded-tr-2xl leading-tight">推荐</span>
                   <Bot size={16} />
                   <div className="text-left">
                     <div className="text-sm leading-tight">AI 需求助手</div>
