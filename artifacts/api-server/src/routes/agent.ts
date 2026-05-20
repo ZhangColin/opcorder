@@ -244,7 +244,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
     while (iteration < MAX_TOOL_ITERATIONS) {
       iteration++;
 
-      const response = await callLLM(llmMessages, AGENT_TOOLS, config.model);
+      const response = await callLLM(llmMessages, AGENT_TOOLS);
 
       if (response.toolCalls && response.toolCalls.length > 0) {
         const toolCalls: ToolCall[] = response.toolCalls;
@@ -315,7 +315,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
       } else {
         // Fallback: model returned no content in the non-streaming call, use streamLLM
         try {
-          for await (const token of streamLLM(llmMessages, config.model)) {
+          for await (const token of streamLLM(llmMessages)) {
             finalContent += token;
             sendEvent({ type: "token", content: token });
           }

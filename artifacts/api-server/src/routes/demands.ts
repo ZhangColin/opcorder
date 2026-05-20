@@ -371,7 +371,7 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
         const result = await callLLM([
           { role: "system", content: "你是一个专业的需求摘要助手。请用1-2句话（不超过80字）简洁概括需求的核心内容，语言专业，适合在列表页展示。直接输出摘要文字，不要加任何前缀、标点符号或解释。" },
           { role: "user", content: `需求标题：${existing.title}\n\n需求详情：${existing.description.slice(0, 2000)}` },
-        ], [], "deepseek-chat");
+        ], []);
         if (result.content) summary = result.content.trim().slice(0, 150);
       } catch (e) {
         logger.warn({ e }, "Failed to generate demand summary, skipping");
