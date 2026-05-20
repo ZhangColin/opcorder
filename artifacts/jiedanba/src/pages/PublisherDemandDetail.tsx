@@ -9,7 +9,7 @@ import {
   XCircle, ExternalLink, AlertCircle, Timer, Trophy,
   FileText, Download, FileImage, FileSpreadsheet, FileArchive, File,
   Menu, Edit2, Send, X, Undo2, CreditCard, Upload, RotateCcw, Loader2, Save,
-  Scale, ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -27,7 +27,6 @@ import { useParams } from "wouter";
 import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { MarkdownContent, stripMarkdown } from "@/components/MarkdownContent";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
-import { QuoteCardCompareView } from "@/components/publisher/QuoteCardCompareView";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -173,7 +172,7 @@ export default function PublisherDemandDetail() {
   const [adjustBidDeadline, setAdjustBidDeadline] = useState<string>("");
   const [adjustBudget, setAdjustBudget] = useState<string>("");
   const [adjustLoading, setAdjustLoading] = useState(false);
-  const [showComparison, setShowComparison] = useState(true);
+  const [bidSortBy, setBidSortBy] = useState<"default" | "price" | "days" | "level" | "score">("default");
   const [expandedQuoteId, setExpandedQuoteId] = useState<number | null>(null);
   const [showCloseOrderDialog, setShowCloseOrderDialog] = useState(false);
   const [closeOrderLoading, setCloseOrderLoading] = useState(false);
@@ -506,13 +505,22 @@ export default function PublisherDemandDetail() {
 
   const pendingBids = bids.filter((b: BidApplication) => b.status === "pending");
   const processedBids = bids.filter((b: BidApplication) => b.status !== "pending");
-  const comparisonBids = [...pendingBids].sort((a: BidApplication, b: BidApplication) => {
-    const pa = (a.quotedPrice ?? 0) as number;
-    const pb = (b.quotedPrice ?? 0) as number;
-    if (pa === 0 && pb === 0) return 0;
-    if (pa === 0) return 1;
-    if (pb === 0) return -1;
-    return pa - pb;
+  const LEVEL_ORDER: Record<string, number> = { A: 3, B: 2, C: 1 };
+  const sortedPendingBids = [...pendingBids].sort((a: BidApplication, b: BidApplication) => {
+    switch (bidSortBy) {
+      case "price": {
+        const pa = (a.quotedPrice ?? 0) as number;
+        const pb = (b.quotedPrice ?? 0) as number;
+        if (pa === 0 && pb === 0) return 0;
+        if (pa === 0) return 1;
+        if (pb === 0) return -1;
+        return pa - pb;
+      }
+      case "days": return (a.estimatedDays ?? 999) - (b.estimatedDays ?? 999);
+      case "level": return (LEVEL_ORDER[b.opcLevel ?? ""] ?? 0) - (LEVEL_ORDER[a.opcLevel ?? ""] ?? 0);
+      case "score": return ((b.opcCreditScore ?? 0) as number) - ((a.opcCreditScore ?? 0) as number);
+      default: return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
   });
 
   return (
@@ -934,6 +942,194 @@ export default function PublisherDemandDetail() {
                 {/* Left: Content + Bid Applications */}
                 <div className="lg:col-span-2 space-y-8">
 
+                  {/* ── 报价对比 ── */}
+                  <section>
+                    <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                      <h2 className="text-lg font-bold text-primary font-display flex items-center gap-2">
+                        <User size={18} /> 报价对比
+                        {pendingBids.length > 0 && (
+                          <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                            {pendingBids.length}
+                          </span>
+                        )}
+                      </h2>
+                      {pendingBids.length >= 2 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(["default", "price", "days", "level", "score"] as const).map((key) => {
+                            const label: Record<string, string> = { default: "默认", price: "价格", days: "完成时间", level: "OPC等级", score: "OPC评分" };
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => setBidSortBy(key)}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
+                                  bidSortBy === key
+                                    ? "bg-primary text-white border-primary"
+                                    : "border-slate-200 text-slate-600 hover:border-primary/40 hover:text-primary"
+                                }`}
+                              >
+                                {label[key]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {bidsLoading ? (
+                      <div className="flex items-center justify-center h-32 bg-white rounded-2xl border border-slate-100">
+                        <div className="w-6 h-6 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                      </div>
+                    ) : pendingBids.length === 0 ? (
+                      <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">
+                        <User size={40} className="mx-auto mb-3 text-slate-200" />
+                        <p className="font-medium">暂无待审核的抢单申请</p>
+                        <p className="text-xs mt-1">
+                          {demand.status === "published"
+                            ? "需求已发布，等待 OPC 提交申请"
+                            : "需求尚未发布或招募已结束"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {sortedPendingBids.map((bid: BidApplication) => (
+                          <div
+                            key={bid.id}
+                            className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-6"
+                          >
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary">
+                                  {bid.opcAvatar ? (
+                                    <img src={bid.opcAvatar} alt={bid.opcNickname} className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    (bid.opcNickname?.[0] ?? "O")
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-foreground">{bid.opcNickname ?? `OPC #${bid.opcId}`}</span>
+                                    {bid.opcLevel && (
+                                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${OPC_LEVEL_COLOR[bid.opcLevel] ?? "bg-slate-100 text-slate-600"}`}>
+                                        {bid.opcLevel}级
+                                      </span>
+                                    )}
+                                  </div>
+                                  {bid.opcCreditScore !== undefined && (
+                                    <div className="mt-1">
+                                      <StarRating score={bid.opcCreditScore} />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                {(bid.quotedPrice ?? 0) > 0 && (
+                                  <div className="text-2xl font-black text-green-600 mb-1">
+                                    ¥{(bid.quotedPrice as number).toLocaleString()}
+                                  </div>
+                                )}
+                                {bid.estimatedDays && (
+                                  <div className="flex items-center justify-end gap-1 text-slate-500 text-sm">
+                                    <Timer size={14} />
+                                    <span>预计 {bid.estimatedDays} 天完成</span>
+                                  </div>
+                                )}
+                                <p className="text-xs text-slate-400 mt-1">
+                                  申请时间：{new Date(bid.createdAt).toLocaleDateString("zh-CN")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">接单方案描述</p>
+                              <p className="text-sm text-slate-700 leading-relaxed">{bid.proposal}</p>
+                            </div>
+                            {(bid.quotedPrice ?? 0) > 0 && (
+                              <div className="mb-4">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedQuoteId(expandedQuoteId === bid.id ? null : bid.id)}
+                                  className="flex items-center gap-1.5 text-xs font-bold text-primary mb-2 hover:text-primary/80 transition-colors"
+                                >
+                                  {expandedQuoteId === bid.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                  {expandedQuoteId === bid.id ? "收起报价明细" : "展开报价明细"}
+                                </button>
+                                {expandedQuoteId === bid.id && (
+                                  bid.quoteCardSnapshot
+                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} />
+                                    : <div className="bg-slate-50 rounded-xl p-4 text-sm text-center text-slate-500">
+                                        最终报价：<span className="font-black text-green-600 text-base">¥{(bid.quotedPrice as number).toLocaleString()}</span>
+                                      </div>
+                                )}
+                              </div>
+                            )}
+                            {bid.portfolioLinks && bid.portfolioLinks.length > 0 && (
+                              <div className="mb-4">
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">作品集链接</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {bid.portfolioLinks.map((link: string, idx: number) => (
+                                    <a key={idx} href={link} target="_blank" rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-full">
+                                      <ExternalLink size={10} /> 查看作品 {idx + 1}
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {confirmingBidId === bid.id ? (
+                              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <p className="text-sm font-bold text-blue-800 mb-3">
+                                  确认选择 <span className="text-primary">{bid.opcNickname}</span> 接单？
+                                </p>
+                                <p className="text-xs text-blue-600 mb-4">确认后将自动生成交易订单，其余申请将自动婉拒。</p>
+                                <div className="flex gap-3">
+                                  <button onClick={() => handleConfirm(bid.id)} disabled={updateBidStatus.isPending}
+                                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                                    <CheckCircle2 size={14} />
+                                    {updateBidStatus.isPending ? "处理中…" : "确认接单"}
+                                  </button>
+                                  <button onClick={() => setConfirmingBidId(null)}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                                    取消
+                                  </button>
+                                </div>
+                              </div>
+                            ) : rejectingBidId === bid.id ? (
+                              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                <p className="text-sm font-bold text-red-700 mb-3">
+                                  婉拒 <span className="font-bold">{bid.opcNickname}</span> 的申请
+                                </p>
+                                <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+                                  placeholder="请填写婉拒原因（选填）" rows={2}
+                                  className="w-full text-sm rounded-lg border border-red-200 bg-white px-3 py-2 mb-3 focus:ring-2 focus:ring-red-200 outline-none resize-none" />
+                                <div className="flex gap-3">
+                                  <button onClick={() => handleReject(bid.id)} disabled={updateBidStatus.isPending}
+                                    className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50">
+                                    <XCircle size={14} />
+                                    {updateBidStatus.isPending ? "处理中…" : "确认婉拒"}
+                                  </button>
+                                  <button onClick={() => { setRejectingBidId(null); setRejectReason(""); }}
+                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                                    取消
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex gap-3">
+                                <button onClick={() => setConfirmingBidId(bid.id)}
+                                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
+                                  <CheckCircle2 size={14} /> 确认接单
+                                </button>
+                                <button onClick={() => setRejectingBidId(bid.id)}
+                                  className="flex items-center gap-2 border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">
+                                  <XCircle size={14} /> 婉拒
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
                   {/* ── 需求详细说明 ── */}
                   <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
                     <h3 className="text-base font-bold text-primary mb-4 flex items-center gap-2 font-display">
@@ -1068,227 +1264,6 @@ export default function PublisherDemandDetail() {
                       </div>
                     </div>
                   )}
-
-                  {/* Pending Bids */}
-                  <section>
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-bold text-primary font-display flex items-center gap-2">
-                        <User size={18} /> 报价对比
-                        {pendingBids.length > 0 && (
-                          <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                            {pendingBids.length}
-                          </span>
-                        )}
-                      </h2>
-                      {pendingBids.length >= 1 && (
-                        <button
-                          onClick={() => setShowComparison(!showComparison)}
-                          className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
-                            showComparison
-                              ? "bg-primary text-white border-primary"
-                              : "border-slate-200 text-slate-600 hover:border-primary/40 hover:text-primary"
-                          }`}
-                        >
-                          <Scale size={13} /> {showComparison ? "列表视图" : "对比视图"}
-                        </button>
-                      )}
-                    </div>
-
-                    {bidsLoading ? (
-                      <div className="flex items-center justify-center h-32 bg-white rounded-2xl border border-slate-100">
-                        <div className="w-6 h-6 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-                      </div>
-                    ) : pendingBids.length === 0 ? (
-                      <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">
-                        <User size={40} className="mx-auto mb-3 text-slate-200" />
-                        <p className="font-medium">暂无待审核的抢单申请</p>
-                        <p className="text-xs mt-1">
-                          {demand.status === "published"
-                            ? "需求已发布，等待 OPC 提交申请"
-                            : "需求尚未发布或招募已结束"}
-                        </p>
-                      </div>
-                    ) : showComparison ? (
-                      <QuoteCardCompareView
-                        bids={bids}
-                        budgetMin={demand.budgetMin ?? demand.budget}
-                        budgetMax={demand.budgetMax ?? demand.budget}
-                        onSelectBid={(bid) => setConfirmingBidId(bid.id)}
-                        selectedBidId={confirmingBidId}
-                      />
-                    ) : (
-                      <div className="space-y-4">
-                        {pendingBids.map((bid: BidApplication) => (
-                          <div
-                            key={bid.id}
-                            className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow p-6"
-                          >
-                            <div className="flex items-start justify-between gap-4 mb-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center font-bold text-primary">
-                                  {bid.opcAvatar ? (
-                                    <img src={bid.opcAvatar} alt={bid.opcNickname} className="w-full h-full rounded-full object-cover" />
-                                  ) : (
-                                    (bid.opcNickname?.[0] ?? "O")
-                                  )}
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-foreground">{bid.opcNickname ?? `OPC #${bid.opcId}`}</span>
-                                    {bid.opcLevel && (
-                                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${OPC_LEVEL_COLOR[bid.opcLevel] ?? "bg-slate-100 text-slate-600"}`}>
-                                        {bid.opcLevel}级
-                                      </span>
-                                    )}
-                                  </div>
-                                  {bid.opcCreditScore !== undefined && (
-                                    <div className="mt-1">
-                                      <StarRating score={bid.opcCreditScore} />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                {(bid.quotedPrice ?? 0) > 0 && (
-                                  <div className="text-2xl font-black text-green-600 mb-1">
-                                    ¥{(bid.quotedPrice as number).toLocaleString()}
-                                  </div>
-                                )}
-                                {bid.estimatedDays && (
-                                  <div className="flex items-center justify-end gap-1 text-slate-500 text-sm">
-                                    <Timer size={14} />
-                                    <span>预计 {bid.estimatedDays} 天完成</span>
-                                  </div>
-                                )}
-                                <p className="text-xs text-slate-400 mt-1">
-                                  申请时间：{new Date(bid.createdAt).toLocaleDateString("zh-CN")}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Proposal */}
-                            <div className="bg-slate-50 rounded-xl p-4 mb-4">
-                              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">接单方案描述</p>
-                              <p className="text-sm text-slate-700 leading-relaxed">{bid.proposal}</p>
-                            </div>
-
-                            {/* Quote Card Detail (expandable) */}
-                            {(bid.quotedPrice ?? 0) > 0 && (
-                              <div className="mb-4">
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedQuoteId(expandedQuoteId === bid.id ? null : bid.id)}
-                                  className="flex items-center gap-1.5 text-xs font-bold text-primary mb-2 hover:text-primary/80 transition-colors"
-                                >
-                                  {expandedQuoteId === bid.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                  {expandedQuoteId === bid.id ? "收起报价明细" : "展开报价明细"}
-                                </button>
-                                {expandedQuoteId === bid.id && (
-                                  bid.quoteCardSnapshot
-                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} />
-                                    : <div className="bg-slate-50 rounded-xl p-4 text-sm text-center text-slate-500">
-                                        最终报价：<span className="font-black text-green-600 text-base">¥{(bid.quotedPrice as number).toLocaleString()}</span>
-                                      </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Portfolio Links */}
-                            {bid.portfolioLinks && bid.portfolioLinks.length > 0 && (
-                              <div className="mb-4">
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">作品集链接</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {bid.portfolioLinks.map((link: string, idx: number) => (
-                                    <a
-                                      key={idx}
-                                      href={link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-full"
-                                    >
-                                      <ExternalLink size={10} /> 查看作品 {idx + 1}
-                                    </a>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Actions */}
-                            {confirmingBidId === bid.id ? (
-                              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <p className="text-sm font-bold text-blue-800 mb-3">
-                                  确认选择 <span className="text-primary">{bid.opcNickname}</span> 接单？
-                                </p>
-                                <p className="text-xs text-blue-600 mb-4">
-                                  确认后将自动生成交易订单，其余申请将自动婉拒。
-                                </p>
-                                <div className="flex gap-3">
-                                  <button
-                                    onClick={() => handleConfirm(bid.id)}
-                                    disabled={updateBidStatus.isPending}
-                                    className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                                  >
-                                    <CheckCircle2 size={14} />
-                                    {updateBidStatus.isPending ? "处理中…" : "确认接单"}
-                                  </button>
-                                  <button
-                                    onClick={() => setConfirmingBidId(null)}
-                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-                                  >
-                                    取消
-                                  </button>
-                                </div>
-                              </div>
-                            ) : rejectingBidId === bid.id ? (
-                              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                                <p className="text-sm font-bold text-red-700 mb-3">
-                                  婉拒 <span className="font-bold">{bid.opcNickname}</span> 的申请
-                                </p>
-                                <textarea
-                                  value={rejectReason}
-                                  onChange={(e) => setRejectReason(e.target.value)}
-                                  placeholder="请填写婉拒原因（选填）"
-                                  rows={2}
-                                  className="w-full text-sm rounded-lg border border-red-200 bg-white px-3 py-2 mb-3 focus:ring-2 focus:ring-red-200 outline-none resize-none"
-                                />
-                                <div className="flex gap-3">
-                                  <button
-                                    onClick={() => handleReject(bid.id)}
-                                    disabled={updateBidStatus.isPending}
-                                    className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
-                                  >
-                                    <XCircle size={14} />
-                                    {updateBidStatus.isPending ? "处理中…" : "确认婉拒"}
-                                  </button>
-                                  <button
-                                    onClick={() => { setRejectingBidId(null); setRejectReason(""); }}
-                                    className="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-                                  >
-                                    取消
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={() => setConfirmingBidId(bid.id)}
-                                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm"
-                                >
-                                  <CheckCircle2 size={14} /> 确认接单
-                                </button>
-                                <button
-                                  onClick={() => setRejectingBidId(bid.id)}
-                                  className="flex items-center gap-2 border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
-                                >
-                                  <XCircle size={14} /> 婉拒
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
 
                   {/* Already processed bids */}
                   {processedBids.length > 0 && (
@@ -1465,7 +1440,7 @@ export default function PublisherDemandDetail() {
         onCancel={() => setShowCloseDialog(false)}
       />
 
-      {showComparison && confirmingBidId !== null && (() => {
+      {confirmingBidId !== null && (() => {
         const bid = bids.find((b: BidApplication) => b.id === confirmingBidId);
         if (!bid) return null;
         return (
