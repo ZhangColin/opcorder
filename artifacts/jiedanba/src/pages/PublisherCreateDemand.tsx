@@ -458,7 +458,9 @@ export default function PublisherCreateDemand() {
   };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [agentPanelOpen, setAgentPanelOpen] = useState(false);
+  const [agentPanelOpen, setAgentPanelOpen] = useState(() =>
+    new URLSearchParams(window.location.search).get("ai") === "1"
+  );
   const [agentEnabled, setAgentEnabled] = useState(false);
   const agentSessionKey = useRef(`create-demand-${Date.now()}`).current;
   const agentConversationId = useRef<number | null>(null);
@@ -1025,22 +1027,6 @@ export default function PublisherCreateDemand() {
       </main>
 
       </div>{/* end split-content-area */}
-
-      {/* Floating AI button – shown when panel is closed */}
-      {agentEnabled && !agentPanelOpen && (
-        <button
-          type="button"
-          onClick={() => setAgentPanelOpen(true)}
-          className="fixed bottom-8 right-8 z-40 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl bg-primary text-white font-bold text-sm hover:scale-105 hover:shadow-primary/30 transition-all duration-200"
-        >
-          <Bot size={18} />
-          AI 助手
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-          </span>
-        </button>
-      )}
 
       {/* AI assistant panel (large centered overlay on desktop, bottom sheet on mobile) */}
       <AgentChatPanel
