@@ -579,38 +579,41 @@ export default function PublisherCreateDemand() {
         <div className="pt-24 px-8 pb-20 max-w-[900px] mx-auto space-y-6">
 
           {/* Page title */}
-          <div className="flex items-start justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-extrabold text-blue-900 font-display tracking-tight">
-                  {isEdit ? "编辑需求" : "发布新需求"}
-                </h1>
-                {!isEdit && agentEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => setAgentPanelOpen(true)}
-                    className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-md shadow-primary/25 hover:bg-primary/90 hover:scale-105 transition-all"
-                  >
-                    <Bot size={13} />
-                    AI 助手
-                    <span className="flex h-1.5 w-1.5 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-70" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-                    </span>
-                  </button>
-                )}
-              </div>
+              <h1 className="text-2xl font-extrabold text-blue-900 font-display tracking-tight">
+                {isEdit ? "编辑需求" : "发布新需求"}
+              </h1>
               <p className="text-sm text-slate-500 mt-1">
                 {isEdit
                   ? "修改需求信息，保存后进入重新审核流程"
                   : "填写需求信息，提交后将进入平台审核队列（24小时内完成）"}
               </p>
             </div>
-            {isUrgent && (
-              <span className="flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-1.5 rounded-full border border-red-200">
-                <Zap size={12} /> 紧急需求
-              </span>
-            )}
+            <div className="flex items-center gap-3 shrink-0">
+              {isUrgent && (
+                <span className="flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-1.5 rounded-full border border-red-200">
+                  <Zap size={12} /> 紧急需求
+                </span>
+              )}
+              {!isEdit && agentEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setAgentPanelOpen(true)}
+                  className="group flex items-center gap-2.5 bg-primary text-white font-bold px-5 py-2.5 rounded-2xl shadow-lg shadow-primary/30 hover:bg-primary/90 hover:scale-105 hover:shadow-primary/40 transition-all duration-200"
+                >
+                  <Bot size={16} />
+                  <div className="text-left">
+                    <div className="text-sm leading-tight">AI 需求助手</div>
+                    <div className="text-[10px] font-normal opacity-80 leading-tight">描述想法，自动生成需求</div>
+                  </div>
+                  <span className="flex h-2 w-2 relative ml-1">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ── Section 1: 基本信息 ── */}
