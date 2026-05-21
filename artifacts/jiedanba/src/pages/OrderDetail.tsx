@@ -303,6 +303,7 @@ function EmptyDelivForm({
             type="file"
             className="hidden"
             multiple
+            accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.pdf,.docx,.xlsx,.pptx,.txt,.zip"
             disabled={uploading}
             onChange={(e) => {
               const selectedFiles = Array.from(e.target.files ?? []);
@@ -492,7 +493,9 @@ function EditDelivForm({
         <label className={`flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-border cursor-pointer text-xs font-medium text-primary hover:bg-primary/5 transition-colors ${uploading ? "opacity-60 cursor-not-allowed" : ""}`}>
           {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
           {uploading ? "上传中…" : "点击上传文件"}
-          <input type="file" className="hidden" multiple disabled={uploading}
+          <input type="file" className="hidden" multiple
+            accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.pdf,.docx,.xlsx,.pptx,.txt,.zip"
+            disabled={uploading}
             onChange={(e) => { Array.from(e.target.files ?? []).forEach(uploadFile); e.target.value = ""; }} />
         </label>
       </div>
