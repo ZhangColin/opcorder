@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 import { db, llmProvidersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
 export type LLMMessage = {
@@ -37,30 +36,45 @@ export type LLMResponse = {
   reasoningContent?: string;
 };
 
-async function getActiveClient(): Promise<{ client: OpenAI; model: string }> {
+type ProviderEntry = {
+  client: OpenAI;
+  model: string;
+  name: string;
+};
+
+async function getOrderedProviders(): Promise<ProviderEntry[]> {
+  const entries: ProviderEntry[] = [];
+
   try {
-    const [provider] = await db
+    const allProviders = await db
       .select()
       .from(llmProvidersTable)
-      .where(eq(llmProvidersTable.isActive, true))
-      .limit(1);
+      .orderBy(llmProvidersTable.id);
 
-    if (provider && provider.apiKey) {
-      return {
-        client: new OpenAI({ baseURL: provider.baseUrl, apiKey: provider.apiKey }),
-        model: provider.defaultModel,
-      };
+    const activeProviders = allProviders.filter((p) => p.isActive && p.apiKey);
+    const otherProviders = allProviders.filter((p) => !p.isActive && p.apiKey);
+
+    for (const p of [...activeProviders, ...otherProviders]) {
+      entries.push({
+        client: new OpenAI({ baseURL: p.baseUrl, apiKey: p.apiKey }),
+        model: p.defaultModel,
+        name: p.displayName,
+      });
     }
   } catch (err) {
-    logger.warn({ err }, "llm: failed to load active provider from DB, falling back to env");
+    logger.warn({ err }, "llm: failed to load providers from DB");
   }
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error("没有可用的大模型配置，请在后台激活一个供应商");
-  return {
-    client: new OpenAI({ baseURL: "https://api.deepseek.com", apiKey }),
-    model: "deepseek-chat",
-  };
+  const envKey = process.env.DEEPSEEK_API_KEY;
+  if (envKey && !entries.some((e) => e.name === "DeepSeek (env)")) {
+    entries.push({
+      client: new OpenAI({ baseURL: "https://api.deepseek.com", apiKey: envKey }),
+      model: "deepseek-chat",
+      name: "DeepSeek (env)",
+    });
+  }
+
+  return entries;
 }
 
 export async function callLLM(
@@ -68,59 +82,81 @@ export async function callLLM(
   tools?: LLMTool[],
   model?: string
 ): Promise<LLMResponse> {
-  const { client, model: defaultModel } = await getActiveClient();
-  const resolvedModel = model ?? defaultModel;
+  const providers = await getOrderedProviders();
+  if (providers.length === 0) {
+    throw new Error("没有可用的大模型配置，请在后台激活一个供应商");
+  }
 
-  const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
-    model: resolvedModel,
-    messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
-    ...(tools && tools.length > 0 ? { tools } : {}),
-  };
+  let lastErr: unknown;
 
-  const completion = await client.chat.completions.create(params);
-  const choice = completion.choices[0];
+  for (const provider of providers) {
+    const resolvedModel = model ?? provider.model;
+    try {
+      const params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
+        model: resolvedModel,
+        messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
+        ...(tools && tools.length > 0 ? { tools } : {}),
+      };
 
-  const reasoningContent: string | undefined =
-    (choice.message as any).reasoning_content ?? undefined;
+      const completion = await provider.client.chat.completions.create(params);
+      const choice = completion.choices[0];
+      const reasoningContent: string | undefined =
+        (choice.message as any).reasoning_content ?? undefined;
 
-  return {
-    content: choice.message.content,
-    toolCalls: choice.message.tool_calls as ToolCall[] | undefined,
-    finishReason: choice.finish_reason,
-    ...(reasoningContent !== undefined ? { reasoningContent } : {}),
-  };
+      return {
+        content: choice.message.content,
+        toolCalls: choice.message.tool_calls as ToolCall[] | undefined,
+        finishReason: choice.finish_reason,
+        ...(reasoningContent !== undefined ? { reasoningContent } : {}),
+      };
+    } catch (err) {
+      logger.warn({ err, provider: provider.name }, "llm: provider failed, trying next");
+      lastErr = err;
+    }
+  }
+
+  logger.error({ lastErr }, "llm: all providers failed");
+  throw new Error("服务暂时繁忙，请稍后重试");
 }
 
 export async function* streamLLM(
   messages: LLMMessage[],
   model?: string
 ): AsyncGenerator<string> {
-  const { client, model: defaultModel } = await getActiveClient();
-  const resolvedModel = model ?? defaultModel;
+  const providers = await getOrderedProviders();
+  if (providers.length === 0) {
+    throw new Error("没有可用的大模型配置，请在后台激活一个供应商");
+  }
 
-  const stream = await client.chat.completions.create({
-    model: resolvedModel,
-    messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
-    stream: true,
-  });
+  let lastErr: unknown;
 
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content;
-    if (delta) {
-      yield delta;
+  for (const provider of providers) {
+    const resolvedModel = model ?? provider.model;
+    try {
+      const stream = await provider.client.chat.completions.create({
+        model: resolvedModel,
+        messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          yield delta;
+        }
+      }
+      return;
+    } catch (err) {
+      logger.warn({ err, provider: provider.name }, "llm: stream provider failed, trying next");
+      lastErr = err;
     }
   }
+
+  logger.error({ lastErr }, "llm: all stream providers failed");
+  throw new Error("服务暂时繁忙，请稍后重试");
 }
 
 export async function isLLMAvailable(): Promise<boolean> {
-  try {
-    const [provider] = await db
-      .select({ id: llmProvidersTable.id })
-      .from(llmProvidersTable)
-      .where(eq(llmProvidersTable.isActive, true))
-      .limit(1);
-    if (provider) return true;
-  } catch {
-  }
-  return !!process.env.DEEPSEEK_API_KEY;
+  const providers = await getOrderedProviders();
+  return providers.length > 0;
 }

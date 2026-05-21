@@ -341,10 +341,11 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error({ error }, "Agent chat error");
+    const userMsg = "服务暂时繁忙，请稍后重试";
     try {
-      await saveAndEndOnError(errMsg);
+      await saveAndEndOnError(userMsg);
     } catch {
-      res.write(`data: ${JSON.stringify({ type: "error", message: errMsg })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: "error", message: userMsg })}\n\n`);
       res.end();
     }
   }
