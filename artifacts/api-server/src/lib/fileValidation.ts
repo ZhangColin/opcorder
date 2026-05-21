@@ -54,6 +54,7 @@ export const ALLOWED_MIME_TYPES: Record<string, readonly string[]> = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": ["pptx"],
 
   "text/plain": ["txt"],
+  "text/html": ["html", "htm"],
   "application/zip": ["zip"],
 };
 

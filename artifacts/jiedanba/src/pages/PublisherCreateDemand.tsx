@@ -217,7 +217,7 @@ function AttachmentInput({ onAdd, onUploadError }: {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.pdf,.docx,.xlsx,.pptx,.txt,.zip"
+          accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.pdf,.docx,.xlsx,.pptx,.txt,.html,.htm,.zip"
           className="hidden"
           onChange={e => e.target.files && e.target.files.length > 0 && uploadFiles(e.target.files)}
         />
