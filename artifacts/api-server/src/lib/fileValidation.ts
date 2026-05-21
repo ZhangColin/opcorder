@@ -184,9 +184,9 @@ export async function verifyUploadedFile(
   const buffer = await downloadPartialBuffer(quarantineFile, sampleSize);
   const detected = await fileTypeFromBuffer(buffer);
 
-  // 4. text/plain has no magic number — allow through
+  // 4. text/* types (plain, html, csv, …) have no magic number — allow through
   if (!detected) {
-    if (expectedContentType === "text/plain") {
+    if (expectedContentType.startsWith("text/")) {
       return null;
     }
     return {
