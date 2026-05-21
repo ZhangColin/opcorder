@@ -66,3 +66,9 @@ id = "ERWE4H6bPStB-rKOxyubq"
 uri = "file://backups/prod_backup_20260518_151156.sql.gz"
 type = "unspecified"
 title = "生产数据库备份 2026-05-18 (gzip)"
+
+[[outputs]]
+id = "oOZu_k3epjs2-pgSQijPX"
+uri = "file://.local/docs/database-schema-zh.md"
+type = "text"
+title = "接单吧 数据库表结构说明（中文）"
