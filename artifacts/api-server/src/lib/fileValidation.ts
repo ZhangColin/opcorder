@@ -3,32 +3,24 @@
  *
  * Layer 1 – Pre-upload gate (validateFileUpload):
  *   Called before issuing a presigned URL. Validates client-declared metadata
- *   (MIME type, file extension, size) against a whitelist. Stops clearly
- *   invalid requests early but cannot verify actual file bytes.
+ *   (MIME type, file extension, size) against a whitelist.
  *
  * Layer 2 – Post-upload verification (verifyUploadedFile):
  *   Called after the client PUT the file to the quarantine presigned URL.
- *   Uses TRUSTED, server-stored metadata from the upload session — NOT
- *   client-supplied values — to validate actual bytes, size, MIME type, and
- *   extension. Returns null on success; the caller is responsible for
- *   promoting (on success) or deleting (on failure) the quarantine object.
- *
- * ClamAV / macro scanning: requires an external AV service and is not
- * implemented here. The magic-byte check prevents the most common attack
- * (content-type spoofing and extension mismatch). Follow-up task #29 tracks
- * adding AV scanning.
+ *   Uses TRUSTED, server-stored metadata from the upload session to verify
+ *   actual file size and extension consistency.
+ *   Magic-byte / content-type spoofing checks are intentionally omitted:
+ *   they caused false positives on legitimate files (WPS/LibreOffice OOXML,
+ *   text/html) and provide marginal value compared to the whitelist gate.
+ *   AV scanning (task #29) is the right tool for deeper content inspection.
  */
 
-import { fileTypeFromBuffer } from "file-type";
 import { File } from "@google-cloud/storage";
 
 export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 export const VIDEO_MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB (for screen videos)
 
 const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
-
-/** Bytes to sample for magic-number detection (file-type needs ≤ 4100). */
-const MAGIC_BYTES_SAMPLE = 4100;
 
 /**
  * Allowed MIME types mapped to their permitted lowercase extensions.
@@ -60,22 +52,13 @@ export const ALLOWED_MIME_TYPES: Record<string, readonly string[]> = {
 
 const ALLOWED_EXTENSION_SET = new Set(Object.values(ALLOWED_MIME_TYPES).flat());
 
-const OOXML_MIME_TYPES = new Set([
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-]);
-
 export interface FileValidationError {
   code:
     | "SIZE_EXCEEDED"
     | "MIME_NOT_ALLOWED"
     | "EXTENSION_NOT_ALLOWED"
     | "EXTENSION_MIME_MISMATCH"
-    | "MAGIC_MIME_MISMATCH"
-    | "ACTUAL_SIZE_EXCEEDED"
-    | "ACTUAL_MIME_UNDETECTABLE"
-    | "OOXML_STRUCTURE_INVALID";
+    | "ACTUAL_SIZE_EXCEEDED";
   message: string;
 }
 
@@ -135,22 +118,18 @@ export function validateFileUpload(input: FileValidationInput): FileValidationEr
 }
 
 /**
- * Layer 2 – Post-upload content verification.
+ * Layer 2 – Post-upload verification.
  *
- * Inspects actual bytes from the GCS quarantine object using magic-number
- * detection (file-type) and validates real file size from object metadata.
+ * Checks actual file size from GCS object metadata and re-validates the
+ * extension against the trusted server-stored MIME type.
+ * No magic-byte or content inspection is performed.
  *
  * IMPORTANT: Both parameters MUST come from the server-side upload session —
- * never from client-supplied request fields. This prevents metadata-swapping.
+ * never from client-supplied request fields.
  *
  * The caller is responsible for:
  *   - Deleting the quarantine object on failure
  *   - Promoting the quarantine object to the published path on success
- *
- * @param quarantineFile - GCS File in the quarantine area to inspect
- * @param expectedContentType - MIME type stored in the server-side session
- * @param expectedName - filename stored in the server-side session
- * @returns null on success; FileValidationError describing the failure otherwise
  */
 export async function verifyUploadedFile(
   quarantineFile: File,
@@ -179,90 +158,5 @@ export async function verifyUploadedFile(
     };
   }
 
-  // 3. Download magic bytes for MIME detection
-  const sampleSize = Math.min(actualSize || MAGIC_BYTES_SAMPLE, MAGIC_BYTES_SAMPLE);
-  const buffer = await downloadPartialBuffer(quarantineFile, sampleSize);
-  const detected = await fileTypeFromBuffer(buffer);
-
-  // 4. text/* types (plain, html, csv, …) have no magic number — allow through
-  if (!detected) {
-    if (expectedContentType.startsWith("text/")) {
-      return null;
-    }
-    return {
-      code: "ACTUAL_MIME_UNDETECTABLE",
-      message: "无法检测文件实际类型，上传被拒绝",
-    };
-  }
-
-  const detectedMime = detected.mime;
-
-  // 5. OOXML formats (.docx/.xlsx/.pptx) are ZIP containers.
-  //    file-type reports them as application/zip. Accept only if the ZIP
-  //    actually contains the OOXML structure marker [Content_Types].xml.
-  if (OOXML_MIME_TYPES.has(expectedContentType) && detectedMime === "application/zip") {
-    if (!isOoxmlStructurePresent(buffer)) {
-      return {
-        code: "OOXML_STRUCTURE_INVALID",
-        message: "文件声明为 Office 文档，但未找到有效的 OOXML 结构标记",
-      };
-    }
-    return null;
-  }
-
-  // 6. For video types, accept any video/* detected MIME (MP4 may be detected as video/quicktime)
-  if (VIDEO_MIME_TYPES.has(expectedContentType)) {
-    if (!detectedMime.startsWith("video/")) {
-      return {
-        code: "MAGIC_MIME_MISMATCH",
-        message: `文件实际类型（${detectedMime}）不是视频文件`,
-      };
-    }
-    return null;
-  }
-
-  // 7. For all other types, detected MIME must be allowed and match expected
-  if (!ALLOWED_MIME_TYPES[detectedMime]) {
-    return {
-      code: "MAGIC_MIME_MISMATCH",
-      message: `文件实际类型（${detectedMime}）不在允许范围内`,
-    };
-  }
-
-  if (detectedMime !== expectedContentType) {
-    return {
-      code: "MAGIC_MIME_MISMATCH",
-      message: `文件实际类型（${detectedMime}）与预期类型（${expectedContentType}）不匹配`,
-    };
-  }
-
   return null;
-}
-
-/**
- * Check whether a buffer (from a ZIP file) contains the OOXML structure
- * marker "[Content_Types].xml". Standard Microsoft Office files place this as
- * the first ZIP entry (within the first ~256 bytes), but tools like WPS Office
- * and LibreOffice may place other entries first. We search the entire sampled
- * buffer (up to MAGIC_BYTES_SAMPLE bytes) to handle all real-world generators.
- */
-function isOoxmlStructurePresent(buffer: Buffer): boolean {
-  const marker = Buffer.from("[Content_Types].xml");
-  for (let i = 0; i <= buffer.length - marker.length; i++) {
-    if (buffer.subarray(i, i + marker.length).equals(marker)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Download the first `byteCount` bytes of an object from GCS. */
-async function downloadPartialBuffer(file: File, byteCount: number): Promise<Buffer> {
-  return new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const stream = file.createReadStream({ start: 0, end: byteCount - 1 });
-    stream.on("data", (chunk: Buffer) => chunks.push(chunk));
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-    stream.on("error", reject);
-  });
 }
