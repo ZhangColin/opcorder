@@ -240,12 +240,14 @@ export async function verifyUploadedFile(
 
 /**
  * Check whether a buffer (from a ZIP file) contains the OOXML structure
- * marker "[Content_Types].xml". All valid OOXML containers include this as
- * their first local-file entry, so it appears within the first ~256 bytes.
+ * marker "[Content_Types].xml". Standard Microsoft Office files place this as
+ * the first ZIP entry (within the first ~256 bytes), but tools like WPS Office
+ * and LibreOffice may place other entries first. We search the entire sampled
+ * buffer (up to MAGIC_BYTES_SAMPLE bytes) to handle all real-world generators.
  */
 function isOoxmlStructurePresent(buffer: Buffer): boolean {
   const marker = Buffer.from("[Content_Types].xml");
-  for (let i = 0; i <= Math.min(buffer.length - marker.length, 512); i++) {
+  for (let i = 0; i <= buffer.length - marker.length; i++) {
     if (buffer.subarray(i, i + marker.length).equals(marker)) {
       return true;
     }

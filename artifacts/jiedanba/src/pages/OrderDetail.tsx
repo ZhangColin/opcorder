@@ -19,6 +19,19 @@ import { getAccessToken } from "@/lib/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+const EXT_TO_MIME: Record<string, string> = {
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+function resolveContentType(file: File): string {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if ((file.type === "application/zip" || !file.type) && EXT_TO_MIME[ext]) {
+    return EXT_TO_MIME[ext];
+  }
+  return file.type || "application/octet-stream";
+}
+
 function extractUrls(text: string): { urls: string[]; plainText: string } {
   if (!text) return { urls: [], plainText: "" };
   const urlRegex = /https?:\/\/[^\s|,，]+/g;
@@ -141,7 +154,7 @@ function EmptyDelivForm({
   const uploadFile = async (file: File) => {
     setUploadCount((c) => c + 1);
     try {
-      const contentType = file.type || "application/octet-stream";
+      const contentType = resolveContentType(file);
       const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: {
@@ -367,7 +380,7 @@ function EditDelivForm({
   const uploadFile = async (file: File) => {
     setUploadCount((c) => c + 1);
     try {
-      const contentType = file.type || "application/octet-stream";
+      const contentType = resolveContentType(file);
       const res = await fetch(`${BASE}/api/storage/uploads/request-url`, {
         method: "POST",
         headers: {

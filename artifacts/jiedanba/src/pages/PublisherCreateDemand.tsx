@@ -14,6 +14,27 @@ import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
 import { PublisherHeaderUser } from '@/components/publisher/PublisherHeaderUser';
 import { useToast } from "@/hooks/use-toast";
 
+/* ─── Helpers ─────────────────────────────────── */
+
+/**
+ * Some browsers (especially on macOS/Linux) report OOXML files (.docx/.xlsx/.pptx)
+ * as "application/zip" because they are ZIP containers. Map the correct MIME type
+ * from the file extension so the server-side validator accepts them.
+ */
+const EXT_TO_MIME: Record<string, string> = {
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+
+function resolveContentType(file: File): string {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if ((file.type === "application/zip" || !file.type) && EXT_TO_MIME[ext]) {
+    return EXT_TO_MIME[ext];
+  }
+  return file.type || "application/octet-stream";
+}
+
 /* ─── Constants ───────────────────────────────── */
 
 const DEMAND_TYPES = [
@@ -148,13 +169,14 @@ function AttachmentInput({ onAdd, onUploadError }: {
     for (const file of fileArray) {
       setUploading(prev => [...prev, { name: file.name }]);
       try {
+        const resolvedContentType = resolveContentType(file);
         const resp = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: file.name,
             size: file.size,
-            contentType: file.type || "application/octet-stream",
+            contentType: resolvedContentType,
           }),
         });
         if (!resp.ok) throw new Error("获取上传链接失败");
@@ -163,7 +185,7 @@ function AttachmentInput({ onAdd, onUploadError }: {
         const put = await fetch(uploadURL, {
           method: "PUT",
           body: file,
-          headers: { "Content-Type": file.type || "application/octet-stream" },
+          headers: { "Content-Type": resolvedContentType },
         });
         if (!put.ok) throw new Error("文件上传失败");
 
