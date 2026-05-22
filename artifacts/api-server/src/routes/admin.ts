@@ -68,7 +68,7 @@ async function sendBatchedEmails(
   body: string,
   from: string
 ): Promise<BulkEmailResult> {
-  const BATCH_SIZE = 4;
+  const BATCH_SIZE = 2;
   const DELAY_MS = 1100;
   let sent = 0, failed = 0, skipped = 0;
   const failedEmails: Array<{ email: string; reason: string }> = [];
