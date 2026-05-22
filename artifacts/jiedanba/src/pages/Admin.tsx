@@ -18,7 +18,7 @@ import {
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet, Video,
-  Pin, Paperclip,
+  Pin, Paperclip, ScrollText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -103,7 +103,7 @@ export type Module =
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments" | "activities"
-  | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard";
+  | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard" | "syslogs";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -128,6 +128,7 @@ const NAV: NavItem[] = [
   { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
   { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
   { key: "adminusers",     icon: UserCog,             label: "管理员管理",  superAdminOnly: true },
+  { key: "syslogs",        icon: ScrollText,          label: "系统日志",    superAdminOnly: true },
   {
     key: "screen", icon: Monitor, label: "数据大屏", permKey: "screen",
     children: [
@@ -7243,6 +7244,171 @@ function SettlementManagement() {
   );
 }
 
+/* ─── SystemLogsPanel ────────────────────────────── */
+
+type SysLog = {
+  id: number;
+  level: "info" | "warn" | "error";
+  category: string;
+  message: string;
+  metadata: Record<string, unknown> | null;
+  operatorId: number | null;
+  operatorName: string | null;
+  createdAt: string;
+};
+
+function SystemLogsPanel() {
+  const [category, setCategory] = useState("all");
+  const [level, setLevel] = useState("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+
+  const { data, isLoading, refetch, isFetching } = useQuery<{ total: number; rows: SysLog[] }>({
+    queryKey: ["system-logs", category, level, page],
+    queryFn: () => adminGet(
+      `/api/admin/system-logs?category=${category}&level=${level}&limit=${pageSize}&offset=${(page - 1) * pageSize}`
+    ),
+  });
+
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const levelBadge = (l: string) => {
+    if (l === "error") return "bg-red-100 text-red-700 border border-red-200";
+    if (l === "warn")  return "bg-amber-100 text-amber-700 border border-amber-200";
+    return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+  };
+  const levelLabel = (l: string) => ({ error: "错误", warn: "警告", info: "正常" }[l] ?? l);
+
+  const categoryLabel = (c: string) => ({
+    email: "邮件", system: "系统", user: "用户", payment: "支付",
+  }[c] ?? c);
+
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="系统日志" sub="平台操作记录 · 群发邮件任务追踪 · 异常事件审计" />
+
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">分类</span>
+            {["all", "email", "system", "user", "payment"].map(c => (
+              <button key={c} onClick={() => { setCategory(c); setPage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  category === c ? "bg-primary text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}>
+                {c === "all" ? "全部" : categoryLabel(c)}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-5 bg-slate-200 mx-1" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">级别</span>
+            {["all", "info", "warn", "error"].map(l => (
+              <button key={l} onClick={() => { setLevel(l); setPage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  level === l ? "bg-primary text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}>
+                {l === "all" ? "全部" : levelLabel(l)}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => refetch()}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-bold transition-colors">
+            <RefreshCw size={13} className={isFetching ? "animate-spin" : ""} /> 刷新
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20 text-slate-400 gap-2">
+            <Loader2 size={18} className="animate-spin" /> 加载中…
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+            <ScrollText size={36} className="text-slate-200" />
+            <p className="text-sm font-medium">暂无日志记录</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-28">时间</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-16">级别</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-16">分类</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">消息</th>
+                <th className="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-24">操作人</th>
+                <th className="px-3 py-3 w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {rows.map(r => (
+                <>
+                  <tr key={r.id}
+                    className={`hover:bg-slate-50/70 transition-colors cursor-pointer ${expanded === r.id ? "bg-blue-50/40" : ""}`}
+                    onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
+                    <td className="px-5 py-3 text-xs text-slate-500 whitespace-nowrap font-mono">
+                      {new Date(r.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold ${levelBadge(r.level)}`}>
+                        {levelLabel(r.level)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-medium">
+                        {categoryLabel(r.category)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-slate-800 text-sm max-w-md truncate">{r.message}</td>
+                    <td className="px-3 py-3 text-xs text-slate-500">{r.operatorName ?? "—"}</td>
+                    <td className="px-3 py-3 text-slate-400">
+                      {r.metadata ? (expanded === r.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}
+                    </td>
+                  </tr>
+                  {expanded === r.id && r.metadata && (
+                    <tr key={`${r.id}-detail`} className="bg-blue-50/40">
+                      <td colSpan={6} className="px-5 pb-4 pt-0">
+                        <pre className="text-xs text-slate-700 bg-white border border-slate-200 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap break-all font-mono">
+                          {JSON.stringify(r.metadata, null, 2)}
+                        </pre>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-slate-500">
+          <span>共 {total} 条记录</span>
+          <div className="flex gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-50 text-xs font-bold transition-colors">
+              上一页
+            </button>
+            <span className="px-3 py-1.5 text-xs font-bold">{page} / {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-50 text-xs font-bold transition-colors">
+              下一页
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── ModuleContent ───────────────────────────────── */
 
 /* ─── Screen Videos Management ──────────────────── */
@@ -7486,6 +7652,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;
+    case "syslogs":        return <SystemLogsPanel />;
     case "screen":         return null;
     case "screenvideos":   return <ScreenVideosModule />;
   }
