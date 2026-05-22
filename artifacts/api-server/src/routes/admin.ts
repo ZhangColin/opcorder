@@ -1198,7 +1198,7 @@ router.post("/admin/users/bulk-email", async (req, res) => {
     const total = jobs.length;
     const operatorId = req.user?.id;
 
-    return res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
+    res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
 
     await writeSystemLog("info", "email", `群发邮件任务开始：${subject!.trim()}`, { subject: subject!.trim(), total }, operatorId);
 
@@ -1336,7 +1336,7 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
     const total = jobs.length;
     const operatorId = req.user?.id;
 
-    return res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
+    res.status(202).json({ total, message: `群发任务已启动，共 ${total} 位收件人，正在后台发送` });
 
     await writeSystemLog("info", "email", `课程群发邮件任务开始：${subject!.trim()}`, { subject: subject!.trim(), courseId, total }, operatorId);
 
