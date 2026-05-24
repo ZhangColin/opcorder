@@ -1513,53 +1513,10 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 020f failed in production: ${err}`);
   }
 
-  // Migration 020g: backfill opc_track_certs from approved portfolio certifications
-  // Only runs when both opc_track_certs AND portfolios.cat_category_id exist.
-  // For portfolios with a cat_category_id set → create one track cert per (user, category).
-  // For approved portfolios without cat_category_id (legacy) → skip (will be handled
-  //   after admin links those portfolios to a category in the new admin flow).
-  // DISTINCT ON (user_id, cat_category_id) picks the highest level (A > B > C).
-  // INSERT ... ON CONFLICT DO NOTHING is fully idempotent.
-  try {
-    await db.execute(sql`
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1 FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'opc_track_certs'
-        )
-        AND EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_name = 'portfolios' AND column_name = 'cat_category_id'
-        )
-        THEN
-          INSERT INTO opc_track_certs (user_id, cat_category_id, level, certified_at)
-          SELECT DISTINCT ON (user_id, cat_category_id)
-            user_id,
-            cat_category_id,
-            apply_level,
-            COALESCE(reviewed_at, created_at)
-          FROM portfolios
-          WHERE level_apply_status = 'approved'
-            AND apply_level IS NOT NULL
-            AND cat_category_id IS NOT NULL
-          ORDER BY
-            user_id,
-            cat_category_id,
-            CASE apply_level
-              WHEN 'A' THEN 3
-              WHEN 'B' THEN 2
-              WHEN 'C' THEN 1
-              ELSE 0
-            END DESC
-          ON CONFLICT (user_id, cat_category_id) DO NOTHING;
-        END IF;
-      END $$
-    `);
-    logger.info("Migration 020g: backfilled opc_track_certs from approved portfolios");
-  } catch (err) {
-    logger.warn({ err }, "Migration 020g: could not backfill opc_track_certs");
-  }
+  // Migration 020g: superseded — auto-backfill of opc_track_certs from portfolios
+  // has been removed. Track certifications are now managed exclusively by operations
+  // staff via the admin panel (Migration 024a clears any previously auto-inserted rows).
+  logger.info("Migration 020g: skipped (superseded by manual cert management policy)");
 
   // Migration 021a: Add required_track_level to demands (bidder track cert eligibility filter)
   try {
@@ -1694,38 +1651,26 @@ export async function runMigrations(): Promise<void> {
             END;
         END IF;
 
-        -- Step 2: Insert any still-missing opc_track_certs (catch-all, idempotent)
-        IF EXISTS (
-          SELECT 1 FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'opc_track_certs'
-        )
-        THEN
-          INSERT INTO opc_track_certs (user_id, cat_category_id, level, certified_at)
-          SELECT DISTINCT ON (p.user_id, p.cat_category_id)
-            p.user_id,
-            p.cat_category_id,
-            p.apply_level,
-            COALESCE(p.reviewed_at, p.created_at)
-          FROM portfolios p
-          WHERE p.level_apply_status = 'approved'
-            AND p.apply_level IS NOT NULL
-            AND p.cat_category_id IS NOT NULL
-          ORDER BY
-            p.user_id,
-            p.cat_category_id,
-            CASE p.apply_level
-              WHEN 'A' THEN 3
-              WHEN 'B' THEN 2
-              WHEN 'C' THEN 1
-              ELSE 0
-            END DESC
-          ON CONFLICT (user_id, cat_category_id) DO NOTHING;
-        END IF;
+        -- Step 2: opc_track_certs auto-backfill removed.
+        -- Track certifications are now managed exclusively by operations staff.
+        -- (Migration 024a clears any previously auto-inserted rows.)
       END $$
     `);
-    logger.info("Migration 022a: backfilled cat_category_id from legacy type + ensured opc_track_certs coverage");
+    logger.info("Migration 022a: backfilled portfolios.cat_category_id from legacy type field");
   } catch (err) {
     logger.warn({ err }, "Migration 022a: could not backfill legacy portfolio categories");
+  }
+
+  // Migration 024a: clear all auto-backfilled opc_track_certs rows.
+  // Track certifications are now managed exclusively by operations staff via the admin
+  // panel. Any rows previously inserted by Migration 020g or 022a are incorrect and
+  // must be wiped. This migration runs once; subsequent restarts are safe (table empty
+  // or contains only manually-granted certs which have operator_id set).
+  try {
+    await db.execute(sql`DELETE FROM opc_track_certs`);
+    logger.info("Migration 024a: cleared all opc_track_certs rows (all were auto-backfilled; manual cert management policy now applies)");
+  } catch (err) {
+    logger.warn({ err }, "Migration 024a: could not clear opc_track_certs");
   }
 
   // Migration 023a: create credit_rules and credit_transactions tables,

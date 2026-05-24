@@ -1596,14 +1596,10 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
       reviewedAt: new Date(),
     }).where(eq(portfoliosTable.id, portfolioId));
 
-    if (result === "approved" || result === "downgraded") {
-      await db.execute(sql`
-        INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at)
-        VALUES (${portfolio.userId}, ${effectiveCatId}, ${grantedLevel}, 'active', NOW())
-        ON CONFLICT (user_id, cat_category_id) DO UPDATE
-          SET level = EXCLUDED.level, certified_at = NOW(), status = 'active'
-      `);
-    }
+    // NOTE: opc_track_certs is NOT updated here.
+    // Track certifications are managed exclusively by operations staff via the
+    // admin panel (manual grant/revoke). Portfolio approval only records the
+    // review result on the portfolio itself and sends the OPC a notification.
 
     await db.insert(notificationsTable).values({
       userId: portfolio.userId,
