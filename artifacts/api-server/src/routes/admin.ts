@@ -1480,7 +1480,10 @@ router.get("/admin/level-certs", async (req, res) => {
         (SELECT COUNT(*)::int FROM portfolios p2
           WHERE p2.user_id = p.user_id
             AND p2.apply_level IS NOT NULL
-            AND p2.cat_category_id IS NOT DISTINCT FROM p.cat_category_id) AS apply_count,
+            AND (
+              (p.cat_category_id IS NOT NULL AND p2.cat_category_id = p.cat_category_id)
+              OR (p.cat_category_id IS NULL AND p2.cat_category_id IS NULL AND p2.type = p.type)
+            )) AS apply_count,
         (SELECT json_agg(json_build_object(
             'apply_level', p2.apply_level,
             'note', p2.level_apply_note,
@@ -1490,7 +1493,10 @@ router.get("/admin/level-certs", async (req, res) => {
           FROM portfolios p2
           WHERE p2.user_id = p.user_id
             AND p2.apply_level IS NOT NULL
-            AND p2.cat_category_id IS NOT DISTINCT FROM p.cat_category_id
+            AND (
+              (p.cat_category_id IS NOT NULL AND p2.cat_category_id = p.cat_category_id)
+              OR (p.cat_category_id IS NULL AND p2.cat_category_id IS NULL AND p2.type = p.type)
+            )
             AND p2.level_apply_status IN ('rejected', 'downgraded')
             AND p2.id != p.id) AS past_reviews
       FROM portfolios p

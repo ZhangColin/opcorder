@@ -6212,17 +6212,22 @@ function LevelCertReview() {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目类型</p>
-                        <p className="text-sm text-slate-700 font-medium">{TYPE_LABELS[row.type] ?? row.type}</p>
+                        <p className="text-sm text-slate-700 font-medium">
+                          {TYPE_LABELS[row.type] ?? row.type}
+                          {row.cat_inferred && (row.effective_cat_category_name === (TYPE_LABELS[row.type] ?? row.type)) && (
+                            <span className="ml-1.5 text-[11px] text-slate-400 font-normal">（同赛道）</span>
+                          )}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">该赛道当前等级</p>
                         <p className="text-sm font-medium text-slate-600">
-                          {row.track_current_level ? `${row.track_current_level} 级 · ${LEVEL_LABELS[row.track_current_level] ?? ""}` : "暂无认证"}
+                          {row.track_current_level ? (LEVEL_LABELS[row.track_current_level] ?? `${row.track_current_level} 级`) : "暂无认证"}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">申请等级</p>
-                        <p className="text-sm font-bold text-amber-700">{row.apply_level} 级 · {LEVEL_LABELS[row.apply_level]}</p>
+                        <p className="text-sm font-bold text-amber-700">{LEVEL_LABELS[row.apply_level] ?? `${row.apply_level} 级`}</p>
                       </div>
                     </div>
 
