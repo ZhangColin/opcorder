@@ -1393,7 +1393,9 @@ router.get("/admin/level-certs", async (req, res) => {
         p.reviewed_at,
         p.created_at,
         p.cat_category_id,
-        cc.name AS cat_category_name,
+        COALESCE(cc.id, cc_inferred.id)     AS effective_cat_category_id,
+        COALESCE(cc.name, cc_inferred.name) AS effective_cat_category_name,
+        (p.cat_category_id IS NULL AND cc_inferred.id IS NOT NULL) AS cat_inferred,
         u.id AS user_id,
         u.nickname,
         u.email,
@@ -1415,7 +1417,8 @@ router.get("/admin/level-certs", async (req, res) => {
       FROM portfolios p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
-      LEFT JOIN cat_categories cc ON cc.id = p.cat_category_id
+      LEFT JOIN cat_categories cc          ON cc.id = p.cat_category_id
+      LEFT JOIN cat_categories cc_inferred ON cc_inferred.name = p.type AND p.cat_category_id IS NULL
       WHERE p.apply_level IS NOT NULL ${statusClause}
       ORDER BY
         CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
@@ -1442,10 +1445,23 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     if (!portfolio) return res.status(404).json({ error: "作品不存在" });
     if (!portfolio.applyLevel) return res.status(400).json({ error: "该作品未发起等级申请" });
 
-    if ((result === "approved" || result === "downgraded") && !portfolio.catCategoryId) {
-      return res.status(400).json({
-        error: "该作品未关联赛道分类，无法写入赛道认证记录。请先让 OPC 重新提交并选择赛道分类后再审核。",
-      });
+    // 若作品未关联赛道，按 type 名称自动推断
+    let effectiveCatId: number | null = portfolio.catCategoryId ?? null;
+    if (!effectiveCatId && (result === "approved" || result === "downgraded")) {
+      const inferRows = (await db.execute(sql`
+        SELECT id FROM cat_categories WHERE name = ${portfolio.type} LIMIT 1
+      `)).rows as Array<{ id: number }>;
+      if (inferRows.length > 0) {
+        effectiveCatId = inferRows[0].id;
+        // 同步写回 portfolio，方便后续查询保持一致
+        await db.update(portfoliosTable)
+          .set({ catCategoryId: effectiveCatId })
+          .where(eq(portfoliosTable.id, portfolioId));
+      } else {
+        return res.status(400).json({
+          error: "该作品未关联赛道分类，且无法从项目类型自动推断，无法写入赛道认证记录。请驳回后让 OPC 重新提交并选择赛道分类。",
+        });
+      }
     }
 
     const applyLevel = portfolio.applyLevel as "A" | "B" | "C";
@@ -1453,8 +1469,8 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     const applyIdx = levelOrder.indexOf(applyLevel);
 
     // 获取该赛道当前认证等级用于校验（无记录则视为 newbie）
-    const certRows = portfolio.catCategoryId
-      ? (await db.execute(sql`SELECT level FROM opc_track_certs WHERE user_id = ${portfolio.userId} AND cat_category_id = ${portfolio.catCategoryId} LIMIT 1`)).rows
+    const certRows = effectiveCatId
+      ? (await db.execute(sql`SELECT level FROM opc_track_certs WHERE user_id = ${portfolio.userId} AND cat_category_id = ${effectiveCatId} LIMIT 1`)).rows
       : [];
     const currentLevel = ((certRows[0] as any)?.level ?? "newbie") as string;
     const currentIdx = levelOrder.indexOf(currentLevel as any);
@@ -1500,7 +1516,7 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     if (result === "approved" || result === "downgraded") {
       await db.execute(sql`
         INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at)
-        VALUES (${portfolio.userId}, ${portfolio.catCategoryId}, ${grantedLevel}, 'active', NOW())
+        VALUES (${portfolio.userId}, ${effectiveCatId}, ${grantedLevel}, 'active', NOW())
         ON CONFLICT (user_id, cat_category_id) DO UPDATE
           SET level = EXCLUDED.level, certified_at = NOW(), status = 'active'
       `);

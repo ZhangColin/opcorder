@@ -5915,13 +5915,14 @@ function LevelCertReview() {
                           第 {row.apply_count} 次申请
                         </span>
                       )}
-                      {row.cat_category_name ? (
+                      {row.effective_cat_category_name ? (
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
-                          {row.cat_category_name}
+                          {row.effective_cat_category_name}
+                          {row.cat_inferred && <span className="ml-1 opacity-60 font-normal">·自动推断</span>}
                         </span>
                       ) : (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
-                          ⚠ 未选赛道分类
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                          赛道待确认
                         </span>
                       )}
                     </div>
@@ -5967,7 +5968,12 @@ function LevelCertReview() {
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">赛道分类</p>
-                        <p className="text-sm text-slate-700 font-medium">{row.cat_category_name ?? "未指定"}</p>
+                        <p className="text-sm text-slate-700 font-medium">
+                          {row.effective_cat_category_name ?? "未指定"}
+                          {row.cat_inferred && (
+                            <span className="ml-1.5 text-[11px] text-purple-500 font-normal">(从项目类型自动推断)</span>
+                          )}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目类型</p>
@@ -6036,12 +6042,22 @@ function LevelCertReview() {
                     {/* 评审操作区 */}
                     {isReviewing && row.level_apply_status === "pending" && (
                       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
-                        {!row.cat_category_id && (
+                        {row.cat_inferred && row.effective_cat_category_name && (
+                          <div className="flex items-start gap-2 bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5">
+                            <AlertCircle size={15} className="text-purple-500 mt-0.5 shrink-0" />
+                            <p className="text-xs text-purple-700 font-medium leading-snug">
+                              该作品未手动选择赛道，系统已从项目类型「{row.type}」自动推断为
+                              <strong>「{row.effective_cat_category_name}」</strong>赛道。
+                              通过认证后将写入该赛道。
+                            </p>
+                          </div>
+                        )}
+                        {!row.effective_cat_category_id && (
                           <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
                             <AlertCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
                             <p className="text-xs text-red-700 font-medium leading-snug">
-                              该作品未关联赛道分类，<strong>无法通过认证</strong>。
-                              请告知 OPC 重新编辑作品并选择赛道分类后再提交审核。驳回时可正常操作。
+                              该作品无法推断赛道分类，<strong>无法通过认证</strong>。
+                              请驳回后告知 OPC 重新编辑作品并选择赛道分类。
                             </p>
                           </div>
                         )}
