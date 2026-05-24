@@ -216,6 +216,8 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/training",      permission: "training" },
   { prefix: "/api/admin/level-certs",   permission: "levelcert" },
   { prefix: "/api/admin/credit-levels", permission: "levelcert" },
+  { prefix: "/api/admin/credit-rules",  permission: "settings" },
+  { prefix: "/api/admin/credit-transactions", permission: "settings" },
   { prefix: "/api/admin/content",       permission: "content" },
   { prefix: "/api/admin/sensitive-words", permission: "sensitivewords" },
   { prefix: "/api/admin/settings",      permission: "settings" },
@@ -3352,6 +3354,106 @@ router.post("/admin/orders/:orderId/force-close", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "admin force-close order error");
     return res.status(500).json({ error: "强制关闭订单失败" });
+  }
+});
+
+/* ─── CREDIT RULES ──────────────────────────────────────────────────────── */
+
+// List all credit rules (seeded, one per action_type)
+router.get("/admin/credit-rules", async (_req, res) => {
+  try {
+    const rows = (await db.execute(sql`
+      SELECT id, action_type, points_delta, description, is_active, created_at, updated_at
+      FROM credit_rules ORDER BY id
+    `)).rows;
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取积分规则失败" });
+  }
+});
+
+// Update a credit rule (points_delta, description, is_active)
+router.put("/admin/credit-rules/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id as string);
+    const { pointsDelta, description, isActive } = req.body as {
+      pointsDelta?: number; description?: string; isActive?: boolean;
+    };
+    if (pointsDelta === undefined && description === undefined && isActive === undefined) {
+      return res.status(400).json({ error: "无可更新字段" });
+    }
+    // Use tagged template literals to keep parameters safe
+    const parts: ReturnType<typeof sql>[] = [];
+    if (pointsDelta !== undefined) parts.push(sql`points_delta = ${pointsDelta}`);
+    if (description !== undefined) parts.push(sql`description = ${description}`);
+    if (isActive !== undefined)    parts.push(sql`is_active = ${isActive}`);
+    parts.push(sql`updated_at = NOW()`);
+
+    // Combine all SET clauses
+    const setClauses = parts.reduce((acc, part, i) => i === 0 ? part : sql`${acc}, ${part}`, sql``);
+    await db.execute(sql`UPDATE credit_rules SET ${setClauses} WHERE id = ${id}`);
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "更新积分规则失败" });
+  }
+});
+
+/* ─── CREDIT TRANSACTIONS ────────────────────────────────────────────────── */
+
+// Paginated list of credit transactions (admin overview, optionally filtered by userId)
+router.get("/admin/credit-transactions", async (req, res) => {
+  try {
+    const { userId, page = "1", pageSize = "20" } = req.query as Record<string, string>;
+    const p = Math.max(1, parseInt(page) || 1);
+    const ps = Math.min(100, Math.max(1, parseInt(pageSize) || 20));
+    const offset = (p - 1) * ps;
+    const where = userId ? `WHERE ct.user_id = ${Number(userId)}` : "";
+
+    const rows = (await db.execute(sql.raw(`
+      SELECT
+        ct.id, ct.user_id, ct.delta, ct.balance_after, ct.action_type,
+        ct.ref_id, ct.note, ct.operator_id, ct.created_at,
+        u.nickname AS user_nickname
+      FROM credit_transactions ct
+      LEFT JOIN users u ON u.id = ct.user_id
+      ${where}
+      ORDER BY ct.created_at DESC
+      LIMIT ${ps} OFFSET ${offset}
+    `))).rows;
+
+    const [{ total }] = (await db.execute(sql.raw(`
+      SELECT COUNT(*) AS total FROM credit_transactions ct ${where}
+    `))).rows as Array<{ total: string }>;
+
+    return res.json({ data: rows, total: Number(total), page: p, pageSize: ps });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取积分流水失败" });
+  }
+});
+
+// Admin manually adjusts OPC credit points
+router.post("/admin/users/:userId/manual-credit", async (req, res) => {
+  try {
+    const userId = Number(req.params.userId as string);
+    const { delta, note } = req.body as { delta?: number; note?: string };
+    if (typeof delta !== "number" || delta === 0) {
+      return res.status(400).json({ error: "delta 必须为非零整数" });
+    }
+
+    const { applyCredit } = await import("../lib/credit");
+    const result = await applyCredit(userId, "manual_adjustment", {
+      forceDelta: delta,
+      note: note?.trim() || "管理员手动调整",
+      operatorId: req.user!.id,
+    });
+
+    return res.json(result);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "积分调整失败" });
   }
 });
 

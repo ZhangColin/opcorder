@@ -104,7 +104,7 @@ export type Module =
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments" | "activities"
   | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard" | "syslogs"
-  | "platform_config" | "catcategories" | "cattags" | "creditlevels"
+  | "platform_config" | "catcategories" | "cattags" | "creditlevels" | "creditrules"
   | "demands_orders" | "opc_management" | "system_management";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
@@ -143,6 +143,7 @@ const NAV: NavItem[] = [
       { key: "catcategories", label: "需求分类管理", moduleKey: "catcategories" as Module, icon: Filter },
       { key: "cattags",       label: "分类标签管理", moduleKey: "cattags"       as Module, icon: Flag },
       { key: "creditlevels",  label: "信用等级配置", moduleKey: "creditlevels"  as Module, icon: BadgeCheck },
+      { key: "creditrules",   label: "积分规则配置", moduleKey: "creditrules"   as Module, icon: Zap },
       { key: "quotecard",     label: "报价卡配置",   moduleKey: "quotecard"     as Module, icon: BadgeCent },
       { key: "agent",         label: "智能体配置",   moduleKey: "agent"         as Module, icon: Bot },
       { key: "sensitivewords",label: "敏感词管理",   moduleKey: "sensitivewords"as Module, icon: Flame },
@@ -5427,6 +5428,189 @@ function ChangePasswordCard() {
 
 /* ─── Credit Level Config ────────────────────────── */
 
+/* ─── Module: 积分规则配置 ───────────────────── */
+
+const ACTION_TYPE_LABELS: Record<string, string> = {
+  order_completed:   "订单成功完成",
+  five_star_review:  "客户5星好评",
+  bad_review:        "客户差评（1-2星）",
+  order_disputed:    "订单进入争议",
+  manual_adjustment: "管理员手动调整",
+};
+
+interface CreditRule {
+  id: number;
+  action_type: string;
+  points_delta: number;
+  description: string | null;
+  is_active: boolean;
+}
+
+function CreditRulesConfig() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ pointsDelta: 0, description: "", isActive: true });
+
+  const { data: rules = [], isLoading, refetch } = useQuery<CreditRule[]>({
+    queryKey: ["admin-credit-rules"],
+    queryFn: () => adminGet("/api/admin/credit-rules"),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) =>
+      adminPut(`/api/admin/credit-rules/${id}`, body),
+    onSuccess: () => {
+      toast({ title: "规则已更新" });
+      setEditId(null);
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-credit-rules"] });
+    },
+    onError: (e: any) => toast({ title: "更新失败", description: e?.message, variant: "destructive" }),
+  });
+
+  const startEdit = (row: CreditRule) => {
+    setEditId(row.id);
+    setEditForm({ pointsDelta: row.points_delta, description: row.description ?? "", isActive: row.is_active });
+  };
+
+  const handleSave = () => {
+    if (editId === null) return;
+    updateMut.mutate({ id: editId, body: {
+      pointsDelta: editForm.pointsDelta,
+      description: editForm.description.trim() || null,
+      isActive: editForm.isActive,
+    }});
+  };
+
+  return (
+    <div>
+      <SectionHeader
+        title="积分规则配置"
+        sub="配置各类行为对应的积分变动值；系统在相关事件发生时自动触发积分更新"
+        action={
+          <button onClick={() => refetch()}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+            <RefreshCw size={13} />刷新
+          </button>
+        }
+      />
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
+          <Loader2 size={18} className="animate-spin" />加载中…
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-100">
+          {rules.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">
+              积分规则尚未初始化，请重启服务器以触发迁移
+            </div>
+          ) : rules.map(row => (
+            <div key={row.id}>
+              {editId === row.id ? (
+                <div className="px-5 py-4 space-y-3">
+                  <p className="text-sm font-bold text-slate-700">{ACTION_TYPE_LABELS[row.action_type] ?? row.action_type}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1 font-medium">积分变动（正数＋，负数−）</label>
+                      <input
+                        type="number"
+                        value={editForm.pointsDelta}
+                        onChange={e => setEditForm(f => ({ ...f, pointsDelta: parseInt(e.target.value) || 0 }))}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1 font-medium">规则状态</label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <input
+                          type="checkbox"
+                          id={`rule-active-${row.id}`}
+                          checked={editForm.isActive}
+                          onChange={e => setEditForm(f => ({ ...f, isActive: e.target.checked }))}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <label htmlFor={`rule-active-${row.id}`} className="text-sm text-slate-600 cursor-pointer">
+                          {editForm.isActive ? "启用" : "停用"}
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1 font-medium">规则说明（可选）</label>
+                    <input
+                      type="text"
+                      value={editForm.description}
+                      onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="简短描述此规则的适用场景"
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSave}
+                      disabled={updateMut.isPending}
+                      className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+                      {updateMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}保存
+                    </button>
+                    <button
+                      onClick={() => setEditId(null)}
+                      className="px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4 px-5 py-4">
+                  <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center shadow-sm ${
+                    row.points_delta > 0 ? "bg-emerald-500" :
+                    row.points_delta < 0 ? "bg-red-500" : "bg-slate-400"
+                  }`}>
+                    <Zap size={15} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-800 text-sm">
+                        {ACTION_TYPE_LABELS[row.action_type] ?? row.action_type}
+                      </span>
+                      {!row.is_active && (
+                        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">已停用</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {row.description ?? "—"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-lg font-extrabold font-display ${
+                      row.points_delta > 0 ? "text-emerald-600" :
+                      row.points_delta < 0 ? "text-red-500" : "text-slate-400"
+                    }`}>
+                      {row.points_delta > 0 ? "+" : ""}{row.points_delta} 分
+                    </span>
+                    <button
+                      onClick={() => startEdit(row)}
+                      className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-colors">
+                      <Edit2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+        <p className="text-xs text-blue-700 font-medium leading-relaxed">
+          <span className="font-bold">提示：</span>积分规则会在以下事件自动触发：订单验收完成 → 「订单成功完成」；发单方提交5星评价 → 「客户5星好评」；发单方提交1-2星评价 → 「客户差评」；订单进入争议流程 → 「订单进入争议」。管理员可在 OPC 详情页手动调整积分。停用规则后，对应事件将不再触发积分变动。
+        </p>
+      </div>
+    </div>
+  );
+}
+
 interface CreditLevelItem {
   id: number;
   code: string;
@@ -8545,6 +8729,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "training":       return <><TrainingManagement /><ResourceManagement /></>;
     case "levelcert":      return <LevelCertReview />;
     case "creditlevels":   return <CreditLevelConfig />;
+    case "creditrules":    return <CreditRulesConfig />;
     case "content":        return <ContentReview />;
     case "sensitivewords": return <SensitiveWordsManagement />;
     case "payments":       return <><DepositPaymentManagement /><DemandRefundManagement /></>;

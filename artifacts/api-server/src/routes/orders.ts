@@ -1,4 +1,5 @@
 import { logger } from "../lib/logger";
+import { applyCredit } from "../lib/credit";
 import { Router, type IRouter } from "express";
 import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable, publisherProfilesTable, bidsTable } from "@workspace/db";
 import { eq, desc, count, sql, and } from "drizzle-orm";
@@ -437,6 +438,14 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
         relatedId: orderId,
         relatedType: "order",
       });
+
+      // Credit engine: order completed + rating bonus/penalty (non-blocking)
+      applyCredit(updated.opcId, "order_completed", { refId: orderId, note: `订单 ${updated.orderNo} 完成` }).catch(() => {});
+      if (body.rating && body.rating === 5) {
+        applyCredit(updated.opcId, "five_star_review", { refId: orderId, note: `订单 ${updated.orderNo} 获5星好评` }).catch(() => {});
+      } else if (body.rating && body.rating <= 2) {
+        applyCredit(updated.opcId, "bad_review", { refId: orderId, note: `订单 ${updated.orderNo} 获${body.rating}星差评` }).catch(() => {});
+      }
     } else {
       const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
       finalOrder = updated;
@@ -541,6 +550,8 @@ router.post("/orders/:orderId/milestones/:milestoneId/reject", requireAuth, asyn
         relatedId: orderId,
         relatedType: "order",
       });
+      // Credit: deduct for dispute (non-blocking)
+      applyCredit(updated.opcId, "order_disputed", { refId: orderId, note: `订单 ${updated.orderNo} 里程碑争议` }).catch(() => {});
     }
 
     return res.json({
@@ -627,6 +638,14 @@ router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
         relatedId: orderId,
         relatedType: "order",
       });
+
+      // Credit engine: order completed + rating bonus/penalty (non-blocking)
+      applyCredit(updated.opcId, "order_completed", { refId: orderId, note: `订单 ${updated.orderNo} 完成` }).catch(() => {});
+      if (body.rating && body.rating === 5) {
+        applyCredit(updated.opcId, "five_star_review", { refId: orderId, note: `订单 ${updated.orderNo} 获5星好评` }).catch(() => {});
+      } else if (body.rating && body.rating <= 2) {
+        applyCredit(updated.opcId, "bad_review", { refId: orderId, note: `订单 ${updated.orderNo} 获${body.rating}星差评` }).catch(() => {});
+      }
     }
 
     return res.json({
@@ -695,6 +714,8 @@ router.post("/orders/:orderId/reject", requireAuth, async (req, res) => {
         relatedId: orderId,
         relatedType: "order",
       });
+      // Credit: deduct for dispute (non-blocking)
+      applyCredit(updated.opcId, "order_disputed", { refId: orderId, note: `订单 ${updated.orderNo} 争议` }).catch(() => {});
     }
 
     return res.json({
@@ -947,6 +968,34 @@ router.post("/orders/:orderId/close", requireAuth, async (req, res) => {
   } catch (error) {
     logger.error({ err: error }, "POST /orders/:orderId/close error");
     return res.status(500).json({ error: "关闭订单失败" });
+  }
+});
+
+/* ─── OPC credit transaction history ────────────── */
+router.get("/credit-transactions/mine", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { page = "1", pageSize = "20" } = req.query as Record<string, string>;
+    const p = Math.max(1, parseInt(page) || 1);
+    const ps = Math.min(50, Math.max(1, parseInt(pageSize) || 20));
+    const offset = (p - 1) * ps;
+
+    const rows = (await db.execute(sql`
+      SELECT id, delta, balance_after, action_type, ref_id, note, created_at
+      FROM credit_transactions
+      WHERE user_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT ${ps} OFFSET ${offset}
+    `)).rows;
+
+    const [{ total }] = (await db.execute(sql`
+      SELECT COUNT(*) AS total FROM credit_transactions WHERE user_id = ${userId}
+    `)).rows as Array<{ total: string }>;
+
+    return res.json({ data: rows, total: Number(total), page: p, pageSize: ps });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取积分流水失败" });
   }
 });
 

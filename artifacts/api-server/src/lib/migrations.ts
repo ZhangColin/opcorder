@@ -1728,5 +1728,89 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 022a: could not backfill legacy portfolio categories");
   }
 
+  // Migration 023a: create credit_rules and credit_transactions tables,
+  // then seed default rules for the five action types.
+  // Step 1: enum type (handled separately — CREATE TYPE IF NOT EXISTS is not valid inside DO blocks)
+  try {
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'credit_action_type') THEN
+          CREATE TYPE credit_action_type AS ENUM (
+            'order_completed',
+            'five_star_review',
+            'bad_review',
+            'order_disputed',
+            'manual_adjustment'
+          );
+        END IF;
+      END $$
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Migration 023a step 1: could not create credit_action_type enum");
+  }
+
+  // Step 2: credit_rules table + seed
+  try {
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'credit_rules'
+        ) THEN
+          CREATE TABLE credit_rules (
+            id           SERIAL PRIMARY KEY,
+            action_type  VARCHAR(50) NOT NULL UNIQUE,
+            points_delta INTEGER NOT NULL DEFAULT 0,
+            description  TEXT,
+            is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
+          INSERT INTO credit_rules (action_type, points_delta, description, is_active) VALUES
+            ('order_completed',   10, '订单成功完成',     TRUE),
+            ('five_star_review',   5, '客户5星好评',       TRUE),
+            ('bad_review',       -10, '客户差评（1-2星）', TRUE),
+            ('order_disputed',   -20, '订单进入争议流程', TRUE),
+            ('manual_adjustment',  0, '管理员手动调整',   TRUE);
+        END IF;
+      END $$
+    `);
+    logger.info("Migration 023a step 2: created credit_rules table");
+  } catch (err) {
+    logger.warn({ err }, "Migration 023a step 2: could not create credit_rules table");
+  }
+
+  // Step 3: credit_transactions table
+  try {
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'credit_transactions'
+        ) THEN
+          CREATE TABLE credit_transactions (
+            id            SERIAL PRIMARY KEY,
+            user_id       INTEGER NOT NULL REFERENCES users(id),
+            delta         INTEGER NOT NULL,
+            balance_after INTEGER NOT NULL,
+            action_type   VARCHAR(50) NOT NULL,
+            ref_id        INTEGER,
+            note          TEXT,
+            operator_id   INTEGER,
+            created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX idx_credit_transactions_user_id ON credit_transactions(user_id);
+        END IF;
+      END $$
+    `);
+    logger.info("Migration 023a step 3: created credit_transactions table");
+  } catch (err) {
+    logger.warn({ err }, "Migration 023a step 3: could not create credit_transactions table");
+  }
+
   logger.info("Startup data migrations complete.");
 }

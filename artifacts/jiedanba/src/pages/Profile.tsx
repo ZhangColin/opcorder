@@ -598,6 +598,82 @@ function EditDrawer({ open, onClose, userId, initial }: EditDrawerProps) {
   );
 }
 
+/* ─── Credit History sidebar widget ────────────── */
+
+const CREDIT_ACTION_LABELS: Record<string, string> = {
+  order_completed:   "订单完成",
+  five_star_review:  "5星好评",
+  bad_review:        "差评扣分",
+  order_disputed:    "订单争议",
+  manual_adjustment: "管理员调整",
+};
+
+interface CreditTx {
+  id: number;
+  delta: number;
+  balance_after: number;
+  action_type: string;
+  ref_id: number | null;
+  note: string | null;
+  created_at: string;
+}
+
+function CreditHistory({ userId, creditPoints }: { userId?: number; creditPoints: number }) {
+  const { data, isLoading } = useQuery<{ data: CreditTx[]; total: number }>({
+    queryKey: ["credit-transactions-mine", userId],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/credit-transactions/mine?pageSize=10`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      return r.ok ? r.json() : { data: [], total: 0 };
+    },
+    enabled: !!userId,
+  });
+
+  const txs = data?.data ?? [];
+  if (!isLoading && txs.length === 0 && creditPoints === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">信用积分</h3>
+        <span className="text-lg font-extrabold text-blue-900">{creditPoints} 分</span>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4 gap-2 text-slate-400">
+          <Loader2 size={14} className="animate-spin" />
+          <span className="text-xs">加载中…</span>
+        </div>
+      ) : txs.length === 0 ? (
+        <p className="text-xs text-slate-400 text-center py-2">暂无积分记录</p>
+      ) : (
+        <div className="space-y-2.5">
+          {txs.map(tx => (
+            <div key={tx.id} className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-700 truncate">
+                  {CREDIT_ACTION_LABELS[tx.action_type] ?? tx.action_type}
+                </p>
+                {tx.note && (
+                  <p className="text-[11px] text-slate-400 truncate">{tx.note}</p>
+                )}
+                <p className="text-[10px] text-slate-300">{new Date(tx.created_at).toLocaleDateString("zh-CN")}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <span className={`text-sm font-bold ${tx.delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                  {tx.delta >= 0 ? "+" : ""}{tx.delta}
+                </span>
+                <p className="text-[10px] text-slate-400">余 {tx.balance_after}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Page ─────────────────────────────────────── */
 
 const PREVIEW_COUNT = 4;
@@ -876,6 +952,9 @@ export default function Profile() {
                 </div>
               </div>
             )}
+
+            {/* Credit Transactions History */}
+            <CreditHistory userId={user?.id} creditPoints={creditPoints} />
 
             {/* Track Cert History */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">

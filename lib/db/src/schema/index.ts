@@ -25,4 +25,6 @@ export * from "./quote-card-config";
 export * from "./cat-categories";
 export * from "./cat-tags";
 export * from "./credit-levels";
+export * from "./credit-rules";
+export * from "./credit-transactions";
 export * from "./opc-track-certs";
