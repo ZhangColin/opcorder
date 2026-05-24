@@ -1,20 +1,62 @@
-import { Clock, Users, ArrowRight } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Clock, Users, ArrowRight, CheckCircle2, AlertTriangle, ShieldX } from "lucide-react";
+import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import type { Demand } from "@workspace/api-client-react";
 import { formatBudget } from "@/lib/utils";
 import { DEMAND_TYPES, DEMAND_STATUSES } from "@/lib/constants";
 
-export function DemandCard({ demand }: { demand: Demand }) {
+const LEVEL_RANK: Record<string, number> = { C: 1, B: 2, A: 3 };
+
+export type OpcTrackCertMap = Map<number, { level: string; status: string }>;
+
+export function DemandCard({
+  demand,
+  opcCerts,
+}: {
+  demand: Demand;
+  opcCerts?: OpcTrackCertMap;
+}) {
   const [, navigate] = useLocation();
   const isUrgent = demand.isUrgent;
   const status = DEMAND_STATUSES[demand.status] || DEMAND_STATUSES.published;
-  const type = DEMAND_TYPES[demand.type] || demand.type;
-  
-  const timeStr = demand.bidDeadline 
+  const type = (demand as any).categoryName || DEMAND_TYPES[demand.type] || demand.type;
+
+  const timeStr = demand.bidDeadline
     ? formatDistanceToNow(new Date(demand.bidDeadline), { addSuffix: true, locale: zhCN })
     : "长期有效";
+
+  const catCategoryId: number | null = (demand as any).catCategoryId ?? null;
+  const requiredTrackLevel: string | null = (demand as any).requiredTrackLevel ?? null;
+  const needsTrackCert = catCategoryId && requiredTrackLevel && requiredTrackLevel !== "any";
+
+  let eligibilityBadge: React.ReactNode = null;
+  if (opcCerts && needsTrackCert && catCategoryId) {
+    const cert = opcCerts.get(catCategoryId);
+    if (!cert || cert.status !== "active") {
+      const catName = (demand as any).categoryName ?? "";
+      eligibilityBadge = (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-orange-600 border border-orange-200 shrink-0">
+          <ShieldX size={10} />
+          {catName ? `缺少${catName}认证` : "缺少赛道认证"}
+        </span>
+      );
+    } else if ((LEVEL_RANK[cert.level] ?? 0) < (LEVEL_RANK[requiredTrackLevel!] ?? 0)) {
+      eligibilityBadge = (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-orange-600 border border-orange-200 shrink-0">
+          <AlertTriangle size={10} />
+          认证等级不足
+        </span>
+      );
+    } else {
+      eligibilityBadge = (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+          <CheckCircle2 size={10} />
+          已满足资质
+        </span>
+      );
+    }
+  }
 
   return (
     <div
@@ -28,27 +70,28 @@ export function DemandCard({ demand }: { demand: Demand }) {
           </div>
         </div>
       )}
-      
+
       <div>
         <div className="flex justify-between items-start mb-4">
-          <div className="flex gap-2 items-center">
-            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${isUrgent ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${isUrgent ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
               {type}
             </span>
             <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${status.color}`}>
               {status.label}
             </span>
+            {eligibilityBadge}
           </div>
-          <span className="text-muted-foreground text-xs font-medium flex items-center">
+          <span className="text-muted-foreground text-xs font-medium flex items-center shrink-0 ml-2">
             <Clock size={14} className="mr-1" />
             {timeStr}
           </span>
         </div>
-        
+
         <h4 className="text-lg font-bold text-foreground font-display leading-snug group-hover:text-primary transition-colors mb-3 line-clamp-2">
           {demand.title}
         </h4>
-        
+
         <div className="flex flex-wrap gap-2 mb-6">
           {demand.skillTags?.slice(0, 3).map((tag, i) => (
             <span key={i} className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-xs font-medium border border-border/50">
@@ -62,7 +105,7 @@ export function DemandCard({ demand }: { demand: Demand }) {
           )}
         </div>
       </div>
-      
+
       <div className="pt-5 border-t border-border flex items-end justify-between mt-auto">
         <div>
           <span className="block text-muted-foreground text-[10px] uppercase font-bold tracking-widest mb-1">项目预算</span>
@@ -72,7 +115,7 @@ export function DemandCard({ demand }: { demand: Demand }) {
             </span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <div className="flex items-center text-xs text-muted-foreground font-medium">
             <Users size={14} className="mr-1" />

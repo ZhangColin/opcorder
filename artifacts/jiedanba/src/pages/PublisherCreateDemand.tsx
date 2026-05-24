@@ -824,13 +824,16 @@ export default function PublisherCreateDemand() {
             </FormField>
 
             {catCategoryId && (
-              <FormField label="赛道认证要求" hint="可选：要求投标OPC持有该赛道的认证等级">
+              <FormField
+                label={`赛道认证要求（${catCategories.find(c => c.id === catCategoryId)?.name ?? "当前分类"}）`}
+                hint={`可选：要求 OPC 在该赛道持有指定等级的平台认证，未达标的 OPC 将无法提交投标。仅在该分类下有实际意义。`}
+              >
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { value: "any", label: "不限", desc: "任意OPC均可投标" },
-                    { value: "C",   label: "C级及以上", desc: "基础认证" },
-                    { value: "B",   label: "B级及以上", desc: "进阶认证" },
-                    { value: "A",   label: "A级", desc: "专家认证" },
+                    { value: "any", label: "不限", desc: "任意OPC均可投标（无认证要求）" },
+                    { value: "C",   label: "C级及以上", desc: "基础赛道认证" },
+                    { value: "B",   label: "B级及以上", desc: "进阶赛道认证" },
+                    { value: "A",   label: "A级", desc: "专家赛道认证" },
                   ].map(opt => (
                     <button
                       key={opt.value}
