@@ -111,6 +111,18 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
   const { mutateAsync: update } = useUpdatePortfolio();
   const { mutateAsync: remove } = useDeletePortfolio();
 
+  /* Derived: level already held for the CURRENTLY selected track */
+  const LEVEL_ORDER = ["C", "B", "A"] as const;
+  const computedCatIdLive     = categories.find(c => c.name === type)?.id ?? null;
+  const trackCurrentLevel     = computedCatIdLive
+    ? (trackCerts.find(tc => tc.cat_category_id === computedCatIdLive)?.level ?? null)
+    : null;
+  const trackCurrentLevelIdx  = trackCurrentLevel ? LEVEL_ORDER.indexOf(trackCurrentLevel as typeof LEVEL_ORDER[number]) : -1;
+  /* Only show levels strictly higher than what user already holds for this track */
+  const availableLevelOptions = LEVEL_OPTIONS.filter(
+    o => LEVEL_ORDER.indexOf(o.value as typeof LEVEL_ORDER[number]) > trackCurrentLevelIdx
+  );
+
   /* Reset form when initial changes (opening for different item) */
   useEffect(() => {
     if (open) {
@@ -152,6 +164,15 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
     if (applyForLevel && !computedCatId) {
       alert("申请赛道认证时请先选择项目类型");
       return;
+    }
+    if (applyForLevel && trackCurrentLevel) {
+      const applyIdx   = LEVEL_ORDER.indexOf(applyLevel as typeof LEVEL_ORDER[number]);
+      const currentIdx = LEVEL_ORDER.indexOf(trackCurrentLevel as typeof LEVEL_ORDER[number]);
+      if (applyIdx <= currentIdx) {
+        const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+        alert(`您在「${type}」赛道已持有 ${LEVEL_NAME[trackCurrentLevel] ?? trackCurrentLevel} 认证，只能申请更高等级。`);
+        return;
+      }
     }
     setStatus("saving");
     const payload = {
@@ -317,50 +338,43 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
                 </p>
               )}
 
-              {applyForLevel && initial?.levelApplyStatus !== "pending" && (() => {
-                const levelOrder = ["newbie", "C", "B", "A"];
-                // Find the level already held for THIS specific track (not global level)
-                const computedCatIdNow = categories.find(c => c.name === type)?.id ?? null;
-                const trackCurrentLevel = computedCatIdNow
-                  ? (trackCerts.find(tc => tc.cat_category_id === computedCatIdNow)?.level ?? null)
-                  : null;
-                const currentIdx    = trackCurrentLevel ? levelOrder.indexOf(trackCurrentLevel) : -1;
-                const applyIdx      = levelOrder.indexOf(applyLevel);
-                const alreadyHas    = trackCurrentLevel && applyLevel === trackCurrentLevel;
-                const alreadyHigher = trackCurrentLevel && currentIdx > applyIdx && applyIdx >= 0;
-                const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-                return (
-                  <div className="mt-2 space-y-3">
-                    {type && (
-                      <p className="text-[11px] text-amber-700 bg-amber-100/70 rounded-lg px-3 py-1.5">
-                        赛道：<strong>{type}</strong>（与项目类型一致）
-                      </p>
-                    )}
-                    <div>
-                      <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
+              {applyForLevel && initial?.levelApplyStatus !== "pending" && (
+                <div className="mt-2 space-y-3">
+                  {type && (
+                    <p className="text-[11px] text-amber-700 bg-amber-100/70 rounded-lg px-3 py-1.5">
+                      赛道：<strong>{type}</strong>（与项目类型一致）
+                    </p>
+                  )}
+                  <div>
+                    <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
+                    {availableLevelOptions.length > 0 ? (
                       <select
-                        value={applyLevel}
+                        value={availableLevelOptions.some(o => o.value === applyLevel) ? applyLevel : availableLevelOptions[0].value}
                         onChange={e => setApplyLevel(e.target.value)}
                         className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
-                        {LEVEL_OPTIONS.map(o => (
+                        {availableLevelOptions.map(o => (
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                       </select>
-                    </div>
-                    {alreadyHas ? (
-                      <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-1.5">
-                        ℹ️ 您在「{type}」赛道已持有 {LEVEL_NAME[applyLevel] ?? applyLevel} 认证，无需重复申请。如需提升，请选择更高等级。
-                      </p>
-                    ) : alreadyHigher ? (
-                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5">
-                        ⚠️ 您在「{type}」赛道当前等级（{LEVEL_NAME[trackCurrentLevel!] ?? trackCurrentLevel}）已高于所选等级，无需降级申请。
-                      </p>
                     ) : (
-                      <p className="text-[11px] text-slate-500 mt-1.5">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
+                      <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                        ℹ️ 您在「{type}」赛道已达最高等级（A级·专家），无需再次申请。
+                      </p>
                     )}
                   </div>
-                );
-              })()}
+                  {trackCurrentLevel && availableLevelOptions.length > 0 && (() => {
+                    const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+                    return (
+                      <p className="text-[11px] text-slate-500">
+                        您在此赛道当前等级：{LEVEL_NAME[trackCurrentLevel] ?? trackCurrentLevel}，只能申请更高等级。
+                      </p>
+                    );
+                  })()}
+                  {!trackCurrentLevel && (
+                    <p className="text-[11px] text-slate-500">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
+                  )}
+                </div>
+              )}
 
               {initial?.levelApplyNote && (
                 <div className="mt-2 bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5">
