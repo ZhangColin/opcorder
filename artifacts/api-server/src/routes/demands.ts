@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { callLLM } from "../lib/llm";
 import { Router, type IRouter } from "express";
-import { db, demandsTable, demandPaymentsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
+import { db, demandsTable, demandPaymentsTable, usersTable, bidsTable, notificationsTable, publisherProfilesTable, ordersTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable } from "@workspace/db";
 import { eq, and, gte, lte, like, desc, asc, sql, count, ilike, inArray } from "drizzle-orm";
 import {
   ListDemandsQueryParams,
@@ -25,6 +25,10 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
   marketing: "营销",
   content: "内容设计",
   other: "其他",
+};
+
+const CAT_CODE_TO_LEGACY_TYPE: Record<string, string> = {
+  CG: "content", SA: "software", TK: "education", BO: "marketing", OTHER: "other",
 };
 
 async function generateDemandNo(): Promise<string> {
@@ -62,7 +66,8 @@ router.get("/demands", requireAuth, async (req, res) => {
     const conditions = [];
 
     if (params.status) conditions.push(eq(demandsTable.status, params.status as any));
-    if (params.type) conditions.push(eq(demandsTable.type, params.type as any));
+    if (params.catCategoryId) conditions.push(eq(demandsTable.catCategoryId, params.catCategoryId));
+    else if (params.type) conditions.push(eq(demandsTable.type, params.type as any));
     if (params.opcLevel && params.opcLevel !== "any") conditions.push(eq(demandsTable.opcLevel, params.opcLevel));
     if (params.minBudget) conditions.push(gte(demandsTable.budgetMin, params.minBudget));
     if (params.maxBudget) conditions.push(lte(demandsTable.budgetMax, params.maxBudget));
@@ -114,6 +119,8 @@ router.get("/demands", requireAuth, async (req, res) => {
         demandNo: demandsTable.demandNo,
         title: demandsTable.title,
         type: demandsTable.type,
+        catCategoryId: demandsTable.catCategoryId,
+        categoryName: catCategoriesTable.name,
         description: demandsTable.description,
         skillTags: demandsTable.skillTags,
         opcLevel: demandsTable.opcLevel,
@@ -134,6 +141,7 @@ router.get("/demands", requireAuth, async (req, res) => {
       })
       .from(demandsTable)
       .leftJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
+      .leftJoin(catCategoriesTable, eq(demandsTable.catCategoryId, catCategoriesTable.id))
       .where(whereClause)
       .orderBy(orderByClause)
       .limit(limit)
@@ -152,7 +160,7 @@ router.get("/demands", requireAuth, async (req, res) => {
 
     const items = demands.map(d => ({
       ...d,
-      typeLabel: DEMAND_TYPE_LABELS[d.type] || d.type,
+      typeLabel: d.categoryName ?? DEMAND_TYPE_LABELS[d.type] ?? d.type,
       bidCount: bidCountMap[d.id] ?? 0,
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
@@ -195,10 +203,35 @@ router.post("/demands", requireAuth, async (req, res) => {
     const budgetMax = body.budgetMax ?? body.budget ?? 0;
     const budgetLegacy = body.budget ?? budgetMin;
 
+    // Resolve catCategoryId and backwards-compat type field
+    // catCategoryId is the source of truth; legacy type is derived from it with "other" as safe fallback
+    let resolvedCatCategoryId: number | null = (req.body.catCategoryId ? Number(req.body.catCategoryId) : null);
+    let resolvedType = (body.type as string) || "other";
+
+    if (resolvedCatCategoryId) {
+      // catCategoryId is primary — derive legacy type; fall back to "other" for new/unknown codes
+      const [cat] = await db.select({ code: catCategoriesTable.code })
+        .from(catCategoriesTable).where(eq(catCategoriesTable.id, resolvedCatCategoryId)).limit(1);
+      if (cat) {
+        resolvedType = CAT_CODE_TO_LEGACY_TYPE[cat.code] ?? "other";
+      }
+    } else if (resolvedType && resolvedType !== "other") {
+      // Legacy type provided (no catCategoryId) — look up matching category for back-compat
+      const codeForType = Object.entries(CAT_CODE_TO_LEGACY_TYPE).find(([, v]) => v === resolvedType)?.[0];
+      if (codeForType) {
+        const [cat] = await db.select({ id: catCategoriesTable.id })
+          .from(catCategoriesTable).where(eq(catCategoriesTable.code, codeForType)).limit(1);
+        if (cat) resolvedCatCategoryId = cat.id;
+      }
+    }
+    // Ensure resolvedType is always a valid legacy enum value
+    const VALID_LEGACY_TYPES = ["education", "software", "marketing", "content", "other"];
+    if (!VALID_LEGACY_TYPES.includes(resolvedType)) resolvedType = "other";
+
     const [demand] = await db.insert(demandsTable).values({
       demandNo,
       title: body.title,
-      type: body.type as any,
+      type: (resolvedType || "other") as any,
       description: body.description,
       skillTags: body.skillTags,
       opcLevel: body.opcLevel,
@@ -214,6 +247,8 @@ router.post("/demands", requireAuth, async (req, res) => {
       publisherId,
       directedOpcIds: body.directedOpcIds || [],
       status: "draft",
+      catCategoryId: resolvedCatCategoryId,
+      requiredTrackLevel: (req.body.requiredTrackLevel as string) || "any",
     }).returning();
 
     return res.status(201).json({
@@ -238,6 +273,8 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
         demandNo: demandsTable.demandNo,
         title: demandsTable.title,
         type: demandsTable.type,
+        catCategoryId: demandsTable.catCategoryId,
+        categoryName: catCategoriesTable.name,
         description: demandsTable.description,
         skillTags: demandsTable.skillTags,
         opcLevel: demandsTable.opcLevel,
@@ -261,6 +298,7 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
       })
       .from(demandsTable)
       .leftJoin(usersTable, eq(demandsTable.publisherId, usersTable.id))
+      .leftJoin(catCategoriesTable, eq(demandsTable.catCategoryId, catCategoriesTable.id))
       .where(eq(demandsTable.id, demandId));
 
     if (!demand) {
@@ -287,7 +325,7 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
 
     return res.json({
       ...demand,
-      typeLabel: DEMAND_TYPE_LABELS[demand.type] || demand.type,
+      typeLabel: demand.categoryName ?? DEMAND_TYPE_LABELS[demand.type] ?? demand.type,
       bidCount: 0,
       publisherLogo:    pubProfile?.companyLogo ?? null,
       publisherProfile: safeProfile,
@@ -315,6 +353,24 @@ router.put("/demands/:demandId", requireAuth, async (req, res) => {
     if (body.milestones !== undefined) updateData.milestones = body.milestones;
     if (body.bidDeadline !== undefined) updateData.bidDeadline = new Date(body.bidDeadline);
     if (body.isUrgent !== undefined) updateData.isUrgent = body.isUrgent;
+
+    // Handle requiredTrackLevel update
+    const incomingTrackLevel = req.body.requiredTrackLevel as string | undefined;
+    if (incomingTrackLevel !== undefined) {
+      updateData.requiredTrackLevel = incomingTrackLevel || "any";
+    }
+
+    // Handle catCategoryId update with legacy type back-compat
+    const incomingCatId = req.body.catCategoryId as number | undefined;
+    if (incomingCatId !== undefined && incomingCatId !== null) {
+      updateData.catCategoryId = incomingCatId;
+      const [cat] = await db.select({ code: catCategoriesTable.code })
+        .from(catCategoriesTable).where(eq(catCategoriesTable.id, incomingCatId)).limit(1);
+      if (cat) {
+        const legacy = CAT_CODE_TO_LEGACY_TYPE[cat.code];
+        if (legacy) updateData.type = legacy;
+      }
+    }
 
     const [updated] = await db.update(demandsTable).set(updateData).where(eq(demandsTable.id, demandId)).returning();
 

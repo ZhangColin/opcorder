@@ -66,8 +66,14 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
   "其他":    "其他",
 };
 
-/** Normalize AI-returned type value to one of the 5 standard form values */
+/** Normalize AI-returned type value (including new category codes CG/SA/TK/BO/OTHER) to one of the 5 legacy form values */
 export function normalizeType(raw: string): string {
+  const upper = raw.toUpperCase().trim();
+  if (upper === "CG") return "content";
+  if (upper === "SA") return "software";
+  if (upper === "TK") return "education";
+  if (upper === "BO") return "marketing";
+  if (upper === "OTHER") return "other";
   const lower = raw.toLowerCase();
   if (lower.includes("education") || lower.includes("training") || lower.includes("教育") || lower.includes("培训")) return "education";
   if (lower.includes("software") || lower.includes("dev") || lower.includes("软件") || lower.includes("开发") || lower.includes("research")) return "software";

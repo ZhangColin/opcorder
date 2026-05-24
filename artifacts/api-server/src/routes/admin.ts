@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -147,6 +147,7 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/ecosystem",     permission: "ecosystem" },
   { prefix: "/api/admin/training",      permission: "training" },
   { prefix: "/api/admin/level-certs",   permission: "levelcert" },
+  { prefix: "/api/admin/credit-levels", permission: "levelcert" },
   { prefix: "/api/admin/content",       permission: "content" },
   { prefix: "/api/admin/sensitive-words", permission: "sensitivewords" },
   { prefix: "/api/admin/settings",      permission: "settings" },
@@ -1391,6 +1392,8 @@ router.get("/admin/level-certs", async (req, res) => {
         p.level_apply_note,
         p.reviewed_at,
         p.created_at,
+        p.cat_category_id,
+        cc.name AS cat_category_name,
         u.id AS user_id,
         u.nickname,
         u.email,
@@ -1412,6 +1415,7 @@ router.get("/admin/level-certs", async (req, res) => {
       FROM portfolios p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
+      LEFT JOIN cat_categories cc ON cc.id = p.cat_category_id
       WHERE p.apply_level IS NOT NULL ${statusClause}
       ORDER BY
         CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
@@ -1479,6 +1483,12 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
       notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，暂未达到 ${applyLevel}级认证标准，请继续积累项目经验后再次申请。${note ? `\n评审意见：${note}` : ""}`;
     }
 
+    if ((result === "approved" || result === "downgraded") && !portfolio.catCategoryId) {
+      return res.status(400).json({
+        error: "该作品未关联赛道分类，无法写入赛道认证记录。请先让 OPC 重新提交并选择赛道分类后再审核。",
+      });
+    }
+
     await db.update(portfoliosTable).set({
       levelApplyStatus: result,
       levelApplyNote: note ?? null,
@@ -1487,6 +1497,12 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
 
     if (result === "approved" || result === "downgraded") {
       await db.execute(sql`UPDATE opc_profiles SET level = ${grantedLevel} WHERE user_id = ${portfolio.userId}`);
+      await db.execute(sql`
+        INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at)
+        VALUES (${portfolio.userId}, ${portfolio.catCategoryId}, ${grantedLevel}, 'active', NOW())
+        ON CONFLICT (user_id, cat_category_id) DO UPDATE
+          SET level = EXCLUDED.level, certified_at = NOW(), status = 'active'
+      `);
     }
 
     await db.insert(notificationsTable).values({
@@ -1502,6 +1518,92 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
     return res.status(500).json({ error: "评审操作失败" });
+  }
+});
+
+/* ─── CREDIT LEVELS CRUD ──────────────────────────── */
+
+router.get("/admin/credit-levels", async (req, res) => {
+  try {
+    const rows = await db.select().from(creditLevelsTable).orderBy(asc(creditLevelsTable.sortOrder), asc(creditLevelsTable.id));
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取信用等级列表失败" });
+  }
+});
+
+router.post("/admin/credit-levels", async (req, res) => {
+  try {
+    const { name, minPoints, sortOrder, color, isActive } = req.body as {
+      name: string; minPoints?: number; sortOrder?: number; color?: string; isActive?: boolean;
+    };
+    if (!name?.trim()) return res.status(400).json({ error: "名称不能为空" });
+    const autoCode = `level_${Date.now().toString(36)}`;
+    const [row] = await db.insert(creditLevelsTable).values({
+      code: autoCode,
+      name: name.trim(),
+      minPoints: minPoints ?? 0,
+      sortOrder: sortOrder ?? 0,
+      color: color ?? null,
+      isActive: isActive ?? true,
+    }).returning();
+    return res.status(201).json(row);
+  } catch (err: any) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "创建信用等级失败" });
+  }
+});
+
+router.put("/admin/credit-levels/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const { name, minPoints, sortOrder, color, isActive } = req.body as {
+      name?: string; minPoints?: number; sortOrder?: number; color?: string; isActive?: boolean;
+    };
+    const [row] = await db.update(creditLevelsTable).set({
+      ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(minPoints !== undefined ? { minPoints } : {}),
+      ...(sortOrder !== undefined ? { sortOrder } : {}),
+      ...(color !== undefined ? { color } : {}),
+      ...(isActive !== undefined ? { isActive } : {}),
+    }).where(eq(creditLevelsTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "等级不存在" });
+    return res.json(row);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "更新信用等级失败" });
+  }
+});
+
+router.delete("/admin/credit-levels/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const [inUse] = (await db.execute(sql`SELECT 1 FROM opc_profiles WHERE credit_level_id = ${id} LIMIT 1`)).rows;
+    if (inUse) return res.status(400).json({ error: "该等级已被 OPC 账号使用，无法删除" });
+    const [row] = await db.delete(creditLevelsTable).where(eq(creditLevelsTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "等级不存在" });
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "删除信用等级失败" });
+  }
+});
+
+router.put("/admin/users/:id/credit-level", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id as string, 10);
+    const { creditLevelId, creditPoints } = req.body as { creditLevelId?: number | null; creditPoints?: number | null };
+    await db.execute(sql`
+      UPDATE opc_profiles
+      SET credit_level_id = ${creditLevelId ?? null},
+          credit_points   = ${creditPoints ?? null}
+      WHERE user_id = ${userId}
+    `);
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "设置信用等级失败" });
   }
 });
 
@@ -2765,13 +2867,20 @@ router.patch("/admin/settlement-accounts/:id", requireAdmin, async (req, res) =>
 /* ─── ADMIN: Quote Card v2 – structured dimensions + tiers ──────────────── */
 
 async function buildAllCategoryConfigs(filterCategory?: string) {
+  // Fetch all cat_categories for name resolution
+  const catCats = await db.select({ id: catCategoriesTable.id, code: catCategoriesTable.code, name: catCategoriesTable.name })
+    .from(catCategoriesTable).orderBy(asc(catCategoriesTable.sortOrder));
+  const catById = new Map(catCats.map(c => [c.id, c]));
+
+  const CODE_TO_LEGACY: Record<string, string> = { CG: "content", SA: "software", TK: "education", BO: "marketing", OTHER: "other" };
+
   const dims = await db.select().from(quoteDimensionsTable)
     .where(filterCategory
       ? and(eq(quoteDimensionsTable.isActive, true), eq(quoteDimensionsTable.category, filterCategory))
       : eq(quoteDimensionsTable.isActive, true))
     .orderBy(asc(quoteDimensionsTable.category), asc(quoteDimensionsTable.layer), asc(quoteDimensionsTable.sortOrder));
 
-  if (dims.length === 0) return filterCategory ? { category: filterCategory, base: [], adjustment: [] } : [];
+  if (dims.length === 0) return filterCategory ? { category: filterCategory, base: [], adjustment: [], optional: [] } : [];
 
   const dimIds = dims.map(d => d.id);
   const tiers = await db.select().from(quoteTiersTable)
@@ -2787,26 +2896,43 @@ async function buildAllCategoryConfigs(filterCategory?: string) {
   const mapDim = (d: typeof dims[0]) => ({
     id: d.id, code: d.code, label: d.label, description: d.description,
     sortOrder: d.sortOrder, isActive: d.isActive,
+    catCategoryId: d.catCategoryId ?? null,
     tiers: (tiersByDim.get(d.id) ?? []).map(t => ({
       id: t.id, tier: t.tier, tierLabel: t.tierLabel, basePrice: t.basePrice,
       coefficient: t.coefficient, description: t.description, sortOrder: t.sortOrder,
     })),
   });
 
-  const catMap = new Map<string, { base: ReturnType<typeof mapDim>[]; adjustment: ReturnType<typeof mapDim>[]; optional: ReturnType<typeof mapDim>[] }>();
+  // Group by catCategoryId (primary), falling back to legacy category string
+  type CatBuckets = { catCategoryId: number | null; categoryName: string; category: string; base: ReturnType<typeof mapDim>[]; adjustment: ReturnType<typeof mapDim>[]; optional: ReturnType<typeof mapDim>[] };
+  const catIdMap = new Map<string, CatBuckets>(); // key: catCategoryId ?? "legacy:"+category
+
   for (const d of dims) {
-    if (!catMap.has(d.category)) catMap.set(d.category, { base: [], adjustment: [], optional: [] });
-    const c = catMap.get(d.category)!;
+    const groupKey = d.catCategoryId ? String(d.catCategoryId) : `legacy:${d.category}`;
+    if (!catIdMap.has(groupKey)) {
+      const catInfo = d.catCategoryId ? catById.get(d.catCategoryId) : undefined;
+      const categoryName = catInfo?.name ?? d.category;
+      const legacyCat = catInfo ? (CODE_TO_LEGACY[catInfo.code] ?? d.category) : d.category;
+      catIdMap.set(groupKey, { catCategoryId: d.catCategoryId ?? null, categoryName, category: legacyCat, base: [], adjustment: [], optional: [] });
+    }
+    const c = catIdMap.get(groupKey)!;
     if (d.layer === "base") c.base.push(mapDim(d));
     else if (d.layer === "optional") c.optional.push(mapDim(d));
     else c.adjustment.push(mapDim(d));
   }
 
   if (filterCategory) {
-    const c = catMap.get(filterCategory) ?? { base: [], adjustment: [], optional: [] };
-    return { category: filterCategory, ...c };
+    // Support filtering by either legacy category string or catCategoryId
+    const found = Array.from(catIdMap.values()).find(c => c.category === filterCategory || String(c.catCategoryId) === filterCategory);
+    return found ?? { catCategoryId: null, categoryName: filterCategory, category: filterCategory, base: [], adjustment: [], optional: [] };
   }
-  return Array.from(catMap.entries()).map(([cat, c]) => ({ category: cat, ...c }));
+  // Sort by catCategoryId (known first), then legacy-only entries
+  return Array.from(catIdMap.values()).sort((a, b) => {
+    if (a.catCategoryId && b.catCategoryId) return a.catCategoryId - b.catCategoryId;
+    if (a.catCategoryId) return -1;
+    if (b.catCategoryId) return 1;
+    return a.category.localeCompare(b.category);
+  });
 }
 
 router.get("/admin/quote-card/config", requireAdmin, async (req, res) => {
@@ -2825,8 +2951,22 @@ router.post("/admin/quote-card/dimensions", requireAdmin, async (req, res) => {
     const parsed = CreateQuoteDimensionBody.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "参数无效", details: parsed.error.flatten().fieldErrors });
     const { category, layer, code, label, description, sortOrder } = parsed.data;
+
+    // Resolve catCategoryId from request body or look it up from the legacy category string
+    let catCategoryId: number | null = (req.body.catCategoryId as number | null) ?? null;
+    if (!catCategoryId && category) {
+      const LEGACY_TO_CODE: Record<string, string> = { content: "CG", software: "SA", education: "TK", marketing: "BO", other: "OTHER" };
+      const code_ = LEGACY_TO_CODE[category];
+      if (code_) {
+        const [cat] = await db.select({ id: catCategoriesTable.id }).from(catCategoriesTable)
+          .where(eq(catCategoriesTable.code, code_)).limit(1);
+        if (cat) catCategoryId = cat.id;
+      }
+    }
+
     const [dim] = await db.insert(quoteDimensionsTable).values({
       category, layer, code, label, description: description ?? null, sortOrder: sortOrder ?? 0,
+      catCategoryId,
     }).returning();
     return res.status(201).json(dim);
   } catch (err: any) {

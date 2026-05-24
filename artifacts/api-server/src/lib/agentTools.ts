@@ -8,6 +8,11 @@ export const DEMAND_TYPES = [
   { value: "other", label: "其他", description: "不属于以上分类的其他AI相关服务需求" },
 ];
 
+export interface ToolExecutionContext {
+  categories?: Array<{ id: number; code: string; name: string; description: string | null }>;
+  tags?: string[];
+}
+
 export const SKILL_TAGS = [
   "AI课程设计", "培训体系搭建", "Python编程", "大模型应用", "提示词工程",
   "数据分析", "机器学习", "深度学习", "计算机视觉", "自然语言处理",
@@ -133,7 +138,16 @@ const REQUIREMENT_TEMPLATES: Record<string, {
   },
 };
 
-export const AGENT_TOOLS: LLMTool[] = [
+/** Build the full agent tool list, dynamically injecting category codes when context is available. */
+export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
+  // Derive demandType enum from live categories (new codes) + legacy codes for fallback
+  const dynamicCodes = context?.categories?.map(c => c.code);
+  const legacyCodes = ["education", "software", "marketing", "content", "other"];
+  const demandTypeCodes = dynamicCodes && dynamicCodes.length > 0
+    ? [...dynamicCodes, ...legacyCodes]   // new codes first, legacy as fallback
+    : legacyCodes;
+
+  return [
   {
     type: "function",
     function: {
@@ -144,8 +158,8 @@ export const AGENT_TOOLS: LLMTool[] = [
         properties: {
           demandType: {
             type: "string",
-            enum: ["education", "software", "marketing", "content", "other"],
-            description: "需求类型代码",
+            enum: demandTypeCodes,
+            description: "需求类型代码（优先使用平台当前分类代码，如 CG/SA/TK/BO/OTHER；也兼容旧代码 education/software 等）",
           },
         },
         required: ["demandType"],
@@ -273,14 +287,29 @@ export const AGENT_TOOLS: LLMTool[] = [
       },
     },
   },
-];
+  ];
+}
+
+/** Static fallback list (for callers that don't have context yet). */
+export const AGENT_TOOLS: LLMTool[] = buildAgentTools();
+
+// Mapping from new category codes to legacy template keys
+const CAT_CODE_TO_TEMPLATE: Record<string, string> = {
+  CG: "content",
+  SA: "software",
+  TK: "education",
+  BO: "marketing",
+  OTHER: "other",
+};
 
 type ToolResult = unknown;
 
-export function executeTool(name: string, args: Record<string, unknown>): ToolResult {
+export function executeTool(name: string, args: Record<string, unknown>, context?: ToolExecutionContext): ToolResult {
   switch (name) {
     case "get_requirement_template": {
-      const demandType = (args.demandType as string) || "other";
+      const rawType = (args.demandType as string) || "other";
+      // Accept both new category codes (CG/SA/TK/BO/OTHER) and legacy keys
+      const demandType = CAT_CODE_TO_TEMPLATE[rawType.toUpperCase()] ?? rawType;
       const template = REQUIREMENT_TEMPLATES[demandType] ?? REQUIREMENT_TEMPLATES.other;
       return {
         demandType,
@@ -292,10 +321,17 @@ export function executeTool(name: string, args: Record<string, unknown>): ToolRe
     }
 
     case "get_demand_types":
+      if (context?.categories?.length) {
+        return context.categories.map(c => ({
+          value: c.code,
+          label: c.name,
+          description: c.description ?? "",
+        }));
+      }
       return DEMAND_TYPES;
 
     case "get_skill_tags":
-      return SKILL_TAGS;
+      return context?.tags?.length ? context.tags : SKILL_TAGS;
 
     case "get_opc_levels":
       return OPC_LEVELS;

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { Plus, Pencil, Cpu, Bot, Globe, Lock, ArrowLeft, ExternalLink, Star, Trash2, Trophy } from "lucide-react";
+import { Plus, Pencil, Cpu, Bot, Globe, Lock, ArrowLeft, ExternalLink, Star, Trash2, Trophy, Tag } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile, useListPortfolios } from "@workspace/api-client-react";
 import { PortfolioDrawer, TYPE_LABEL } from "@/components/PortfolioDrawer";
 import type { Portfolio } from "@workspace/api-client-react";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const PORTFOLIO_ICONS = [Cpu, Bot, Globe, Lock];
 const PORTFOLIO_GRAD  = [
@@ -32,10 +34,14 @@ const LEVEL_STATUS_BADGE: Record<string, { text: string; color: string }> = {
   rejected:   { text: "认证未通过",   color: "bg-red-100 text-red-700 border-red-200" },
 };
 
+type PortfolioEx = Portfolio & { catCategoryId?: number | null; catCategoryName?: string | null };
+
 export default function Portfolios() {
   const [drawerOpen,     setDrawerOpen]     = useState(false);
   const [editingItem,    setEditingItem]    = useState<Portfolio | null>(null);
   const [filterType,     setFilterType]     = useState<string>("all");
+  const [filterCatId,    setFilterCatId]    = useState<number | null>(null);
+  const [catCategories,  setCatCategories]  = useState<Array<{ id: number; name: string }>>([]);
 
   const { data: user }    = useGetCurrentUser();
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
@@ -44,12 +50,23 @@ export default function Portfolios() {
     { query: { enabled: !!user?.id } }
   );
 
+  useEffect(() => {
+    fetch(`${API_BASE}/api/cat-categories`)
+      .then(r => r.json())
+      .then(data => Array.isArray(data) && setCatCategories(data))
+      .catch(() => {});
+  }, []);
+
+  const portfoliosEx = portfolios as PortfolioEx[];
   const name = profile?.nickname ?? user?.nickname ?? "我";
 
-  const types = Array.from(new Set(portfolios.map(p => p.type)));
-  const filtered = filterType === "all"
-    ? portfolios
-    : portfolios.filter(p => p.type === filterType);
+  /* derive categories that actually appear in this user's portfolios */
+  const usedCatIds = new Set(portfoliosEx.map(p => p.catCategoryId).filter(Boolean));
+  const usedCats   = catCategories.filter(c => usedCatIds.has(c.id));
+
+  const filtered = portfoliosEx
+    .filter(p => filterType  === "all" || p.type === filterType)
+    .filter(p => filterCatId === null   || p.catCategoryId === filterCatId);
 
   const openAdd  = () => { setEditingItem(null); setDrawerOpen(true); };
   const openEdit = (p: Portfolio) => { setEditingItem(p); setDrawerOpen(true); };
@@ -83,23 +100,45 @@ export default function Portfolios() {
           </button>
         </div>
 
-        {/* Filter chips */}
-        {types.length > 1 && (
-          <div className="flex flex-wrap gap-2">
+        {/* Filter chips — 赛道分类 */}
+        {usedCats.length > 0 && (
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
+              <Tag size={11} /> 赛道
+            </span>
             <button
-              onClick={() => setFilterType("all")}
-              className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${filterType === "all" ? "bg-primary text-white" : "bg-white border border-border text-slate-600 hover:border-primary/40"}`}>
-              全部 ({portfolios.length})
+              onClick={() => setFilterCatId(null)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${filterCatId === null ? "bg-purple-600 text-white" : "bg-white border border-border text-slate-600 hover:border-purple-300"}`}>
+              全部赛道
             </button>
-            {types.map(t => (
-              <button key={t}
-                onClick={() => setFilterType(t)}
-                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${filterType === t ? "bg-primary text-white" : "bg-white border border-border text-slate-600 hover:border-primary/40"}`}>
-                {TYPE_LABEL[t] ?? t} ({portfolios.filter(p => p.type === t).length})
+            {usedCats.map(cat => (
+              <button key={cat.id}
+                onClick={() => setFilterCatId(filterCatId === cat.id ? null : cat.id)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${filterCatId === cat.id ? "bg-purple-600 text-white" : "bg-white border border-border text-slate-600 hover:border-purple-300"}`}>
+                {cat.name} ({portfoliosEx.filter(p => p.catCategoryId === cat.id).length})
               </button>
             ))}
           </div>
         )}
+
+        {/* Filter chips — 项目类型 */}
+        {(() => { const types = Array.from(new Set(portfoliosEx.map(p => p.type))); return types.length > 1 ? (
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest shrink-0">类型</span>
+            <button
+              onClick={() => setFilterType("all")}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${filterType === "all" ? "bg-primary text-white" : "bg-white border border-border text-slate-600 hover:border-primary/40"}`}>
+              全部
+            </button>
+            {types.map(t => (
+              <button key={t}
+                onClick={() => setFilterType(t)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${filterType === t ? "bg-primary text-white" : "bg-white border border-border text-slate-600 hover:border-primary/40"}`}>
+                {TYPE_LABEL[t] ?? t}
+              </button>
+            ))}
+          </div>
+        ) : null; })()}
 
         {/* Grid */}
         {filtered.length > 0 ? (
@@ -139,6 +178,11 @@ export default function Portfolios() {
                       <span className={`inline-flex items-center px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider w-fit ${typeColor}`}>
                         {TYPE_LABEL[p.type] ?? p.type}
                       </span>
+                      {p.catCategoryName && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold bg-purple-100 text-purple-700 w-fit">
+                          <Tag size={9} /> {p.catCategoryName}
+                        </span>
+                      )}
                       {p.levelApplyStatus && LEVEL_STATUS_BADGE[p.levelApplyStatus] && (
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold border w-fit ${LEVEL_STATUS_BADGE[p.levelApplyStatus].color}`}>
                           <Trophy size={10} />

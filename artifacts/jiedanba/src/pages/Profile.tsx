@@ -15,7 +15,7 @@ import {
   useUpdateOpcProfile,
   type Portfolio,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PortfolioDrawer, TYPE_LABEL } from "@/components/PortfolioDrawer";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -181,20 +181,6 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
   other:     "其他",
 };
 
-const CERT_BY_LEVEL: Record<string, { label: string; detail: string; type: "done" | "current" | "locked" }[]> = {
-  A: [
-    { label: "A 级专家认证", detail: "2023 年 9 月解锁 · 高级 AI 系统架构", type: "current" },
-    { label: "B 级进阶开发", detail: "2022 年 2 月解锁 · 云原生迁移专项",   type: "done" },
-    { label: "C 级基础认证", detail: "2020 年 1 月解锁 · 系统集成入门",    type: "locked" },
-  ],
-  B: [
-    { label: "B 级进阶开发", detail: "2022 年 2 月解锁 · 云原生迁移专项",   type: "current" },
-    { label: "C 级基础认证", detail: "2020 年 1 月解锁 · 系统集成入门",    type: "done" },
-  ],
-  C: [
-    { label: "C 级基础认证", detail: "2020 年 1 月解锁 · 系统集成入门",    type: "current" },
-  ],
-};
 
 const PORTFOLIO_ICONS = [Cpu, Bot, Globe, Lock];
 const PORTFOLIO_GRAD  = [
@@ -658,10 +644,26 @@ export default function Profile() {
     }
   }, [pendingPortfolioId, portfolios]);
 
-  const level    = profile?.level ?? "C";
-  const certs    = CERT_BY_LEVEL[level] ?? CERT_BY_LEVEL["C"];
-  const rating   = Number(profile?.avgRating ?? 0);
-  const credits  = profile?.creditScore ?? 0;
+  const level           = profile?.level ?? "C";
+  const creditLevelName = (profile as any)?.creditLevelName as string | null ?? null;
+  const creditLevelColor = (profile as any)?.creditLevelColor as string | null ?? null;
+  const creditPoints    = (profile as any)?.creditPoints as number ?? 0;
+  const rating          = Number(profile?.avgRating ?? 0);
+
+  const { data: trackCerts = [] } = useQuery<Array<{
+    id: number; level: string; status: string; certified_at: string;
+    cat_category_id: number; cat_category_name: string; cat_category_icon: string | null;
+  }>>({
+    queryKey: ["opc-track-certs", user?.id],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/opc/track-certs`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      return r.ok ? r.json() : [];
+    },
+    enabled: !!user?.id,
+  });
+
   const skills   = profile?.skillTags ?? [];
 
   const name    = profile?.nickname ?? user?.nickname ?? "新用户";
@@ -727,10 +729,17 @@ export default function Profile() {
             {/* Row: badges + edit button — cleared past avatar */}
             <div className="flex items-start justify-between pt-20">
               <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 bg-secondary/15 text-secondary px-3 py-1 rounded-full text-xs font-bold">
-                  <BadgeCheck size={12} />
-                  {level === "newbie" ? "新手 · 未认证" : `Lv.${level} ${level === "A" ? "专家认证" : level === "B" ? "进阶认证" : "基础认证"}`}
-                </span>
+                {creditLevelName ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: creditLevelColor ?? "#94a3b8" }}>
+                    <BadgeCheck size={12} />
+                    {creditLevelName}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">
+                    <BadgeCheck size={12} /> 新人 OPC
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">
                   <ShieldCheck size={12} /> 平台认证伙伴
                 </span>
@@ -769,7 +778,7 @@ export default function Profile() {
               {[
                 { val: `${portfolios?.length ?? 0}+`, label: "完成项目" },
                 { val: rating > 0 ? `${rating}/5.0` : "暂无评分", label: "综合评分" },
-                { val: credits > 0 ? String(credits) : "—", label: "信用分" },
+                { val: creditPoints > 0 ? String(creditPoints) : "—", label: "信用积分" },
                 { val: "98%", label: "按时交付率" },
               ].map(s => (
                 <div key={s.label}>
@@ -868,22 +877,34 @@ export default function Profile() {
               </div>
             )}
 
-            {/* Certification */}
+            {/* Track Cert History */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">认证历史</h3>
-              <div className="relative space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
-                {certs.map((cert, i) => (
-                  <div key={i} className={`relative pl-8 ${cert.type === "locked" ? "opacity-50" : ""}`}>
-                    <div className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white z-10 ${
-                      cert.type === "current" ? "bg-secondary" : cert.type === "done" ? "bg-primary" : "bg-slate-400"
-                    }`}>
-                      <Star size={10} className="text-white fill-white" />
-                    </div>
-                    <p className="text-sm font-bold text-blue-900">{cert.label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{cert.detail}</p>
-                  </div>
-                ))}
-              </div>
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">赛道认证</h3>
+              {trackCerts.length > 0 ? (
+                <div className="relative space-y-4 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
+                  {trackCerts.map((cert) => {
+                    const LEVEL_COLOR: Record<string, string> = { A: "bg-amber-500", B: "bg-primary", C: "bg-secondary" };
+                    const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+                    return (
+                      <div key={cert.id} className="relative pl-8">
+                        <div className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white z-10 ${LEVEL_COLOR[cert.level] ?? "bg-slate-400"}`}>
+                          <Trophy size={10} className="text-white" />
+                        </div>
+                        <p className="text-sm font-bold text-blue-900">{cert.cat_category_name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {LEVEL_NAME[cert.level] ?? `${cert.level}级`} · {new Date(cert.certified_at).toLocaleDateString("zh-CN")} 认证
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <Trophy size={28} className="text-slate-200 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400">暂无赛道认证记录</p>
+                  <p className="text-[11px] text-slate-300 mt-1">提交作品申请赛道认证，展示您的专业能力</p>
+                </div>
+              )}
             </div>
 
             {/* Income quick link */}
@@ -963,6 +984,11 @@ export default function Profile() {
                               <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider inline-block">
                                 {TYPE_LABEL[p.type] ?? p.type}
                               </span>
+                              {(p as any).catCategoryName && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-purple-100 text-purple-700">
+                                  {(p as any).catCategoryName}
+                                </span>
+                              )}
                               {p.levelApplyStatus && (() => {
                                 const lsMap: Record<string, { text: string; cls: string }> = {
                                   pending:    { text: "审核中",   cls: "bg-amber-100 text-amber-700 border-amber-200" },

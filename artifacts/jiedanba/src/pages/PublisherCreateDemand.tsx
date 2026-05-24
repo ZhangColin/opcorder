@@ -37,13 +37,6 @@ function resolveContentType(file: File): string {
 
 /* ─── Constants ───────────────────────────────── */
 
-const DEMAND_TYPES = [
-  { value: "education", label: "教育培训" },
-  { value: "software",  label: "软件开发" },
-  { value: "marketing", label: "营销" },
-  { value: "content",   label: "内容设计" },
-  { value: "other",     label: "其他" },
-];
 
 const SKILL_TAGS_OPTIONS = [
   "PPT设计", "视频剪辑", "AI应用开发", "Vibe Coding", "提示词工程",
@@ -308,9 +301,36 @@ export default function PublisherCreateDemand() {
   const updateDemand = useUpdateDemand();
   const updateStatus = useUpdateDemandStatus();
 
+  /* ── Dynamic category list ── */
+  const [catCategories, setCatCategories] = useState<Array<{id: number; code: string; name: string; tags?: Array<{id: number; name: string}>}>>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (Array.isArray(data) && data.length > 0) setCatCategories(data); })
+      .catch(() => {});
+  }, []);
+
+  const demandTypes = catCategories.map(c => ({ id: c.id, label: c.name }));
+
   /* ── Form state ── */
   const [title, setTitle] = useState("");
   const [type, setType] = useState("");
+  const [catCategoryId, setCatCategoryId] = useState<number | null>(null);
+  const [requiredTrackLevel, setRequiredTrackLevel] = useState("any");
+
+  /* ── Skill tags filtered by selected category ── */
+  const tagOptions = useMemo(() => {
+    const selectedCat = catCategoryId
+      ? catCategories.find(c => c.id === catCategoryId)
+      : null;
+    const source = selectedCat
+      ? (selectedCat.tags ?? [])
+      : catCategories.flatMap(c => c.tags ?? []);
+    const names: string[] = [];
+    const seen = new Set<string>();
+    source.forEach(t => { if (!seen.has(t.name)) { seen.add(t.name); names.push(t.name); } });
+    return names.length > 0 ? names : SKILL_TAGS_OPTIONS;
+  }, [catCategories, catCategoryId]);
   const [description, setDescription] = useState("");
   const [skillTags, setSkillTags] = useState<string[]>([]);
   const [opcLevel, setOpcLevel] = useState("any");
@@ -344,7 +364,10 @@ export default function PublisherCreateDemand() {
   useEffect(() => {
     if (existingDemand) {
       setTitle(existingDemand.title ?? "");
-      setType(existingDemand.type ?? "");
+      const legacyType = existingDemand.type ?? "";
+      setType(legacyType);
+      if ((existingDemand as any).catCategoryId) setCatCategoryId((existingDemand as any).catCategoryId);
+      setRequiredTrackLevel((existingDemand as any).requiredTrackLevel ?? "any");
       setDescription(existingDemand.description ?? "");
       setSkillTags((existingDemand.skillTags as string[]) ?? []);
       setOpcLevel(existingDemand.opcLevel ?? "any");
@@ -443,11 +466,16 @@ export default function PublisherCreateDemand() {
         milestones,
         attachments,
       };
+      const finalPayload = {
+        ...payload,
+        ...(catCategoryId ? { catCategoryId } : {}),
+        requiredTrackLevel,
+      };
       if (isEdit && editId) {
-        await updateDemand.mutateAsync({ demandId: editId, data: payload });
+        await updateDemand.mutateAsync({ demandId: editId, data: finalPayload as any });
         toast({ title: "需求已更新", description: "需求信息已保存成功" });
       } else {
-        const created = await createDemand.mutateAsync({ data: payload });
+        const created = await createDemand.mutateAsync({ data: finalPayload as any });
         if (!asDraft && created?.id) {
           await updateStatus.mutateAsync({ demandId: created.id, data: { status: "pending_review" } });
         }
@@ -510,9 +538,33 @@ export default function PublisherCreateDemand() {
   const handleFillForm = useCallback((suggestion: FormSuggestion) => {
     let scrollTarget: string | null = null;
     if (suggestion.title) { setTitle(suggestion.title.slice(0, 50)); scrollTarget = scrollTarget ?? "section-basic"; }
-    if (suggestion.type) { setType(normalizeType(suggestion.type)); scrollTarget = scrollTarget ?? "section-basic"; }
+
+    // Resolve catCategory from the AI-suggested type (supports DB codes like CG/SA/TK/BO/OTHER and legacy keys)
+    let matchedCat: (typeof catCategories)[0] | undefined;
+    if (suggestion.type) {
+      setType(normalizeType(suggestion.type));
+      const rawUpper = suggestion.type.trim().toUpperCase();
+      const legacyToName: Record<string, string> = {
+        education: "教育培训", software: "软件开发",
+        marketing: "营销", content: "内容设计", other: "其他",
+      };
+      matchedCat = catCategories.find(c => c.code.toUpperCase() === rawUpper)
+        ?? catCategories.find(c => c.name === (legacyToName[normalizeType(suggestion.type)] ?? ""));
+      if (matchedCat) setCatCategoryId(matchedCat.id);
+      scrollTarget = scrollTarget ?? "section-basic";
+    }
+
     if (suggestion.description) { setDescription(suggestion.description); scrollTarget = scrollTarget ?? "section-detail"; }
-    if (suggestion.skillTags?.length) { setSkillTags(suggestion.skillTags); scrollTarget = scrollTarget ?? "section-detail"; }
+
+    if (suggestion.skillTags?.length) {
+      // Keep only tags that belong to the matched category; fall back to full list if none match
+      const validTags = matchedCat?.tags?.length
+        ? new Set(matchedCat.tags.map((t: { name: string }) => t.name))
+        : null;
+      const filtered = validTags ? suggestion.skillTags.filter(tag => validTags.has(tag)) : suggestion.skillTags;
+      setSkillTags(filtered.length > 0 ? filtered : suggestion.skillTags);
+      scrollTarget = scrollTarget ?? "section-detail";
+    }
 
     // Budget: set min/max first, then derive opcLevel from actual budgetMax to guarantee consistency
     const rawMax = suggestion.budgetMax ?? suggestion.budget;
@@ -547,7 +599,7 @@ export default function PublisherCreateDemand() {
         document.getElementById(scrollTarget!)?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 50);
     }
-  }, [toast]);
+  }, [toast, catCategories]);
 
   const logout = () => {
     clearSession();
@@ -660,13 +712,21 @@ export default function PublisherCreateDemand() {
 
             <FormField label="需求类型" required error={errors.type}>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {DEMAND_TYPES.map(dt => (
+                {catCategories.length === 0 && (
+                  <p className="text-sm text-slate-400 col-span-full py-1">加载中…</p>
+                )}
+                {demandTypes.map(dt => (
                   <button
-                    key={dt.value}
+                    key={dt.id}
                     type="button"
-                    onClick={() => setType(dt.value)}
+                    onClick={() => {
+                      const validTags = new Set((catCategories.find(c => c.id === dt.id)?.tags ?? []).map(t => t.name));
+                      setCatCategoryId(dt.id);
+                      setType(String(dt.id));
+                      setSkillTags(prev => prev.filter(tag => validTags.has(tag)));
+                    }}
                     className={`px-3 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
-                      type === dt.value
+                      catCategoryId === dt.id
                         ? "border-primary bg-primary text-white shadow-sm"
                         : "border-slate-200 text-slate-600 hover:border-primary/30 hover:text-primary bg-white"
                     }`}
@@ -719,7 +779,7 @@ export default function PublisherCreateDemand() {
             <FormField label="需求技能标签" required error={errors.skillTags}
               hint="选择与任务相关的技能标签（可多选）">
               <TagSelector
-                options={SKILL_TAGS_OPTIONS}
+                options={tagOptions}
                 selected={skillTags}
                 onChange={setSkillTags}
               />
@@ -762,6 +822,35 @@ export default function PublisherCreateDemand() {
                 })}
               </div>
             </FormField>
+
+            {catCategoryId && (
+              <FormField label="赛道认证要求" hint="可选：要求投标OPC持有该赛道的认证等级">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: "any", label: "不限", desc: "任意OPC均可投标" },
+                    { value: "C",   label: "C级及以上", desc: "基础认证" },
+                    { value: "B",   label: "B级及以上", desc: "进阶认证" },
+                    { value: "A",   label: "A级", desc: "专家认证" },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setRequiredTrackLevel(opt.value)}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        requiredTrackLevel === opt.value
+                          ? "border-primary bg-primary/5"
+                          : "border-slate-200 hover:border-primary/30 bg-white"
+                      }`}
+                    >
+                      <p className={`text-sm font-bold ${requiredTrackLevel === opt.value ? "text-primary" : "text-blue-900"}`}>
+                        {opt.label}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </FormField>
+            )}
 
             <FormField label="派单模式" required>
               <div className="grid grid-cols-2 gap-4">

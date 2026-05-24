@@ -1,4 +1,5 @@
 import { pgTable, serial, varchar, text, integer, boolean, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { catCategoriesTable } from "./cat-categories";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -24,6 +25,7 @@ export const DEMAND_CATEGORY_MAP: Record<string, QuoteCategory | null> = {
 export const quoteDimensionsTable = pgTable("quote_dimensions", {
   id: serial("id").primaryKey(),
   category: varchar("category", { length: 20 }).notNull(),
+  catCategoryId: integer("cat_category_id").references(() => catCategoriesTable.id),
   layer: varchar("layer", { length: 10 }).notNull(),
   code: varchar("code", { length: 20 }).notNull(),
   label: text("label").notNull(),

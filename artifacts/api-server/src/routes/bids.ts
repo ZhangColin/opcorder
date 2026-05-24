@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable, settlementAccountsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable, settlementAccountsTable, opcTrackCertsTable } from "@workspace/db";
+import { eq, and, desc, sql } from "drizzle-orm";
 import {
   CreateBidBody,
   UpdateBidStatusBody,
@@ -164,12 +164,14 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
 
     const [demand] = await db
       .select({
-        publisherId:  demandsTable.publisherId,
-        title:        demandsTable.title,
-        opcLevel:     demandsTable.opcLevel,
-        budget:       demandsTable.budget,
-        budgetMin:    demandsTable.budgetMin,
-        status:       demandsTable.status,
+        publisherId:        demandsTable.publisherId,
+        title:              demandsTable.title,
+        opcLevel:           demandsTable.opcLevel,
+        budget:             demandsTable.budget,
+        budgetMin:          demandsTable.budgetMin,
+        status:             demandsTable.status,
+        catCategoryId:      demandsTable.catCategoryId,
+        requiredTrackLevel: demandsTable.requiredTrackLevel,
       })
       .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
 
@@ -190,6 +192,30 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       if (opcRank < requiredRank) {
         return res.status(403).json({
           error: `此需求要求 ${LEVEL_LABEL[demand.opcLevel] ?? demand.opcLevel} 及以上，您当前为 ${LEVEL_LABEL[opcActualLevel] ?? opcActualLevel}，暂无资格抢单`,
+        });
+      }
+    }
+
+    // Track cert eligibility: if demand has a category with a required track level
+    if (demand.catCategoryId && demand.requiredTrackLevel && demand.requiredTrackLevel !== "any") {
+      const certRows = (await db.execute(sql`
+        SELECT level FROM opc_track_certs
+        WHERE user_id = ${opcId}
+          AND cat_category_id = ${demand.catCategoryId}
+          AND status = 'active'
+        LIMIT 1
+      `)).rows as Array<{ level: string }>;
+      if (!certRows.length) {
+        return res.status(403).json({
+          error: "此需求要求指定赛道认证资质，您尚无该赛道认证记录，请提交作品申请赛道认证后再抢单",
+          code: "TRACK_CERT_MISSING",
+        });
+      }
+      const certLevel = certRows[0].level;
+      if ((LEVEL_RANK[certLevel] ?? 0) < (LEVEL_RANK[demand.requiredTrackLevel] ?? 0)) {
+        return res.status(403).json({
+          error: `此需求要求该赛道 ${LEVEL_LABEL[demand.requiredTrackLevel] ?? demand.requiredTrackLevel} 级认证，您当前认证等级（${LEVEL_LABEL[certLevel] ?? certLevel}）不足`,
+          code: "TRACK_CERT_LEVEL_INSUFFICIENT",
         });
       }
     }

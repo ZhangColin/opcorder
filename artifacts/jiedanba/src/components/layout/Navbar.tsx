@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, KeyRound, X } from "lucide-react";
-import { useGetCurrentUser, useGetOpcProfile, useListNotifications } from "@workspace/api-client-react";
+import { useGetCurrentUser, useGetOpcProfile, useListNotifications, getGetOpcProfileQueryKey, getListNotificationsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
@@ -16,8 +16,8 @@ export function Navbar() {
   const qc = useQueryClient();
 
   const { data: user }    = useGetCurrentUser();
-  const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { enabled: !!user?.id } });
-  const { data: notifData } = useListNotifications({ limit: 1 }, { query: { enabled: !!user?.id, refetchInterval: 30000 } });
+  const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { queryKey: getGetOpcProfileQueryKey(user?.id ?? 1), enabled: !!user?.id } });
+  const { data: notifData } = useListNotifications({ limit: 1 }, { query: { queryKey: getListNotificationsQueryKey({ limit: 1 }), enabled: !!user?.id, refetchInterval: 30000 } });
   const unreadCount = notifData?.unreadCount ?? 0;
   const siteName = useSiteName();
 

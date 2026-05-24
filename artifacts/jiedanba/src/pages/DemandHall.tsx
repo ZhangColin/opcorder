@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useListDemands } from "@workspace/api-client-react";
 import { DemandCard } from "@/components/DemandCard";
 import { Search, Filter, SlidersHorizontal } from "lucide-react";
-import { DEMAND_TYPES, OPC_LEVELS } from "@/lib/constants";
+import { OPC_LEVELS } from "@/lib/constants";
 import type { ListDemandsParams, ListDemandsStatus } from "@workspace/api-client-react";
+
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function DemandHall() {
   const [filters, setFilters] = useState<ListDemandsParams>({
@@ -14,6 +16,14 @@ export default function DemandHall() {
   });
   
   const [searchInput, setSearchInput] = useState("");
+  const [catCategories, setCatCategories] = useState<Array<{id: number; name: string}>>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setCatCategories(d); })
+      .catch(() => {});
+  }, []);
 
   const { data, isLoading } = useListDemands(filters);
 
@@ -65,22 +75,22 @@ export default function DemandHall() {
                     <input 
                       type="radio" 
                       name="type" 
-                      checked={!filters.type} 
-                      onChange={() => setFilters(p => ({ ...p, type: undefined, page: 1 }))}
+                      checked={!filters.catCategoryId} 
+                      onChange={() => setFilters(p => ({ ...p, catCategoryId: undefined, type: undefined, page: 1 }))}
                       className="w-4 h-4 text-primary focus:ring-primary border-border"
                     />
                     <span className="text-sm font-medium group-hover:text-primary transition-colors">全部</span>
                   </label>
-                  {Object.entries(DEMAND_TYPES).map(([key, label]) => (
-                    <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                  {catCategories.map(cat => (
+                    <label key={cat.id} className="flex items-center gap-3 cursor-pointer group">
                       <input 
                         type="radio" 
                         name="type" 
-                        checked={filters.type === key} 
-                        onChange={() => setFilters(p => ({ ...p, type: key, page: 1 }))}
+                        checked={filters.catCategoryId === cat.id} 
+                        onChange={() => setFilters(p => ({ ...p, catCategoryId: cat.id, type: undefined, page: 1 }))}
                         className="w-4 h-4 text-primary focus:ring-primary border-border"
                       />
-                      <span className="text-sm font-medium group-hover:text-primary transition-colors">{label}</span>
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">{cat.name}</span>
                     </label>
                   ))}
                 </div>

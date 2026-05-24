@@ -15,6 +15,8 @@ export interface OverviewStats {
   activeOpcs: number;
   monthlyOrders: number;
   completionRate: number;
+  totalSettlements?: number;
+  activeDemands?: number;
 }
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -47,6 +49,7 @@ export type OpcProfileLevel =
   (typeof OpcProfileLevel)[keyof typeof OpcProfileLevel];
 
 export const OpcProfileLevel = {
+  newbie: "newbie",
   C: "C",
   B: "B",
   A: "A",
@@ -59,6 +62,12 @@ export interface OpcProfile {
   avatar?: string;
   level: OpcProfileLevel;
   bio?: string;
+  title?: string;
+  location?: string;
+  website?: string | null;
+  yearsExp?: number;
+  phone?: string;
+  wechat?: string;
   skillTags?: string[];
   industryTags?: string[];
   creditScore: number;
@@ -162,6 +171,8 @@ export interface Demand {
   summary?: string | null;
   skillTags: string[];
   opcLevel: DemandOpcLevel;
+  requiredLevel?: string;
+  catCategoryId?: number;
   budget: number;
   budgetMin?: number | null;
   budgetMax?: number | null;
@@ -419,6 +430,7 @@ export interface CreateBidInput {
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
+  pending_payment: "pending_payment",
   in_progress: "in_progress",
   pending_acceptance: "pending_acceptance",
   completed: "completed",
@@ -597,6 +609,7 @@ export const NotificationRelatedType = {
   demand: "demand",
   order: "order",
   bid: "bid",
+  portfolio: "portfolio",
 } as const;
 
 export interface Notification {
@@ -673,6 +686,7 @@ export const CourseRequiredLevel = {
   C: "C",
   B: "B",
   A: "A",
+  any: "any",
 } as const;
 
 export type CourseStatus = (typeof CourseStatus)[keyof typeof CourseStatus];
@@ -896,6 +910,7 @@ export type ListDemandsParams = {
    * Filter demands by publisher user ID
    */
   publisherId?: number;
+  catCategoryId?: number;
 };
 
 export type ListDemandsStatus =
@@ -1024,6 +1039,7 @@ export type ListOrdersStatus =
   (typeof ListOrdersStatus)[keyof typeof ListOrdersStatus];
 
 export const ListOrdersStatus = {
+  pending_payment: "pending_payment",
   in_progress: "in_progress",
   pending_acceptance: "pending_acceptance",
   completed: "completed",

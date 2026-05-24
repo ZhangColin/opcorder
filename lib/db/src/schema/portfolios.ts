@@ -1,5 +1,6 @@
 import { pgTable, serial, integer, text, varchar, real, timestamp } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { catCategoriesTable } from "./cat-categories";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -14,6 +15,7 @@ export const portfoliosTable = pgTable("portfolios", {
   orderId: integer("order_id"),
   rating: real("rating"),
   clientFeedback: text("client_feedback"),
+  catCategoryId: integer("cat_category_id").references(() => catCategoriesTable.id),
   applyLevel: varchar("apply_level", { length: 1 }),
   levelApplyStatus: varchar("level_apply_status", { length: 20 }),
   levelApplyNote: text("level_apply_note"),

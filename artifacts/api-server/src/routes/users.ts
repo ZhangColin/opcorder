@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, opcProfilesTable, publisherProfilesTable, ordersTable } from "@workspace/db";
+import { db, usersTable, opcProfilesTable, publisherProfilesTable, ordersTable, creditLevelsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { GetOpcLeaderboardQueryParams, UpdateOpcProfileBody } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
@@ -10,29 +10,34 @@ const router: IRouter = Router();
 async function buildProfileResponse(userId: number) {
   const [profile] = await db
     .select({
-      id:             opcProfilesTable.id,
-      userId:         opcProfilesTable.userId,
-      nickname:       usersTable.nickname,
-      avatar:         usersTable.avatar,
-      phone:          usersTable.phone,
-      level:          opcProfilesTable.level,
-      bio:            opcProfilesTable.bio,
-      skillTags:      opcProfilesTable.skillTags,
-      industryTags:   opcProfilesTable.industryTags,
-      creditScore:    opcProfilesTable.creditScore,
-      totalOrders:    opcProfilesTable.totalOrders,
-      completionRate: opcProfilesTable.completionRate,
-      avgRating:      opcProfilesTable.avgRating,
-      totalEarnings:  opcProfilesTable.totalEarnings,
-      activityScore:  opcProfilesTable.activityScore,
-      title:          opcProfilesTable.title,
-      location:       opcProfilesTable.location,
-      website:        opcProfilesTable.website,
-      yearsExp:       opcProfilesTable.yearsExp,
-      wechat:         opcProfilesTable.wechat,
+      id:              opcProfilesTable.id,
+      userId:          opcProfilesTable.userId,
+      nickname:        usersTable.nickname,
+      avatar:          usersTable.avatar,
+      phone:           usersTable.phone,
+      level:           opcProfilesTable.level,
+      bio:             opcProfilesTable.bio,
+      skillTags:       opcProfilesTable.skillTags,
+      industryTags:    opcProfilesTable.industryTags,
+      creditScore:     opcProfilesTable.creditScore,
+      creditPoints:    opcProfilesTable.creditPoints,
+      creditLevelId:   opcProfilesTable.creditLevelId,
+      creditLevelName: creditLevelsTable.name,
+      creditLevelColor: creditLevelsTable.color,
+      totalOrders:     opcProfilesTable.totalOrders,
+      completionRate:  opcProfilesTable.completionRate,
+      avgRating:       opcProfilesTable.avgRating,
+      totalEarnings:   opcProfilesTable.totalEarnings,
+      activityScore:   opcProfilesTable.activityScore,
+      title:           opcProfilesTable.title,
+      location:        opcProfilesTable.location,
+      website:         opcProfilesTable.website,
+      yearsExp:        opcProfilesTable.yearsExp,
+      wechat:          opcProfilesTable.wechat,
     })
     .from(opcProfilesTable)
     .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
+    .leftJoin(creditLevelsTable, eq(opcProfilesTable.creditLevelId, creditLevelsTable.id))
     .where(eq(opcProfilesTable.userId, userId));
   return profile;
 }

@@ -103,38 +103,68 @@ export type Module =
   | "finance"   | "ecosystem" | "training" | "content"
   | "cockpit"   | "disputes"  | "settings" | "levelcert"
   | "sensitivewords" | "payments" | "activities"
-  | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard" | "syslogs";
+  | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard" | "syslogs"
+  | "platform_config" | "catcategories" | "cattags" | "creditlevels"
+  | "demands_orders" | "opc_management" | "system_management";
 
-type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module };
+type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
 
 const NAV: NavItem[] = [
-  { key: "dashboard",      icon: LayoutDashboard,    label: "数据看板",    permKey: "dashboard" },
-  { key: "cockpit",        icon: BarChart3,           label: "平台驾驶舱",  permKey: "cockpit" },
-  { key: "users",          icon: Users,              label: "用户管理",    permKey: "users" },
-  { key: "demands",        icon: FileText,            label: "需求管理",    permKey: "demands" },
-  { key: "orders",         icon: ShoppingBag,         label: "订单管理",    permKey: "orders" },
-  { key: "disputes",       icon: Gavel,               label: "争议管理",    permKey: "disputes" },
-  { key: "finance",        icon: Wallet,              label: "财务管理",    permKey: "finance" },
-  { key: "settlement",     icon: CreditCard,          label: "结算账户审核", permKey: "finance" },
-  { key: "ecosystem",      icon: Network,             label: "OPC 生态池",  permKey: "ecosystem" },
-  { key: "training",       icon: GraduationCap,       label: "认证培训",    permKey: "training" },
-  { key: "levelcert",      icon: Trophy,              label: "等级认证",    permKey: "levelcert" },
-  { key: "content",        icon: Shield,              label: "内容审核",    permKey: "content" },
-  { key: "sensitivewords", icon: Flame,               label: "敏感词管理",  permKey: "sensitivewords" },
-  { key: "activities",     icon: ClipboardList,       label: "活动报名",    permKey: "activities" },
-  { key: "quotecard",      icon: BadgeCent,            label: "报价卡配置",  permKey: "settings" },
-  { key: "agent",          icon: Bot,                 label: "智能体配置",  permKey: "settings" },
-  { key: "settings",       icon: SlidersHorizontal,   label: "站点设置",    permKey: "settings" },
-  { key: "roles",          icon: KeyRound,            label: "角色管理",    superAdminOnly: true },
-  { key: "adminusers",     icon: UserCog,             label: "管理员管理",  superAdminOnly: true },
-  { key: "syslogs",        icon: ScrollText,          label: "系统日志",    superAdminOnly: true },
+  { key: "dashboard", icon: LayoutDashboard, label: "数据看板",   permKey: "dashboard" },
+  { key: "cockpit",   icon: BarChart3,       label: "平台驾驶舱", permKey: "cockpit" },
+  { key: "users",     icon: Users,           label: "用户管理",   permKey: "users" },
+  { key: "finance",   icon: Wallet,          label: "财务管理",   permKey: "finance" },
+  { key: "content",   icon: Shield,          label: "内容审核",   permKey: "content" },
+  { key: "activities",icon: ClipboardList,   label: "活动报名",   permKey: "activities" },
+
+  {
+    key: "demands_orders", icon: FileText, label: "需求与订单", permKey: "demands",
+    children: [
+      { key: "demands",  label: "需求管理", moduleKey: "demands"  as Module, icon: FileText  },
+      { key: "orders",   label: "订单管理", moduleKey: "orders"   as Module, icon: ShoppingBag },
+      { key: "disputes", label: "争议管理", moduleKey: "disputes" as Module, icon: Gavel },
+    ],
+  },
+
+  {
+    key: "opc_management", icon: Network, label: "OPC 管理", permKey: "ecosystem",
+    children: [
+      { key: "ecosystem",  label: "OPC 生态池",   moduleKey: "ecosystem"  as Module, icon: Network },
+      { key: "training",   label: "认证培训",     moduleKey: "training"   as Module, icon: GraduationCap },
+      { key: "levelcert",  label: "等级认证",     moduleKey: "levelcert"  as Module, icon: Trophy },
+      { key: "settlement", label: "结算账户审核", moduleKey: "settlement" as Module, icon: CreditCard },
+    ],
+  },
+
+  {
+    key: "platform_config", icon: Settings, label: "平台配置", permKey: "settings",
+    children: [
+      { key: "catcategories", label: "需求分类管理", moduleKey: "catcategories" as Module, icon: Filter },
+      { key: "cattags",       label: "分类标签管理", moduleKey: "cattags"       as Module, icon: Flag },
+      { key: "creditlevels",  label: "信用等级配置", moduleKey: "creditlevels"  as Module, icon: BadgeCheck },
+      { key: "quotecard",     label: "报价卡配置",   moduleKey: "quotecard"     as Module, icon: BadgeCent },
+      { key: "agent",         label: "智能体配置",   moduleKey: "agent"         as Module, icon: Bot },
+      { key: "sensitivewords",label: "敏感词管理",   moduleKey: "sensitivewords"as Module, icon: Flame },
+    ],
+  },
+
+  {
+    key: "system_management", icon: SlidersHorizontal, label: "系统管理", permKey: "settings",
+    children: [
+      { key: "settings",   label: "站点设置",   moduleKey: "settings"   as Module, icon: SlidersHorizontal },
+      { key: "roles",      label: "角色管理",   moduleKey: "roles"      as Module, icon: KeyRound,   superAdminOnly: true },
+      { key: "adminusers", label: "管理员管理", moduleKey: "adminusers" as Module, icon: UserCog,    superAdminOnly: true },
+      { key: "syslogs",    label: "系统日志",   moduleKey: "syslogs"    as Module, icon: ScrollText, superAdminOnly: true },
+    ],
+  },
+
   {
     key: "screen", icon: Monitor, label: "数据大屏", permKey: "screen",
     children: [
-      { key: "screen_h",      label: "横屏大屏",   href: "/screen",     icon: Monitor },
-      { key: "screen_v",      label: "竖屏大屏",   href: "/miniscreen", icon: Tablet  },
-      { key: "screenvideos",  label: "视频管理",   moduleKey: "screenvideos", icon: Video },
+      { key: "screen_h",     label: "横屏大屏", href: "/screen",     icon: Monitor },
+      { key: "screen_v",     label: "竖屏大屏", href: "/miniscreen", icon: Tablet },
+      { key: "screenvideos", label: "视频管理", moduleKey: "screenvideos" as Module, icon: Video },
     ],
   },
 ];
@@ -4166,13 +4196,30 @@ function QuoteCardConfigManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const CAT_LABELS: Record<string, string> = { software: "软件开发", education: "教育培训", marketing: "营销", content: "内容设计", other: "其他" };
+  const { data: catCategories = [] } = useQuery<CatCategory[]>({
+    queryKey: ["admin-cat-categories"],
+    queryFn: () => adminGet("/api/admin/cat-categories"),
+    staleTime: 60_000,
+  });
+
+  const CAT_CODE_TO_LEGACY: Record<string, string> = { CG: "content", SA: "software", TK: "education", BO: "marketing", OTHER: "other" };
+  const legacyKeys = catCategories.length > 0
+    ? catCategories.map(c => ({ key: CAT_CODE_TO_LEGACY[c.code] ?? c.code.toLowerCase(), label: c.name, id: c.id }))
+    : [
+        { key: "software", label: "软件开发", id: 0 }, { key: "education", label: "教育培训", id: 0 },
+        { key: "marketing", label: "营销", id: 0 }, { key: "content", label: "内容设计", id: 0 }, { key: "other", label: "其他", id: 0 },
+      ];
+  const CAT_LABELS: Record<string, string> = Object.fromEntries(legacyKeys.map(c => [c.key, c.label]));
+  const CAT_ID_MAP: Record<string, number> = Object.fromEntries(legacyKeys.filter(c => c.id).map(c => [c.key, c.id]));
   const [activeCategory, setActiveCategory] = useState("software");
   const [localEdits, setLocalEdits] = useState<Record<string, string>>({});
   const [addingDim, setAddingDim] = useState<{ layer: string } | null>(null);
   const [newDimForm, setNewDimForm] = useState({ code: "", label: "" });
   const [addingTier, setAddingTier] = useState<{ dimId: number; layer: string } | null>(null);
   const [newTierForm, setNewTierForm] = useState({ tier: "", tierLabel: "", basePrice: "0", coefficient: "1.00" });
+  const [dimBusy, setDimBusy] = useState(false);
+  const [tierBusy, setTierBusy] = useState(false);
+  const [opBusyId, setOpBusyId] = useState<number | null>(null);
 
   const { data: configs = [], isLoading } = useQuery<AdminCatConfig[]>({
     queryKey: ["admin-quote-card-v2"],
@@ -4198,36 +4245,48 @@ function QuoteCardConfigManagement() {
 
   const deleteDim = async (dimId: number) => {
     if (!window.confirm("确定删除此维度及其所有档位？此操作不可撤销。")) return;
+    if (opBusyId !== null) return;
+    setOpBusyId(dimId);
     try {
       const res = await fetch(`${BASE}/api/admin/quote-card/dimensions/${dimId}`, { method: "DELETE", headers: getAdminHeaders() });
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? "删除失败"); }
       await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
       toast({ title: "维度已删除" });
     } catch (err: any) { toast({ title: "删除失败", description: err.message, variant: "destructive" }); }
+    finally { setOpBusyId(null); }
   };
 
   const deleteTier = async (tierId: number) => {
     if (!window.confirm("确定删除此档位？")) return;
+    if (opBusyId !== null) return;
+    setOpBusyId(tierId);
     try {
       const res = await fetch(`${BASE}/api/admin/quote-card/tiers/${tierId}`, { method: "DELETE", headers: getAdminHeaders() });
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? "删除失败"); }
       await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
       toast({ title: "档位已删除" });
     } catch (err: any) { toast({ title: "删除失败", description: err.message, variant: "destructive" }); }
+    finally { setOpBusyId(null); }
   };
 
   const addDim = async (layer: string) => {
+    if (dimBusy) return;
     if (!newDimForm.code.trim() || !newDimForm.label.trim()) { toast({ title: "请填写代码和名称", variant: "destructive" }); return; }
+    setDimBusy(true);
     try {
-      await adminPost("/api/admin/quote-card/dimensions", { category: activeCategory, layer, code: newDimForm.code.trim(), label: newDimForm.label.trim() });
+      const catCategoryId = CAT_ID_MAP[activeCategory] ?? undefined;
+      await adminPost("/api/admin/quote-card/dimensions", { category: activeCategory, layer, code: newDimForm.code.trim(), label: newDimForm.label.trim(), ...(catCategoryId ? { catCategoryId } : {}) });
       await queryClient.invalidateQueries({ queryKey: ["admin-quote-card-v2"] });
       setAddingDim(null); setNewDimForm({ code: "", label: "" });
       toast({ title: "维度已添加" });
     } catch (err: any) { toast({ title: "添加失败", description: err.message, variant: "destructive" }); }
+    finally { setDimBusy(false); }
   };
 
   const addTier = async (dimId: number, layer: string) => {
+    if (tierBusy) return;
     if (!newTierForm.tier.trim() || !newTierForm.tierLabel.trim()) { toast({ title: "请填写档位代码和标签", variant: "destructive" }); return; }
+    setTierBusy(true);
     const body: Record<string, unknown> = { dimensionId: dimId, tier: newTierForm.tier.trim(), tierLabel: newTierForm.tierLabel.trim() };
     if (layer === "base") body.basePrice = parseFloat(newTierForm.basePrice) || 0;
     else body.coefficient = parseFloat(newTierForm.coefficient) || 1.00;
@@ -4237,6 +4296,7 @@ function QuoteCardConfigManagement() {
       setAddingTier(null); setNewTierForm({ tier: "", tierLabel: "", basePrice: "0", coefficient: "1.00" });
       toast({ title: "档位已添加" });
     } catch (err: any) { toast({ title: "添加失败", description: err.message, variant: "destructive" }); }
+    finally { setTierBusy(false); }
   };
 
   const renderSection = (dims: AdminDim[], layer: "base" | "adjustment" | "optional") => {
@@ -4264,7 +4324,7 @@ function QuoteCardConfigManagement() {
               <span className={`text-xs font-black px-2 py-0.5 rounded-md ${isBase ? "text-primary bg-primary/10" : isOptional ? "text-green-700 bg-green-100" : "text-amber-700 bg-amber-100"}`}>{dim.code}</span>
               <span className="font-bold text-slate-800 text-sm flex-1">{dim.label}</span>
               {!isBase && <span className={`text-xs ${isOptional ? "text-green-600" : "text-slate-400"}`}>{isOptional ? "费率 ×" : "系数 ×"}</span>}
-              <button onClick={() => deleteDim(dim.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除维度"><Trash2 size={13} /></button>
+              <button onClick={() => deleteDim(dim.id)} disabled={opBusyId === dim.id} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-40 transition-colors" title="删除维度"><Trash2 size={13} /></button>
             </div>
             <table className="w-full text-sm">
               <thead>
@@ -4301,7 +4361,7 @@ function QuoteCardConfigManagement() {
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        <button onClick={() => deleteTier(t.id)} className="p-1 text-slate-300 hover:text-red-400 transition-colors" title="删除档位"><X size={13} /></button>
+                        <button onClick={() => deleteTier(t.id)} disabled={opBusyId === t.id} className="p-1 text-slate-300 hover:text-red-400 disabled:opacity-40 transition-colors" title="删除档位"><X size={13} /></button>
                       </td>
                     </tr>
                   );
@@ -4326,7 +4386,7 @@ function QuoteCardConfigManagement() {
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => addTier(dim.id, layer)} className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"><CheckCircle2 size={14} /></button>
+                        <button onClick={() => addTier(dim.id, layer)} disabled={tierBusy} className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-40 transition-colors"><CheckCircle2 size={14} /></button>
                         <button onClick={() => setAddingTier(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded transition-colors"><X size={14} /></button>
                       </div>
                     </td>
@@ -4360,7 +4420,7 @@ function QuoteCardConfigManagement() {
                 <input type="text" placeholder="维度名称" value={newDimForm.label} onChange={e => setNewDimForm(p => ({...p, label: e.target.value}))}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary" />
               </div>
-              <button onClick={() => addDim(layer)} className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors">确认</button>
+              <button onClick={() => addDim(layer)} disabled={dimBusy} className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 disabled:opacity-60 transition-colors">{dimBusy ? "…" : "确认"}</button>
               <button onClick={() => setAddingDim(null)} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors">取消</button>
             </div>
           </div>
@@ -5183,6 +5243,246 @@ function ChangePasswordCard() {
 
 /* ─── Module: 等级认证审核 ─────────────────────── */
 
+/* ─── Credit Level Config ────────────────────────── */
+
+interface CreditLevelItem {
+  id: number;
+  code: string;
+  name: string;
+  minPoints: number;
+  sortOrder: number;
+  color: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+function CreditLevelForm({
+  form,
+  setForm,
+  onSave,
+  onCancel,
+  saving,
+  isEdit = false,
+}: {
+  form: { name: string; minPoints: number; sortOrder: number; color: string; isActive: boolean };
+  setForm: React.Dispatch<React.SetStateAction<any>>;
+  onSave: () => void;
+  onCancel: () => void;
+  saving: boolean;
+  isEdit?: boolean;
+}) {
+  const PRESET_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899", "#64748b"];
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1">等级名称</label>
+        <input
+          type="text"
+          value={form.name}
+          onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))}
+          placeholder="如 新手 / 成长 / 精英 / 专家"
+          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">最低积分阈值</label>
+          <input
+            type="number"
+            min={0}
+            value={form.minPoints}
+            onChange={e => setForm((f: any) => ({ ...f, minPoints: parseInt(e.target.value) || 0 }))}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">排序（小的排前）</label>
+          <input
+            type="number"
+            value={form.sortOrder}
+            onChange={e => setForm((f: any) => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1">徽章颜色</label>
+        <div className="flex items-center gap-2 flex-wrap">
+          {PRESET_COLORS.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setForm((f: any) => ({ ...f, color: c }))}
+              className={`w-7 h-7 rounded-full transition-all ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+          <input
+            type="color"
+            value={form.color}
+            onChange={e => setForm((f: any) => ({ ...f, color: e.target.value }))}
+            className="w-7 h-7 rounded-full cursor-pointer border-none outline-none p-0"
+            title="自定义颜色"
+          />
+          <span className="text-xs text-slate-400 font-mono">{form.color}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="cl-active"
+          checked={form.isActive}
+          onChange={e => setForm((f: any) => ({ ...f, isActive: e.target.checked }))}
+          className="rounded"
+        />
+        <label htmlFor="cl-active" className="text-sm text-slate-600">启用此等级</label>
+      </div>
+      <div className="flex justify-end gap-2 pt-1">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">
+          取消
+        </button>
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="px-5 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50">
+          {saving ? "保存中…" : "保存"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CreditLevelConfig() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [editId, setEditId] = useState<number | "new" | null>(null);
+  const [form, setForm] = useState({ name: "", minPoints: 0, sortOrder: 0, color: "#6366f1", isActive: true });
+
+  const { data: levels = [], isLoading, refetch } = useQuery<CreditLevelItem[]>({
+    queryKey: ["admin-credit-levels"],
+    queryFn: () => adminGet("/api/admin/credit-levels"),
+  });
+
+  const createMut = useMutation({
+    mutationFn: (body: object) => adminPost("/api/admin/credit-levels", body),
+    onSuccess: () => { toast({ title: "创建成功" }); setEditId(null); resetForm(); refetch(); qc.invalidateQueries({ queryKey: ["admin-credit-levels"] }); },
+    onError: (e: any) => toast({ title: "创建失败", description: e?.message, variant: "destructive" }),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: object }) => adminPut(`/api/admin/credit-levels/${id}`, body),
+    onSuccess: () => { toast({ title: "更新成功" }); setEditId(null); refetch(); qc.invalidateQueries({ queryKey: ["admin-credit-levels"] }); },
+    onError: (e: any) => toast({ title: "更新失败", description: e?.message, variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/credit-levels/${id}`),
+    onSuccess: () => { toast({ title: "删除成功" }); refetch(); qc.invalidateQueries({ queryKey: ["admin-credit-levels"] }); },
+    onError: (e: any) => toast({ title: "删除失败", description: e?.message, variant: "destructive" }),
+  });
+
+  const resetForm = () => setForm({ name: "", minPoints: 0, sortOrder: 0, color: "#6366f1", isActive: true });
+
+  const startEdit = (row: CreditLevelItem) => {
+    setEditId(row.id);
+    setForm({ name: row.name, minPoints: row.minPoints, sortOrder: row.sortOrder, color: row.color ?? "#6366f1", isActive: row.isActive });
+  };
+
+  const handleSubmit = () => {
+    const body = { name: form.name.trim(), minPoints: form.minPoints, sortOrder: form.sortOrder, color: form.color || null, isActive: form.isActive };
+    if (!body.name) { toast({ title: "名称不能为空", variant: "destructive" }); return; }
+    if (editId === "new") createMut.mutate(body);
+    else if (typeof editId === "number") updateMut.mutate({ id: editId, body });
+  };
+
+  return (
+    <div>
+      <SectionHeader
+        title="信用等级配置"
+        sub="配置账号信用等级体系：等级名称、积分阈值、徽章颜色"
+        action={
+          <button
+            onClick={() => { setEditId("new"); resetForm(); }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={15} />新增等级
+          </button>
+        }
+      />
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
+          <Loader2 size={18} className="animate-spin" />加载中…
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {editId === "new" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-primary/20 p-5">
+              <p className="text-sm font-bold text-slate-700 mb-3">新增信用等级</p>
+              <CreditLevelForm form={form} setForm={setForm} onSave={handleSubmit} onCancel={() => setEditId(null)} saving={createMut.isPending} />
+            </div>
+          )}
+
+          {levels.length === 0 && editId !== "new" ? (
+            <div className="text-center py-16 text-slate-400">
+              暂无信用等级配置，点击「新增等级」开始配置
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-100">
+              {levels.map(row => (
+                <div key={row.id}>
+                  {editId === row.id ? (
+                    <div className="p-5">
+                      <p className="text-sm font-bold text-slate-700 mb-3">编辑：{row.name}</p>
+                      <CreditLevelForm form={form} setForm={setForm} onSave={handleSubmit} onCancel={() => setEditId(null)} saving={updateMut.isPending} isEdit />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4 px-5 py-4">
+                      <div
+                        className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center text-white text-sm font-extrabold shadow-sm"
+                        style={{ backgroundColor: row.color ?? "#94a3b8" }}>
+                        {row.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-800 text-sm">{row.name}</span>
+                          {!row.isActive && (
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">已停用</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          最低积分{" "}
+                          <span className="font-semibold text-slate-600">{(row.minPoints ?? 0).toLocaleString()}</span>
+                          <span className="mx-2">·</span>
+                          排序 {row.sortOrder}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => startEdit(row)}
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-colors">
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => { if (confirm(`确认删除等级「${row.name}」？此操作不可撤销。`)) deleteMut.mutate(row.id); }}
+                          disabled={deleteMut.isPending}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface LevelCertPastReview {
   apply_level: "A" | "B" | "C";
   note: string | null;
@@ -5209,6 +5509,8 @@ interface LevelCertRow {
   credit_score: number | null;
   apply_count: number;
   past_reviews: LevelCertPastReview[] | null;
+  cat_category_id: number | null;
+  cat_category_name: string | null;
 }
 
 const LEVEL_STATUS_LABELS: Record<string, { text: string; color: string }> = {
@@ -5315,7 +5617,7 @@ function LevelCertReview() {
       )}
 
       <SectionHeader
-        title="作品等级认证审核"
+        title="赛道认证审核"
         sub={`共 ${resp?.total ?? 0} 条申请`}
         action={
           <button onClick={() => refetch()} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
@@ -5431,6 +5733,15 @@ function LevelCertReview() {
                           第 {row.apply_count} 次申请
                         </span>
                       )}
+                      {row.cat_category_name ? (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                          {row.cat_category_name}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                          ⚠ 未选赛道分类
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                       <span>{row.nickname}</span>
@@ -5470,8 +5781,12 @@ function LevelCertReview() {
                       </div>
                     )}
 
-                    {/* 项目类型 + 简介 */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* 赛道 + 项目类型 + 申请等级 */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">赛道分类</p>
+                        <p className="text-sm text-slate-700 font-medium">{row.cat_category_name ?? "未指定"}</p>
+                      </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目类型</p>
                         <p className="text-sm text-slate-700 font-medium">{TYPE_LABELS[row.type] ?? row.type}</p>
@@ -5539,6 +5854,15 @@ function LevelCertReview() {
                     {/* 评审操作区 */}
                     {isReviewing && row.level_apply_status === "pending" && (
                       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+                        {!row.cat_category_id && (
+                          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+                            <AlertCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
+                            <p className="text-xs text-red-700 font-medium leading-snug">
+                              该作品未关联赛道分类，<strong>无法通过认证</strong>。
+                              请告知 OPC 重新编辑作品并选择赛道分类后再提交审核。驳回时可正常操作。
+                            </p>
+                          </div>
+                        )}
                         <p className="text-sm font-bold text-amber-800">
                           评审该作品 · 申请 {row.apply_level} 级
                           <span className="text-xs font-normal text-amber-600 ml-2">
@@ -7429,6 +7753,8 @@ function ScreenVideosModule() {
   const [editId, setEditId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editSortOrder, setEditSortOrder] = useState(0);
+  const [saveBusy, setSaveBusy] = useState<number | null>(null);
+  const [delBusy, setDelBusy] = useState<number | null>(null);
 
   const { data: videos = [], isLoading } = useQuery<ScreenVideo[]>({
     queryKey: ["admin-screen-videos"],
@@ -7490,6 +7816,8 @@ function ScreenVideosModule() {
   };
 
   const handleDelete = async (id: number) => {
+    if (delBusy !== null) return;
+    setDelBusy(id);
     try {
       const r = await fetch(`${BASE}/api/admin/screen-videos/${id}`, { method: "DELETE", headers: getAdminHeaders() });
       if (!r.ok) throw new Error("删除失败");
@@ -7497,10 +7825,14 @@ function ScreenVideosModule() {
       qc.invalidateQueries({ queryKey: ["admin-screen-videos"] });
     } catch (e: any) {
       toast({ title: "删除失败", description: e.message, variant: "destructive" });
+    } finally {
+      setDelBusy(null);
     }
   };
 
   const handleSaveEdit = async (id: number) => {
+    if (saveBusy !== null) return;
+    setSaveBusy(id);
     try {
       const r = await fetch(`${BASE}/api/admin/screen-videos/${id}`, {
         method: "PATCH", headers: getAdminHeaders(),
@@ -7512,6 +7844,8 @@ function ScreenVideosModule() {
       setEditId(null);
     } catch (e: any) {
       toast({ title: "保存失败", description: e.message, variant: "destructive" });
+    } finally {
+      setSaveBusy(null);
     }
   };
 
@@ -7608,14 +7942,14 @@ function ScreenVideosModule() {
                     <div className="flex items-center justify-end gap-2">
                       {editId === v.id ? (
                         <>
-                          <button onClick={() => handleSaveEdit(v.id)} className="text-blue-600 hover:text-blue-800 font-bold text-xs px-2 py-1 rounded hover:bg-blue-50 transition-colors"><Save size={13} /></button>
+                          <button onClick={() => handleSaveEdit(v.id)} disabled={saveBusy === v.id} className="text-blue-600 hover:text-blue-800 font-bold text-xs px-2 py-1 rounded hover:bg-blue-50 disabled:opacity-40 transition-colors"><Save size={13} /></button>
                           <button onClick={() => setEditId(null)} className="text-slate-400 hover:text-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-100 transition-colors"><X size={13} /></button>
                         </>
                       ) : (
                         <>
                           <button onClick={() => { setEditId(v.id); setEditTitle(v.title); setEditSortOrder(v.sortOrder); }}
                             className="text-slate-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"><Edit2 size={14} /></button>
-                          <button onClick={() => handleDelete(v.id)} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"><Trash2 size={14} /></button>
+                          <button onClick={() => handleDelete(v.id)} disabled={delBusy === v.id} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50 disabled:opacity-40"><Trash2 size={14} /></button>
                         </>
                       )}
                     </div>
@@ -7626,6 +7960,377 @@ function ScreenVideosModule() {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ─── Platform Config: 需求分类管理 ─────────────── */
+
+interface CatCategory {
+  id: number; code: string; name: string; description: string | null;
+  colorHex: string | null; icon: string | null; sortOrder: number; isActive: boolean;
+  tags?: CatTag[];
+}
+
+interface CatTag {
+  id: number; catCategoryId: number; code: string; name: string;
+  description: string | null; sortOrder: number; isActive: boolean;
+}
+
+function CatCategoryManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: categories = [], isLoading } = useQuery<CatCategory[]>({
+    queryKey: ["admin-cat-categories"],
+    queryFn: () => adminGet("/api/admin/cat-categories"),
+    staleTime: 30_000,
+  });
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const emptyForm = { name: "", description: "", colorHex: "#6366f1", icon: "", sortOrder: 0, isActive: true };
+  const [form, setForm] = useState({ ...emptyForm });
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const startAdd = () => { setForm({ ...emptyForm }); setEditingId(null); setAddingNew(true); };
+  const startEdit = (c: CatCategory) => {
+    setForm({ name: c.name, description: c.description ?? "", colorHex: c.colorHex ?? "#6366f1", icon: c.icon ?? "", sortOrder: c.sortOrder, isActive: c.isActive });
+    setEditingId(c.id); setAddingNew(false);
+  };
+  const cancel = () => { setAddingNew(false); setEditingId(null); };
+
+  const save = async () => {
+    if (saving) return;
+    if (!form.name.trim()) { toast({ title: "名称不能为空", variant: "destructive" }); return; }
+    setSaving(true);
+    try {
+      if (addingNew) {
+        await adminPost("/api/admin/cat-categories", form);
+        toast({ title: "分类已创建" });
+      } else if (editingId) {
+        await adminPut(`/api/admin/cat-categories/${editingId}`, form);
+        toast({ title: "分类已更新" });
+      }
+      await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      cancel();
+    } catch (err: any) { toast({ title: "保存失败", description: err.message, variant: "destructive" }); }
+    finally { setSaving(false); }
+  };
+
+  const toggleActive = async (cat: CatCategory) => {
+    if (busyId !== null) return;
+    setBusyId(cat.id);
+    try {
+      await adminPut(`/api/admin/cat-categories/${cat.id}`, { isActive: !cat.isActive });
+      await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      toast({ title: cat.isActive ? "分类已禁用" : "分类已启用" });
+    } catch (err: any) { toast({ title: "操作失败", description: err.message, variant: "destructive" }); }
+    finally { setBusyId(null); }
+  };
+
+  const del = async (id: number) => {
+    if (!window.confirm("确定删除此分类？该操作会同时删除其下所有标签，且不可撤销。")) return;
+    if (busyId !== null) return;
+    setBusyId(id);
+    try {
+      await adminDelete(`/api/admin/cat-categories/${id}`);
+      await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      toast({ title: "分类已删除" });
+    } catch (err: any) { toast({ title: "删除失败", description: err.message, variant: "destructive" }); }
+    finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="需求分类管理"
+        sub="管理平台需求大类（赛道），支持增删改查、启用/禁用和排序"
+        action={
+          <button onClick={startAdd} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={15} /> 新建分类
+          </button>
+        }
+      />
+
+      {(addingNew || editingId !== null) && (
+        <div className="bg-white rounded-2xl shadow-sm p-6 border-2 border-primary/20">
+          <p className="text-sm font-bold text-slate-700 mb-4">{addingNew ? "新建分类" : "编辑分类"}</p>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1">名称<span className="text-destructive ml-1">*</span></label>
+              <input value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))}
+                placeholder="内容生成" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1">颜色（HEX）</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.colorHex} onChange={e => setForm(p => ({...p, colorHex: e.target.value}))}
+                  className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-1" />
+                <input value={form.colorHex} onChange={e => setForm(p => ({...p, colorHex: e.target.value}))}
+                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1">排序（数字越小越靠前）</label>
+              <input type="number" value={form.sortOrder} onChange={e => setForm(p => ({...p, sortOrder: parseInt(e.target.value) || 0}))}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-bold text-slate-500 block mb-1">描述</label>
+              <input value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))}
+                placeholder="分类的简短描述" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+            <div className="col-span-2 flex items-center gap-3">
+              <label className="text-xs font-bold text-slate-500">启用状态</label>
+              <button type="button" onClick={() => setForm(p => ({...p, isActive: !p.isActive}))}
+                className={`relative w-10 h-5 rounded-full transition-colors ${form.isActive ? "bg-primary" : "bg-slate-300"}`}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? "translate-x-5" : "translate-x-0"}`} />
+              </button>
+              <span className="text-xs text-slate-500">{form.isActive ? "启用" : "禁用"}</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={save} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-60 transition-colors">{saving ? "保存中…" : "保存"}</button>
+            <button onClick={cancel} className="px-5 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">取消</button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 size={24} className="animate-spin text-primary" /></div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+              <tr>
+                <th className="px-6 py-4">名称</th>
+                <th className="px-6 py-4">描述</th>
+                <th className="px-6 py-4">标签数</th>
+                <th className="px-6 py-4">排序</th>
+                <th className="px-6 py-4">状态</th>
+                <th className="px-6 py-4">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {categories.length === 0 ? (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-400">暂无分类</td></tr>
+              ) : categories.map(cat => (
+                <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4 font-bold text-slate-800 text-sm">{cat.name}</td>
+                  <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">{cat.description ?? "—"}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{cat.tags?.length ?? 0} 个</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{cat.sortOrder}</td>
+                  <td className="px-6 py-4">
+                    <button onClick={() => toggleActive(cat)} disabled={busyId === cat.id}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors disabled:opacity-50 ${cat.isActive ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                      {busyId === cat.id ? "…" : (cat.isActive ? "启用" : "禁用")}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => startEdit(cat)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="编辑"><Edit2 size={14} /></button>
+                      <button onClick={() => del(cat.id)} disabled={busyId === cat.id} className="p-1.5 text-slate-400 hover:text-destructive hover:bg-destructive/10 rounded-lg disabled:opacity-40 transition-colors" title="删除"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Platform Config: 分类标签管理 ─────────────── */
+
+function CatTagManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: categories = [] } = useQuery<CatCategory[]>({
+    queryKey: ["admin-cat-categories"],
+    queryFn: () => adminGet("/api/admin/cat-categories"),
+    staleTime: 30_000,
+  });
+
+  const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
+
+  const activeCat = selectedCatId ? categories.find(c => c.id === selectedCatId) : categories[0];
+  const tags = activeCat?.tags ?? [];
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const emptyForm = { name: "", description: "", sortOrder: 0, isActive: true };
+  const [form, setForm] = useState({ ...emptyForm });
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const startAdd = () => { setForm({ ...emptyForm }); setEditingId(null); setAddingNew(true); };
+  const startEdit = (t: CatTag) => {
+    setForm({ name: t.name, description: t.description ?? "", sortOrder: t.sortOrder, isActive: t.isActive });
+    setEditingId(t.id); setAddingNew(false);
+  };
+  const cancel = () => { setAddingNew(false); setEditingId(null); };
+
+  const save = async () => {
+    if (saving) return;
+    if (!form.name.trim()) { toast({ title: "名称不能为空", variant: "destructive" }); return; }
+    const catId = activeCat?.id;
+    if (!catId) { toast({ title: "请先选择大类", variant: "destructive" }); return; }
+    setSaving(true);
+    try {
+      if (addingNew) {
+        await adminPost("/api/admin/cat-tags", { ...form, catCategoryId: catId });
+        toast({ title: "标签已创建" });
+      } else if (editingId) {
+        await adminPut(`/api/admin/cat-tags/${editingId}`, form);
+        toast({ title: "标签已更新" });
+      }
+      await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      cancel();
+    } catch (err: any) { toast({ title: "保存失败", description: err.message, variant: "destructive" }); }
+    finally { setSaving(false); }
+  };
+
+  const toggleActive = async (tag: CatTag) => {
+    if (busyId !== null) return;
+    setBusyId(tag.id);
+    try {
+      await adminPut(`/api/admin/cat-tags/${tag.id}`, { isActive: !tag.isActive });
+      await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      toast({ title: tag.isActive ? "标签已禁用" : "标签已启用" });
+    } catch (err: any) { toast({ title: "操作失败", description: err.message, variant: "destructive" }); }
+    finally { setBusyId(null); }
+  };
+
+  const del = async (id: number) => {
+    if (!window.confirm("确定删除此标签？此操作不可撤销。")) return;
+    if (busyId !== null) return;
+    setBusyId(id);
+    try {
+      await adminDelete(`/api/admin/cat-tags/${id}`);
+      await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      toast({ title: "标签已删除" });
+    } catch (err: any) { toast({ title: "删除失败", description: err.message, variant: "destructive" }); }
+    finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="分类标签管理"
+        sub="管理每个大类下的子标签（二级方向），用于更精细的需求分类"
+        action={
+          <button onClick={startAdd} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={15} /> 新建标签
+          </button>
+        }
+      />
+
+      <div className="flex gap-2 flex-wrap">
+        {categories.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => { setSelectedCatId(cat.id); cancel(); }}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+              (activeCat?.id ?? -1) === cat.id
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white border border-slate-200 text-slate-600 hover:border-primary/40"
+            }`}
+            style={(activeCat?.id ?? -1) !== cat.id ? {} : { backgroundColor: cat.colorHex ?? undefined }}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      {(addingNew || editingId !== null) && (
+        <div className="bg-white rounded-2xl shadow-sm p-6 border-2 border-primary/20">
+          <p className="text-sm font-bold text-slate-700 mb-4">
+            {addingNew ? `新建标签（归属：${activeCat?.name ?? ""}）` : "编辑标签"}
+          </p>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1">名称<span className="text-destructive ml-1">*</span></label>
+              <input value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))}
+                placeholder="商业文案" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1">排序</label>
+              <input type="number" value={form.sortOrder} onChange={e => setForm(p => ({...p, sortOrder: parseInt(e.target.value) || 0}))}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+            <div className="flex items-end gap-3">
+              <label className="text-xs font-bold text-slate-500">启用状态</label>
+              <button type="button" onClick={() => setForm(p => ({...p, isActive: !p.isActive}))}
+                className={`relative w-10 h-5 rounded-full transition-colors ${form.isActive ? "bg-primary" : "bg-slate-300"}`}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? "translate-x-5" : "translate-x-0"}`} />
+              </button>
+              <span className="text-xs text-slate-500">{form.isActive ? "启用" : "禁用"}</span>
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-bold text-slate-500 block mb-1">描述</label>
+              <input value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))}
+                placeholder="标签描述（可选）" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={save} disabled={saving} className="px-5 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-60 transition-colors">{saving ? "保存中…" : "保存"}</button>
+            <button onClick={cancel} className="px-5 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">取消</button>
+          </div>
+        </div>
+      )}
+
+      {!activeCat ? (
+        <div className="bg-white rounded-2xl shadow-sm p-10 text-center text-slate-400 text-sm">请先选择大类</div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black"
+              style={{ backgroundColor: (activeCat.colorHex ?? "#6366f1") + "20", color: activeCat.colorHex ?? "#6366f1" }}>
+              {activeCat.name}
+            </span>
+            <span className="ml-auto text-xs text-slate-400">{tags.length} 个标签</span>
+          </div>
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+              <tr>
+                <th className="px-6 py-4">名称</th>
+                <th className="px-6 py-4">描述</th>
+                <th className="px-6 py-4">排序</th>
+                <th className="px-6 py-4">状态</th>
+                <th className="px-6 py-4">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {tags.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-400">该分类下暂无标签，点击右上角「新建标签」添加</td></tr>
+              ) : tags.map(tag => (
+                <tr key={tag.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4 font-bold text-slate-800 text-sm">{tag.name}</td>
+                  <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">{tag.description ?? "—"}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{tag.sortOrder}</td>
+                  <td className="px-6 py-4">
+                    <button onClick={() => toggleActive(tag)} disabled={busyId === tag.id}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors disabled:opacity-50 ${tag.isActive ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                      {busyId === tag.id ? "…" : (tag.isActive ? "启用" : "禁用")}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => startEdit(tag)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="编辑"><Edit2 size={14} /></button>
+                      <button onClick={() => del(tag.id)} disabled={busyId === tag.id} className="p-1.5 text-slate-400 hover:text-destructive hover:bg-destructive/10 rounded-lg disabled:opacity-40 transition-colors" title="删除"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -7642,6 +8347,7 @@ function ModuleContent({ module }: { module: Module }) {
     case "ecosystem":      return <EcosystemManagement />;
     case "training":       return <><TrainingManagement /><ResourceManagement /></>;
     case "levelcert":      return <LevelCertReview />;
+    case "creditlevels":   return <CreditLevelConfig />;
     case "content":        return <ContentReview />;
     case "sensitivewords": return <SensitiveWordsManagement />;
     case "payments":       return <><DepositPaymentManagement /><DemandRefundManagement /></>;
@@ -7655,6 +8361,9 @@ function ModuleContent({ module }: { module: Module }) {
     case "syslogs":        return <SystemLogsPanel />;
     case "screen":         return null;
     case "screenvideos":   return <ScreenVideosModule />;
+    case "platform_config": return <CatCategoryManagement />;
+    case "catcategories":   return <CatCategoryManagement />;
+    case "cattags":         return <CatTagManagement />;
   }
 }
 
@@ -7677,7 +8386,7 @@ function AdminSidebarLogo() {
 
 export default function Admin({ initialModule }: { initialModule?: Module } = {}) {
   const [active, setActive] = useState<Module>(initialModule ?? "dashboard");
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["screen"]));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -7719,12 +8428,16 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
   const visibleNav = NAV.filter(canSee);
 
   // If the current active module is no longer accessible, jump to the first visible one.
+  // Must also check child module keys (e.g. "catcategories", "cattags") so clicking sub-items doesn't reset.
   useEffect(() => {
-    const allowed = visibleNav.some(n => n.key === active);
+    const allowed = visibleNav.some(n =>
+      n.key === active ||
+      n.children?.some(c => c.moduleKey === active)
+    );
     if (!allowed && visibleNav.length > 0) {
       setActive(visibleNav[0].key);
     }
-  }, [visibleNav.map(n => n.key).join(",")]);
+  }, [visibleNav.map(n => n.key).join(","), active]);
 
   function handleLogout() {
     clearSession();
@@ -7765,7 +8478,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
                   {/* Sub-items */}
                   {isExpanded && (
                     <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-3">
-                      {item.children.map(child => {
+                      {item.children.filter(child => !child.superAdminOnly || isSuperAdmin).map(child => {
                         const isChildActive = child.moduleKey && active === child.moduleKey;
                         if (child.moduleKey) {
                           return (
@@ -7834,7 +8547,8 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
             <span className="text-slate-400 text-sm">管理后台</span>
             <span className="text-slate-300">/</span>
             <span className="text-blue-900 text-sm font-bold">
-              {NAV.find(n => n.key === active)?.label}
+              {NAV.find(n => n.key === active)?.label
+                ?? NAV.flatMap(n => n.children ?? []).find(c => c.moduleKey === active)?.label}
             </span>
           </div>
           <div className="flex items-center gap-4">

@@ -1,11 +1,11 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable, catCategoriesTable, catTagsTable } from "@workspace/db";
+import { eq, and, asc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
 import { callLLM, streamLLM, type LLMMessage, type ToolCall } from "../lib/llm";
-import { AGENT_TOOLS, executeTool } from "../lib/agentTools";
+import { buildAgentTools, executeTool, type ToolExecutionContext } from "../lib/agentTools";
 
 const router: IRouter = Router();
 
@@ -200,6 +200,27 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 
   sendEvent({ type: "conversation_id", conversationId: conversation.id });
 
+  // Fetch active categories and tags to provide dynamic context to tools
+  let toolContext: ToolExecutionContext = {};
+  try {
+    const [cats, tagRows] = await Promise.all([
+      db
+        .select({ id: catCategoriesTable.id, code: catCategoriesTable.code, name: catCategoriesTable.name, description: catCategoriesTable.description })
+        .from(catCategoriesTable)
+        .where(eq(catCategoriesTable.isActive, true))
+        .orderBy(asc(catCategoriesTable.sortOrder)),
+      db
+        .select({ name: catTagsTable.name })
+        .from(catTagsTable)
+        .where(eq(catTagsTable.isActive, true))
+        .orderBy(asc(catTagsTable.sortOrder)),
+    ]);
+    if (cats.length > 0) toolContext.categories = cats;
+    if (tagRows.length > 0) toolContext.tags = tagRows.map(t => t.name);
+  } catch (catErr) {
+    logger.warn({ catErr }, "Could not fetch categories/tags for tool context, falling back to static list");
+  }
+
   const MAX_TOOL_ITERATIONS = 10;
   let iteration = 0;
   const intermediateMessages: PersistedMessage[] = [];
@@ -246,7 +267,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
     while (iteration < MAX_TOOL_ITERATIONS) {
       iteration++;
 
-      const response = await callLLM(llmMessages, AGENT_TOOLS);
+      const response = await callLLM(llmMessages, buildAgentTools(toolContext));
 
       if (response.toolCalls && response.toolCalls.length > 0) {
         const toolCalls: ToolCall[] = response.toolCalls;
@@ -276,7 +297,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 
           sendEvent({ type: "tool_call", tool: toolName });
 
-          const result = executeTool(toolName, toolArgs);
+          const result = executeTool(toolName, toolArgs, toolContext);
           const resultStr = JSON.stringify(result);
 
           toolResultLLMMessages.push({

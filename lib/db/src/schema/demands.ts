@@ -1,5 +1,6 @@
 import { pgTable, serial, integer, text, varchar, real, boolean, timestamp, date, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { catCategoriesTable } from "./cat-categories";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -46,6 +47,8 @@ export const demandsTable = pgTable("demands", {
   publisherId: integer("publisher_id").notNull().references(() => usersTable.id),
   directedOpcIds: jsonb("directed_opc_ids").$type<number[]>().default([]),
   summary: text("summary"),
+  catCategoryId: integer("cat_category_id").references(() => catCategoriesTable.id),
+  requiredTrackLevel: varchar("required_track_level", { length: 5 }).notNull().default("any"),
   rejectionReason: text("rejection_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

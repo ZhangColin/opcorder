@@ -358,6 +358,17 @@ export default function DemandDetail() {
                 <span className="text-muted-foreground text-xs uppercase font-bold tracking-widest">要求等级</span>
                 <span className={`w-max px-2 py-1 rounded text-xs font-bold ${levelInfo.color}`}>{levelInfo.label}</span>
               </div>
+              {(demand as any).requiredTrackLevel && (demand as any).requiredTrackLevel !== "any" && (
+                <>
+                  <div className="w-px bg-border"></div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground text-xs uppercase font-bold tracking-widest">赛道认证</span>
+                    <span className="w-max px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700">
+                      {{ A: "A级·专家", B: "B级·进阶", C: "C级·基础" }[(demand as any).requiredTrackLevel] ?? (demand as any).requiredTrackLevel} 及以上
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="w-px bg-border"></div>
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground text-xs uppercase font-bold tracking-widest">交付截止</span>

@@ -277,20 +277,16 @@ export async function runSeed(): Promise<void> {
 
     const systemPrompt = `你是"接单吧"平台的需求分析智能体，专门帮助发单方（甲方）系统梳理、完整描述他们的需求，最终产出一份专业的需求文档，供 OPC（执行方）阅读接单。
 
-## 平台四大需求类型
-- 教育培训（education）：AI课程开发、政企培训、研学活动、讲师输出等
-- 软件开发（software）：AI工具定制、插件开发、系统集成、自动化流程等
-- 营销（marketing）：直播运营、短视频制作、新媒体运营、品牌推广等
-- 内容设计（content）：PPT制作、视频剪辑、图文创作、H5、海报等
-- 其他（other）：不属于以上分类的其他AI相关需求
+## 需求分类
+平台支持的需求分类由后台动态配置，**不得使用任何固定分类名称**。每次对话开始时必须调用 \`get_demand_types\` 工具获取当前最新的分类列表，再依据列表结果进行判断和对话。
 
 ## 工作流程（严格按四个阶段推进）
 
 ### 【第一阶段：类型判断】
 用户简述需求后：
-1. 根据描述快速判断需求类型（education / software / marketing / content / other）
-2. 向用户确认："您的需求属于XX类，我帮您系统梳理一下……"
-3. 立即调用 get_requirement_template 工具，获取该类型的需求文档模板，作为后续提问的框架
+1. 立即调用 \`get_demand_types\` 工具，获取平台当前支持的所有需求分类（value 为类型代码，label 为中文名称）
+2. 根据工具返回的分类列表和用户描述判断最匹配的类型，向用户确认："您的需求属于XX类，我帮您系统梳理一下……"
+3. 立即调用 get_requirement_template 工具（传入上一步确认的类型代码），获取该类型的需求文档模板，作为后续提问的框架
 
 ### 【第二阶段：脑暴挖掘（核心阶段）】
 以模板为线索，通过自然对话引导用户完整表达需求：
@@ -354,7 +350,7 @@ option_choices_json:{"q":"简要问题描述","opts":["选项A","选项B","其�
 - multi 为 true 时用户可多选后统一确认
 
 ### 最终表单建议格式（第四阶段全部确认后输出）
-form_suggestion_json:{"title":"需求标题（50字内）","type":"education|software|marketing|content|other","description":"完整Markdown需求文档正文","skillTags":["标签1","标签2"],"opcLevel":"C|B|A|any","budgetMin":数字,"budgetMax":数字,"isUrgent":false,"deadline":"YYYY-MM-DD（最终交付截止日期，来自validate_timeline）","bidDeadline":"YYYY-MM-DD（抢单截止日期，来自validate_timeline）","milestones":[{"name":"阶段名","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX工作，交付XX成果，验收标准为XX"}]}
+form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型代码（来自 get_demand_types 返回的 value 字段，如 CG/SA/TK/BO/OTHER 等，以实际配置为准）","description":"完整Markdown需求文档正文","skillTags":["标签1","标签2"],"opcLevel":"C|B|A|any","budgetMin":数字,"budgetMax":数字,"isUrgent":false,"deadline":"YYYY-MM-DD（最终交付截止日期，来自validate_timeline）","bidDeadline":"YYYY-MM-DD（抢单截止日期，来自validate_timeline）","milestones":[{"name":"阶段名","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX工作，交付XX成果，验收标准为XX"}]}
 
 > 字段约束：opcLevel 必须与 budgetMax 匹配（≤3000→C，≤20000→B，>20000→A）；除非用户明确要求"不限"否则禁止使用 any；deadline 和 bidDeadline 必须来自 validate_timeline 工具返回值，不能自行捏造。
 
@@ -365,7 +361,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.6 -->`;
+<!-- prompt-version: 3.7 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -376,13 +372,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"education|sof
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.6")) {
-      // Migrate to v3.6: OPC level default A (not any) for budgets >20000
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.7")) {
+      // Migrate to v3.7: demand types now fully dynamic via get_demand_types tool call
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.6 (A-level default for high budget)");
+      logger.info("Migrated demand analysis agent system prompt to v3.7 (dynamic demand types via tool call)");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");

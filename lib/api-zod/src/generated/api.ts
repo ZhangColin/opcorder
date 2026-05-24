@@ -171,6 +171,7 @@ export const ListDemandsQueryParams = zod.object({
     ])
     .optional(),
   type: zod.coerce.string().optional(),
+  catCategoryId: zod.coerce.number().optional(),
   opcLevel: zod.enum(["C", "B", "A", "any"]).optional(),
   minBudget: zod.coerce.number().optional(),
   maxBudget: zod.coerce.number().optional(),
@@ -275,7 +276,8 @@ export const createDemandBodyIsUrgentDefault = false;
 
 export const CreateDemandBody = zod.object({
   title: zod.string().max(createDemandBodyTitleMax),
-  type: zod.enum(["education", "software", "marketing", "content", "other"]),
+  /** Legacy type field. Now optional — catCategoryId is the primary classification field. */
+  type: zod.string().optional().default("other"),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),

@@ -1234,5 +1234,427 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 018a failed in production: ${err}`);
   }
 
+  // Migration 019a: create cat_categories table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS cat_categories (
+        id          serial      PRIMARY KEY,
+        code        varchar(20) NOT NULL UNIQUE,
+        name        varchar(50) NOT NULL,
+        description text,
+        color_hex   varchar(10),
+        icon        varchar(50),
+        sort_order  integer     NOT NULL DEFAULT 0,
+        is_active   boolean     NOT NULL DEFAULT true,
+        created_at  timestamp   NOT NULL DEFAULT now()
+      )
+    `);
+    logger.info("Migration 019a: created cat_categories table");
+  } catch (err) {
+    logger.warn({ err }, "Migration 019a: could not create cat_categories table");
+    if (!isDev) throw new Error(`Migration 019a failed in production: ${err}`);
+  }
+
+  // Migration 019b: create cat_tags table (CRITICAL)
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS cat_tags (
+        id               serial      PRIMARY KEY,
+        cat_category_id  integer     NOT NULL REFERENCES cat_categories(id) ON DELETE CASCADE,
+        code             varchar(20) NOT NULL UNIQUE,
+        name             varchar(50) NOT NULL,
+        description      text,
+        sort_order       integer     NOT NULL DEFAULT 0,
+        is_active        boolean     NOT NULL DEFAULT true,
+        created_at       timestamp   NOT NULL DEFAULT now()
+      )
+    `);
+    logger.info("Migration 019b: created cat_tags table");
+  } catch (err) {
+    logger.warn({ err }, "Migration 019b: could not create cat_tags table");
+    if (!isDev) throw new Error(`Migration 019b failed in production: ${err}`);
+  }
+
+  // Migration 019c: seed initial cat_categories (5 tracks)
+  try {
+    const { rows } = await db.execute(sql`SELECT COUNT(*) FROM cat_categories`);
+    const count = Number((rows[0] as any).count);
+    if (count === 0) {
+      await db.execute(sql`
+        INSERT INTO cat_categories (code, name, description, color_hex, icon, sort_order, is_active) VALUES
+          ('CG',    '内容生成',          '商业文案、视觉内容、视频、H5等内容创作与设计服务',   '#6366f1', 'Palette',    1, true),
+          ('SA',    '软件系统与智能体',   'AI工具定制、插件开发、智能体搭建、系统集成等软件交付', '#0ea5e9', 'Code2',      2, true),
+          ('TK',    '培训与知识产品',     'AI课程开发、政企培训、研学项目、知识产品等教育服务',   '#f59e0b', 'GraduationCap', 3, true),
+          ('BO',    '商业运营',          'AI赋能直播、短视频、新媒体运营及品牌营销推广',         '#10b981', 'TrendingUp', 4, true),
+          ('OTHER', '其他',             '不属于以上四类的AI相关服务需求',                      '#94a3b8', 'MoreHorizontal', 5, true)
+      `);
+      logger.info("Migration 019c: seeded 5 initial cat_categories");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Migration 019c: could not seed cat_categories");
+  }
+
+  // Migration 019d: seed initial cat_tags (~20 sub-direction tags)
+  try {
+    const { rows } = await db.execute(sql`SELECT COUNT(*) FROM cat_tags`);
+    const count = Number((rows[0] as any).count);
+    if (count === 0) {
+      await db.execute(sql`
+        INSERT INTO cat_tags (cat_category_id, code, name, sort_order, is_active)
+        SELECT id, tag_code, tag_name, tag_sort, true FROM (
+          VALUES
+            ('CG', 'CG-01', '商业文案',          1),
+            ('CG', 'CG-02', '视觉设计与海报',     2),
+            ('CG', 'CG-03', '短视频与剪辑',       3),
+            ('CG', 'CG-04', 'H5与交互设计',       4),
+            ('SA', 'SA-01', '金融智能体',          1),
+            ('SA', 'SA-02', '企业流程自动化',      2),
+            ('SA', 'SA-03', 'Web应用开发',         3),
+            ('SA', 'SA-04', '小程序/移动端开发',  4),
+            ('SA', 'SA-05', 'AI工具与插件定制',   5),
+            ('TK', 'TK-01', 'AI技能培训',          1),
+            ('TK', 'TK-02', '政企定制培训',        2),
+            ('TK', 'TK-03', '研学与体验活动',      3),
+            ('TK', 'TK-04', '在线课程与知识产品', 4),
+            ('BO', 'BO-01', '直播运营',            1),
+            ('BO', 'BO-02', '短视频营销',          2),
+            ('BO', 'BO-03', '新媒体账号运营',      3),
+            ('BO', 'BO-04', '品牌策划与推广',      4),
+            ('BO', 'BO-05', '私域流量运营',        5),
+            ('OTHER', 'OTHER-01', '其他需求',       1)
+        ) AS t(cat_code, tag_code, tag_name, tag_sort)
+        JOIN cat_categories c ON c.code = t.cat_code
+      `);
+      logger.info("Migration 019d: seeded initial cat_tags");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Migration 019d: could not seed cat_tags");
+  }
+
+  // Migration 019e: add cat_category_id to demands table
+  try {
+    await db.execute(sql`
+      ALTER TABLE demands ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)
+    `);
+    logger.info("Migration 019e: added cat_category_id to demands");
+  } catch (err) {
+    logger.warn({ err }, "Migration 019e: could not add cat_category_id to demands");
+  }
+
+  // Migration 019f: add cat_category_id to portfolios table
+  try {
+    await db.execute(sql`
+      ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)
+    `);
+    logger.info("Migration 019f: added cat_category_id to portfolios");
+  } catch (err) {
+    logger.warn({ err }, "Migration 019f: could not add cat_category_id to portfolios");
+  }
+
+  // Migration 019g: add cat_category_id to quote_dimensions table
+  try {
+    await db.execute(sql`
+      ALTER TABLE quote_dimensions ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)
+    `);
+    logger.info("Migration 019g: added cat_category_id to quote_dimensions");
+  } catch (err) {
+    logger.warn({ err }, "Migration 019g: could not add cat_category_id to quote_dimensions");
+  }
+
+  // Migration 019h: backfill demands.cat_category_id from demands.type
+  try {
+    await db.execute(sql`
+      UPDATE demands d
+      SET cat_category_id = c.id
+      FROM cat_categories c
+      WHERE d.cat_category_id IS NULL
+        AND (
+          (d.type IN ('education', 'ai_education', 'gov_training', 'ai_research', 'party_building') AND c.code = 'TK')
+          OR (d.type IN ('software', 'ai_tool_dev', 'livestream_media') AND c.code = 'SA')
+          OR (d.type = 'marketing' AND c.code = 'BO')
+          OR (d.type = 'content' AND c.code = 'CG')
+          OR (d.type = 'other' AND c.code = 'OTHER')
+        )
+    `);
+    logger.info("Migration 019h: backfilled demands.cat_category_id");
+  } catch (err) {
+    logger.warn({ err }, "Migration 019h: could not backfill demands.cat_category_id");
+  }
+
+  // Migration 019i: backfill quote_dimensions.cat_category_id from quote_dimensions.category
+  try {
+    await db.execute(sql`
+      UPDATE quote_dimensions qd
+      SET cat_category_id = c.id
+      FROM cat_categories c
+      WHERE qd.cat_category_id IS NULL
+        AND (
+          (qd.category = 'education' AND c.code = 'TK')
+          OR (qd.category = 'software' AND c.code = 'SA')
+          OR (qd.category = 'marketing' AND c.code = 'BO')
+          OR (qd.category = 'content' AND c.code = 'CG')
+          OR (qd.category = 'other' AND c.code = 'OTHER')
+        )
+    `);
+    logger.info("Migration 019i: backfilled quote_dimensions.cat_category_id");
+  } catch (err) {
+    logger.warn({ err }, "Migration 019i: could not backfill quote_dimensions.cat_category_id");
+  }
+
+  // ─── #87 OPC双等级体系 migrations ────────────────────────────────────────────
+
+  // Migration 020a: create credit_levels table (CRITICAL — no external deps)
+  // Stores configurable credit level definitions (name, point thresholds).
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS credit_levels (
+        id         SERIAL PRIMARY KEY,
+        code       VARCHAR(50)  NOT NULL UNIQUE,
+        name       VARCHAR(100) NOT NULL,
+        min_points INTEGER      NOT NULL DEFAULT 0,
+        sort_order INTEGER      NOT NULL DEFAULT 0,
+        color      VARCHAR(50),
+        is_active  BOOLEAN      NOT NULL DEFAULT true,
+        created_at TIMESTAMP    NOT NULL DEFAULT NOW()
+      )
+    `);
+    logger.info("Migration 020a: created credit_levels table");
+  } catch (err) {
+    logger.warn({ err }, "Migration 020a: could not create credit_levels table");
+    if (!isDev) throw new Error(`Migration 020a failed in production: ${err}`);
+  }
+
+  // Migration 020b: add credit_level_id to opc_profiles (non-critical, additive)
+  try {
+    await db.execute(sql`
+      ALTER TABLE opc_profiles
+        ADD COLUMN IF NOT EXISTS credit_level_id INTEGER REFERENCES credit_levels(id)
+    `);
+    logger.info("Migration 020b: added credit_level_id to opc_profiles");
+  } catch (err) {
+    logger.warn({ err }, "Migration 020b: could not add credit_level_id to opc_profiles");
+  }
+
+  // Migration 020c: add credit_points to opc_profiles (non-critical, additive)
+  try {
+    await db.execute(sql`
+      ALTER TABLE opc_profiles
+        ADD COLUMN IF NOT EXISTS credit_points INTEGER NOT NULL DEFAULT 0
+    `);
+    logger.info("Migration 020c: added credit_points to opc_profiles");
+  } catch (err) {
+    logger.warn({ err }, "Migration 020c: could not add credit_points to opc_profiles");
+  }
+
+  // Migration 020d: seed default credit levels (idempotent — INSERT ON CONFLICT DO NOTHING)
+  // 4 tiers per §5.1 of 接单吧 OPC 双认证评级规则方案:
+  //   白银(60) / 黄金(70) / 钻石(80) / 黑钻(90)
+  try {
+    await db.execute(sql`
+      INSERT INTO credit_levels (code, name, min_points, sort_order, color, is_active)
+      VALUES
+        ('silver',        '白银', 60, 1, '#94a3b8', true),
+        ('gold',          '黄金', 70, 2, '#f59e0b', true),
+        ('diamond',       '钻石', 80, 3, '#0ea5e9', true),
+        ('black_diamond', '黑钻', 90, 4, '#1e293b', true)
+      ON CONFLICT (code) DO NOTHING
+    `);
+    logger.info("Migration 020d: seeded default credit_levels (白银/黄金/钻石/黑钻)");
+  } catch (err) {
+    logger.warn({ err }, "Migration 020d: could not seed credit_levels");
+  }
+
+  // Migration 020e: backfill opc_profiles.credit_level_id — all OPCs start at 白银 (silver).
+  // Credit level (白银/黄金/钻石/黑钻) measures platform fulfillment trustworthiness and is
+  // completely separate from the old A/B/C track skill certification. The old level enum
+  // must NOT be mapped to credit level; every OPC starts at 白银 regardless.
+  // Only updates rows where credit_level_id is still NULL (safe to re-run).
+  try {
+    await db.execute(sql`
+      UPDATE opc_profiles op
+      SET credit_level_id = cl.id
+      FROM credit_levels cl
+      WHERE op.credit_level_id IS NULL
+        AND cl.code = 'silver'
+    `);
+    logger.info("Migration 020e: backfilled opc_profiles.credit_level_id — all set to 白银");
+  } catch (err) {
+    logger.warn({ err }, "Migration 020e: could not backfill credit_level_id");
+  }
+
+  // Migration 020f: create opc_track_certs table (CRITICAL — depends on cat_categories)
+  // Guards: only attempts CREATE TABLE when cat_categories already exists.
+  // If cat_categories is absent (pre-#81 production), this migration warns and is
+  // retried on next boot — cat_categories will be present after #81 is published.
+  try {
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'cat_categories'
+        ) THEN
+          CREATE TABLE IF NOT EXISTS opc_track_certs (
+            id              SERIAL      PRIMARY KEY,
+            user_id         INTEGER     NOT NULL REFERENCES users(id),
+            cat_category_id INTEGER     NOT NULL REFERENCES cat_categories(id),
+            level           VARCHAR(1)  NOT NULL CHECK (level IN ('C','B','A')),
+            status          VARCHAR(20) NOT NULL DEFAULT 'active',
+            certified_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
+            created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+            CONSTRAINT opc_track_certs_user_category_unique UNIQUE (user_id, cat_category_id)
+          );
+        END IF;
+      END $$
+    `);
+    logger.info("Migration 020f: created opc_track_certs table (or skipped — cat_categories not yet present)");
+  } catch (err) {
+    logger.warn({ err }, "Migration 020f: could not create opc_track_certs table");
+    if (!isDev) throw new Error(`Migration 020f failed in production: ${err}`);
+  }
+
+  // Migration 020g: backfill opc_track_certs from approved portfolio certifications
+  // Only runs when both opc_track_certs AND portfolios.cat_category_id exist.
+  // For portfolios with a cat_category_id set → create one track cert per (user, category).
+  // For approved portfolios without cat_category_id (legacy) → skip (will be handled
+  //   after admin links those portfolios to a category in the new admin flow).
+  // DISTINCT ON (user_id, cat_category_id) picks the highest level (A > B > C).
+  // INSERT ... ON CONFLICT DO NOTHING is fully idempotent.
+  try {
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'opc_track_certs'
+        )
+        AND EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'portfolios' AND column_name = 'cat_category_id'
+        )
+        THEN
+          INSERT INTO opc_track_certs (user_id, cat_category_id, level, certified_at)
+          SELECT DISTINCT ON (user_id, cat_category_id)
+            user_id,
+            cat_category_id,
+            apply_level,
+            COALESCE(reviewed_at, created_at)
+          FROM portfolios
+          WHERE level_apply_status = 'approved'
+            AND apply_level IS NOT NULL
+            AND cat_category_id IS NOT NULL
+          ORDER BY
+            user_id,
+            cat_category_id,
+            CASE apply_level
+              WHEN 'A' THEN 3
+              WHEN 'B' THEN 2
+              WHEN 'C' THEN 1
+              ELSE 0
+            END DESC
+          ON CONFLICT (user_id, cat_category_id) DO NOTHING;
+        END IF;
+      END $$
+    `);
+    logger.info("Migration 020g: backfilled opc_track_certs from approved portfolios");
+  } catch (err) {
+    logger.warn({ err }, "Migration 020g: could not backfill opc_track_certs");
+  }
+
+  // Migration 021a: Add required_track_level to demands (bidder track cert eligibility filter)
+  try {
+    await db.execute(sql`
+      ALTER TABLE demands ADD COLUMN IF NOT EXISTS required_track_level VARCHAR(5) NOT NULL DEFAULT 'any'
+    `);
+    logger.info("Migration 021a: added required_track_level to demands");
+  } catch (err) {
+    logger.warn({ err }, "Migration 021a: could not add required_track_level to demands");
+    if (!isDev) throw new Error(`Migration 021a failed in production: ${err}`);
+  }
+
+  // Migration 021b: Replace old credit level seed data (新手/成长/精英/专家) with
+  // document-defined tiers (白银/黄金/钻石/黑钻, §5.1).
+  // Steps: clear FK refs → delete old rows → insert new rows → re-backfill FK.
+  // Safe to re-run: INSERT ON CONFLICT DO UPDATE is idempotent after first run.
+  try {
+    await db.execute(sql`
+      DO $$
+      DECLARE
+        old_codes TEXT[] := ARRAY['entry','developing','skilled','expert'];
+        has_old   BOOLEAN;
+      BEGIN
+        SELECT EXISTS(
+          SELECT 1 FROM credit_levels WHERE code = ANY(old_codes)
+        ) INTO has_old;
+
+        IF has_old THEN
+          -- 1. Remove FK references so old rows can be deleted
+          UPDATE opc_profiles SET credit_level_id = NULL;
+
+          -- 2. Remove old tier rows
+          DELETE FROM credit_levels WHERE code = ANY(old_codes);
+        END IF;
+
+        -- 3. Upsert correct tiers (idempotent on re-run)
+        INSERT INTO credit_levels (code, name, min_points, sort_order, color, is_active)
+        VALUES
+          ('silver',        '白银', 60, 1, '#94a3b8', true),
+          ('gold',          '黄金', 70, 2, '#f59e0b', true),
+          ('diamond',       '钻石', 80, 3, '#0ea5e9', true),
+          ('black_diamond', '黑钻', 90, 4, '#1e293b', true)
+        ON CONFLICT (code) DO UPDATE SET
+          name       = EXCLUDED.name,
+          min_points = EXCLUDED.min_points,
+          sort_order = EXCLUDED.sort_order,
+          color      = EXCLUDED.color,
+          is_active  = EXCLUDED.is_active;
+
+        -- 4. Re-backfill credit_level_id: ALL OPCs start at 白银 (silver).
+        --    Credit level is separate from track skill cert (A/B/C); do not inherit old level.
+        UPDATE opc_profiles op
+        SET credit_level_id = cl.id
+        FROM credit_levels cl
+        WHERE op.credit_level_id IS NULL
+          AND cl.code = 'silver';
+      END $$
+    `);
+    logger.info("Migration 021b: replaced credit_levels with 白银/黄金/钻石/黑钻");
+  } catch (err) {
+    logger.warn({ err }, "Migration 021b: could not replace credit_levels");
+    if (!isDev) throw new Error(`Migration 021b failed in production: ${err}`);
+  }
+
+  // Migration 021c: Reset all OPCs to 白银 (silver) credit level.
+  // Previous migration (021b) incorrectly mapped old A/B/C skill level to credit level.
+  // Credit level (白银/黄金/钻石/黑钻) is entirely separate from track skill certification;
+  // all OPCs start at 白银 regardless of their old level enum value.
+  try {
+    await db.execute(sql`
+      UPDATE opc_profiles op
+      SET credit_level_id = cl.id
+      FROM credit_levels cl
+      WHERE cl.code = 'silver'
+        AND op.credit_level_id != cl.id
+    `);
+    logger.info("Migration 021c: reset all opc credit_level_id to 白银 (silver)");
+  } catch (err) {
+    logger.warn({ err }, "Migration 021c: could not reset credit levels");
+    if (!isDev) throw new Error(`Migration 021c failed in production: ${err}`);
+  }
+
+  // Migration 021d: Strip " OPC" suffix from credit level names.
+  // 020d and 021b used names like "白银 OPC"; correct to "白银" / "黄金" / "钻石" / "黑钻".
+  // Idempotent: only updates rows where the suffix is still present.
+  try {
+    await db.execute(sql`
+      UPDATE credit_levels
+      SET name = REPLACE(name, ' OPC', '')
+      WHERE name LIKE '% OPC'
+    `);
+    logger.info("Migration 021d: stripped ' OPC' suffix from credit_levels names");
+  } catch (err) {
+    logger.warn({ err }, "Migration 021d: could not strip OPC suffix from credit_levels");
+  }
+
   logger.info("Startup data migrations complete.");
 }

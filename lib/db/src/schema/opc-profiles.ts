@@ -1,5 +1,6 @@
 import { pgTable, serial, integer, text, varchar, real, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { creditLevelsTable } from "./credit-levels";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -24,6 +25,8 @@ export const opcProfilesTable = pgTable("opc_profiles", {
   yearsExp: integer("years_exp").default(0),
   wechat: varchar("wechat", { length: 100 }),
   avatar: text("avatar"),
+  creditLevelId: integer("credit_level_id").references(() => creditLevelsTable.id),
+  creditPoints: integer("credit_points").notNull().default(0),
 });
 
 export const insertOpcProfileSchema = createInsertSchema(opcProfilesTable).omit({ id: true });

@@ -39,7 +39,7 @@ export function MarkdownEditor({
     ],
     content: "",
     onUpdate({ editor }) {
-      const md = (editor.storage.markdown as { getMarkdown: () => string }).getMarkdown();
+      const md = (editor.storage as unknown as Record<string, { getMarkdown: () => string }>).markdown.getMarkdown();
       onChange(md);
     },
     editorProps: {
@@ -52,9 +52,9 @@ export function MarkdownEditor({
   // Sync external value into editor (e.g. AI fill-in)
   useEffect(() => {
     if (!editor) return;
-    const currentMd = (editor.storage.markdown as { getMarkdown: () => string }).getMarkdown();
+    const currentMd = (editor.storage as unknown as Record<string, { getMarkdown: () => string }>).markdown.getMarkdown();
     if (currentMd !== value) {
-      editor.commands.setContent(value, false, { preserveWhitespace: "full" });
+      editor.commands.setContent(value);
     }
   }, [value, editor]);
 

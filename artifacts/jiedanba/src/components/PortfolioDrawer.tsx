@@ -13,17 +13,15 @@ import { useQueryClient } from "@tanstack/react-query";
 
 /* ─── Constants ──────────────────────────────── */
 
-export const DEMAND_TYPES = [
-  { value: "education", label: "教育培训" },
-  { value: "software",  label: "软件开发" },
-  { value: "marketing", label: "营销" },
-  { value: "content",   label: "内容设计" },
-  { value: "other",     label: "其他" },
-];
+const _API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-export const TYPE_LABEL: Record<string, string> = Object.fromEntries(
-  DEMAND_TYPES.map(t => [t.value, t.label])
-);
+export const TYPE_LABEL: Record<string, string> = {
+  education: "教育培训",
+  software:  "软件开发",
+  marketing: "营销",
+  content:   "内容设计",
+  other:     "其他",
+};
 
 /* ─── Image compression helper ──────────────── */
 
@@ -78,7 +76,7 @@ const LEVEL_STATUS_LABEL: Record<string, { text: string; color: string }> = {
 
 export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }: PortfolioDrawerProps) {
   const [title,       setTitle]       = useState(initial?.title       ?? "");
-  const [type,        setType]        = useState(initial?.type        ?? "ai_education");
+  const [type,        setType]        = useState(initial?.type        ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [projectUrl,  setProjectUrl]  = useState(initial?.projectUrl  ?? "");
   const [coverImage,  setCoverImage]  = useState(initial?.coverImage  ?? "");
@@ -86,6 +84,15 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
   const [status,      setStatus]      = useState<"idle" | "saving" | "saved" | "error" | "deleting" | "confirmDelete">("idle");
   const [applyForLevel, setApplyForLevel] = useState(!!initial?.applyLevel);
   const [applyLevel,    setApplyLevel]    = useState<string>(initial?.applyLevel ?? "C");
+  const [applyCatId,    setApplyCatId]    = useState<number | null>((initial as any)?.catCategoryId ?? null);
+
+  const [categories, setCategories] = useState<Array<{id: number; name: string}>>([]);
+  useEffect(() => {
+    fetch(`${_API_BASE}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setCategories(d); })
+      .catch(() => {});
+  }, []);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const qc      = useQueryClient();
@@ -98,13 +105,14 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
   useEffect(() => {
     if (open) {
       setTitle(initial?.title       ?? "");
-      setType(initial?.type         ?? "ai_education");
+      setType(initial?.type         ?? "");
       setDescription(initial?.description ?? "");
       setProjectUrl(initial?.projectUrl   ?? "");
       setCoverImage(initial?.coverImage   ?? "");
       setStatus("idle");
       setApplyForLevel(!!initial?.applyLevel);
       setApplyLevel(initial?.applyLevel ?? "C");
+      setApplyCatId((initial as any)?.catCategoryId ?? null);
       /* Auto-detect mode from existing coverImage */
       if (initial?.coverImage?.startsWith("data:")) setImgMode("upload");
       else if (initial?.coverImage)                 setImgMode("url");
@@ -131,20 +139,25 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       alert("请填写项目名称和简介");
       return;
     }
+    if (applyForLevel && !applyCatId) {
+      alert("申请赛道认证时必须选择对应的赛道分类");
+      return;
+    }
     setStatus("saving");
     const payload = {
-      title:       title.trim(),
+      title:         title.trim(),
       type,
-      description: description.trim(),
-      coverImage:  coverImage || undefined,
-      projectUrl:  projectUrl.trim() || undefined,
-      applyLevel:  applyForLevel ? applyLevel : null,
+      description:   description.trim(),
+      coverImage:    coverImage || undefined,
+      projectUrl:    projectUrl.trim() || undefined,
+      applyLevel:    applyForLevel ? applyLevel : null,
+      catCategoryId: applyForLevel && applyCatId ? applyCatId : null,
     };
     try {
       if (initial?.id) {
         await update({ portfolioId: initial.id, data: payload });
       } else {
-        await create({ data: { ...payload, userId } });
+        await create({ data: payload });
       }
       await qc.invalidateQueries({ queryKey: ["/api/portfolios"] });
       setStatus("saved");
@@ -258,8 +271,9 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
               </label>
               <select value={type} onChange={e => setType(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none bg-white appearance-none">
-                {DEMAND_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                {categories.length === 0 && <option value="">加载中…</option>}
+                {categories.map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -322,16 +336,30 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
               const alreadyHigher = currentLevel && currentIdx > applyIdx && applyIdx >= 0;
               const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
               return (
-                <div className="mt-2">
-                  <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
-                  <select
-                    value={applyLevel}
-                    onChange={e => setApplyLevel(e.target.value)}
-                    className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
-                    {LEVEL_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                <div className="mt-2 space-y-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请赛道（分类）</label>
+                    <select
+                      value={applyCatId ?? ""}
+                      onChange={e => setApplyCatId(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
+                      <option value="">请选择赛道分类…</option>
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
+                    <select
+                      value={applyLevel}
+                      onChange={e => setApplyLevel(e.target.value)}
+                      className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
+                      {LEVEL_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
                   {alreadyHas ? (
                     <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-1.5">
                       ℹ️ 您目前已持有 {LEVEL_NAME[applyLevel] ?? applyLevel} 认证，无需重复申请。如需提升，请选择更高等级。
