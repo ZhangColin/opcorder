@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import AdminActivities from "./AdminActivities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatBudget } from "@/lib/utils";
@@ -479,6 +479,7 @@ function UserManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showBulkEmail, setShowBulkEmail] = useState(false);
   const [showBulkNotify, setShowBulkNotify] = useState(false);
+  const [expandedOpcId, setExpandedOpcId] = useState<number | null>(null);
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminUser>>({
     queryKey: ["admin-users", roleFilter, statusFilter, q, page, pageSize],
@@ -547,57 +548,238 @@ function UserManagement() {
       <TableShell headers={["用户", "邮箱", "手机号", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={9} /> : users.length === 0 ? <EmptyRow cols={9} /> :
           users.map(u => (
-            <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.nickname[0]}</div>
-                  <span className="font-bold text-sm text-blue-900">{u.nickname}</span>
-                </div>
-              </td>
-              <td className="px-6 py-4 text-xs text-slate-400">{u.email || "—"}</td>
-              <td className="px-6 py-4 text-xs text-slate-400">{u.phone || "—"}</td>
-              <td className="px-6 py-4"><StatusBadge label={roleLabel(u.role)} color={roleColor(u.role)} /></td>
-              <td className="px-6 py-4">
-                {u.opcLevel ? (
-                  <select defaultValue={u.opcLevel} onChange={e => mutate.mutate({ id: u.id, action: "setLevel", value: e.target.value })}
-                    className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    {[{ v: "newbie", label: "新手" }, { v: "C", label: "C级·基础" }, { v: "B", label: "B级·进阶" }, { v: "A", label: "A级·专家" }].map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
-                  </select>
-                ) : <span className="text-slate-400 text-sm">—</span>}
-              </td>
-              <td className="px-6 py-4">
-                {u.creditScore !== null ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${u.creditScore >= 4 ? "bg-secondary" : u.creditScore >= 3 ? "bg-amber-400" : "bg-destructive"}`}
-                        style={{ width: `${(u.creditScore / 5) * 100}%` }} />
-                    </div>
-                    <span className="text-xs font-bold text-slate-600">{u.creditScore?.toFixed(1)}</span>
+            <Fragment key={u.id}>
+              <tr className={`hover:bg-slate-50/60 transition-colors ${expandedOpcId === u.id ? "bg-slate-50/40" : ""}`}>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.nickname[0]}</div>
+                    <span className="font-bold text-sm text-blue-900">{u.nickname}</span>
                   </div>
-                ) : <span className="text-slate-400 text-sm">—</span>}
-              </td>
-              <td className="px-6 py-4 text-xs text-slate-400">{new Date(u.createdAt).toLocaleDateString("zh-CN")}</td>
-              <td className="px-6 py-4"><StatusBadge label={statusLabel(u.status)} color={statusColor(u.status)} /></td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-1">
-                  {u.status === "active" ? (
-                    <button onClick={() => mutate.mutate({ id: u.id, action: "ban" })}
-                      title="封禁" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
-                      <UserX size={15} />
-                    </button>
-                  ) : (
-                    <button onClick={() => mutate.mutate({ id: u.id, action: "unban" })}
-                      title="解封" className="p-2 rounded-xl hover:bg-green-50 text-slate-400 hover:text-secondary transition-colors">
-                      <UserCheck size={15} />
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
+                </td>
+                <td className="px-6 py-4 text-xs text-slate-400">{u.email || "—"}</td>
+                <td className="px-6 py-4 text-xs text-slate-400">{u.phone || "—"}</td>
+                <td className="px-6 py-4"><StatusBadge label={roleLabel(u.role)} color={roleColor(u.role)} /></td>
+                <td className="px-6 py-4">
+                  {u.opcLevel ? (
+                    <select defaultValue={u.opcLevel} onChange={e => mutate.mutate({ id: u.id, action: "setLevel", value: e.target.value })}
+                      className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30">
+                      {[{ v: "newbie", label: "新手" }, { v: "C", label: "C级·基础" }, { v: "B", label: "B级·进阶" }, { v: "A", label: "A级·专家" }].map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
+                    </select>
+                  ) : <span className="text-slate-400 text-sm">—</span>}
+                </td>
+                <td className="px-6 py-4">
+                  {u.creditScore !== null ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${u.creditScore >= 4 ? "bg-secondary" : u.creditScore >= 3 ? "bg-amber-400" : "bg-destructive"}`}
+                          style={{ width: `${(u.creditScore / 5) * 100}%` }} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-600">{u.creditScore?.toFixed(1)}</span>
+                    </div>
+                  ) : <span className="text-slate-400 text-sm">—</span>}
+                </td>
+                <td className="px-6 py-4 text-xs text-slate-400">{new Date(u.createdAt).toLocaleDateString("zh-CN")}</td>
+                <td className="px-6 py-4"><StatusBadge label={statusLabel(u.status)} color={statusColor(u.status)} /></td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-1">
+                    {u.role === "opc" && (
+                      <button
+                        onClick={() => setExpandedOpcId(expandedOpcId === u.id ? null : u.id)}
+                        title="查看OPC详情"
+                        className={`p-2 rounded-xl transition-colors ${expandedOpcId === u.id ? "bg-primary/10 text-primary" : "hover:bg-slate-100 text-slate-400"}`}
+                      >
+                        {expandedOpcId === u.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      </button>
+                    )}
+                    {u.status === "active" ? (
+                      <button onClick={() => mutate.mutate({ id: u.id, action: "ban" })}
+                        title="封禁" className="p-2 rounded-xl hover:bg-red-50 text-slate-400 hover:text-destructive transition-colors">
+                        <UserX size={15} />
+                      </button>
+                    ) : (
+                      <button onClick={() => mutate.mutate({ id: u.id, action: "unban" })}
+                        title="解封" className="p-2 rounded-xl hover:bg-green-50 text-slate-400 hover:text-secondary transition-colors">
+                        <UserCheck size={15} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+              {expandedOpcId === u.id && u.role === "opc" && (
+                <tr>
+                  <td colSpan={9} className="p-0">
+                    <OpcUserDetail userId={u.id} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))
         }
       </TableShell>
       <AdminPagination page={page} pageSize={pageSize} total={resp?.total ?? 0} onPage={setPage} onPageSize={setPageSize} />
+    </div>
+  );
+}
+
+/* ─── OPC User Detail (inline expand) ───────────── */
+
+interface OpcDetail {
+  creditLevelId: number | null;
+  creditPoints: number;
+  creditLevelName: string | null;
+  creditLevelColor: string | null;
+  trackCerts: Array<{
+    id: number;
+    cat_category_id: number;
+    cat_category_name: string | null;
+    level: string;
+    status: string;
+    certified_at: string;
+  }>;
+}
+
+function OpcUserDetail({ userId }: { userId: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [editCredit, setEditCredit] = useState(false);
+  const [newCreditLevelId, setNewCreditLevelId] = useState<number | null>(null);
+  const [newCreditPoints, setNewCreditPoints] = useState(0);
+
+  const { data: detail, isLoading } = useQuery<OpcDetail>({
+    queryKey: ["admin-opc-detail", userId],
+    queryFn: () => adminGet(`/api/admin/users/${userId}/opc-detail`),
+  });
+
+  const { data: creditLevels = [] } = useQuery<CreditLevelItem[]>({
+    queryKey: ["admin-credit-levels"],
+    queryFn: () => adminGet("/api/admin/credit-levels"),
+    staleTime: 60_000,
+  });
+
+  const setCreditMut = useMutation({
+    mutationFn: (body: { creditLevelId: number | null; creditPoints: number }) =>
+      adminPut(`/api/admin/users/${userId}/credit-level`, body),
+    onSuccess: () => {
+      toast({ title: "信用等级已更新" });
+      setEditCredit(false);
+      qc.invalidateQueries({ queryKey: ["admin-opc-detail", userId] });
+    },
+    onError: (e: any) => toast({ title: "更新失败", description: e?.message, variant: "destructive" }),
+  });
+
+  const TRACK_LEVEL_LABELS: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础", newbie: "新手" };
+
+  const startEdit = () => {
+    setNewCreditLevelId(detail?.creditLevelId ?? null);
+    setNewCreditPoints(detail?.creditPoints ?? 0);
+    setEditCredit(true);
+  };
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center py-5 text-slate-400 gap-2 bg-slate-50/70 border-t border-slate-100">
+      <Loader2 size={15} className="animate-spin" /><span className="text-sm">加载中…</span>
+    </div>
+  );
+  if (!detail) return (
+    <div className="py-4 text-center text-sm text-slate-400 bg-slate-50/70 border-t border-slate-100">
+      无OPC档案
+    </div>
+  );
+
+  return (
+    <div className="px-6 py-4 bg-slate-50/70 border-t border-slate-100 space-y-4">
+      {/* Credit Level */}
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">信用等级</p>
+        {editCredit ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={newCreditLevelId ?? ""}
+              onChange={e => setNewCreditLevelId(e.target.value === "" ? null : Number(e.target.value))}
+              className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+            >
+              <option value="">（无等级）</option>
+              {creditLevels.filter(l => l.isActive).map(l => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={0}
+              value={newCreditPoints}
+              onChange={e => setNewCreditPoints(parseInt(e.target.value) || 0)}
+              placeholder="积分"
+              className="w-24 border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+            />
+            <span className="text-xs text-slate-400">积分</span>
+            <button
+              onClick={() => setCreditMut.mutate({ creditLevelId: newCreditLevelId, creditPoints: newCreditPoints })}
+              disabled={setCreditMut.isPending}
+              className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {setCreditMut.isPending ? "保存…" : "保存"}
+            </button>
+            <button
+              onClick={() => setEditCredit(false)}
+              className="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            {detail.creditLevelName ? (
+              <span
+                className="px-3 py-1 rounded-full text-xs font-bold text-white"
+                style={{ backgroundColor: detail.creditLevelColor ?? "#94a3b8" }}
+              >
+                {detail.creditLevelName}
+              </span>
+            ) : (
+              <span className="text-sm text-slate-400">未分配等级</span>
+            )}
+            <span className="text-xs text-slate-500 font-semibold">{detail.creditPoints} 积分</span>
+            <button
+              onClick={startEdit}
+              className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+              title="修改信用等级"
+            >
+              <Edit2 size={12} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Track Certs */}
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+          赛道认证（{detail.trackCerts.length} 项）
+        </p>
+        {detail.trackCerts.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">暂无赛道认证</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {detail.trackCerts.map(cert => (
+              <div
+                key={cert.id}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${
+                  cert.status === "active"
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-slate-100 text-slate-400 border border-slate-200"
+                }`}
+              >
+                <Award size={12} />
+                <span>{cert.cat_category_name ?? `分类#${cert.cat_category_id}`}</span>
+                <span className="opacity-50">·</span>
+                <span>{TRACK_LEVEL_LABELS[cert.level] ?? cert.level}</span>
+                <span className="opacity-40 font-normal ml-1 text-[10px]">
+                  {new Date(cert.certified_at).toLocaleDateString("zh-CN")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1442,13 +1442,21 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     if (!portfolio) return res.status(404).json({ error: "作品不存在" });
     if (!portfolio.applyLevel) return res.status(400).json({ error: "该作品未发起等级申请" });
 
+    if ((result === "approved" || result === "downgraded") && !portfolio.catCategoryId) {
+      return res.status(400).json({
+        error: "该作品未关联赛道分类，无法写入赛道认证记录。请先让 OPC 重新提交并选择赛道分类后再审核。",
+      });
+    }
+
     const applyLevel = portfolio.applyLevel as "A" | "B" | "C";
     const levelOrder: ("newbie" | "C" | "B" | "A")[] = ["newbie", "C", "B", "A"];
     const applyIdx = levelOrder.indexOf(applyLevel);
 
-    // 获取当前等级用于校验
-    const opcResult = await db.execute(sql`SELECT level FROM opc_profiles WHERE user_id = ${portfolio.userId}`);
-    const currentLevel = ((opcResult.rows[0] as any)?.level ?? "newbie") as string;
+    // 获取该赛道当前认证等级用于校验（无记录则视为 newbie）
+    const certRows = portfolio.catCategoryId
+      ? (await db.execute(sql`SELECT level FROM opc_track_certs WHERE user_id = ${portfolio.userId} AND cat_category_id = ${portfolio.catCategoryId} LIMIT 1`)).rows
+      : [];
+    const currentLevel = ((certRows[0] as any)?.level ?? "newbie") as string;
     const currentIdx = levelOrder.indexOf(currentLevel as any);
 
     let grantedLevel: "newbie" | "C" | "B" | "A" = applyLevel;
@@ -1457,12 +1465,12 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
 
     if (result === "approved") {
       grantedLevel = applyLevel;
-      // 校验：通过后等级必须高于当前等级
+      // 校验：通过后等级必须高于当前赛道等级
       if (applyIdx <= currentIdx) {
-        return res.status(400).json({ error: `OPC当前已是 ${currentLevel} 级，不能通过低于或等于当前等级的认证` });
+        return res.status(400).json({ error: `该OPC在此赛道已持有 ${currentLevel} 级认证，不能通过低于或等于当前等级的申请` });
       }
-      notifTitle = `🎉 等级认证成功 · 升至 ${applyLevel} 级`;
-      notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，认证通过！您的OPC等级已升级为 ${applyLevel}级。${note ? `\n评审意见：${note}` : ""}`;
+      notifTitle = `🎉 赛道认证成功 · 升至 ${applyLevel} 级`;
+      notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，认证通过！您在该赛道的等级已升至 ${applyLevel}级。${note ? `\n评审意见：${note}` : ""}`;
     } else if (result === "downgraded") {
       // 使用前端指定的降级目标，默认降一级
       if (downgradeTo && levelOrder.includes(downgradeTo)) {
@@ -1472,21 +1480,15 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
         grantedLevel = levelOrder[downIdx];
       }
       const grantIdx = levelOrder.indexOf(grantedLevel);
-      // 校验：降级通过后等级必须高于当前等级
+      // 校验：降级通过后等级必须高于当前赛道等级
       if (grantIdx <= currentIdx) {
-        return res.status(400).json({ error: `OPC当前已是 ${currentLevel} 级，无法降级通过至 ${grantedLevel} 级` });
+        return res.status(400).json({ error: `该OPC在此赛道已持有 ${currentLevel} 级认证，无法降级通过至 ${grantedLevel} 级` });
       }
       notifTitle = `✅ 降级认证成功 · 获得 ${grantedLevel} 级`;
       notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，综合评估后授予 ${grantedLevel}级认证（您申请的是 ${applyLevel}级）。${note ? `\n评审意见：${note}` : ""}`;
     } else {
-      notifTitle = `📝 等级申请评审结果：还需努力`;
+      notifTitle = `📝 赛道申请评审结果：还需努力`;
       notifContent = `您提交的作品「${portfolio.title}」经平台专家评审，暂未达到 ${applyLevel}级认证标准，请继续积累项目经验后再次申请。${note ? `\n评审意见：${note}` : ""}`;
-    }
-
-    if ((result === "approved" || result === "downgraded") && !portfolio.catCategoryId) {
-      return res.status(400).json({
-        error: "该作品未关联赛道分类，无法写入赛道认证记录。请先让 OPC 重新提交并选择赛道分类后再审核。",
-      });
     }
 
     await db.update(portfoliosTable).set({
@@ -1496,7 +1498,6 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     }).where(eq(portfoliosTable.id, portfolioId));
 
     if (result === "approved" || result === "downgraded") {
-      await db.execute(sql`UPDATE opc_profiles SET level = ${grantedLevel} WHERE user_id = ${portfolio.userId}`);
       await db.execute(sql`
         INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at)
         VALUES (${portfolio.userId}, ${portfolio.catCategoryId}, ${grantedLevel}, 'active', NOW())
@@ -1604,6 +1605,55 @@ router.put("/admin/users/:id/credit-level", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "设置信用等级失败" });
+  }
+});
+
+router.get("/admin/users/:id/opc-detail", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id as string, 10);
+
+    const [opcRow] = (await db.execute(sql`
+      SELECT
+        op.credit_level_id,
+        op.credit_points,
+        cl.name  AS credit_level_name,
+        cl.color AS credit_level_color
+      FROM opc_profiles op
+      LEFT JOIN credit_levels cl ON cl.id = op.credit_level_id
+      WHERE op.user_id = ${userId}
+    `)).rows as Array<{
+      credit_level_id: number | null;
+      credit_points: number | null;
+      credit_level_name: string | null;
+      credit_level_color: string | null;
+    }>;
+
+    if (!opcRow) return res.status(404).json({ error: "该用户无OPC档案" });
+
+    const trackCerts = (await db.execute(sql`
+      SELECT
+        otc.id,
+        otc.cat_category_id,
+        cc.name AS cat_category_name,
+        otc.level,
+        otc.status,
+        otc.certified_at
+      FROM opc_track_certs otc
+      LEFT JOIN cat_categories cc ON cc.id = otc.cat_category_id
+      WHERE otc.user_id = ${userId}
+      ORDER BY otc.certified_at DESC
+    `)).rows;
+
+    return res.json({
+      creditLevelId: opcRow.credit_level_id,
+      creditPoints: opcRow.credit_points ?? 0,
+      creditLevelName: opcRow.credit_level_name,
+      creditLevelColor: opcRow.credit_level_color,
+      trackCerts,
+    });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取OPC详情失败" });
   }
 });
 
