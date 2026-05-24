@@ -5901,6 +5901,53 @@ const TYPE_LABELS: Record<string, string> = {
   other:            "综合其他",
 };
 
+interface ReviewLogEntry {
+  id: number;
+  result: "approved" | "downgraded" | "rejected";
+  note: string | null;
+  created_at: string;
+  admin_username: string | null;
+}
+
+const RESULT_LABELS: Record<string, { text: string; color: string }> = {
+  approved:   { text: "认证通过", color: "text-green-700 bg-green-50 border-green-200" },
+  downgraded: { text: "降级通过", color: "text-blue-700 bg-blue-50 border-blue-200" },
+  rejected:   { text: "未通过",   color: "text-red-700 bg-red-50 border-red-200" },
+};
+
+function ReviewLogsPanel({ portfolioId }: { portfolioId: number }) {
+  const { data: logs, isLoading } = useQuery<ReviewLogEntry[]>({
+    queryKey: ["review-logs", portfolioId],
+    queryFn: () => adminGet(`/api/admin/level-certs/${portfolioId}/review-logs`),
+    staleTime: 30_000,
+  });
+  if (isLoading) return <p className="text-xs text-slate-400 py-1">加载中…</p>;
+  if (!logs || logs.length === 0) return <p className="text-xs text-slate-400 py-1">暂无历史评审记录</p>;
+  return (
+    <div className="space-y-2">
+      {logs.map(log => {
+        const label = RESULT_LABELS[log.result] ?? { text: log.result, color: "text-slate-600 bg-slate-50 border-slate-200" };
+        return (
+          <div key={log.id} className={`border rounded-xl px-3 py-2.5 ${label.color}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold">{label.text}</span>
+              <span className="text-[11px] opacity-70">
+                {new Date(log.created_at).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                {log.admin_username ? ` · ${log.admin_username}` : ""}
+              </span>
+            </div>
+            {log.note ? (
+              <p className="text-xs leading-relaxed opacity-90">{log.note}</p>
+            ) : (
+              <p className="text-xs opacity-50 italic">（无评语）</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function LevelCertReview() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -5917,6 +5964,7 @@ function LevelCertReview() {
   const [setCatId, setSetCatId] = useState<string>("");
   const [setCatLevel, setSetCatLevel] = useState<string>("");
   const [setCatTagIds, setSetCatTagIds] = useState<number[]>([]);
+  const [logsOpenFor, setLogsOpenFor] = useState<number | null>(null);
   const setPageSize = (s: number) => { setPageSizeRaw(s); setPage(1); };
 
   const { data: resp, isLoading, refetch } = useQuery<PagedResp<LevelCertRow>>({
@@ -6282,6 +6330,21 @@ function LevelCertReview() {
                         )}
                       </div>
                     )}
+
+                    {/* 历史评审记录（管理员可见，按需展开） */}
+                    <div className="bg-slate-50 rounded-xl px-4 py-3">
+                      <button
+                        className="flex items-center justify-between w-full text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                        onClick={() => setLogsOpenFor(logsOpenFor === row.id ? null : row.id)}>
+                        <span>历史评审记录</span>
+                        <span className="text-slate-400">{logsOpenFor === row.id ? "▲ 收起" : "▼ 展开"}</span>
+                      </button>
+                      {logsOpenFor === row.id && (
+                        <div className="mt-2">
+                          <ReviewLogsPanel portfolioId={row.id} />
+                        </div>
+                      )}
+                    </div>
 
                     {/* 评审操作区 */}
                     {isReviewing && row.level_apply_status === "pending" && (

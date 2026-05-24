@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -1528,6 +1528,26 @@ router.get("/admin/level-certs/categories", async (req, res) => {
   }
 });
 
+router.get("/admin/level-certs/:portfolioId/review-logs", async (req, res) => {
+  try {
+    const portfolioId = Number(req.params.portfolioId as string);
+    if (isNaN(portfolioId)) return res.status(400).json({ error: "portfolioId 无效" });
+    const rows = (await db.execute(sql`
+      SELECT
+        l.id, l.result, l.note, l.created_at,
+        u.username AS admin_username, u.avatar AS admin_avatar
+      FROM portfolio_review_logs l
+      LEFT JOIN users u ON u.id = l.admin_id
+      WHERE l.portfolio_id = ${portfolioId}
+      ORDER BY l.created_at DESC
+    `)).rows;
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取评审历史失败" });
+  }
+});
+
 router.patch("/admin/level-certs/:portfolioId/category", async (req, res) => {
   try {
     const portfolioId = Number(req.params.portfolioId as string);
@@ -1674,6 +1694,15 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
       levelApplyNote: note ?? null,
       reviewedAt: new Date(),
     }).where(eq(portfoliosTable.id, portfolioId));
+
+    // 写入评审历史日志（每次评审都记录，不覆盖）
+    const adminId = req.user?.id ?? null;
+    await db.insert(portfolioReviewLogsTable).values({
+      portfolioId,
+      adminId,
+      result,
+      note: note ?? null,
+    });
 
     // 写入赛道认证记录（通过/降级通过时）
     if ((result === "approved" || result === "downgraded") && effectiveCatId) {
