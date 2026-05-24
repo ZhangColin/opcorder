@@ -3,8 +3,21 @@
  * and automatically promotes or demotes the user's credit level when thresholds
  * are crossed.
  *
+ * Design notes:
+ * - All writes happen inside a single DB transaction with a row-level lock
+ *   (SELECT … FOR UPDATE) so concurrent calls serialize and never race.
+ * - The function throws on any DB error; callers that want fire-and-forget
+ *   behavior must attach their own .catch().
+ * - Action types (order_completed, five_star_review, …) are intentionally
+ *   fixed at the code level because each maps to specific business logic.
+ *   Only points_delta / description / is_active are configurable via admin UI.
+ *
  * Usage:
- *   await applyCredit(db, userId, "order_completed", { refId: orderId });
+ *   // blocking (admin / manual):
+ *   const result = await applyCredit(userId, "order_completed", { refId: orderId });
+ *
+ *   // fire-and-forget (order event side-effect):
+ *   applyCredit(userId, "order_completed", { refId }).catch(() => {});
  */
 import { db as defaultDb } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -27,7 +40,7 @@ interface ApplyCreditOptions {
   forceDelta?: number;
 }
 
-interface ApplyCreditResult {
+export interface ApplyCreditResult {
   applied: boolean;
   delta: number;
   balanceAfter: number;
@@ -37,9 +50,21 @@ interface ApplyCreditResult {
   newLevelId: number | null;
 }
 
+const noOp: ApplyCreditResult = {
+  applied: false,
+  delta: 0,
+  balanceAfter: 0,
+  levelChanged: false,
+  oldLevelName: null,
+  newLevelName: null,
+  newLevelId: null,
+};
+
 /**
- * Apply a credit rule to a user and handle level changes.
- * If the action has no active rule, this is a no-op (returns applied:false).
+ * Apply a credit rule to a user and handle level changes atomically.
+ *
+ * Throws on DB error — wrap in .catch() for fire-and-forget callers.
+ * Returns noOp (applied:false) only when the rule is disabled or delta=0.
  */
 export async function applyCredit(
   userId: number,
@@ -47,60 +72,59 @@ export async function applyCredit(
   options: ApplyCreditOptions = {},
   _db: AnyDb = defaultDb
 ): Promise<ApplyCreditResult> {
-  const noOp: ApplyCreditResult = {
-    applied: false,
-    delta: 0,
-    balanceAfter: 0,
-    levelChanged: false,
-    oldLevelName: null,
-    newLevelName: null,
-    newLevelId: null,
-  };
+  // Step 1: resolve delta from rule table (read-only, outside transaction).
+  // This is a point-in-time read of admin config — no user data involved yet.
+  let delta = options.forceDelta;
 
-  try {
-    // 1. Look up the active rule (or use forceDelta for manual)
-    let delta = options.forceDelta ?? 0;
+  if (delta === undefined) {
+    const ruleRows = (await _db.execute(sql`
+      SELECT points_delta FROM credit_rules
+      WHERE action_type = ${actionType} AND is_active = true
+      LIMIT 1
+    `)).rows as Array<{ points_delta: number }>;
 
-    if (options.forceDelta === undefined) {
-      const ruleRows = (await _db.execute(sql`
-        SELECT points_delta FROM credit_rules
-        WHERE action_type = ${actionType} AND is_active = true
-        LIMIT 1
-      `)).rows as Array<{ points_delta: number }>;
+    if (ruleRows.length === 0) return noOp;
+    delta = Number(ruleRows[0].points_delta);
+  }
 
-      if (ruleRows.length === 0) return noOp;
-      delta = Number(ruleRows[0].points_delta);
-    }
+  // Skip zero-delta events unless it's an explicit manual_adjustment
+  if (delta === 0 && actionType !== "manual_adjustment") return noOp;
 
-    if (delta === 0 && actionType !== "manual_adjustment") return noOp;
+  const resolvedDelta = delta;
 
-    // 2. Fetch current OPC profile (creditPoints + creditLevelId)
-    const profileRows = (await _db.execute(sql`
-      SELECT credit_points, credit_level_id FROM opc_profiles WHERE user_id = ${userId} LIMIT 1
+  // Step 2: everything that touches user state runs inside a transaction
+  // with a row-level lock so concurrent events serialize correctly.
+  return await _db.transaction(async (tx) => {
+    // Lock the OPC profile row for the duration of this transaction
+    const profileRows = (await tx.execute(sql`
+      SELECT credit_points, credit_level_id
+      FROM opc_profiles
+      WHERE user_id = ${userId}
+      FOR UPDATE
     `)).rows as Array<{ credit_points: number; credit_level_id: number | null }>;
 
     if (profileRows.length === 0) return noOp;
 
     const currentPoints = Number(profileRows[0].credit_points ?? 0);
     const currentLevelId = profileRows[0].credit_level_id as number | null;
-    const newPoints = Math.max(0, currentPoints + delta);
+    const newPoints = Math.max(0, currentPoints + resolvedDelta);
 
-    // 3. Write transaction ledger entry
-    await _db.execute(sql`
+    // Write ledger entry
+    await tx.execute(sql`
       INSERT INTO credit_transactions
         (user_id, delta, balance_after, action_type, ref_id, note, operator_id)
       VALUES
-        (${userId}, ${delta}, ${newPoints}, ${actionType},
+        (${userId}, ${resolvedDelta}, ${newPoints}, ${actionType},
          ${options.refId ?? null}, ${options.note ?? null}, ${options.operatorId ?? null})
     `);
 
-    // 4. Update user's credit_points
-    await _db.execute(sql`
+    // Update balance
+    await tx.execute(sql`
       UPDATE opc_profiles SET credit_points = ${newPoints} WHERE user_id = ${userId}
     `);
 
-    // 5. Determine the best matching credit level
-    const levelRows = (await _db.execute(sql`
+    // Determine which credit level applies to the new balance
+    const levelRows = (await tx.execute(sql`
       SELECT id, name, min_points FROM credit_levels
       WHERE is_active = true
       ORDER BY min_points DESC
@@ -116,27 +140,21 @@ export async function applyCredit(
       }
     }
 
-    // Find old level name for notification
-    let oldLevelName: string | null = null;
-    if (currentLevelId !== null) {
-      const oldLvl = levelRows.find(l => l.id === currentLevelId);
-      oldLevelName = oldLvl?.name ?? null;
-    }
+    const oldLevelName = currentLevelId !== null
+      ? (levelRows.find(l => l.id === currentLevelId)?.name ?? null)
+      : null;
 
     const levelChanged = newLevelId !== currentLevelId;
 
     if (levelChanged) {
-      await _db.execute(sql`
+      await tx.execute(sql`
         UPDATE opc_profiles SET credit_level_id = ${newLevelId} WHERE user_id = ${userId}
       `);
 
-      // Send in-app notification
-      const isUpgrade = (newLevelId !== null && currentLevelId === null) ||
-        (newLevelId !== null && currentLevelId !== null && (() => {
-          const oldIdx = levelRows.findIndex(l => l.id === currentLevelId);
-          const newIdx = levelRows.findIndex(l => l.id === newLevelId);
-          return newIdx < oldIdx; // levelRows sorted desc, so lower index = higher level
-        })());
+      // Determine upgrade vs downgrade direction (levelRows sorted desc, lower index = higher level)
+      const oldIdx = currentLevelId !== null ? levelRows.findIndex(l => l.id === currentLevelId) : Infinity;
+      const newIdx = newLevelId !== null ? levelRows.findIndex(l => l.id === newLevelId) : Infinity;
+      const isUpgrade = newIdx < oldIdx;
 
       const title = isUpgrade
         ? `恭喜！您已升级为「${newLevelName ?? ""}」信用等级`
@@ -145,27 +163,27 @@ export async function applyCredit(
         ? `当前积分 ${newPoints} 分，您已达到${newLevelName ?? ""}等级要求，继续保持良好服务品质！`
         : `当前积分 ${newPoints} 分，您的信用等级已调整为「${newLevelName ?? "未评级"}」，请注意维护信用记录。`;
 
-      await _db.execute(sql`
+      await tx.execute(sql`
         INSERT INTO notifications (user_id, type, title, content, related_type)
         VALUES (${userId}, 'system', ${title}, ${content}, 'credit')
       `);
 
-      logger.info({ userId, actionType, delta, newPoints, oldLevelName, newLevelName }, "credit: level changed");
+      logger.info(
+        { userId, actionType, resolvedDelta, newPoints, oldLevelName, newLevelName },
+        "credit: level changed"
+      );
     }
 
-    logger.info({ userId, actionType, delta, newPoints, levelChanged }, "credit: applied");
+    logger.info({ userId, actionType, resolvedDelta, newPoints, levelChanged }, "credit: applied");
 
     return {
       applied: true,
-      delta,
+      delta: resolvedDelta,
       balanceAfter: newPoints,
       levelChanged,
       oldLevelName,
       newLevelName,
       newLevelId,
     };
-  } catch (err) {
-    logger.error({ err, userId, actionType }, "credit: failed to apply credit");
-    return noOp;
-  }
+  });
 }
