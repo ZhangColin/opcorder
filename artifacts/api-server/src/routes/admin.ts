@@ -747,19 +747,30 @@ router.get("/admin/finance", async (req, res) => {
 
 router.get("/admin/ecosystem", async (req, res) => {
   try {
-    const { q, level } = req.query as Record<string, string>;
+    const { q, catId } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
-    const qFilter  = q     ? sql`AND (u.nickname ILIKE ${'%' + q + '%'} OR u.email ILIKE ${'%' + q + '%'})` : sql``;
-    const lvFilter = (level && level !== "all") ? sql`AND p.level = ${level}` : sql``;
+    const qFilter  = q ? sql`AND (u.nickname ILIKE ${'%' + q + '%'} OR u.email ILIKE ${'%' + q + '%'})` : sql``;
+    const catFilter = (catId && catId !== "all")
+      ? sql`AND EXISTS (SELECT 1 FROM opc_track_certs _tc WHERE _tc.user_id = u.id AND _tc.cat_category_id = ${Number(catId)})`
+      : sql``;
 
-    const [countRow] = (await db.execute(sql`
-      SELECT COUNT(*)::int AS total
-      FROM users u
-      LEFT JOIN opc_profiles p ON p.user_id = u.id
-      WHERE u.role = 'opc'
-      ${qFilter} ${lvFilter}
+    // Accurate stats (full DB, not paginated subset)
+    const [totalRow] = (await db.execute(sql`
+      SELECT COUNT(*)::int AS total FROM users u WHERE u.role = 'opc' ${qFilter} ${catFilter}
     `)).rows as Array<{ total: number }>;
+
+    const [aLevelRow] = (await db.execute(sql`
+      SELECT COUNT(DISTINCT u.id)::int AS cnt FROM users u
+      WHERE u.role = 'opc'
+      AND EXISTS (SELECT 1 FROM opc_track_certs tc WHERE tc.user_id = u.id AND tc.level = 'A')
+    `)).rows as Array<{ cnt: number }>;
+
+    const [warnRow] = (await db.execute(sql`
+      SELECT COUNT(*)::int AS cnt FROM users u
+      JOIN opc_profiles p ON p.user_id = u.id
+      WHERE u.role = 'opc' AND p.credit_score < 3.5
+    `)).rows as Array<{ cnt: number }>;
 
     const opcs = await db.execute(sql`
       SELECT
@@ -768,24 +779,54 @@ router.get("/admin/ecosystem", async (req, res) => {
         u.email,
         u.status,
         u.created_at,
-        p.level,
         p.credit_score,
+        p.credit_points,
         p.total_orders,
         p.completion_rate,
         p.avg_rating,
-        p.skill_tags,
-        p.industry_tags
+        cl.name  AS credit_level_name,
+        cl.color AS credit_level_color,
+        COALESCE(
+          JSON_AGG(
+            DISTINCT JSONB_BUILD_OBJECT('cat_id', tc.cat_category_id, 'cat_name', cc.name, 'level', tc.level)
+          ) FILTER (WHERE tc.id IS NOT NULL),
+          '[]'::json
+        ) AS track_certs,
+        COALESCE(
+          JSON_AGG(
+            DISTINCT JSONB_BUILD_OBJECT('tag_id', uct.cat_tag_id, 'tag_name', ct.name, 'cat_id', ct.cat_category_id)
+          ) FILTER (WHERE uct.id IS NOT NULL),
+          '[]'::json
+        ) AS user_tags
       FROM users u
       LEFT JOIN opc_profiles p ON p.user_id = u.id
+      LEFT JOIN credit_levels cl ON cl.id = p.credit_level_id
+      LEFT JOIN opc_track_certs tc ON tc.user_id = u.id
+      LEFT JOIN cat_categories cc ON cc.id = tc.cat_category_id
+      LEFT JOIN opc_user_cat_tags uct ON uct.user_id = u.id
+      LEFT JOIN cat_tags ct ON ct.id = uct.cat_tag_id
       WHERE u.role = 'opc'
-      ${qFilter} ${lvFilter}
+      ${qFilter} ${catFilter}
+      GROUP BY u.id, u.nickname, u.email, u.status, u.created_at,
+        p.credit_score, p.credit_points, p.total_orders, p.completion_rate, p.avg_rating,
+        cl.name, cl.color
       ORDER BY p.credit_score DESC NULLS LAST
       LIMIT ${pageSize} OFFSET ${offset}
     `);
 
-    return res.json({ data: opcs.rows, total: Number(countRow?.total ?? 0), page, pageSize });
+    return res.json({
+      data: opcs.rows,
+      total: Number(totalRow?.total ?? 0),
+      page,
+      pageSize,
+      stats: {
+        total: Number(totalRow?.total ?? 0),
+        aLevelCount: Number(aLevelRow?.cnt ?? 0),
+        warnCount: Number(warnRow?.cnt ?? 0),
+      },
+    });
   } catch (err) {
-    logger.error({ err: err }, "Route handler error");
+    logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "获取生态池数据失败" });
   }
 });
@@ -793,23 +834,49 @@ router.get("/admin/ecosystem", async (req, res) => {
 router.patch("/admin/ecosystem/:userId", async (req, res) => {
   try {
     const userId = Number(req.params.userId as string);
-    const { action, value } = req.body as { action: string; value?: string | number };
+    const { action, value, catCategoryId, tagIds } = req.body as {
+      action: string;
+      value?: string | number;
+      catCategoryId?: number;
+      tagIds?: number[];
+    };
 
-    if (action === "setLevel" && value) {
-      await db.execute(sql`UPDATE opc_profiles SET level = ${String(value)} WHERE user_id = ${userId}`);
-    } else if (action === "addCredit" && value) {
+    if (action === "addCredit" && value) {
       await db.execute(sql`UPDATE opc_profiles SET credit_score = LEAST(5.0, credit_score + ${Number(value)}) WHERE user_id = ${userId}`);
     } else if (action === "subtractCredit" && value) {
       await db.execute(sql`UPDATE opc_profiles SET credit_score = GREATEST(0, credit_score - ${Number(value)}) WHERE user_id = ${userId}`);
-    } else if (action === "addTag" && value) {
-      await db.execute(sql`UPDATE opc_profiles SET skill_tags = skill_tags || ${JSON.stringify([value])}::jsonb WHERE user_id = ${userId}`);
+    } else if (action === "setTrackLevel" && catCategoryId && value) {
+      await db.execute(sql`
+        UPDATE opc_track_certs SET level = ${String(value)}
+        WHERE user_id = ${userId} AND cat_category_id = ${Number(catCategoryId)}
+      `);
+    } else if (action === "setTrackTags" && catCategoryId !== undefined) {
+      // Delete all current tags for this category, then re-insert selected
+      const catTagRows = (await db.execute(sql`
+        SELECT id FROM cat_tags WHERE cat_category_id = ${Number(catCategoryId)}
+      `)).rows as Array<{ id: number }>;
+      const catTagIds = catTagRows.map(r => r.id);
+      if (catTagIds.length > 0) {
+        await db.execute(sql`
+          DELETE FROM opc_user_cat_tags WHERE user_id = ${userId} AND cat_tag_id = ANY(${catTagIds}::int[])
+        `);
+      }
+      if (tagIds && tagIds.length > 0) {
+        for (const tagId of tagIds) {
+          await db.execute(sql`
+            INSERT INTO opc_user_cat_tags (user_id, cat_tag_id, granted_at)
+            VALUES (${userId}, ${tagId}, NOW())
+            ON CONFLICT (user_id, cat_tag_id) DO NOTHING
+          `);
+        }
+      }
     } else {
       return res.status(400).json({ error: "无效操作" });
     }
 
     return res.json({ ok: true });
   } catch (err) {
-    logger.error({ err: err }, "Route handler error");
+    logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "操作失败" });
   }
 });

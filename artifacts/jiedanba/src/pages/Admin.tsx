@@ -2253,58 +2253,121 @@ function FinanceManagement() {
 
 /* ─── Module: OPC 生态池管理 ───────────────────── */
 
+interface OpcTrackCert { cat_id: number; cat_name: string; level: string; }
+interface OpcUserTag   { tag_id: number; tag_name: string; cat_id: number; }
+
 interface OpcEcoItem {
   id: number;
   nickname: string;
   email: string;
   status: string;
   created_at: string;
-  level: string | null;
   credit_score: number | null;
+  credit_points: number | null;
+  credit_level_name: string | null;
+  credit_level_color: string | null;
   total_orders: number | null;
   completion_rate: number | null;
   avg_rating: number | null;
-  skill_tags: string[];
+  track_certs: OpcTrackCert[];
+  user_tags: OpcUserTag[];
+}
+
+interface EcoResp extends PagedResp<OpcEcoItem> {
+  stats?: { total: number; aLevelCount: number; warnCount: number };
+}
+
+const TRACK_LEVEL_LABELS: Record<string, string> = { newbie: "新手", C: "C级", B: "B级", A: "A级" };
+const TRACK_LEVEL_COLORS: Record<string, string> = {
+  newbie: "bg-slate-100 text-slate-500",
+  C: "bg-blue-100 text-blue-700",
+  B: "bg-purple-100 text-purple-700",
+  A: "bg-amber-100 text-amber-700",
+};
+
+// PostgreSQL raw SQL returns JSON_AGG columns as strings; parse defensively
+function parseArr<T>(v: T[] | string | null | undefined): T[] {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  try { const r = JSON.parse(v as string); return Array.isArray(r) ? r : []; } catch { return []; }
 }
 
 function EcosystemManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { q, qInput, setQInput, level: levelFilter, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyLevel } = useAdminListState("all", "all");
+  const { q, qInput, setQInput, page, pageSize, setPage, setPageSize, commitSearch, clearSearch } = useAdminListState("all");
+  const [catFilter, setCatFilter] = useState("all");
+  const [expanded, setExpanded] = useState<number | null>(null);
 
-  const { data: resp, isLoading } = useQuery<PagedResp<OpcEcoItem>>({
-    queryKey: ["admin-ecosystem", q, levelFilter, page, pageSize],
-    queryFn: () => adminGet(`/api/admin/ecosystem?q=${encodeURIComponent(q)}&level=${levelFilter === "all" ? "" : levelFilter}&page=${page}&pageSize=${pageSize}`),
+  // pending edits per (userId, catId) key
+  const [pendingTrackLevel, setPendingTrackLevel] = useState<Record<string, string>>({});
+  const [pendingTrackTags, setPendingTrackTags] = useState<Record<string, number[]>>({});
+
+  const { data: resp, isLoading } = useQuery<EcoResp>({
+    queryKey: ["admin-ecosystem", q, catFilter, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/ecosystem?q=${encodeURIComponent(q)}&catId=${catFilter === "all" ? "" : catFilter}&page=${page}&pageSize=${pageSize}`),
   });
   const opcs = resp?.data ?? [];
+  const stats = resp?.stats;
+
+  const { data: catCategories } = useQuery<Array<{ id: number; name: string; code: string }>>({
+    queryKey: ["cat-categories-admin"],
+    queryFn: () => adminGet("/api/admin/level-certs/categories"),
+    staleTime: 300_000,
+  });
+
+  const { data: allCatTagsEco } = useQuery<Array<{ id: number; catCategoryId: number; name: string }>>({
+    queryKey: ["admin-all-cat-tags"],
+    queryFn: () => adminGet("/api/admin/cat-tags"),
+    staleTime: 300_000,
+  });
 
   const mutate = useMutation({
-    mutationFn: ({ id, action, value }: { id: number; action: string; value?: string | number }) =>
-      adminPatch(`/api/admin/ecosystem/${id}`, { action, value }),
+    mutationFn: (body: { id: number; action: string; value?: string | number; catCategoryId?: number; tagIds?: number[] }) =>
+      adminPatch(`/api/admin/ecosystem/${body.id}`, { action: body.action, value: body.value, catCategoryId: body.catCategoryId, tagIds: body.tagIds }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-ecosystem"] }); toast({ title: "操作成功" }); },
     onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
-  const [pendingLevel, setPendingLevel] = useState<Record<number, string>>({});
-
-  const LEVEL_FILTERS = [
-    { val: "all", label: "全部" }, { val: "A", label: "A 级" },
-    { val: "B", label: "B 级" }, { val: "C", label: "C 级" }, { val: "newbie", label: "新手" },
-  ];
+  const handleExpand = (opc: OpcEcoItem) => {
+    if (expanded === opc.id) { setExpanded(null); return; }
+    setExpanded(opc.id);
+    // init pending tag state for each track cert
+    const trackCerts = parseArr<OpcTrackCert>(opc.track_certs);
+    const userTags   = parseArr<OpcUserTag>(opc.user_tags);
+    const tagUpdates: Record<string, number[]> = {};
+    trackCerts.forEach(tc => {
+      const key = `${opc.id}-${tc.cat_id}`;
+      if (pendingTrackTags[key] === undefined) {
+        tagUpdates[key] = userTags.filter(t => t.cat_id === tc.cat_id).map(t => t.tag_id);
+      }
+    });
+    if (Object.keys(tagUpdates).length > 0) {
+      setPendingTrackTags(prev => ({ ...prev, ...tagUpdates }));
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="OPC 生态池管理" sub="能力标签管理、信用分调整、升降级审批、生态池数据统计" />
+      <SectionHeader title="OPC 生态池管理" sub="各赛道认证等级、信用分与标签管理" />
+
+      {/* Stats — accurate from DB */}
       <div className="grid grid-cols-3 gap-5">
-        <StatCard label="生态池总 OPC" value={(resp?.total ?? 0).toString()} icon={Users} />
-        <StatCard label="A 级 OPC" value={opcs.filter(o => o.level === "A").length.toString()} icon={ArrowUpRight} />
-        <StatCard label="信用分预警 (<3.5)" value={opcs.filter(o => (o.credit_score ?? 5) < 3.5).length.toString()} icon={AlertCircle} accent />
+        <StatCard label="生态池总 OPC" value={(stats?.total ?? resp?.total ?? 0).toString()} icon={Users} />
+        <StatCard label="A 级认证 OPC" value={(stats?.aLevelCount ?? 0).toString()} icon={ArrowUpRight} />
+        <StatCard label="信用预警 (<3.5)" value={(stats?.warnCount ?? 0).toString()} icon={AlertCircle} accent />
       </div>
+
+      {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
-        {LEVEL_FILTERS.map(f => (
-          <button key={f.val} onClick={() => applyLevel(f.val)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${levelFilter === f.val ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-            {f.label}
+        <button onClick={() => { setCatFilter("all"); setPage(1); }}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === "all" ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+          全部赛道
+        </button>
+        {(catCategories ?? []).map(c => (
+          <button key={c.id} onClick={() => { setCatFilter(String(c.id)); setPage(1); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === String(c.id) ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+            {c.name}
           </button>
         ))}
         <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
@@ -2317,69 +2380,141 @@ function EcosystemManagement() {
           {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
-      <TableShell headers={["OPC", "等级", "信用分", "完成订单", "完成率", "技能标签", "状态", "操作"]}>
-        {isLoading ? <LoadingRow cols={8} /> : opcs.length === 0 ? <EmptyRow cols={8} /> :
+
+      {/* Table */}
+      <TableShell headers={["OPC", "信用等级", "信用分", "完成订单", "完成率", "状态", "赛道认证"]}>
+        {isLoading ? <LoadingRow cols={7} /> : opcs.length === 0 ? <EmptyRow cols={7} /> :
           opcs.map(o => (
-            <tr key={o.id} className="hover:bg-slate-50/60 transition-colors">
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center text-xs font-bold text-secondary">{o.nickname[0]}</div>
-                  <span className="font-bold text-sm text-blue-900">{o.nickname}</span>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <select
-                    value={pendingLevel[o.id] ?? o.level ?? "newbie"}
-                    onChange={e => setPendingLevel(prev => ({ ...prev, [o.id]: e.target.value }))}
-                    className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  >
-                    {[{ v: "newbie", label: "新手" }, { v: "C", label: "C级·基础" }, { v: "B", label: "B级·进阶" }, { v: "A", label: "A级·专家" }].map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
-                  </select>
-                  {pendingLevel[o.id] && pendingLevel[o.id] !== o.level && (
-                    <button onClick={() => { mutate.mutate({ id: o.id, action: "setLevel", value: pendingLevel[o.id] }); setPendingLevel(prev => { const n = { ...prev }; delete n[o.id]; return n; }); }}
-                      className="px-2 py-1 bg-primary text-white text-[10px] font-bold rounded-lg">确认</button>
-                  )}
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${(o.credit_score ?? 0) >= 4 ? "bg-secondary" : (o.credit_score ?? 0) >= 3 ? "bg-amber-400" : "bg-destructive"}`}
-                      style={{ width: `${((o.credit_score ?? 0) / 5) * 100}%` }} />
+            <>
+              <tr key={o.id} className="hover:bg-slate-50/60 transition-colors cursor-pointer" onClick={() => handleExpand(o)}>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center text-xs font-bold text-secondary">{o.nickname[0]}</div>
+                    <div>
+                      <p className="font-bold text-sm text-blue-900">{o.nickname}</p>
+                      <p className="text-[10px] text-slate-400">{o.email}</p>
+                    </div>
                   </div>
-                  <span className="text-xs font-bold text-slate-600">{(o.credit_score ?? 0).toFixed(1)}</span>
-                  <button onClick={() => mutate.mutate({ id: o.id, action: "addCredit", value: 0.1 })}
-                    title="+0.1" className="p-1 rounded hover:bg-green-50 text-slate-300 hover:text-secondary"><ArrowUpRight size={12} /></button>
-                  <button onClick={() => mutate.mutate({ id: o.id, action: "subtractCredit", value: 0.1 })}
-                    title="-0.1" className="p-1 rounded hover:bg-red-50 text-slate-300 hover:text-destructive"><ArrowDownRight size={12} /></button>
-                </div>
-              </td>
-              <td className="px-6 py-4 text-sm text-slate-500">{o.total_orders ?? 0}</td>
-              <td className="px-6 py-4 text-sm text-slate-500">{(o.completion_rate ?? 0).toFixed(1)}%</td>
-              <td className="px-6 py-4">
-                <div className="flex flex-wrap gap-1">
-                  {(o.skill_tags ?? []).slice(0, 3).map(t => (
-                    <span key={t} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full">{t}</span>
-                  ))}
-                  {(o.skill_tags ?? []).length > 3 && (
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[10px] font-bold rounded-full">+{(o.skill_tags ?? []).length - 3}</span>
+                </td>
+                <td className="px-6 py-4">
+                  {o.credit_level_name ? (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold text-white" style={{ backgroundColor: o.credit_level_color ?? "#94a3b8" }}>
+                      {o.credit_level_name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
                   )}
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <StatusBadge label={o.status === "active" ? "正常" : "封禁"}
-                  color={o.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"} />
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-1">
-                  <button onClick={() => mutate.mutate({ id: o.id, action: "addCredit", value: 0.5 })}
-                    title="+0.5 信用分" className="p-2 rounded-xl hover:bg-green-50 text-slate-400 hover:text-secondary transition-colors">
-                    <Star size={15} />
-                  </button>
-                </div>
-              </td>
-            </tr>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${(o.credit_score ?? 0) >= 4 ? "bg-secondary" : (o.credit_score ?? 0) >= 3 ? "bg-amber-400" : "bg-destructive"}`}
+                        style={{ width: `${((o.credit_score ?? 0) / 5) * 100}%` }} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-600">{(o.credit_score ?? 0).toFixed(1)}</span>
+                    <button onClick={e => { e.stopPropagation(); mutate.mutate({ id: o.id, action: "addCredit", value: 0.1 }); }}
+                      title="+0.1" className="p-1 rounded hover:bg-green-50 text-slate-300 hover:text-secondary"><ArrowUpRight size={12} /></button>
+                    <button onClick={e => { e.stopPropagation(); mutate.mutate({ id: o.id, action: "subtractCredit", value: 0.1 }); }}
+                      title="-0.1" className="p-1 rounded hover:bg-red-50 text-slate-300 hover:text-destructive"><ArrowDownRight size={12} /></button>
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-500">{o.total_orders ?? 0}</td>
+                <td className="px-6 py-4 text-sm text-slate-500">{(o.completion_rate ?? 0).toFixed(1)}%</td>
+                <td className="px-6 py-4">
+                  <StatusBadge label={o.status === "active" ? "正常" : "封禁"}
+                    color={o.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"} />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {(() => { const certs = parseArr<OpcTrackCert>(o.track_certs); return certs.length === 0 ? (
+                      <span className="text-xs text-slate-400">暂无认证</span>
+                    ) : certs.map(tc => (
+                      <span key={tc.cat_id} className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${TRACK_LEVEL_COLORS[tc.level] ?? "bg-slate-100 text-slate-500"}`}>
+                        {tc.cat_name}·{TRACK_LEVEL_LABELS[tc.level] ?? tc.level}
+                      </span>
+                    )); })()}
+                    <span className="text-slate-300 text-xs ml-1">{expanded === o.id ? "▲" : "▼"}</span>
+                  </div>
+                </td>
+              </tr>
+              {/* Expanded track cert editor */}
+              {expanded === o.id && (
+                <tr key={`${o.id}-expand`}>
+                  <td colSpan={7} className="px-6 pb-4 pt-0 bg-slate-50/80">
+                    <div className="border border-slate-200 rounded-2xl p-4 space-y-4 bg-white">
+                      <p className="text-xs font-bold text-slate-500">赛道认证管理 · 可修改等级与标签</p>
+                      {(() => {
+                        const trackCertsExp = parseArr<OpcTrackCert>(o.track_certs);
+                        const userTagsExp   = parseArr<OpcUserTag>(o.user_tags);
+                        if (trackCertsExp.length === 0) return <p className="text-xs text-slate-400">该 OPC 暂无任何赛道认证记录</p>;
+                        return trackCertsExp.map(tc => {
+                        const key = `${o.id}-${tc.cat_id}`;
+                        const trackTags = (allCatTagsEco ?? []).filter(t => t.catCategoryId === tc.cat_id);
+                        const origTagIds = userTagsExp.filter(t => t.cat_id === tc.cat_id).map(t => t.tag_id);
+                        const currentTagIds = pendingTrackTags[key] ?? origTagIds;
+                        const pendingLvl = pendingTrackLevel[key] ?? tc.level;
+                        const levelDirty = pendingLvl !== tc.level;
+                        const tagsDirty = JSON.stringify([...currentTagIds].sort()) !== JSON.stringify([...origTagIds].sort());
+
+                        return (
+                          <div key={tc.cat_id} className="border border-slate-100 rounded-xl p-3 space-y-2.5 bg-slate-50">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold text-slate-700">{tc.cat_name}</p>
+                              {(levelDirty || tagsDirty) && (
+                                <button
+                                  onClick={() => {
+                                    if (levelDirty) mutate.mutate({ id: o.id, action: "setTrackLevel", catCategoryId: tc.cat_id, value: pendingLvl });
+                                    if (tagsDirty) mutate.mutate({ id: o.id, action: "setTrackTags", catCategoryId: tc.cat_id, tagIds: currentTagIds });
+                                    setPendingTrackLevel(prev => { const n = { ...prev }; delete n[key]; return n; });
+                                  }}
+                                  disabled={mutate.isPending}
+                                  className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 disabled:opacity-50">
+                                  保存修改
+                                </button>
+                              )}
+                            </div>
+                            {/* Level select */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-500 shrink-0">等级：</span>
+                              <select
+                                value={pendingLvl}
+                                onChange={e => setPendingTrackLevel(prev => ({ ...prev, [key]: e.target.value }))}
+                                className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                {(["C", "B", "A"] as const).map(l => (
+                                  <option key={l} value={l}>{TRACK_LEVEL_LABELS[l]}</option>
+                                ))}
+                              </select>
+                            </div>
+                            {/* Tags */}
+                            {trackTags.length > 0 && (
+                              <div className="flex items-start gap-2 flex-wrap">
+                                <span className="text-xs text-slate-500 shrink-0 mt-0.5">标签：</span>
+                                {trackTags.map(tag => {
+                                  const checked = currentTagIds.includes(tag.id);
+                                  return (
+                                    <label key={tag.id}
+                                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border transition-colors ${checked ? "bg-primary/10 border-primary/40 text-primary" : "bg-white border-slate-200 text-slate-500 hover:border-primary/30"}`}>
+                                      <input type="checkbox" className="hidden" checked={checked}
+                                        onChange={() => setPendingTrackTags(prev => ({
+                                          ...prev,
+                                          [key]: checked ? currentTagIds.filter(id => id !== tag.id) : [...currentTagIds, tag.id],
+                                        }))} />
+                                      {checked && <span>✓</span>}
+                                      {tag.name}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                      })()}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </>
           ))
         }
       </TableShell>
