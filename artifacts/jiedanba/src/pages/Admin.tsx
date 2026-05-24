@@ -5929,30 +5929,32 @@ function LevelCertReview() {
   const filtered = resp?.data ?? [];
 
   // 单独查各状态总数，用于 Tab 角标
+  const catParam = filterCatId === "all" ? "" : `&catCategoryId=${filterCatId}`;
+
   const { data: pendingResp } = useQuery<PagedResp<LevelCertRow>>({
-    queryKey: ["admin-level-certs-pending-total"],
-    queryFn: () => adminGet("/api/admin/level-certs?status=pending&page=1&pageSize=1"),
+    queryKey: ["admin-level-certs-pending-total", filterCatId],
+    queryFn: () => adminGet(`/api/admin/level-certs?status=pending&page=1&pageSize=1${catParam}`),
     refetchInterval: 60000,
   });
   const pendingTotal = pendingResp?.total ?? 0;
 
   const { data: reviewedResp } = useQuery<PagedResp<LevelCertRow>>({
-    queryKey: ["admin-level-certs-reviewed-total"],
-    queryFn: () => adminGet("/api/admin/level-certs?status=reviewed&page=1&pageSize=1"),
+    queryKey: ["admin-level-certs-reviewed-total", filterCatId],
+    queryFn: () => adminGet(`/api/admin/level-certs?status=reviewed&page=1&pageSize=1${catParam}`),
     refetchInterval: 60000,
   });
   const reviewedTotal = reviewedResp?.total ?? 0;
 
   const { data: rejectedResp } = useQuery<PagedResp<LevelCertRow>>({
-    queryKey: ["admin-level-certs-rejected-total"],
-    queryFn: () => adminGet("/api/admin/level-certs?status=rejected&page=1&pageSize=1"),
+    queryKey: ["admin-level-certs-rejected-total", filterCatId],
+    queryFn: () => adminGet(`/api/admin/level-certs?status=rejected&page=1&pageSize=1${catParam}`),
     refetchInterval: 60000,
   });
   const rejectedTotal = rejectedResp?.total ?? 0;
 
   const { data: allResp } = useQuery<PagedResp<LevelCertRow>>({
-    queryKey: ["admin-level-certs-all-total"],
-    queryFn: () => adminGet("/api/admin/level-certs?status=all&page=1&pageSize=1"),
+    queryKey: ["admin-level-certs-all-total", filterCatId],
+    queryFn: () => adminGet(`/api/admin/level-certs?status=all&page=1&pageSize=1${catParam}`),
     refetchInterval: 60000,
   });
   const allTotal = allResp?.total ?? 0;
