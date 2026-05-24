@@ -10,6 +10,7 @@ import {
   type Portfolio,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { getAccessToken } from "@/lib/auth";
 
 /* ─── Constants ──────────────────────────────── */
 
@@ -92,6 +93,16 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       .then(d => { if (Array.isArray(d)) setCategories(d); })
       .catch(() => {});
   }, []);
+
+  const [trackCerts, setTrackCerts] = useState<Array<{cat_category_id: number; level: string}>>([]);
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    fetch(`${_API_BASE}/api/opc/track-certs`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setTrackCerts(d); })
+      .catch(() => {});
+  }, [userId]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const qc      = useQueryClient();
@@ -308,10 +319,15 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
 
               {applyForLevel && initial?.levelApplyStatus !== "pending" && (() => {
                 const levelOrder = ["newbie", "C", "B", "A"];
-                const currentIdx = currentLevel ? levelOrder.indexOf(currentLevel) : -1;
-                const applyIdx   = levelOrder.indexOf(applyLevel);
-                const alreadyHas = currentLevel && applyLevel === currentLevel;
-                const alreadyHigher = currentLevel && currentIdx > applyIdx && applyIdx >= 0;
+                // Find the level already held for THIS specific track (not global level)
+                const computedCatIdNow = categories.find(c => c.name === type)?.id ?? null;
+                const trackCurrentLevel = computedCatIdNow
+                  ? (trackCerts.find(tc => tc.cat_category_id === computedCatIdNow)?.level ?? null)
+                  : null;
+                const currentIdx    = trackCurrentLevel ? levelOrder.indexOf(trackCurrentLevel) : -1;
+                const applyIdx      = levelOrder.indexOf(applyLevel);
+                const alreadyHas    = trackCurrentLevel && applyLevel === trackCurrentLevel;
+                const alreadyHigher = trackCurrentLevel && currentIdx > applyIdx && applyIdx >= 0;
                 const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
                 return (
                   <div className="mt-2 space-y-3">
@@ -333,11 +349,11 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
                     </div>
                     {alreadyHas ? (
                       <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-1.5">
-                        ℹ️ 您目前已持有 {LEVEL_NAME[applyLevel] ?? applyLevel} 认证，无需重复申请。如需提升，请选择更高等级。
+                        ℹ️ 您在「{type}」赛道已持有 {LEVEL_NAME[applyLevel] ?? applyLevel} 认证，无需重复申请。如需提升，请选择更高等级。
                       </p>
                     ) : alreadyHigher ? (
                       <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5">
-                        ⚠️ 您当前等级（{LEVEL_NAME[currentLevel!] ?? currentLevel}）已高于所选等级，无需降级申请。
+                        ⚠️ 您在「{type}」赛道当前等级（{LEVEL_NAME[trackCurrentLevel!] ?? trackCurrentLevel}）已高于所选等级，无需降级申请。
                       </p>
                     ) : (
                       <p className="text-[11px] text-slate-500 mt-1.5">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
