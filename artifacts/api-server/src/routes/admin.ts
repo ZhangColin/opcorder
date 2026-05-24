@@ -1619,42 +1619,6 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
   }
 });
 
-/* 管理员手动触发 AI 赛道推断（不审核，仅写回 catCategoryId 供确认） */
-router.post("/admin/level-certs/:portfolioId/infer-category", async (req, res) => {
-  try {
-    const portfolioId = Number(req.params.portfolioId as string);
-    const [portfolio] = await db.select().from(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
-    if (!portfolio) return res.status(404).json({ error: "作品不存在" });
-    if (portfolio.catCategoryId) {
-      const [existing] = (await db.execute(sql`SELECT id, name FROM cat_categories WHERE id = ${portfolio.catCategoryId} LIMIT 1`)).rows as Array<{ id: number; name: string }>;
-      return res.json({ catCategoryId: portfolio.catCategoryId, catCategoryName: existing?.name ?? null, inferred: false, updated: false });
-    }
-
-    const allCats = (await db.execute(sql`
-      SELECT id, code, name, description FROM cat_categories WHERE is_active = true ORDER BY sort_order
-    `)).rows as Array<{ id: number; code: string; name: string; description: string }>;
-
-    const inferred = await inferPortfolioCatCategory(
-      { title: portfolio.title, type: portfolio.type ?? "", description: portfolio.description ?? "" },
-      allCats
-    );
-
-    if (!inferred) {
-      return res.status(422).json({ error: "AI 无法判断该作品属于哪个赛道，请联系 OPC 手动选择。" });
-    }
-
-    await db.update(portfoliosTable)
-      .set({ catCategoryId: inferred.id })
-      .where(eq(portfoliosTable.id, portfolioId));
-
-    logger.info({ portfolioId, catId: inferred.id, catName: inferred.name }, "admin: AI inferred cat category saved");
-    return res.json({ catCategoryId: inferred.id, catCategoryName: inferred.name, inferred: true, updated: true });
-  } catch (err) {
-    logger.error({ err }, "Route handler error");
-    return res.status(500).json({ error: "AI 推断失败，请稍后重试" });
-  }
-});
-
 /* ─── CREDIT LEVELS CRUD ──────────────────────────── */
 
 router.get("/admin/credit-levels", async (req, res) => {

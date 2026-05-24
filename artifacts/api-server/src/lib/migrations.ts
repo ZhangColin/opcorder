@@ -1656,5 +1656,77 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 021d: could not strip OPC suffix from credit_levels");
   }
 
+  // Migration 022a: backfill portfolios.cat_category_id from legacy type field,
+  // then insert any still-missing opc_track_certs for approved portfolios.
+  //
+  // Migration 020g only processed portfolios that already had cat_category_id set.
+  // Historical production portfolios were approved before the cat_category_id column
+  // existed, so their type field holds a legacy English code (education / software /
+  // marketing / content / other).  This migration maps those codes to the matching
+  // cat_categories row using a CASE expression, then ensures every approved portfolio
+  // has a corresponding opc_track_certs entry.  Both steps are fully idempotent.
+  try {
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        -- Step 1: Fill portfolios.cat_category_id for legacy approved entries
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'portfolios' AND column_name = 'cat_category_id'
+        )
+        AND EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'cat_categories'
+        )
+        THEN
+          UPDATE portfolios p
+          SET cat_category_id = cc.id
+          FROM cat_categories cc
+          WHERE p.cat_category_id IS NULL
+            AND p.level_apply_status = 'approved'
+            AND p.apply_level IS NOT NULL
+            AND cc.code = CASE p.type
+              WHEN 'education' THEN 'TK'
+              WHEN 'software'  THEN 'SA'
+              WHEN 'marketing' THEN 'BO'
+              WHEN 'content'   THEN 'CG'
+              ELSE 'OTHER'
+            END;
+        END IF;
+
+        -- Step 2: Insert any still-missing opc_track_certs (catch-all, idempotent)
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'opc_track_certs'
+        )
+        THEN
+          INSERT INTO opc_track_certs (user_id, cat_category_id, level, certified_at)
+          SELECT DISTINCT ON (p.user_id, p.cat_category_id)
+            p.user_id,
+            p.cat_category_id,
+            p.apply_level,
+            COALESCE(p.reviewed_at, p.created_at)
+          FROM portfolios p
+          WHERE p.level_apply_status = 'approved'
+            AND p.apply_level IS NOT NULL
+            AND p.cat_category_id IS NOT NULL
+          ORDER BY
+            p.user_id,
+            p.cat_category_id,
+            CASE p.apply_level
+              WHEN 'A' THEN 3
+              WHEN 'B' THEN 2
+              WHEN 'C' THEN 1
+              ELSE 0
+            END DESC
+          ON CONFLICT (user_id, cat_category_id) DO NOTHING;
+        END IF;
+      END $$
+    `);
+    logger.info("Migration 022a: backfilled cat_category_id from legacy type + ensured opc_track_certs coverage");
+  } catch (err) {
+    logger.warn({ err }, "Migration 022a: could not backfill legacy portfolio categories");
+  }
+
   logger.info("Startup data migrations complete.");
 }
