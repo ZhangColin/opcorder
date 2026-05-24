@@ -6157,7 +6157,14 @@ function LevelCertReview() {
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
                       <span>{row.nickname}</span>
                       <span>·</span>
-                      <span>当前等级: <span className="font-medium text-slate-600">{row.current_level ?? "新手"}</span></span>
+                      <span>
+                        该赛道当前：
+                        <span className="font-medium text-slate-600">
+                          {row.track_current_level ? `${row.track_current_level} 级` : "暂无认证"}
+                        </span>
+                        {" → 申请 "}
+                        <span className="font-semibold text-amber-700">{row.apply_level} 级</span>
+                      </span>
                       <span>·</span>
                       <span>信用 {row.credit_score ?? 0}</span>
                       <span>·</span>
@@ -6192,20 +6199,26 @@ function LevelCertReview() {
                       </div>
                     )}
 
-                    {/* 赛道 + 项目类型 + 申请等级 */}
-                    <div className="grid grid-cols-3 gap-4">
+                    {/* 赛道 + 项目类型 + 当前赛道等级 + 申请等级 */}
+                    <div className="grid grid-cols-4 gap-4">
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">赛道分类</p>
                         <p className="text-sm text-slate-700 font-medium">
                           {row.effective_cat_category_name ?? "未指定"}
                           {row.cat_inferred && (
-                            <span className="ml-1.5 text-[11px] text-purple-500 font-normal">(从项目类型自动推断)</span>
+                            <span className="ml-1.5 text-[11px] text-purple-500 font-normal">(自动推断)</span>
                           )}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目类型</p>
                         <p className="text-sm text-slate-700 font-medium">{TYPE_LABELS[row.type] ?? row.type}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">该赛道当前等级</p>
+                        <p className="text-sm font-medium text-slate-600">
+                          {row.track_current_level ? `${row.track_current_level} 级 · ${LEVEL_LABELS[row.track_current_level] ?? ""}` : "暂无认证"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">申请等级</p>
@@ -6289,9 +6302,13 @@ function LevelCertReview() {
                           </div>
                         )}
                         <p className="text-sm font-bold text-amber-800">
-                          评审该作品 · 申请 {row.apply_level} 级
+                          评审该作品 ·
+                          {row.effective_cat_category_name
+                            ? <span className="text-amber-700">「{row.effective_cat_category_name}」</span>
+                            : " "}
+                          申请 <span className="text-amber-900">{row.apply_level} 级</span>
                           <span className="text-xs font-normal text-amber-600 ml-2">
-                            （当前等级：{row.current_level ?? "新手"}）
+                            （该赛道当前：{row.track_current_level ? `${row.track_current_level} 级` : "暂无认证"}）
                           </span>
                         </p>
                         <textarea
