@@ -819,6 +819,20 @@ export default function Profile() {
                 <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">
                   <ShieldCheck size={12} /> 平台认证伙伴
                 </span>
+                {trackCerts.map(cert => {
+                  const HERO_LEVEL_STYLE: Record<string, string> = {
+                    A: "bg-amber-50 text-amber-700 border border-amber-200",
+                    B: "bg-blue-50 text-blue-700 border border-blue-200",
+                    C: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+                  };
+                  const HERO_LEVEL_NAME: Record<string, string> = { A: "专家", B: "进阶", C: "基础" };
+                  return (
+                    <span key={cert.id} className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${HERO_LEVEL_STYLE[cert.level] ?? "bg-slate-50 text-slate-600 border border-slate-200"}`}>
+                      <Trophy size={11} />
+                      {cert.cat_category_name} · {HERO_LEVEL_NAME[cert.level] ?? cert.level}级
+                    </span>
+                  );
+                })}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button onClick={() => navigate("/account-settings")}
@@ -871,6 +885,36 @@ export default function Profile() {
 
           {/* Sidebar 4-col */}
           <aside className="col-span-12 lg:col-span-4 space-y-6">
+
+            {/* Track Cert Records */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">赛道认证记录</h3>
+              {trackCerts.length > 0 ? (
+                <div className="relative space-y-4 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
+                  {trackCerts.map((cert) => {
+                    const LEVEL_COLOR: Record<string, string> = { A: "bg-amber-500", B: "bg-primary", C: "bg-secondary" };
+                    const LEVEL_NAME:  Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+                    return (
+                      <div key={cert.id} className="relative pl-8">
+                        <div className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white z-10 ${LEVEL_COLOR[cert.level] ?? "bg-slate-400"}`}>
+                          <Trophy size={10} className="text-white" />
+                        </div>
+                        <p className="text-sm font-bold text-blue-900">{cert.cat_category_name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {LEVEL_NAME[cert.level] ?? `${cert.level}级`} · {new Date(cert.certified_at).toLocaleDateString("zh-CN")} 认证
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <Trophy size={28} className="text-slate-200 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400">暂无赛道认证记录</p>
+                  <p className="text-[11px] text-slate-300 mt-1">提交作品申请赛道认证，展示您的专业能力</p>
+                </div>
+              )}
+            </div>
 
             {/* Reputation gauge */}
             {rating > 0 && (
@@ -955,36 +999,6 @@ export default function Profile() {
 
             {/* Credit Transactions History */}
             <CreditHistory userId={user?.id} creditPoints={creditPoints} />
-
-            {/* Track Cert History */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-border/40">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">赛道认证</h3>
-              {trackCerts.length > 0 ? (
-                <div className="relative space-y-4 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
-                  {trackCerts.map((cert) => {
-                    const LEVEL_COLOR: Record<string, string> = { A: "bg-amber-500", B: "bg-primary", C: "bg-secondary" };
-                    const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-                    return (
-                      <div key={cert.id} className="relative pl-8">
-                        <div className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-white z-10 ${LEVEL_COLOR[cert.level] ?? "bg-slate-400"}`}>
-                          <Trophy size={10} className="text-white" />
-                        </div>
-                        <p className="text-sm font-bold text-blue-900">{cert.cat_category_name}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {LEVEL_NAME[cert.level] ?? `${cert.level}级`} · {new Date(cert.certified_at).toLocaleDateString("zh-CN")} 认证
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <Trophy size={28} className="text-slate-200 mx-auto mb-2" />
-                  <p className="text-xs text-slate-400">暂无赛道认证记录</p>
-                  <p className="text-[11px] text-slate-300 mt-1">提交作品申请赛道认证，展示您的专业能力</p>
-                </div>
-              )}
-            </div>
 
             {/* Income quick link */}
             <Link

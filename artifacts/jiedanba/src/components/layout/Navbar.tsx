@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Bell, Search, Menu, UserPen, LogOut, ChevronDown, KeyRound, X } from "lucide-react";
 import { useGetCurrentUser, useGetOpcProfile, useListNotifications, getGetOpcProfileQueryKey, getListNotificationsQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
-import { callLogout } from "@/lib/auth";
+import { callLogout, getAccessToken } from "@/lib/auth";
 
 export function Navbar() {
   const [location, navigate] = useLocation();
@@ -21,10 +21,31 @@ export function Navbar() {
   const unreadCount = notifData?.unreadCount ?? 0;
   const siteName = useSiteName();
 
-  const name       = profile?.nickname ?? user?.nickname ?? "新用户";
-  const avatar     = profile?.avatar  ?? user?.avatar   ?? "";
-  const level      = profile?.level   ?? "newbie";
-  const levelLabel = level === "A" ? "专家认证" : level === "B" ? "进阶认证" : level === "C" ? "基础认证" : "未认证";
+  const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { data: trackCerts = [] } = useQuery<Array<{
+    id: number; level: string; cat_category_id: number; cat_category_name: string;
+  }>>({
+    queryKey: ["navbar-track-certs", user?.id],
+    queryFn: async () => {
+      const token = getAccessToken();
+      if (!token) return [];
+      const r = await fetch(`${API_BASE}/api/opc/track-certs`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return r.ok ? r.json() : [];
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const name   = profile?.nickname ?? user?.nickname ?? "新用户";
+  const avatar = profile?.avatar  ?? user?.avatar   ?? "";
+
+  const CERT_LEVEL_COLOR: Record<string, string> = { A: "bg-amber-500", B: "bg-primary", C: "bg-secondary" };
+  const CERT_LEVEL_NAME:  Record<string, string> = { A: "专家", B: "进阶", C: "基础" };
+  const certSummary = trackCerts.length > 0
+    ? `${trackCerts.length} 项赛道认证`
+    : "未认证";
 
   /* Close dropdown on outside click */
   useEffect(() => {
@@ -139,7 +160,7 @@ export function Navbar() {
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-foreground leading-none">{name}</span>
                 <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider mt-1">
-                  {level === "newbie" ? "新手 · 未认证" : `Lv.${level} ${levelLabel}`}
+                  {certSummary}
                 </span>
               </div>
               <ChevronDown
@@ -153,7 +174,17 @@ export function Navbar() {
               <div className="absolute right-0 top-[calc(100%+8px)] w-48 bg-white rounded-2xl shadow-xl border border-border/40 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <p className="text-xs font-bold text-blue-900 truncate">{name}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{level === "newbie" ? "新手 · 未认证" : `Lv.${level} · ${levelLabel}`}</p>
+                  {trackCerts.length > 0 ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {trackCerts.map(c => (
+                        <span key={c.id} className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full text-white font-bold ${CERT_LEVEL_COLOR[c.level] ?? "bg-slate-400"}`}>
+                          {c.cat_category_name} · {CERT_LEVEL_NAME[c.level] ?? c.level}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 mt-0.5">新手 · 未认证</p>
+                  )}
                 </div>
                 <div className="py-1.5">
                   <button
@@ -226,7 +257,7 @@ export function Navbar() {
             <div>
               <p className="font-bold text-foreground text-sm">{name}</p>
               <p className="text-[10px] text-secondary font-semibold uppercase tracking-wider mt-0.5">
-                {level === "newbie" ? "新手 · 未认证" : `Lv.${level} ${levelLabel}`}
+                {certSummary}
               </p>
             </div>
             {unreadCount > 0 && (
