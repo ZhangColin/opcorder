@@ -761,7 +761,7 @@ router.get("/admin/ecosystem", async (req, res) => {
 
     // Accurate stats (full DB, not paginated subset)
     const [totalRow] = (await db.execute(sql`
-      SELECT COUNT(*)::int AS total FROM users u WHERE u.role = 'opc' ${qFilter} ${catFilter}
+      SELECT COUNT(*)::int AS total FROM users u WHERE u.role = 'opc'
     `)).rows as Array<{ total: number }>;
 
     const [aLevelRow] = (await db.execute(sql`
