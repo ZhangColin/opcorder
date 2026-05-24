@@ -1472,6 +1472,11 @@ router.get("/admin/level-certs", async (req, res) => {
         u.email,
         op.level AS current_level,
         op.credit_score,
+        (SELECT otc.level FROM opc_track_certs otc
+          WHERE otc.user_id = p.user_id
+            AND otc.cat_category_id = p.cat_category_id
+            AND otc.status = 'approved'
+          LIMIT 1) AS track_current_level,
         (SELECT COUNT(*)::int FROM portfolios p2
           WHERE p2.user_id = p.user_id
             AND p2.apply_level IS NOT NULL

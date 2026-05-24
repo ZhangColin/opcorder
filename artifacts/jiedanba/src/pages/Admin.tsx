@@ -5872,6 +5872,7 @@ interface LevelCertRow {
   nickname: string;
   email: string;
   current_level: string | null;
+  track_current_level: string | null;
   credit_score: number | null;
   apply_count: number;
   past_reviews: LevelCertPastReview[] | null;
@@ -6089,12 +6090,13 @@ function LevelCertReview() {
             const isReviewing = reviewing === row.id;
             const statusInfo = LEVEL_STATUS_LABELS[row.level_apply_status];
 
-            // 计算可用审核选项
-            const currentLevelIdx = LEVEL_ORDER.indexOf(row.current_level as any ?? "newbie");
+            // 计算可用审核选项（基于当前赛道等级，而非全局等级）
+            const trackLevelForRow = row.track_current_level ?? null;
+            const currentLevelIdx = trackLevelForRow ? LEVEL_ORDER.indexOf(trackLevelForRow as any) : -1;
             const applyLevelIdx = LEVEL_ORDER.indexOf(row.apply_level);
-            // 可通过：申请等级必须高于当前等级
+            // 可通过：申请等级必须高于当前赛道等级
             const canApprove = applyLevelIdx > currentLevelIdx;
-            // 可降级通过的等级列表：apply_level-1 到 current_level+1 之间（且不为 newbie）
+            // 可降级通过的等级列表：apply_level-1 到 track_current_level+1 之间（且不为 newbie）
             const downgradeLevels: string[] = [];
             for (let i = currentLevelIdx + 1; i < applyLevelIdx; i++) {
               if (LEVEL_ORDER[i] !== "newbie") downgradeLevels.push(LEVEL_ORDER[i]);
@@ -6331,7 +6333,7 @@ function LevelCertReview() {
                         </div>
                         {!canApprove && downgradeLevels.length === 0 && (
                           <p className="text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2">
-                            ⚠️ 该OPC当前已是 <strong>{row.current_level}</strong> 级，申请的 {row.apply_level} 级不高于当前等级，无法通过认证（只能拒绝）。
+                            ⚠️ 该OPC在「{row.effective_cat_category_name ?? "此赛道"}」已持有 <strong>{trackLevelForRow}</strong> 级认证，申请的 {row.apply_level} 级不高于该赛道已有等级，无法通过（只能拒绝）。
                           </p>
                         )}
                       </div>
