@@ -5977,15 +5977,16 @@ function LevelCertReview() {
   });
 
   const setCategoryMut = useMutation({
-    mutationFn: ({ portfolioId, catCategoryId, grantedLevel }: { portfolioId: number; catCategoryId: number; grantedLevel?: string }) =>
+    mutationFn: ({ portfolioId, catCategoryId, grantedLevel }: { portfolioId: number; userId: number; catCategoryId: number; grantedLevel?: string }) =>
       adminPatch(`/api/admin/level-certs/${portfolioId}/category`, { catCategoryId, grantedLevel }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({ title: "赛道已设置", description: "OPC赛道认证记录已更新" });
       setSettingCatFor(null);
       setSetCatId("");
       setSetCatLevel("");
       refetch();
       qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
+      qc.invalidateQueries({ queryKey: ["admin-opc-detail", variables.userId] });
     },
     onError: (e: any) => toast({ title: "设置失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
@@ -6373,6 +6374,7 @@ function LevelCertReview() {
                                   if (!setCatId) return;
                                   setCategoryMut.mutate({
                                     portfolioId: row.id,
+                                    userId: row.user_id,
                                     catCategoryId: Number(setCatId),
                                     grantedLevel: row.level_apply_status === "downgraded" ? setCatLevel || undefined : undefined,
                                   });
