@@ -856,16 +856,12 @@ router.patch("/admin/ecosystem/:userId", async (req, res) => {
         ON CONFLICT (user_id, cat_category_id) DO UPDATE SET level = ${String(value)}, status = 'active'
       `);
     } else if (action === "setTrackTags" && catCategoryId !== undefined) {
-      // Delete all current tags for this category, then re-insert selected
-      const catTagRows = (await db.execute(sql`
-        SELECT id FROM cat_tags WHERE cat_category_id = ${Number(catCategoryId)}
-      `)).rows as Array<{ id: number }>;
-      const catTagIds = catTagRows.map(r => r.id);
-      if (catTagIds.length > 0) {
-        await db.execute(sql`
-          DELETE FROM opc_user_cat_tags WHERE user_id = ${userId} AND cat_tag_id = ANY(${catTagIds}::int[])
-        `);
-      }
+      // Delete all tags in this category for this user, then re-insert selected
+      await db.execute(sql`
+        DELETE FROM opc_user_cat_tags
+        WHERE user_id = ${userId}
+          AND cat_tag_id IN (SELECT id FROM cat_tags WHERE cat_category_id = ${Number(catCategoryId)})
+      `);
       if (tagIds && tagIds.length > 0) {
         for (const tagId of tagIds) {
           await db.execute(sql`
