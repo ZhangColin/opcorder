@@ -1434,19 +1434,20 @@ router.post("/admin/training/courses/:courseId/bulk-email", async (req, res) => 
 
 router.get("/admin/level-certs", async (req, res) => {
   try {
-    const { status } = req.query as Record<string, string>;
+    const { status, catCategoryId } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const statusClause = (status && status !== "all")
       ? (status === "reviewed"
-          ? sql`AND p.level_apply_status != 'pending'`
+          ? sql`AND p.level_apply_status IN ('approved', 'downgraded')`
           : sql`AND p.level_apply_status = ${status}`)
       : sql``;
+    const catClause = catCategoryId ? sql`AND p.cat_category_id = ${Number(catCategoryId)}` : sql``;
 
     const [countRow] = (await db.execute(sql`
       SELECT COUNT(*)::int AS total
       FROM portfolios p
-      WHERE p.apply_level IS NOT NULL ${statusClause}
+      WHERE p.apply_level IS NOT NULL ${statusClause} ${catClause}
     `)).rows as Array<{ total: number }>;
 
     const rows = await db.execute(sql`
@@ -1488,7 +1489,7 @@ router.get("/admin/level-certs", async (req, res) => {
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
       LEFT JOIN cat_categories cc ON cc.id = p.cat_category_id
-      WHERE p.apply_level IS NOT NULL ${statusClause}
+      WHERE p.apply_level IS NOT NULL ${statusClause} ${catClause}
       ORDER BY
         CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
         p.created_at DESC
@@ -1498,6 +1499,65 @@ router.get("/admin/level-certs", async (req, res) => {
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
     return res.status(500).json({ error: "获取等级认证列表失败" });
+  }
+});
+
+router.get("/admin/level-certs/categories", async (req, res) => {
+  try {
+    const rows = (await db.execute(sql`
+      SELECT id, code, name FROM cat_categories WHERE is_active = true ORDER BY sort_order
+    `)).rows;
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取赛道列表失败" });
+  }
+});
+
+router.patch("/admin/level-certs/:portfolioId/category", async (req, res) => {
+  try {
+    const portfolioId = Number(req.params.portfolioId as string);
+    const { catCategoryId, grantedLevel } = req.body as { catCategoryId: number; grantedLevel?: string };
+    if (!catCategoryId || isNaN(catCategoryId)) return res.status(400).json({ error: "catCategoryId 无效" });
+
+    const [portfolio] = await db.select().from(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
+    if (!portfolio) return res.status(404).json({ error: "作品不存在" });
+    if (!portfolio.applyLevel) return res.status(400).json({ error: "该作品未发起等级申请" });
+    if (portfolio.levelApplyStatus === "pending") return res.status(400).json({ error: "该申请尚未审核完成" });
+    if (portfolio.levelApplyStatus === "rejected") return res.status(400).json({ error: "已拒绝的申请无需设置赛道" });
+
+    const [catRow] = (await db.execute(sql`SELECT id, name FROM cat_categories WHERE id = ${catCategoryId} AND is_active = true`)).rows as Array<{ id: number; name: string }>;
+    if (!catRow) return res.status(400).json({ error: "赛道不存在" });
+
+    await db.update(portfoliosTable).set({ catCategoryId }).where(eq(portfoliosTable.id, portfolioId));
+
+    if (portfolio.levelApplyStatus === "approved" || portfolio.levelApplyStatus === "downgraded") {
+      const levelOrder: ("C" | "B" | "A")[] = ["C", "B", "A"];
+      const applyLevel = portfolio.applyLevel as "A" | "B" | "C";
+      let level: "C" | "B" | "A";
+      if (portfolio.levelApplyStatus === "approved") {
+        level = applyLevel;
+      } else {
+        if (grantedLevel && levelOrder.includes(grantedLevel as any) && grantedLevel !== applyLevel) {
+          level = grantedLevel as "C" | "B" | "A";
+        } else {
+          const applyIdx = levelOrder.indexOf(applyLevel);
+          level = levelOrder[Math.max(0, applyIdx - 1)];
+        }
+      }
+      await db.execute(sql`
+        INSERT INTO opc_track_certs (user_id, cat_category_id, level, certified_at, manually_granted)
+        VALUES (${portfolio.userId}, ${catCategoryId}, ${level}, NOW(), TRUE)
+        ON CONFLICT (user_id, cat_category_id)
+        DO UPDATE SET level = EXCLUDED.level, manually_granted = TRUE, certified_at = NOW()
+      `);
+      logger.info({ portfolioId, catCategoryId, level, userId: portfolio.userId }, "admin set category + upserted opc_track_certs");
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "设置赛道失败" });
   }
 });
 

@@ -1661,14 +1661,24 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 022a: could not backfill legacy portfolio categories");
   }
 
-  // Migration 024a: clear all auto-backfilled opc_track_certs rows.
-  // Track certifications are now managed exclusively by operations staff via the admin
-  // panel. Any rows previously inserted by Migration 020g or 022a are incorrect and
-  // must be wiped. This migration runs once; subsequent restarts are safe (table empty
-  // or contains only manually-granted certs which have operator_id set).
+  // Migration 025a: add manually_granted column to opc_track_certs so that rows
+  // inserted by the admin panel are protected from the 024a cleanup on restart.
   try {
-    await db.execute(sql`DELETE FROM opc_track_certs`);
-    logger.info("Migration 024a: cleared all opc_track_certs rows (all were auto-backfilled; manual cert management policy now applies)");
+    await db.execute(sql`
+      ALTER TABLE opc_track_certs
+        ADD COLUMN IF NOT EXISTS manually_granted BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    logger.info("Migration 025a: ensured opc_track_certs.manually_granted column exists");
+  } catch (err) {
+    logger.warn({ err }, "Migration 025a: could not add manually_granted column");
+  }
+
+  // Migration 024a: clear auto-backfilled opc_track_certs rows.
+  // Only deletes rows where manually_granted IS NOT TRUE so that certs set by
+  // operations staff via the admin panel are preserved across restarts.
+  try {
+    await db.execute(sql`DELETE FROM opc_track_certs WHERE manually_granted IS NOT TRUE`);
+    logger.info("Migration 024a: cleared auto-backfilled opc_track_certs rows (manually_granted rows preserved)");
   } catch (err) {
     logger.warn({ err }, "Migration 024a: could not clear opc_track_certs");
   }

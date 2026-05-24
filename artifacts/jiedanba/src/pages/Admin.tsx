@@ -5876,7 +5876,9 @@ interface LevelCertRow {
   apply_count: number;
   past_reviews: LevelCertPastReview[] | null;
   cat_category_id: number | null;
-  cat_category_name: string | null;
+  effective_cat_category_id: number | null;
+  effective_cat_category_name: string | null;
+  cat_inferred: boolean;
 }
 
 const LEVEL_STATUS_LABELS: Record<string, { text: string; color: string }> = {
@@ -5905,14 +5907,24 @@ function LevelCertReview() {
   const [reviewing, setReviewing] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCatId, setFilterCatId] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSizeRaw] = useState(10);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [settingCatFor, setSettingCatFor] = useState<number | null>(null);
+  const [setCatId, setSetCatId] = useState<string>("");
+  const [setCatLevel, setSetCatLevel] = useState<string>("");
   const setPageSize = (s: number) => { setPageSizeRaw(s); setPage(1); };
 
   const { data: resp, isLoading, refetch } = useQuery<PagedResp<LevelCertRow>>({
-    queryKey: ["admin-level-certs", filterStatus, page, pageSize],
-    queryFn: () => adminGet(`/api/admin/level-certs?status=${filterStatus === "all" ? "" : filterStatus}&page=${page}&pageSize=${pageSize}`),
+    queryKey: ["admin-level-certs", filterStatus, filterCatId, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/level-certs?status=${filterStatus === "all" ? "" : filterStatus}&catCategoryId=${filterCatId === "all" ? "" : filterCatId}&page=${page}&pageSize=${pageSize}`),
+  });
+
+  const { data: catCategories } = useQuery<Array<{ id: number; code: string; name: string }>>({
+    queryKey: ["admin-level-cert-categories"],
+    queryFn: () => adminGet("/api/admin/level-certs/categories"),
+    staleTime: 60000,
   });
   const filtered = resp?.data ?? [];
 
@@ -5962,6 +5974,20 @@ function LevelCertReview() {
     onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
 
+  const setCategoryMut = useMutation({
+    mutationFn: ({ portfolioId, catCategoryId, grantedLevel }: { portfolioId: number; catCategoryId: number; grantedLevel?: string }) =>
+      adminPatch(`/api/admin/level-certs/${portfolioId}/category`, { catCategoryId, grantedLevel }),
+    onSuccess: () => {
+      toast({ title: "赛道已设置", description: "OPC赛道认证记录已更新" });
+      setSettingCatFor(null);
+      setSetCatId("");
+      setSetCatLevel("");
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
+    },
+    onError: (e: any) => toast({ title: "设置失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
+  });
+
   return (
     <div>
       {/* 封面图放大 lightbox */}
@@ -5986,9 +6012,22 @@ function LevelCertReview() {
         title="赛道认证审核"
         sub={`共 ${resp?.total ?? 0} 条申请`}
         action={
-          <button onClick={() => refetch()} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-            <RefreshCw size={16} className="text-slate-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            {catCategories && catCategories.length > 0 && (
+              <select
+                value={filterCatId}
+                onChange={e => { setFilterCatId(e.target.value); setPage(1); }}
+                className="text-sm border border-slate-200 rounded-xl px-3 py-1.5 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-primary/30">
+                <option value="all">全部赛道</option>
+                {catCategories.map(c => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            <button onClick={() => refetch()} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+              <RefreshCw size={16} className="text-slate-500" />
+            </button>
+          </div>
         }
       />
 
@@ -6291,6 +6330,68 @@ function LevelCertReview() {
                           <p className="text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2">
                             ⚠️ 该OPC当前已是 <strong>{row.current_level}</strong> 级，申请的 {row.apply_level} 级不高于当前等级，无法通过认证（只能拒绝）。
                           </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 设置赛道：仅对已通过/降级通过且尚无赛道的认证显示 */}
+                    {(row.level_apply_status === "approved" || row.level_apply_status === "downgraded") && !row.effective_cat_category_id && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 space-y-3">
+                        <p className="text-sm font-bold text-purple-800">
+                          设置赛道
+                          <span className="text-xs font-normal text-purple-600 ml-2">该认证尚未关联赛道，设置后将更新 OPC 的赛道等级记录</span>
+                        </p>
+                        {settingCatFor === row.id ? (
+                          <div className="space-y-2">
+                            <select
+                              value={setCatId}
+                              onChange={e => setSetCatId(e.target.value)}
+                              className="w-full border border-purple-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-purple-300">
+                              <option value="">-- 选择赛道 --</option>
+                              {(catCategories ?? []).map(c => (
+                                <option key={c.id} value={String(c.id)}>{c.name}</option>
+                              ))}
+                            </select>
+                            {row.level_apply_status === "downgraded" && (
+                              <select
+                                value={setCatLevel}
+                                onChange={e => setSetCatLevel(e.target.value)}
+                                className="w-full border border-purple-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-purple-300">
+                                <option value="">-- 选择实际授予等级（降级通过）--</option>
+                                {(["C", "B", "A"] as const)
+                                  .filter(l => l !== row.apply_level)
+                                  .map(l => (
+                                    <option key={l} value={l}>{LEVEL_LABELS[l] ?? l}</option>
+                                  ))}
+                              </select>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  if (!setCatId) return;
+                                  setCategoryMut.mutate({
+                                    portfolioId: row.id,
+                                    catCategoryId: Number(setCatId),
+                                    grantedLevel: row.level_apply_status === "downgraded" ? setCatLevel || undefined : undefined,
+                                  });
+                                }}
+                                disabled={!setCatId || setCategoryMut.isPending || (row.level_apply_status === "downgraded" && !setCatLevel)}
+                                className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-colors disabled:opacity-40">
+                                确认设置
+                              </button>
+                              <button
+                                onClick={() => { setSettingCatFor(null); setSetCatId(""); setSetCatLevel(""); }}
+                                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors">
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setSettingCatFor(row.id); setSetCatId(""); setSetCatLevel(""); }}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-colors">
+                            选择赛道
+                          </button>
                         )}
                       </div>
                     )}
