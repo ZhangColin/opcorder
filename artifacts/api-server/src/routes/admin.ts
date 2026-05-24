@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -1578,10 +1578,11 @@ router.patch("/admin/level-certs/:portfolioId/category", async (req, res) => {
 router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
   try {
     const portfolioId = Number(req.params.portfolioId as string);
-    const { result, note, downgradeTo } = req.body as {
+    const { result, note, downgradeTo, tagIds } = req.body as {
       result: "approved" | "downgraded" | "rejected";
       note?: string;
       downgradeTo?: "A" | "B" | "C";
+      tagIds?: number[];
     };
 
     const [portfolio] = await db.select().from(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
@@ -1667,6 +1668,17 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     // Track certifications are managed exclusively by operations staff via the
     // admin panel (manual grant/revoke). Portfolio approval only records the
     // review result on the portfolio itself and sends the OPC a notification.
+
+    // 写入二级标签（仅通过/降级通过时，忽略拒绝）
+    if (result !== "rejected" && tagIds && tagIds.length > 0) {
+      for (const tagId of tagIds) {
+        await db.execute(sql`
+          INSERT INTO opc_user_cat_tags (user_id, cat_tag_id, granted_at, source_portfolio_id)
+          VALUES (${portfolio.userId}, ${tagId}, NOW(), ${portfolioId})
+          ON CONFLICT (user_id, cat_tag_id) DO UPDATE SET granted_at = NOW(), source_portfolio_id = ${portfolioId}
+        `);
+      }
+    }
 
     await db.insert(notificationsTable).values({
       userId: portfolio.userId,

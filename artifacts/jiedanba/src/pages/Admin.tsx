@@ -5907,6 +5907,7 @@ function LevelCertReview() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCatId, setFilterCatId] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -5926,6 +5927,12 @@ function LevelCertReview() {
     queryKey: ["admin-level-cert-categories"],
     queryFn: () => adminGet("/api/admin/level-certs/categories"),
     staleTime: 60000,
+  });
+
+  const { data: allCatTags } = useQuery<Array<{ id: number; catCategoryId: number; code: string; name: string }>>({
+    queryKey: ["admin-all-cat-tags"],
+    queryFn: () => adminGet("/api/admin/cat-tags"),
+    staleTime: 300000,
   });
   const filtered = resp?.data ?? [];
 
@@ -5961,12 +5968,13 @@ function LevelCertReview() {
   const allTotal = allResp?.total ?? 0;
 
   const reviewMut = useMutation({
-    mutationFn: ({ portfolioId, result, downgradeTo, note }: { portfolioId: number; result: string; downgradeTo?: string; note: string }) =>
-      adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note, downgradeTo }),
+    mutationFn: ({ portfolioId, result, downgradeTo, note, tagIds }: { portfolioId: number; result: string; downgradeTo?: string; note: string; tagIds: number[] }) =>
+      adminPost(`/api/admin/level-certs/${portfolioId}/review`, { result, note, downgradeTo, tagIds }),
     onSuccess: () => {
       toast({ title: "评审已提交", description: "评审结果已发送通知给OPC" });
       setReviewing(null);
       setReviewNote("");
+      setSelectedTagIds([]);
       refetch();
       qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
       qc.invalidateQueries({ queryKey: ["admin-level-certs-pending-total"] });
@@ -6171,7 +6179,7 @@ function LevelCertReview() {
                   <div className="flex items-center gap-2 shrink-0">
                     {row.level_apply_status === "pending" && (
                       <button
-                        onClick={e => { e.stopPropagation(); setReviewing(isReviewing ? null : row.id); setExpanded(row.id); setReviewNote(""); }}
+                        onClick={e => { e.stopPropagation(); setReviewing(isReviewing ? null : row.id); setExpanded(row.id); setReviewNote(""); setSelectedTagIds([]); }}
                         className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors">
                         评审
                       </button>
@@ -6304,6 +6312,32 @@ function LevelCertReview() {
                             （该赛道当前：{row.track_current_level ? `${row.track_current_level} 级` : "暂无认证"}）
                           </span>
                         </p>
+                        {/* 二级标签多选（仅有赛道时显示） */}
+                        {row.effective_cat_category_id && (() => {
+                          const trackTags = (allCatTags ?? []).filter(t => t.catCategoryId === row.effective_cat_category_id);
+                          if (trackTags.length === 0) return null;
+                          return (
+                            <div className="bg-white border border-amber-200 rounded-xl px-3 py-2.5 space-y-2">
+                              <p className="text-xs font-bold text-amber-700">评定二级标签（可多选，可留空）</p>
+                              <div className="flex flex-wrap gap-2">
+                                {trackTags.map(tag => {
+                                  const checked = selectedTagIds.includes(tag.id);
+                                  return (
+                                    <label key={tag.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer border transition-colors ${checked ? "bg-amber-100 border-amber-400 text-amber-800" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-amber-300"}`}>
+                                      <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={checked}
+                                        onChange={() => setSelectedTagIds(prev => checked ? prev.filter(id => id !== tag.id) : [...prev, tag.id])} />
+                                      {checked && <span className="text-amber-600">✓</span>}
+                                      {tag.name}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <textarea
                           rows={3}
                           value={reviewNote}
@@ -6314,7 +6348,7 @@ function LevelCertReview() {
                           {/* 认证通过 */}
                           {canApprove && (
                             <button
-                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "approved", note: reviewNote })}
+                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "approved", note: reviewNote, tagIds: selectedTagIds })}
                               disabled={reviewMut.isPending}
                               className="py-2.5 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
                               <CheckCircle2 size={14} />
@@ -6325,7 +6359,7 @@ function LevelCertReview() {
                           {downgradeLevels.map(lvl => (
                             <button
                               key={lvl}
-                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "downgraded", downgradeTo: lvl, note: reviewNote })}
+                              onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "downgraded", downgradeTo: lvl, note: reviewNote, tagIds: selectedTagIds })}
                               disabled={reviewMut.isPending}
                               className="py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
                               <Award size={14} />
@@ -6334,7 +6368,7 @@ function LevelCertReview() {
                           ))}
                           {/* 还需努力 */}
                           <button
-                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "rejected", note: reviewNote })}
+                            onClick={() => reviewMut.mutate({ portfolioId: row.id, result: "rejected", note: reviewNote, tagIds: [] })}
                             disabled={reviewMut.isPending}
                             className="py-2.5 bg-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
                             <XCircle size={14} />
