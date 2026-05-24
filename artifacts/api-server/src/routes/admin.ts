@@ -1463,9 +1463,9 @@ router.get("/admin/level-certs", async (req, res) => {
         p.reviewed_at,
         p.created_at,
         p.cat_category_id,
-        COALESCE(cc.id, cc_inferred.id)     AS effective_cat_category_id,
-        COALESCE(cc.name, cc_inferred.name) AS effective_cat_category_name,
-        (p.cat_category_id IS NULL AND cc_inferred.id IS NOT NULL) AS cat_inferred,
+        cc.id   AS effective_cat_category_id,
+        cc.name AS effective_cat_category_name,
+        FALSE   AS cat_inferred,
         u.id AS user_id,
         u.nickname,
         u.email,
@@ -1487,14 +1487,7 @@ router.get("/admin/level-certs", async (req, res) => {
       FROM portfolios p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
-      LEFT JOIN cat_categories cc          ON cc.id = p.cat_category_id
-      LEFT JOIN cat_categories cc_inferred ON p.cat_category_id IS NULL AND cc_inferred.code = CASE p.type
-          WHEN 'education' THEN 'TK'
-          WHEN 'software'  THEN 'SA'
-          WHEN 'marketing' THEN 'BO'
-          WHEN 'content'   THEN 'CG'
-          WHEN 'other'     THEN 'OTHER'
-          ELSE NULL END
+      LEFT JOIN cat_categories cc ON cc.id = p.cat_category_id
       WHERE p.apply_level IS NOT NULL ${statusClause}
       ORDER BY
         CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
