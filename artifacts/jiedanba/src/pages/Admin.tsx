@@ -18,7 +18,7 @@ import {
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet, Video,
-  Pin, Paperclip, ScrollText,
+  Pin, Paperclip, ScrollText, Cpu,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -5778,6 +5778,21 @@ function LevelCertReview() {
     onError: (e: any) => toast({ title: "提交失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
   });
 
+  const inferCatMut = useMutation({
+    mutationFn: (portfolioId: number) =>
+      adminPost(`/api/admin/level-certs/${portfolioId}/infer-category`, {}),
+    onSuccess: (data: any) => {
+      if (data?.updated) {
+        toast({ title: `AI 已推断赛道：${data.catCategoryName}`, description: "已自动保存，请确认后继续审核" });
+      } else {
+        toast({ title: `赛道已存在：${data.catCategoryName}`, description: "无需重新推断" });
+      }
+      refetch();
+      qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
+    },
+    onError: (e: any) => toast({ title: "AI 推断失败", description: e?.message ?? "请稍后重试", variant: "destructive" }),
+  });
+
   return (
     <div>
       {/* 封面图放大 lightbox */}
@@ -5937,6 +5952,15 @@ function LevelCertReview() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {row.level_apply_status === "pending" && !row.effective_cat_category_id && (
+                      <button
+                        onClick={e => { e.stopPropagation(); inferCatMut.mutate(row.id); }}
+                        disabled={inferCatMut.isPending}
+                        className="px-3 py-1.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-1">
+                        {inferCatMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
+                        AI推断赛道
+                      </button>
+                    )}
                     {row.level_apply_status === "pending" && (
                       <button
                         onClick={e => { e.stopPropagation(); setReviewing(isReviewing ? null : row.id); setExpanded(row.id); setReviewNote(""); }}
@@ -6053,12 +6077,20 @@ function LevelCertReview() {
                           </div>
                         )}
                         {!row.effective_cat_category_id && (
-                          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
-                            <AlertCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
-                            <p className="text-xs text-red-700 font-medium leading-snug">
-                              该作品无法推断赛道分类，<strong>无法通过认证</strong>。
-                              请驳回后告知 OPC 重新编辑作品并选择赛道分类。
-                            </p>
+                          <div className="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2.5">
+                            <AlertCircle size={15} className="text-orange-500 mt-0.5 shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-xs text-orange-700 font-medium leading-snug">
+                                未能通过项目类型自动推断赛道，可让 AI 分析作品标题和简介来判断赛道，或驳回后让 OPC 手动选择。
+                              </p>
+                              <button
+                                onClick={() => inferCatMut.mutate(row.id)}
+                                disabled={inferCatMut.isPending}
+                                className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition-colors disabled:opacity-50">
+                                {inferCatMut.isPending ? <Loader2 size={11} className="animate-spin" /> : <Cpu size={11} />}
+                                让 AI 分析并推断赛道
+                              </button>
+                            </div>
                           </div>
                         )}
                         <p className="text-sm font-bold text-amber-800">

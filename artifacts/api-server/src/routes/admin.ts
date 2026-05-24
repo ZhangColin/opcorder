@@ -6,8 +6,76 @@ import { requireAdmin, requirePermission, requireSuperAdmin } from "../middlewar
 import { Resend } from "resend";
 import { ReviewDemandPaymentBody, PutQuoteCardConfigBody, CreateQuoteDimensionBody, UpdateQuoteDimensionBody, CreateQuoteTierBody, UpdateQuoteTierBody } from "@workspace/api-zod";
 import { createRefund } from "../lib/payment";
+import { callLLM } from "../lib/llm";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+/* ─── AI 赛道推断 ───────────────────────────────────────────────────────── */
+
+// 旧版 type 英文枚举 → cat_categories.code 静态映射
+const LEGACY_TYPE_TO_CAT_CODE: Record<string, string> = {
+  education: "TK",
+  software:  "SA",
+  marketing: "BO",
+  content:   "CG",
+  other:     "OTHER",
+};
+
+/**
+ * 推断作品所属赛道分类 ID。
+ * 推断顺序：1）静态旧类型码映射  2）AI 综合分析
+ * 返回匹配到的 cat_category id；推断失败返回 null。
+ */
+async function inferPortfolioCatCategory(
+  portfolio: { title: string; type: string; description: string },
+  allCategories: Array<{ id: number; code: string; name: string; description: string }>
+): Promise<{ id: number; name: string; inferred: boolean } | null> {
+  if (allCategories.length === 0) return null;
+
+  // 1. 静态旧类型码映射
+  const legacyCode = LEGACY_TYPE_TO_CAT_CODE[portfolio.type];
+  if (legacyCode) {
+    const found = allCategories.find(c => c.code === legacyCode);
+    if (found) return { id: found.id, name: found.name, inferred: true };
+  }
+
+  // 2. 名称精确匹配（已迁移的记录直接用中文名作为 type）
+  const nameMatch = allCategories.find(c => c.name === portfolio.type);
+  if (nameMatch) return { id: nameMatch.id, name: nameMatch.name, inferred: false };
+
+  // 3. AI 综合分析
+  try {
+    const catList = allCategories
+      .map(c => `- ${c.code}（${c.name}）：${c.description}`)
+      .join("\n");
+
+    const resp = await callLLM([
+      {
+        role: "system",
+        content:
+          "你是一个专业的项目分类助手，帮助平台将OPC的作品案例归入正确的赛道分类。" +
+          "请根据作品信息，从给定的赛道列表中选出最匹配的一个，只返回该赛道的 code（如 SA、TK、CG、BO、OTHER），不要任何其他文字。",
+      },
+      {
+        role: "user",
+        content:
+          `作品标题：${portfolio.title}\n` +
+          `作品类型标签：${portfolio.type}\n` +
+          `作品简介：${portfolio.description}\n\n` +
+          `可选赛道：\n${catList}\n\n` +
+          "请直接回答赛道 code：",
+      },
+    ]);
+
+    const raw = (resp.content ?? "").trim().toUpperCase();
+    const aiMatch = allCategories.find(c => c.code === raw || raw.startsWith(c.code));
+    if (aiMatch) return { id: aiMatch.id, name: aiMatch.name, inferred: true };
+  } catch (err) {
+    logger.warn({ err }, "inferPortfolioCatCategory: AI 推断失败");
+  }
+
+  return null;
+}
 
 function escapeHtml(str: string): string {
   return str
@@ -1418,7 +1486,13 @@ router.get("/admin/level-certs", async (req, res) => {
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
       LEFT JOIN cat_categories cc          ON cc.id = p.cat_category_id
-      LEFT JOIN cat_categories cc_inferred ON cc_inferred.name = p.type AND p.cat_category_id IS NULL
+      LEFT JOIN cat_categories cc_inferred ON p.cat_category_id IS NULL AND cc_inferred.code = CASE p.type
+          WHEN 'education' THEN 'TK'
+          WHEN 'software'  THEN 'SA'
+          WHEN 'marketing' THEN 'BO'
+          WHEN 'content'   THEN 'CG'
+          WHEN 'other'     THEN 'OTHER'
+          ELSE NULL END
       WHERE p.apply_level IS NOT NULL ${statusClause}
       ORDER BY
         CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
@@ -1445,21 +1519,28 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     if (!portfolio) return res.status(404).json({ error: "作品不存在" });
     if (!portfolio.applyLevel) return res.status(400).json({ error: "该作品未发起等级申请" });
 
-    // 若作品未关联赛道，按 type 名称自动推断
+    // 若作品未关联赛道，自动推断（静态映射 → AI）
     let effectiveCatId: number | null = portfolio.catCategoryId ?? null;
     if (!effectiveCatId && (result === "approved" || result === "downgraded")) {
-      const inferRows = (await db.execute(sql`
-        SELECT id FROM cat_categories WHERE name = ${portfolio.type} LIMIT 1
-      `)).rows as Array<{ id: number }>;
-      if (inferRows.length > 0) {
-        effectiveCatId = inferRows[0].id;
+      const allCats = (await db.execute(sql`
+        SELECT id, code, name, description FROM cat_categories WHERE is_active = true ORDER BY sort_order
+      `)).rows as Array<{ id: number; code: string; name: string; description: string }>;
+
+      const inferred = await inferPortfolioCatCategory(
+        { title: portfolio.title, type: portfolio.type ?? "", description: portfolio.description ?? "" },
+        allCats
+      );
+
+      if (inferred) {
+        effectiveCatId = inferred.id;
         // 同步写回 portfolio，方便后续查询保持一致
         await db.update(portfoliosTable)
           .set({ catCategoryId: effectiveCatId })
           .where(eq(portfoliosTable.id, portfolioId));
+        logger.info({ portfolioId, catId: effectiveCatId, catName: inferred.name }, "level-cert review: auto-inferred cat category");
       } else {
         return res.status(400).json({
-          error: "该作品未关联赛道分类，且无法从项目类型自动推断，无法写入赛道认证记录。请驳回后让 OPC 重新提交并选择赛道分类。",
+          error: "无法自动推断赛道分类，无法写入赛道认证记录。请先点击【AI推断赛道】或驳回后让 OPC 重新选择赛道分类。",
         });
       }
     }
@@ -1535,6 +1616,42 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
   } catch (err) {
     logger.error({ err: err }, "Route handler error");
     return res.status(500).json({ error: "评审操作失败" });
+  }
+});
+
+/* 管理员手动触发 AI 赛道推断（不审核，仅写回 catCategoryId 供确认） */
+router.post("/admin/level-certs/:portfolioId/infer-category", async (req, res) => {
+  try {
+    const portfolioId = Number(req.params.portfolioId as string);
+    const [portfolio] = await db.select().from(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
+    if (!portfolio) return res.status(404).json({ error: "作品不存在" });
+    if (portfolio.catCategoryId) {
+      const [existing] = (await db.execute(sql`SELECT id, name FROM cat_categories WHERE id = ${portfolio.catCategoryId} LIMIT 1`)).rows as Array<{ id: number; name: string }>;
+      return res.json({ catCategoryId: portfolio.catCategoryId, catCategoryName: existing?.name ?? null, inferred: false, updated: false });
+    }
+
+    const allCats = (await db.execute(sql`
+      SELECT id, code, name, description FROM cat_categories WHERE is_active = true ORDER BY sort_order
+    `)).rows as Array<{ id: number; code: string; name: string; description: string }>;
+
+    const inferred = await inferPortfolioCatCategory(
+      { title: portfolio.title, type: portfolio.type ?? "", description: portfolio.description ?? "" },
+      allCats
+    );
+
+    if (!inferred) {
+      return res.status(422).json({ error: "AI 无法判断该作品属于哪个赛道，请联系 OPC 手动选择。" });
+    }
+
+    await db.update(portfoliosTable)
+      .set({ catCategoryId: inferred.id })
+      .where(eq(portfoliosTable.id, portfolioId));
+
+    logger.info({ portfolioId, catId: inferred.id, catName: inferred.name }, "admin: AI inferred cat category saved");
+    return res.json({ catCategoryId: inferred.id, catCategoryName: inferred.name, inferred: true, updated: true });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "AI 推断失败，请稍后重试" });
   }
 });
 
