@@ -1664,10 +1664,15 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
       reviewedAt: new Date(),
     }).where(eq(portfoliosTable.id, portfolioId));
 
-    // NOTE: opc_track_certs is NOT updated here.
-    // Track certifications are managed exclusively by operations staff via the
-    // admin panel (manual grant/revoke). Portfolio approval only records the
-    // review result on the portfolio itself and sends the OPC a notification.
+    // 写入赛道认证记录（通过/降级通过时）
+    if ((result === "approved" || result === "downgraded") && effectiveCatId) {
+      await db.execute(sql`
+        INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at, manually_granted)
+        VALUES (${portfolio.userId}, ${effectiveCatId}, ${grantedLevel}, 'active', NOW(), FALSE)
+        ON CONFLICT (user_id, cat_category_id)
+        DO UPDATE SET level = EXCLUDED.level, certified_at = NOW(), manually_granted = FALSE
+      `);
+    }
 
     // 写入二级标签（仅通过/降级通过时，忽略拒绝）
     if (result !== "rejected" && tagIds && tagIds.length > 0) {
