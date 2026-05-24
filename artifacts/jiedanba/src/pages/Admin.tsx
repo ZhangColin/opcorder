@@ -5916,6 +5916,7 @@ function LevelCertReview() {
   const [settingCatFor, setSettingCatFor] = useState<number | null>(null);
   const [setCatId, setSetCatId] = useState<string>("");
   const [setCatLevel, setSetCatLevel] = useState<string>("");
+  const [setCatTagIds, setSetCatTagIds] = useState<number[]>([]);
   const setPageSize = (s: number) => { setPageSizeRaw(s); setPage(1); };
 
   const { data: resp, isLoading, refetch } = useQuery<PagedResp<LevelCertRow>>({
@@ -5986,13 +5987,14 @@ function LevelCertReview() {
   });
 
   const setCategoryMut = useMutation({
-    mutationFn: ({ portfolioId, catCategoryId, grantedLevel }: { portfolioId: number; userId: number; catCategoryId: number; grantedLevel?: string }) =>
-      adminPatch(`/api/admin/level-certs/${portfolioId}/category`, { catCategoryId, grantedLevel }),
+    mutationFn: ({ portfolioId, catCategoryId, grantedLevel, tagIds }: { portfolioId: number; userId: number; catCategoryId: number; grantedLevel?: string; tagIds?: number[] }) =>
+      adminPatch(`/api/admin/level-certs/${portfolioId}/category`, { catCategoryId, grantedLevel, tagIds }),
     onSuccess: (_, variables) => {
       toast({ title: "赛道已设置", description: "OPC赛道认证记录已更新" });
       setSettingCatFor(null);
       setSetCatId("");
       setSetCatLevel("");
+      setSetCatTagIds([]);
       refetch();
       qc.invalidateQueries({ queryKey: ["admin-level-certs"] });
       qc.invalidateQueries({ queryKey: ["admin-opc-detail", variables.userId] });
@@ -6394,13 +6396,39 @@ function LevelCertReview() {
                           <div className="space-y-2">
                             <select
                               value={setCatId}
-                              onChange={e => setSetCatId(e.target.value)}
+                              onChange={e => { setSetCatId(e.target.value); setSetCatTagIds([]); }}
                               className="w-full border border-purple-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-purple-300">
                               <option value="">-- 选择赛道 --</option>
                               {(catCategories ?? []).map(c => (
                                 <option key={c.id} value={String(c.id)}>{c.name}</option>
                               ))}
                             </select>
+                            {/* 二级标签（选赛道后显示） */}
+                            {setCatId && (() => {
+                              const trackTags = (allCatTags ?? []).filter(t => t.catCategoryId === Number(setCatId));
+                              if (trackTags.length === 0) return null;
+                              return (
+                                <div className="bg-white border border-purple-200 rounded-xl px-3 py-2.5 space-y-2">
+                                  <p className="text-xs font-bold text-purple-700">评定二级标签（可多选，可留空）</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {trackTags.map(tag => {
+                                      const checked = setCatTagIds.includes(tag.id);
+                                      return (
+                                        <label key={tag.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer border transition-colors ${checked ? "bg-purple-100 border-purple-400 text-purple-800" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-purple-300"}`}>
+                                          <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={checked}
+                                            onChange={() => setSetCatTagIds(prev => checked ? prev.filter(id => id !== tag.id) : [...prev, tag.id])} />
+                                          {checked && <span className="text-purple-600">✓</span>}
+                                          {tag.name}
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                             {row.level_apply_status === "downgraded" && (
                               <select
                                 value={setCatLevel}
@@ -6423,6 +6451,7 @@ function LevelCertReview() {
                                     userId: row.user_id,
                                     catCategoryId: Number(setCatId),
                                     grantedLevel: row.level_apply_status === "downgraded" ? setCatLevel || undefined : undefined,
+                                    tagIds: setCatTagIds,
                                   });
                                 }}
                                 disabled={!setCatId || setCategoryMut.isPending || (row.level_apply_status === "downgraded" && !setCatLevel)}
@@ -6430,7 +6459,7 @@ function LevelCertReview() {
                                 确认设置
                               </button>
                               <button
-                                onClick={() => { setSettingCatFor(null); setSetCatId(""); setSetCatLevel(""); }}
+                                onClick={() => { setSettingCatFor(null); setSetCatId(""); setSetCatLevel(""); setSetCatTagIds([]); }}
                                 className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors">
                                 取消
                               </button>

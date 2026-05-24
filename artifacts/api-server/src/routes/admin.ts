@@ -1531,7 +1531,7 @@ router.get("/admin/level-certs/categories", async (req, res) => {
 router.patch("/admin/level-certs/:portfolioId/category", async (req, res) => {
   try {
     const portfolioId = Number(req.params.portfolioId as string);
-    const { catCategoryId, grantedLevel } = req.body as { catCategoryId: number; grantedLevel?: string };
+    const { catCategoryId, grantedLevel, tagIds } = req.body as { catCategoryId: number; grantedLevel?: string; tagIds?: number[] };
     if (!catCategoryId || isNaN(catCategoryId)) return res.status(400).json({ error: "catCategoryId 无效" });
 
     const [portfolio] = await db.select().from(portfoliosTable).where(eq(portfoliosTable.id, portfolioId));
@@ -1566,6 +1566,17 @@ router.patch("/admin/level-certs/:portfolioId/category", async (req, res) => {
         DO UPDATE SET level = EXCLUDED.level, manually_granted = TRUE, certified_at = NOW()
       `);
       logger.info({ portfolioId, catCategoryId, level, userId: portfolio.userId }, "admin set category + upserted opc_track_certs");
+
+      // 写入二级标签
+      if (tagIds && tagIds.length > 0) {
+        for (const tagId of tagIds) {
+          await db.execute(sql`
+            INSERT INTO opc_user_cat_tags (user_id, cat_tag_id, granted_at, source_portfolio_id)
+            VALUES (${portfolio.userId}, ${tagId}, NOW(), ${portfolioId})
+            ON CONFLICT (user_id, cat_tag_id) DO UPDATE SET granted_at = NOW(), source_portfolio_id = ${portfolioId}
+          `);
+        }
+      }
     }
 
     return res.json({ ok: true });
