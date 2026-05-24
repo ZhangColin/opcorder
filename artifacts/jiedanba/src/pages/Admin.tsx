@@ -2469,73 +2469,103 @@ function EcosystemManagement() {
                 <tr key={`${o.id}-expand`}>
                   <td colSpan={7} className="px-6 pb-4 pt-0 bg-slate-50/80">
                     <div className="border border-slate-200 rounded-2xl p-4 space-y-4 bg-white">
-                      <p className="text-xs font-bold text-slate-500">赛道认证管理 · 可修改等级与标签</p>
+                      <p className="text-xs font-bold text-slate-500">赛道认证管理 · 可新增/修改等级与标签</p>
                       {(() => {
                         const trackCertsExp = parseArr<OpcTrackCert>(o.track_certs);
                         const userTagsExp   = parseArr<OpcUserTag>(o.user_tags);
-                        if (trackCertsExp.length === 0) return <p className="text-xs text-slate-400">该 OPC 暂无任何赛道认证记录</p>;
-                        return trackCertsExp.map(tc => {
-                        const key = `${o.id}-${tc.cat_id}`;
-                        const trackTags = (allCatTagsEco ?? []).filter(t => t.catCategoryId === tc.cat_id);
-                        const origTagIds = userTagsExp.filter(t => t.cat_id === tc.cat_id).map(t => t.tag_id);
-                        const currentTagIds = pendingTrackTags[key] ?? origTagIds;
-                        const pendingLvl = pendingTrackLevel[key] ?? tc.level;
-                        const levelDirty = pendingLvl !== tc.level;
-                        const tagsDirty = JSON.stringify([...currentTagIds].sort()) !== JSON.stringify([...origTagIds].sort());
+                        const allCats = catCategories ?? [];
+                        return allCats.map(cat => {
+                          const existing = trackCertsExp.find(tc => tc.cat_id === cat.id);
+                          const key = `${o.id}-${cat.id}`;
+                          const trackTags = (allCatTagsEco ?? []).filter(t => t.catCategoryId === cat.id);
 
-                        return (
-                          <div key={tc.cat_id} className="border border-slate-100 rounded-xl p-3 space-y-2.5 bg-slate-50">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-bold text-slate-700">{tc.cat_name}</p>
-                              {(levelDirty || tagsDirty) && (
-                                <button
-                                  onClick={() => {
-                                    if (levelDirty) mutate.mutate({ id: o.id, action: "setTrackLevel", catCategoryId: tc.cat_id, value: pendingLvl });
-                                    if (tagsDirty) mutate.mutate({ id: o.id, action: "setTrackTags", catCategoryId: tc.cat_id, tagIds: currentTagIds });
-                                    setPendingTrackLevel(prev => { const n = { ...prev }; delete n[key]; return n; });
-                                  }}
-                                  disabled={mutate.isPending}
-                                  className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 disabled:opacity-50">
-                                  保存修改
-                                </button>
-                              )}
-                            </div>
-                            {/* Level select */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-500 shrink-0">等级：</span>
-                              <select
-                                value={pendingLvl}
-                                onChange={e => setPendingTrackLevel(prev => ({ ...prev, [key]: e.target.value }))}
-                                className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
-                                {(["C", "B", "A"] as const).map(l => (
-                                  <option key={l} value={l}>{TRACK_LEVEL_LABELS[l]}</option>
-                                ))}
-                              </select>
-                            </div>
-                            {/* Tags */}
-                            {trackTags.length > 0 && (
-                              <div className="flex items-start gap-2 flex-wrap">
-                                <span className="text-xs text-slate-500 shrink-0 mt-0.5">标签：</span>
-                                {trackTags.map(tag => {
-                                  const checked = currentTagIds.includes(tag.id);
-                                  return (
-                                    <label key={tag.id}
-                                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border transition-colors ${checked ? "bg-primary/10 border-primary/40 text-primary" : "bg-white border-slate-200 text-slate-500 hover:border-primary/30"}`}>
-                                      <input type="checkbox" className="hidden" checked={checked}
-                                        onChange={() => setPendingTrackTags(prev => ({
-                                          ...prev,
-                                          [key]: checked ? currentTagIds.filter(id => id !== tag.id) : [...currentTagIds, tag.id],
-                                        }))} />
-                                      {checked && <span>✓</span>}
-                                      {tag.name}
-                                    </label>
-                                  );
-                                })}
+                          if (existing) {
+                            // — Existing cert: full editor —
+                            const origTagIds = userTagsExp.filter(t => t.cat_id === cat.id).map(t => t.tag_id);
+                            const currentTagIds = pendingTrackTags[key] ?? origTagIds;
+                            const pendingLvl = pendingTrackLevel[key] ?? existing.level;
+                            const levelDirty = pendingLvl !== existing.level;
+                            const tagsDirty = JSON.stringify([...currentTagIds].sort()) !== JSON.stringify([...origTagIds].sort());
+                            return (
+                              <div key={cat.id} className="border border-slate-100 rounded-xl p-3 space-y-2.5 bg-slate-50">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-bold text-slate-700">{cat.name}</p>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${TRACK_LEVEL_COLORS[existing.level] ?? "bg-slate-100 text-slate-500"}`}>
+                                      {TRACK_LEVEL_LABELS[existing.level] ?? existing.level}
+                                    </span>
+                                  </div>
+                                  {(levelDirty || tagsDirty) && (
+                                    <button
+                                      onClick={() => {
+                                        if (levelDirty) mutate.mutate({ id: o.id, action: "setTrackLevel", catCategoryId: cat.id, value: pendingLvl });
+                                        if (tagsDirty) mutate.mutate({ id: o.id, action: "setTrackTags", catCategoryId: cat.id, tagIds: currentTagIds });
+                                        setPendingTrackLevel(prev => { const n = { ...prev }; delete n[key]; return n; });
+                                      }}
+                                      disabled={mutate.isPending}
+                                      className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 disabled:opacity-50">
+                                      保存修改
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-slate-500 shrink-0">等级：</span>
+                                  <select
+                                    value={pendingLvl}
+                                    onChange={e => setPendingTrackLevel(prev => ({ ...prev, [key]: e.target.value }))}
+                                    className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                    {(["C", "B", "A"] as const).map(l => (
+                                      <option key={l} value={l}>{TRACK_LEVEL_LABELS[l]}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                {trackTags.length > 0 && (
+                                  <div className="flex items-start gap-2 flex-wrap">
+                                    <span className="text-xs text-slate-500 shrink-0 mt-0.5">标签：</span>
+                                    {trackTags.map(tag => {
+                                      const checked = currentTagIds.includes(tag.id);
+                                      return (
+                                        <label key={tag.id}
+                                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer border transition-colors ${checked ? "bg-primary/10 border-primary/40 text-primary" : "bg-white border-slate-200 text-slate-500 hover:border-primary/30"}`}>
+                                          <input type="checkbox" className="hidden" checked={checked}
+                                            onChange={() => setPendingTrackTags(prev => ({
+                                              ...prev,
+                                              [key]: checked ? currentTagIds.filter(id => id !== tag.id) : [...currentTagIds, tag.id],
+                                            }))} />
+                                          {checked && <span>✓</span>}
+                                          {tag.name}
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      });
+                            );
+                          } else {
+                            // — No cert yet: add entry —
+                            const newLvl = pendingTrackLevel[key] ?? "C";
+                            return (
+                              <div key={cat.id} className="border border-dashed border-slate-200 rounded-xl p-3 flex items-center gap-3 bg-white">
+                                <p className="text-sm text-slate-400 flex-1">{cat.name}</p>
+                                <span className="text-[10px] text-slate-300">暂无认证</span>
+                                <select
+                                  value={newLvl}
+                                  onChange={e => setPendingTrackLevel(prev => ({ ...prev, [key]: e.target.value }))}
+                                  className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30">
+                                  {(["C", "B", "A"] as const).map(l => (
+                                    <option key={l} value={l}>{TRACK_LEVEL_LABELS[l]}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => mutate.mutate({ id: o.id, action: "setTrackLevel", catCategoryId: cat.id, value: newLvl })}
+                                  disabled={mutate.isPending}
+                                  className="px-3 py-1 bg-secondary/10 text-secondary rounded-lg text-xs font-bold hover:bg-secondary/20 disabled:opacity-50 shrink-0">
+                                  + 添加认证
+                                </button>
+                              </div>
+                            );
+                          }
+                        });
                       })()}
                     </div>
                   </td>

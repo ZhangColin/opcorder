@@ -851,8 +851,9 @@ router.patch("/admin/ecosystem/:userId", async (req, res) => {
       await db.execute(sql`UPDATE opc_profiles SET credit_score = GREATEST(0, credit_score - ${Number(value)}) WHERE user_id = ${userId}`);
     } else if (action === "setTrackLevel" && catCategoryId && value) {
       await db.execute(sql`
-        UPDATE opc_track_certs SET level = ${String(value)}
-        WHERE user_id = ${userId} AND cat_category_id = ${Number(catCategoryId)}
+        INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at, manually_granted)
+        VALUES (${userId}, ${Number(catCategoryId)}, ${String(value)}, 'active', NOW(), true)
+        ON CONFLICT (user_id, cat_category_id) DO UPDATE SET level = ${String(value)}, status = 'active'
       `);
     } else if (action === "setTrackTags" && catCategoryId !== undefined) {
       // Delete all current tags for this category, then re-insert selected
