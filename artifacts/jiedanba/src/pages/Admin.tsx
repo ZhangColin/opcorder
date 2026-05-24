@@ -6129,9 +6129,6 @@ function LevelCertReview() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-blue-900 text-sm truncate">{row.title}</p>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
-                        {TYPE_LABELS[row.type] ?? row.type}
-                      </span>
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${statusInfo.color}`}>
                         {statusInfo.text}
                       </span>
@@ -6199,23 +6196,14 @@ function LevelCertReview() {
                       </div>
                     )}
 
-                    {/* 赛道 + 项目类型 + 当前赛道等级 + 申请等级 */}
-                    <div className="grid grid-cols-4 gap-4">
+                    {/* 赛道 + 当前赛道等级 + 申请等级 */}
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">赛道分类</p>
                         <p className="text-sm text-slate-700 font-medium">
                           {row.effective_cat_category_name ?? "未指定"}
                           {row.cat_inferred && (
                             <span className="ml-1.5 text-[11px] text-purple-500 font-normal">(自动推断)</span>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">项目类型</p>
-                        <p className="text-sm text-slate-700 font-medium">
-                          {TYPE_LABELS[row.type] ?? row.type}
-                          {row.cat_inferred && (row.effective_cat_category_name === (TYPE_LABELS[row.type] ?? row.type)) && (
-                            <span className="ml-1.5 text-[11px] text-slate-400 font-normal">（同赛道）</span>
                           )}
                         </p>
                       </div>
