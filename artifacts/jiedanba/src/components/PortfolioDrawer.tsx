@@ -84,7 +84,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
   const [status,      setStatus]      = useState<"idle" | "saving" | "saved" | "error" | "deleting" | "confirmDelete">("idle");
   const [applyForLevel, setApplyForLevel] = useState(!!initial?.applyLevel);
   const [applyLevel,    setApplyLevel]    = useState<string>(initial?.applyLevel ?? "C");
-  const [applyCatId,    setApplyCatId]    = useState<number | null>((initial as any)?.catCategoryId ?? null);
 
   const [categories, setCategories] = useState<Array<{id: number; name: string}>>([]);
   useEffect(() => {
@@ -112,7 +111,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       setStatus("idle");
       setApplyForLevel(!!initial?.applyLevel);
       setApplyLevel(initial?.applyLevel ?? "C");
-      setApplyCatId((initial as any)?.catCategoryId ?? null);
       /* Auto-detect mode from existing coverImage */
       if (initial?.coverImage?.startsWith("data:")) setImgMode("upload");
       else if (initial?.coverImage)                 setImgMode("url");
@@ -139,8 +137,9 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       alert("请填写项目名称和简介");
       return;
     }
-    if (applyForLevel && !applyCatId) {
-      alert("申请赛道认证时必须选择对应的赛道分类");
+    const computedCatId = categories.find(c => c.name === type)?.id ?? null;
+    if (applyForLevel && !computedCatId) {
+      alert("申请赛道认证时请先选择项目类型");
       return;
     }
     setStatus("saving");
@@ -151,7 +150,7 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       coverImage:    coverImage || undefined,
       projectUrl:    projectUrl.trim() || undefined,
       applyLevel:    applyForLevel ? applyLevel : null,
-      catCategoryId: applyForLevel && applyCatId ? applyCatId : null,
+      catCategoryId: applyForLevel && computedCatId ? computedCatId : null,
     };
     try {
       if (initial?.id) {
@@ -277,6 +276,83 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
                 ))}
               </select>
             </div>
+
+            {/* ── 等级认证申请（紧跟项目类型） ── */}
+            <div className="border border-slate-200 rounded-2xl p-4 bg-gradient-to-br from-amber-50/60 to-orange-50/40">
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={applyForLevel}
+                    onChange={e => setApplyForLevel(e.target.checked)}
+                    className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                    disabled={initial?.levelApplyStatus === "pending"}
+                  />
+                  <span className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
+                    <Trophy size={14} className="text-amber-500" />
+                    用此作品申请OPC等级认证
+                  </span>
+                </label>
+                {initial?.levelApplyStatus && (
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.color}`}>
+                    {LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.text}
+                  </span>
+                )}
+              </div>
+
+              {initial?.levelApplyStatus === "pending" && (
+                <p className="text-[11px] text-amber-600 bg-amber-100 rounded-lg px-3 py-2 mb-2">
+                  等级申请已提交，等待平台专家评审中。评审期间无法修改等级，但可更新作品内容。
+                </p>
+              )}
+
+              {applyForLevel && initial?.levelApplyStatus !== "pending" && (() => {
+                const levelOrder = ["newbie", "C", "B", "A"];
+                const currentIdx = currentLevel ? levelOrder.indexOf(currentLevel) : -1;
+                const applyIdx   = levelOrder.indexOf(applyLevel);
+                const alreadyHas = currentLevel && applyLevel === currentLevel;
+                const alreadyHigher = currentLevel && currentIdx > applyIdx && applyIdx >= 0;
+                const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+                return (
+                  <div className="mt-2 space-y-3">
+                    {type && (
+                      <p className="text-[11px] text-amber-700 bg-amber-100/70 rounded-lg px-3 py-1.5">
+                        赛道：<strong>{type}</strong>（与项目类型一致）
+                      </p>
+                    )}
+                    <div>
+                      <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
+                      <select
+                        value={applyLevel}
+                        onChange={e => setApplyLevel(e.target.value)}
+                        className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
+                        {LEVEL_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {alreadyHas ? (
+                      <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-1.5">
+                        ℹ️ 您目前已持有 {LEVEL_NAME[applyLevel] ?? applyLevel} 认证，无需重复申请。如需提升，请选择更高等级。
+                      </p>
+                    ) : alreadyHigher ? (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5">
+                        ⚠️ 您当前等级（{LEVEL_NAME[currentLevel!] ?? currentLevel}）已高于所选等级，无需降级申请。
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 mt-1.5">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {initial?.levelApplyNote && (
+                <div className="mt-2 bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5">
+                  <p className="text-[11px] font-bold text-slate-500 mb-0.5">评审意见</p>
+                  <p className="text-sm text-slate-700">{initial.levelApplyNote}</p>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* ── 项目简介 ── */}
@@ -297,90 +373,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
             <input type="url" value={projectUrl} onChange={e => setProjectUrl(e.target.value)}
               placeholder="https://demo.yourproject.com"
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
-          </section>
-
-          {/* ── 等级认证申请 ── */}
-          <section className="border border-slate-200 rounded-2xl p-4 bg-gradient-to-br from-amber-50/60 to-orange-50/40">
-            <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={applyForLevel}
-                  onChange={e => setApplyForLevel(e.target.checked)}
-                  className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
-                  disabled={initial?.levelApplyStatus === "pending"}
-                />
-                <span className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
-                  <Trophy size={14} className="text-amber-500" />
-                  用此作品申请OPC等级认证
-                </span>
-              </label>
-              {initial?.levelApplyStatus && (
-                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.color}`}>
-                  {LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.text}
-                </span>
-              )}
-            </div>
-
-            {initial?.levelApplyStatus === "pending" && (
-              <p className="text-[11px] text-amber-600 bg-amber-100 rounded-lg px-3 py-2 mb-2">
-                等级申请已提交，等待平台专家评审中。评审期间无法修改等级，但可更新作品内容。
-              </p>
-            )}
-
-            {applyForLevel && initial?.levelApplyStatus !== "pending" && (() => {
-              const levelOrder = ["newbie", "C", "B", "A"];
-              const currentIdx = currentLevel ? levelOrder.indexOf(currentLevel) : -1;
-              const applyIdx   = levelOrder.indexOf(applyLevel);
-              const alreadyHas = currentLevel && applyLevel === currentLevel;
-              const alreadyHigher = currentLevel && currentIdx > applyIdx && applyIdx >= 0;
-              const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-              return (
-                <div className="mt-2 space-y-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请赛道（分类）</label>
-                    <select
-                      value={applyCatId ?? ""}
-                      onChange={e => setApplyCatId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
-                      <option value="">请选择赛道分类…</option>
-                      {categories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
-                    <select
-                      value={applyLevel}
-                      onChange={e => setApplyLevel(e.target.value)}
-                      className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
-                      {LEVEL_OPTIONS.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {alreadyHas ? (
-                    <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mt-1.5">
-                      ℹ️ 您目前已持有 {LEVEL_NAME[applyLevel] ?? applyLevel} 认证，无需重复申请。如需提升，请选择更高等级。
-                    </p>
-                  ) : alreadyHigher ? (
-                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-1.5">
-                      ⚠️ 您当前等级（{LEVEL_NAME[currentLevel!] ?? currentLevel}）已高于所选等级，无需降级申请。
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-slate-500 mt-1.5">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
-                  )}
-                </div>
-              );
-            })()}
-
-            {initial?.levelApplyNote && (
-              <div className="mt-2 bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5">
-                <p className="text-[11px] font-bold text-slate-500 mb-0.5">评审意见</p>
-                <p className="text-sm text-slate-700">{initial.levelApplyNote}</p>
-              </div>
-            )}
           </section>
 
           {/* ── Delete confirm ── */}
