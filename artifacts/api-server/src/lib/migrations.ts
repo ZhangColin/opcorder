@@ -1673,6 +1673,22 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 024a: could not clear opc_track_certs");
   }
 
+  // Migration 024b: clear auto-backfilled cat_category_id from approved portfolios.
+  // Migration 022a Step 1 inferred cat_category_id from the old type field for approved
+  // portfolios — this inference was incorrect. Reset to NULL so operations staff can
+  // manually assign the correct track category via the admin panel.
+  try {
+    await db.execute(sql`
+      UPDATE portfolios
+      SET cat_category_id = NULL
+      WHERE level_apply_status = 'approved'
+        AND cat_category_id IS NOT NULL
+    `);
+    logger.info("Migration 024b: cleared auto-backfilled cat_category_id from approved portfolios");
+  } catch (err) {
+    logger.warn({ err }, "Migration 024b: could not clear cat_category_id from portfolios");
+  }
+
   // Migration 023a: create credit_rules and credit_transactions tables,
   // then seed default rules for the five action types.
   // Step 1: enum type (handled separately — CREATE TYPE IF NOT EXISTS is not valid inside DO blocks)
