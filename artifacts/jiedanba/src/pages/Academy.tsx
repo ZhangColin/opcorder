@@ -538,6 +538,11 @@ function CourseDetailModal({ course, enrollment, onClose, onEnroll, onPay, onReq
         <div className="p-7 space-y-5">
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {(course as { catCategoryName?: string | null }).catCategoryName && (
+                <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                  {(course as { catCategoryName?: string | null }).catCategoryName}
+                </span>
+              )}
               <span className="bg-secondary/15 text-secondary text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">{catLabel}</span>
               {reqLevel && reqLevel !== "any" && (
                 <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-100">
@@ -717,7 +722,12 @@ function CourseCard({
       </button>
 
       <div className="p-6">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {(course as { catCategoryName?: string | null }).catCategoryName && (
+            <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+              {(course as { catCategoryName?: string | null }).catCategoryName}
+            </span>
+          )}
           <span className="bg-secondary/15 text-secondary text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">{catLabel}</span>
           <span className="text-muted-foreground text-xs font-medium">{durationLabel(course.durationMinutes)}</span>
           {instructor && <span className="text-muted-foreground text-xs">· {instructor}</span>}

@@ -701,6 +701,8 @@ export interface Course {
   id: number;
   title: string;
   category: CourseCategory;
+  catCategoryId?: number | null;
+  catCategoryName?: string | null;
   requiredLevel: CourseRequiredLevel;
   durationMinutes: number;
   description: string;

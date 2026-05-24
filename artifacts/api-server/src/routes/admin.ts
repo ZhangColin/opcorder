@@ -886,16 +886,19 @@ router.patch("/admin/ecosystem/:userId", async (req, res) => {
 
 router.get("/admin/training", async (req, res) => {
   try {
-    const { q, status: courseStatus, level } = req.query as Record<string, string>;
+    const { q, status: courseStatus, level, catCategoryId: catCatQ } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const qFilter = q ? sql`AND c.title ILIKE ${'%' + q + '%'}` : sql``;
     const statusFilter = (courseStatus && courseStatus !== "all") ? sql`AND c.status = ${courseStatus}` : sql``;
     const levelFilter = (level && level !== "all") ? sql`AND c.required_level = ${level}` : sql``;
+    const catFilter = (catCatQ && catCatQ !== "all") ? sql`AND c.cat_category_id = ${Number(catCatQ)}` : sql``;
+
+    const catCategories = (await db.execute(sql`SELECT id, name FROM cat_categories WHERE is_active = true ORDER BY sort_order`)).rows as Array<{ id: number; name: string }>;
 
     const [countRow] = (await db.execute(sql`
       SELECT COUNT(*)::int AS total FROM courses c
-      WHERE 1=1 ${qFilter} ${statusFilter} ${levelFilter}
+      WHERE 1=1 ${qFilter} ${statusFilter} ${levelFilter} ${catFilter}
     `)).rows as Array<{ total: number }>;
 
     const rows = await db.execute(sql`
@@ -903,6 +906,8 @@ router.get("/admin/training", async (req, res) => {
         c.id,
         c.title,
         c.category,
+        c.cat_category_id,
+        cc.name AS cat_category_name,
         c.required_level,
         c.duration_minutes,
         c.description,
@@ -921,9 +926,10 @@ router.get("/admin/training", async (req, res) => {
         COUNT(e.id) FILTER (WHERE e.cert_issued = true) AS cert_issued_count,
         COALESCE(SUM(CASE WHEN e.payment_status = 'paid' THEN c.price ELSE 0 END), 0) AS total_revenue
       FROM courses c
+      LEFT JOIN cat_categories cc ON cc.id = c.cat_category_id
       LEFT JOIN enrollments e ON e.course_id = c.id
-      WHERE 1=1 ${qFilter} ${statusFilter} ${levelFilter}
-      GROUP BY c.id
+      WHERE 1=1 ${qFilter} ${statusFilter} ${levelFilter} ${catFilter}
+      GROUP BY c.id, cc.name
       ORDER BY c.created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `);
@@ -947,6 +953,7 @@ router.get("/admin/training", async (req, res) => {
       coursesTotal: Number(countRow?.total ?? 0),
       coursesPage: page,
       coursesPageSize: pageSize,
+      catCategories,
       totalEnrollments: Number(enrollStats?.total_enrollments ?? 0),
       totalPassed: Number(enrollStats?.total_passed ?? 0),
       totalCerts: Number(enrollStats?.total_certs ?? 0),
@@ -961,13 +968,14 @@ router.get("/admin/training", async (req, res) => {
 router.post("/admin/training/courses", async (req, res) => {
   try {
     const {
-      title, category, requiredLevel, durationMinutes, description,
+      title, category, catCategoryId, requiredLevel, durationMinutes, description,
       badge, rating, isRequired, status, price, syllabusUrl, instructor, maxEnrollments,
     } = req.body as Record<string, unknown>;
 
     const [course] = await db.insert(coursesTable).values({
       title: String(title || ""),
       category: (category as "tech" | "strategy" | "compliance" | "operations") || "tech",
+      catCategoryId: catCategoryId ? Number(catCategoryId) : null,
       requiredLevel: (requiredLevel as "C" | "B" | "A") || "C",
       durationMinutes: Number(durationMinutes || 60),
       description: String(description || ""),
@@ -992,13 +1000,14 @@ router.put("/admin/training/courses/:id", async (req, res) => {
   try {
     const id = Number(req.params.id as string);
     const {
-      title, category, requiredLevel, durationMinutes, description,
+      title, category, catCategoryId, requiredLevel, durationMinutes, description,
       badge, rating, isRequired, status, price, syllabusUrl, instructor, maxEnrollments,
     } = req.body as Record<string, unknown>;
 
     await db.update(coursesTable).set({
       title: String(title || ""),
       category: (category as "tech" | "strategy" | "compliance" | "operations") || "tech",
+      catCategoryId: catCategoryId ? Number(catCategoryId) : null,
       requiredLevel: (requiredLevel as "C" | "B" | "A") || "C",
       durationMinutes: Number(durationMinutes || 60),
       description: String(description || ""),

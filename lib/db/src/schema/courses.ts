@@ -1,5 +1,6 @@
 import { pgTable, serial, integer, text, varchar, timestamp, pgEnum, real, boolean } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { catCategoriesTable } from "./cat-categories";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -12,6 +13,7 @@ export const coursesTable = pgTable("courses", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 200 }).notNull(),
   category: courseCategoryEnum("category").notNull().default("tech"),
+  catCategoryId: integer("cat_category_id").references(() => catCategoriesTable.id, { onDelete: "set null" }),
   requiredLevel: courseLevelEnum("required_level").notNull().default("C"),
   durationMinutes: integer("duration_minutes").notNull().default(60),
   description: text("description").notNull().default(""),

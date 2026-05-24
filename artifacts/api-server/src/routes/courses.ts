@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, coursesTable, enrollmentsTable, learningResourcesTable } from "@workspace/db";
+import { db, coursesTable, enrollmentsTable, learningResourcesTable, catCategoriesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { ListCoursesQueryParams } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
@@ -9,11 +9,13 @@ const router: IRouter = Router();
 
 const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
-function formatCourse(c: typeof coursesTable.$inferSelect) {
+function formatCourse(c: typeof coursesTable.$inferSelect & { catCategoryName?: string | null }) {
   return {
     id: c.id,
     title: c.title,
     category: c.category,
+    catCategoryId: c.catCategoryId ?? null,
+    catCategoryName: c.catCategoryName ?? null,
     requiredLevel: c.requiredLevel,
     durationMinutes: c.durationMinutes,
     description: c.description,
@@ -65,8 +67,12 @@ router.get("/courses", async (req, res) => {
       ? and(onlyPublished, ...conditions)
       : onlyPublished;
 
-    const courses = await db.select().from(coursesTable).where(allConditions);
-    return res.json(courses.map(formatCourse));
+    const rows = await db
+      .select({ course: coursesTable, catCategoryName: catCategoriesTable.name })
+      .from(coursesTable)
+      .leftJoin(catCategoriesTable, eq(coursesTable.catCategoryId, catCategoriesTable.id))
+      .where(allConditions);
+    return res.json(rows.map(r => formatCourse({ ...r.course, catCategoryName: r.catCategoryName ?? null })));
   } catch {
     return res.status(500).json({ error: "Failed to list courses" });
   }

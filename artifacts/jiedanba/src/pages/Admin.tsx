@@ -2586,6 +2586,8 @@ interface AdminCourse {
   id: number;
   title: string;
   category: string;
+  cat_category_id: number | null;
+  cat_category_name: string | null;
   required_level: string;
   duration_minutes: number;
   description: string;
@@ -2609,6 +2611,7 @@ interface TrainingData {
   coursesTotal: number;
   coursesPage: number;
   coursesPageSize: number;
+  catCategories: { id: number; name: string }[];
   totalEnrollments: number;
   totalPassed: number;
   totalCerts: number;
@@ -2639,20 +2642,22 @@ const PAY_LABEL: Record<string, string> = { free: "免费", pending: "待支付"
 const PAY_COLOR: Record<string, string> = { free: "bg-slate-100 text-slate-500", pending: "bg-amber-100 text-amber-700", paid: "bg-green-100 text-green-700", refund_pending: "bg-orange-100 text-orange-700", refunded: "bg-slate-100 text-slate-500" };
 
 type CourseForm = {
-  title: string; category: string; requiredLevel: string; durationMinutes: string;
+  title: string; category: string; catCategoryId: string; requiredLevel: string; durationMinutes: string;
   description: string; badge: string; rating: string; isRequired: boolean;
   status: string; price: string; syllabusUrl: string; instructor: string; maxEnrollments: string;
 };
 
 const BLANK_FORM: CourseForm = {
-  title: "", category: "tech", requiredLevel: "C", durationMinutes: "60",
+  title: "", category: "tech", catCategoryId: "", requiredLevel: "C", durationMinutes: "60",
   description: "", badge: "", rating: "", isRequired: false,
   status: "draft", price: "0", syllabusUrl: "", instructor: "", maxEnrollments: "",
 };
 
 function courseToForm(c: AdminCourse): CourseForm {
   return {
-    title: c.title, category: c.category, requiredLevel: c.required_level,
+    title: c.title, category: c.category,
+    catCategoryId: c.cat_category_id != null ? String(c.cat_category_id) : "",
+    requiredLevel: c.required_level,
     durationMinutes: String(c.duration_minutes), description: c.description,
     badge: c.badge ?? "", rating: c.rating != null ? String(c.rating) : "",
     isRequired: c.is_required, status: c.status, price: String(c.price),
@@ -2662,11 +2667,12 @@ function courseToForm(c: AdminCourse): CourseForm {
 }
 
 function CourseModal({
-  open, onClose, onSave, initialForm, isEdit,
+  open, onClose, onSave, initialForm, isEdit, catCategories,
 }: {
   open: boolean; onClose: () => void;
   onSave: (form: CourseForm) => void;
   initialForm: CourseForm; isEdit: boolean;
+  catCategories: { id: number; name: string }[];
 }) {
   const [form, setForm] = useState<CourseForm>(initialForm);
   const [uploading, setUploading] = useState(false);
@@ -2731,6 +2737,16 @@ function CourseModal({
           </div>
 
           <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">需求大类（赛道）</label>
+              <select value={form.catCategoryId} onChange={e => set("catCategoryId", e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white">
+                <option value="">不限赛道</option>
+                {catCategories.map(c => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">课程分类</label>
               <select value={form.category} onChange={e => set("category", e.target.value)}
@@ -3509,16 +3525,21 @@ function TrainingManagement() {
   const [editCourse, setEditCourse] = useState<AdminCourse | null>(null);
   const [enrollCourse, setEnrollCourse] = useState<AdminCourse | null>(null);
   const [trainingTab, setTrainingTab] = useState<"courses" | "refunds">("courses");
+  const [courseCat, setCourseCat] = useState<string>("all");
   const { q, qInput, setQInput, filter: courseStatus, level: courseLevel, page, pageSize, setPage, setPageSize, commitSearch, clearSearch, applyFilter: applyStatus, applyLevel } = useAdminListState("all", "all");
 
   const { data, isLoading } = useQuery<TrainingData>({
-    queryKey: ["admin-training", q, courseStatus, courseLevel, page, pageSize],
-    queryFn: () => adminGet(`/api/admin/training?q=${encodeURIComponent(q)}&status=${courseStatus === "all" ? "" : courseStatus}&level=${courseLevel === "all" ? "" : courseLevel}&page=${page}&pageSize=${pageSize}`),
+    queryKey: ["admin-training", q, courseStatus, courseLevel, courseCat, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/training?q=${encodeURIComponent(q)}&status=${courseStatus === "all" ? "" : courseStatus}&level=${courseLevel === "all" ? "" : courseLevel}&catCategoryId=${courseCat === "all" ? "" : courseCat}&page=${page}&pageSize=${pageSize}`),
   });
+
+  const catCategories = data?.catCategories ?? [];
 
   const createMutation = useMutation({
     mutationFn: (form: CourseForm) => adminPost("/api/admin/training/courses", {
-      title: form.title, category: form.category, requiredLevel: form.requiredLevel,
+      title: form.title, category: form.category,
+      catCategoryId: form.catCategoryId ? Number(form.catCategoryId) : null,
+      requiredLevel: form.requiredLevel,
       durationMinutes: Number(form.durationMinutes) || 60,
       description: form.description, badge: form.badge || null,
       rating: form.rating ? Number(form.rating) : null,
@@ -3538,7 +3559,9 @@ function TrainingManagement() {
 
   const editMutation = useMutation({
     mutationFn: ({ id, form }: { id: number; form: CourseForm }) => adminPut(`/api/admin/training/courses/${id}`, {
-      title: form.title, category: form.category, requiredLevel: form.requiredLevel,
+      title: form.title, category: form.category,
+      catCategoryId: form.catCategoryId ? Number(form.catCategoryId) : null,
+      requiredLevel: form.requiredLevel,
       durationMinutes: Number(form.durationMinutes) || 60,
       description: form.description, badge: form.badge || null,
       rating: form.rating ? Number(form.rating) : null,
@@ -3578,6 +3601,10 @@ function TrainingManagement() {
   const COURSE_LEVEL_FILTERS = [
     { val: "all", label: "全部等级" }, { val: "C", label: "C 级" },
     { val: "B", label: "B 级" }, { val: "A", label: "A 级" },
+  ];
+  const COURSE_CAT_FILTERS = [
+    { val: "all", label: "全部赛道" },
+    ...catCategories.map(c => ({ val: String(c.id), label: c.name })),
   ];
 
   return (
@@ -3638,6 +3665,15 @@ function TrainingManagement() {
             {f.label}
           </button>
         ))}
+        {catCategories.length > 0 && <>
+          <span className="text-slate-200">|</span>
+          {COURSE_CAT_FILTERS.map(f => (
+            <button key={f.val} onClick={() => setCourseCat(f.val)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${courseCat === f.val ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+              {f.label}
+            </button>
+          ))}
+        </>}
         <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -3649,8 +3685,8 @@ function TrainingManagement() {
         </form>
       </div>
 
-      <TableShell headers={["课程名称", "分类", "等级", "讲师", "时长", "价格", "状态", "报名/发证", "操作"]}>
-        {isLoading ? <LoadingRow cols={9} /> : courses.length === 0 ? <EmptyRow cols={9} /> :
+      <TableShell headers={["课程名称", "赛道", "分类", "等级", "讲师", "时长", "价格", "状态", "报名/发证", "操作"]}>
+        {isLoading ? <LoadingRow cols={10} /> : courses.length === 0 ? <EmptyRow cols={10} /> :
           courses.map(c => (
             <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
               <td className="px-5 py-4 max-w-[200px]">
@@ -3665,6 +3701,11 @@ function TrainingManagement() {
                     </a>
                   )}
                 </div>
+              </td>
+              <td className="px-5 py-4">
+                {c.cat_category_name
+                  ? <StatusBadge label={c.cat_category_name} color="bg-amber-100 text-amber-700" />
+                  : <span className="text-xs text-slate-400">—</span>}
               </td>
               <td className="px-5 py-4">
                 <StatusBadge label={CATEGORY_MAP[c.category] ?? c.category}
@@ -3745,6 +3786,7 @@ function TrainingManagement() {
         onSave={(form) => createMutation.mutate(form)}
         initialForm={BLANK_FORM}
         isEdit={false}
+        catCategories={catCategories}
       />
 
       {editCourse && (
@@ -3754,6 +3796,7 @@ function TrainingManagement() {
           onSave={(form) => editMutation.mutate({ id: editCourse.id, form })}
           initialForm={courseToForm(editCourse)}
           isEdit={true}
+          catCategories={catCategories}
         />
       )}
 
