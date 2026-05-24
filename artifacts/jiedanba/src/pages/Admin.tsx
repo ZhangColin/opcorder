@@ -5907,6 +5907,7 @@ interface ReviewLogEntry {
   note: string | null;
   created_at: string;
   admin_username: string | null;
+  admin_avatar: string | null;
 }
 
 const RESULT_LABELS: Record<string, { text: string; color: string }> = {

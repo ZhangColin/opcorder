@@ -1535,7 +1535,7 @@ router.get("/admin/level-certs/:portfolioId/review-logs", async (req, res) => {
     const rows = (await db.execute(sql`
       SELECT
         l.id, l.result, l.note, l.created_at,
-        u.username AS admin_username, u.avatar AS admin_avatar
+        u.nickname AS admin_username, u.avatar AS admin_avatar
       FROM portfolio_review_logs l
       LEFT JOIN users u ON u.id = l.admin_id
       WHERE l.portfolio_id = ${portfolioId}
