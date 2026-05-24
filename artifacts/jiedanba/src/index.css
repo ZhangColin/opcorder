@@ -145,3 +145,7 @@
 .ProseMirror blockquote { border-left: 3px solid #3b82f6; padding-left: 0.85rem; margin: 0.6rem 0; color: #475569; font-style: italic; }
 .ProseMirror hr { border: none; border-top: 1px solid #e2e8f0; margin: 0.8rem 0; }
 .ProseMirror p { margin: 0.25rem 0; }
+
+/* Hide scrollbar but keep scroll functionality */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

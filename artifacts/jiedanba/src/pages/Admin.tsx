@@ -2297,15 +2297,19 @@ function EcosystemManagement() {
   const { toast } = useToast();
   const { q, qInput, setQInput, page, pageSize, setPage, setPageSize, commitSearch, clearSearch } = useAdminListState("all");
   const [catFilter, setCatFilter] = useState("all");
+  const [levelFilter, setLevelFilter] = useState("all");
   const [expanded, setExpanded] = useState<number | null>(null);
 
   // pending edits per (userId, catId) key
   const [pendingTrackLevel, setPendingTrackLevel] = useState<Record<string, string>>({});
   const [pendingTrackTags, setPendingTrackTags] = useState<Record<string, number[]>>({});
 
+  const catParam   = catFilter === "all" ? "" : catFilter;
+  const levelParam = catFilter !== "all" && levelFilter !== "all" ? levelFilter : "";
+
   const { data: resp, isLoading } = useQuery<EcoResp>({
-    queryKey: ["admin-ecosystem", q, catFilter, page, pageSize],
-    queryFn: () => adminGet(`/api/admin/ecosystem?q=${encodeURIComponent(q)}&catId=${catFilter === "all" ? "" : catFilter}&page=${page}&pageSize=${pageSize}`),
+    queryKey: ["admin-ecosystem", q, catFilter, levelFilter, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/ecosystem?q=${encodeURIComponent(q)}&catId=${catParam}&level=${levelParam}&page=${page}&pageSize=${pageSize}`),
   });
   const opcs = resp?.data ?? [];
   const stats = resp?.stats;
@@ -2359,26 +2363,49 @@ function EcosystemManagement() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => { setCatFilter("all"); setPage(1); }}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === "all" ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-          全部赛道
-        </button>
-        {(catCategories ?? []).map(c => (
-          <button key={c.id} onClick={() => { setCatFilter(String(c.id)); setPage(1); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === String(c.id) ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
-            {c.name}
-          </button>
-        ))}
-        <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 ml-auto">
-          <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索用户名/邮箱…"
-              className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+      <div className="space-y-2">
+        {/* Row 1: track + search */}
+        <div className="flex items-center gap-2">
+          {/* Track pills — scrollable so many tracks don't overflow */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 flex-1 min-w-0 no-scrollbar">
+            <button onClick={() => { setCatFilter("all"); setLevelFilter("all"); setPage(1); }}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === "all" ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+              全部赛道
+            </button>
+            {(catCategories ?? []).map(c => (
+              <button key={c.id}
+                onClick={() => { setCatFilter(String(c.id)); setLevelFilter("all"); setPage(1); }}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === String(c.id) ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                {c.name}
+              </button>
+            ))}
           </div>
-          <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
-          {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
-        </form>
+          {/* Search */}
+          <form onSubmit={e => { e.preventDefault(); commitSearch(); }} className="flex items-center gap-1 shrink-0">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="搜索用户名/邮箱…"
+                className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 w-44" />
+            </div>
+            <button type="submit" className="px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">搜索</button>
+            {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
+          </form>
+        </div>
+        {/* Row 2: level filter — only visible when a track is selected */}
+        {catFilter !== "all" && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-400 font-medium shrink-0">等级筛选：</span>
+            {([["all", "全部等级"], ["C", "C 级"], ["B", "B 级"], ["A", "A 级"]] as const).map(([val, label]) => (
+              <button key={val}
+                onClick={() => { setLevelFilter(val); setPage(1); }}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${levelFilter === val
+                  ? val === "all" ? "bg-slate-600 text-white" : val === "A" ? "bg-amber-400 text-white" : val === "B" ? "bg-purple-500 text-white" : "bg-blue-500 text-white"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Table */}

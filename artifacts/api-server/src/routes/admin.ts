@@ -747,12 +747,16 @@ router.get("/admin/finance", async (req, res) => {
 
 router.get("/admin/ecosystem", async (req, res) => {
   try {
-    const { q, catId } = req.query as Record<string, string>;
+    const { q, catId, level } = req.query as Record<string, string>;
     const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
 
     const qFilter  = q ? sql`AND (u.nickname ILIKE ${'%' + q + '%'} OR u.email ILIKE ${'%' + q + '%'})` : sql``;
-    const catFilter = (catId && catId !== "all")
-      ? sql`AND EXISTS (SELECT 1 FROM opc_track_certs _tc WHERE _tc.user_id = u.id AND _tc.cat_category_id = ${Number(catId)})`
+    const hasCat = catId && catId !== "all";
+    const hasLevel = hasCat && level && ["C", "B", "A"].includes(level);
+    const catFilter = hasCat
+      ? hasLevel
+        ? sql`AND EXISTS (SELECT 1 FROM opc_track_certs _tc WHERE _tc.user_id = u.id AND _tc.cat_category_id = ${Number(catId)} AND _tc.level = ${level})`
+        : sql`AND EXISTS (SELECT 1 FROM opc_track_certs _tc WHERE _tc.user_id = u.id AND _tc.cat_category_id = ${Number(catId)})`
       : sql``;
 
     // Accurate stats (full DB, not paginated subset)
