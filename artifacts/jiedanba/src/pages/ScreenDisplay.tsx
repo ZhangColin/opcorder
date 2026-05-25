@@ -331,6 +331,17 @@ function DemandList({ items }: { items: ScreenData["demandList"] }) {
 /* ════════════════════════════════════════
    TrendChart — cumulative OPC/publisher
 ════════════════════════════════════════ */
+function niceAxisDomain(values: number[]): [number, number] {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(range)));
+  const step = magnitude >= 1 ? magnitude : 1;
+  const domainMin = Math.floor(min / step) * step;
+  const domainMax = Math.ceil(max / step) * step;
+  return [domainMin, domainMax];
+}
+
 function TrendChart({ data }: { data: ScreenData["cumulativeSeries"] }) {
   const chartData = data.map(d => ({
     date: d.label || d.date,
@@ -338,10 +349,13 @@ function TrendChart({ data }: { data: ScreenData["cumulativeSeries"] }) {
     publisher: d.totalPublisher,
   }));
 
+  const opcDomain = niceAxisDomain(chartData.map(d => d.opc));
+  const pubDomain = niceAxisDomain(chartData.map(d => d.publisher));
+
   return (
     <div className="flex flex-col h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: -10, bottom: 0 }}>
           <defs>
             <linearGradient id="colorOpc" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.5} />
@@ -354,7 +368,30 @@ function TrendChart({ data }: { data: ScreenData["cumulativeSeries"] }) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis dataKey="date" stroke="#64748b" fontSize={15} tickLine={false} axisLine={{ stroke: "#334155" }} />
-          <YAxis stroke="#64748b" fontSize={15} tickLine={false} axisLine={{ stroke: "#334155" }} allowDecimals={false} />
+          <YAxis
+            yAxisId="left"
+            orientation="left"
+            stroke="#06b6d4"
+            fontSize={14}
+            tickLine={false}
+            axisLine={{ stroke: "#06b6d4", strokeOpacity: 0.4 }}
+            allowDecimals={false}
+            domain={opcDomain}
+            tickCount={5}
+            tick={{ fill: "#06b6d4" }}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            stroke="#a855f7"
+            fontSize={14}
+            tickLine={false}
+            axisLine={{ stroke: "#a855f7", strokeOpacity: 0.4 }}
+            allowDecimals={false}
+            domain={pubDomain}
+            tickCount={5}
+            tick={{ fill: "#a855f7" }}
+          />
           <Tooltip
             contentStyle={{ backgroundColor: "rgba(2,13,36,0.9)", borderColor: "rgba(6,182,212,0.3)", color: "#e2e8f0", borderRadius: 6 }}
             itemStyle={{ fontSize: 17, fontWeight: "bold" }}
@@ -362,9 +399,9 @@ function TrendChart({ data }: { data: ScreenData["cumulativeSeries"] }) {
           />
           <Legend verticalAlign="top" height={40} iconType="diamond"
             formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 18 }}>{value}</span>} />
-          <Area type="monotone" name="OPC 累计" dataKey="opc" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorOpc)"
+          <Area yAxisId="left" type="monotone" name="OPC 累计" dataKey="opc" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorOpc)"
             dot={{ r: 3, fill: "#06b6d4", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#06b6d4", stroke: "#fff", strokeWidth: 2 }} />
-          <Area type="monotone" name="发单方累计" dataKey="publisher" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorPublisher)"
+          <Area yAxisId="right" type="monotone" name="发单方累计" dataKey="publisher" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorPublisher)"
             dot={{ r: 3, fill: "#a855f7", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#a855f7", stroke: "#fff", strokeWidth: 2 }} />
         </AreaChart>
       </ResponsiveContainer>
