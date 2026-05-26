@@ -42,7 +42,6 @@ function buildWinnerEmail(nickname: string, demandTitle: string, orderNo: string
 const router: IRouter = Router();
 
 const LEVEL_RANK: Record<string, number> = { C: 1, B: 2, A: 3 };
-const LEVEL_BUDGET_CAP: Record<string, number> = { C: 3_000, B: 20_000, A: 200_000 };
 const LEVEL_LABEL: Record<string, string> = { C: "C级（新手）", B: "B级（进阶）", A: "A级（专家）" };
 
 /* GET /bids/my — returns all bids submitted by the current user (any role) */
@@ -156,6 +155,62 @@ router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
   }
 });
 
+/* GET /demands/:demandId/bid-eligibility — pre-check before showing bid form */
+router.get("/demands/:demandId/bid-eligibility", requireAuth, async (req, res) => {
+  try {
+    const demandId = parseInt(req.params.demandId as string);
+    const opcId = req.user!.id;
+
+    const [demand] = await db
+      .select({
+        catCategoryId:      demandsTable.catCategoryId,
+        requiredTrackLevel: demandsTable.requiredTrackLevel,
+        status:             demandsTable.status,
+      })
+      .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
+
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (!["published", "matched"].includes(demand.status)) {
+      return res.json({ eligible: false, reason: "该需求当前状态不接受抢单", code: "DEMAND_NOT_OPEN" });
+    }
+
+    // No track requirement → eligible
+    if (!demand.catCategoryId || !demand.requiredTrackLevel || demand.requiredTrackLevel === "any") {
+      return res.json({ eligible: true });
+    }
+
+    const certRows = (await db.execute(sql`
+      SELECT level FROM opc_track_certs
+      WHERE user_id = ${opcId}
+        AND cat_category_id = ${demand.catCategoryId}
+        AND status = 'active'
+      LIMIT 1
+    `)).rows as Array<{ level: string }>;
+
+    if (!certRows.length) {
+      return res.json({
+        eligible: false,
+        reason: "此需求要求指定赛道认证资质，您尚无该赛道认证记录，请提交作品申请赛道认证后再抢单",
+        code: "TRACK_CERT_MISSING",
+      });
+    }
+
+    const certLevel = certRows[0].level;
+    if ((LEVEL_RANK[certLevel] ?? 0) < (LEVEL_RANK[demand.requiredTrackLevel] ?? 0)) {
+      return res.json({
+        eligible: false,
+        reason: `此需求要求该赛道 ${LEVEL_LABEL[demand.requiredTrackLevel] ?? demand.requiredTrackLevel} 级认证，您当前该赛道认证等级（${LEVEL_LABEL[certLevel] ?? certLevel}）不足`,
+        code: "TRACK_CERT_LEVEL_INSUFFICIENT",
+      });
+    }
+
+    return res.json({ eligible: true });
+  } catch (err) {
+    logger.error({ err }, "bid-eligibility error");
+    return res.status(500).json({ error: "检查资格失败" });
+  }
+});
+
 router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId as string);
@@ -166,9 +221,6 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       .select({
         publisherId:        demandsTable.publisherId,
         title:              demandsTable.title,
-        opcLevel:           demandsTable.opcLevel,
-        budget:             demandsTable.budget,
-        budgetMin:          demandsTable.budgetMin,
         status:             demandsTable.status,
         catCategoryId:      demandsTable.catCategoryId,
         requiredTrackLevel: demandsTable.requiredTrackLevel,
@@ -180,23 +232,7 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "该需求当前状态不接受抢单" });
     }
 
-    const [opcProfile] = await db
-      .select({ level: opcProfilesTable.level })
-      .from(opcProfilesTable).where(eq(opcProfilesTable.userId, opcId)).limit(1);
-
-    const opcActualLevel = opcProfile?.level ?? "C";
-    const opcRank = LEVEL_RANK[opcActualLevel] ?? 1;
-
-    if (demand.opcLevel && demand.opcLevel !== "any") {
-      const requiredRank = LEVEL_RANK[demand.opcLevel] ?? 1;
-      if (opcRank < requiredRank) {
-        return res.status(403).json({
-          error: `此需求要求 ${LEVEL_LABEL[demand.opcLevel] ?? demand.opcLevel} 及以上，您当前为 ${LEVEL_LABEL[opcActualLevel] ?? opcActualLevel}，暂无资格抢单`,
-        });
-      }
-    }
-
-    // Track cert eligibility: if demand has a category with a required track level
+    // Track cert eligibility: only check if demand has a category with a required track level
     if (demand.catCategoryId && demand.requiredTrackLevel && demand.requiredTrackLevel !== "any") {
       const certRows = (await db.execute(sql`
         SELECT level FROM opc_track_certs
@@ -214,19 +250,10 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
       const certLevel = certRows[0].level;
       if ((LEVEL_RANK[certLevel] ?? 0) < (LEVEL_RANK[demand.requiredTrackLevel] ?? 0)) {
         return res.status(403).json({
-          error: `此需求要求该赛道 ${LEVEL_LABEL[demand.requiredTrackLevel] ?? demand.requiredTrackLevel} 级认证，您当前认证等级（${LEVEL_LABEL[certLevel] ?? certLevel}）不足`,
+          error: `此需求要求该赛道 ${LEVEL_LABEL[demand.requiredTrackLevel] ?? demand.requiredTrackLevel} 级认证，您当前该赛道认证等级（${LEVEL_LABEL[certLevel] ?? certLevel}）不足`,
           code: "TRACK_CERT_LEVEL_INSUFFICIENT",
         });
       }
-    }
-
-    // Budget cap check uses budgetMin (new) with fallback to legacy budget
-    const effectiveBudgetMin = (demand.budgetMin && demand.budgetMin > 0) ? demand.budgetMin : (demand.budget ?? 0);
-    const budgetCap = LEVEL_BUDGET_CAP[opcActualLevel];
-    if (budgetCap !== undefined && effectiveBudgetMin > budgetCap) {
-      return res.status(403).json({
-        error: `该需求预算下限 ¥${effectiveBudgetMin.toLocaleString()}，超出您 ${LEVEL_LABEL[opcActualLevel]} 的接单上限（¥${budgetCap.toLocaleString()}），请提升等级后再抢单`,
-      });
     }
 
     // Check settlement account: OPC must have a verified settlement account before bidding

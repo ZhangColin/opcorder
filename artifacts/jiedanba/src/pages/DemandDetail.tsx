@@ -8,6 +8,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { DEMAND_TYPES, DEMAND_STATUSES, OPC_LEVELS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { getAccessToken } from "@/lib/auth";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -156,7 +157,10 @@ export default function DemandDetail() {
   const { data: demand, isLoading } = useGetDemandById(id);
   const { mutate: submitBid, isPending: isSubmitting } = useCreateBid();
 
+  const { role } = useCurrentUser();
+
   const [showBidForm, setShowBidForm] = useState(false);
+  const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
   const [bidForm, setBidForm] = useState({ proposal: "", estimatedDays: 7, portfolioLinks: "" });
   const [showPublisherModal, setShowPublisherModal] = useState(false);
   const [quoteSelections, setQuoteSelections] = useState<Record<string, string>>({});
@@ -254,6 +258,33 @@ export default function DemandDetail() {
     setAdjustmentReason("");
     setMaintenancePackage("none");
     if (draftKey) { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } }
+  };
+
+  const handleAcceptOrder = async () => {
+    if (role && role !== "opc") {
+      setShowBidForm(true);
+      return;
+    }
+    setIsCheckingEligibility(true);
+    try {
+      const res = await fetch(`${BASE}/api/demands/${id}/bid-eligibility`, {
+        headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
+      });
+      const data = await res.json();
+      if (data.eligible === false) {
+        toast({
+          title: "暂无资格接单",
+          description: data.reason ?? "您不满足该需求的接单条件",
+          variant: "destructive",
+        });
+        return;
+      }
+      setShowBidForm(true);
+    } catch {
+      setShowBidForm(true);
+    } finally {
+      setIsCheckingEligibility(false);
+    }
   };
 
   const handleBidSubmit = (e: React.FormEvent) => {
@@ -426,10 +457,11 @@ export default function DemandDetail() {
             
             {demand.status === 'published' && (
               <button 
-                onClick={() => setShowBidForm(true)}
-                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/25 active:scale-95 transition-all text-lg"
+                onClick={handleAcceptOrder}
+                disabled={isCheckingEligibility}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/25 active:scale-95 transition-all text-lg disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                立即接单
+                {isCheckingEligibility ? "资格验证中…" : "立即接单"}
               </button>
             )}
             {demand.status !== 'published' && (
