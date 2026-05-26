@@ -400,7 +400,7 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
 
     // Look up the demand for ownership and transition validation
     const [existing] = await db
-      .select({ publisherId: demandsTable.publisherId, status: demandsTable.status, title: demandsTable.title, description: demandsTable.description })
+      .select({ publisherId: demandsTable.publisherId, status: demandsTable.status, title: demandsTable.title, description: demandsTable.description, milestones: demandsTable.milestones })
       .from(demandsTable)
       .where(eq(demandsTable.id, demandId))
       .limit(1);
@@ -419,6 +419,14 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
         return res.status(400).json({
           error: `状态 "${existing.status}" 不允许直接变更为 "${body.status}"`,
         });
+      }
+    }
+
+    // Submitting for review requires at least one milestone
+    if (body.status === "pending_review") {
+      const ms = Array.isArray(existing.milestones) ? existing.milestones : [];
+      if (ms.length === 0) {
+        return res.status(400).json({ error: "提交审核前请至少添加一个里程碑节点" });
       }
     }
 
