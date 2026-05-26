@@ -611,13 +611,13 @@ export default function PublisherDemandDetail() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-slate-400 mb-1">预算区间</p>
-                    {demand.budgetMin && demand.budgetMax ? (
+                    {demand.budgetMin && demand.budgetMax && Number(demand.budgetMin) !== Number(demand.budgetMax) ? (
                       <p className="text-xl font-extrabold text-primary">
                         ¥{Number(demand.budgetMin).toLocaleString()}<span className="text-slate-400 font-normal mx-1">~</span>¥{Number(demand.budgetMax).toLocaleString()}
                       </p>
                     ) : (
                       <p className="text-2xl font-extrabold text-primary">
-                        ¥{demand.budget?.toLocaleString() ?? "面议"}
+                        ¥{Number(demand.budgetMin ?? demand.budget ?? 0).toLocaleString()}
                       </p>
                     )}
                     <p className="text-xs text-slate-400 mt-1 flex items-center justify-end gap-1">
