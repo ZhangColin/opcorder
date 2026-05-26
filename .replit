@@ -54,7 +54,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=3000 RESEND_API_KEY=${RESEND_API_KEY:-re_dev_placeholder} pnpm --filter @workspace/api-server run dev"
+args = "PORT=3000 JWT_SECRET=0575b45ec8e4d5c3567e4c8a3c1038215d375a14c88e6c77cb702d0e6d87d729d088156294b104f3559b07c6385ac095 RESEND_API_KEY=${RESEND_API_KEY:-re_dev_placeholder} pnpm --filter @workspace/api-server run dev"
 waitForPort = 3000
 
 [[workflows.workflow]]
