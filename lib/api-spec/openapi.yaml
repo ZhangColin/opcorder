@@ -2164,6 +2164,48 @@ components:
         - status
         - createdAt
 
+    DemandInvitation:
+      type: object
+      description: An auto-generated invitation to an OPC to bid on a demand.
+      properties:
+        id:
+          type: integer
+        opcId:
+          type: integer
+        opcNickname:
+          type: string
+          nullable: true
+        opcAvatar:
+          type: string
+          nullable: true
+        opcEmail:
+          type: string
+          nullable: true
+        trackLevel:
+          type: string
+          enum: [A, B, C]
+          description: The track-cert level at which this OPC was invited.
+        source:
+          type: string
+          description: How the invitation was created (e.g. "auto").
+        invitedAt:
+          type: string
+          format: date-time
+        emailedAt:
+          type: string
+          format: date-time
+          nullable: true
+        hasBid:
+          type: boolean
+          description: Whether this invited OPC has already submitted a bid on this demand.
+      required:
+        - id
+        - opcId
+        - trackLevel
+        - source
+        - invitedAt
+        - hasBid
+
     BidApplication:
       type: object
       properties:

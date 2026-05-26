@@ -632,7 +632,10 @@ router.patch("/admin/demands/:id", async (req, res) => {
             catCategoryId: demandsTable.catCategoryId,
             requiredTrackLevel: demandsTable.requiredTrackLevel,
             budget: demandsTable.budget,
+            budgetMin: demandsTable.budgetMin,
+            budgetMax: demandsTable.budgetMax,
             deadline: demandsTable.deadline,
+            bidDeadline: demandsTable.bidDeadline,
             publisherId: demandsTable.publisherId,
           })
           .from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
@@ -671,25 +674,34 @@ router.patch("/admin/demands/:id", async (req, res) => {
                 if (cat?.name) catName = cat.name;
               }
 
-              // In-app notifications (sync) — enriched body: track / level / budget / deadline / one-click link
-              await sendInvitationInAppNotifications({
+              const channelArgs = {
                 demandId: fullDemand.id,
                 demandTitle: fullDemand.title,
                 catName,
                 requiredTrackLevel: required,
                 budget: fullDemand.budget,
+                budgetMin: fullDemand.budgetMin,
+                budgetMax: fullDemand.budgetMax,
                 deadline: fullDemand.deadline,
-                invitedOpcIds: newInvitees.map(i => i.userId),
-              });
+                bidDeadline: fullDemand.bidDeadline,
+              };
+
+              // In-app notifications (sync) — enriched body: track / level / budget range / delivery+bid deadlines / one-click link
+              try {
+                await sendInvitationInAppNotifications({
+                  ...channelArgs,
+                  invitedOpcIds: newInvitees.map(i => i.userId),
+                });
+              } catch (notifyErr) {
+                logger.warn({ err: notifyErr, demandId: id }, "Invitation in-app notify failed");
+                await writeSystemLog("error", "demand_invitation",
+                  `站内信下发失败 demand=${id}`,
+                  { demandId: id, opcIds: newInvitees.map(i => i.userId), error: String(notifyErr) });
+              }
 
               // Email — async sequential 1.1s gap, non-blocking. Only newly invited OPCs.
               scheduleInvitationEmails({
-                demandId: fullDemand.id,
-                demandTitle: fullDemand.title,
-                catName,
-                requiredTrackLevel: required,
-                budget: fullDemand.budget,
-                deadline: fullDemand.deadline,
+                ...channelArgs,
                 invitees: newInvitees.map(i => ({ userId: i.userId, email: i.email, nickname: i.nickname })),
               });
 
@@ -700,6 +712,9 @@ router.patch("/admin/demands/:id", async (req, res) => {
         }
       } catch (inviteErr) {
         logger.warn({ err: inviteErr, demandId: id }, "Auto-invite on approve failed (non-blocking)");
+        await writeSystemLog("error", "demand_invitation",
+          `自动邀请流程失败 demand=${id}`,
+          { demandId: id, error: String(inviteErr) });
       }
     } else if (action === "reject") {
       if (!reason?.trim()) {

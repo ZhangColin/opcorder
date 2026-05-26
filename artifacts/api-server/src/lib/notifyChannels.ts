@@ -11,17 +11,29 @@ function escape(s: string): string {
   return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 }
 
+function formatBudget(budget: number, budgetMin?: number | null, budgetMax?: number | null): string {
+  if (budgetMin != null && budgetMax != null && (budgetMin > 0 || budgetMax > 0)) {
+    return `¥${budgetMin.toLocaleString()} - ¥${budgetMax.toLocaleString()}`;
+  }
+  return `¥${budget.toLocaleString()}`;
+}
+
 export function buildInvitationEmailHtml(opts: {
   nickname: string;
   demandTitle: string;
   catName: string;
   requiredTrackLevel: string;
   budget: number;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
   deadline: Date | string | null;
+  bidDeadline?: Date | string | null;
   ctaUrl: string;
 }): string {
   const dl = opts.deadline ? new Date(opts.deadline).toLocaleDateString("zh-CN") : "未指定";
+  const bidDl = opts.bidDeadline ? new Date(opts.bidDeadline).toLocaleString("zh-CN") : null;
   const levelLabel = LEVEL_LABEL[opts.requiredTrackLevel] ?? opts.requiredTrackLevel;
+  const budgetText = formatBudget(opts.budget, opts.budgetMin, opts.budgetMax);
   return `<!doctype html>
 <html><body style="font-family:-apple-system,Helvetica,Arial,sans-serif;background:#f5f6fa;padding:24px;color:#1a1c1e">
   <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,50,125,.08)">
@@ -32,8 +44,9 @@ export function buildInvitationEmailHtml(opts: {
       <p style="margin:0 0 8px;font-weight:700;font-size:16px;color:#00327d">${escape(opts.demandTitle)}</p>
       <p style="margin:4px 0;font-size:13px;color:#555">所属赛道：${escape(opts.catName)}</p>
       <p style="margin:4px 0;font-size:13px;color:#555">要求认证等级：${escape(levelLabel)}</p>
-      <p style="margin:4px 0;font-size:13px;color:#555">预算：¥${opts.budget.toLocaleString()}</p>
+      <p style="margin:4px 0;font-size:13px;color:#555">预算范围：${escape(budgetText)}</p>
       <p style="margin:4px 0;font-size:13px;color:#555">交付截止：${dl}</p>
+      ${bidDl ? `<p style="margin:4px 0;font-size:13px;color:#555">抢单截止：${escape(bidDl)}</p>` : ""}
     </div>
     <p style="margin:0 0 20px;line-height:1.6">如有兴趣，请尽快前往平台提交报价。</p>
     <p style="text-align:center;margin:24px 0">
@@ -67,20 +80,27 @@ export async function sendInvitationInAppNotifications(args: {
   catName?: string;
   requiredTrackLevel?: string;
   budget?: number | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
   deadline?: Date | string | null;
+  bidDeadline?: Date | string | null;
   invitedOpcIds: number[];
 }): Promise<void> {
   if (args.invitedOpcIds.length === 0) return;
   const levelLabel = args.requiredTrackLevel ? (LEVEL_LABEL[args.requiredTrackLevel] ?? args.requiredTrackLevel) : null;
   const dl = args.deadline ? new Date(args.deadline).toLocaleDateString("zh-CN") : null;
+  const bidDl = args.bidDeadline ? new Date(args.bidDeadline).toLocaleString("zh-CN") : null;
   const ctaUrl = `${getWebOrigin()}/demands/${args.demandId}`;
   const lines: string[] = [
     `平台根据您的赛道认证，邀请您对需求「${args.demandTitle}」进行报价。`,
   ];
   if (args.catName) lines.push(`所属赛道：${args.catName}`);
   if (levelLabel) lines.push(`要求认证等级：${levelLabel}`);
-  if (typeof args.budget === "number") lines.push(`预算：¥${args.budget.toLocaleString()}`);
+  if (typeof args.budget === "number") {
+    lines.push(`预算范围：${formatBudget(args.budget, args.budgetMin, args.budgetMax)}`);
+  }
   if (dl) lines.push(`交付截止：${dl}`);
+  if (bidDl) lines.push(`抢单截止：${bidDl}`);
   lines.push(`一键去报价：${ctaUrl}`);
   const content = lines.join("\n");
 
@@ -107,7 +127,10 @@ export function scheduleInvitationEmails(args: {
   catName: string;
   requiredTrackLevel: string;
   budget: number;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
   deadline: Date | string | null;
+  bidDeadline?: Date | string | null;
   invitees: Array<{ userId: number; email: string | null; nickname: string }>;
 }): void {
   const ctaUrl = `${getWebOrigin()}/demands/${args.demandId}`;
@@ -124,7 +147,10 @@ export function scheduleInvitationEmails(args: {
           catName: args.catName,
           requiredTrackLevel: args.requiredTrackLevel,
           budget: args.budget,
+          budgetMin: args.budgetMin,
+          budgetMax: args.budgetMax,
           deadline: args.deadline,
+          bidDeadline: args.bidDeadline,
           ctaUrl,
         });
         const { error } = await resend.emails.send({
