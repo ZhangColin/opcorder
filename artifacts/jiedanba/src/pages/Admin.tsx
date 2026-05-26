@@ -1918,7 +1918,7 @@ function DemandManagement() {
               </td>
               <td className="px-6 py-4">
                 <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-bold rounded-full">
-                  {!d.opcLevel || d.opcLevel === "any" ? "不限" : `${d.opcLevel} 级及以上`}
+                  {!d.requiredTrackLevel || d.requiredTrackLevel === "any" ? "不限" : `${d.requiredTrackLevel} 级及以上`}
                 </span>
               </td>
               <td className="px-6 py-4 text-sm font-bold text-blue-900">
