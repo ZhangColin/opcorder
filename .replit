@@ -38,7 +38,7 @@ args = "pnpm --filter @workspace/scripts exec tsx ./src/backup-scheduler.ts"
 outputType = "console"
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
