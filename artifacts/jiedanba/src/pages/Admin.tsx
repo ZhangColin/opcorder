@@ -1127,6 +1127,9 @@ interface AdminDemand {
   createdAt: string;
   publisherName: string;
   deadline: string;
+  opcLevel: string | null;
+  requiredTrackLevel: string | null;
+  bidCount: number;
 }
 
 interface AdminDemandPayment {
@@ -1855,14 +1858,10 @@ function DemandManagement() {
   const STATUS_FILTERS = [
     { val: "all", label: "全部" },
     { val: "pending_review", label: "待审核" },
-    { val: "pending_payment", label: "待缴保证金" },
     { val: "published", label: "已发布" },
     { val: "in_progress", label: "进行中" },
     { val: "completed", label: "已完成" },
     { val: "closed", label: "已关闭" },
-    { val: "refund_pending", label: "退款审核中" },
-    { val: "refunding", label: "退款中" },
-    { val: "refunded", label: "已退款" },
   ];
 
   const statusCN: Record<string, string> = {
@@ -1904,8 +1903,8 @@ function DemandManagement() {
           {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
-      <TableShell headers={["需求标题", "编号", "发单方", "预算", "创建日期", "状态", "操作"]}>
-        {isLoading ? <LoadingRow cols={7} /> : demands.length === 0 ? <EmptyRow cols={7} /> :
+      <TableShell headers={["需求标题", "OPC等级要求", "抢单人数", "编号", "发单方", "预算", "创建日期", "状态", "操作"]}>
+        {isLoading ? <LoadingRow cols={9} /> : demands.length === 0 ? <EmptyRow cols={9} /> :
           demands.map(d => (
             <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
               <td className="px-6 py-4">
@@ -1916,6 +1915,21 @@ function DemandManagement() {
                   >{d.title}</button>
                   {d.isUrgent && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded-full animate-pulse">紧急</span>}
                 </div>
+              </td>
+              <td className="px-6 py-4">
+                <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-bold rounded-full">
+                  {!d.opcLevel || d.opcLevel === "any" ? "不限" : `${d.opcLevel} 级及以上`}
+                </span>
+              </td>
+              <td className="px-6 py-4 text-sm font-bold text-blue-900">
+                {d.bidCount > 0 ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span>{d.bidCount}</span>
+                    <span className="text-xs text-slate-400 font-normal">人</span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400 font-normal">暂无</span>
+                )}
               </td>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">{d.demandNo}</td>
               <td className="px-6 py-4 text-sm text-slate-500">{d.publisherName}</td>

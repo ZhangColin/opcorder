@@ -400,6 +400,9 @@ router.get("/admin/demands", async (req, res) => {
       createdAt: demandsTable.createdAt,
       publisherId: demandsTable.publisherId,
       deadline: demandsTable.deadline,
+      opcLevel: demandsTable.opcLevel,
+      requiredTrackLevel: demandsTable.requiredTrackLevel,
+      bidCount: sql<number>`COALESCE((SELECT COUNT(*) FROM ${bidsTable} WHERE ${bidsTable.demandId} = ${demandsTable.id}), 0)`,
     })
       .from(demandsTable)
       .where(where)
@@ -409,7 +412,7 @@ router.get("/admin/demands", async (req, res) => {
     const withPublisher = await Promise.all(demands.map(async (d) => {
       const [pub] = await db.select({ nickname: usersTable.nickname })
         .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
-      return { ...d, publisherName: pub?.nickname ?? "—" };
+      return { ...d, publisherName: pub?.nickname ?? "—", bidCount: Number(d.bidCount ?? 0) };
     }));
 
     return res.json({ data: withPublisher, total: Number(total), page, pageSize });
