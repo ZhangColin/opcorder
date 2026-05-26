@@ -1683,21 +1683,15 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 024a: could not clear opc_track_certs");
   }
 
-  // Migration 024b: clear auto-backfilled cat_category_id from approved portfolios.
-  // Migration 022a Step 1 inferred cat_category_id from the old type field for approved
-  // portfolios — this inference was incorrect. Reset to NULL so operations staff can
-  // manually assign the correct track category via the admin panel.
-  try {
-    await db.execute(sql`
-      UPDATE portfolios
-      SET cat_category_id = NULL
-      WHERE level_apply_status = 'approved'
-        AND cat_category_id IS NOT NULL
-    `);
-    logger.info("Migration 024b: cleared auto-backfilled cat_category_id from approved portfolios");
-  } catch (err) {
-    logger.warn({ err }, "Migration 024b: could not clear cat_category_id from portfolios");
-  }
+  // Migration 024b: superseded.
+  // This migration USED to UPDATE portfolios SET cat_category_id = NULL WHERE
+  // level_apply_status = 'approved'. It was intended as a one-shot reset of the
+  // bad backfill performed by migration 022a Step 1, but because it ran on
+  // every startup it kept wiping cat_category_id values that operations staff
+  // had manually re-assigned via the admin panel — making approved items show
+  // "赛道待确认" again after every API Server restart.
+  // Disabled. Do NOT re-enable as an unconditional UPDATE.
+  logger.info("Migration 024b: skipped (disabled — was repeatedly wiping admin-set cat_category_id)");
 
   // Migration 023a: create credit_rules and credit_transactions tables,
   // then seed default rules for the five action types.
