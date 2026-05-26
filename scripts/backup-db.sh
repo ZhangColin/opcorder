@@ -10,7 +10,7 @@ set -euo pipefail
 BACKUP_DIR="${BACKUP_DIR:-backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-FILENAME="${BACKUP_DIR}/db_backup_${TIMESTAMP}.sql.gz"
+FILENAME="${BACKUP_DIR}/db_backup_prod_${TIMESTAMP}.sql.gz"
 
 if [ -z "${PROD_DATABASE_URL:-}" ]; then
   echo "[backup] ERROR: PROD_DATABASE_URL is not set. 备份必须使用生产数据库地址。" >&2
