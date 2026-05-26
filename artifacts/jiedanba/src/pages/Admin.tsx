@@ -1149,6 +1149,7 @@ interface AdminDemandDetail extends AdminDemand {
   type: string;
   skillTags: string[];
   opcLevel: string;
+  requiredTrackLevel: string | null;
   milestones: Array<{ name: string; deadline: string; deliverableDesc?: string }>;
   attachments: Array<{ name: string; url: string; type: string }>;
   bidDeadline: string | null;
@@ -1670,6 +1671,20 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 <select
                   value={d.opcLevel}
                   onChange={e => actionMut.mutate({ action: "setOpcLevel", value: e.target.value })}
+                  disabled={actionMut.isPending}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                >
+                  <option value="any">不限</option>
+                  <option value="C">C 级及以上</option>
+                  <option value="B">B 级及以上</option>
+                  <option value="A">A 级</option>
+                </select>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">赛道认证要求</p>
+                <select
+                  value={d.requiredTrackLevel ?? "any"}
+                  onChange={e => actionMut.mutate({ action: "setRequiredTrackLevel", value: e.target.value })}
                   disabled={actionMut.isPending}
                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
                 >

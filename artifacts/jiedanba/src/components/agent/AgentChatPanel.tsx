@@ -10,6 +10,8 @@ export interface FormSuggestion {
   description?: string;
   skillTags?: string[];
   opcLevel?: string;
+  /** 赛道认证要求 (any/C/B/A) — hidden in publisher form, settable by AI, editable by admin */
+  requiredTrackLevel?: string;
   /** @deprecated Use budgetMin / budgetMax */
   budget?: number;
   budgetMin?: number;

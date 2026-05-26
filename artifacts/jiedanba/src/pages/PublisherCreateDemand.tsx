@@ -581,6 +581,11 @@ export default function PublisherCreateDemand() {
       scrollTarget = scrollTarget ?? "section-matching";
     }
 
+    // Track-level (赛道认证要求) — AI-only field, no UI; admin can change it later
+    if (suggestion.requiredTrackLevel && ["any", "C", "B", "A"].includes(suggestion.requiredTrackLevel)) {
+      setRequiredTrackLevel(suggestion.requiredTrackLevel);
+    }
+
     if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
     if (suggestion.deadline) { setDeadline(suggestion.deadline); scrollTarget = scrollTarget ?? "section-deadline"; }
     if (suggestion.bidDeadline) { setBidDeadline(suggestion.bidDeadline); scrollTarget = scrollTarget ?? "section-deadline"; }
@@ -787,43 +792,11 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 3: 匹配设置 ── */}
-          <Section id="section-matching" title="匹配设置" subtitle="设置OPC等级要求和派单模式">
+          <Section id="section-matching" title="匹配设置" subtitle="选择派单模式">
 
-            {/* OPC 等级要求：在前台表单中隐藏，默认 "any"。
-                 若使用 AI 需求助手，setOpcLevel 仍会被调用并随提交一起发送，
-                 由管理员在后台审核阶段进行最终调整。 */}
-
-            {catCategoryId && (
-              <FormField
-                label={`赛道认证要求（${catCategories.find(c => c.id === catCategoryId)?.name ?? "当前分类"}）`}
-                hint={`可选：要求 OPC 在该赛道持有指定等级的平台认证，未达标的 OPC 将无法提交投标。仅在该分类下有实际意义。`}
-              >
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: "any", label: "不限", desc: "任意OPC均可投标（无认证要求）" },
-                    { value: "C",   label: "C级及以上", desc: "基础赛道认证" },
-                    { value: "B",   label: "B级及以上", desc: "进阶赛道认证" },
-                    { value: "A",   label: "A级", desc: "专家赛道认证" },
-                  ].map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setRequiredTrackLevel(opt.value)}
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${
-                        requiredTrackLevel === opt.value
-                          ? "border-primary bg-primary/5"
-                          : "border-slate-200 hover:border-primary/30 bg-white"
-                      }`}
-                    >
-                      <p className={`text-sm font-bold ${requiredTrackLevel === opt.value ? "text-primary" : "text-blue-900"}`}>
-                        {opt.label}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </FormField>
-            )}
+            {/* OPC等级要求 / 赛道认证要求：在前台表单中隐藏，默认 "any"。
+                 若使用 AI 需求助手，setOpcLevel / setRequiredTrackLevel 仍会被调用
+                 并随提交一起发送，由管理员在后台需求管理中进行最终调整。 */}
 
             <FormField label="派单模式" required>
               <div className="grid grid-cols-2 gap-4">
