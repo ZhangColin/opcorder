@@ -53,20 +53,22 @@ bash scripts/setup-github.sh
 ### 在测试环境开发和测试
 
 1. 在测试 Replit 项目中进行代码修改和调试
-2. 测试通过后，从测试项目推送到 GitHub：
+2. 测试通过后，从测试项目推送到 GitHub（在 Shell 中执行）：
    ```bash
    git add .
    git commit -m "feat: 功能描述"
-   git push github master
+   git push "https://ZhangColin:${GITHUB_TOKEN}@github.com/ZhangColin/opcorder.git" master
    ```
 
 ### 将 GitHub 代码同步到生产环境
 
 在**生产 Replit 项目**的 Shell 中执行：
 ```bash
-git pull github master
+git pull "https://ZhangColin:${GITHUB_TOKEN}@github.com/ZhangColin/opcorder.git" master
 ```
 然后重启工作流：**Restart** 按钮或执行 `kill 1`
+
+> 注意：`GITHUB_TOKEN` 已存在 Replit Secrets 中，Shell 里可直接使用，无需手动填写。
 
 ### 发布生产版本
 
