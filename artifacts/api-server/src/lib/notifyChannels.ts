@@ -57,19 +57,39 @@ export function getWebOrigin(): string {
 /**
  * Send invitation in-app notifications synchronously (one per invited OPC).
  * Idempotent — caller is expected to invoke after insert.
+ *
+ * Notification content includes track, required level, budget range, deadline
+ * and a one-click link to the demand detail page.
  */
 export async function sendInvitationInAppNotifications(args: {
   demandId: number;
   demandTitle: string;
+  catName?: string;
+  requiredTrackLevel?: string;
+  budget?: number | null;
+  deadline?: Date | string | null;
   invitedOpcIds: number[];
 }): Promise<void> {
   if (args.invitedOpcIds.length === 0) return;
+  const levelLabel = args.requiredTrackLevel ? (LEVEL_LABEL[args.requiredTrackLevel] ?? args.requiredTrackLevel) : null;
+  const dl = args.deadline ? new Date(args.deadline).toLocaleDateString("zh-CN") : null;
+  const ctaUrl = `${getWebOrigin()}/demands/${args.demandId}`;
+  const lines: string[] = [
+    `平台根据您的赛道认证，邀请您对需求「${args.demandTitle}」进行报价。`,
+  ];
+  if (args.catName) lines.push(`所属赛道：${args.catName}`);
+  if (levelLabel) lines.push(`要求认证等级：${levelLabel}`);
+  if (typeof args.budget === "number") lines.push(`预算：¥${args.budget.toLocaleString()}`);
+  if (dl) lines.push(`交付截止：${dl}`);
+  lines.push(`一键去报价：${ctaUrl}`);
+  const content = lines.join("\n");
+
   await db.insert(notificationsTable).values(
     args.invitedOpcIds.map(opcId => ({
       userId: opcId,
       type: "directed_invite" as const,
       title: "您收到一条邀请报价",
-      content: `平台根据您的赛道认证，邀请您对需求「${args.demandTitle}」进行报价。请尽快查看并提交报价。`,
+      content,
       relatedId: args.demandId,
       relatedType: "demand",
     })),

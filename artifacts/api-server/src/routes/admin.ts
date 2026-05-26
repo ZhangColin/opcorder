@@ -472,7 +472,8 @@ router.get("/admin/demands/:id", async (req, res) => {
       .orderBy(desc(demandPaymentsTable.createdAt))
       .limit(1);
 
-    // Auto-invitations for this demand, sorted by track level A→B→C then invitedAt
+    // Auto-invitations for this demand, sorted by track level A→B→C then invitedAt.
+    // `hasBid` flags whether the invited OPC has already submitted a bid on this demand.
     const invitationRows = await db
       .select({
         id: demandInvitationsTable.id,
@@ -484,6 +485,7 @@ router.get("/admin/demands/:id", async (req, res) => {
         source: demandInvitationsTable.source,
         invitedAt: demandInvitationsTable.invitedAt,
         emailedAt: demandInvitationsTable.emailedAt,
+        hasBid: sql<boolean>`EXISTS (SELECT 1 FROM ${bidsTable} WHERE ${bidsTable.demandId} = ${demandInvitationsTable.demandId} AND ${bidsTable.opcId} = ${demandInvitationsTable.opcId})`,
       })
       .from(demandInvitationsTable)
       .leftJoin(usersTable, eq(demandInvitationsTable.opcId, usersTable.id))
@@ -508,6 +510,7 @@ router.get("/admin/demands/:id", async (req, res) => {
         source: r.source,
         invitedAt: r.invitedAt.toISOString(),
         emailedAt: r.emailedAt ? r.emailedAt.toISOString() : null,
+        hasBid: Boolean(r.hasBid),
       })),
       payment: payment ? {
         id: payment.id,
@@ -658,14 +661,7 @@ router.patch("/admin/demands/:id", async (req, res) => {
             const newInvitees = invitees.filter(i => newOpcIds.has(i.userId));
 
             if (newInvitees.length > 0) {
-              // In-app notifications (sync, immediate) — only for newly inserted invitations
-              await sendInvitationInAppNotifications({
-                demandId: fullDemand.id,
-                demandTitle: fullDemand.title,
-                invitedOpcIds: newInvitees.map(i => i.userId),
-              });
-
-              // Resolve cat name for email body
+              // Resolve cat name once (used by both in-app + email content)
               let catName = "未指定赛道";
               if (fullDemand.catCategoryId) {
                 const [cat] = await db.select({ name: catCategoriesTable.name })
@@ -674,6 +670,17 @@ router.patch("/admin/demands/:id", async (req, res) => {
                   .limit(1);
                 if (cat?.name) catName = cat.name;
               }
+
+              // In-app notifications (sync) — enriched body: track / level / budget / deadline / one-click link
+              await sendInvitationInAppNotifications({
+                demandId: fullDemand.id,
+                demandTitle: fullDemand.title,
+                catName,
+                requiredTrackLevel: required,
+                budget: fullDemand.budget,
+                deadline: fullDemand.deadline,
+                invitedOpcIds: newInvitees.map(i => i.userId),
+              });
 
               // Email — async sequential 1.1s gap, non-blocking. Only newly invited OPCs.
               scheduleInvitationEmails({

@@ -1157,6 +1157,7 @@ interface AdminDemandInvitation {
   source: string;
   invitedAt: string;
   emailedAt: string | null;
+  hasBid: boolean;
 }
 
 interface AdminDemandDetail extends AdminDemand {
@@ -1802,6 +1803,11 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                             </span>
                             {inv.source === "auto" && (
                               <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary">自动</span>
+                            )}
+                            {inv.hasBid ? (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">已报价</span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-500">未报价</span>
                             )}
                           </div>
                           <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
