@@ -419,6 +419,38 @@ router.get("/admin/demands", async (req, res) => {
   }
 });
 
+router.get("/admin/demands/:id/bids", async (req, res) => {
+  try {
+    const id = Number(req.params.id as string);
+    const { opcProfilesTable } = await import("@workspace/db");
+    const rows = await db
+      .select({
+        id: bidsTable.id,
+        opcId: bidsTable.opcId,
+        opcNickname: usersTable.nickname,
+        opcAvatar: usersTable.avatar,
+        opcLevel: opcProfilesTable.level,
+        opcCreditScore: opcProfilesTable.creditScore,
+        opcAvgRating: opcProfilesTable.avgRating,
+        opcCompletedOrders: sql<number>`COALESCE((SELECT COUNT(*) FROM ${ordersTable} WHERE ${ordersTable.opcId} = ${bidsTable.opcId} AND ${ordersTable.status} = 'completed'), 0)`,
+        proposal: bidsTable.proposal,
+        estimatedDays: bidsTable.estimatedDays,
+        quotedPrice: bidsTable.quotedPrice,
+        status: bidsTable.status,
+        createdAt: bidsTable.createdAt,
+      })
+      .from(bidsTable)
+      .leftJoin(usersTable, eq(bidsTable.opcId, usersTable.id))
+      .leftJoin(opcProfilesTable, eq(bidsTable.opcId, opcProfilesTable.userId))
+      .where(eq(bidsTable.demandId, id))
+      .orderBy(desc(bidsTable.createdAt));
+    return res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch (err) {
+    logger.error({ err }, "[admin/demands/:id/bids]");
+    return res.status(500).json({ error: "获取抢单列表失败" });
+  }
+});
+
 router.get("/admin/demands/:id", async (req, res) => {
   try {
     const id = Number(req.params.id as string);
@@ -580,6 +612,13 @@ router.patch("/admin/demands/:id", async (req, res) => {
       await db.update(demandsTable).set({ status: "closed" }).where(eq(demandsTable.id, id));
     } else if (action === "revertToDraft") {
       await db.update(demandsTable).set({ status: "draft" }).where(eq(demandsTable.id, id));
+    } else if (action === "setOpcLevel") {
+      const value = (req.body as { value?: string }).value;
+      const validLevels = ["any", "C", "B", "A"];
+      if (!value || !validLevels.includes(value)) {
+        return res.status(400).json({ error: "无效的 OPC 等级" });
+      }
+      await db.update(demandsTable).set({ opcLevel: value }).where(eq(demandsTable.id, id));
     } else {
       return res.status(400).json({ error: "无效操作" });
     }

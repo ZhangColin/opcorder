@@ -1162,6 +1162,102 @@ const DEMAND_TYPE_CN: Record<string, string> = {
   education: "教育培训", software: "软件开发", marketing: "营销", content: "内容设计", other: "其他",
 };
 
+interface AdminDemandBid {
+  id: number;
+  opcId: number;
+  opcNickname: string | null;
+  opcAvatar: string | null;
+  opcLevel: string | null;
+  opcCreditScore: number | null;
+  opcAvgRating: number | null;
+  opcCompletedOrders: number;
+  proposal: string;
+  estimatedDays: number;
+  quotedPrice: number | null;
+  status: string;
+  createdAt: string;
+}
+
+function AdminDemandBidsList({ demandId }: { demandId: number }) {
+  const { data: bids, isLoading } = useQuery<AdminDemandBid[]>({
+    queryKey: ["admin-demand-bids", demandId],
+    queryFn: () => adminGet(`/api/admin/demands/${demandId}/bids`),
+  });
+
+  const statusCN: Record<string, string> = {
+    pending: "申请中", accepted: "已中标", rejected: "已拒绝", withdrawn: "已撤回",
+  };
+  const statusColor: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-700",
+    accepted: "bg-emerald-100 text-emerald-700",
+    rejected: "bg-slate-100 text-slate-500",
+    withdrawn: "bg-slate-100 text-slate-400",
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-bold text-slate-400 mb-2">
+        抢单情况{!isLoading && bids ? `（${bids.length} 个）` : ""}
+      </p>
+      {isLoading ? (
+        <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-center">
+          <Loader2 size={16} className="animate-spin text-primary" />
+        </div>
+      ) : !bids || bids.length === 0 ? (
+        <div className="bg-slate-50 rounded-xl p-4 text-center text-xs text-slate-400">
+          暂无 OPC 抢单
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {bids.map(b => (
+            <div key={b.id} className="bg-slate-50 rounded-xl p-3 space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0 overflow-hidden">
+                  {b.opcAvatar
+                    ? <img src={b.opcAvatar} alt={b.opcNickname ?? ""} className="w-full h-full object-cover" />
+                    : (b.opcNickname ?? "OC").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold text-blue-900 truncate">{b.opcNickname ?? `OPC #${b.opcId}`}</p>
+                    {b.opcLevel && (
+                      <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full">
+                        {b.opcLevel} 级
+                      </span>
+                    )}
+                    <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${statusColor[b.status] ?? "bg-slate-100 text-slate-500"}`}>
+                      {statusCN[b.status] ?? b.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
+                    <span>评分 {b.opcAvgRating != null ? Number(b.opcAvgRating).toFixed(1) : "—"}</span>
+                    <span>已完成 {b.opcCompletedOrders} 单</span>
+                    {b.opcCreditScore != null && <span>信用 {b.opcCreditScore}</span>}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-extrabold text-blue-900">
+                    {b.quotedPrice != null ? `¥${Number(b.quotedPrice).toLocaleString()}` : "—"}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{b.estimatedDays} 天交付</p>
+                </div>
+              </div>
+              {b.proposal && (
+                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap border-t border-slate-200 pt-2">
+                  {b.proposal}
+                </p>
+              )}
+              <p className="text-[10px] text-slate-400">
+                提交时间：{new Date(b.createdAt).toLocaleString("zh-CN")}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
   const { toast } = useToast();
   const { askConfirm, confirmDialog } = useConfirm();
@@ -1175,8 +1271,8 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const actionMut = useMutation({
-    mutationFn: ({ action, reason }: { action: string; reason?: string }) =>
-      adminPatch(`/api/admin/demands/${id}`, { action, reason }),
+    mutationFn: ({ action, reason, value }: { action: string; reason?: string; value?: string }) =>
+      adminPatch(`/api/admin/demands/${id}`, { action, reason, value }),
     onSuccess: () => {
       toast({ title: "操作成功" });
       refetch();
@@ -1571,7 +1667,17 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">OPC等级要求</p>
-                <p className="font-bold text-blue-900">{d.opcLevel === "any" ? "不限" : `${d.opcLevel} 级及以上`}</p>
+                <select
+                  value={d.opcLevel}
+                  onChange={e => actionMut.mutate({ action: "setOpcLevel", value: e.target.value })}
+                  disabled={actionMut.isPending}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                >
+                  <option value="any">不限</option>
+                  <option value="C">C 级及以上</option>
+                  <option value="B">B 级及以上</option>
+                  <option value="A">A 级</option>
+                </select>
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
@@ -1633,6 +1739,10 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 </div>
               </div>
             )}
+
+            {/* ── 抢单情况 ── */}
+            <AdminDemandBidsList demandId={id} />
+
 
             {/* ── Refund info ── */}
             {d.payment && ["refund_pending", "refunding", "refunded"].includes(d.status) && (

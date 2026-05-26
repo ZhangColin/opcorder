@@ -394,7 +394,6 @@ export default function PublisherCreateDemand() {
     if (!budgetMin || isNaN(Number(budgetMin)) || Number(budgetMin) <= 0) e.budget = "请填写最低预算金额";
     else if (!budgetMax || isNaN(Number(budgetMax)) || Number(budgetMax) <= 0) e.budget = "请填写最高预算金额";
     else if (Number(budgetMax) < Number(budgetMin)) e.budget = "最高预算不能低于最低预算";
-    else if (budgetCapError) e.budget = budgetCapError;
     if (!deadline) e.deadline = "请选择交付截止日期";
     else if (deadline < minDeadlineDate) e.deadline = "截止日期不能早于今天";
     if (mode === "open" && !bidDeadline) e.bidDeadline = "公开抢单模式须设置抢单截止时间";
@@ -790,38 +789,9 @@ export default function PublisherCreateDemand() {
           {/* ── Section 3: 匹配设置 ── */}
           <Section id="section-matching" title="匹配设置" subtitle="设置OPC等级要求和派单模式">
 
-            <FormField label="需求OPC等级" required>
-              <div className="grid grid-cols-2 gap-3">
-                {OPC_LEVELS.map(lvl => {
-                  const cap = LEVEL_BUDGET_CAP[lvl.value] ?? 200_000;
-                  const budgetNum = Number(budgetMax);
-                  const exceedsCap = budgetMax && !isNaN(budgetNum) && budgetNum > cap;
-                  const isSelected = opcLevel === lvl.value;
-                  return (
-                    <button
-                      key={lvl.value}
-                      type="button"
-                      onClick={() => setOpcLevel(lvl.value)}
-                      className={`p-4 rounded-xl border-2 text-left transition-all relative ${
-                        isSelected
-                          ? "border-primary bg-primary/5"
-                          : exceedsCap
-                          ? "border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed"
-                          : "border-slate-200 hover:border-primary/30 bg-white"
-                      }`}
-                    >
-                      <p className={`text-sm font-bold ${isSelected ? "text-primary" : "text-blue-900"}`}>
-                        {lvl.label}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">{lvl.desc}</p>
-                      {exceedsCap && !isSelected && (
-                        <p className="text-[10px] text-destructive font-semibold mt-1">预算超出上限</p>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </FormField>
+            {/* OPC 等级要求：在前台表单中隐藏，默认 "any"。
+                 若使用 AI 需求助手，setOpcLevel 仍会被调用并随提交一起发送，
+                 由管理员在后台审核阶段进行最终调整。 */}
 
             {catCategoryId && (
               <FormField
@@ -942,7 +912,7 @@ export default function PublisherCreateDemand() {
           {/* ── Section 4: 预算与时间 ── */}
           <Section id="section-budget" title="预算与时间" subtitle="设置项目预算范围和交付截止日期">
 
-            <FormField label="预算区间（元）" required error={budgetCapError || errors.budget}
+            <FormField label="预算区间（元）" required error={errors.budget}
               hint="设置合理的预算区间，OPC将在此范围内报价">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
