@@ -1581,24 +1581,6 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 021b failed in production: ${err}`);
   }
 
-  // Migration 021c: Reset all OPCs to 白银 (silver) credit level.
-  // Previous migration (021b) incorrectly mapped old A/B/C skill level to credit level.
-  // Credit level (白银/黄金/钻石/黑钻) is entirely separate from track skill certification;
-  // all OPCs start at 白银 regardless of their old level enum value.
-  try {
-    await db.execute(sql`
-      UPDATE opc_profiles op
-      SET credit_level_id = cl.id
-      FROM credit_levels cl
-      WHERE cl.code = 'silver'
-        AND op.credit_level_id != cl.id
-    `);
-    logger.info("Migration 021c: reset all opc credit_level_id to 白银 (silver)");
-  } catch (err) {
-    logger.warn({ err }, "Migration 021c: could not reset credit levels");
-    if (!isDev) throw new Error(`Migration 021c failed in production: ${err}`);
-  }
-
   // Migration 021d: Strip " OPC" suffix from credit level names.
   // 020d and 021b used names like "白银 OPC"; correct to "白银" / "黄金" / "钻石" / "黑钻".
   // Idempotent: only updates rows where the suffix is still present.
@@ -1672,26 +1654,6 @@ export async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.warn({ err }, "Migration 025a: could not add manually_granted column");
   }
-
-  // Migration 024a: clear auto-backfilled opc_track_certs rows.
-  // Only deletes rows where manually_granted IS NOT TRUE so that certs set by
-  // operations staff via the admin panel are preserved across restarts.
-  try {
-    await db.execute(sql`DELETE FROM opc_track_certs WHERE manually_granted IS NOT TRUE`);
-    logger.info("Migration 024a: cleared auto-backfilled opc_track_certs rows (manually_granted rows preserved)");
-  } catch (err) {
-    logger.warn({ err }, "Migration 024a: could not clear opc_track_certs");
-  }
-
-  // Migration 024b: superseded.
-  // This migration USED to UPDATE portfolios SET cat_category_id = NULL WHERE
-  // level_apply_status = 'approved'. It was intended as a one-shot reset of the
-  // bad backfill performed by migration 022a Step 1, but because it ran on
-  // every startup it kept wiping cat_category_id values that operations staff
-  // had manually re-assigned via the admin panel — making approved items show
-  // "赛道待确认" again after every API Server restart.
-  // Disabled. Do NOT re-enable as an unconditional UPDATE.
-  logger.info("Migration 024b: skipped (disabled — was repeatedly wiping admin-set cat_category_id)");
 
   // Migration 023a: create credit_rules and credit_transactions tables,
   // then seed default rules for the five action types.

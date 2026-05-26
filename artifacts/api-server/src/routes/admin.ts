@@ -1967,9 +1967,9 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     if ((result === "approved" || result === "downgraded") && effectiveCatId) {
       await db.execute(sql`
         INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at, manually_granted)
-        VALUES (${portfolio.userId}, ${effectiveCatId}, ${grantedLevel}, 'active', NOW(), FALSE)
+        VALUES (${portfolio.userId}, ${effectiveCatId}, ${grantedLevel}, 'active', NOW(), TRUE)
         ON CONFLICT (user_id, cat_category_id)
-        DO UPDATE SET level = EXCLUDED.level, certified_at = NOW(), manually_granted = FALSE
+        DO UPDATE SET level = EXCLUDED.level, certified_at = NOW(), manually_granted = TRUE
       `);
     }
 
