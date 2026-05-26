@@ -1783,5 +1783,27 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 023a step 3: could not create credit_transactions table");
   }
 
+  // Migration 026a: create demand_invitations table for auto-invite-on-approve feature
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS demand_invitations (
+        id           SERIAL PRIMARY KEY,
+        demand_id    INTEGER NOT NULL REFERENCES demands(id) ON DELETE CASCADE,
+        opc_id       INTEGER NOT NULL REFERENCES users(id),
+        track_level  VARCHAR(1) NOT NULL,
+        source       VARCHAR(20) NOT NULL DEFAULT 'auto',
+        invited_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        emailed_at   TIMESTAMP,
+        CONSTRAINT demand_invitations_demand_opc_uniq UNIQUE (demand_id, opc_id)
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS demand_invitations_demand_idx ON demand_invitations(demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS demand_invitations_opc_idx ON demand_invitations(opc_id)`);
+    logger.info("Migration 026a: ensured demand_invitations table exists");
+  } catch (err) {
+    logger.warn({ err }, "Migration 026a: could not create demand_invitations table");
+    if (!isDev) throw new Error(`Migration 026a failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

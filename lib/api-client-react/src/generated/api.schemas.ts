@@ -419,12 +419,19 @@ export interface BidApplication {
   quoteCardSnapshot?: Record<string, unknown> | null;
   status: BidApplicationStatus;
   createdAt: string;
+  isInvited?: boolean;
+  invitedTrackLevel?: string | null;
 }
 
 export interface CreateBidInput {
-  proposal: string;
+  /** Free-text proposal (optional when quoteCardData is provided) */
+  proposal?: string;
   estimatedDays: number;
   portfolioLinks?: string[];
+  /** Structured quote card selections: dimension code → tier code (e.g. { D1: "M", C2: "L" }) */
+  quoteCardData?: Record<string, string>;
+  /** Total quoted price in yuan, calculated from quoteCardData selections */
+  quotedPrice?: number;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];

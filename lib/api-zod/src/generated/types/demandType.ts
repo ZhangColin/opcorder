@@ -9,9 +9,11 @@
 export type DemandType = (typeof DemandType)[keyof typeof DemandType];
 
 export const DemandType = {
-  education: "education",
-  software: "software",
-  marketing: "marketing",
-  content: "content",
+  ai_education: "ai_education",
+  gov_training: "gov_training",
+  ai_research: "ai_research",
+  party_building: "party_building",
+  livestream_media: "livestream_media",
+  ai_tool_dev: "ai_tool_dev",
   other: "other",
 } as const;

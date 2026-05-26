@@ -121,6 +121,7 @@ router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
   try {
     const demandId = parseInt(req.params.demandId as string);
     const { sql } = await import("drizzle-orm");
+    const { demandInvitationsTable } = await import("@workspace/db");
     const bids = await db
       .select({
         id: bidsTable.id,
@@ -140,14 +141,29 @@ router.get("/demands/:demandId/bids", requireAuth, async (req, res) => {
         quotedPrice: bidsTable.quotedPrice,
         status: bidsTable.status,
         createdAt: bidsTable.createdAt,
+        invitedTrackLevel: demandInvitationsTable.trackLevel,
       })
       .from(bidsTable)
       .leftJoin(usersTable, eq(bidsTable.opcId, usersTable.id))
       .leftJoin(opcProfilesTable, eq(bidsTable.opcId, opcProfilesTable.userId))
-      .where(eq(bidsTable.demandId, demandId));
+      .leftJoin(
+        demandInvitationsTable,
+        sql`${demandInvitationsTable.demandId} = ${bidsTable.demandId} AND ${demandInvitationsTable.opcId} = ${bidsTable.opcId}`,
+      )
+      .where(eq(bidsTable.demandId, demandId))
+      .orderBy(
+        // Invited OPCs first (rows with non-null invitedTrackLevel)
+        sql`CASE WHEN ${demandInvitationsTable.trackLevel} IS NULL THEN 1 ELSE 0 END ASC`,
+        // Then by invited track level A→B→C
+        sql`CASE ${demandInvitationsTable.trackLevel} WHEN 'A' THEN 3 WHEN 'B' THEN 2 WHEN 'C' THEN 1 ELSE 0 END DESC`,
+        // Then by bid createdAt (oldest first)
+        bidsTable.createdAt,
+      );
 
     return res.json(bids.map(b => ({
       ...b,
+      isInvited: b.invitedTrackLevel != null,
+      invitedTrackLevel: b.invitedTrackLevel,
       createdAt: b.createdAt.toISOString(),
     })));
   } catch (error) {

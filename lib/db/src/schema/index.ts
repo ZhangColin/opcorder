@@ -30,3 +30,4 @@ export * from "./credit-transactions";
 export * from "./opc-track-certs";
 export * from "./opc-user-cat-tags";
 export * from "./portfolio-review-logs";
+export * from "./demand-invitations";

@@ -2200,6 +2200,13 @@ components:
         createdAt:
           type: string
           format: date-time
+        isInvited:
+          type: boolean
+          description: Whether this OPC was auto-invited to bid on this demand
+        invitedTrackLevel:
+          type: string
+          nullable: true
+          description: Track level (A/B/C) at which this OPC was invited; null if not invited
       required:
         - id
         - demandId

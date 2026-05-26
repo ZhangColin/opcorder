@@ -507,6 +507,14 @@ export default function PublisherDemandDetail() {
   const processedBids = bids.filter((b: BidApplication) => b.status !== "pending");
   const LEVEL_ORDER: Record<string, number> = { A: 3, B: 2, C: 1 };
   const sortedPendingBids = [...pendingBids].sort((a: BidApplication, b: BidApplication) => {
+    // 在所有排序模式下，受邀 OPC 优先；其次按邀请赛道等级 A→B→C；其次按选定排序条件
+    const aInv = a.isInvited ? 1 : 0;
+    const bInv = b.isInvited ? 1 : 0;
+    if (aInv !== bInv) return bInv - aInv;
+    if (aInv && bInv) {
+      const lvlDiff = (LEVEL_ORDER[b.invitedTrackLevel ?? ""] ?? 0) - (LEVEL_ORDER[a.invitedTrackLevel ?? ""] ?? 0);
+      if (lvlDiff !== 0) return lvlDiff;
+    }
     switch (bidSortBy) {
       case "price": {
         const pa = (a.quotedPrice ?? 0) as number;
@@ -519,7 +527,7 @@ export default function PublisherDemandDetail() {
       case "days": return (a.estimatedDays ?? 999) - (b.estimatedDays ?? 999);
       case "level": return (LEVEL_ORDER[b.opcLevel ?? ""] ?? 0) - (LEVEL_ORDER[a.opcLevel ?? ""] ?? 0);
       case "score": return ((b.opcCreditScore ?? 0) as number) - ((a.opcCreditScore ?? 0) as number);
-      default: return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      default: return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     }
   });
 
@@ -1012,6 +1020,14 @@ export default function PublisherDemandDetail() {
                                     {bid.opcLevel && (
                                       <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${OPC_LEVEL_COLOR[bid.opcLevel] ?? "bg-slate-100 text-slate-600"}`}>
                                         {bid.opcLevel}级
+                                      </span>
+                                    )}
+                                    {bid.isInvited && (
+                                      <span
+                                        className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30"
+                                        title={bid.invitedTrackLevel ? `平台按 ${bid.invitedTrackLevel} 级赛道认证邀请` : "平台邀请"}
+                                      >
+                                        受邀{bid.invitedTrackLevel ? `·${bid.invitedTrackLevel}` : ""}
                                       </span>
                                     )}
                                   </div>

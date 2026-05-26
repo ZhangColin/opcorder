@@ -1147,6 +1147,18 @@ interface AdminDemandPayment {
   receiptUrl: string | null;
 }
 
+interface AdminDemandInvitation {
+  id: number;
+  opcId: number;
+  opcNickname: string | null;
+  opcAvatar: string | null;
+  opcEmail: string | null;
+  trackLevel: string;
+  source: string;
+  invitedAt: string;
+  emailedAt: string | null;
+}
+
 interface AdminDemandDetail extends AdminDemand {
   description: string;
   type: string;
@@ -1160,6 +1172,7 @@ interface AdminDemandDetail extends AdminDemand {
   publisherPhone: string | null;
   rejectionReason: string | null;
   payment: AdminDemandPayment | null;
+  invitations?: AdminDemandInvitation[];
 }
 
 const DEMAND_TYPE_CN: Record<string, string> = {
@@ -1760,6 +1773,48 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
 
             {/* ── 抢单情况 ── */}
             <AdminDemandBidsList demandId={id} />
+
+            {/* ── 平台自动邀请（按赛道认证） ── */}
+            {d.invitations && d.invitations.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-slate-400 mb-2">
+                  平台自动邀请（{d.invitations.length} 位 OPC）
+                </p>
+                <div className="space-y-2">
+                  {d.invitations.map(inv => {
+                    const lvlColor: Record<string, string> = {
+                      A: "bg-amber-100 text-amber-700 border-amber-300",
+                      B: "bg-sky-100 text-sky-700 border-sky-300",
+                      C: "bg-slate-100 text-slate-600 border-slate-300",
+                    };
+                    return (
+                      <div key={inv.id} className="bg-slate-50 rounded-xl p-3 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0 overflow-hidden">
+                          {inv.opcAvatar
+                            ? <img src={inv.opcAvatar} alt={inv.opcNickname ?? ""} className="w-full h-full object-cover" />
+                            : (inv.opcNickname ?? "OC").slice(0, 2)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-bold text-blue-900 truncate">{inv.opcNickname ?? `OPC #${inv.opcId}`}</p>
+                            <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full border ${lvlColor[inv.trackLevel] ?? "bg-slate-100 text-slate-600 border-slate-300"}`}>
+                              {inv.trackLevel} 级赛道
+                            </span>
+                            {inv.source === "auto" && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary">自动</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
+                            <span>邀请：{new Date(inv.invitedAt).toLocaleString("zh-CN")}</span>
+                            <span>{inv.emailedAt ? `邮件已发：${new Date(inv.emailedAt).toLocaleString("zh-CN")}` : "邮件待发送"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
 
             {/* ── Refund info ── */}

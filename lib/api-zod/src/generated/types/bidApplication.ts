@@ -21,4 +21,6 @@ export interface BidApplication {
   portfolioLinks?: string[];
   status: BidApplicationStatus;
   createdAt: Date;
+  isInvited?: boolean;
+  invitedTrackLevel?: string | null;
 }
