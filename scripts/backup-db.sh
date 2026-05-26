@@ -1,9 +1,9 @@
 #!/bin/bash
 # backup-db.sh — Create a compressed PostgreSQL backup and clean up old files.
 # Usage:  bash scripts/backup-db.sh
-# Env:    DATABASE_URL  (required)
-#         BACKUP_DIR    (optional, default: backups)
-#         RETENTION_DAYS (optional, default: 30)
+# Env:    PROD_DATABASE_URL  (required) — 生产数据库连接地址
+#         BACKUP_DIR         (optional, default: backups)
+#         RETENTION_DAYS     (optional, default: 30)
 
 set -euo pipefail
 
@@ -12,10 +12,12 @@ RETENTION_DAYS="${RETENTION_DAYS:-30}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 FILENAME="${BACKUP_DIR}/db_backup_${TIMESTAMP}.sql.gz"
 
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "[backup] ERROR: DATABASE_URL is not set" >&2
+if [ -z "${PROD_DATABASE_URL:-}" ]; then
+  echo "[backup] ERROR: PROD_DATABASE_URL is not set. 备份必须使用生产数据库地址。" >&2
   exit 1
 fi
+
+DATABASE_URL="$PROD_DATABASE_URL"
 
 mkdir -p "$BACKUP_DIR"
 
