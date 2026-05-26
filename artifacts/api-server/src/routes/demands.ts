@@ -351,6 +351,13 @@ router.put("/demands/:demandId", requireAuth, async (req, res) => {
     if (body.skillTags !== undefined) updateData.skillTags = body.skillTags;
     if (body.opcLevel !== undefined) updateData.opcLevel = body.opcLevel;
     if (body.budget !== undefined) updateData.budget = body.budget;
+    if (body.budgetMin !== undefined) updateData.budgetMin = body.budgetMin;
+    if (body.budgetMax !== undefined) {
+      updateData.budgetMax = body.budgetMax;
+      // Keep legacy `budget` in sync with the high end of the range so any
+      // legacy code paths (settlement, settlement preview, etc.) stay correct.
+      if (body.budget === undefined) updateData.budget = body.budgetMax;
+    }
     if (body.deadline !== undefined) updateData.deadline = body.deadline;
     if (body.milestones !== undefined) updateData.milestones = body.milestones;
     if (body.bidDeadline !== undefined) updateData.bidDeadline = new Date(body.bidDeadline);
