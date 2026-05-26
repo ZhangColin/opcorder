@@ -1723,9 +1723,18 @@ router.get("/admin/level-certs", async (req, res) => {
         p.reviewed_at,
         p.created_at,
         p.cat_category_id,
-        cc.id   AS effective_cat_category_id,
-        cc.name AS effective_cat_category_name,
-        FALSE   AS cat_inferred,
+        COALESCE(
+          p.cat_category_id,
+          (SELECT otc.cat_category_id FROM opc_track_certs otc
+            WHERE otc.user_id = p.user_id AND otc.status = 'approved'
+            ORDER BY otc.granted_at DESC NULLS LAST, otc.id DESC LIMIT 1),
+          (SELECT p3.cat_category_id FROM portfolios p3
+            WHERE p3.user_id = p.user_id AND p3.cat_category_id IS NOT NULL
+              AND p3.level_apply_status = 'approved'
+            ORDER BY p3.reviewed_at DESC NULLS LAST, p3.id DESC LIMIT 1)
+        ) AS effective_cat_category_id,
+        cc_eff.name AS effective_cat_category_name,
+        (p.cat_category_id IS NULL AND cc_eff.id IS NOT NULL) AS cat_inferred,
         u.id AS user_id,
         u.nickname,
         u.email,
@@ -1733,7 +1742,7 @@ router.get("/admin/level-certs", async (req, res) => {
         op.credit_score,
         (SELECT otc.level FROM opc_track_certs otc
           WHERE otc.user_id = p.user_id
-            AND otc.cat_category_id = p.cat_category_id
+            AND otc.cat_category_id = COALESCE(p.cat_category_id, cc_eff.id)
             AND otc.status = 'approved'
           LIMIT 1) AS track_current_level,
         (SELECT COUNT(*)::int FROM portfolios p2
@@ -1761,7 +1770,18 @@ router.get("/admin/level-certs", async (req, res) => {
       FROM portfolios p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN opc_profiles op ON op.user_id = p.user_id
-      LEFT JOIN cat_categories cc ON cc.id = p.cat_category_id
+      LEFT JOIN LATERAL (
+        SELECT cc.id, cc.name FROM cat_categories cc WHERE cc.id = COALESCE(
+          p.cat_category_id,
+          (SELECT otc.cat_category_id FROM opc_track_certs otc
+            WHERE otc.user_id = p.user_id AND otc.status = 'approved'
+            ORDER BY otc.granted_at DESC NULLS LAST, otc.id DESC LIMIT 1),
+          (SELECT p3.cat_category_id FROM portfolios p3
+            WHERE p3.user_id = p.user_id AND p3.cat_category_id IS NOT NULL
+              AND p3.level_apply_status = 'approved'
+            ORDER BY p3.reviewed_at DESC NULLS LAST, p3.id DESC LIMIT 1)
+        ) LIMIT 1
+      ) cc_eff ON TRUE
       WHERE p.apply_level IS NOT NULL ${statusClause} ${catClause}
       ORDER BY
         CASE p.level_apply_status WHEN 'pending' THEN 0 ELSE 1 END,
