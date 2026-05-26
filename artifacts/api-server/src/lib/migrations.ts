@@ -1581,24 +1581,6 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 021b failed in production: ${err}`);
   }
 
-  // Migration 021c: Reset all OPCs to 白银 (silver) credit level.
-  // Previous migration (021b) incorrectly mapped old A/B/C skill level to credit level.
-  // Credit level (白银/黄金/钻石/黑钻) is entirely separate from track skill certification;
-  // all OPCs start at 白银 regardless of their old level enum value.
-  try {
-    await db.execute(sql`
-      UPDATE opc_profiles op
-      SET credit_level_id = cl.id
-      FROM credit_levels cl
-      WHERE cl.code = 'silver'
-        AND op.credit_level_id != cl.id
-    `);
-    logger.info("Migration 021c: reset all opc credit_level_id to 白银 (silver)");
-  } catch (err) {
-    logger.warn({ err }, "Migration 021c: could not reset credit levels");
-    if (!isDev) throw new Error(`Migration 021c failed in production: ${err}`);
-  }
-
   // Migration 021d: Strip " OPC" suffix from credit level names.
   // 020d and 021b used names like "白银 OPC"; correct to "白银" / "黄金" / "钻石" / "黑钻".
   // Idempotent: only updates rows where the suffix is still present.
@@ -1671,32 +1653,6 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 025a: ensured opc_track_certs.manually_granted column exists");
   } catch (err) {
     logger.warn({ err }, "Migration 025a: could not add manually_granted column");
-  }
-
-  // Migration 024a: clear auto-backfilled opc_track_certs rows.
-  // Only deletes rows where manually_granted IS NOT TRUE so that certs set by
-  // operations staff via the admin panel are preserved across restarts.
-  try {
-    await db.execute(sql`DELETE FROM opc_track_certs WHERE manually_granted IS NOT TRUE`);
-    logger.info("Migration 024a: cleared auto-backfilled opc_track_certs rows (manually_granted rows preserved)");
-  } catch (err) {
-    logger.warn({ err }, "Migration 024a: could not clear opc_track_certs");
-  }
-
-  // Migration 024b: clear auto-backfilled cat_category_id from approved portfolios.
-  // Migration 022a Step 1 inferred cat_category_id from the old type field for approved
-  // portfolios — this inference was incorrect. Reset to NULL so operations staff can
-  // manually assign the correct track category via the admin panel.
-  try {
-    await db.execute(sql`
-      UPDATE portfolios
-      SET cat_category_id = NULL
-      WHERE level_apply_status = 'approved'
-        AND cat_category_id IS NOT NULL
-    `);
-    logger.info("Migration 024b: cleared auto-backfilled cat_category_id from approved portfolios");
-  } catch (err) {
-    logger.warn({ err }, "Migration 024b: could not clear cat_category_id from portfolios");
   }
 
   // Migration 023a: create credit_rules and credit_transactions tables,
@@ -1781,6 +1737,28 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 023a step 3: created credit_transactions table");
   } catch (err) {
     logger.warn({ err }, "Migration 023a step 3: could not create credit_transactions table");
+  }
+
+  // Migration 026a: create demand_invitations table for auto-invite-on-approve feature
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS demand_invitations (
+        id           SERIAL PRIMARY KEY,
+        demand_id    INTEGER NOT NULL REFERENCES demands(id) ON DELETE CASCADE,
+        opc_id       INTEGER NOT NULL REFERENCES users(id),
+        track_level  VARCHAR(1) NOT NULL,
+        source       VARCHAR(20) NOT NULL DEFAULT 'auto',
+        invited_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        emailed_at   TIMESTAMP,
+        CONSTRAINT demand_invitations_demand_opc_uniq UNIQUE (demand_id, opc_id)
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS demand_invitations_demand_idx ON demand_invitations(demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS demand_invitations_opc_idx ON demand_invitations(opc_id)`);
+    logger.info("Migration 026a: ensured demand_invitations table exists");
+  } catch (err) {
+    logger.warn({ err }, "Migration 026a: could not create demand_invitations table");
+    if (!isDev) throw new Error(`Migration 026a failed in production: ${err}`);
   }
 
   logger.info("Startup data migrations complete.");

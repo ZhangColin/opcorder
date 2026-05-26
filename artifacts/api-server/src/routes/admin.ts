@@ -1,12 +1,14 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
 import { ReviewDemandPaymentBody, PutQuoteCardConfigBody, CreateQuoteDimensionBody, UpdateQuoteDimensionBody, CreateQuoteTierBody, UpdateQuoteTierBody } from "@workspace/api-zod";
 import { createRefund } from "../lib/payment";
 import { callLLM } from "../lib/llm";
+import { selectInvitedOpcs } from "../lib/selectInvitedOpcs";
+import { sendInvitationInAppNotifications, scheduleInvitationEmails, scheduleInvitationSms } from "../lib/notifyChannels";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 
@@ -470,11 +472,46 @@ router.get("/admin/demands/:id", async (req, res) => {
       .orderBy(desc(demandPaymentsTable.createdAt))
       .limit(1);
 
+    // Auto-invitations for this demand, sorted by track level A→B→C then invitedAt.
+    // `hasBid` flags whether the invited OPC has already submitted a bid on this demand.
+    const invitationRows = await db
+      .select({
+        id: demandInvitationsTable.id,
+        opcId: demandInvitationsTable.opcId,
+        opcNickname: usersTable.nickname,
+        opcAvatar: usersTable.avatar,
+        opcEmail: usersTable.email,
+        trackLevel: demandInvitationsTable.trackLevel,
+        source: demandInvitationsTable.source,
+        invitedAt: demandInvitationsTable.invitedAt,
+        emailedAt: demandInvitationsTable.emailedAt,
+        hasBid: sql<boolean>`EXISTS (SELECT 1 FROM ${bidsTable} WHERE ${bidsTable.demandId} = ${demandInvitationsTable.demandId} AND ${bidsTable.opcId} = ${demandInvitationsTable.opcId})`,
+      })
+      .from(demandInvitationsTable)
+      .leftJoin(usersTable, eq(demandInvitationsTable.opcId, usersTable.id))
+      .where(eq(demandInvitationsTable.demandId, id))
+      .orderBy(
+        sql`CASE ${demandInvitationsTable.trackLevel} WHEN 'A' THEN 3 WHEN 'B' THEN 2 WHEN 'C' THEN 1 ELSE 0 END DESC`,
+        asc(demandInvitationsTable.invitedAt),
+      );
+
     return res.json({
       ...d,
       publisherName: pub?.nickname ?? "—",
       publisherEmail: pub?.email ?? null,
       publisherPhone: pub?.phone ?? null,
+      invitations: invitationRows.map(r => ({
+        id: r.id,
+        opcId: r.opcId,
+        opcNickname: r.opcNickname,
+        opcAvatar: r.opcAvatar,
+        opcEmail: r.opcEmail,
+        trackLevel: r.trackLevel,
+        source: r.source,
+        invitedAt: r.invitedAt.toISOString(),
+        emailedAt: r.emailedAt ? r.emailedAt.toISOString() : null,
+        hasBid: Boolean(r.hasBid),
+      })),
       payment: payment ? {
         id: payment.id,
         method: payment.method,
@@ -582,6 +619,102 @@ router.patch("/admin/demands/:id", async (req, res) => {
           subject: "您的需求已通过审核并发布 - 接单吧",
           html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布。\n\nOPC 将根据您的需求提交结构化报价卡，您可以在平台上对比各家报价后选择最合适的 OPC。`),
         }).catch(() => {/* ignore email errors */});
+      }
+
+      // Auto-invite up to 7 OPCs based on cat_category + required track level.
+      // Skip if directed-invite mode or no catCategoryId.
+      try {
+        const [fullDemand] = await db
+          .select({
+            id: demandsTable.id,
+            title: demandsTable.title,
+            mode: demandsTable.mode,
+            catCategoryId: demandsTable.catCategoryId,
+            requiredTrackLevel: demandsTable.requiredTrackLevel,
+            budget: demandsTable.budget,
+            budgetMin: demandsTable.budgetMin,
+            budgetMax: demandsTable.budgetMax,
+            deadline: demandsTable.deadline,
+            bidDeadline: demandsTable.bidDeadline,
+            publisherId: demandsTable.publisherId,
+          })
+          .from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
+
+        if (fullDemand && fullDemand.mode !== "directed" && fullDemand.catCategoryId) {
+          const required = (fullDemand.requiredTrackLevel ?? "any") as "any" | "C" | "B" | "A";
+          const invitees = await selectInvitedOpcs({
+            catCategoryId: fullDemand.catCategoryId,
+            requiredTrackLevel: required,
+            publisherId: fullDemand.publisherId,
+          });
+
+          if (invitees.length > 0) {
+            // Persist invitations (skip duplicates if already invited).
+            // `.returning()` only returns rows actually inserted, so re-approves don't re-notify.
+            const inserted = await db.insert(demandInvitationsTable).values(
+              invitees.map(i => ({
+                demandId: fullDemand.id,
+                opcId: i.userId,
+                trackLevel: i.trackLevel,
+                source: "auto",
+              })),
+            ).onConflictDoNothing().returning({ opcId: demandInvitationsTable.opcId });
+
+            const newOpcIds = new Set(inserted.map(r => r.opcId));
+            const newInvitees = invitees.filter(i => newOpcIds.has(i.userId));
+
+            if (newInvitees.length > 0) {
+              // Resolve cat name once (used by both in-app + email content)
+              let catName = "未指定赛道";
+              if (fullDemand.catCategoryId) {
+                const [cat] = await db.select({ name: catCategoriesTable.name })
+                  .from(catCategoriesTable)
+                  .where(eq(catCategoriesTable.id, fullDemand.catCategoryId))
+                  .limit(1);
+                if (cat?.name) catName = cat.name;
+              }
+
+              const channelArgs = {
+                demandId: fullDemand.id,
+                demandTitle: fullDemand.title,
+                catName,
+                requiredTrackLevel: required,
+                budget: fullDemand.budget,
+                budgetMin: fullDemand.budgetMin,
+                budgetMax: fullDemand.budgetMax,
+                deadline: fullDemand.deadline,
+                bidDeadline: fullDemand.bidDeadline,
+              };
+
+              // In-app notifications (sync) — enriched body: track / level / budget range / delivery+bid deadlines / one-click link
+              try {
+                await sendInvitationInAppNotifications({
+                  ...channelArgs,
+                  invitedOpcIds: newInvitees.map(i => i.userId),
+                });
+              } catch (notifyErr) {
+                logger.warn({ err: notifyErr, demandId: id }, "Invitation in-app notify failed");
+                await writeSystemLog("error", "demand_invitation",
+                  `站内信下发失败 demand=${id}`,
+                  { demandId: id, opcIds: newInvitees.map(i => i.userId), error: String(notifyErr) });
+              }
+
+              // Email — async sequential 1.1s gap, non-blocking. Only newly invited OPCs.
+              scheduleInvitationEmails({
+                ...channelArgs,
+                invitees: newInvitees.map(i => ({ userId: i.userId, email: i.email, nickname: i.nickname })),
+              });
+
+              // SMS — reserved no-op
+              scheduleInvitationSms({ demandId: fullDemand.id, invitees: newInvitees });
+            }
+          }
+        }
+      } catch (inviteErr) {
+        logger.warn({ err: inviteErr, demandId: id }, "Auto-invite on approve failed (non-blocking)");
+        await writeSystemLog("error", "demand_invitation",
+          `自动邀请流程失败 demand=${id}`,
+          { demandId: id, error: String(inviteErr) });
       }
     } else if (action === "reject") {
       if (!reason?.trim()) {
@@ -1834,9 +1967,9 @@ router.post("/admin/level-certs/:portfolioId/review", async (req, res) => {
     if ((result === "approved" || result === "downgraded") && effectiveCatId) {
       await db.execute(sql`
         INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at, manually_granted)
-        VALUES (${portfolio.userId}, ${effectiveCatId}, ${grantedLevel}, 'active', NOW(), FALSE)
+        VALUES (${portfolio.userId}, ${effectiveCatId}, ${grantedLevel}, 'active', NOW(), TRUE)
         ON CONFLICT (user_id, cat_category_id)
-        DO UPDATE SET level = EXCLUDED.level, certified_at = NOW(), manually_granted = FALSE
+        DO UPDATE SET level = EXCLUDED.level, certified_at = NOW(), manually_granted = TRUE
       `);
     }
 

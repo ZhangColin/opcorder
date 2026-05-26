@@ -507,6 +507,14 @@ export default function PublisherDemandDetail() {
   const processedBids = bids.filter((b: BidApplication) => b.status !== "pending");
   const LEVEL_ORDER: Record<string, number> = { A: 3, B: 2, C: 1 };
   const sortedPendingBids = [...pendingBids].sort((a: BidApplication, b: BidApplication) => {
+    // 在所有排序模式下，受邀 OPC 优先；其次按邀请赛道等级 A→B→C；其次按选定排序条件
+    const aInv = a.isInvited ? 1 : 0;
+    const bInv = b.isInvited ? 1 : 0;
+    if (aInv !== bInv) return bInv - aInv;
+    if (aInv && bInv) {
+      const lvlDiff = (LEVEL_ORDER[b.invitedTrackLevel ?? ""] ?? 0) - (LEVEL_ORDER[a.invitedTrackLevel ?? ""] ?? 0);
+      if (lvlDiff !== 0) return lvlDiff;
+    }
     switch (bidSortBy) {
       case "price": {
         const pa = (a.quotedPrice ?? 0) as number;
@@ -519,7 +527,7 @@ export default function PublisherDemandDetail() {
       case "days": return (a.estimatedDays ?? 999) - (b.estimatedDays ?? 999);
       case "level": return (LEVEL_ORDER[b.opcLevel ?? ""] ?? 0) - (LEVEL_ORDER[a.opcLevel ?? ""] ?? 0);
       case "score": return ((b.opcCreditScore ?? 0) as number) - ((a.opcCreditScore ?? 0) as number);
-      default: return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      default: return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     }
   });
 
@@ -603,13 +611,13 @@ export default function PublisherDemandDetail() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-slate-400 mb-1">预算区间</p>
-                    {demand.budgetMin && demand.budgetMax ? (
+                    {demand.budgetMin && demand.budgetMax && Number(demand.budgetMin) !== Number(demand.budgetMax) ? (
                       <p className="text-xl font-extrabold text-primary">
                         ¥{Number(demand.budgetMin).toLocaleString()}<span className="text-slate-400 font-normal mx-1">~</span>¥{Number(demand.budgetMax).toLocaleString()}
                       </p>
                     ) : (
                       <p className="text-2xl font-extrabold text-primary">
-                        ¥{demand.budget?.toLocaleString() ?? "面议"}
+                        ¥{Number(demand.budgetMin ?? demand.budget ?? 0).toLocaleString()}
                       </p>
                     )}
                     <p className="text-xs text-slate-400 mt-1 flex items-center justify-end gap-1">

@@ -351,6 +351,13 @@ router.put("/demands/:demandId", requireAuth, async (req, res) => {
     if (body.skillTags !== undefined) updateData.skillTags = body.skillTags;
     if (body.opcLevel !== undefined) updateData.opcLevel = body.opcLevel;
     if (body.budget !== undefined) updateData.budget = body.budget;
+    if (body.budgetMin !== undefined) updateData.budgetMin = body.budgetMin;
+    if (body.budgetMax !== undefined) {
+      updateData.budgetMax = body.budgetMax;
+      // Keep legacy `budget` in sync with the high end of the range so any
+      // legacy code paths (settlement, settlement preview, etc.) stay correct.
+      if (body.budget === undefined) updateData.budget = body.budgetMax;
+    }
     if (body.deadline !== undefined) updateData.deadline = body.deadline;
     if (body.milestones !== undefined) updateData.milestones = body.milestones;
     if (body.bidDeadline !== undefined) updateData.bidDeadline = new Date(body.bidDeadline);
@@ -400,7 +407,7 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
 
     // Look up the demand for ownership and transition validation
     const [existing] = await db
-      .select({ publisherId: demandsTable.publisherId, status: demandsTable.status, title: demandsTable.title, description: demandsTable.description })
+      .select({ publisherId: demandsTable.publisherId, status: demandsTable.status, title: demandsTable.title, description: demandsTable.description, milestones: demandsTable.milestones })
       .from(demandsTable)
       .where(eq(demandsTable.id, demandId))
       .limit(1);
@@ -419,6 +426,14 @@ router.patch("/demands/:demandId/status", requireAuth, async (req, res) => {
         return res.status(400).json({
           error: `状态 "${existing.status}" 不允许直接变更为 "${body.status}"`,
         });
+      }
+    }
+
+    // Submitting for review requires at least one milestone
+    if (body.status === "pending_review") {
+      const ms = Array.isArray(existing.milestones) ? existing.milestones : [];
+      if (ms.length === 0) {
+        return res.status(400).json({ error: "提交审核前请至少添加一个里程碑节点" });
       }
     }
 

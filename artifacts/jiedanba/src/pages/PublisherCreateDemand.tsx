@@ -398,6 +398,7 @@ export default function PublisherCreateDemand() {
     else if (deadline < minDeadlineDate) e.deadline = "截止日期不能早于今天";
     if (mode === "open" && !bidDeadline) e.bidDeadline = "公开抢单模式须设置抢单截止时间";
     if (mode === "directed" && directedOpcIds.length === 0) e.directedOpcIds = "定向派单模式须选择目标OPC";
+    if (milestones.length === 0) e.milestones = "请至少添加一个里程碑节点";
     milestones.forEach((m, i) => {
       if (!m.name.trim()) e[`ms_name_${i}`] = "里程碑名称不能为空";
       if (!m.deadline) e[`ms_deadline_${i}`] = "里程碑截止日期不能为空";
@@ -442,7 +443,8 @@ export default function PublisherCreateDemand() {
       if (!deadline) currentErrors.deadline = "请选择交付截止日期";
       if (mode === "open" && !bidDeadline) currentErrors.bidDeadline = "请设置抢单截止时间";
       if (mode === "directed" && directedOpcIds.length === 0) currentErrors.directedOpcIds = "请选择目标OPC";
-      const ordered = ["title", "type", "description", "skillTags", "budget", "deadline", "bidDeadline", "directedOpcIds"];
+      if (milestones.length === 0) currentErrors.milestones = "请至少添加一个里程碑节点";
+      const ordered = ["title", "type", "description", "skillTags", "budget", "deadline", "bidDeadline", "directedOpcIds", "milestones"];
       const firstMsg = ordered.map(k => currentErrors[k]).find(Boolean);
       toast({ title: firstMsg ?? "请填写完整", description: "请按提示填写所有必填项", variant: "destructive" });
       return;
@@ -934,11 +936,16 @@ export default function PublisherCreateDemand() {
           </Section>
 
           {/* ── Section 5: 里程碑（选填）── */}
-          <Section id="section-milestones" title="里程碑节点" subtitle="选填：拆解项目执行阶段，便于过程管理和分期付款">
+          <Section id="section-milestones" title="里程碑节点" subtitle="必填：至少添加一个里程碑节点，便于过程管理和分期付款">
 
             {milestones.length === 0 ? (
-              <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
-                <p className="text-slate-400 text-sm mb-3">暂未添加里程碑节点</p>
+              <div
+                data-field-error={errors.milestones ? "true" : undefined}
+                className={`text-center py-8 border-2 border-dashed rounded-xl ${errors.milestones ? "border-destructive bg-red-50" : "border-slate-200"}`}
+              >
+                <p className={`text-sm mb-3 ${errors.milestones ? "text-destructive font-medium" : "text-slate-400"}`}>
+                  {errors.milestones ?? "暂未添加里程碑节点"}
+                </p>
                 <button
                   type="button"
                   onClick={addMilestone}

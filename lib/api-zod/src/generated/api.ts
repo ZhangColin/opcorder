@@ -401,6 +401,8 @@ export const UpdateDemandBody = zod.object({
   skillTags: zod.array(zod.string()).optional(),
   opcLevel: zod.enum(["C", "B", "A", "any"]).optional(),
   budget: zod.number().optional(),
+  budgetMin: zod.number().optional(),
+  budgetMax: zod.number().optional(),
   deadline: zod.coerce.date().optional(),
   milestones: zod
     .array(
