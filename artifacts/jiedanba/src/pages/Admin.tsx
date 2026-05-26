@@ -1799,7 +1799,7 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-bold text-blue-900 truncate">{inv.opcNickname ?? `OPC #${inv.opcId}`}</p>
                             <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full border ${lvlColor[inv.trackLevel] ?? "bg-slate-100 text-slate-600 border-slate-300"}`}>
-                              {inv.trackLevel} 级赛道
+                              {inv.trackLevel} 级
                             </span>
                             {inv.source === "auto" && (
                               <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-primary/10 text-primary">自动</span>
