@@ -1022,14 +1022,6 @@ export default function PublisherDemandDetail() {
                                         {bid.opcLevel}级
                                       </span>
                                     )}
-                                    {bid.isInvited && (
-                                      <span
-                                        className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30"
-                                        title={bid.invitedTrackLevel ? `平台按 ${bid.invitedTrackLevel} 级认证邀请` : "平台邀请"}
-                                      >
-                                        受邀{bid.invitedTrackLevel ? `·${bid.invitedTrackLevel}` : ""}
-                                      </span>
-                                    )}
                                   </div>
                                   {bid.opcCreditScore !== undefined && (
                                     <div className="mt-0.5">
