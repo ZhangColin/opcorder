@@ -13,7 +13,7 @@ import { logger } from "./logger";
 import { queryRefundStatus, isRefundSuccess, isRefundFailed } from "./payment";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 
 function buildSimpleEmail(nickname: string, body: string): string {
   const escaped = body.replace(/\n/g, "<br>");

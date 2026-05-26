@@ -9,7 +9,7 @@ import {
 import { requireAuth } from "../middleware/auth";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 
 function buildWinnerEmail(nickname: string, demandTitle: string, orderNo: string): string {
   const n = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

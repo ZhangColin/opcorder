@@ -8,7 +8,7 @@ import { ReviewDemandPaymentBody, PutQuoteCardConfigBody, CreateQuoteDimensionBo
 import { createRefund } from "../lib/payment";
 import { callLLM } from "../lib/llm";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 
 /* ─── AI 赛道推断 ───────────────────────────────────────────────────────── */
 

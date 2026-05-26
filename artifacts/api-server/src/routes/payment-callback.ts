@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { PAYMENT_STATUS } from "../lib/payment";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 
 const router: IRouter = Router();
 

@@ -18,8 +18,8 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const resendForgotPwd = new Resend(process.env.RESEND_API_KEY_FORGOT_PWD ?? process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
+const resendForgotPwd = new Resend(process.env.RESEND_API_KEY_FORGOT_PWD ?? process.env.RESEND_API_KEY ?? "re_missing_placeholder");
 
 const router: IRouter = Router();
 
