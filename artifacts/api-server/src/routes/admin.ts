@@ -404,7 +404,7 @@ router.get("/admin/demands", async (req, res) => {
       deadline: demandsTable.deadline,
       opcLevel: demandsTable.opcLevel,
       requiredTrackLevel: demandsTable.requiredTrackLevel,
-      bidCount: sql<number>`COALESCE((SELECT COUNT(*) FROM ${bidsTable} WHERE ${bidsTable.demandId} = ${demandsTable.id}), 0)`,
+      bidCount: sql<number>`COALESCE((SELECT COUNT(*) FROM bids WHERE bids.demand_id = demands.id), 0)`,
     })
       .from(demandsTable)
       .where(where)
