@@ -1,1 +1,2 @@
-- [Budget field protection](budget-field-protection.md) — PUT /demands/:demandId must guard budget fields by status; migration 009a backfill condition.
+- [Migration run-once tracking](migration-run-once.md) — schema_migrations table tracks each migration; once() helper skips already-run blocks; pre-seeds all historical IDs on first deploy.
+- [budget_max corruption root cause](budget-max-corruption.md) — never backfill budget_max from the legacy budget field (budget = budgetMin, not budgetMax).

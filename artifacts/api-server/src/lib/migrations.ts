@@ -5,56 +5,110 @@ import { logger } from "./logger";
 const isDev = process.env["NODE_ENV"] !== "production";
 
 /**
- * Deterministic startup data migrations.
- * Each migration is idempotent (safe to run on every boot).
- * Migrations run in order before seed data initialization.
- * Add new migrations at the bottom — never remove existing ones.
+ * Startup data migrations — each migration runs EXACTLY ONCE, tracked in schema_migrations.
  *
- * Error policy:
- *   - Non-critical (backward-compat only): warn and continue in all environments
- *   - Critical (enum/table creation that feature paths depend on):
- *       dev  → warn and continue (allows iteration without crashing)
- *       prod → re-throw to fail fast before traffic is accepted
+ * On first deployment with this tracking system, all historical migration IDs are
+ * pre-seeded into schema_migrations so they are not re-run on existing databases.
+ *
+ * Adding a new migration:
+ *   1. Pick the next ID (e.g. "029a")
+ *   2. Call `await once("029a", critical, async () => { ... })` at the bottom
+ *   3. Never edit or remove an existing once() block — add a new one instead
+ *
+ * Error policy inside once():
+ *   critical = true  → warn + re-throw in production (fail fast before traffic)
+ *   critical = false → warn and continue; migration will be retried on next boot
  */
 export async function runMigrations(): Promise<void> {
   logger.info("Running startup data migrations...");
 
-  // Migration 001a: add demands.budget column (CRITICAL)
-  // All demand read/write paths now reference this column; fail fast if it cannot be added
-  try {
-    await db.execute(sql`
-      ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget real NOT NULL DEFAULT 0
-    `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 001a: could not add budget column");
-    if (!isDev) throw new Error(`Migration 001a failed in production: ${err}`);
+  // ── Step 0: Create schema_migrations tracking table ──────────────────────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id      TEXT      PRIMARY KEY,
+      ran_at  TIMESTAMP NOT NULL DEFAULT now()
+    )
+  `);
+
+  // ── Step 0b: Pre-seed all historical migration IDs for existing systems ───────
+  // If the tracking table is empty AND the demands table already exists, this is an
+  // existing deployment. Mark every historical migration as done so they don't re-run.
+  {
+    const { rows: countRows } = await db.execute(sql`SELECT COUNT(*) AS n FROM schema_migrations`);
+    const tracked = Number((countRows[0] as any).n);
+    if (tracked === 0) {
+      const { rows: demandsRows } = await db.execute(sql`
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'demands' LIMIT 1
+      `);
+      if (demandsRows.length > 0) {
+        const historicalIds = [
+          "001a", "001a2", "001b", "001c", "001d", "001d2", "001e", "002",
+          "003a", "003b", "003c", "003d", "003e", "003f",
+          "004a", "004b", "004c", "004d", "004e",
+          "005a", "005b",
+          "006a", "006b", "006c", "006d", "006e",
+          "007a",
+          "008a", "008b", "008c",
+          "009a", "009b", "009c", "009d", "009e", "009f", "009f2", "009g", "009h",
+          "010a", "010b", "010c", "010d", "010e",
+          "011a", "012a", "013a", "014a", "015a",
+          "016a", "016b", "017a", "018a",
+          "019a", "019b", "019c", "019d", "019e", "019f", "019g", "019h", "019i",
+          "020a", "020b", "020c", "020d", "020e", "020f", "020g",
+          "021a", "021b", "021d",
+          "022a", "023a", "025a", "026a", "027a", "028a",
+        ];
+        for (const id of historicalIds) {
+          await db.execute(sql`INSERT INTO schema_migrations(id) VALUES (${id}) ON CONFLICT DO NOTHING`);
+        }
+        logger.info({ count: historicalIds.length }, "Seeded historical migration IDs into tracking table (existing system)");
+      }
+    }
   }
 
-  // Migration 001a2: set DEFAULT 0 on legacy budget_min/budget_max (transition guard
-  // so they don't fail NOT NULL if somehow still referenced before 002 runs)
-  try {
+  // ── Run-once helper ───────────────────────────────────────────────────────────
+  // Skips if id already in schema_migrations; otherwise runs fn() and marks done.
+  // On failure: always logs a warning. If critical=true and in production, re-throws.
+  async function once(id: string, critical: boolean, fn: () => Promise<void>): Promise<void> {
+    const { rows } = await db.execute(sql`SELECT 1 FROM schema_migrations WHERE id = ${id} LIMIT 1`);
+    if (rows.length > 0) return;
+    try {
+      await fn();
+      await db.execute(sql`INSERT INTO schema_migrations(id) VALUES (${id}) ON CONFLICT DO NOTHING`);
+    } catch (err) {
+      logger.warn({ err }, `Migration ${id} failed`);
+      if (critical && !isDev) throw new Error(`Migration ${id} failed in production: ${err}`);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Migrations
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Migration 001a: add demands.budget column (CRITICAL)
+  await once("001a", true, async () => {
+    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget real NOT NULL DEFAULT 0`);
+  });
+
+  // Migration 001a2: set DEFAULT 0 on legacy budget_min/budget_max
+  await once("001a2", false, async () => {
     await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_min SET DEFAULT 0`);
     await db.execute(sql`ALTER TABLE demands ALTER COLUMN budget_max SET DEFAULT 0`);
-  } catch (err) {
-    // Columns may already have defaults or may not exist — safe to ignore
-    logger.warn({ err }, "Migration 001a2: could not set defaults on legacy budget columns");
-  }
+  });
 
-  // Migration 001b: add pending_payment to demand status enum (CRITICAL)
-  try {
+  // Migration 001b: add pending_payment to demand_status enum (CRITICAL)
+  await once("001b", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'pending_payment' AFTER 'pending_review';
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 001b: could not add pending_payment enum value");
-    if (!isDev) throw new Error(`Migration 001b failed in production: ${err}`);
-  }
+  });
 
   // Migration 001c: create payment method/status enums (CRITICAL)
-  try {
+  await once("001c", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE demand_payment_method AS ENUM ('online', 'offline');
@@ -67,13 +121,10 @@ export async function runMigrations(): Promise<void> {
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 001c: could not create payment enum types");
-    if (!isDev) throw new Error(`Migration 001c failed in production: ${err}`);
-  }
+  });
 
   // Migration 001d: create demand_payments table (CRITICAL)
-  try {
+  await once("001d", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS demand_payments (
         id serial PRIMARY KEY,
@@ -92,80 +143,54 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       CREATE INDEX IF NOT EXISTS demand_payments_demand_id_idx ON demand_payments(demand_id)
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 001d: could not create demand_payments table");
-    if (!isDev) throw new Error(`Migration 001d failed in production: ${err}`);
-  }
+  });
 
-  // Migration 001d2: add partial unique index enforcing one pending payment per demand
-  // Separate step so it runs on existing tables as well as freshly created ones.
-  // If violating rows exist, warn and continue; in production fail-fast.
-  try {
+  // Migration 001d2: partial unique index — one pending payment per demand (CRITICAL)
+  await once("001d2", true, async () => {
     await db.execute(sql`
       CREATE UNIQUE INDEX IF NOT EXISTS demand_payments_one_pending_per_demand
         ON demand_payments(demand_id) WHERE (status = 'pending')
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 001d2: could not create pending uniqueness index (constraint may already be violated — deduplicate pending rows first)");
-    if (!isDev) throw new Error(`Migration 001d2 failed in production: ${err}`);
-  }
+  });
 
-  // Migration 001e: backfill demands.budget from budget_max for any rows still at 0
-  // Runs before 002 (column drop) to ensure data is preserved
-  try {
+  // Migration 001e: backfill demands.budget from budget_max for rows still at 0
+  await once("001e", false, async () => {
     const result = await db.execute(
       sql`UPDATE demands SET budget = budget_max WHERE (budget IS NULL OR budget = 0) AND budget_max > 0`
     );
     const count = (result as { rowCount?: number }).rowCount ?? 0;
-    if (count > 0) {
-      logger.info({ count }, "Migration 001e: backfilled budget from budget_max");
-    }
-  } catch (err) {
-    // budget_max may already be gone (002 ran) — safe to ignore
-    logger.warn({ err }, "Migration 001e: budget backfill skipped (columns may already be dropped)");
-  }
+    if (count > 0) logger.info({ count }, "Migration 001e: backfilled budget from budget_max");
+  });
 
-  // Migration 002: (no-op — budget_min / budget_max are now permanent columns)
-  // Originally dropped these columns; that drop was reversed by 009a on every boot.
-  // Columns are now permanent features of the schema. 009a has been removed.
-  // This block is intentionally left as a no-op to preserve migration numbering.
+  // Migration 002: no-op — budget_min/budget_max are now permanent columns
+  // (Originally dropped these columns; reversed. Block kept to preserve numbering.)
+  await once("002", false, async () => {
+    // intentional no-op
+  });
 
-  // Migration 003a: add 'refunded' value to demand_payment_status enum (CRITICAL)
-  // Required for the payment API refund flow
-  try {
+  // Migration 003a: add 'refunded' to demand_payment_status enum (CRITICAL)
+  await once("003a", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'rejected';
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 003a: could not add refunded enum value");
-    if (!isDev) throw new Error(`Migration 003a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 003b: add payment_order_no column for tracking online payment orders
-  try {
-    await db.execute(sql`
-      ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS payment_order_no varchar(100)
-    `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 003b: could not add payment_order_no column");
-    if (!isDev) throw new Error(`Migration 003b failed in production: ${err}`);
-  }
+  // Migration 003b: add payment_order_no to demand_payments (CRITICAL)
+  await once("003b", true, async () => {
+    await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS payment_order_no varchar(100)`);
+  });
 
-  // Migration 003c: add refund tracking columns
-  try {
+  // Migration 003c: add refund tracking columns to demand_payments (CRITICAL)
+  await once("003c", true, async () => {
     await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_order_no varchar(100)`);
     await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refunded_at timestamp`);
-  } catch (err) {
-    logger.warn({ err }, "Migration 003c: could not add refund tracking columns");
-    if (!isDev) throw new Error(`Migration 003c failed in production: ${err}`);
-  }
+  });
 
   // Migration 003d: add refund status values to demand_status enum (CRITICAL)
-  // Required for the refund flow on the demands table
-  try {
+  await once("003d", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'completed';
@@ -184,13 +209,10 @@ export async function runMigrations(): Promise<void> {
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 003d: could not add refund status values to demand_status");
-    if (!isDev) throw new Error(`Migration 003d failed in production: ${err}`);
-  }
+  });
 
-  // Migration 003e: add refund_pending and refunding to demand_payment_status enum (CRITICAL)
-  try {
+  // Migration 003e: add refund_pending/refunding to demand_payment_status enum (CRITICAL)
+  await once("003e", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'rejected';
@@ -203,38 +225,28 @@ export async function runMigrations(): Promise<void> {
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 003e: could not add refund_pending/refunding to demand_payment_status");
-    if (!isDev) throw new Error(`Migration 003e failed in production: ${err}`);
-  }
+  });
 
-  // Migration 003f: add refund detail columns to demand_payments table (CRITICAL)
-  try {
+  // Migration 003f: add refund detail columns to demand_payments (CRITICAL)
+  await once("003f", true, async () => {
     await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_reason text`);
     await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_requested_at timestamp`);
     await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_reject_reason text`);
     await db.execute(sql`ALTER TABLE demand_payments ADD COLUMN IF NOT EXISTS refund_receipt_url text`);
-  } catch (err) {
-    logger.warn({ err }, "Migration 003f: could not add refund detail columns to demand_payments");
-    if (!isDev) throw new Error(`Migration 003f failed in production: ${err}`);
-  }
+  });
 
-  // Migration 004a: add 'withdrawn' value to bid_status enum (CRITICAL)
-  // Required for OPC to withdraw their own pending bids
-  try {
+  // Migration 004a: add 'withdrawn' to bid_status enum (CRITICAL)
+  await once("004a", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE bid_status ADD VALUE IF NOT EXISTS 'withdrawn' AFTER 'rejected';
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 004a: could not add withdrawn enum value to bid_status");
-    if (!isDev) throw new Error(`Migration 004a failed in production: ${err}`);
-  }
+  });
 
   // Migration 004b: create admin_roles table (CRITICAL)
-  try {
+  await once("004b", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS admin_roles (
         id serial PRIMARY KEY,
@@ -245,13 +257,10 @@ export async function runMigrations(): Promise<void> {
         updated_at timestamp NOT NULL DEFAULT now()
       )
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 004b: could not create admin_roles table");
-    if (!isDev) throw new Error(`Migration 004b failed in production: ${err}`);
-  }
+  });
 
-  // Migration 004c: create admin_role_assignments junction table (CRITICAL)
-  try {
+  // Migration 004c: create admin_role_assignments table (CRITICAL)
+  await once("004c", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS admin_role_assignments (
         user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -259,36 +268,26 @@ export async function runMigrations(): Promise<void> {
         PRIMARY KEY (user_id, role_id)
       )
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 004c: could not create admin_role_assignments table");
-    if (!isDev) throw new Error(`Migration 004c failed in production: ${err}`);
-  }
+  });
 
   // Migration 004d: add is_super_admin column to users (CRITICAL)
-  try {
+  await once("004d", true, async () => {
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_super_admin boolean NOT NULL DEFAULT false`);
-  } catch (err) {
-    logger.warn({ err }, "Migration 004d: could not add is_super_admin column to users");
-    if (!isDev) throw new Error(`Migration 004d failed in production: ${err}`);
-  }
+  });
 
   // Migration 004e: bootstrap existing admin accounts as super admins (non-critical)
-  // Only promote admins that have NO role assignments — users with roles are intentional
-  // RBAC-managed admins (e.g. 大屏管理员) and must NOT be elevated.
-  try {
+  // Only promotes admins with NO role assignments — RBAC-managed admins must NOT be elevated.
+  await once("004e", false, async () => {
     await db.execute(sql`
       UPDATE users SET is_super_admin = true
       WHERE role = 'admin'
         AND is_super_admin = false
         AND id NOT IN (SELECT DISTINCT user_id FROM admin_role_assignments)
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 004e: could not bootstrap super admins");
-  }
+  });
 
-  // Migration 005a: add refund_pending and refunded to payment_status enum (CRITICAL)
-  // Required for course enrollment refund flow
-  try {
+  // Migration 005a: add refund_pending/refunded to payment_status enum (CRITICAL)
+  await once("005a", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'paid';
@@ -301,25 +300,19 @@ export async function runMigrations(): Promise<void> {
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 005a: could not add refund values to payment_status enum");
-    if (!isDev) throw new Error(`Migration 005a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 005b: add refund tracking columns to enrollments table (CRITICAL)
-  try {
+  // Migration 005b: add refund tracking columns to enrollments (CRITICAL)
+  await once("005b", true, async () => {
     await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_reason text`);
     await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_requested_at timestamp`);
     await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_order_no varchar(100)`);
     await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refunded_at timestamp`);
     await db.execute(sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS refund_reject_reason text`);
-  } catch (err) {
-    logger.warn({ err }, "Migration 005b: could not add refund columns to enrollments");
-    if (!isDev) throw new Error(`Migration 005b failed in production: ${err}`);
-  }
+  });
 
   // Migration 006a: create activities table (CRITICAL)
-  try {
+  await once("006a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS activities (
         id serial PRIMARY KEY,
@@ -333,13 +326,10 @@ export async function runMigrations(): Promise<void> {
         updated_at timestamp NOT NULL DEFAULT now()
       )
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 006a: could not create activities table");
-    if (!isDev) throw new Error(`Migration 006a failed in production: ${err}`);
-  }
+  });
 
   // Migration 006b: create activity_fields table (CRITICAL)
-  try {
+  await once("006b", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS activity_fields (
         id serial PRIMARY KEY,
@@ -351,13 +341,10 @@ export async function runMigrations(): Promise<void> {
         sort_order integer NOT NULL DEFAULT 0
       )
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 006b: could not create activity_fields table");
-    if (!isDev) throw new Error(`Migration 006b failed in production: ${err}`);
-  }
+  });
 
   // Migration 006c: create registrations table (CRITICAL)
-  try {
+  await once("006c", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS registrations (
         id serial PRIMARY KEY,
@@ -372,13 +359,10 @@ export async function runMigrations(): Promise<void> {
       )
     `);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS registrations_activity_id_idx ON registrations(activity_id)`);
-  } catch (err) {
-    logger.warn({ err }, "Migration 006c: could not create registrations table");
-    if (!isDev) throw new Error(`Migration 006c failed in production: ${err}`);
-  }
+  });
 
   // Migration 006d: create registration_tags table (CRITICAL)
-  try {
+  await once("006d", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS registration_tags (
         id serial PRIMARY KEY,
@@ -389,21 +373,13 @@ export async function runMigrations(): Promise<void> {
     `);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS registration_tags_reg_id_idx ON registration_tags(registration_id)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS registration_tags_tag_idx ON registration_tags(tag)`);
-  } catch (err) {
-    logger.warn({ err }, "Migration 006d: could not create registration_tags table");
-    if (!isDev) throw new Error(`Migration 006d failed in production: ${err}`);
-  }
+  });
 
-  // Migration 006e: replace is_active boolean with status varchar on activities
-  // 'draft'=草稿, 'active'=进行中, 'ended'=已结束
-  // NOTE: syncSchema() may already have applied the schema (adding status, dropping is_active)
-  // before this migration runs. The UPDATE is therefore wrapped in a DO block that checks
-  // whether is_active still exists before attempting to read it.
-  try {
+  // Migration 006e: replace is_active boolean with status varchar on activities (CRITICAL)
+  await once("006e", true, async () => {
     await db.execute(sql`
       ALTER TABLE activities ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'draft'
     `);
-    // Conditionally backfill: only if is_active column still exists (syncSchema may have already dropped it)
     await db.execute(sql`
       DO $$
       BEGIN
@@ -416,27 +392,20 @@ export async function runMigrations(): Promise<void> {
       END $$
     `);
     await db.execute(sql`ALTER TABLE activities DROP COLUMN IF EXISTS is_active`);
-  } catch (err) {
-    logger.warn({ err }, "Migration 006e: could not migrate activities status column");
-    if (!isDev) throw new Error(`Migration 006e failed in production: ${err}`);
-  }
+  });
 
-  // Migration 007a: add 'order_completed' value to notification_type enum (CRITICAL)
-  // Required for order completion notifications sent to both parties
-  try {
+  // Migration 007a: add 'order_completed' to notification_type enum (CRITICAL)
+  await once("007a", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'order_completed' AFTER 'system';
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 007a: could not add order_completed to notification_type enum");
-    if (!isDev) throw new Error(`Migration 007a failed in production: ${err}`);
-  }
+  });
 
   // Migration 008a: create agent_configs table (CRITICAL)
-  try {
+  await once("008a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS agent_configs (
         id serial PRIMARY KEY,
@@ -448,13 +417,10 @@ export async function runMigrations(): Promise<void> {
         created_at timestamp NOT NULL DEFAULT now()
       )
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 008a: could not create agent_configs table");
-    if (!isDev) throw new Error(`Migration 008a failed in production: ${err}`);
-  }
+  });
 
   // Migration 008b: create agent_conversations table (CRITICAL)
-  try {
+  await once("008b", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS agent_conversations (
         id serial PRIMARY KEY,
@@ -466,61 +432,38 @@ export async function runMigrations(): Promise<void> {
         updated_at timestamp NOT NULL DEFAULT now()
       )
     `);
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS agent_conversations_demand_id_idx ON agent_conversations(demand_id)
-    `);
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS agent_conversations_user_id_idx ON agent_conversations(user_id)
-    `);
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS agent_conversations_session_key_idx ON agent_conversations(session_key)
-    `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 008b: could not create agent_conversations table");
-    if (!isDev) throw new Error(`Migration 008b failed in production: ${err}`);
-  }
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agent_conversations_demand_id_idx ON agent_conversations(demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agent_conversations_user_id_idx ON agent_conversations(user_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agent_conversations_session_key_idx ON agent_conversations(session_key)`);
+  });
 
   // Migration 008c: add legal rep ID card columns to settlement_accounts (non-critical)
-  // Stores front and back photo URLs for the legal representative's identity card.
-  // Added in AccountSettings unified page (Task #64). IF NOT EXISTS makes it idempotent.
-  try {
-    await db.execute(sql`
-      ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS legal_rep_id_front_url text
-    `);
-    await db.execute(sql`
-      ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS legal_rep_id_back_url text
-    `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 008c: could not add legal rep ID card columns to settlement_accounts");
-  }
+  await once("008c", false, async () => {
+    await db.execute(sql`ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS legal_rep_id_front_url text`);
+    await db.execute(sql`ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS legal_rep_id_back_url text`);
+  });
 
-  // Migration 009a: removed.
-  // The ADD COLUMN + backfill that lived here caused budget_max to be reset to
-  // budget (= budgetMin) on every server restart, because migration 002 was
-  // dropping these columns each boot and 009a was re-adding them with a backfill
-  // that used the legacy single-value `budget` field.
-  // Columns are now ensured by migration 028a (ADD COLUMN IF NOT EXISTS only, no backfill).
+  // Migration 009a: removed — ADD COLUMN + backfill that caused budget_max corruption.
+  // budget_min/budget_max are now ensured by 028a (ADD COLUMN IF NOT EXISTS, no backfill).
+  await once("009a", false, async () => {
+    // intentional no-op
+  });
 
-  // Migration 009b: add quote_card_data and quoted_price columns to bids (CRITICAL)
-  try {
+  // Migration 009b: add quote_card_data and quoted_price to bids (CRITICAL)
+  await once("009b", true, async () => {
     await db.execute(sql`ALTER TABLE bids ADD COLUMN IF NOT EXISTS quote_card_data jsonb NOT NULL DEFAULT '{}'`);
     await db.execute(sql`ALTER TABLE bids ADD COLUMN IF NOT EXISTS quoted_price real`);
     logger.info("Migration 009b: added quote_card_data and quoted_price to bids");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009b: could not add quote_card_data/quoted_price to bids");
-    if (!isDev) throw new Error(`Migration 009b failed in production: ${err}`);
-  }
+  });
 
-  // Migration 009c: make bids.proposal nullable with default empty string
-  try {
+  // Migration 009c: make bids.proposal default to empty string
+  await once("009c", false, async () => {
     await db.execute(sql`ALTER TABLE bids ALTER COLUMN proposal SET DEFAULT ''`);
     logger.info("Migration 009c: set default empty string on bids.proposal");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009c: could not set default on bids.proposal");
-  }
+  });
 
   // Migration 009d: add pending_payment to order_status enum (CRITICAL)
-  try {
+  await once("009d", true, async () => {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'pending_payment' BEFORE 'in_progress';
@@ -528,26 +471,20 @@ export async function runMigrations(): Promise<void> {
       END $$
     `);
     logger.info("Migration 009d: added pending_payment to order_status enum");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009d: could not add pending_payment to order_status enum");
-    if (!isDev) throw new Error(`Migration 009d failed in production: ${err}`);
-  }
+  });
 
   // Migration 009e: add payment tracking columns to orders (CRITICAL)
-  try {
+  await once("009e", true, async () => {
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method varchar(20)`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_receipt_url text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_note text`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_order_no varchar(100)`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_at timestamp`);
     logger.info("Migration 009e: added payment tracking columns to orders");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009e: could not add payment tracking columns to orders");
-    if (!isDev) throw new Error(`Migration 009e failed in production: ${err}`);
-  }
+  });
 
   // Migration 009f: create quote_card_configs table (CRITICAL)
-  try {
+  await once("009f", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS quote_card_configs (
         id serial PRIMARY KEY,
@@ -563,24 +500,19 @@ export async function runMigrations(): Promise<void> {
       )
     `);
     logger.info("Migration 009f: created quote_card_configs table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009f: could not create quote_card_configs table");
-    if (!isDev) throw new Error(`Migration 009f failed in production: ${err}`);
-  }
+  });
 
-  // Migration 009f2: ensure unique index exists on quote_card_configs (dimension_code, tier)
-  try {
+  // Migration 009f2: ensure unique index on quote_card_configs (dimension_code, tier)
+  await once("009f2", false, async () => {
     await db.execute(sql`
       CREATE UNIQUE INDEX IF NOT EXISTS quote_card_configs_dimension_tier_idx
       ON quote_card_configs (dimension_code, tier)
     `);
     logger.info("Migration 009f2: ensured unique index on quote_card_configs");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009f2: could not create unique index on quote_card_configs");
-  }
+  });
 
-  // Migration 009g: backfill default quote card config rows if table is empty
-  try {
+  // Migration 009g: backfill default quote_card_configs rows if table is empty
+  await once("009g", false, async () => {
     const existing = await db.execute(sql`SELECT COUNT(*) as cnt FROM quote_card_configs`);
     const firstRow = existing.rows[0];
     const cnt = firstRow && typeof firstRow === "object" && "cnt" in firstRow ? Number(firstRow.cnt) : 0;
@@ -632,37 +564,29 @@ export async function runMigrations(): Promise<void> {
       }
       logger.info("Migration 009g: seeded default quote_card_configs rows");
     }
-  } catch (err) {
-    logger.warn({ err }, "Migration 009g: could not seed quote_card_configs defaults");
-  }
+  });
 
-  // Migration 009h: replace C1–C4 rows with coefficient-based 低/中/高 tiers
-  try {
-    // Widen the tier column to accommodate "medium" (6 chars)
+  // Migration 009h: replace C1–C4 rows with coefficient-based 低/中/高 tiers (CRITICAL)
+  await once("009h", true, async () => {
     await db.execute(sql`ALTER TABLE quote_card_configs ALTER COLUMN tier TYPE varchar(10)`);
-    // Delete old S/M/L/XL rows for C dimensions
     await db.execute(sql`
       DELETE FROM quote_card_configs
       WHERE dimension_code IN ('C1','C2','C3','C4')
         AND tier IN ('S','M','L','XL')
     `);
     const cDefaults = [
-      // C1 需求明确度 (需求越模糊 → 系数越大)
-      { code: "C1", label: "需求明确度", tier: "low",    tierLabel: "完整 PRD",   coeff: 0.90 },
-      { code: "C1", label: "需求明确度", tier: "medium", tierLabel: "文档 + 口头", coeff: 1.00 },
-      { code: "C1", label: "需求明确度", tier: "high",   tierLabel: "一句话想法", coeff: 1.15 },
-      // C2 合规/数据敏感
-      { code: "C2", label: "合规/数据敏感", tier: "low",    tierLabel: "常规数据", coeff: 1.00 },
-      { code: "C2", label: "合规/数据敏感", tier: "medium", tierLabel: "部分敏感", coeff: 1.10 },
-      { code: "C2", label: "合规/数据敏感", tier: "high",   tierLabel: "强合规",   coeff: 1.25 },
-      // C3 第三方依赖稳定性
-      { code: "C3", label: "第三方依赖稳定", tier: "low",    tierLabel: "文档稳定",   coeff: 1.00 },
-      { code: "C3", label: "第三方依赖稳定", tier: "medium", tierLabel: "少量不确定", coeff: 1.10 },
-      { code: "C3", label: "第三方依赖稳定", tier: "high",   tierLabel: "依赖不稳定", coeff: 1.20 },
-      // C4 验收标准清晰度
-      { code: "C4", label: "验收标准清晰", tier: "low",    tierLabel: "可量化",  coeff: 0.95 },
-      { code: "C4", label: "验收标准清晰", tier: "medium", tierLabel: "部分明确", coeff: 1.00 },
-      { code: "C4", label: "验收标准清晰", tier: "high",   tierLabel: "标准模糊", coeff: 1.10 },
+      { code: "C1", label: "需求明确度",     tier: "low",    tierLabel: "完整 PRD",    coeff: 0.90 },
+      { code: "C1", label: "需求明确度",     tier: "medium", tierLabel: "文档 + 口头",  coeff: 1.00 },
+      { code: "C1", label: "需求明确度",     tier: "high",   tierLabel: "一句话想法",   coeff: 1.15 },
+      { code: "C2", label: "合规/数据敏感",  tier: "low",    tierLabel: "常规数据",     coeff: 1.00 },
+      { code: "C2", label: "合规/数据敏感",  tier: "medium", tierLabel: "部分敏感",     coeff: 1.10 },
+      { code: "C2", label: "合规/数据敏感",  tier: "high",   tierLabel: "强合规",       coeff: 1.25 },
+      { code: "C3", label: "第三方依赖稳定", tier: "low",    tierLabel: "文档稳定",     coeff: 1.00 },
+      { code: "C3", label: "第三方依赖稳定", tier: "medium", tierLabel: "少量不确定",   coeff: 1.10 },
+      { code: "C3", label: "第三方依赖稳定", tier: "high",   tierLabel: "依赖不稳定",   coeff: 1.20 },
+      { code: "C4", label: "验收标准清晰",   tier: "low",    tierLabel: "可量化",       coeff: 0.95 },
+      { code: "C4", label: "验收标准清晰",   tier: "medium", tierLabel: "部分明确",     coeff: 1.00 },
+      { code: "C4", label: "验收标准清晰",   tier: "high",   tierLabel: "标准模糊",     coeff: 1.10 },
     ];
     for (const row of cDefaults) {
       await db.execute(sql`
@@ -677,13 +601,10 @@ export async function runMigrations(): Promise<void> {
       `);
     }
     logger.info("Migration 009h: replaced C1–C4 with coefficient-based 低/中/高 rows");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009h: could not update C dimension rows");
-    if (!isDev) throw new Error(`Migration 009h failed in production: ${err}`);
-  }
+  });
 
   // Migration 010a: create quote_dimensions + quote_tiers tables (CRITICAL)
-  try {
+  await once("010a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS quote_dimensions (
         id SERIAL PRIMARY KEY,
@@ -721,23 +642,16 @@ export async function runMigrations(): Promise<void> {
         ON quote_tiers(dimension_id, tier)
     `);
     logger.info("Migration 010a: created quote_dimensions + quote_tiers tables");
-  } catch (err) {
-    logger.warn({ err }, "Migration 010a: could not create quote_dimensions/quote_tiers tables");
-    if (!isDev) throw new Error(`Migration 010a failed in production: ${err}`);
-  }
+  });
 
   // Migration 010b: add quote_card_snapshot column to bids (non-critical)
-  try {
-    await db.execute(sql`
-      ALTER TABLE bids ADD COLUMN IF NOT EXISTS quote_card_snapshot JSONB
-    `);
+  await once("010b", false, async () => {
+    await db.execute(sql`ALTER TABLE bids ADD COLUMN IF NOT EXISTS quote_card_snapshot JSONB`);
     logger.info("Migration 010b: added quote_card_snapshot to bids");
-  } catch (err) {
-    logger.warn({ err }, "Migration 010b: could not add quote_card_snapshot to bids");
-  }
+  });
 
   // Migration 010c: seed default quote card dimensions + tiers for all 4 categories
-  try {
+  await once("010c", true, async () => {
     type SeedDim = {
       category: string; layer: string; code: string; label: string; sort: number;
       tiers: { tier: string; label: string; price?: number; coeff?: number; sort: number }[];
@@ -907,15 +821,12 @@ export async function runMigrations(): Promise<void> {
         { tier: "high", label: "严格品牌规范", coeff: 1.15, sort: 3 },
       ]},
     ];
-
     for (const dim of seedDims) {
-      // Upsert dimension
       await db.execute(sql`
         INSERT INTO quote_dimensions (category, layer, code, label, sort_order)
         VALUES (${dim.category}, ${dim.layer}, ${dim.code}, ${dim.label}, ${dim.sort})
         ON CONFLICT (category, layer, code) DO NOTHING
       `);
-      // Upsert each tier (look up dim id by subquery)
       for (const t of dim.tiers) {
         const price = t.price ?? 0;
         const coeff = t.coeff ?? null;
@@ -929,13 +840,10 @@ export async function runMigrations(): Promise<void> {
       }
     }
     logger.info("Migration 010c: seeded default quote card dimensions and tiers");
-  } catch (err) {
-    logger.warn({ err }, "Migration 010c: could not seed quote card dimensions/tiers");
-    if (!isDev) throw new Error(`Migration 010c failed in production: ${err}`);
-  }
+  });
 
-  // ── Migration 010d: update software prices & coefficients to match design spec ──
-  try {
+  // Migration 010d: update software prices & coefficients to match design spec (CRITICAL)
+  await once("010d", true, async () => {
     const softwarePriceUpdates: Array<{ code: string; tier: string; price: number }> = [
       { code: "D1", tier: "L",  price: 15000 },
       { code: "D1", tier: "XL", price: 35000 },
@@ -961,7 +869,6 @@ export async function runMigrations(): Promise<void> {
         ) AND tier = ${tier}
       `);
     }
-
     const softwareCoeffUpdates: Array<{ code: string; tier: string; coeff: number }> = [
       { code: "C1", tier: "low",    coeff: 0.90 },
       { code: "C1", tier: "medium", coeff: 1.10 },
@@ -986,13 +893,10 @@ export async function runMigrations(): Promise<void> {
       `);
     }
     logger.info("Migration 010d: updated software prices and coefficients");
-  } catch (err) {
-    logger.warn({ err }, "Migration 010d: could not update software prices/coefficients");
-    if (!isDev) throw new Error(`Migration 010d failed in production: ${err}`);
-  }
+  });
 
-  // ── Migration 010e: seed optional layer (MAINT) for all categories ──
-  try {
+  // Migration 010e: seed optional layer (MAINT) for all categories (CRITICAL)
+  await once("010e", true, async () => {
     const categories = ["software", "education", "marketing", "content"];
     for (const cat of categories) {
       await db.execute(sql`
@@ -1001,10 +905,10 @@ export async function runMigrations(): Promise<void> {
         ON CONFLICT (category, layer, code) DO NOTHING
       `);
       const maintTiers = [
-        { tier: "none", label: "不包含",   coeff: 0,    desc: "",                                      sort: 1 },
+        { tier: "none", label: "不包含",    coeff: 0,    desc: "",                                        sort: 1 },
         { tier: "M3",   label: "M3 维护包", coeff: 0.15, desc: "3 个月 bug 修复 + 小迭代（≤5 人日）",    sort: 2 },
-        { tier: "M6",   label: "M6 维护包", coeff: 0.25, desc: "6 个月（≤12 人日）",                    sort: 3 },
-        { tier: "M12",  label: "M12 维护包", coeff: 0.40, desc: "12 个月（≤25 人日 + SLA）",             sort: 4 },
+        { tier: "M6",   label: "M6 维护包", coeff: 0.25, desc: "6 个月（≤12 人日）",                     sort: 3 },
+        { tier: "M12",  label: "M12 维护包",coeff: 0.40, desc: "12 个月（≤25 人日 + SLA）",              sort: 4 },
       ];
       for (const t of maintTiers) {
         await db.execute(sql`
@@ -1017,27 +921,18 @@ export async function runMigrations(): Promise<void> {
       }
     }
     logger.info("Migration 010e: seeded optional layer (MAINT) for all categories");
-  } catch (err) {
-    logger.warn({ err }, "Migration 010e: could not seed optional layer");
-    if (!isDev) throw new Error(`Migration 010e failed in production: ${err}`);
-  }
+  });
 
-  // Migration 011a: add payment_reject_reason to orders
-  try {
-    await db.execute(sql`
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reject_reason TEXT
-    `);
+  // Migration 011a: add payment_reject_reason to orders (CRITICAL)
+  await once("011a", true, async () => {
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reject_reason TEXT`);
     logger.info("Migration 011a: added payment_reject_reason to orders");
-  } catch (err) {
-    logger.warn({ err }, "Migration 011a: could not add payment_reject_reason column");
-    if (!isDev) throw new Error(`Migration 011a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 012a: unify demand types to match the 4 quote card categories + other (CRITICAL)
+  // Migration 012a: unify demand types to 4 quote card categories + other (CRITICAL)
   // Old types: ai_education, gov_training, ai_research, party_building, livestream_media, ai_tool_dev, other
   // New types: education, software, marketing, content, other
-  // Step 1: add new enum values (ignore if already exist)
-  try {
+  await once("012a", true, async () => {
     for (const val of ["education", "software", "marketing", "content"]) {
       await db.execute(sql.raw(`
         DO $$ BEGIN
@@ -1046,13 +941,6 @@ export async function runMigrations(): Promise<void> {
         END $$
       `));
     }
-  } catch (err) {
-    logger.warn({ err }, "Migration 012a: could not add new demand_type enum values");
-    if (!isDev) throw new Error(`Migration 012a (add enum values) failed in production: ${err}`);
-  }
-
-  // Step 2: migrate existing rows to new type values (idempotent — WHERE clause only matches old values)
-  try {
     await db.execute(sql`
       UPDATE demands SET type = 'education'::demand_type
       WHERE type::text IN ('ai_education', 'gov_training', 'ai_research')
@@ -1066,16 +954,11 @@ export async function runMigrations(): Promise<void> {
       WHERE type::text = 'livestream_media'
     `);
     logger.info("Migration 012a: migrated demand type values to new unified set");
-  } catch (err) {
-    logger.warn({ err }, "Migration 012a: could not migrate demand type rows");
-    if (!isDev) throw new Error(`Migration 012a (data migration) failed in production: ${err}`);
-  }
+  });
 
-  // Migration 013a: Auto-complete stuck milestone orders
-  // Orders where ALL milestones in the JSONB array already have status='approved'
-  // but the order itself is still 'in_progress' — caused by a prior rating SQL failure
-  // that crashed before the order-completion step ran.
-  try {
+  // Migration 013a: auto-complete stuck milestone orders (non-critical)
+  // Orders where all milestones are 'approved' but order is still 'in_progress'
+  await once("013a", false, async () => {
     const stuckOrders = await db.execute(sql`
       SELECT id, order_no, opc_id, publisher_id, demand_id
       FROM orders
@@ -1091,13 +974,8 @@ export async function runMigrations(): Promise<void> {
     if (rows.length > 0) {
       logger.info({ count: rows.length }, "Migration 013a: found stuck completed orders, auto-completing");
       for (const row of rows) {
-        await db.execute(sql`
-          UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = ${row.id}
-        `);
-        await db.execute(sql`
-          UPDATE demands SET status = 'completed', updated_at = NOW() WHERE id = ${row.demand_id}
-        `);
-        // Update OPC profile stats
+        await db.execute(sql`UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = ${row.id}`);
+        await db.execute(sql`UPDATE demands SET status = 'completed', updated_at = NOW() WHERE id = ${row.demand_id}`);
         await db.execute(sql`
           UPDATE opc_profiles SET
             total_orders = (SELECT COUNT(*) FROM orders WHERE opc_id = ${row.opc_id}),
@@ -1112,40 +990,30 @@ export async function runMigrations(): Promise<void> {
     } else {
       logger.info("Migration 013a: no stuck orders found");
     }
-  } catch (err) {
-    logger.warn({ err }, "Migration 013a: could not auto-complete stuck orders (non-critical)");
-  }
+  });
 
-  // Migration 014a: reclassify historical 'other' demands to canonical types
-  // Based on manual review of titles — idempotent (WHERE type = 'other' only matches un-migrated rows)
-  try {
+  // Migration 014a: reclassify historical 'other' demands to canonical types (non-critical)
+  await once("014a", false, async () => {
     await db.execute(sql`
-      UPDATE demands SET type = 'marketing'::demand_type
-      WHERE id IN (7, 29) AND type::text = 'other'
+      UPDATE demands SET type = 'marketing'::demand_type WHERE id IN (7, 29) AND type::text = 'other'
     `);
     await db.execute(sql`
-      UPDATE demands SET type = 'education'::demand_type
-      WHERE id IN (26) AND type::text = 'other'
+      UPDATE demands SET type = 'education'::demand_type WHERE id IN (26) AND type::text = 'other'
     `);
     await db.execute(sql`
-      UPDATE demands SET type = 'software'::demand_type
-      WHERE id IN (28, 41) AND type::text = 'other'
+      UPDATE demands SET type = 'software'::demand_type WHERE id IN (28, 41) AND type::text = 'other'
     `);
     logger.info("Migration 014a: reclassified historical other-type demands");
-  } catch (err) {
-    logger.warn({ err }, "Migration 014a: could not reclassify other-type demands (non-critical)");
-  }
+  });
 
-  // Migration 015a: add summary column to demands
-  try {
+  // Migration 015a: add summary column to demands (non-critical)
+  await once("015a", false, async () => {
     await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS summary TEXT`);
     logger.info("Migration 015a: added summary column to demands");
-  } catch (err) {
-    logger.warn({ err }, "Migration 015a: could not add summary column (non-critical)");
-  }
+  });
 
   // Migration 016a: create llm_providers table (CRITICAL)
-  try {
+  await once("016a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS llm_providers (
         id serial PRIMARY KEY,
@@ -1161,26 +1029,16 @@ export async function runMigrations(): Promise<void> {
       )
     `);
     logger.info("Migration 016a: created llm_providers table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 016a: could not create llm_providers table");
-    if (!isDev) throw new Error(`Migration 016a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 017a: widen quote_card_configs.tier from varchar(5) to varchar(10)
-  // Fixes a drizzle-kit push bug triggered by varchar(5) columns during schema diff computation.
-  // Existing tier values (S, M, L, XL) are all ≤ 4 chars so no data is affected.
-  try {
-    await db.execute(sql`
-      ALTER TABLE quote_card_configs
-        ALTER COLUMN tier TYPE varchar(10)
-    `);
+  // Migration 017a: widen quote_card_configs.tier from varchar(5) to varchar(10) (non-critical)
+  await once("017a", false, async () => {
+    await db.execute(sql`ALTER TABLE quote_card_configs ALTER COLUMN tier TYPE varchar(10)`);
     logger.info("Migration 017a: widened quote_card_configs.tier to varchar(10)");
-  } catch (err) {
-    logger.warn({ err }, "Migration 017a: could not widen tier column (may already be varchar(10))");
-  }
+  });
 
-  // Migration 016b: seed default DeepSeek provider if none exists
-  try {
+  // Migration 016b: seed default DeepSeek provider if none exists (non-critical)
+  await once("016b", false, async () => {
     const { rows } = await db.execute(sql`SELECT COUNT(*) FROM llm_providers`);
     const count = Number((rows[0] as any).count);
     if (count === 0) {
@@ -1199,29 +1057,24 @@ export async function runMigrations(): Promise<void> {
       `);
       logger.info("Migration 016b: seeded default DeepSeek provider");
     }
-  } catch (err) {
-    logger.warn({ err }, "Migration 016b: could not seed DeepSeek provider");
-  }
+  });
 
   // Migration 018a: create screen_videos table (CRITICAL)
-  try {
+  await once("018a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS screen_videos (
-        id         serial  PRIMARY KEY,
-        title      text    NOT NULL DEFAULT '',
-        object_path text   NOT NULL,
-        sort_order integer NOT NULL DEFAULT 0,
-        created_at timestamp NOT NULL DEFAULT now()
+        id          serial  PRIMARY KEY,
+        title       text    NOT NULL DEFAULT '',
+        object_path text    NOT NULL,
+        sort_order  integer NOT NULL DEFAULT 0,
+        created_at  timestamp NOT NULL DEFAULT now()
       )
     `);
     logger.info("Migration 018a: created screen_videos table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 018a: could not create screen_videos table");
-    if (!isDev) throw new Error(`Migration 018a failed in production: ${err}`);
-  }
+  });
 
   // Migration 019a: create cat_categories table (CRITICAL)
-  try {
+  await once("019a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS cat_categories (
         id          serial      PRIMARY KEY,
@@ -1236,13 +1089,10 @@ export async function runMigrations(): Promise<void> {
       )
     `);
     logger.info("Migration 019a: created cat_categories table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 019a: could not create cat_categories table");
-    if (!isDev) throw new Error(`Migration 019a failed in production: ${err}`);
-  }
+  });
 
   // Migration 019b: create cat_tags table (CRITICAL)
-  try {
+  await once("019b", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS cat_tags (
         id               serial      PRIMARY KEY,
@@ -1256,32 +1106,27 @@ export async function runMigrations(): Promise<void> {
       )
     `);
     logger.info("Migration 019b: created cat_tags table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 019b: could not create cat_tags table");
-    if (!isDev) throw new Error(`Migration 019b failed in production: ${err}`);
-  }
+  });
 
   // Migration 019c: seed initial cat_categories (5 tracks)
-  try {
+  await once("019c", false, async () => {
     const { rows } = await db.execute(sql`SELECT COUNT(*) FROM cat_categories`);
     const count = Number((rows[0] as any).count);
     if (count === 0) {
       await db.execute(sql`
         INSERT INTO cat_categories (code, name, description, color_hex, icon, sort_order, is_active) VALUES
-          ('CG',    '内容生成',          '商业文案、视觉内容、视频、H5等内容创作与设计服务',   '#6366f1', 'Palette',    1, true),
-          ('SA',    '软件系统与智能体',   'AI工具定制、插件开发、智能体搭建、系统集成等软件交付', '#0ea5e9', 'Code2',      2, true),
-          ('TK',    '培训与知识产品',     'AI课程开发、政企培训、研学项目、知识产品等教育服务',   '#f59e0b', 'GraduationCap', 3, true),
-          ('BO',    '商业运营',          'AI赋能直播、短视频、新媒体运营及品牌营销推广',         '#10b981', 'TrendingUp', 4, true),
-          ('OTHER', '其他',             '不属于以上四类的AI相关服务需求',                      '#94a3b8', 'MoreHorizontal', 5, true)
+          ('CG',    '内容生成',        '商业文案、视觉内容、视频、H5等内容创作与设计服务',     '#6366f1', 'Palette',        1, true),
+          ('SA',    '软件系统与智能体', 'AI工具定制、插件开发、智能体搭建、系统集成等软件交付', '#0ea5e9', 'Code2',          2, true),
+          ('TK',    '培训与知识产品',   'AI课程开发、政企培训、研学项目、知识产品等教育服务',   '#f59e0b', 'GraduationCap',  3, true),
+          ('BO',    '商业运营',        'AI赋能直播、短视频、新媒体运营及品牌营销推广',          '#10b981', 'TrendingUp',     4, true),
+          ('OTHER', '其他',           '不属于以上四类的AI相关服务需求',                        '#94a3b8', 'MoreHorizontal', 5, true)
       `);
       logger.info("Migration 019c: seeded 5 initial cat_categories");
     }
-  } catch (err) {
-    logger.warn({ err }, "Migration 019c: could not seed cat_categories");
-  }
+  });
 
   // Migration 019d: seed initial cat_tags (~20 sub-direction tags)
-  try {
+  await once("019d", false, async () => {
     const { rows } = await db.execute(sql`SELECT COUNT(*) FROM cat_tags`);
     const count = Number((rows[0] as any).count);
     if (count === 0) {
@@ -1313,42 +1158,28 @@ export async function runMigrations(): Promise<void> {
       `);
       logger.info("Migration 019d: seeded initial cat_tags");
     }
-  } catch (err) {
-    logger.warn({ err }, "Migration 019d: could not seed cat_tags");
-  }
+  });
 
-  // Migration 019e: add cat_category_id to demands table
-  try {
-    await db.execute(sql`
-      ALTER TABLE demands ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)
-    `);
+  // Migration 019e: add cat_category_id to demands (non-critical)
+  await once("019e", false, async () => {
+    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)`);
     logger.info("Migration 019e: added cat_category_id to demands");
-  } catch (err) {
-    logger.warn({ err }, "Migration 019e: could not add cat_category_id to demands");
-  }
+  });
 
-  // Migration 019f: add cat_category_id to portfolios table
-  try {
-    await db.execute(sql`
-      ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)
-    `);
+  // Migration 019f: add cat_category_id to portfolios (non-critical)
+  await once("019f", false, async () => {
+    await db.execute(sql`ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)`);
     logger.info("Migration 019f: added cat_category_id to portfolios");
-  } catch (err) {
-    logger.warn({ err }, "Migration 019f: could not add cat_category_id to portfolios");
-  }
+  });
 
-  // Migration 019g: add cat_category_id to quote_dimensions table
-  try {
-    await db.execute(sql`
-      ALTER TABLE quote_dimensions ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)
-    `);
+  // Migration 019g: add cat_category_id to quote_dimensions (non-critical)
+  await once("019g", false, async () => {
+    await db.execute(sql`ALTER TABLE quote_dimensions ADD COLUMN IF NOT EXISTS cat_category_id integer REFERENCES cat_categories(id)`);
     logger.info("Migration 019g: added cat_category_id to quote_dimensions");
-  } catch (err) {
-    logger.warn({ err }, "Migration 019g: could not add cat_category_id to quote_dimensions");
-  }
+  });
 
   // Migration 019h: backfill demands.cat_category_id from demands.type
-  try {
+  await once("019h", false, async () => {
     await db.execute(sql`
       UPDATE demands d
       SET cat_category_id = c.id
@@ -1363,12 +1194,10 @@ export async function runMigrations(): Promise<void> {
         )
     `);
     logger.info("Migration 019h: backfilled demands.cat_category_id");
-  } catch (err) {
-    logger.warn({ err }, "Migration 019h: could not backfill demands.cat_category_id");
-  }
+  });
 
   // Migration 019i: backfill quote_dimensions.cat_category_id from quote_dimensions.category
-  try {
+  await once("019i", false, async () => {
     await db.execute(sql`
       UPDATE quote_dimensions qd
       SET cat_category_id = c.id
@@ -1383,15 +1212,12 @@ export async function runMigrations(): Promise<void> {
         )
     `);
     logger.info("Migration 019i: backfilled quote_dimensions.cat_category_id");
-  } catch (err) {
-    logger.warn({ err }, "Migration 019i: could not backfill quote_dimensions.cat_category_id");
-  }
+  });
 
-  // ─── #87 OPC双等级体系 migrations ────────────────────────────────────────────
+  // ─── OPC双等级体系 migrations ────────────────────────────────────────────────
 
-  // Migration 020a: create credit_levels table (CRITICAL — no external deps)
-  // Stores configurable credit level definitions (name, point thresholds).
-  try {
+  // Migration 020a: create credit_levels table (CRITICAL)
+  await once("020a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS credit_levels (
         id         SERIAL PRIMARY KEY,
@@ -1405,37 +1231,22 @@ export async function runMigrations(): Promise<void> {
       )
     `);
     logger.info("Migration 020a: created credit_levels table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 020a: could not create credit_levels table");
-    if (!isDev) throw new Error(`Migration 020a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 020b: add credit_level_id to opc_profiles (non-critical, additive)
-  try {
-    await db.execute(sql`
-      ALTER TABLE opc_profiles
-        ADD COLUMN IF NOT EXISTS credit_level_id INTEGER REFERENCES credit_levels(id)
-    `);
+  // Migration 020b: add credit_level_id to opc_profiles (non-critical)
+  await once("020b", false, async () => {
+    await db.execute(sql`ALTER TABLE opc_profiles ADD COLUMN IF NOT EXISTS credit_level_id INTEGER REFERENCES credit_levels(id)`);
     logger.info("Migration 020b: added credit_level_id to opc_profiles");
-  } catch (err) {
-    logger.warn({ err }, "Migration 020b: could not add credit_level_id to opc_profiles");
-  }
+  });
 
-  // Migration 020c: add credit_points to opc_profiles (non-critical, additive)
-  try {
-    await db.execute(sql`
-      ALTER TABLE opc_profiles
-        ADD COLUMN IF NOT EXISTS credit_points INTEGER NOT NULL DEFAULT 0
-    `);
+  // Migration 020c: add credit_points to opc_profiles (non-critical)
+  await once("020c", false, async () => {
+    await db.execute(sql`ALTER TABLE opc_profiles ADD COLUMN IF NOT EXISTS credit_points INTEGER NOT NULL DEFAULT 0`);
     logger.info("Migration 020c: added credit_points to opc_profiles");
-  } catch (err) {
-    logger.warn({ err }, "Migration 020c: could not add credit_points to opc_profiles");
-  }
+  });
 
-  // Migration 020d: seed default credit levels (idempotent — INSERT ON CONFLICT DO NOTHING)
-  // 4 tiers per §5.1 of 接单吧 OPC 双认证评级规则方案:
-  //   白银(60) / 黄金(70) / 钻石(80) / 黑钻(90)
-  try {
+  // Migration 020d: seed default credit levels (白银/黄金/钻石/黑钻)
+  await once("020d", false, async () => {
     await db.execute(sql`
       INSERT INTO credit_levels (code, name, min_points, sort_order, color, is_active)
       VALUES
@@ -1446,33 +1257,22 @@ export async function runMigrations(): Promise<void> {
       ON CONFLICT (code) DO NOTHING
     `);
     logger.info("Migration 020d: seeded default credit_levels (白银/黄金/钻石/黑钻)");
-  } catch (err) {
-    logger.warn({ err }, "Migration 020d: could not seed credit_levels");
-  }
+  });
 
-  // Migration 020e: backfill opc_profiles.credit_level_id — all OPCs start at 白银 (silver).
-  // Credit level (白银/黄金/钻石/黑钻) measures platform fulfillment trustworthiness and is
-  // completely separate from the old A/B/C track skill certification. The old level enum
-  // must NOT be mapped to credit level; every OPC starts at 白银 regardless.
-  // Only updates rows where credit_level_id is still NULL (safe to re-run).
-  try {
+  // Migration 020e: backfill opc_profiles.credit_level_id — all OPCs start at 白银
+  // Credit level is completely separate from old A/B/C track skill certification.
+  await once("020e", false, async () => {
     await db.execute(sql`
       UPDATE opc_profiles op
       SET credit_level_id = cl.id
       FROM credit_levels cl
-      WHERE op.credit_level_id IS NULL
-        AND cl.code = 'silver'
+      WHERE op.credit_level_id IS NULL AND cl.code = 'silver'
     `);
     logger.info("Migration 020e: backfilled opc_profiles.credit_level_id — all set to 白银");
-  } catch (err) {
-    logger.warn({ err }, "Migration 020e: could not backfill credit_level_id");
-  }
+  });
 
   // Migration 020f: create opc_track_certs table (CRITICAL — depends on cat_categories)
-  // Guards: only attempts CREATE TABLE when cat_categories already exists.
-  // If cat_categories is absent (pre-#81 production), this migration warns and is
-  // retried on next boot — cat_categories will be present after #81 is published.
-  try {
+  await once("020f", true, async () => {
     await db.execute(sql`
       DO $$
       BEGIN
@@ -1494,32 +1294,22 @@ export async function runMigrations(): Promise<void> {
       END $$
     `);
     logger.info("Migration 020f: created opc_track_certs table (or skipped — cat_categories not yet present)");
-  } catch (err) {
-    logger.warn({ err }, "Migration 020f: could not create opc_track_certs table");
-    if (!isDev) throw new Error(`Migration 020f failed in production: ${err}`);
-  }
+  });
 
-  // Migration 020g: superseded — auto-backfill of opc_track_certs from portfolios
-  // has been removed. Track certifications are now managed exclusively by operations
-  // staff via the admin panel (Migration 024a clears any previously auto-inserted rows).
-  logger.info("Migration 020g: skipped (superseded by manual cert management policy)");
+  // Migration 020g: superseded — opc_track_certs auto-backfill removed.
+  // Track certifications are now managed exclusively by operations staff via admin panel.
+  await once("020g", false, async () => {
+    // intentional no-op (superseded by manual cert management policy)
+  });
 
-  // Migration 021a: Add required_track_level to demands (bidder track cert eligibility filter)
-  try {
-    await db.execute(sql`
-      ALTER TABLE demands ADD COLUMN IF NOT EXISTS required_track_level VARCHAR(5) NOT NULL DEFAULT 'any'
-    `);
+  // Migration 021a: add required_track_level to demands (CRITICAL)
+  await once("021a", true, async () => {
+    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS required_track_level VARCHAR(5) NOT NULL DEFAULT 'any'`);
     logger.info("Migration 021a: added required_track_level to demands");
-  } catch (err) {
-    logger.warn({ err }, "Migration 021a: could not add required_track_level to demands");
-    if (!isDev) throw new Error(`Migration 021a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 021b: Replace old credit level seed data (新手/成长/精英/专家) with
-  // document-defined tiers (白银/黄金/钻石/黑钻, §5.1).
-  // Steps: clear FK refs → delete old rows → insert new rows → re-backfill FK.
-  // Safe to re-run: INSERT ON CONFLICT DO UPDATE is idempotent after first run.
-  try {
+  // Migration 021b: replace old credit level seed data with correct 白银/黄金/钻石/黑钻 (CRITICAL)
+  await once("021b", true, async () => {
     await db.execute(sql`
       DO $$
       DECLARE
@@ -1531,14 +1321,10 @@ export async function runMigrations(): Promise<void> {
         ) INTO has_old;
 
         IF has_old THEN
-          -- 1. Remove FK references so old rows can be deleted
           UPDATE opc_profiles SET credit_level_id = NULL;
-
-          -- 2. Remove old tier rows
           DELETE FROM credit_levels WHERE code = ANY(old_codes);
         END IF;
 
-        -- 3. Upsert correct tiers (idempotent on re-run)
         INSERT INTO credit_levels (code, name, min_points, sort_order, color, is_active)
         VALUES
           ('silver',        '白银', 60, 1, '#94a3b8', true),
@@ -1552,49 +1338,28 @@ export async function runMigrations(): Promise<void> {
           color      = EXCLUDED.color,
           is_active  = EXCLUDED.is_active;
 
-        -- 4. Re-backfill credit_level_id: ALL OPCs start at 白银 (silver).
-        --    Credit level is separate from track skill cert (A/B/C); do not inherit old level.
         UPDATE opc_profiles op
         SET credit_level_id = cl.id
         FROM credit_levels cl
-        WHERE op.credit_level_id IS NULL
-          AND cl.code = 'silver';
+        WHERE op.credit_level_id IS NULL AND cl.code = 'silver';
       END $$
     `);
     logger.info("Migration 021b: replaced credit_levels with 白银/黄金/钻石/黑钻");
-  } catch (err) {
-    logger.warn({ err }, "Migration 021b: could not replace credit_levels");
-    if (!isDev) throw new Error(`Migration 021b failed in production: ${err}`);
-  }
+  });
 
-  // Migration 021d: Strip " OPC" suffix from credit level names.
-  // 020d and 021b used names like "白银 OPC"; correct to "白银" / "黄金" / "钻石" / "黑钻".
-  // Idempotent: only updates rows where the suffix is still present.
-  try {
+  // Migration 021d: strip " OPC" suffix from credit level names (non-critical)
+  await once("021d", false, async () => {
     await db.execute(sql`
-      UPDATE credit_levels
-      SET name = REPLACE(name, ' OPC', '')
-      WHERE name LIKE '% OPC'
+      UPDATE credit_levels SET name = REPLACE(name, ' OPC', '') WHERE name LIKE '% OPC'
     `);
     logger.info("Migration 021d: stripped ' OPC' suffix from credit_levels names");
-  } catch (err) {
-    logger.warn({ err }, "Migration 021d: could not strip OPC suffix from credit_levels");
-  }
+  });
 
-  // Migration 022a: backfill portfolios.cat_category_id from legacy type field,
-  // then insert any still-missing opc_track_certs for approved portfolios.
-  //
-  // Migration 020g only processed portfolios that already had cat_category_id set.
-  // Historical production portfolios were approved before the cat_category_id column
-  // existed, so their type field holds a legacy English code (education / software /
-  // marketing / content / other).  This migration maps those codes to the matching
-  // cat_categories row using a CASE expression, then ensures every approved portfolio
-  // has a corresponding opc_track_certs entry.  Both steps are fully idempotent.
-  try {
+  // Migration 022a: backfill portfolios.cat_category_id from legacy type field (non-critical)
+  await once("022a", false, async () => {
     await db.execute(sql`
       DO $$
       BEGIN
-        -- Step 1: Fill portfolios.cat_category_id for legacy approved entries
         IF EXISTS (
           SELECT 1 FROM information_schema.columns
           WHERE table_name = 'portfolios' AND column_name = 'cat_category_id'
@@ -1618,33 +1383,14 @@ export async function runMigrations(): Promise<void> {
               ELSE 'OTHER'
             END;
         END IF;
-
-        -- Step 2: opc_track_certs auto-backfill removed.
-        -- Track certifications are now managed exclusively by operations staff.
-        -- (Migration 024a clears any previously auto-inserted rows.)
       END $$
     `);
     logger.info("Migration 022a: backfilled portfolios.cat_category_id from legacy type field");
-  } catch (err) {
-    logger.warn({ err }, "Migration 022a: could not backfill legacy portfolio categories");
-  }
+  });
 
-  // Migration 025a: add manually_granted column to opc_track_certs so that rows
-  // inserted by the admin panel are protected from the 024a cleanup on restart.
-  try {
-    await db.execute(sql`
-      ALTER TABLE opc_track_certs
-        ADD COLUMN IF NOT EXISTS manually_granted BOOLEAN NOT NULL DEFAULT FALSE
-    `);
-    logger.info("Migration 025a: ensured opc_track_certs.manually_granted column exists");
-  } catch (err) {
-    logger.warn({ err }, "Migration 025a: could not add manually_granted column");
-  }
-
-  // Migration 023a: create credit_rules and credit_transactions tables,
-  // then seed default rules for the five action types.
-  // Step 1: enum type (handled separately — CREATE TYPE IF NOT EXISTS is not valid inside DO blocks)
-  try {
+  // Migration 023a: create credit_rules, credit_transactions tables + seed default rules (CRITICAL)
+  await once("023a", true, async () => {
+    // Step 1: credit_action_type enum
     await db.execute(sql`
       DO $$
       BEGIN
@@ -1659,12 +1405,7 @@ export async function runMigrations(): Promise<void> {
         END IF;
       END $$
     `);
-  } catch (err) {
-    logger.warn({ err }, "Migration 023a step 1: could not create credit_action_type enum");
-  }
-
-  // Step 2: credit_rules table + seed
-  try {
+    // Step 2: credit_rules table + seed
     await db.execute(sql`
       DO $$
       BEGIN
@@ -1681,7 +1422,6 @@ export async function runMigrations(): Promise<void> {
             created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
-
           INSERT INTO credit_rules (action_type, points_delta, description, is_active) VALUES
             ('order_completed',   10, '订单成功完成',     TRUE),
             ('five_star_review',   5, '客户5星好评',       TRUE),
@@ -1691,13 +1431,8 @@ export async function runMigrations(): Promise<void> {
         END IF;
       END $$
     `);
-    logger.info("Migration 023a step 2: created credit_rules table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 023a step 2: could not create credit_rules table");
-  }
-
-  // Step 3: credit_transactions table
-  try {
+    logger.info("Migration 023a: created credit_rules table");
+    // Step 3: credit_transactions table
     await db.execute(sql`
       DO $$
       BEGIN
@@ -1720,13 +1455,19 @@ export async function runMigrations(): Promise<void> {
         END IF;
       END $$
     `);
-    logger.info("Migration 023a step 3: created credit_transactions table");
-  } catch (err) {
-    logger.warn({ err }, "Migration 023a step 3: could not create credit_transactions table");
-  }
+    logger.info("Migration 023a: created credit_transactions table");
+  });
 
-  // Migration 026a: create demand_invitations table for auto-invite-on-approve feature
-  try {
+  // Migration 025a: add manually_granted column to opc_track_certs (non-critical)
+  await once("025a", false, async () => {
+    await db.execute(sql`
+      ALTER TABLE opc_track_certs ADD COLUMN IF NOT EXISTS manually_granted BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    logger.info("Migration 025a: ensured opc_track_certs.manually_granted column exists");
+  });
+
+  // Migration 026a: create demand_invitations table (CRITICAL)
+  await once("026a", true, async () => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS demand_invitations (
         id           SERIAL PRIMARY KEY,
@@ -1742,14 +1483,10 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`CREATE INDEX IF NOT EXISTS demand_invitations_demand_idx ON demand_invitations(demand_id)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS demand_invitations_opc_idx ON demand_invitations(opc_id)`);
     logger.info("Migration 026a: ensured demand_invitations table exists");
-  } catch (err) {
-    logger.warn({ err }, "Migration 026a: could not create demand_invitations table");
-    if (!isDev) throw new Error(`Migration 026a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 027a: backfill sub_orders for existing orders that don't have them yet (idempotent)
-  try {
-    // Only process orders that have no sub-orders yet
+  // Migration 027a: backfill sub_orders for existing orders without them (CRITICAL)
+  await once("027a", true, async () => {
     const ordersWithoutSubOrders = await db.execute(sql`
       SELECT o.order_no, o.opc_share, o.platform_fee, o.opc_id
       FROM orders o
@@ -1762,18 +1499,16 @@ export async function runMigrations(): Promise<void> {
         SELECT value FROM site_settings WHERE key = 'platform_ccb_merchant_no' LIMIT 1
       `);
       const platformMerchantNo = (platformSettingRows.rows[0] as any)?.value ?? null;
-
       for (const row of ordersWithoutSubOrders.rows as Array<{ order_no: string; opc_share: string | number; platform_fee: string | number; opc_id: number }>) {
         const opcSettlementRows = await db.execute(sql`
           SELECT ccb_merchant_no, company_name FROM settlement_accounts WHERE user_id = ${row.opc_id} LIMIT 1
         `);
         const opcSA = opcSettlementRows.rows[0] as { ccb_merchant_no: string | null; company_name: string | null } | undefined;
-
         await db.execute(sql`
           INSERT INTO sub_orders (order_no, sub_order_no, party_name, merchant_no, amount, role)
           VALUES
-            (${row.order_no}, ${row.order_no + "-OPC"},      ${opcSA?.company_name ?? null}, ${opcSA?.ccb_merchant_no ?? null}, ${String(row.opc_share)},      'opc'),
-            (${row.order_no}, ${row.order_no + "-PLATFORM"}, '平台',                          ${platformMerchantNo},              ${String(row.platform_fee)},   'platform')
+            (${row.order_no}, ${row.order_no + "-OPC"},      ${opcSA?.company_name ?? null}, ${opcSA?.ccb_merchant_no ?? null}, ${String(row.opc_share)},    'opc'),
+            (${row.order_no}, ${row.order_no + "-PLATFORM"}, '平台',                          ${platformMerchantNo},             ${String(row.platform_fee)}, 'platform')
           ON CONFLICT (sub_order_no) DO NOTHING
         `);
       }
@@ -1781,23 +1516,15 @@ export async function runMigrations(): Promise<void> {
     } else {
       logger.info("Migration 027a: all orders already have sub_orders, nothing to backfill");
     }
-  } catch (err) {
-    logger.warn({ err }, "Migration 027a: sub_orders backfill failed");
-    if (!isDev) throw new Error(`Migration 027a failed in production: ${err}`);
-  }
+  });
 
-  // Migration 028a: ensure budget_min / budget_max columns exist on demands.
-  // Replaces the ADD COLUMN portion of the now-removed migration 009a.
-  // No backfill — if a row has 0 for either column it means no range was set;
-  // administrators can correct individual records via the admin panel.
-  try {
+  // Migration 028a: ensure budget_min / budget_max columns exist on demands (CRITICAL)
+  // Replaces the now-removed migration 009a. No backfill — 0 means "not set".
+  await once("028a", true, async () => {
     await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_min real NOT NULL DEFAULT 0`);
     await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_max real NOT NULL DEFAULT 0`);
     logger.info("Migration 028a: ensured budget_min / budget_max columns exist on demands");
-  } catch (err) {
-    logger.warn({ err }, "Migration 028a: could not ensure budget_min/budget_max columns");
-    if (!isDev) throw new Error(`Migration 028a failed in production: ${err}`);
-  }
+  });
 
   logger.info("Startup data migrations complete.");
 }
