@@ -394,6 +394,7 @@ export default function PublisherCreateDemand() {
     if (!budgetMin || isNaN(Number(budgetMin)) || Number(budgetMin) <= 0) e.budget = "请填写最低预算金额";
     else if (!budgetMax || isNaN(Number(budgetMax)) || Number(budgetMax) <= 0) e.budget = "请填写最高预算金额";
     else if (Number(budgetMax) < Number(budgetMin)) e.budget = "最高预算不能低于最低预算";
+    else if (Number(budgetMax) === Number(budgetMin)) e.budget = "最高预算与最低预算不能相同，请设置合理的价格区间";
     if (!deadline) e.deadline = "请选择交付截止日期";
     else if (deadline < minDeadlineDate) e.deadline = "截止日期不能早于今天";
     if (mode === "open" && !bidDeadline) e.bidDeadline = "公开抢单模式须设置抢单截止时间";
@@ -440,6 +441,7 @@ export default function PublisherCreateDemand() {
       if (!budgetMin || isNaN(Number(budgetMin)) || Number(budgetMin) <= 0) currentErrors.budget = "请填写最低预算金额";
       else if (!budgetMax || isNaN(Number(budgetMax)) || Number(budgetMax) <= 0) currentErrors.budget = "请填写最高预算金额";
       else if (Number(budgetMax) < Number(budgetMin)) currentErrors.budget = "最高预算不能低于最低预算";
+      else if (Number(budgetMax) === Number(budgetMin)) currentErrors.budget = "最高预算与最低预算不能相同，请设置合理的价格区间";
       if (!deadline) currentErrors.deadline = "请选择交付截止日期";
       if (mode === "open" && !bidDeadline) currentErrors.bidDeadline = "请设置抢单截止时间";
       if (mode === "directed" && directedOpcIds.length === 0) currentErrors.directedOpcIds = "请选择目标OPC";

@@ -350,9 +350,9 @@ option_choices_json:{"q":"简要问题描述","opts":["选项A","选项B","其�
 - multi 为 true 时用户可多选后统一确认
 
 ### 最终表单建议格式（第四阶段全部确认后输出）
-form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型代码（来自 get_demand_types 返回的 value 字段，如 CG/SA/TK/BO/OTHER 等，以实际配置为准）","description":"完整Markdown需求文档正文","skillTags":["标签1","标签2"],"opcLevel":"C|B|A|any","budgetMin":数字,"budgetMax":数字,"isUrgent":false,"deadline":"YYYY-MM-DD（最终交付截止日期，来自validate_timeline）","bidDeadline":"YYYY-MM-DD（抢单截止日期，来自validate_timeline）","milestones":[{"name":"阶段名","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX工作，交付XX成果，验收标准为XX"}]}
+form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型代码（来自 get_demand_types 返回的 value 字段，如 CG/SA/TK/BO/OTHER 等，以实际配置为准）","description":"完整Markdown需求文档正文","skillTags":["标签1","标签2"],"opcLevel":"C|B|A|any","budgetMin":最低预算数字,"budgetMax":最高预算数字,"isUrgent":false,"deadline":"YYYY-MM-DD（最终交付截止日期，来自validate_timeline）","bidDeadline":"YYYY-MM-DD（抢单截止日期，来自validate_timeline）","milestones":[{"name":"阶段名","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX工作，交付XX成果，验收标准为XX"}]}
 
-> 字段约束：opcLevel 必须与 budgetMax 匹配（≤3000→C，≤20000→B，>20000→A）；除非用户明确要求"不限"否则禁止使用 any；deadline 和 bidDeadline 必须来自 validate_timeline 工具返回值，不能自行捏造。
+> 字段约束：opcLevel 必须与 budgetMax 匹配（≤3000→C，≤20000→B，>20000→A）；除非用户明确要求"不限"否则禁止使用 any；deadline 和 bidDeadline 必须来自 validate_timeline 工具返回值，不能自行捏造。**预算必须是区间：budgetMin 严格小于 budgetMax，两者不得相等**（例如 budgetMin:5000, budgetMax:15000）；若用户只说了一个数字，以该数字为中值上下各浮动 20%~30% 生成合理区间，不可直接令 budgetMin=budgetMax。
 
 ## 注意事项
 - 全程使用中文，语气友好自然，让用户感受到"有人在帮我梳理需求"，而非"在填调查问卷"
@@ -361,7 +361,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.7 -->`;
+<!-- prompt-version: 3.8 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
