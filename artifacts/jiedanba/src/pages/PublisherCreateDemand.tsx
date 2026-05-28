@@ -568,10 +568,13 @@ export default function PublisherCreateDemand() {
     }
 
     // Budget: set min/max first, then derive opcLevel from actual budgetMax to guarantee consistency
-    const rawMax = suggestion.budgetMax ?? suggestion.budget;
+    // Only pre-fill max if AI returned an explicit budgetMax (distinct from budgetMin/budget);
+    // if AI returned only a single budget value, leave max blank so the user fills it in —
+    // this prevents accidentally storing budgetMin === budgetMax when a range was intended.
     const rawMin = suggestion.budgetMin ?? suggestion.budget;
-    if (rawMax) { setBudgetMax(String(rawMax)); scrollTarget = scrollTarget ?? "section-budget"; }
+    const rawMax = suggestion.budgetMax && suggestion.budgetMax !== rawMin ? suggestion.budgetMax : undefined;
     if (rawMin) { setBudgetMin(String(rawMin)); scrollTarget = scrollTarget ?? "section-budget"; }
+    if (rawMax) { setBudgetMax(String(rawMax)); scrollTarget = scrollTarget ?? "section-budget"; }
 
     // Auto-derive opcLevel from budgetMax — ignore whatever AI suggested to avoid validation errors
     if (rawMax) {
