@@ -2044,19 +2044,29 @@ function DemandManagement() {
               <td className="px-6 py-4 font-mono text-xs text-slate-400">{d.demandNo}</td>
               <td className="px-6 py-4 text-sm text-slate-500">{d.publisherName}</td>
               <td className="px-6 py-4 text-sm">
-                <div className="space-y-0.5">
-                  <div className="font-bold text-blue-900">{formatBudget(d.budgetMin, d.budgetMax, d.budget)}</div>
-                  {d.commissionRate != null && (
-                    <div className="text-xs text-slate-400">
-                      OPC见：{formatBudget(
-                        Math.round((d.budgetMin ?? d.budget) * (1 - d.commissionRate)),
-                        Math.round((d.budgetMax ?? d.budget) * (1 - d.commissionRate)),
-                        Math.round(d.budget * (1 - d.commissionRate))
-                      )}
+                {(() => {
+                  const rate = d.commissionRate ?? 0.1;
+                  const pubMin = d.budgetMin ?? d.budget ?? 0;
+                  const pubMax = d.budgetMax ?? d.budget ?? 0;
+                  const isRange = pubMin > 0 && pubMax > 0 && pubMin !== pubMax;
+                  const opcMin = Math.round(pubMin * (1 - rate));
+                  const opcMax = Math.round(pubMax * (1 - rate));
+                  return (
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-blue-900">
+                        {isRange
+                          ? <>¥{pubMin.toLocaleString()}<span className="text-slate-400 font-normal mx-0.5">~</span>¥{pubMax.toLocaleString()}</>
+                          : <>¥{pubMin.toLocaleString()}</>}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        OPC见：{isRange
+                          ? <>¥{opcMin.toLocaleString()}<span className="mx-0.5">~</span>¥{opcMax.toLocaleString()}</>
+                          : <>¥{opcMin.toLocaleString()}</>}
+                      </div>
+                      <div className="text-[11px] text-amber-600 font-semibold">抽成 {Math.round(rate * 100)}%</div>
                     </div>
-                  )}
-                  <div className="text-[11px] text-amber-600 font-semibold">抽成 {d.commissionRate != null ? `${Math.round(d.commissionRate * 100)}%` : "10%"}</div>
-                </div>
+                  );
+                })()}
               </td>
               <td className="px-6 py-4 text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</td>
               <td className="px-6 py-4"><StatusBadge label={statusCN[d.status] ?? d.status} color={statusColor(d.status)} /></td>
