@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -2332,6 +2332,7 @@ router.delete("/admin/sensitive-words/:id", async (req, res) => {
 /* ─── SITE SETTINGS ─────────────────────────────── */
 
 const DEFAULT_SETTINGS: Record<string, string> = {
+  platform_ccb_merchant_no: "",
   site_name:    "接单吧",
   site_subtitle: "OPC撮合交易平台",
   site_logo:    "",
@@ -3321,6 +3322,7 @@ router.get("/admin/settlement-accounts", requireAdmin, async (req, res) => {
         userEmail: usersTable.email,
         companyName: settlementAccountsTable.companyName,
         creditCode: settlementAccountsTable.creditCode,
+        ccbMerchantNo: settlementAccountsTable.ccbMerchantNo,
         bankName: settlementAccountsTable.bankName,
         bankBranch: settlementAccountsTable.bankBranch,
         bankAccount: settlementAccountsTable.bankAccount,
@@ -3396,6 +3398,23 @@ router.patch("/admin/settlement-accounts/:id", requireAdmin, async (req, res) =>
   } catch (err) {
     logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "审核操作失败" });
+  }
+});
+
+/* ─── ADMIN: Sub-orders ─────────────────────────────── */
+
+router.get("/admin/orders/:orderNo/sub-orders", requireAdmin, async (req, res) => {
+  try {
+    const { orderNo } = req.params as { orderNo: string };
+    const rows = await db
+      .select()
+      .from(subOrdersTable)
+      .where(eq(subOrdersTable.orderNo, orderNo))
+      .orderBy(subOrdersTable.id);
+    return res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取子订单失败" });
   }
 });
 

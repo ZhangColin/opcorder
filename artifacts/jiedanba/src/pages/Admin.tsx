@@ -2163,6 +2163,17 @@ interface AdminOrder {
   paymentRejectReason?: string | null;
 }
 
+interface SubOrder {
+  id: number;
+  orderNo: string;
+  subOrderNo: string;
+  partyName: string | null;
+  merchantNo: string | null;
+  amount: string;
+  role: string;
+  createdAt: string;
+}
+
 function OrderManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -2171,6 +2182,27 @@ function OrderManagement() {
 
   const [rejectOrderId, setRejectOrderId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [expandedSubOrders, setExpandedSubOrders] = useState<string | null>(null);
+  const [subOrdersMap, setSubOrdersMap] = useState<Record<string, SubOrder[]>>({});
+  const [subOrdersLoading, setSubOrdersLoading] = useState<string | null>(null);
+
+  async function toggleSubOrders(orderNo: string) {
+    if (expandedSubOrders === orderNo) {
+      setExpandedSubOrders(null);
+      return;
+    }
+    setExpandedSubOrders(orderNo);
+    if (subOrdersMap[orderNo]) return;
+    setSubOrdersLoading(orderNo);
+    try {
+      const data: SubOrder[] = await adminGet(`/api/admin/orders/${orderNo}/sub-orders`);
+      setSubOrdersMap(m => ({ ...m, [orderNo]: data }));
+    } catch {
+      setSubOrdersMap(m => ({ ...m, [orderNo]: [] }));
+    } finally {
+      setSubOrdersLoading(null);
+    }
+  }
 
   const { data: resp, isLoading } = useQuery<PagedResp<AdminOrder>>({
     queryKey: ["admin-orders", filter, q, page, pageSize],
@@ -2354,47 +2386,87 @@ function OrderManagement() {
       <TableShell headers={["订单号", "关联需求", "OPC", "金额", "里程碑", "已进行", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={8} /> : orders.length === 0 ? <EmptyRow cols={8} /> :
           orders.map(o => (
-            <tr key={o.id} className="hover:bg-slate-50/60 transition-colors">
-              <td className="px-6 py-4 font-mono text-xs font-bold text-primary">{o.orderNo}</td>
-              <td className="px-6 py-4 text-sm text-blue-900 font-medium max-w-[160px]">
-                <span className="line-clamp-1">{o.demandTitle}</span>
-              </td>
-              <td className="px-6 py-4 text-sm text-slate-500">{o.opcName}</td>
-              <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{o.amount?.toLocaleString()}</td>
-              <td className="px-6 py-4">
-                <span className={`text-xs font-bold ${o.totalMilestones > 0 ? "text-secondary" : "text-slate-400"}`}>
-                  {o.totalMilestones > 0 ? `${o.completedMilestones}/${o.totalMilestones}` : "—"}
-                </span>
-              </td>
-              <td className="px-6 py-4">
-                <span className={`text-sm font-bold ${o.daysSinceCreated > 60 ? "text-destructive" : "text-slate-600"}`}>
-                  {o.daysSinceCreated}天
-                </span>
-              </td>
-              <td className="px-6 py-4"><StatusBadge label={statusCN[o.status] ?? o.status} color={statusColor(o.status)} /></td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-1">
-                  {o.status !== "disputed" && (
-                    <button onClick={() => mutate.mutate({ id: o.id, action: "markDisputed" })}
-                      title="标记争议" className="p-2 rounded-xl hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
-                      <Gavel size={15} />
+            <Fragment key={o.id}>
+              <tr className="hover:bg-slate-50/60 transition-colors">
+                <td className="px-6 py-4 font-mono text-xs font-bold text-primary">{o.orderNo}</td>
+                <td className="px-6 py-4 text-sm text-blue-900 font-medium max-w-[160px]">
+                  <span className="line-clamp-1">{o.demandTitle}</span>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-500">{o.opcName}</td>
+                <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{o.amount?.toLocaleString()}</td>
+                <td className="px-6 py-4">
+                  <span className={`text-xs font-bold ${o.totalMilestones > 0 ? "text-secondary" : "text-slate-400"}`}>
+                    {o.totalMilestones > 0 ? `${o.completedMilestones}/${o.totalMilestones}` : "—"}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`text-sm font-bold ${o.daysSinceCreated > 60 ? "text-destructive" : "text-slate-600"}`}>
+                    {o.daysSinceCreated}天
+                  </span>
+                </td>
+                <td className="px-6 py-4"><StatusBadge label={statusCN[o.status] ?? o.status} color={statusColor(o.status)} /></td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => toggleSubOrders(o.orderNo)}
+                      title="子订单"
+                      className={`p-2 rounded-xl transition-colors ${expandedSubOrders === o.orderNo ? "bg-primary/10 text-primary" : "hover:bg-slate-100 text-slate-400 hover:text-slate-600"}`}>
+                      <Receipt size={15} />
                     </button>
-                  )}
-                  {o.status === "disputed" && (
-                    <button onClick={() => mutate.mutate({ id: o.id, action: "resolveDispute" })}
-                      title="解决争议" className="p-2 rounded-xl hover:bg-green-50 text-slate-400 hover:text-secondary transition-colors">
-                      <CheckCircle2 size={15} />
-                    </button>
-                  )}
-                  {o.status !== "completed" && o.status !== "closed" && (
-                    <button onClick={() => askConfirm({ title: "强制结算订单", description: "结算后不可撤销，OPC 和发单方均会收到通知。", confirmLabel: "强制结算", confirmVariant: "default", onConfirm: () => mutate.mutate({ id: o.id, action: "forceSettle" }) })}
-                      title="强制结算" className="p-2 rounded-xl hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
-                      <CreditCard size={15} />
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
+                    {o.status !== "disputed" && (
+                      <button onClick={() => mutate.mutate({ id: o.id, action: "markDisputed" })}
+                        title="标记争议" className="p-2 rounded-xl hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
+                        <Gavel size={15} />
+                      </button>
+                    )}
+                    {o.status === "disputed" && (
+                      <button onClick={() => mutate.mutate({ id: o.id, action: "resolveDispute" })}
+                        title="解决争议" className="p-2 rounded-xl hover:bg-green-50 text-slate-400 hover:text-secondary transition-colors">
+                        <CheckCircle2 size={15} />
+                      </button>
+                    )}
+                    {o.status !== "completed" && o.status !== "closed" && (
+                      <button onClick={() => askConfirm({ title: "强制结算订单", description: "结算后不可撤销，OPC 和发单方均会收到通知。", confirmLabel: "强制结算", confirmVariant: "default", onConfirm: () => mutate.mutate({ id: o.id, action: "forceSettle" }) })}
+                        title="强制结算" className="p-2 rounded-xl hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
+                        <CreditCard size={15} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+              {expandedSubOrders === o.orderNo && (
+                <tr className="bg-primary/5">
+                  <td colSpan={8} className="px-6 py-4">
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">子订单（分账明细）</p>
+                      {subOrdersLoading === o.orderNo ? (
+                        <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+                          <Loader2 size={13} className="animate-spin" /> 加载中…
+                        </div>
+                      ) : (subOrdersMap[o.orderNo] ?? []).length === 0 ? (
+                        <p className="text-xs text-slate-400 py-2">暂无子订单记录</p>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {(subOrdersMap[o.orderNo] ?? []).map(s => (
+                            <div key={s.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.role === "opc" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                                  {s.role === "opc" ? "OPC" : "平台"}
+                                </span>
+                              </div>
+                              <p className="font-mono text-[11px] text-slate-400">{s.subOrderNo}</p>
+                              <p className="font-bold text-sm text-blue-900">¥{Number(s.amount).toLocaleString()}</p>
+                              {s.partyName && <p className="text-xs text-slate-500">{s.partyName}</p>}
+                              {s.merchantNo && <p className="font-mono text-[11px] text-slate-400">商家编号：{s.merchantNo}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))
         }
       </TableShell>
@@ -5254,6 +5326,16 @@ function SiteSettingsManagement() {
       <SectionHeader title="站点设置" sub="配置平台品牌、页脚信息及视觉元素" />
 
       <div className="space-y-6">
+        {/* 平台结算配置 */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">平台结算配置</h3>
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">平台建行商家编号</label>
+            <p className="text-xs text-slate-400 mb-2">用于分账时平台手续费收款方，对应建设银行商家号</p>
+            {field("platform_ccb_merchant_no", "请输入平台建设银行商家编号")}
+          </div>
+        </div>
+
         {/* 基本信息 */}
         <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
           <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">基本信息</h3>
@@ -8449,6 +8531,7 @@ type SettlementRecord = {
   userEmail: string | null;
   companyName: string | null;
   creditCode: string | null;
+  ccbMerchantNo: string | null;
   bankName: string | null;
   bankBranch: string | null;
   bankAccount: string | null;
@@ -8600,14 +8683,11 @@ function SettlementManagement() {
               <div className="px-6 py-5 space-y-5">
                 {/* Company & bank info */}
                 <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">企业 & 银行信息</p>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">企业 & 结算信息</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
                     <div><p className="text-xs text-slate-400 mb-0.5">企业名称</p><p className="font-medium text-slate-700">{r.companyName || "—"}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">统一社会信用代码</p><p className="font-mono text-slate-700 text-xs">{r.creditCode || "—"}</p></div>
-                    <div><p className="text-xs text-slate-400 mb-0.5">开户名称</p><p className="font-medium text-slate-700">{r.accountName || "—"}</p></div>
-                    <div><p className="text-xs text-slate-400 mb-0.5">银行账号</p><p className="font-mono text-slate-700 text-xs">{r.bankAccount || "—"}</p></div>
-                    <div><p className="text-xs text-slate-400 mb-0.5">开户银行</p><p className="font-medium text-slate-700">{r.bankName || "—"}</p></div>
-                    <div><p className="text-xs text-slate-400 mb-0.5">开户支行</p><p className="font-medium text-slate-700">{r.bankBranch || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">建行商家编号</p><p className="font-mono text-slate-700 text-xs">{r.ccbMerchantNo || "—"}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">联系人</p><p className="font-medium text-slate-700">{r.contactName || "—"}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">联系电话</p><p className="font-medium text-slate-700">{r.contactPhone || "—"}</p></div>
                   </div>

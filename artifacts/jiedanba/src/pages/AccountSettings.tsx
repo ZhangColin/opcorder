@@ -213,10 +213,7 @@ interface SettlementForm {
   businessLicenseUrl: string;
   legalRepIdFrontUrl: string;
   legalRepIdBackUrl: string;
-  accountName: string;
-  bankAccount: string;
-  bankName: string;
-  bankBranch: string;
+  ccbMerchantNo: string;
   contactName: string;
   contactPhone: string;
 }
@@ -229,7 +226,7 @@ const EMPTY_PROFILE: ProfileForm = {
 const EMPTY_SETTLEMENT: SettlementForm = {
   companyName: "", creditCode: "", businessLicenseUrl: "",
   legalRepIdFrontUrl: "", legalRepIdBackUrl: "",
-  accountName: "", bankAccount: "", bankName: "", bankBranch: "",
+  ccbMerchantNo: "",
   contactName: "", contactPhone: "",
 };
 
@@ -304,10 +301,7 @@ export default function AccountSettings() {
             businessLicenseUrl: data.businessLicenseUrl ?? "",
             legalRepIdFrontUrl: data.legalRepIdFrontUrl ?? "",
             legalRepIdBackUrl: data.legalRepIdBackUrl ?? "",
-            accountName: data.accountName ?? "",
-            bankAccount: data.bankAccount ?? "",
-            bankName: data.bankName ?? "",
-            bankBranch: data.bankBranch ?? "",
+            ccbMerchantNo: data.ccbMerchantNo ?? "",
             contactName: data.contactName ?? "",
             contactPhone: data.contactPhone ?? "",
           };
@@ -702,17 +696,12 @@ export default function AccountSettings() {
                 </div>
               </div>
 
-              {/* Bank info */}
+              {/* CCB Merchant No */}
               <div className="space-y-4">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  <CreditCard size={12} />银行账户
+                  <CreditCard size={12} />建行商家编号
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="开户名称" value={settlementForm.accountName} onChange={v => setS("accountName", v)} placeholder="与银行开户名称完全一致" />
-                  <Field label="银行账号" value={settlementForm.bankAccount} onChange={v => setS("bankAccount", v)} placeholder="请输入银行账号" />
-                  <Field label="开户银行" value={settlementForm.bankName} onChange={v => setS("bankName", v)} placeholder="如：中国工商银行" />
-                  <Field label="开户支行" value={settlementForm.bankBranch} onChange={v => setS("bankBranch", v)} placeholder="如：北京市朝阳区建国路支行" />
-                </div>
+                <Field label="建行商家编号" value={settlementForm.ccbMerchantNo} onChange={v => setS("ccbMerchantNo", v)} placeholder="请输入建设银行商家编号" />
               </div>
 
               {/* Contact info */}
@@ -732,7 +721,7 @@ export default function AccountSettings() {
                 <ul className="space-y-0.5 list-disc list-inside text-blue-600">
                   <li>企业名称、统一社会信用代码须与营业执照保持一致</li>
                   <li>请上传法人代表身份证正面和背面的清晰照片</li>
-                  <li>银行账号、开户名称请与银行预留信息完全一致</li>
+                  <li>建行商家编号用于平台分账，请确保与建设银行预留信息一致</li>
                   <li>提交后平台将在 1-3 个工作日内完成审核</li>
                 </ul>
               </div>

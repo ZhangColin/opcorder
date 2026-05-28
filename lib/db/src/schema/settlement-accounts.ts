@@ -17,6 +17,7 @@ export const settlementAccountsTable = pgTable("settlement_accounts", {
   businessLicenseUrl: text("business_license_url"),
   legalRepIdFrontUrl: text("legal_rep_id_front_url"),
   legalRepIdBackUrl: text("legal_rep_id_back_url"),
+  ccbMerchantNo: varchar("ccb_merchant_no", { length: 50 }),
   rejectReason: text("reject_reason"),
   status: settlementStatusEnum("status").notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

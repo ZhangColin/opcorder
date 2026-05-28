@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable, settlementAccountsTable, opcTrackCertsTable } from "@workspace/db";
+import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable, settlementAccountsTable, opcTrackCertsTable, subOrdersTable, siteSettingsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import {
   CreateBidBody,
@@ -479,6 +479,53 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
           status: "matched",
           updatedAt: new Date(),
         }).where(eq(demandsTable.id, demand.id));
+
+        // Create sub-orders for payment splitting
+        try {
+          // Fetch OPC's CCB merchant number from their settlement account
+          const [opcSettlement] = await db
+            .select({ ccbMerchantNo: settlementAccountsTable.ccbMerchantNo, companyName: settlementAccountsTable.companyName })
+            .from(settlementAccountsTable)
+            .where(eq(settlementAccountsTable.userId, updated.opcId))
+            .limit(1);
+
+          // Fetch platform CCB merchant number from site settings
+          const settingsRows = await db
+            .select()
+            .from(siteSettingsTable)
+            .where(eq(siteSettingsTable.key, "platform_ccb_merchant_no"))
+            .limit(1);
+          const platformMerchantNo = settingsRows[0]?.value ?? null;
+
+          const subOrdersToInsert = [];
+
+          // Sub-order for OPC portion
+          subOrdersToInsert.push({
+            orderNo,
+            subOrderNo: `${orderNo}-OPC`,
+            partyName: opcSettlement?.companyName ?? null,
+            merchantNo: opcSettlement?.ccbMerchantNo ?? null,
+            amount: String(opcShare),
+            role: "opc" as const,
+          });
+
+          // Sub-order for platform portion
+          if (platformFee > 0) {
+            subOrdersToInsert.push({
+              orderNo,
+              subOrderNo: `${orderNo}-PLATFORM`,
+              partyName: "平台",
+              merchantNo: platformMerchantNo,
+              amount: String(platformFee),
+              role: "platform" as const,
+            });
+          }
+
+          await db.insert(subOrdersTable).values(subOrdersToInsert);
+        } catch (subOrderErr) {
+          // Non-blocking: log but don't fail the order creation
+          logger.warn({ err: subOrderErr, orderNo }, "Failed to create sub-orders, will skip");
+        }
 
         // Reject all other pending bids
         await db.update(bidsTable).set({ status: "rejected" }).where(
