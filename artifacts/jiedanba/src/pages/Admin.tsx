@@ -1130,6 +1130,7 @@ interface AdminDemand {
   opcLevel: string | null;
   requiredTrackLevel: string | null;
   bidCount: number;
+  commissionRate?: number | null;
 }
 
 interface AdminDemandPayment {
@@ -2012,7 +2013,7 @@ function DemandManagement() {
           {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
-      <TableShell headers={["需求标题", "OPC等级要求", "抢单人数", "编号", "发单方", "预算", "创建日期", "状态", "操作"]}>
+      <TableShell headers={["需求标题", "OPC等级要求", "抢单人数", "编号", "发单方", "预算（需求方/OPC）", "创建日期", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={9} /> : demands.length === 0 ? <EmptyRow cols={9} /> :
           demands.map(d => (
             <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
@@ -2042,7 +2043,21 @@ function DemandManagement() {
               </td>
               <td className="px-6 py-4 font-mono text-xs text-slate-400">{d.demandNo}</td>
               <td className="px-6 py-4 text-sm text-slate-500">{d.publisherName}</td>
-              <td className="px-6 py-4 font-bold text-sm text-blue-900">{formatBudget(d.budgetMin, d.budgetMax, d.budget)}</td>
+              <td className="px-6 py-4 text-sm">
+                <div className="space-y-0.5">
+                  <div className="font-bold text-blue-900">{formatBudget(d.budgetMin, d.budgetMax, d.budget)}</div>
+                  {d.commissionRate != null && (
+                    <div className="text-xs text-slate-400">
+                      OPC见：{formatBudget(
+                        Math.round((d.budgetMin ?? d.budget) * (1 - d.commissionRate)),
+                        Math.round((d.budgetMax ?? d.budget) * (1 - d.commissionRate)),
+                        Math.round(d.budget * (1 - d.commissionRate))
+                      )}
+                    </div>
+                  )}
+                  <div className="text-[11px] text-amber-600 font-semibold">抽成 {d.commissionRate != null ? `${Math.round(d.commissionRate * 100)}%` : "10%"}</div>
+                </div>
+              </td>
               <td className="px-6 py-4 text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</td>
               <td className="px-6 py-4"><StatusBadge label={statusCN[d.status] ?? d.status} color={statusColor(d.status)} /></td>
               <td className="px-6 py-4">
@@ -2151,6 +2166,8 @@ interface AdminOrder {
   status: string;
   amount: number;
   opcShare: number;
+  platformFee?: number | null;
+  commissionRate?: number | null;
   opcName: string;
   publisherName: string;
   demandTitle: string;
@@ -2383,7 +2400,7 @@ function OrderManagement() {
           {q && <button type="button" onClick={clearSearch} className="px-2 py-1.5 text-slate-400 hover:text-slate-600 text-xs transition-colors">×</button>}
         </form>
       </div>
-      <TableShell headers={["订单号", "关联需求", "OPC", "金额", "里程碑", "已进行", "状态", "操作"]}>
+      <TableShell headers={["订单号", "关联需求", "OPC", "金额（发单方/OPC）", "里程碑", "已进行", "状态", "操作"]}>
         {isLoading ? <LoadingRow cols={8} /> : orders.length === 0 ? <EmptyRow cols={8} /> :
           orders.map(o => (
             <Fragment key={o.id}>
@@ -2393,7 +2410,13 @@ function OrderManagement() {
                   <span className="line-clamp-1">{o.demandTitle}</span>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">{o.opcName}</td>
-                <td className="px-6 py-4 font-bold text-sm text-blue-900">¥{o.amount?.toLocaleString()}</td>
+                <td className="px-6 py-4 text-sm">
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-blue-900">¥{o.amount?.toLocaleString()}</div>
+                    <div className="text-xs text-secondary font-medium">OPC：¥{o.opcShare?.toLocaleString()}</div>
+                    <div className="text-[11px] text-amber-600 font-semibold">抽成 {o.commissionRate != null ? `${Math.round(o.commissionRate * 100)}%` : "—"}</div>
+                  </div>
+                </td>
                 <td className="px-6 py-4">
                   <span className={`text-xs font-bold ${o.totalMilestones > 0 ? "text-secondary" : "text-slate-400"}`}>
                     {o.totalMilestones > 0 ? `${o.completedMilestones}/${o.totalMilestones}` : "—"}

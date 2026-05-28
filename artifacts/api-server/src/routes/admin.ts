@@ -404,6 +404,7 @@ router.get("/admin/demands", async (req, res) => {
       deadline: demandsTable.deadline,
       opcLevel: demandsTable.opcLevel,
       requiredTrackLevel: demandsTable.requiredTrackLevel,
+      commissionRate: demandsTable.commissionRate,
       bidCount: sql<number>`COALESCE((SELECT COUNT(*) FROM bids WHERE bids.demand_id = demands.id), 0)`,
     })
       .from(demandsTable)
@@ -806,6 +807,7 @@ router.get("/admin/orders", async (req, res) => {
       amount: ordersTable.amount,
       opcShare: ordersTable.opcShare,
       platformFee: ordersTable.platformFee,
+      commissionRate: ordersTable.commissionRate,
       opcId: ordersTable.opcId,
       publisherId: ordersTable.publisherId,
       demandId: ordersTable.demandId,
