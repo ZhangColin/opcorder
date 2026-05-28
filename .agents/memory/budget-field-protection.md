@@ -3,18 +3,27 @@ name: Budget field protection
 description: How and why budget fields are protected from accidental overwrite in demands.
 ---
 
-## Rule
-`PUT /demands/:demandId` must only allow budget field edits (`budget`, `budgetMin`, `budgetMax`) when the demand status is `draft` or `pending_review`. Any other status returns HTTP 400.
+## Root cause (resolved)
+Every server restart used to reset `budget_max` to `budget` (= `budgetMin`), destroying the range:
+- Migration 002 `DROP COLUMN IF EXISTS budget_min/budget_max` — deleted all data each boot
+- Migration 009a `ADD COLUMN IF NOT EXISTS … DEFAULT 0` then backfilled with `SET budget_max = budget`
+- At demand creation: legacy `budget = budgetMin` (NOT budgetMax)
+- Result: `budget_max` reset from e.g. 10000 → 1000 on every restart
 
-## Why
-Exhaustive audit found that this endpoint had **no status check** on budget fields — a published/matched/any-status demand could have its budget silently overwritten by the publisher's edit form. This caused `budget_max` to collapse from a correct range (e.g. 10000) back to `budget` (e.g. 1000) whenever the edit form was submitted on a live demand.
+## Fix applied
+1. **Migration 002** converted to a no-op comment — no longer drops the columns
+2. **Migration 009a** removed entirely (ADD COLUMN + harmful backfill gone)
+3. **Migration 028a** added at the end — only `ADD COLUMN IF NOT EXISTS` (no backfill ever)
 
-## How to apply
-- In `demands.ts` PUT handler: `SELECT status, publisherId` first, check `budgetEditableStatuses = ["draft","pending_review"]`, reject with 400 if budget fields present and status not in list.
-- In `PublisherCreateDemand.tsx`: when `isEdit && existingDemand.status` is not draft/pending_review, render budget inputs as `readOnly` with grey styling and an explanatory hint.
+## PUT /demands/:demandId status guard
+Budget fields (`budget`, `budgetMin`, `budgetMax`) may only be changed when demand status is `draft` or `pending_review`. Any other status returns HTTP 400. Implemented via a preflight SELECT in the PUT handler.
 
-## Migration 009a guard
-The backfill SQL in migration 009a was strengthened to `WHERE budget_min = 0 AND budget_max = 0 AND budget > 0` (added `budget_max = 0`). This prevents overwriting a correctly-set `budget_max` if `budget_min` was ever reset to 0 by some other path.
+## Frontend budget field lock
+In `PublisherCreateDemand.tsx` edit mode: if `existingDemand.status` is not `draft`/`pending_review`, both budget inputs render as `readOnly` with grey styling and an explanatory hint.
 
-## Old production demands
-Demands created before the budget-range feature was introduced only stored a single `budget` value. Migration 009a backfills both `budget_min` and `budget_max` to that single value. These demands will show a collapsed range (min = max = budget). This is expected — admins must manually correct the range via a future admin tool if needed.
+## Why budget ≠ budgetMax at creation
+In `demands.ts` POST handler:
+```js
+const budgetLegacy = body.budget ?? budgetMin;  // falls back to budgetMin, not budgetMax
+```
+So `budget` = `budgetMin`. If you ever add a new backfill that copies from `budget`, it will collapse the range to the minimum. Never backfill budget_max from budget.

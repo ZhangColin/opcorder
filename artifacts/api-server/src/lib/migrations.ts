@@ -125,18 +125,10 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 001e: budget backfill skipped (columns may already be dropped)");
   }
 
-  // Migration 002: drop legacy budget_min / budget_max columns
-  // Runs after 001e backfill so no data is lost. Drizzle schema no longer
-  // references these columns; dropping them aligns the physical DB with the schema.
-  // Uses IF EXISTS so this is safe to re-run on subsequent boots.
-  try {
-    await db.execute(sql`ALTER TABLE demands DROP COLUMN IF EXISTS budget_min`);
-    await db.execute(sql`ALTER TABLE demands DROP COLUMN IF EXISTS budget_max`);
-    logger.info("Migration 002: dropped legacy budget_min and budget_max columns");
-  } catch (err) {
-    logger.warn({ err }, "Migration 002: could not drop legacy budget columns");
-    if (!isDev) throw new Error(`Migration 002 failed in production: ${err}`);
-  }
+  // Migration 002: (no-op — budget_min / budget_max are now permanent columns)
+  // Originally dropped these columns; that drop was reversed by 009a on every boot.
+  // Columns are now permanent features of the schema. 009a has been removed.
+  // This block is intentionally left as a no-op to preserve migration numbering.
 
   // Migration 003a: add 'refunded' value to demand_payment_status enum (CRITICAL)
   // Required for the payment API refund flow
@@ -502,21 +494,12 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 008c: could not add legal rep ID card columns to settlement_accounts");
   }
 
-  // Migration 009a: add budgetMin / budgetMax columns to demands (CRITICAL)
-  // These replace the legacy budget field for the new quote-card pricing flow.
-  try {
-    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_min real NOT NULL DEFAULT 0`);
-    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_max real NOT NULL DEFAULT 0`);
-    // Backfill budgetMin/budgetMax from legacy budget field for old rows that predate the range feature.
-    // Condition: budget_min = 0 AND budget_max = 0 AND budget > 0 — only truly uninitialized rows.
-    // Using budget_max = 0 as an extra guard so we never overwrite a properly-set budget_max
-    // for a demand that happens to have had budget_min reset to 0 later.
-    await db.execute(sql`UPDATE demands SET budget_min = budget, budget_max = budget WHERE budget_min = 0 AND budget_max = 0 AND budget > 0`);
-    logger.info("Migration 009a: added budget_min / budget_max to demands");
-  } catch (err) {
-    logger.warn({ err }, "Migration 009a: could not add budget_min/budget_max to demands");
-    if (!isDev) throw new Error(`Migration 009a failed in production: ${err}`);
-  }
+  // Migration 009a: removed.
+  // The ADD COLUMN + backfill that lived here caused budget_max to be reset to
+  // budget (= budgetMin) on every server restart, because migration 002 was
+  // dropping these columns each boot and 009a was re-adding them with a backfill
+  // that used the legacy single-value `budget` field.
+  // Columns are now ensured by migration 028a (ADD COLUMN IF NOT EXISTS only, no backfill).
 
   // Migration 009b: add quote_card_data and quoted_price columns to bids (CRITICAL)
   try {
@@ -1801,6 +1784,19 @@ export async function runMigrations(): Promise<void> {
   } catch (err) {
     logger.warn({ err }, "Migration 027a: sub_orders backfill failed");
     if (!isDev) throw new Error(`Migration 027a failed in production: ${err}`);
+  }
+
+  // Migration 028a: ensure budget_min / budget_max columns exist on demands.
+  // Replaces the ADD COLUMN portion of the now-removed migration 009a.
+  // No backfill — if a row has 0 for either column it means no range was set;
+  // administrators can correct individual records via the admin panel.
+  try {
+    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_min real NOT NULL DEFAULT 0`);
+    await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_max real NOT NULL DEFAULT 0`);
+    logger.info("Migration 028a: ensured budget_min / budget_max columns exist on demands");
+  } catch (err) {
+    logger.warn({ err }, "Migration 028a: could not ensure budget_min/budget_max columns");
+    if (!isDev) throw new Error(`Migration 028a failed in production: ${err}`);
   }
 
   logger.info("Startup data migrations complete.");
