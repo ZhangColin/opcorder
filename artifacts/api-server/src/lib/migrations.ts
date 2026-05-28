@@ -1761,5 +1761,44 @@ export async function runMigrations(): Promise<void> {
     if (!isDev) throw new Error(`Migration 026a failed in production: ${err}`);
   }
 
+  // Migration 027a: backfill sub_orders for existing orders that don't have them yet (idempotent)
+  try {
+    // Only process orders that have no sub-orders yet
+    const ordersWithoutSubOrders = await db.execute(sql`
+      SELECT o.order_no, o.opc_share, o.platform_fee, o.opc_id
+      FROM orders o
+      WHERE NOT EXISTS (
+        SELECT 1 FROM sub_orders s WHERE s.order_no = o.order_no
+      )
+    `);
+    if (ordersWithoutSubOrders.rows.length > 0) {
+      const platformSettingRows = await db.execute(sql`
+        SELECT value FROM site_settings WHERE key = 'platform_ccb_merchant_no' LIMIT 1
+      `);
+      const platformMerchantNo = (platformSettingRows.rows[0] as any)?.value ?? null;
+
+      for (const row of ordersWithoutSubOrders.rows as Array<{ order_no: string; opc_share: string | number; platform_fee: string | number; opc_id: number }>) {
+        const opcSettlementRows = await db.execute(sql`
+          SELECT ccb_merchant_no, company_name FROM settlement_accounts WHERE user_id = ${row.opc_id} LIMIT 1
+        `);
+        const opcSA = opcSettlementRows.rows[0] as { ccb_merchant_no: string | null; company_name: string | null } | undefined;
+
+        await db.execute(sql`
+          INSERT INTO sub_orders (order_no, sub_order_no, party_name, merchant_no, amount, role)
+          VALUES
+            (${row.order_no}, ${row.order_no + "-OPC"},      ${opcSA?.company_name ?? null}, ${opcSA?.ccb_merchant_no ?? null}, ${String(row.opc_share)},      'opc'),
+            (${row.order_no}, ${row.order_no + "-PLATFORM"}, '平台',                          ${platformMerchantNo},              ${String(row.platform_fee)},   'platform')
+          ON CONFLICT (sub_order_no) DO NOTHING
+        `);
+      }
+      logger.info(`Migration 027a: backfilled sub_orders for ${ordersWithoutSubOrders.rows.length} existing orders`);
+    } else {
+      logger.info("Migration 027a: all orders already have sub_orders, nothing to backfill");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Migration 027a: sub_orders backfill failed");
+    if (!isDev) throw new Error(`Migration 027a failed in production: ${err}`);
+  }
+
   logger.info("Startup data migrations complete.");
 }

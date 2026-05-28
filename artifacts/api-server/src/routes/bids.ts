@@ -480,8 +480,8 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
           updatedAt: new Date(),
         }).where(eq(demandsTable.id, demand.id));
 
-        // Create sub-orders for payment splitting
-        try {
+        // Create sub-orders for payment splitting — required, any failure fails the whole operation
+        {
           // Fetch OPC's CCB merchant number from their settlement account
           const [opcSettlement] = await db
             .select({ ccbMerchantNo: settlementAccountsTable.ccbMerchantNo, companyName: settlementAccountsTable.companyName })
@@ -497,34 +497,25 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
             .limit(1);
           const platformMerchantNo = settingsRows[0]?.value ?? null;
 
-          const subOrdersToInsert = [];
-
-          // Sub-order for OPC portion
-          subOrdersToInsert.push({
-            orderNo,
-            subOrderNo: `${orderNo}-OPC`,
-            partyName: opcSettlement?.companyName ?? null,
-            merchantNo: opcSettlement?.ccbMerchantNo ?? null,
-            amount: String(opcShare),
-            role: "opc" as const,
-          });
-
-          // Sub-order for platform portion
-          if (platformFee > 0) {
-            subOrdersToInsert.push({
+          // Always insert both OPC + platform sub-orders
+          await db.insert(subOrdersTable).values([
+            {
+              orderNo,
+              subOrderNo: `${orderNo}-OPC`,
+              partyName: opcSettlement?.companyName ?? null,
+              merchantNo: opcSettlement?.ccbMerchantNo ?? null,
+              amount: String(opcShare),
+              role: "opc",
+            },
+            {
               orderNo,
               subOrderNo: `${orderNo}-PLATFORM`,
               partyName: "平台",
               merchantNo: platformMerchantNo,
               amount: String(platformFee),
-              role: "platform" as const,
-            });
-          }
-
-          await db.insert(subOrdersTable).values(subOrdersToInsert);
-        } catch (subOrderErr) {
-          // Non-blocking: log but don't fail the order creation
-          logger.warn({ err: subOrderErr, orderNo }, "Failed to create sub-orders, will skip");
+              role: "platform",
+            },
+          ]);
         }
 
         // Reject all other pending bids

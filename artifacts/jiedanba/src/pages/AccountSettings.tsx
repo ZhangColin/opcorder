@@ -422,6 +422,21 @@ export default function AccountSettings() {
       }
 
       if (settlementDirty) {
+        // Required field validation for settlement submission
+        const sf = settlementFormRef.current;
+        const missingFields: string[] = [];
+        if (!sf.companyName?.trim()) missingFields.push("企业名称");
+        if (!sf.creditCode?.trim()) missingFields.push("统一社会信用代码");
+        if (!sf.businessLicenseUrl?.trim()) missingFields.push("营业执照");
+        if (!sf.legalRepIdFrontUrl?.trim()) missingFields.push("法人身份证正面");
+        if (!sf.legalRepIdBackUrl?.trim()) missingFields.push("法人身份证背面");
+        if (!sf.ccbMerchantNo?.trim()) missingFields.push("建行商家编号");
+        if (missingFields.length > 0) {
+          toast({ title: "请填写完整结算信息", description: `缺少：${missingFields.join("、")}`, variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+
         const token = getAccessToken();
         console.log("[handleSave] settlementForm =", JSON.stringify(settlementForm));
         console.log("[handleSave] ref =", JSON.stringify(settlementFormRef.current));
