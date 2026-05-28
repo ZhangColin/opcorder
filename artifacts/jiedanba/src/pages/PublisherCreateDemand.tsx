@@ -892,38 +892,55 @@ export default function PublisherCreateDemand() {
           {/* ── Section 4: 预算与时间 ── */}
           <Section id="section-budget" title="预算与时间" subtitle="设置项目预算范围和交付截止日期">
 
-            <FormField label="预算区间（元）" required error={errors.budget}
-              hint="设置合理的预算区间，OPC将在此范围内报价">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
-                  <input
-                    type="number"
-                    value={budgetMin}
-                    onChange={e => setBudgetMin(e.target.value)}
-                    placeholder="最低预算"
-                    min={0}
-                    className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
-                      errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
-                    }`}
-                  />
-                </div>
-                <span className="text-slate-400 font-bold text-sm flex-shrink-0">—</span>
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
-                  <input
-                    type="number"
-                    value={budgetMax}
-                    onChange={e => setBudgetMax(e.target.value)}
-                    placeholder="最高预算"
-                    min={0}
-                    className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
-                      errors.budget ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
-                    }`}
-                  />
-                </div>
-              </div>
-            </FormField>
+            {/* Budget fields are locked once a demand leaves draft/pending_review */}
+            {(() => {
+              const existingStatus = (existingDemand as any)?.status as string | undefined;
+              const budgetLocked = isEdit && !!existingStatus && !["draft", "pending_review"].includes(existingStatus);
+              return (
+                <FormField label="预算区间（元）" required={!budgetLocked} error={errors.budget}
+                  hint={budgetLocked ? `需求已${existingStatus === "published" ? "发布" : "进入撮合流程"}，预算区间不可修改` : "设置合理的预算区间，OPC将在此范围内报价"}>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
+                      <input
+                        type="number"
+                        value={budgetMin}
+                        onChange={e => { if (!budgetLocked) setBudgetMin(e.target.value); }}
+                        readOnly={budgetLocked}
+                        placeholder="最低预算"
+                        min={0}
+                        className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm outline-none transition ${
+                          budgetLocked
+                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                            : errors.budget
+                              ? "border-destructive bg-red-50 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                              : "border-slate-200 bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        }`}
+                      />
+                    </div>
+                    <span className="text-slate-400 font-bold text-sm flex-shrink-0">—</span>
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">¥</span>
+                      <input
+                        type="number"
+                        value={budgetMax}
+                        onChange={e => { if (!budgetLocked) setBudgetMax(e.target.value); }}
+                        readOnly={budgetLocked}
+                        placeholder="最高预算"
+                        min={0}
+                        className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm outline-none transition ${
+                          budgetLocked
+                            ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed"
+                            : errors.budget
+                              ? "border-destructive bg-red-50 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                              : "border-slate-200 bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </FormField>
+              );
+            })()}
 
             <FormField label="交付截止日期" required error={errors.deadline}
               hint="不早于今天">

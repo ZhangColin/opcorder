@@ -366,6 +366,28 @@ router.put("/demands/:demandId", requireAuth, async (req, res) => {
     const demandId = parseInt(req.params.demandId as string);
     const body = UpdateDemandBody.parse(req.body);
 
+    // Fetch existing demand to enforce status-based field protections
+    const [existing] = await db
+      .select({ status: demandsTable.status, publisherId: demandsTable.publisherId })
+      .from(demandsTable)
+      .where(eq(demandsTable.id, demandId))
+      .limit(1);
+    if (!existing) return res.status(404).json({ error: "需求不存在" });
+    if (existing.publisherId !== req.user!.id && req.user!.role !== "admin") {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    // Budget fields may only be edited while the demand is still editable (draft / pending_review).
+    // Once a demand is published or beyond, budget changes must go through admin.
+    const budgetEditableStatuses = ["draft", "pending_review"];
+    const budgetFieldsRequested =
+      body.budget !== undefined || body.budgetMin !== undefined || body.budgetMax !== undefined;
+    if (budgetFieldsRequested && !budgetEditableStatuses.includes(existing.status)) {
+      return res.status(400).json({
+        error: `需求处于「${existing.status}」状态，预算字段不可修改`,
+      });
+    }
+
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;

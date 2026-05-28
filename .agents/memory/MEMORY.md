@@ -1,0 +1,1 @@
+- [Budget field protection](budget-field-protection.md) — PUT /demands/:demandId must guard budget fields by status; migration 009a backfill condition.

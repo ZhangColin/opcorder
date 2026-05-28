@@ -507,8 +507,11 @@ export async function runMigrations(): Promise<void> {
   try {
     await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_min real NOT NULL DEFAULT 0`);
     await db.execute(sql`ALTER TABLE demands ADD COLUMN IF NOT EXISTS budget_max real NOT NULL DEFAULT 0`);
-    // Backfill budgetMin from budget for existing rows
-    await db.execute(sql`UPDATE demands SET budget_min = budget, budget_max = budget WHERE budget_min = 0 AND budget > 0`);
+    // Backfill budgetMin/budgetMax from legacy budget field for old rows that predate the range feature.
+    // Condition: budget_min = 0 AND budget_max = 0 AND budget > 0 — only truly uninitialized rows.
+    // Using budget_max = 0 as an extra guard so we never overwrite a properly-set budget_max
+    // for a demand that happens to have had budget_min reset to 0 later.
+    await db.execute(sql`UPDATE demands SET budget_min = budget, budget_max = budget WHERE budget_min = 0 AND budget_max = 0 AND budget > 0`);
     logger.info("Migration 009a: added budget_min / budget_max to demands");
   } catch (err) {
     logger.warn({ err }, "Migration 009a: could not add budget_min/budget_max to demands");
