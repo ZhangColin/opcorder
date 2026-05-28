@@ -98,7 +98,10 @@ type QuoteSnapshot = {
   maintenanceTierLabel?: string;
 };
 
-function QuoteDetailPanel({ data, displayPrice }: { data: QuoteSnapshot; displayPrice?: number }) {
+function QuoteDetailPanel({ data, displayPrice, commissionRate = 0.10 }: { data: QuoteSnapshot; displayPrice?: number; commissionRate?: number }) {
+  const divisor = 1 - commissionRate;
+  const adjBasePrice = (p: number) => Math.round(p / divisor);
+  const adjRawBase = Math.round((data.rawBase ?? 0) / divisor);
   return (
     <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm border border-slate-200">
       {(data.baseLayers ?? []).length > 0 && (
@@ -108,20 +111,19 @@ function QuoteDetailPanel({ data, displayPrice }: { data: QuoteSnapshot; display
             {(data.baseLayers ?? []).map((l, i) => (
               <div key={i} className="flex justify-between text-slate-600">
                 <span>{l.label}：<span className="font-medium text-slate-700">{l.tierLabel}</span></span>
-                <span className="font-bold text-slate-800">+¥{Number(l.price).toLocaleString()}</span>
+                <span className="font-bold text-slate-800">+¥{adjBasePrice(Number(l.price)).toLocaleString()}</span>
               </div>
             ))}
           </div>
           <div className="flex justify-between font-bold border-t border-slate-200 pt-1.5 mt-1.5 text-slate-700">
             <span>基准小计</span>
-            <span>¥{(data.rawBase ?? 0).toLocaleString()}</span>
+            <span>¥{adjRawBase.toLocaleString()}</span>
           </div>
         </div>
       )}
       {(data.adjustmentPercent ?? 0) !== 0 && (
         <div className="flex justify-between text-violet-700 font-medium">
           <span>OPC 自调（{(data.adjustmentPercent ?? 0) > 0 ? "+" : ""}{data.adjustmentPercent}%）{data.adjustmentReason ? `· ${data.adjustmentReason}` : ""}</span>
-          <span>→ ¥{(data.calibratedBase ?? 0).toLocaleString()}</span>
         </div>
       )}
       {(data.adjustLayers ?? []).length > 0 && (
@@ -133,10 +135,6 @@ function QuoteDetailPanel({ data, displayPrice }: { data: QuoteSnapshot; display
               <span>×{l.coefficient}</span>
             </div>
           ))}
-          <div className="flex justify-between font-bold border-t border-slate-200 pt-1.5 mt-1.5 text-slate-700">
-            <span>综合系数 ×{(data.factorProduct ?? 1).toFixed(2)} → 调整后价格</span>
-            <span>¥{(data.adjustedPrice ?? 0).toLocaleString()}</span>
-          </div>
         </div>
       )}
       {(data.maintenanceFee ?? 0) > 0 && (
@@ -1135,7 +1133,7 @@ export default function PublisherDemandDetail() {
                               >
                                 {(bid.quotedPrice ?? 0) > 0 && (
                                   bid.quoteCardSnapshot
-                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} displayPrice={publisherDisplayPrice(bid.quotedPrice as number)} />
+                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} displayPrice={publisherDisplayPrice(bid.quotedPrice as number)} commissionRate={commissionRate} />
                                     : <div className="bg-slate-50 rounded-xl p-4 text-sm text-center text-slate-500">
                                         最终报价：<span className="font-black text-green-600 text-base">¥{publisherDisplayPrice(bid.quotedPrice as number).toLocaleString()}</span>
                                       </div>

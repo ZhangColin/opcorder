@@ -30,6 +30,7 @@ interface Props {
   budgetMax?: number | null;
   onSelectBid: (bid: BidApplication) => void;
   selectedBidId?: number | null;
+  commissionRate?: number;
 }
 
 const OPC_LEVEL_COLOR: Record<string, string> = {
@@ -77,7 +78,9 @@ function collectDimRows(bids: BidApplication[]): { section: "base" | "adjust"; c
   return rows;
 }
 
-export function QuoteCardCompareView({ bids, budgetMin, budgetMax, onSelectBid, selectedBidId }: Props) {
+export function QuoteCardCompareView({ bids, budgetMin, budgetMax, onSelectBid, selectedBidId, commissionRate = 0.10 }: Props) {
+  const adjBasePrice = (p: number) => Math.round(p / (1 - commissionRate));
+  const adjRawBase = (raw: number) => Math.round(raw / (1 - commissionRate));
   const pendingBids = bids.filter(b => b.status === "pending");
   const sortedBids = [...pendingBids].sort((a, b) => {
     const pa = a.quotedPrice ?? 0;
@@ -210,7 +213,7 @@ export function QuoteCardCompareView({ bids, budgetMin, budgetMax, onSelectBid, 
                         {layer ? (
                           <div>
                             <div className="text-sm font-bold text-slate-700">{layer.tierLabel}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">+¥{(layer.price ?? 0).toLocaleString()}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">+¥{adjBasePrice(layer.price ?? 0).toLocaleString()}</div>
                           </div>
                         ) : (
                           <Minus size={14} className="text-slate-200 mx-auto" />
@@ -232,7 +235,7 @@ export function QuoteCardCompareView({ bids, budgetMin, budgetMax, onSelectBid, 
                     const below = isBelowBudget(bid.quotedPrice);
                     return (
                       <td key={bid.id} className={`border-b border-r border-slate-200 px-4 py-2.5 last:border-r-0 text-center ${over ? "bg-red-50/40" : below ? "bg-amber-50/40" : ""}`}>
-                        <span className="text-sm font-bold text-slate-700">¥{(snap?.rawBase ?? 0).toLocaleString()}</span>
+                        <span className="text-sm font-bold text-slate-700">¥{adjRawBase(snap?.rawBase ?? 0).toLocaleString()}</span>
                       </td>
                     );
                   })}
@@ -303,23 +306,6 @@ export function QuoteCardCompareView({ bids, budgetMin, budgetMax, onSelectBid, 
                 </tr>
               ))}
 
-              {hasAdjRows && (
-                <tr className="bg-amber-50/40">
-                  <td className="border-b border-r border-slate-200 px-4 py-2.5 bg-amber-50/60">
-                    <span className="text-xs font-bold text-amber-700">综合系数</span>
-                  </td>
-                  {quotedBids.map(bid => {
-                    const snap = asSnap(bid.quoteCardSnapshot);
-                    const over = isOverBudget(bid.quotedPrice);
-                    const below = isBelowBudget(bid.quotedPrice);
-                    return (
-                      <td key={bid.id} className={`border-b border-r border-slate-200 px-4 py-2.5 last:border-r-0 text-center ${over ? "bg-red-50/40" : below ? "bg-amber-50/40" : ""}`}>
-                        <span className="text-sm font-bold text-amber-700">×{(snap?.factorProduct ?? 1).toFixed(2)}</span>
-                      </td>
-                    );
-                  })}
-                </tr>
-              )}
 
               <tr className="bg-slate-50">
                 <td className="border-b border-r border-slate-200 px-4 py-3">
