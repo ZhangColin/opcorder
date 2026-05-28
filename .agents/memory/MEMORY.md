@@ -1,2 +1,3 @@
 - [Migration run-once tracking](migration-run-once.md) — schema_migrations table tracks each migration; once() helper skips already-run blocks; pre-seeds all historical IDs on first deploy.
 - [budget_max corruption root cause](budget-max-corruption.md) — never backfill budget_max from the legacy budget field (budget = budgetMin, not budgetMax).
+- [Seed version gate pattern](seed-version-gate.md) — version check in seed.ts must match the CURRENT version tag in code, or it fires on every restart.

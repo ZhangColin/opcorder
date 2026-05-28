@@ -372,13 +372,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.7")) {
-      // Migrate to v3.7: demand types now fully dynamic via get_demand_types tool call
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.8")) {
+      // Migrate to v3.8: enforce strict budgetMin < budgetMax, single-value auto-spread
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.7 (dynamic demand types via tool call)");
+      logger.info("Migrated demand analysis agent system prompt to v3.8");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
