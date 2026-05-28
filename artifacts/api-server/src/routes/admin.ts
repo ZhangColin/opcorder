@@ -762,6 +762,13 @@ router.patch("/admin/demands/:id", async (req, res) => {
         return res.status(400).json({ error: "无效的赛道认证等级" });
       }
       await db.update(demandsTable).set({ requiredTrackLevel: value }).where(eq(demandsTable.id, id));
+    } else if (action === "updateCommissionRate") {
+      const value = (req.body as { value?: string | number }).value;
+      const rate = typeof value === "string" ? parseFloat(value) : Number(value);
+      if (isNaN(rate) || rate < 0 || rate >= 1) {
+        return res.status(400).json({ error: "抽成比例须在 0~100% 之间" });
+      }
+      await db.update(demandsTable).set({ commissionRate: rate }).where(eq(demandsTable.id, id));
     } else {
       return res.status(400).json({ error: "无效操作" });
     }

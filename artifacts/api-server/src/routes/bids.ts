@@ -448,10 +448,11 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
           await db.update(bidsTable).set({ status: "pending" }).where(eq(bidsTable.id, bidId));
           return res.status(400).json({ error: "该报价缺少有效的报价金额，请要求OPC补充后重新提交" });
         }
-        const amount = updated.quotedPrice;
-        const opcShare = amount * 0.9;
+        const commissionRate = demand.commissionRate ?? 0.10;
+        const opcShare = updated.quotedPrice;
+        const amount = Math.round(opcShare / (1 - commissionRate) * 100) / 100;
         const publisherShare = 0;
-        const platformFee = amount * 0.1;
+        const platformFee = Math.round((amount - opcShare) * 100) / 100;
 
         const now = new Date();
         const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -468,6 +469,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
           opcShare,
           publisherShare,
           platformFee,
+          commissionRate,
           status: "pending_payment",
           milestones: demand.milestones || [],
           deadline: demand.deadline,

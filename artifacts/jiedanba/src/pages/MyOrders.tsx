@@ -147,7 +147,7 @@ export default function MyOrders() {
                           <Banknote size={13} />
                           我的分成{" "}
                           <span className="text-secondary font-black">
-                            ¥{Math.round(order.amount * 0.9).toLocaleString()}
+                            ¥{(order.opcShare ?? Math.round(order.amount * 0.9)).toLocaleString()}
                           </span>
                         </span>
                         {msTotal > 0 && (

@@ -1174,6 +1174,7 @@ interface AdminDemandDetail extends AdminDemand {
   rejectionReason: string | null;
   payment: AdminDemandPayment | null;
   invitations?: AdminDemandInvitation[];
+  commissionRate?: number | null;
 }
 
 const DEMAND_TYPE_CN: Record<string, string> = {
@@ -1362,6 +1363,10 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
       setOfflineRefundUploading(false);
     }
   };
+
+  // Commission rate editing
+  const [commissionRateInput, setCommissionRateInput] = useState<string>("");
+  const [showCommissionEdit, setShowCommissionEdit] = useState(false);
 
   // Inline send-email form state
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -1712,8 +1717,51 @@ function AdminDemandDetailPanel({ id, onClose }: { id: number; onClose: () => vo
                 </select>
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
-                <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
+                <p className="text-xs text-slate-400 mb-0.5">预算范围（发单方）</p>
                 <p className="font-bold text-blue-900">{formatBudget(d.budgetMin, d.budgetMax, d.budget)}</p>
+                {d.commissionRate != null && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    OPC见：{formatBudget(Math.round((d.budgetMin ?? d.budget) * (1 - d.commissionRate)), Math.round((d.budgetMax ?? d.budget) * (1 - d.commissionRate)), Math.round(d.budget * (1 - d.commissionRate)))}
+                  </p>
+                )}
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-0.5">平台抽成比例</p>
+                {!showCommissionEdit ? (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="font-bold text-blue-900">{d.commissionRate != null ? `${Math.round(d.commissionRate * 100)}%` : "10%"}</p>
+                    <button
+                      onClick={() => { setCommissionRateInput(String(Math.round((d.commissionRate ?? 0.10) * 100))); setShowCommissionEdit(true); }}
+                      className="text-[10px] text-primary hover:underline font-bold"
+                    >
+                      修改
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <input
+                      type="number" min="0" max="99" step="1"
+                      value={commissionRateInput}
+                      onChange={e => setCommissionRateInput(e.target.value)}
+                      className="w-14 border border-slate-200 rounded-lg px-2 py-0.5 text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <span className="text-sm font-bold text-slate-500">%</span>
+                    <button
+                      onClick={() => {
+                        const pct = parseFloat(commissionRateInput);
+                        if (!isNaN(pct) && pct >= 0 && pct < 100) {
+                          actionMut.mutate({ action: "updateCommissionRate", value: String(pct / 100) });
+                          setShowCommissionEdit(false);
+                        }
+                      }}
+                      disabled={actionMut.isPending}
+                      className="text-[10px] font-bold text-white bg-primary px-2 py-0.5 rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      保存
+                    </button>
+                    <button onClick={() => setShowCommissionEdit(false)} className="text-[10px] text-slate-400 hover:underline">取消</button>
+                  </div>
+                )}
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-xs text-slate-400 mb-0.5">交付截止</p>

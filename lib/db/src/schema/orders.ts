@@ -37,6 +37,8 @@ export const ordersTable = pgTable("orders", {
   paidAt: timestamp("paid_at"),
   /** Rejection reason set by admin when rejecting an offline payment receipt. */
   paymentRejectReason: text("payment_reject_reason"),
+  /** Platform commission rate that was applied when the order was created. */
+  commissionRate: real("commission_rate").notNull().default(0.10),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

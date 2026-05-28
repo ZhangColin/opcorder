@@ -98,7 +98,7 @@ type QuoteSnapshot = {
   maintenanceTierLabel?: string;
 };
 
-function QuoteDetailPanel({ data }: { data: QuoteSnapshot }) {
+function QuoteDetailPanel({ data, displayPrice }: { data: QuoteSnapshot; displayPrice?: number }) {
   return (
     <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm border border-slate-200">
       {(data.baseLayers ?? []).length > 0 && (
@@ -147,7 +147,7 @@ function QuoteDetailPanel({ data }: { data: QuoteSnapshot }) {
       )}
       <div className="flex justify-between font-black text-base border-t border-slate-300 pt-2 mt-1">
         <span className="text-slate-800">最终报价</span>
-        <span className="text-green-600">¥{(data.finalPrice ?? 0).toLocaleString()}</span>
+        <span className="text-green-600">¥{(displayPrice ?? data.finalPrice ?? 0).toLocaleString()}</span>
       </div>
     </div>
   );
@@ -502,6 +502,10 @@ export default function PublisherDemandDetail() {
 
   const typeLabel = demand?.type ? (DEMAND_TYPE_LABELS[demand.type] ?? demand.type) : "综合";
   const statusCfg = demand?.status ? (STATUS_CONFIG[demand.status] ?? STATUS_CONFIG.draft) : STATUS_CONFIG.draft;
+
+  // Publisher sees OPC quotes inflated by 1/(1-commissionRate) so the net amount after platform fee equals the OPC's quoted price
+  const commissionRate: number = (demand as any)?.commissionRate ?? 0.10;
+  const publisherDisplayPrice = (opcPrice: number) => Math.round(opcPrice / (1 - commissionRate));
 
   const pendingBids = bids.filter((b: BidApplication) => b.status === "pending");
   const processedBids = bids.filter((b: BidApplication) => b.status !== "pending");
@@ -1035,7 +1039,7 @@ export default function PublisherDemandDetail() {
                               <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                                 {(bid.quotedPrice ?? 0) > 0 && (
                                   <div className="text-xl font-black text-green-600">
-                                    ¥{(bid.quotedPrice as number).toLocaleString()}
+                                    ¥{publisherDisplayPrice(bid.quotedPrice as number).toLocaleString()}
                                   </div>
                                 )}
                                 {bid.estimatedDays && (
@@ -1131,9 +1135,9 @@ export default function PublisherDemandDetail() {
                               >
                                 {(bid.quotedPrice ?? 0) > 0 && (
                                   bid.quoteCardSnapshot
-                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} />
+                                    ? <QuoteDetailPanel data={bid.quoteCardSnapshot as unknown as QuoteSnapshot} displayPrice={publisherDisplayPrice(bid.quotedPrice as number)} />
                                     : <div className="bg-slate-50 rounded-xl p-4 text-sm text-center text-slate-500">
-                                        最终报价：<span className="font-black text-green-600 text-base">¥{(bid.quotedPrice as number).toLocaleString()}</span>
+                                        最终报价：<span className="font-black text-green-600 text-base">¥{publisherDisplayPrice(bid.quotedPrice as number).toLocaleString()}</span>
                                       </div>
                                 )}
                                 {bid.proposal && (
@@ -1325,7 +1329,7 @@ export default function PublisherDemandDetail() {
                             <div className="flex items-center gap-2 shrink-0">
                               {(bid.quotedPrice ?? 0) > 0 && (
                                 <span className="text-base font-black text-green-600">
-                                  ¥{(bid.quotedPrice as number).toLocaleString()}
+                                  ¥{publisherDisplayPrice(bid.quotedPrice as number).toLocaleString()}
                                 </span>
                               )}
                               <span className={`text-xs font-bold px-2 py-1 rounded-full ${
@@ -1480,7 +1484,7 @@ export default function PublisherDemandDetail() {
           <ConfirmDialog
             open={true}
             title={`选择 ${bid.opcNickname ?? `OPC #${bid.opcId}`} 接单？`}
-            description={`${(bid.quotedPrice ?? 0) > 0 ? `报价金额：¥${Number(bid.quotedPrice).toLocaleString()}。` : ""}确认后将生成待付款订单，其余报价方将收到落选通知。`}
+            description={`${(bid.quotedPrice ?? 0) > 0 ? `报价金额：¥${publisherDisplayPrice(Number(bid.quotedPrice)).toLocaleString()}。` : ""}确认后将生成待付款订单，其余报价方将收到落选通知。`}
             confirmLabel={updateBidStatus.isPending ? "处理中…" : "确认选择"}
             cancelLabel="取消"
             onConfirm={() => handleConfirm(confirmingBidId)}

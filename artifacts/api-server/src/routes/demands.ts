@@ -128,6 +128,7 @@ router.get("/demands", requireAuth, async (req, res) => {
         budget: demandsTable.budget,
         budgetMin: demandsTable.budgetMin,
         budgetMax: demandsTable.budgetMax,
+        commissionRate: demandsTable.commissionRate,
         deadline: demandsTable.deadline,
         milestones: demandsTable.milestones,
         attachments: demandsTable.attachments,
@@ -159,14 +160,24 @@ router.get("/demands", requireAuth, async (req, res) => {
       bidCounts.forEach(r => { bidCountMap[r.demandId] = Number(r.cnt); });
     }
 
-    const items = demands.map(d => ({
-      ...d,
-      typeLabel: d.categoryName ?? DEMAND_TYPE_LABELS[d.type] ?? d.type,
-      bidCount: bidCountMap[d.id] ?? 0,
-      createdAt: d.createdAt.toISOString(),
-      updatedAt: d.updatedAt.toISOString(),
-      bidDeadline: d.bidDeadline?.toISOString(),
-    }));
+    const items = demands.map(d => {
+      const rate = d.commissionRate ?? 0.10;
+      const isOpc = userRole === "opc";
+      return {
+        ...d,
+        // OPC sees budget adjusted down by commission rate; other roles see original
+        budgetMin: isOpc ? Math.round(d.budgetMin * (1 - rate)) : d.budgetMin,
+        budgetMax: isOpc ? Math.round(d.budgetMax * (1 - rate)) : d.budgetMax,
+        budget: isOpc ? Math.round(d.budget * (1 - rate)) : d.budget,
+        // Expose commissionRate only to publisher and admin, not to OPC
+        commissionRate: isOpc ? undefined : rate,
+        typeLabel: d.categoryName ?? DEMAND_TYPE_LABELS[d.type] ?? d.type,
+        bidCount: bidCountMap[d.id] ?? 0,
+        createdAt: d.createdAt.toISOString(),
+        updatedAt: d.updatedAt.toISOString(),
+        bidDeadline: d.bidDeadline?.toISOString(),
+      };
+    });
 
     return res.json({
       items,
@@ -283,6 +294,7 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
         budget: demandsTable.budget,
         budgetMin: demandsTable.budgetMin,
         budgetMax: demandsTable.budgetMax,
+        commissionRate: demandsTable.commissionRate,
         deadline: demandsTable.deadline,
         milestones: demandsTable.milestones,
         attachments: demandsTable.attachments,
@@ -319,14 +331,23 @@ router.get("/demands/:demandId", requireAuth, async (req, res) => {
     }).from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, demand.publisherId));
 
     const isAdmin = req.user!.role === "admin";
+    const isOpc = req.user!.role === "opc";
     const isPublisher = req.user!.id === demand.publisherId;
     const safeProfile = pubProfile ? {
       ...pubProfile,
       contactEmail: (isAdmin || isPublisher) ? pubProfile.contactEmail : null,
     } : null;
 
+    const rate = demand.commissionRate ?? 0.10;
+
     return res.json({
       ...demand,
+      // OPC sees budget adjusted down by commission rate; publisher/admin see original
+      budgetMin: isOpc ? Math.round(demand.budgetMin * (1 - rate)) : demand.budgetMin,
+      budgetMax: isOpc ? Math.round(demand.budgetMax * (1 - rate)) : demand.budgetMax,
+      budget: isOpc ? Math.round(demand.budget * (1 - rate)) : demand.budget,
+      // Hide commissionRate from OPC
+      commissionRate: isOpc ? undefined : rate,
       typeLabel: demand.categoryName ?? DEMAND_TYPE_LABELS[demand.type] ?? demand.type,
       bidCount: 0,
       publisherLogo:    pubProfile?.companyLogo ?? null,

@@ -50,6 +50,8 @@ export const demandsTable = pgTable("demands", {
   catCategoryId: integer("cat_category_id").references(() => catCategoriesTable.id),
   requiredTrackLevel: varchar("required_track_level", { length: 5 }).notNull().default("any"),
   rejectionReason: text("rejection_reason"),
+  /** Platform commission rate applied to this demand (0–1). Default 10%. */
+  commissionRate: real("commission_rate").notNull().default(0.10),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

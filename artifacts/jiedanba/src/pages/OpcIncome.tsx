@@ -33,12 +33,12 @@ export default function OpcIncome() {
   const { data: pendingOrders } = useListOrders({ opcId, status: "pending_acceptance", limit: 200 });
 
   const totalEarned = (completedOrders?.items ?? []).reduce(
-    (sum, o) => sum + Math.round(o.amount * 0.9), 0
+    (sum, o) => sum + (o.opcShare ?? Math.round(o.amount * 0.9)), 0
   );
   const pendingEarnings = [
     ...(activeOrders?.items ?? []),
     ...(pendingOrders?.items ?? []),
-  ].reduce((sum, o) => sum + Math.round(o.amount * 0.9), 0);
+  ].reduce((sum, o) => sum + (o.opcShare ?? Math.round(o.amount * 0.9)), 0);
 
   const completedCount = completedOrders?.total ?? 0;
   const totalCount = allOrders?.total ?? 0;
@@ -111,7 +111,7 @@ export default function OpcIncome() {
         ) : (
           <div className="divide-y divide-border">
             {orders.map((o) => {
-              const myShare = Math.round(o.amount * 0.9);
+              const myShare = o.opcShare ?? Math.round(o.amount * 0.9);
               const sc = STATUS_CFG[o.status] ?? STATUS_CFG.in_progress;
               const typeLabel = DEMAND_TYPES[o.demandType ?? ""] ?? "其他";
               return (
