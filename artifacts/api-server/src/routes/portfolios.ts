@@ -65,6 +65,26 @@ router.post("/portfolios", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "申请赛道认证时必须指定赛道分类（catCategoryId）" });
     }
 
+    if (applyLevel && catCategoryId) {
+      const LEVEL_ORDER = ["C", "B", "A"] as const;
+      const applyIdx = LEVEL_ORDER.indexOf(applyLevel as typeof LEVEL_ORDER[number]);
+      const existingRows = await db.execute(sql`
+        SELECT level FROM opc_track_certs
+        WHERE user_id = ${userId} AND cat_category_id = ${catCategoryId}
+        ORDER BY certified_at DESC LIMIT 1
+      `);
+      if (existingRows.rows.length > 0) {
+        const certLevel = (existingRows.rows[0] as { level: string }).level;
+        const certIdx = LEVEL_ORDER.indexOf(certLevel as typeof LEVEL_ORDER[number]);
+        const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+        if (applyIdx < 0 || applyIdx <= certIdx) {
+          return res.status(409).json({
+            error: `您在此赛道已持有 ${LEVEL_NAME[certLevel] ?? certLevel} 认证，只能申请更高等级，不能重复申请相同或更低等级。`,
+          });
+        }
+      }
+    }
+
     const [portfolio] = await db.insert(portfoliosTable).values({
       userId,
       title: body.title,
@@ -113,6 +133,25 @@ router.put("/portfolios/:portfolioId", requireAuth, async (req, res) => {
       const catCategoryId = extra.catCategoryId ? Number(extra.catCategoryId) : null;
       if (applyLevel && !catCategoryId) {
         return res.status(400).json({ error: "申请赛道认证时必须指定赛道分类（catCategoryId）" });
+      }
+      if (applyLevel && catCategoryId) {
+        const LEVEL_ORDER = ["C", "B", "A"] as const;
+        const applyIdx = LEVEL_ORDER.indexOf(applyLevel as typeof LEVEL_ORDER[number]);
+        const existingRows = await db.execute(sql`
+          SELECT level FROM opc_track_certs
+          WHERE user_id = ${req.user!.id} AND cat_category_id = ${catCategoryId}
+          ORDER BY certified_at DESC LIMIT 1
+        `);
+        if (existingRows.rows.length > 0) {
+          const certLevel = (existingRows.rows[0] as { level: string }).level;
+          const certIdx = LEVEL_ORDER.indexOf(certLevel as typeof LEVEL_ORDER[number]);
+          const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
+          if (applyIdx < 0 || applyIdx <= certIdx) {
+            return res.status(409).json({
+              error: `您在此赛道已持有 ${LEVEL_NAME[certLevel] ?? certLevel} 认证，只能申请更高等级，不能重复申请相同或更低等级。`,
+            });
+          }
+        }
       }
       updateData.applyLevel = applyLevel;
       updateData.levelApplyStatus = applyLevel ? "pending" : null;

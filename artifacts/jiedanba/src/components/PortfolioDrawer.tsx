@@ -123,6 +123,18 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
     o => LEVEL_ORDER.indexOf(o.value as typeof LEVEL_ORDER[number]) > trackCurrentLevelIdx
   );
 
+  /* If OPC has already reached max (A) for this track, or already holds exact target, block apply */
+  const alreadyAtMaxForTrack = !!type && availableLevelOptions.length === 0;
+
+  /* Auto-uncheck when track changes to one where no higher level is possible */
+  useEffect(() => {
+    if (!open) return;
+    if (applyForLevel && alreadyAtMaxForTrack) {
+      setApplyForLevel(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, trackCerts, open]);
+
   /* Reset form when initial changes (opening for different item) */
   useEffect(() => {
     if (open) {
@@ -165,12 +177,16 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       alert("申请赛道认证时请先选择项目类型");
       return;
     }
+    if (applyForLevel && alreadyAtMaxForTrack) {
+      alert(`您在「${type}」赛道已持有最高等级（A级·专家）认证，无需再次申请。`);
+      return;
+    }
     if (applyForLevel && trackCurrentLevel) {
       const applyIdx   = LEVEL_ORDER.indexOf(applyLevel as typeof LEVEL_ORDER[number]);
       const currentIdx = LEVEL_ORDER.indexOf(trackCurrentLevel as typeof LEVEL_ORDER[number]);
       if (applyIdx <= currentIdx) {
         const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-        alert(`您在「${type}」赛道已持有 ${LEVEL_NAME[trackCurrentLevel] ?? trackCurrentLevel} 认证，只能申请更高等级。`);
+        alert(`您在「${type}」赛道已持有 ${LEVEL_NAME[trackCurrentLevel] ?? trackCurrentLevel} 认证，只能申请更高等级，不能重复申请相同等级。`);
         return;
       }
     }
@@ -193,9 +209,16 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       await qc.invalidateQueries({ queryKey: ["/api/portfolios"] });
       setStatus("saved");
       setTimeout(() => { setStatus("idle"); onClose(); }, 700);
-    } catch {
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 2500);
+    } catch (err: unknown) {
+      const apiMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? (err as { message?: string })?.message;
+      if (apiMsg && typeof apiMsg === "string" && apiMsg.includes("已持有")) {
+        setStatus("idle");
+        alert(apiMsg);
+      } else {
+        setStatus("error");
+        setTimeout(() => setStatus("idle"), 2500);
+      }
     }
   };
 
@@ -312,13 +335,13 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
             {/* ── 等级认证申请（紧跟项目类型） ── */}
             <div className="border border-slate-200 rounded-2xl p-4 bg-gradient-to-br from-amber-50/60 to-orange-50/40">
               <div className="flex items-center justify-between mb-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
+                <label className={`flex items-center gap-2 select-none ${alreadyAtMaxForTrack ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
                   <input
                     type="checkbox"
                     checked={applyForLevel}
                     onChange={e => setApplyForLevel(e.target.checked)}
                     className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
-                    disabled={initial?.levelApplyStatus === "pending"}
+                    disabled={initial?.levelApplyStatus === "pending" || alreadyAtMaxForTrack}
                   />
                   <span className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
                     <Trophy size={14} className="text-amber-500" />
@@ -331,6 +354,12 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
                   </span>
                 )}
               </div>
+              {alreadyAtMaxForTrack && (
+                <p className="text-[11px] text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-1 flex items-center gap-1.5">
+                  <CheckCircle2 size={12} className="shrink-0" />
+                  您在「{type}」赛道已持有最高等级（A级·专家）认证，无需再次申请。
+                </p>
+              )}
 
               {initial?.levelApplyStatus === "pending" && (
                 <p className="text-[11px] text-amber-600 bg-amber-100 rounded-lg px-3 py-2 mb-2">
