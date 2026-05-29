@@ -50,16 +50,16 @@ async function fetchScreen(): Promise<ScreenData> {
 }
 
 /* ════════════════════════════════════════
-   CSS keyframes for custom animations
+   CSS keyframes
 ════════════════════════════════════════ */
 const KF = `
   @keyframes orb1  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(55px,-40px)} }
   @keyframes orb2  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(-40px,45px)} }
+  @keyframes orb3  { 0%,100%{transform:translate(0,0)}  50%{transform:translate(30px,35px)} }
   @keyframes feedScroll { from{transform:translateY(0)} to{transform:translateY(-50%)} }
   @keyframes tickerScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-  @keyframes liveDot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
   @keyframes kpiIn { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes chartIn { from{opacity:0;transform:scale(0.97)} to{opacity:1;transform:scale(1)} }
 `;
 
 /* ════════════════════════════════════════
@@ -94,47 +94,46 @@ function Header() {
   }, []);
 
   return (
-    <div className="relative flex items-center justify-between px-8 py-3 h-24 w-full bg-gradient-to-b from-[#1a0540]/70 to-transparent shrink-0">
-      {/* Top Line Glow — violet */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[2px] bg-gradient-to-r from-transparent via-violet-400 to-transparent shadow-[0_0_15px_rgba(139,92,246,1)]" />
+    <div className="relative flex items-center justify-between px-8 py-3 h-20 w-full shrink-0">
+      {/* Top shimmer line — brand poster style */}
+      <div className="absolute top-0 left-0 right-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(192,132,252,0.7) 30%, rgba(244,114,182,0.7) 70%, transparent)" }} />
 
-      {/* Time - Left */}
-      <div className="w-[30%] flex items-center">
-        <div className="text-[44px] font-mono font-bold text-slate-100 tracking-widest drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">
+      {/* Left — clock */}
+      <div className="w-[28%] flex items-center">
+        <div className="text-[44px] font-mono font-bold tracking-widest"
+          style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(192,132,252,0.7))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
           {format(time, "HH:mm:ss")}
         </div>
       </div>
 
-      {/* Center Title */}
-      <div className="flex-1 flex justify-center items-center relative h-full shrink-0">
-        <div className="absolute top-4 w-[110%] h-12 flex items-center justify-center pointer-events-none">
-          <div className="absolute bottom-0 w-[80%] h-px bg-violet-400 shadow-[0_0_10px_rgba(139,92,246,0.8)]" />
-          <div className="absolute left-[10%] bottom-0 w-8 h-px bg-violet-400 origin-bottom-right -rotate-45 transform translate-y-px" />
-          <div className="absolute left-[5%] bottom-1 flex gap-1 -skew-x-[30deg]">
-            <div className="w-4 h-1.5 bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.8)]" />
-            <div className="w-4 h-1.5 bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.8)]" />
-            <div className="w-4 h-1.5 bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.8)] opacity-50" />
-          </div>
-          <div className="absolute right-[10%] bottom-0 w-8 h-px bg-violet-400 origin-bottom-left rotate-45 transform translate-y-px" />
-          <div className="absolute right-[5%] bottom-1 flex gap-1 -skew-x-[30deg]">
-            <div className="w-4 h-1.5 bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.8)] opacity-50" />
-            <div className="w-4 h-1.5 bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.8)]" />
-            <div className="w-4 h-1.5 bg-violet-500 shadow-[0_0_5px_rgba(139,92,246,0.8)]" />
-          </div>
+      {/* Center — brand-style title */}
+      <div className="flex-1 flex flex-col items-center shrink-0">
+        <div className="flex items-center gap-3 mb-0.5">
+          <div className="h-px w-24"
+            style={{ background: "linear-gradient(to right, transparent, rgba(192,132,252,0.5))" }} />
+          <span className="text-[11px] tracking-[0.25em] font-light"
+            style={{ color: "rgba(255,255,255,0.45)" }}>OPC撮合交易平台</span>
+          <div className="h-px w-24"
+            style={{ background: "linear-gradient(to left, transparent, rgba(192,132,252,0.5))" }} />
         </div>
-        <h1 className="relative z-10 text-[36px] font-bold tracking-[0.1em] text-transparent bg-clip-text bg-gradient-to-r from-violet-300 via-fuchsia-200 to-pink-400 drop-shadow-[0_2px_15px_rgba(168,85,247,0.5)] flex items-center gap-3">
-          <span>接单吧 OPC 撮合交易平台</span>
-          <span className="text-pink-400 drop-shadow-[0_0_10px_rgba(244,114,182,0.8)]">数据大屏</span>
+        <h1 className="text-[32px] font-black tracking-[0.06em]"
+          style={{
+            background: "linear-gradient(135deg, #e9d5ff 0%, #f0abfc 35%, #f9a8d4 65%, #fda4af 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            textShadow: "0 0 40px rgba(168,85,247,0.3)"
+          }}>
+          接单吧 OPC 撮合交易平台 · 数据大屏
         </h1>
       </div>
 
-      {/* Status - Right */}
-      <div className="w-[30%] flex justify-end items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-1.5">
-          <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,1)] animate-pulse" />
-          <span className="text-[20px] text-emerald-400 font-medium tracking-wider drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">
-            平台运行正常
-          </span>
+      {/* Right — status */}
+      <div className="w-[28%] flex justify-end items-center">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+          style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)" }}>
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400"
+            style={{ animation: "livePulse 2s ease-in-out infinite", boxShadow: "0 0 10px #34d399" }} />
+          <span className="text-[18px] text-emerald-300 font-medium tracking-wide">平台运行正常</span>
         </div>
       </div>
     </div>
@@ -142,69 +141,27 @@ function Header() {
 }
 
 /* ════════════════════════════════════════
-   StatCard
+   Glass Panel
 ════════════════════════════════════════ */
-const colorMap = {
-  violet:  { border: "border-violet-500",  text: "text-violet-400",  bg: "bg-violet-950/20",  shadow: "shadow-[inset_0_0_20px_rgba(139,92,246,0.3)]",  glow: "shadow-[0_0_15px_rgba(139,92,246,0.3)]",  bar: "bg-violet-400",  icon: "bg-violet-950/50 border-violet-700" },
-  fuchsia: { border: "border-fuchsia-500", text: "text-fuchsia-400", bg: "bg-fuchsia-950/20", shadow: "shadow-[inset_0_0_20px_rgba(217,70,239,0.3)]",  glow: "shadow-[0_0_15px_rgba(217,70,239,0.3)]",  bar: "bg-fuchsia-400", icon: "bg-fuchsia-950/50 border-fuchsia-700" },
-  pink:    { border: "border-pink-500",    text: "text-pink-400",    bg: "bg-pink-950/20",    shadow: "shadow-[inset_0_0_20px_rgba(236,72,153,0.3)]",  glow: "shadow-[0_0_15px_rgba(236,72,153,0.3)]",  bar: "bg-pink-400",    icon: "bg-pink-950/50 border-pink-700" },
-  emerald: { border: "border-emerald-500", text: "text-emerald-400", bg: "bg-emerald-950/20", shadow: "shadow-[inset_0_0_20px_rgba(16,185,129,0.3)]",  glow: "shadow-[0_0_15px_rgba(16,185,129,0.3)]",  bar: "bg-emerald-400", icon: "bg-emerald-950/50 border-emerald-700" },
-  amber:   { border: "border-amber-500",   text: "text-amber-400",   bg: "bg-amber-950/20",   shadow: "shadow-[inset_0_0_20px_rgba(245,158,11,0.3)]",  glow: "shadow-[0_0_15px_rgba(245,158,11,0.3)]",  bar: "bg-amber-400",   icon: "bg-amber-950/50 border-amber-700" },
-  rose:    { border: "border-rose-500",    text: "text-rose-400",    bg: "bg-rose-950/20",    shadow: "shadow-[inset_0_0_20px_rgba(244,63,94,0.3)]",   glow: "shadow-[0_0_15px_rgba(244,63,94,0.3)]",   bar: "bg-rose-400",    icon: "bg-rose-950/50 border-rose-700" },
-} as const;
-
-type ColorType = keyof typeof colorMap;
-
-function StatCard({ title, value, unit = "", icon, colorType = "violet", delay = 0, ready = true }: {
-  title: string; value: number; unit?: string;
-  icon: React.ReactNode; colorType?: ColorType; delay?: number; ready?: boolean;
-}) {
-  const n = useCountUp(value, ready, 1400, delay);
-  const display = n >= 10000 ? `${(n / 10000).toFixed(1)}万` : n.toLocaleString("zh-CN");
-  const c = colorMap[colorType];
-
-  return (
-    <div
-      className={clsx(
-        "relative flex flex-col justify-between p-3 rounded-xl border overflow-hidden",
-        c.border, c.bg, c.shadow, c.glow
-      )}
-      style={{ animation: `kpiIn 0.65s cubic-bezier(0.16,1,0.3,1) ${delay}ms both` }}
-    >
-      {/* Top glow bar */}
-      <div className={clsx("absolute top-0 left-0 right-0 h-[2px] opacity-80", c.bar)} />
-
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[17px] font-bold text-slate-400 tracking-[0.08em] uppercase leading-tight">{title}</span>
-        <div className={clsx("w-8 h-8 rounded-md border flex items-center justify-center", c.icon)}>
-          <span className={clsx("w-5 h-5", c.text)}>{icon}</span>
-        </div>
-      </div>
-      <div className="flex items-baseline gap-1 leading-none mt-1">
-        <span className={clsx("text-[42px] font-black font-mono tabular-nums", c.text)}>{display}</span>
-        {unit && <span className="text-[17px] text-slate-500 font-medium">{unit}</span>}
-      </div>
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════
-   Panel
-════════════════════════════════════════ */
-function Panel({ children, title, borderColor = "border-violet-500/50", className = "", style }: {
-  children: React.ReactNode; title?: string;
-  borderColor?: string; className?: string; style?: React.CSSProperties;
+function Panel({ children, title, className = "", style }: {
+  children: React.ReactNode; title?: string; className?: string; style?: React.CSSProperties;
 }) {
   return (
-    <div className={clsx(
-      "relative rounded-xl border bg-[#1a0838]/80 shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)]",
-      "backdrop-blur-sm overflow-hidden flex flex-col",
-      borderColor, className
-    )} style={style}>
+    <div className={clsx("relative rounded-2xl overflow-hidden flex flex-col", className)}
+      style={{
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.13)",
+        backdropFilter: "blur(16px)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
+        ...style,
+      }}>
       {title && (
-        <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/5 shrink-0">
-          <div className="w-1.5 h-5 bg-violet-400 rounded-full shadow-[0_0_8px_rgba(139,92,246,0.8)]" />
-          <span className="text-[20px] font-bold text-slate-400 tracking-[0.08em] uppercase">{title}</span>
+        <div className="flex items-center gap-2.5 px-4 pt-3 pb-2 shrink-0"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="w-1 h-5 rounded-full"
+            style={{ background: "linear-gradient(180deg, #c084fc, #f472b6)" }} />
+          <span className="text-[20px] font-semibold tracking-wide"
+            style={{ color: "rgba(255,255,255,0.85)" }}>{title}</span>
         </div>
       )}
       <div className={clsx("flex flex-col flex-1 min-h-0", title ? "p-3 pt-2" : "p-3")}>
@@ -215,7 +172,60 @@ function Panel({ children, title, borderColor = "border-violet-500/50", classNam
 }
 
 /* ════════════════════════════════════════
-   ScreenVideoPlayer — auto-cycling video
+   StatCard — gradient glass
+════════════════════════════════════════ */
+type GradDef = { from: string; to: string };
+const CARD_GRADS: GradDef[] = [
+  { from: "#a78bfa", to: "#c084fc" },
+  { from: "#e879f9", to: "#f0abfc" },
+  { from: "#f472b6", to: "#fb7185" },
+  { from: "#34d399", to: "#6ee7b7" },
+];
+
+function StatCard({ title, value, unit = "", icon, gradIdx = 0, delay = 0, ready = true }: {
+  title: string; value: number; unit?: string;
+  icon: React.ReactNode; gradIdx?: number; delay?: number; ready?: boolean;
+}) {
+  const n = useCountUp(value, ready, 1400, delay);
+  const display = n >= 10000 ? `${(n / 10000).toFixed(1)}万` : n.toLocaleString("zh-CN");
+  const g = CARD_GRADS[gradIdx % CARD_GRADS.length];
+
+  return (
+    <div className="relative rounded-2xl p-4 flex flex-col justify-between overflow-hidden"
+      style={{
+        background: "rgba(255,255,255,0.07)",
+        border: "1px solid rgba(255,255,255,0.13)",
+        backdropFilter: "blur(16px)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)",
+        animation: `kpiIn 0.65s cubic-bezier(0.16,1,0.3,1) ${delay}ms both`,
+      }}>
+      {/* Top gradient bar */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl"
+        style={{ background: `linear-gradient(90deg, ${g.from}, ${g.to})` }} />
+      {/* Ambient glow */}
+      <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20 pointer-events-none"
+        style={{ background: `radial-gradient(circle, ${g.from}, transparent)` }} />
+
+      <div className="flex items-center justify-between">
+        <span className="text-[16px] font-medium tracking-wider" style={{ color: "rgba(255,255,255,0.55)" }}>{title}</span>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: `linear-gradient(135deg, ${g.from}30, ${g.to}20)`, border: `1px solid ${g.from}40` }}>
+          <span style={{ color: g.from, width: 18, height: 18, display: "flex" }}>{icon}</span>
+        </div>
+      </div>
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="text-[42px] font-black font-mono tabular-nums leading-none"
+          style={{ background: `linear-gradient(135deg, ${g.from}, ${g.to})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          {display}
+        </span>
+        {unit && <span className="text-[16px] ml-1" style={{ color: "rgba(255,255,255,0.4)" }}>{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════
+   ScreenVideoPlayer
 ════════════════════════════════════════ */
 type ScreenVideoItem = { id: number; title: string; objectPath: string };
 
@@ -245,15 +255,17 @@ function ScreenVideoPlayer() {
     }
   }, [idx, videos.length]);
 
-  const handleEnded = () => setIdx(i => i + 1);
-
   if (videos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-600">
-        <div className="w-14 h-14 rounded-2xl border border-violet-800/60 flex items-center justify-center">
-          <span className="text-2xl">🎬</span>
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.3), rgba(236,72,153,0.3))", border: "1px solid rgba(255,255,255,0.15)" }}>
+          <span className="text-3xl">🎬</span>
         </div>
-        <span className="text-[11px] tracking-wider uppercase">暂无视频</span>
+        <div className="text-center">
+          <div className="text-[14px] font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>宣传视频播放区</div>
+          <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>暂无视频</div>
+        </div>
       </div>
     );
   }
@@ -265,24 +277,22 @@ function ScreenVideoPlayer() {
       key={idx}
       src={`${BASE}/api/storage${current.objectPath}`}
       className="flex-1 min-h-0 w-full object-cover"
-      autoPlay
-      muted
-      playsInline
+      autoPlay muted playsInline
       loop={videos.length === 1}
-      onEnded={handleEnded}
+      onEnded={() => setIdx(i => i + 1)}
     />
   );
 }
 
 /* ════════════════════════════════════════
-   DemandList — scrolling demand feed
+   DemandList
 ════════════════════════════════════════ */
-const DEMAND_STATUS_STYLE: Record<string, { text: string; bg: string; border: string }> = {
-  published:          { text: "text-violet-400",  bg: "bg-violet-950/40",  border: "border-violet-500/40" },
-  matched:            { text: "text-fuchsia-400", bg: "bg-fuchsia-950/40", border: "border-fuchsia-500/40" },
-  in_progress:        { text: "text-pink-400",    bg: "bg-pink-950/40",    border: "border-pink-500/40" },
-  pending_acceptance: { text: "text-amber-400",   bg: "bg-amber-950/40",   border: "border-amber-500/40" },
-  completed:          { text: "text-emerald-400", bg: "bg-emerald-950/40", border: "border-emerald-500/40" },
+const DEMAND_STATUS_GRAD: Record<string, string> = {
+  published:          "linear-gradient(90deg,#a78bfa,#c084fc)",
+  matched:            "linear-gradient(90deg,#e879f9,#f0abfc)",
+  in_progress:        "linear-gradient(90deg,#f472b6,#fb7185)",
+  pending_acceptance: "linear-gradient(90deg,#fbbf24,#fde68a)",
+  completed:          "linear-gradient(90deg,#34d399,#6ee7b7)",
 };
 
 function DemandList({ items }: { items: ScreenData["demandList"] }) {
@@ -300,26 +310,27 @@ function DemandList({ items }: { items: ScreenData["demandList"] }) {
   }, [items]);
 
   if (!items.length) return (
-    <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">暂无需求</div>
+    <div className="flex-1 flex items-center justify-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>暂无需求</div>
   );
 
   return (
     <div className="flex-1 overflow-hidden relative min-h-0">
-      {/* Fade masks */}
-      <div className="absolute top-0 inset-x-0 h-6 bg-gradient-to-b from-[#1a0838] to-transparent pointer-events-none z-10" />
-      <div className="absolute bottom-0 inset-x-0 h-6 bg-gradient-to-t from-[#1a0838] to-transparent pointer-events-none z-10" />
+      <div className="absolute top-0 inset-x-0 h-6 z-10 pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, rgba(40,10,80,0.7), transparent)" }} />
+      <div className="absolute bottom-0 inset-x-0 h-6 z-10 pointer-events-none"
+        style={{ background: "linear-gradient(to top, rgba(40,10,80,0.7), transparent)" }} />
 
       <div ref={trackRef} style={{ animation: `feedScroll ${duration}s linear infinite` }}>
         {doubled.map((item, i) => {
-          const s = DEMAND_STATUS_STYLE[item.status] ?? { text: "text-slate-400", bg: "bg-slate-900/40", border: "border-slate-500/40" };
+          const grad = DEMAND_STATUS_GRAD[item.status] ?? "linear-gradient(90deg,#94a3b8,#cbd5e1)";
           return (
-            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0 px-1">
-              <span className="text-[13px] font-bold text-slate-400 shrink-0 w-12 truncate">{item.publisher}</span>
-              <span className="flex-1 text-[13px] text-slate-300 truncate min-w-0">{item.title}</span>
-              <span className="text-[11px] font-bold text-amber-400 shrink-0 whitespace-nowrap">{item.budget}</span>
-              <span className={clsx("text-[11px] font-bold px-1.5 py-0.5 rounded border shrink-0 whitespace-nowrap", s.text, s.bg, s.border)}>
-                {item.statusLabel}
-              </span>
+            <div key={i} className="flex items-center gap-2 py-1.5 px-1"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span className="text-[13px] font-bold shrink-0 w-12 truncate" style={{ color: "rgba(255,255,255,0.5)" }}>{item.publisher}</span>
+              <span className="flex-1 text-[13px] truncate min-w-0" style={{ color: "rgba(255,255,255,0.8)" }}>{item.title}</span>
+              <span className="text-[11px] font-bold shrink-0 whitespace-nowrap" style={{ color: "#fbbf24" }}>{item.budget}</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap text-white"
+                style={{ background: grad }}>{item.statusLabel}</span>
             </div>
           );
         })}
@@ -329,7 +340,7 @@ function DemandList({ items }: { items: ScreenData["demandList"] }) {
 }
 
 /* ════════════════════════════════════════
-   TrendChart — cumulative OPC/publisher
+   TrendChart
 ════════════════════════════════════════ */
 function niceAxisDomain(values: number[]): [number, number] {
   const min = Math.min(...values);
@@ -337,75 +348,46 @@ function niceAxisDomain(values: number[]): [number, number] {
   const range = max - min || 1;
   const magnitude = Math.pow(10, Math.floor(Math.log10(range)));
   const step = magnitude >= 1 ? magnitude : 1;
-  const domainMin = Math.floor(min / step) * step;
-  const domainMax = Math.ceil(max / step) * step;
-  return [domainMin, domainMax];
+  return [Math.floor(min / step) * step, Math.ceil(max / step) * step];
 }
 
 function TrendChart({ data }: { data: ScreenData["cumulativeSeries"] }) {
-  const chartData = data.map(d => ({
-    date: d.label || d.date,
-    opc: d.totalOpc,
-    publisher: d.totalPublisher,
-  }));
-
+  const chartData = data.map(d => ({ date: d.label || d.date, opc: d.totalOpc, publisher: d.totalPublisher }));
   const opcDomain = niceAxisDomain(chartData.map(d => d.opc));
   const pubDomain = niceAxisDomain(chartData.map(d => d.publisher));
 
   return (
-    <div className="flex flex-col h-full w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: -10, bottom: 0 }}>
-          <defs>
-            <linearGradient id="colorOpc" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5} />
-              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="colorPublisher" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#ec4899" stopOpacity={0.5} />
-              <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2d1b4e" />
-          <XAxis dataKey="date" stroke="#64748b" fontSize={15} tickLine={false} axisLine={{ stroke: "#4c1d7a" }} />
-          <YAxis
-            yAxisId="left"
-            orientation="left"
-            stroke="#8b5cf6"
-            fontSize={14}
-            tickLine={false}
-            axisLine={{ stroke: "#8b5cf6", strokeOpacity: 0.4 }}
-            allowDecimals={false}
-            domain={opcDomain}
-            tickCount={5}
-            tick={{ fill: "#8b5cf6" }}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="right"
-            stroke="#ec4899"
-            fontSize={14}
-            tickLine={false}
-            axisLine={{ stroke: "#ec4899", strokeOpacity: 0.4 }}
-            allowDecimals={false}
-            domain={pubDomain}
-            tickCount={5}
-            tick={{ fill: "#ec4899" }}
-          />
-          <Tooltip
-            contentStyle={{ backgroundColor: "rgba(20,5,50,0.92)", borderColor: "rgba(139,92,246,0.4)", color: "#e2e8f0", borderRadius: 6 }}
-            itemStyle={{ fontSize: 17, fontWeight: "bold" }}
-            labelStyle={{ fontSize: 15, color: "#94a3b8" }}
-          />
-          <Legend verticalAlign="top" height={40} iconType="diamond"
-            formatter={(value) => <span style={{ color: "#cbd5e1", fontSize: 18 }}>{value}</span>} />
-          <Area yAxisId="left" type="monotone" name="OPC 累计" dataKey="opc" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorOpc)"
-            dot={{ r: 3, fill: "#8b5cf6", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 }} />
-          <Area yAxisId="right" type="monotone" name="发单方累计" dataKey="publisher" stroke="#ec4899" strokeWidth={2} fillOpacity={1} fill="url(#colorPublisher)"
-            dot={{ r: 3, fill: "#ec4899", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#ec4899", stroke: "#fff", strokeWidth: 2 }} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={chartData} margin={{ top: 10, right: 30, left: -10, bottom: 0 }}>
+        <defs>
+          <linearGradient id="gOpc" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.45} />
+            <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="gPub" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#f472b6" stopOpacity={0.45} />
+            <stop offset="95%" stopColor="#f472b6" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+        <XAxis dataKey="date" stroke="rgba(255,255,255,0.25)" fontSize={14} tickLine={false} axisLine={{ stroke: "rgba(255,255,255,0.1)" }} />
+        <YAxis yAxisId="left" orientation="left" stroke="#a78bfa" fontSize={13} tickLine={false}
+          axisLine={{ stroke: "#a78bfa", strokeOpacity: 0.3 }} allowDecimals={false} domain={opcDomain} tickCount={5} tick={{ fill: "#a78bfa" }} />
+        <YAxis yAxisId="right" orientation="right" stroke="#f472b6" fontSize={13} tickLine={false}
+          axisLine={{ stroke: "#f472b6", strokeOpacity: 0.3 }} allowDecimals={false} domain={pubDomain} tickCount={5} tick={{ fill: "#f472b6" }} />
+        <Tooltip
+          contentStyle={{ backgroundColor: "rgba(30,8,70,0.95)", borderColor: "rgba(192,132,252,0.4)", color: "#f1f5f9", borderRadius: 10 }}
+          itemStyle={{ fontSize: 16, fontWeight: "bold" }}
+          labelStyle={{ fontSize: 14, color: "rgba(255,255,255,0.5)" }}
+        />
+        <Legend verticalAlign="top" height={36} iconType="diamond"
+          formatter={(v) => <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 17 }}>{v}</span>} />
+        <Area yAxisId="left" type="monotone" name="OPC 累计" dataKey="opc" stroke="#a78bfa" strokeWidth={2.5} fillOpacity={1} fill="url(#gOpc)"
+          dot={{ r: 3, fill: "#a78bfa", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#a78bfa", stroke: "#fff", strokeWidth: 2 }} />
+        <Area yAxisId="right" type="monotone" name="发单方累计" dataKey="publisher" stroke="#f472b6" strokeWidth={2.5} fillOpacity={1} fill="url(#gPub)"
+          dot={{ r: 3, fill: "#f472b6", strokeWidth: 0 }} activeDot={{ r: 5, fill: "#f472b6", stroke: "#fff", strokeWidth: 2 }} />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -414,22 +396,21 @@ function TrendChart({ data }: { data: ScreenData["cumulativeSeries"] }) {
 ════════════════════════════════════════ */
 function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; newDemands: number; newOrders: number }) {
   const items = [
-    { label: "今日新用户", value: newUsers,   colorClass: "text-violet-400",  borderClass: "border-violet-500/40",  bgClass: "bg-violet-950/30",  icon: "👤" },
-    { label: "今日新需求", value: newDemands, colorClass: "text-fuchsia-400", borderClass: "border-fuchsia-500/40", bgClass: "bg-fuchsia-950/30", icon: "📋" },
-    { label: "今日新订单", value: newOrders,  colorClass: "text-pink-400",    borderClass: "border-pink-500/40",    bgClass: "bg-pink-950/30",    icon: "🤝" },
+    { label: "今日新用户", value: newUsers,   icon: "👤", grad: "linear-gradient(90deg,#a78bfa,#c084fc)" },
+    { label: "今日新需求", value: newDemands, icon: "📋", grad: "linear-gradient(90deg,#e879f9,#f0abfc)" },
+    { label: "今日新订单", value: newOrders,  icon: "🤝", grad: "linear-gradient(90deg,#f472b6,#fb7185)" },
   ];
   return (
     <div className="grid grid-cols-3 gap-2.5 h-full">
       {items.map((item, i) => (
-        <div key={i} className={clsx(
-          "rounded-lg border px-4 flex items-center justify-between",
-          item.borderClass, item.bgClass
-        )}>
+        <div key={i} className="rounded-xl flex items-center justify-between px-4"
+          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)" }}>
           <div className="flex items-center gap-2">
-            <span className="text-lg shrink-0">{item.icon}</span>
-            <span className="text-[16px] font-bold text-slate-400 tracking-wider">{item.label}</span>
+            <span className="text-lg">{item.icon}</span>
+            <span className="text-[15px] font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>{item.label}</span>
           </div>
-          <span className={clsx("text-[30px] font-black font-mono tabular-nums leading-none", item.colorClass)}>
+          <span className="text-[28px] font-black font-mono tabular-nums leading-none"
+            style={{ background: item.grad, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             {item.value > 0 ? `+${item.value}` : item.value}
           </span>
         </div>
@@ -441,48 +422,48 @@ function TodayStats({ newUsers, newDemands, newOrders }: { newUsers: number; new
 /* ════════════════════════════════════════
    ProgressBars
 ════════════════════════════════════════ */
-const STATUS_COLORS: Record<string, { colorClass: string; shadowClass: string }> = {
-  published:          { colorClass: "bg-violet-400",  shadowClass: "shadow-[0_0_10px_rgba(139,92,246,1)]" },
-  matched:            { colorClass: "bg-fuchsia-400", shadowClass: "shadow-[0_0_10px_rgba(217,70,239,1)]" },
-  in_progress:        { colorClass: "bg-pink-400",    shadowClass: "shadow-[0_0_10px_rgba(236,72,153,1)]" },
-  pending_acceptance: { colorClass: "bg-amber-400",   shadowClass: "shadow-[0_0_10px_rgba(245,158,11,1)]" },
-  completed:          { colorClass: "bg-emerald-400", shadowClass: "shadow-[0_0_10px_rgba(16,185,129,1)]" },
+const STATUS_GRAD: Record<string, string> = {
+  published:          "linear-gradient(90deg,#a78bfa,#c084fc)",
+  matched:            "linear-gradient(90deg,#e879f9,#f0abfc)",
+  in_progress:        "linear-gradient(90deg,#f472b6,#fb7185)",
+  pending_acceptance: "linear-gradient(90deg,#fbbf24,#fde68a)",
+  completed:          "linear-gradient(90deg,#34d399,#6ee7b7)",
 };
 
 function ProgressBars({ data, total }: { data: ScreenData["demandStatusChart"]; total: number }) {
   return (
     <div className="flex flex-col flex-1 min-h-0 justify-between w-full px-1">
-      {data.map((item, index) => {
+      {data.map((item, i) => {
         const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-        const c = STATUS_COLORS[item.status] ?? { colorClass: "bg-slate-400", shadowClass: "" };
+        const grad = STATUS_GRAD[item.status] ?? "linear-gradient(90deg,#94a3b8,#cbd5e1)";
         return (
-          <div key={index} className="flex items-center gap-2">
-            <span className="text-[15px] text-slate-300 w-16 text-right font-medium shrink-0">{item.label}</span>
-            <div className="flex-1 h-3 bg-[#1a0838] rounded-full overflow-hidden border border-violet-900/50 shadow-[inset_0_0_5px_rgba(0,0,0,0.5)]">
-              <div
-                className={clsx("h-full rounded-full transition-all duration-1000 ease-out", c.colorClass, c.shadowClass)}
-                style={{ width: `${pct === 0 ? 2 : pct}%` }}
-              />
+          <div key={i} className="flex items-center gap-2">
+            <span className="text-[14px] w-16 text-right font-medium shrink-0" style={{ color: "rgba(255,255,255,0.6)" }}>{item.label}</span>
+            <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{ width: `${pct === 0 ? 2 : pct}%`, background: grad }} />
             </div>
-            <div className="w-20 flex items-center justify-between text-[14px] text-slate-400 font-mono shrink-0">
+            <div className="w-20 flex items-center justify-between text-[13px] font-mono shrink-0"
+              style={{ color: "rgba(255,255,255,0.5)" }}>
               <span className="font-bold">{item.value}</span>
-              <span className="text-slate-500">({pct}%)</span>
+              <span style={{ color: "rgba(255,255,255,0.3)" }}>({pct}%)</span>
             </div>
           </div>
         );
       })}
-      <div className="flex justify-between items-center border-t border-white/5 pt-1 text-[14px]">
-        <span className="text-slate-500">需求总计</span>
-        <span className="font-bold text-violet-400 drop-shadow-[0_0_6px_rgba(139,92,246,0.6)]">{total} 条</span>
+      <div className="flex justify-between items-center pt-1 text-[13px]"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <span style={{ color: "rgba(255,255,255,0.35)" }}>需求总计</span>
+        <span className="font-bold" style={{ background: "linear-gradient(90deg,#c084fc,#f472b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{total} 条</span>
       </div>
     </div>
   );
 }
 
 /* ════════════════════════════════════════
-   OrderTypeChart — pie + list by demand type
+   OrderTypeChart
 ════════════════════════════════════════ */
-const ORDER_TYPE_COLORS = ["#8b5cf6", "#ec4899", "#f59e0b", "#d946ef", "#64748b"];
+const ORDER_TYPE_COLORS = ["#a78bfa", "#f472b6", "#fbbf24", "#34d399", "rgba(255,255,255,0.3)"];
 
 function OrderTypeChart({ data }: { data: ScreenData["orderTypeChart"] }) {
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -490,46 +471,38 @@ function OrderTypeChart({ data }: { data: ScreenData["orderTypeChart"] }) {
 
   return (
     <div className="flex-1 min-h-0 flex items-stretch gap-3 px-1">
-      {/* Left: pie chart */}
       <div className="flex-[3] min-w-0 flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={pieData.length ? pieData : [{ label: "暂无", value: 1 }]}
-              dataKey="value"
-              nameKey="label"
-              cx="50%"
-              cy="50%"
-              innerRadius="40%"
-              outerRadius="72%"
-              paddingAngle={3}
-              strokeWidth={0}
+              dataKey="value" nameKey="label"
+              cx="50%" cy="50%" innerRadius="40%" outerRadius="72%"
+              paddingAngle={3} strokeWidth={0}
             >
               {(pieData.length ? pieData : [{ label: "暂无", value: 1 }]).map((_, i) => (
-                <Cell key={i} fill={pieData.length ? ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length] : "#2d1b4e"} />
+                <Cell key={i} fill={pieData.length ? ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length] : "rgba(255,255,255,0.08)"} />
               ))}
             </Pie>
             <Tooltip
-              contentStyle={{ backgroundColor: "rgba(20,5,50,0.92)", borderColor: "rgba(139,92,246,0.4)", color: "#e2e8f0", borderRadius: 6 }}
-              itemStyle={{ fontSize: 15, fontWeight: "bold" }}
+              contentStyle={{ backgroundColor: "rgba(30,8,70,0.95)", borderColor: "rgba(192,132,252,0.4)", color: "#f1f5f9", borderRadius: 10 }}
+              itemStyle={{ fontSize: 14, fontWeight: "bold" }}
               formatter={(value: number) => [`${value} 单`, ""]}
             />
           </PieChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Vertical divider */}
-      <div className="self-stretch w-px bg-white/5 my-3 shrink-0" />
-
-      {/* Right: list */}
+      <div className="self-stretch w-px my-3 shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
       <div className="flex-[2] flex flex-col justify-center gap-2 py-1">
         {data.map((item, i) => (
           <div key={i} className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length], boxShadow: `0 0 6px ${ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length]}` }} />
-              <span className="text-[14px] text-slate-300 truncate">{item.label}</span>
+              <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length], boxShadow: `0 0 6px ${ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length]}` }} />
+              <span className="text-[13px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{item.label}</span>
             </div>
-            <span className="text-[16px] font-black font-mono tabular-nums shrink-0" style={{ color: ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length] }}>
+            <span className="text-[15px] font-black font-mono tabular-nums shrink-0"
+              style={{ color: ORDER_TYPE_COLORS[i % ORDER_TYPE_COLORS.length] }}>
               {total > 0 ? `${Math.round((item.value / total) * 100)}%` : "—"}
             </span>
           </div>
@@ -540,9 +513,9 @@ function OrderTypeChart({ data }: { data: ScreenData["orderTypeChart"] }) {
 }
 
 /* ════════════════════════════════════════
-   Ticker — horizontal scrolling bar
+   Ticker
 ════════════════════════════════════════ */
-function Ticker({ items, color, label }: { items: { text: string }[]; color: "violet" | "amber"; label: string }) {
+function Ticker({ items, grad, label }: { items: { text: string }[]; grad: string; label: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const sep = "　｜　";
   const raw = items.map(i => i.text).join(sep);
@@ -551,41 +524,28 @@ function Ticker({ items, color, label }: { items: { text: string }[]; color: "vi
   useEffect(() => {
     const el = trackRef.current;
     if (!el || !doubled) return;
-    const speed = 60;
-    const totalWidth = el.scrollWidth / 2;
-    const dur = totalWidth / speed;
+    const dur = el.scrollWidth / 2 / 60;
     el.style.animation = "none";
     void el.offsetHeight;
     el.style.animation = `tickerScroll ${dur}s linear infinite`;
-    el.style.animationDirection = "normal";
-    el.style.animationPlayState = "running";
   }, [doubled]);
 
   if (!items.length) return null;
 
   return (
-    <div className={clsx(
-      "flex items-center h-9 border-t overflow-hidden shrink-0",
-      color === "violet" ? "border-violet-900/40 bg-[#0f0525]/80" : "border-amber-900/40 bg-[#0c0420]/80"
-    )}>
-      <div className={clsx(
-        "shrink-0 px-4 text-[14px] font-black tracking-[0.08em] whitespace-nowrap",
-        color === "violet" ? "text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.6)]"
-                           : "text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]"
-      )} style={{ padding: "7px 14px 7px 24px" }}>
+    <div className="flex items-center h-9 overflow-hidden shrink-0"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.2)" }}>
+      <div className="shrink-0 text-[13px] font-bold px-5 whitespace-nowrap"
+        style={{ background: grad, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
         {label}
       </div>
       <div className="flex-1 overflow-hidden relative">
-        <div className={clsx("absolute left-0 inset-y-0 w-10 z-10 pointer-events-none",
-          color === "violet" ? "bg-gradient-to-r from-[#0f0525] to-transparent" : "bg-gradient-to-r from-[#0c0420] to-transparent")} />
-        <div className={clsx("absolute right-0 inset-y-0 w-10 z-10 pointer-events-none",
-          color === "violet" ? "bg-gradient-to-l from-[#0f0525] to-transparent" : "bg-gradient-to-l from-[#0c0420] to-transparent")} />
-        <div ref={trackRef} className={clsx(
-          "inline-block whitespace-nowrap text-[16px] font-bold tracking-[0.03em]",
-          color === "violet"
-            ? "text-violet-400 drop-shadow-[0_0_6px_rgba(139,92,246,0.5)]"
-            : "text-amber-400 drop-shadow-[0_0_6px_rgba(245,158,11,0.5)]"
-        )} style={{ padding: "7px 0" }}>
+        <div className="absolute left-0 inset-y-0 w-8 z-10 pointer-events-none"
+          style={{ background: "linear-gradient(to right, rgba(30,8,70,0.8), transparent)" }} />
+        <div className="absolute right-0 inset-y-0 w-8 z-10 pointer-events-none"
+          style={{ background: "linear-gradient(to left, rgba(30,8,70,0.8), transparent)" }} />
+        <div ref={trackRef} className="inline-block whitespace-nowrap text-[15px] font-semibold py-2"
+          style={{ background: grad, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
           {doubled}
         </div>
       </div>
@@ -598,7 +558,7 @@ function Ticker({ items, color, label }: { items: { text: string }[]; color: "vi
 ════════════════════════════════════════ */
 function CountdownRing({ n, total }: { n: number; total: number }) {
   const r = 14, c2 = 2 * Math.PI * r;
-  const color = n <= 10 ? "#fbbf24" : "#8b5cf6";
+  const color = n <= 10 ? "#fbbf24" : "#a78bfa";
   return (
     <div className="relative w-9 h-9 shrink-0">
       <svg width={36} height={36} style={{ position: "absolute", transform: "rotate(-90deg)" }}>
@@ -655,103 +615,101 @@ export default function ScreenDisplay() {
   }, []);
 
   const kpiCards = [
-    { title: "平台总用户",   value: kpi?.totalUsers ?? 0,      icon: <Users className="w-full h-full" />,    colorType: "violet"  as ColorType, delay: 0   },
-    { title: "OPC 数量",     value: kpi?.opcCount ?? 0,         icon: <Users className="w-full h-full" />,    colorType: "fuchsia" as ColorType, delay: 50  },
-    { title: "发单企业",     value: kpi?.publisherCount ?? 0,   icon: <FileText className="w-full h-full" />, colorType: "pink"    as ColorType, delay: 100 },
-    { title: "已发布需求",   value: kpi?.publishedDemands ?? 0, icon: <FileText className="w-full h-full" />, colorType: "emerald" as ColorType, delay: 150 },
+    { title: "平台总用户",   value: kpi?.totalUsers ?? 0,      icon: <Users className="w-full h-full" />,    gradIdx: 0, delay: 0   },
+    { title: "OPC 数量",     value: kpi?.opcCount ?? 0,         icon: <Users className="w-full h-full" />,    gradIdx: 1, delay: 50  },
+    { title: "发单企业",     value: kpi?.publisherCount ?? 0,   icon: <FileText className="w-full h-full" />, gradIdx: 2, delay: 100 },
+    { title: "已发布需求",   value: kpi?.publishedDemands ?? 0, icon: <FileText className="w-full h-full" />, gradIdx: 3, delay: 150 },
   ];
 
   return (
     <>
       <style>{KF}</style>
       <div
-        className="text-slate-200 flex flex-col font-sans selection:bg-violet-500/30 relative"
+        className="flex flex-col font-sans relative"
         style={{
-          background: "linear-gradient(155deg, #0d0521 0%, #160832 40%, #1f0a3c 70%, #1a0830 100%)",
-          width: "100vw", height: "100vh", overflow: "hidden",
+          background: "linear-gradient(135deg, #1e0845 0%, #3b1080 25%, #5b1888 45%, #7d1060 70%, #4a0828 90%, #200510 100%)",
+          width: "100vw", height: "100vh", overflow: "hidden", color: "white",
           fontFamily: "'PingFang SC','Hiragino Sans GB','Microsoft YaHei UI','Microsoft YaHei','微软雅黑','SimHei','STHeiti','Noto Sans SC',system-ui,sans-serif"
         }}
       >
-        {/* Background effects */}
+        {/* ── Ambient orbs ─────────────────────────── */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          {/* Violet orb top-left */}
-          <div className="absolute top-[-5%] left-[5%] w-[500px] h-[500px] rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 65%)", animation: "orb1 15s ease-in-out infinite" }} />
-          {/* Pink orb bottom-right */}
-          <div className="absolute bottom-[5%] right-[5%] w-[420px] h-[420px] rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(236,72,153,0.10) 0%, transparent 65%)", animation: "orb2 19s ease-in-out infinite" }} />
-          {/* Fuchsia orb center-right */}
-          <div className="absolute top-[30%] right-[25%] w-[300px] h-[300px] rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(217,70,239,0.07) 0%, transparent 65%)" }} />
-          {/* Grid */}
-          <div className="absolute inset-0"
-            style={{ backgroundImage: "linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+          <div className="absolute rounded-full"
+            style={{ width: 600, height: 600, top: "-10%", left: "-5%", background: "radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 65%)", animation: "orb1 18s ease-in-out infinite" }} />
+          <div className="absolute rounded-full"
+            style={{ width: 500, height: 500, bottom: "-10%", right: "-5%", background: "radial-gradient(circle, rgba(236,72,153,0.16) 0%, transparent 65%)", animation: "orb2 22s ease-in-out infinite" }} />
+          <div className="absolute rounded-full"
+            style={{ width: 350, height: 350, top: "35%", right: "30%", background: "radial-gradient(circle, rgba(192,38,211,0.12) 0%, transparent 65%)", animation: "orb3 16s ease-in-out infinite" }} />
+          {/* Top-center highlight, brand poster style */}
+          <div className="absolute"
+            style={{ top: 0, left: "15%", right: "15%", height: 280, background: "radial-gradient(ellipse at 50% 0%, rgba(168,85,247,0.2), transparent 70%)" }} />
         </div>
 
-        {/* Main layout */}
+        {/* ── Main layout ──────────────────────────── */}
         <div className="relative z-10 flex flex-col flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
 
-          {/* ═══ HEADER ═══ */}
           <Header />
 
-          {/* Countdown indicator */}
+          {/* Countdown */}
           <div className="absolute top-3 right-8 flex items-center gap-2 z-20">
             <CountdownRing n={countdown} total={REFRESH_SEC} />
           </div>
 
-          {/* ═══ MAIN CONTENT ═══ */}
+          {/* ── Main content ─────────────────────── */}
           <div ref={contentRef} className="flex-1 min-h-0 flex gap-3 px-6 pb-2">
 
-            {/* Left column — takes all space not used by demand list */}
+            {/* Left column */}
             <div className="flex-1 flex flex-col gap-3 min-w-0">
 
-              {/* ═══ KPI STATS ROW ═══ */}
-              <div className="grid grid-cols-4 gap-3 shrink-0" style={{ height: 148 }}>
+              {/* KPI row */}
+              <div className="grid grid-cols-4 gap-3 shrink-0" style={{ height: 140 }}>
                 {kpiCards.map((s, i) => (
                   <StatCard key={i} {...s} ready={ready} />
                 ))}
               </div>
 
-              {/* Trend Chart */}
-              <Panel title="近14天增长趋势" borderColor="border-violet-500/40" className="flex-[5.5] min-h-0">
+              {/* Trend chart */}
+              <Panel title="近14天增长趋势" className="flex-[5.5] min-h-0">
                 {data?.cumulativeSeries?.length
                   ? <TrendChart data={data.cumulativeSeries} />
-                  : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                  : <div className="flex-1 flex items-center justify-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>加载中…</div>
                 }
               </Panel>
 
               {/* Bottom section */}
               <div className="flex-[4.5] min-h-0 flex gap-3">
 
-                {/* Left: demand list */}
-                <Panel title="近期需求" borderColor="border-violet-500/40" className="flex-[5.5] min-h-0 min-w-0 overflow-hidden">
+                {/* Demand list */}
+                <Panel title="近期需求" className="flex-[5.5] min-h-0 min-w-0 overflow-hidden">
                   {data
                     ? <DemandList items={data.demandList ?? []} />
-                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                    : <div className="flex-1 flex items-center justify-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>加载中…</div>
                   }
                 </Panel>
 
-                {/* Right: order type chart */}
-                <Panel title="订单占比" borderColor="border-fuchsia-500/40" className="flex-[4] min-w-0">
+                {/* Order type pie */}
+                <Panel title="订单占比" className="flex-[4] min-w-0">
                   {data?.orderTypeChart
                     ? <OrderTypeChart data={data.orderTypeChart} />
-                    : <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">加载中…</div>
+                    : <div className="flex-1 flex items-center justify-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>加载中…</div>
                   }
                 </Panel>
 
-                {/* QR code + URL */}
-                <Panel borderColor="border-violet-500/30" className="flex-[1.8] min-w-0 min-h-0">
-                  <div className="flex flex-col items-center justify-center h-full gap-2">
-                    <span className="text-[11px] font-bold text-slate-500 tracking-[0.1em] uppercase">扫码联系客服</span>
-                    <div className="p-1.5 rounded-lg bg-white shadow-[0_0_16px_rgba(139,92,246,0.6)]">
+                {/* QR code */}
+                <Panel className="flex-[1.8] min-w-0 min-h-0">
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <span className="text-[11px] tracking-[0.12em] uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>扫码联系客服</span>
+                    <div className="p-1.5 rounded-xl bg-white"
+                      style={{ boxShadow: "0 0 20px rgba(168,85,247,0.6)" }}>
                       <img
                         src={`${BASE}/qrcode.jpg`}
                         alt="客服二维码"
-                        className="block rounded"
+                        className="block rounded-lg"
                         style={{ width: 88, height: 88, objectFit: "cover" }}
                       />
                     </div>
-                    <span className="text-[16px] font-extrabold text-violet-300 tracking-wide drop-shadow-[0_0_8px_rgba(139,92,246,0.9)] text-center leading-tight">
+                    <span className="text-[15px] font-bold text-center leading-tight"
+                      style={{ background: "linear-gradient(135deg,#c084fc,#f472b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                       www.opcorder.com
                     </span>
                   </div>
@@ -760,19 +718,25 @@ export default function ScreenDisplay() {
               </div>
             </div>
 
-            {/* Right column — 视频播放器，精确宽度 = 高度 × 9/16 */}
+            {/* Right video column */}
             <div className="shrink-0 flex flex-col min-h-0" style={{ width: demandColWidth > 0 ? demandColWidth : undefined }}>
-              <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-fuchsia-500/40 bg-[#1a0838]/80 shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm overflow-hidden">
+              <div className="flex-1 min-h-0 flex flex-col rounded-2xl overflow-hidden"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(16px)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
+                }}>
                 <ScreenVideoPlayer />
               </div>
             </div>
 
           </div>
 
-          {/* ═══ TICKERS ═══ */}
+          {/* ── Tickers ──────────────────────────── */}
           <div className="shrink-0 z-10">
-            <Ticker items={data?.ticker1 ?? []} color="violet" label="👥 用户动态" />
-            <Ticker items={data?.ticker2 ?? []} color="amber" label="📢 平台信息" />
+            <Ticker items={data?.ticker1 ?? []} grad="linear-gradient(90deg,#c084fc,#e879f9,#f472b6)" label="👥 用户动态" />
+            <Ticker items={data?.ticker2 ?? []} grad="linear-gradient(90deg,#fbbf24,#fb923c)" label="📢 平台信息" />
           </div>
 
         </div>
