@@ -1046,13 +1046,23 @@ export default function OrderDetail() {
                 <Link2 size={12} /> 需求附件
               </p>
               <div className="flex flex-wrap gap-2">
-                {((order as any).demandAttachments as Array<{ name: string; url: string }>).map((att, i) => (
-                  <a key={i} href={att.url} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border text-xs font-medium text-foreground hover:bg-muted/70 transition-colors">
-                    <ExternalLink size={11} className="text-muted-foreground" />
-                    {att.name}
-                  </a>
-                ))}
+                {((order as any).demandAttachments as Array<{ name: string; url: string }>).map((att, i) => {
+                  const hasUrl = att.url && att.url !== "#";
+                  const href = hasUrl ? `${att.url}?name=${encodeURIComponent(att.name)}` : undefined;
+                  return hasUrl ? (
+                    <a key={i} href={href} target="_blank" rel="noreferrer" download={att.name}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border text-xs font-medium text-foreground hover:bg-muted/70 transition-colors">
+                      <ExternalLink size={11} className="text-muted-foreground" />
+                      {att.name}
+                    </a>
+                  ) : (
+                    <span key={i}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border text-xs font-medium text-muted-foreground opacity-50 cursor-not-allowed">
+                      <ExternalLink size={11} />
+                      {att.name}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}

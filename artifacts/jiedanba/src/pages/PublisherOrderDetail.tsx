@@ -767,20 +767,34 @@ export default function PublisherOrderDetail() {
                             <Paperclip size={11} /> 需求附件
                           </p>
                           <div className="space-y-2">
-                            {order.demandAttachments.map((att, i) => (
-                              <a
-                                key={i}
-                                href={att.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 transition-colors group"
-                              >
-                                <FileText size={14} className="text-slate-400 shrink-0" />
-                                <span className="text-sm font-medium text-slate-700 flex-1 truncate">{att.name}</span>
-                                <span className="text-xs text-slate-400">{att.size}</span>
-                                <Download size={13} className="text-primary shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </a>
-                            ))}
+                            {order.demandAttachments.map((att, i) => {
+                              const hasUrl = att.url && att.url !== "#";
+                              const href = hasUrl ? `${att.url}?name=${encodeURIComponent(att.name)}` : undefined;
+                              return hasUrl ? (
+                                <a
+                                  key={i}
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download={att.name}
+                                  className="flex items-center gap-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 transition-colors group"
+                                >
+                                  <FileText size={14} className="text-slate-400 shrink-0" />
+                                  <span className="text-sm font-medium text-slate-700 flex-1 truncate">{att.name}</span>
+                                  <span className="text-xs text-slate-400">{att.size}</span>
+                                  <Download size={13} className="text-primary shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </a>
+                              ) : (
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 opacity-50 cursor-not-allowed"
+                                >
+                                  <FileText size={14} className="text-slate-400 shrink-0" />
+                                  <span className="text-sm font-medium text-slate-500 flex-1 truncate">{att.name}</span>
+                                  <span className="text-xs text-slate-400">{att.size} · 暂不可下载</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
