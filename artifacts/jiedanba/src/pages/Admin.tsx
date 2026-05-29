@@ -2198,6 +2198,9 @@ interface SubOrder {
   merchantNo: string | null;
   amount: string;
   role: string;
+  subRole: string | null;
+  releasableAt: string | null;
+  settledAt: string | null;
   createdAt: string;
 }
 
@@ -2479,21 +2482,50 @@ function OrderManagement() {
                       ) : (subOrdersMap[o.orderNo] ?? []).length === 0 ? (
                         <p className="text-xs text-slate-400 py-2">暂无子订单记录</p>
                       ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          {(subOrdersMap[o.orderNo] ?? []).map(s => (
-                            <div key={s.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 space-y-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.role === "opc" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                                  {s.role === "opc" ? "OPC" : "平台"}
-                                </span>
-                              </div>
-                              <p className="font-mono text-[11px] text-slate-400">{s.subOrderNo}</p>
-                              <p className="font-bold text-sm text-blue-900">¥{Number(s.amount).toLocaleString()}</p>
-                              {s.partyName && <p className="text-xs text-slate-500">{s.partyName}</p>}
-                              {s.merchantNo && <p className="font-mono text-[11px] text-slate-400">商家编号：{s.merchantNo}</p>}
-                            </div>
-                          ))}
-                        </div>
+                        <>
+                          {(() => {
+                            const subs = subOrdersMap[o.orderNo] ?? [];
+                            const allSettled = subs.length > 0 && subs.every(s => s.settledAt != null);
+                            return (
+                              <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full mb-2 ${allSettled ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                {allSettled ? "✓ 全部分账完成" : "分账进行中"}
+                              </span>
+                            );
+                          })()}
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {(subOrdersMap[o.orderNo] ?? []).map(s => {
+                              const subRoleLabel = s.subRole === "opc_primary" ? "即付佣金（70%）" : s.subRole === "opc_holdback" ? "保证金（30%）" : "平台费";
+                              const subRoleColor = s.subRole === "opc_primary" ? "bg-blue-100 text-blue-700" : s.subRole === "opc_holdback" ? "bg-amber-100 text-amber-700" : "bg-purple-100 text-purple-700";
+                              let statusEl;
+                              if (s.settledAt) {
+                                statusEl = <span className="text-[10px] font-bold text-green-600">✓ 已分账 {s.settledAt.slice(0, 10)}</span>;
+                              } else if (s.subRole === "opc_holdback") {
+                                if (s.releasableAt) {
+                                  const isPast = new Date(s.releasableAt) <= new Date();
+                                  statusEl = isPast
+                                    ? <span className="text-[10px] font-bold text-orange-600">已解锁·待分账</span>
+                                    : <span className="text-[10px] text-amber-600">{s.releasableAt.slice(0, 10)} 解锁</span>;
+                                } else {
+                                  statusEl = <span className="text-[10px] text-slate-400">锁定期待开始</span>;
+                                }
+                              } else {
+                                statusEl = <span className="text-[10px] text-slate-400">待分账</span>;
+                              }
+                              return (
+                                <div key={s.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 space-y-1.5">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${subRoleColor}`}>{subRoleLabel}</span>
+                                    {statusEl}
+                                  </div>
+                                  <p className="font-mono text-[11px] text-slate-400">{s.subOrderNo}</p>
+                                  <p className="font-bold text-sm text-blue-900">¥{Number(s.amount).toLocaleString()}</p>
+                                  {s.partyName && <p className="text-xs text-slate-500">{s.partyName}</p>}
+                                  {s.merchantNo && <p className="font-mono text-[11px] text-slate-400">商家编号：{s.merchantNo}</p>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
                       )}
                     </div>
                   </td>
@@ -5366,6 +5398,11 @@ function SiteSettingsManagement() {
             <label className="block text-sm font-bold text-blue-900 mb-1.5">平台建行商家编号</label>
             <p className="text-xs text-slate-400 mb-2">用于分账时平台手续费收款方，对应建设银行商家号</p>
             {field("platform_ccb_merchant_no", "请输入平台建设银行商家编号")}
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-blue-900 mb-1.5">保证金锁定天数</label>
+            <p className="text-xs text-slate-400 mb-2">OPC 30% 保证金（holdback）在订单完成后需锁定多少天才可解锁，默认 90 天</p>
+            {field("holdback_release_days", "90")}
           </div>
         </div>
 

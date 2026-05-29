@@ -1,7 +1,8 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft, Banknote, Clock, CheckCircle2, TrendingUp,
-  FileText, AlertCircle,
+  FileText, Lock,
 } from "lucide-react";
 import { useListOrders, useGetCurrentUser, useGetOpcProfile } from "@workspace/api-client-react";
 
@@ -21,6 +22,17 @@ const DEMAND_TYPES: Record<string, string> = {
   other:     "其他",
 };
 
+interface OpcSubOrder {
+  id: number;
+  order_no: string;
+  sub_order_no: string;
+  amount: string;
+  role: string;
+  sub_role: string | null;
+  releasable_at: string | null;
+  settled_at: string | null;
+}
+
 export default function OpcIncome() {
   const { data: user } = useGetCurrentUser();
   const opcId = user?.id || undefined;
@@ -31,6 +43,26 @@ export default function OpcIncome() {
   const { data: completedOrders } = useListOrders({ opcId, status: "completed", limit: 200 });
   const { data: activeOrders } = useListOrders({ opcId, status: "in_progress", limit: 200 });
   const { data: pendingOrders } = useListOrders({ opcId, status: "pending_acceptance", limit: 200 });
+
+  const { data: subOrdersRaw } = useQuery<OpcSubOrder[]>({
+    queryKey: ["opc-sub-orders", user?.id],
+    queryFn: async () => {
+      const token = localStorage.getItem("token") ?? "";
+      const res = await fetch("/api/opc/sub-orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const subOrdersByOrderNo = (subOrdersRaw ?? []).reduce<Record<string, OpcSubOrder[]>>((acc, s) => {
+    const key = s.order_no;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(s);
+    return acc;
+  }, {});
 
   const totalEarned = (completedOrders?.items ?? []).reduce(
     (sum, o) => sum + (o.opcShare ?? Math.round(o.amount * 0.9)), 0
@@ -43,6 +75,10 @@ export default function OpcIncome() {
   const completedCount = completedOrders?.total ?? 0;
   const totalCount = allOrders?.total ?? 0;
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  const holdbackLocked = (subOrdersRaw ?? [])
+    .filter(s => s.sub_role === "opc_holdback" && !s.settled_at && s.releasable_at)
+    .reduce((sum, s) => sum + Number(s.amount), 0);
 
   const orders = allOrders?.items ?? [];
 
@@ -65,33 +101,39 @@ export default function OpcIncome() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             <CheckCircle2 size={14} className="text-secondary" /> 累计已结算
           </div>
-          <p className="text-3xl font-black text-secondary">¥{totalEarned.toLocaleString()}</p>
+          <p className="text-2xl font-black text-secondary">¥{totalEarned.toLocaleString()}</p>
           <p className="text-xs text-muted-foreground mt-2">{completedCount} 单已完成</p>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             <Clock size={14} className="text-amber-500" /> 待结算金额
           </div>
-          <p className="text-3xl font-black text-amber-600">¥{pendingEarnings.toLocaleString()}</p>
+          <p className="text-2xl font-black text-amber-600">¥{pendingEarnings.toLocaleString()}</p>
           <p className="text-xs text-muted-foreground mt-2">
             {(activeOrders?.total ?? 0) + (pendingOrders?.total ?? 0)} 单进行中
           </p>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
+            <Lock size={14} className="text-orange-500" /> 保证金锁定中
+          </div>
+          <p className="text-2xl font-black text-orange-600">¥{holdbackLocked.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground mt-2">完成后 3 个月解锁</p>
+        </div>
+
+        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
             <TrendingUp size={14} className="text-primary" /> 完成率
           </div>
-          <p className="text-3xl font-black text-primary">{completionRate}%</p>
-          <p className="text-xs text-muted-foreground mt-2">
-            共接 {totalCount} 单
-          </p>
+          <p className="text-2xl font-black text-primary">{completionRate}%</p>
+          <p className="text-xs text-muted-foreground mt-2">共接 {totalCount} 单</p>
         </div>
       </div>
 
@@ -114,6 +156,9 @@ export default function OpcIncome() {
               const myShare = o.opcShare ?? Math.round(o.amount * 0.9);
               const sc = STATUS_CFG[o.status] ?? STATUS_CFG.in_progress;
               const typeLabel = DEMAND_TYPES[o.demandType ?? ""] ?? "其他";
+              const subs = subOrdersByOrderNo[o.orderNo ?? ""] ?? [];
+              const primary = subs.find(s => s.sub_role === "opc_primary");
+              const holdback = subs.find(s => s.sub_role === "opc_holdback");
               return (
                 <Link
                   key={o.id}
@@ -138,9 +183,25 @@ export default function OpcIncome() {
                     <p className={`text-lg font-black ${o.status === "completed" ? "text-secondary" : "text-amber-600"}`}>
                       ¥{myShare.toLocaleString()}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      订单 ¥{o.amount.toLocaleString()}
-                    </p>
+                    {primary && holdback ? (
+                      <div className="text-xs mt-0.5 space-y-0.5">
+                        <div className={`font-medium ${primary.settled_at ? "text-green-600" : "text-slate-500"}`}>
+                          即付 ¥{Number(primary.amount).toLocaleString()}{primary.settled_at ? " ✓" : ""}
+                        </div>
+                        <div className={`${holdback.settled_at ? "text-green-600" : holdback.releasable_at ? "text-orange-500" : "text-slate-400"}`}>
+                          {holdback.settled_at
+                            ? `保证金 ¥${Number(holdback.amount).toLocaleString()} ✓`
+                            : holdback.releasable_at
+                              ? `保证金 ${new Date(holdback.releasable_at) <= new Date() ? "已解锁" : holdback.releasable_at.slice(0, 10) + "解锁"}`
+                              : `保证金 ¥${Number(holdback.amount).toLocaleString()}`
+                          }
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        订单 ¥{o.amount.toLocaleString()}
+                      </p>
+                    )}
                   </div>
 
                   <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${sc.color}`}>

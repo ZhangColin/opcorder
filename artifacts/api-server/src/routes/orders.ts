@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { applyCredit } from "../lib/credit";
 import { Router, type IRouter } from "express";
-import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable, publisherProfilesTable, bidsTable } from "@workspace/db";
+import { db, ordersTable, demandsTable, usersTable, deliverablesTable, opcProfilesTable, notificationsTable, publisherProfilesTable, bidsTable, subOrdersTable, siteSettingsTable } from "@workspace/db";
 import { eq, desc, count, sql, and } from "drizzle-orm";
 
 type OrderStatus = "pending_payment" | "in_progress" | "pending_acceptance" | "completed" | "closed" | "disputed";
@@ -404,6 +404,17 @@ router.post("/orders/:orderId/milestones/:milestoneId/accept", requireAuth, asyn
       const [updated] = await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, orderId)).returning();
       finalOrder = updated;
 
+      // Settle sub-orders on completion
+      {
+        const now = new Date();
+        const hbRows = await db.select().from(siteSettingsTable)
+          .where(eq(siteSettingsTable.key, "holdback_release_days")).limit(1);
+        const holdbackDays = parseInt(hbRows[0]?.value ?? "90", 10) || 90;
+        const releasableAt = new Date(now.getTime() + holdbackDays * 86400 * 1000);
+        await db.execute(sql`UPDATE sub_orders SET settled_at = ${now.toISOString()} WHERE order_no = ${updated.orderNo} AND sub_role IN ('opc_primary', 'platform') AND settled_at IS NULL`);
+        await db.execute(sql`UPDATE sub_orders SET releasable_at = ${releasableAt.toISOString()} WHERE order_no = ${updated.orderNo} AND sub_role = 'opc_holdback' AND releasable_at IS NULL`);
+      }
+
       // Complete the demand
       await db.update(demandsTable).set({
         status: "completed",
@@ -607,6 +618,17 @@ router.post("/orders/:orderId/accept", requireAuth, async (req, res) => {
         status: "completed",
         updatedAt: new Date(),
       }).where(eq(demandsTable.id, updated.demandId));
+
+      // Settle sub-orders on completion
+      {
+        const now = new Date();
+        const hbRows = await db.select().from(siteSettingsTable)
+          .where(eq(siteSettingsTable.key, "holdback_release_days")).limit(1);
+        const holdbackDays = parseInt(hbRows[0]?.value ?? "90", 10) || 90;
+        const releasableAt = new Date(now.getTime() + holdbackDays * 86400 * 1000);
+        await db.execute(sql`UPDATE sub_orders SET settled_at = ${now.toISOString()} WHERE order_no = ${updated.orderNo} AND sub_role IN ('opc_primary', 'platform') AND settled_at IS NULL`);
+        await db.execute(sql`UPDATE sub_orders SET releasable_at = ${releasableAt.toISOString()} WHERE order_no = ${updated.orderNo} AND sub_role = 'opc_holdback' AND releasable_at IS NULL`);
+      }
 
       if (body.rating) {
         const opcOrders = await db.select({ rating: ordersTable.rating })

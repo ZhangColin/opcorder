@@ -1526,5 +1526,36 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 028a: ensured budget_min / budget_max columns exist on demands");
   });
 
+  // Migration 029a: add sub_role, releasable_at, settled_at to sub_orders
+  await once("029a", true, async () => {
+    await db.execute(sql`ALTER TABLE sub_orders ADD COLUMN IF NOT EXISTS sub_role varchar(30)`);
+    await db.execute(sql`ALTER TABLE sub_orders ADD COLUMN IF NOT EXISTS releasable_at timestamp`);
+    await db.execute(sql`ALTER TABLE sub_orders ADD COLUMN IF NOT EXISTS settled_at timestamp`);
+    logger.info("Migration 029a: added sub_role, releasable_at, settled_at to sub_orders");
+  });
+
+  // Migration 029b: backfill sub_role for existing records and settled_at for completed orders
+  await once("029b", true, async () => {
+    await db.execute(sql`
+      UPDATE sub_orders SET sub_role = 'platform'
+      WHERE sub_role IS NULL AND role = 'platform'
+    `);
+    await db.execute(sql`
+      UPDATE sub_orders SET sub_role = 'opc_primary'
+      WHERE sub_role IS NULL AND role = 'opc'
+    `);
+    // For completed orders, treat the legacy opc_primary and platform sub-orders as already settled
+    await db.execute(sql`
+      UPDATE sub_orders s
+      SET settled_at = o.updated_at
+      FROM orders o
+      WHERE s.order_no = o.order_no
+        AND o.status = 'completed'
+        AND s.sub_role IN ('opc_primary', 'platform')
+        AND s.settled_at IS NULL
+    `);
+    logger.info("Migration 029b: backfilled sub_role and settled_at for existing sub_orders");
+  });
+
   logger.info("Startup data migrations complete.");
 }

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, settlementAccountsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
@@ -90,6 +90,21 @@ router.put("/opc/settlement-account", requireAuth, async (req, res) => {
       .returning();
     return res.json({ data: row });
   }
+});
+
+/* GET /api/opc/sub-orders — 获取当前 OPC 所有订单的子订单（含分账状态） */
+router.get("/opc/sub-orders", requireAuth, async (req, res) => {
+  const userId = req.user!.id;
+  const rows = await db.execute(sql`
+    SELECT s.id, s.order_no, s.sub_order_no, s.party_name, s.merchant_no,
+           s.amount, s.role, s.sub_role,
+           s.releasable_at, s.settled_at, s.created_at
+    FROM sub_orders s
+    INNER JOIN orders o ON s.order_no = o.order_no
+    WHERE o.opc_id = ${userId}
+    ORDER BY s.id
+  `);
+  return res.json(rows.rows);
 });
 
 export default router;

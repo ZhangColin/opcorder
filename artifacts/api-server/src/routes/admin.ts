@@ -859,7 +859,18 @@ router.patch("/admin/orders/:id", async (req, res) => {
     const { action } = req.body as { action: string };
 
     if (action === "forceSettle") {
+      const [ord] = await db.select({ orderNo: ordersTable.orderNo })
+        .from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
       await db.update(ordersTable).set({ status: "completed" }).where(eq(ordersTable.id, id));
+      if (ord) {
+        const now = new Date();
+        const hbRows = await db.select().from(siteSettingsTable)
+          .where(eq(siteSettingsTable.key, "holdback_release_days")).limit(1);
+        const holdbackDays = parseInt(hbRows[0]?.value ?? "90", 10) || 90;
+        const releasableAt = new Date(now.getTime() + holdbackDays * 86400 * 1000);
+        await db.execute(sql`UPDATE sub_orders SET settled_at = ${now.toISOString()} WHERE order_no = ${ord.orderNo} AND sub_role IN ('opc_primary', 'platform') AND settled_at IS NULL`);
+        await db.execute(sql`UPDATE sub_orders SET releasable_at = ${releasableAt.toISOString()} WHERE order_no = ${ord.orderNo} AND sub_role = 'opc_holdback' AND releasable_at IS NULL`);
+      }
     } else if (action === "markDisputed") {
       await db.update(ordersTable).set({ status: "disputed" }).where(eq(ordersTable.id, id));
     } else if (action === "resolveDispute") {
@@ -2337,6 +2348,7 @@ router.delete("/admin/sensitive-words/:id", async (req, res) => {
 
 const DEFAULT_SETTINGS: Record<string, string> = {
   platform_ccb_merchant_no: "",
+  holdback_release_days: "90",
   site_name:    "接单吧",
   site_subtitle: "OPC撮合交易平台",
   site_logo:    "",
@@ -3415,7 +3427,12 @@ router.get("/admin/orders/:orderNo/sub-orders", requireAdmin, async (req, res) =
       .from(subOrdersTable)
       .where(eq(subOrdersTable.orderNo, orderNo))
       .orderBy(subOrdersTable.id);
-    return res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+    return res.json(rows.map(r => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      releasableAt: r.releasableAt ? r.releasableAt.toISOString() : null,
+      settledAt: r.settledAt ? r.settledAt.toISOString() : null,
+    })));
   } catch (err) {
     logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "获取子订单失败" });

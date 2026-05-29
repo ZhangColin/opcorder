@@ -497,15 +497,29 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
             .limit(1);
           const platformMerchantNo = settingsRows[0]?.value ?? null;
 
-          // Always insert both OPC + platform sub-orders
+          // Split OPC share into 70% immediate + 30% holdback
+          const opc70 = Math.round(opcShare * 0.7 * 100) / 100;
+          const opc30 = Math.round((opcShare - opc70) * 100) / 100;
+
+          // Insert 3 sub-orders: OPC immediate (70%), OPC holdback (30%), Platform
           await db.insert(subOrdersTable).values([
             {
               orderNo,
-              subOrderNo: `${orderNo}-OPC`,
+              subOrderNo: `${orderNo}-OPC-70`,
               partyName: opcSettlement?.companyName ?? null,
               merchantNo: opcSettlement?.ccbMerchantNo ?? null,
-              amount: String(opcShare),
+              amount: String(opc70),
               role: "opc",
+              subRole: "opc_primary",
+            },
+            {
+              orderNo,
+              subOrderNo: `${orderNo}-OPC-30`,
+              partyName: opcSettlement?.companyName ?? null,
+              merchantNo: opcSettlement?.ccbMerchantNo ?? null,
+              amount: String(opc30),
+              role: "opc",
+              subRole: "opc_holdback",
             },
             {
               orderNo,
@@ -514,6 +528,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
               merchantNo: platformMerchantNo,
               amount: String(platformFee),
               role: "platform",
+              subRole: "platform",
             },
           ]);
         }
