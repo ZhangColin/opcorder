@@ -2440,7 +2440,21 @@ function OrderManagement() {
                     {o.daysSinceCreated}天
                   </span>
                 </td>
-                <td className="px-6 py-4"><StatusBadge label={statusCN[o.status] ?? o.status} color={statusColor(o.status)} /></td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col gap-1 items-start">
+                    <StatusBadge label={statusCN[o.status] ?? o.status} color={statusColor(o.status)} />
+                    {(() => {
+                      const subs = subOrdersMap[o.orderNo];
+                      if (!subs || subs.length === 0) return null;
+                      const allSettled = subs.every(s => s.settledAt != null);
+                      return (
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${allSettled ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                          {allSettled ? "✓ 全部分账完成" : "分账进行中"}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-1">
                     <button

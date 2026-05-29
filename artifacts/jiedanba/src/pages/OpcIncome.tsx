@@ -77,7 +77,7 @@ export default function OpcIncome() {
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const holdbackLocked = (subOrdersRaw ?? [])
-    .filter(s => s.sub_role === "opc_holdback" && !s.settled_at && s.releasable_at)
+    .filter(s => s.sub_role === "opc_holdback" && !s.settled_at)
     .reduce((sum, s) => sum + Number(s.amount), 0);
 
   const orders = allOrders?.items ?? [];
