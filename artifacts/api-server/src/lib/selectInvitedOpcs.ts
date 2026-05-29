@@ -103,9 +103,13 @@ export async function selectInvitedOpcs(input: SelectInput): Promise<InvitedOpc[
 
   const tookA = take("A", quota.A);
   const shortfallA = quota.A - tookA;
-  const tookB = take("B", quota.B + shortfallA);
-  const shortfallB = quota.B + shortfallA - tookB;
-  take("C", quota.C + shortfallB);
+  // Only cascade A→B if B-level OPCs are eligible for this demand (requiredTrackLevel is B or lower)
+  const cascadeAtoB = requiredTrackLevel !== "A" ? shortfallA : 0;
+  const tookB = take("B", quota.B + cascadeAtoB);
+  const shortfallB = quota.B + cascadeAtoB - tookB;
+  // Only cascade B→C if C-level OPCs are eligible for this demand (requiredTrackLevel is C or any)
+  const cascadeBtoC = (requiredTrackLevel === "C" || requiredTrackLevel === "any") ? shortfallB : 0;
+  take("C", quota.C + cascadeBtoC);
 
   // Final cap at 7, sorted A→B→C then nickname.
   const LEVEL_RANK: Record<"A" | "B" | "C", number> = { A: 3, B: 2, C: 1 };
