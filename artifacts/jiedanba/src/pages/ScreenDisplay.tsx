@@ -117,12 +117,8 @@ function Header() {
           <div className="h-px w-24"
             style={{ background: "linear-gradient(to left, transparent, rgba(192,132,252,0.5))" }} />
         </div>
-        <h1 className="text-[32px] font-black tracking-[0.06em]"
-          style={{
-            background: "linear-gradient(135deg, #e9d5ff 0%, #f0abfc 35%, #f9a8d4 65%, #fda4af 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            textShadow: "0 0 40px rgba(168,85,247,0.3)"
-          }}>
+        <h1 className="text-[36px] font-black tracking-[0.06em] text-white"
+          style={{ textShadow: "0 0 40px rgba(168,85,247,0.3)" }}>
           接单吧 OPC 撮合交易平台 · 数据大屏
         </h1>
       </div>
