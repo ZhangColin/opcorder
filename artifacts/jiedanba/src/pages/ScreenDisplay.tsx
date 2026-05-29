@@ -123,15 +123,7 @@ function Header() {
         </h1>
       </div>
 
-      {/* Right — status */}
-      <div className="w-[28%] flex justify-end items-center">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-          style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)" }}>
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400"
-            style={{ animation: "livePulse 2s ease-in-out infinite", boxShadow: "0 0 10px #34d399" }} />
-          <span className="text-[18px] text-emerald-300 font-medium tracking-wide">平台运行正常</span>
-        </div>
-      </div>
+      <div className="w-[28%]" />
     </div>
   );
 }
@@ -646,10 +638,6 @@ export default function ScreenDisplay() {
 
           <Header />
 
-          {/* Countdown */}
-          <div className="absolute top-3 right-8 flex items-center gap-2 z-20">
-            <CountdownRing n={countdown} total={REFRESH_SEC} />
-          </div>
 
           {/* ── Main content ─────────────────────── */}
           <div ref={contentRef} className="flex-1 min-h-0 flex gap-3 px-6 pb-2">
