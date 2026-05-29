@@ -81,6 +81,9 @@ router.get("/demands", requireAuth, async (req, res) => {
       conditions.push(eq(demandsTable.publisherId, userId));
     } else if (userRole === "admin") {
       if (params.publisherId) conditions.push(eq(demandsTable.publisherId, params.publisherId));
+    } else {
+      /* OPC: hide demands whose bid_deadline has already passed */
+      conditions.push(sql`(${demandsTable.bidDeadline} IS NULL OR ${demandsTable.bidDeadline} > NOW())`);
     }
     if (params.deadlineFilter) {
       const now = new Date();

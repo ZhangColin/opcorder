@@ -182,12 +182,16 @@ router.get("/demands/:demandId/bid-eligibility", requireAuth, async (req, res) =
         catCategoryId:      demandsTable.catCategoryId,
         requiredTrackLevel: demandsTable.requiredTrackLevel,
         status:             demandsTable.status,
+        bidDeadline:        demandsTable.bidDeadline,
       })
       .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
 
     if (!demand) return res.status(404).json({ error: "需求不存在" });
     if (!["published", "matched"].includes(demand.status)) {
       return res.json({ eligible: false, reason: "该需求当前状态不接受抢单", code: "DEMAND_NOT_OPEN" });
+    }
+    if (demand.bidDeadline && new Date(demand.bidDeadline) < new Date()) {
+      return res.json({ eligible: false, reason: "抢单截止时间已过，该需求不再接受新的报价", code: "BID_DEADLINE_PASSED" });
     }
 
     // No track requirement → eligible
@@ -240,12 +244,16 @@ router.post("/demands/:demandId/bids", requireAuth, async (req, res) => {
         status:             demandsTable.status,
         catCategoryId:      demandsTable.catCategoryId,
         requiredTrackLevel: demandsTable.requiredTrackLevel,
+        bidDeadline:        demandsTable.bidDeadline,
       })
       .from(demandsTable).where(eq(demandsTable.id, demandId)).limit(1);
 
     if (!demand) return res.status(404).json({ error: "需求不存在" });
     if (!["published", "matched"].includes(demand.status)) {
       return res.status(400).json({ error: "该需求当前状态不接受抢单" });
+    }
+    if (demand.bidDeadline && new Date(demand.bidDeadline) < new Date()) {
+      return res.status(400).json({ error: "抢单截止时间已过，该需求不再接受新的报价", code: "BID_DEADLINE_PASSED" });
     }
 
     // Track cert eligibility: only check if demand has a category with a required track level
