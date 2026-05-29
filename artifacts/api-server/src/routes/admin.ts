@@ -874,7 +874,13 @@ router.patch("/admin/orders/:id", async (req, res) => {
     } else if (action === "markDisputed") {
       await db.update(ordersTable).set({ status: "disputed" }).where(eq(ordersTable.id, id));
     } else if (action === "resolveDispute") {
+      const [disputedOrd] = await db.select({ demandId: ordersTable.demandId })
+        .from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
       await db.update(ordersTable).set({ status: "in_progress" }).where(eq(ordersTable.id, id));
+      if (disputedOrd) {
+        await db.update(demandsTable).set({ status: "in_progress", updatedAt: new Date() })
+          .where(and(eq(demandsTable.id, disputedOrd.demandId), eq(demandsTable.status, "matched")));
+      }
     } else {
       return res.status(400).json({ error: "无效操作" });
     }
@@ -3638,7 +3644,7 @@ router.post("/admin/orders/:orderId/confirm-payment", async (req, res) => {
   try {
     const orderId = Number(req.params.orderId as string);
     const [order] = await db
-      .select({ id: ordersTable.id, status: ordersTable.status, opcId: ordersTable.opcId, publisherId: ordersTable.publisherId, orderNo: ordersTable.orderNo })
+      .select({ id: ordersTable.id, status: ordersTable.status, opcId: ordersTable.opcId, publisherId: ordersTable.publisherId, orderNo: ordersTable.orderNo, demandId: ordersTable.demandId })
       .from(ordersTable)
       .where(eq(ordersTable.id, orderId))
       .limit(1);
@@ -3654,6 +3660,11 @@ router.post("/admin/orders/:orderId/confirm-payment", async (req, res) => {
       .set({ status: "in_progress", paidAt: now, updatedAt: now })
       .where(eq(ordersTable.id, orderId))
       .returning();
+
+    await db.update(demandsTable).set({
+      status: "in_progress",
+      updatedAt: now,
+    }).where(and(eq(demandsTable.id, order.demandId), eq(demandsTable.status, "matched")));
 
     // Notify OPC that work can begin
     await db.insert(notificationsTable).values({

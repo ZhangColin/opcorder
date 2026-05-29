@@ -1557,5 +1557,26 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 029b: backfilled sub_role and settled_at for existing sub_orders");
   });
 
+  // Migration 030a: fix demands stuck in "matched" status after their order moved to in_progress/completed
+  await once("030a", false, async () => {
+    const result = await db.execute(sql`
+      UPDATE demands d
+      SET status = 'in_progress', updated_at = NOW()
+      WHERE d.status = 'matched'
+        AND EXISTS (
+          SELECT 1 FROM orders o
+          WHERE o.demand_id = d.id
+            AND o.status IN ('in_progress', 'pending_acceptance', 'completed', 'disputed')
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM orders o2
+          WHERE o2.demand_id = d.id
+            AND o2.status = 'pending_payment'
+        )
+    `);
+    const count = (result as { rowCount?: number }).rowCount ?? 0;
+    if (count > 0) logger.info({ count }, "Migration 030a: fixed demands stuck in matched status");
+  });
+
   logger.info("Startup data migrations complete.");
 }

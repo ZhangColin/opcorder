@@ -876,6 +876,11 @@ router.post("/orders/:orderId/payment-status", requireAuth, async (req, res) => 
         updatedAt: now,
       }).where(eq(ordersTable.id, orderId));
 
+      await db.update(demandsTable).set({
+        status: "in_progress",
+        updatedAt: now,
+      }).where(and(eq(demandsTable.id, order.demandId), eq(demandsTable.status, "matched")));
+
       await db.insert(notificationsTable).values([
         {
           userId: order.opcId,
