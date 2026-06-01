@@ -30,7 +30,8 @@
     "pg": "^8.20.0",
     "pino": "^9",
     "pino-http": "^10",
-    "resend": "^6.9.4"
+    "resend": "^6.9.4",
+    "tencentcloud-sdk-nodejs-sms": "^4.1.239"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
