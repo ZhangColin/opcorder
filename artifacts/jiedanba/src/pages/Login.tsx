@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   Eye, EyeOff, ArrowRight,
   Mail, Lock, User, Building2,
-  CheckCircle2, AlertCircle, Compass, Phone,
+  CheckCircle2, AlertCircle, Compass, Phone, ShieldCheck,
 } from "lucide-react";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 import { SiteLogo, useSiteName } from "@/components/SiteLogo";
@@ -23,6 +23,9 @@ export default function Login() {
   const [password2, setPassword2] = useState("");
   const [name,     setName]     = useState("");
   const [phone,    setPhone]    = useState("");
+  const [smsCode,  setSmsCode]  = useState("");
+  const [smsCooldown, setSmsCooldown] = useState(0);
+  const [smsSending,  setSmsSending]  = useState(false);
   const [regRole,  setRegRole]  = useState<RegRole>("opc");
   const [showPw,   setShowPw]   = useState(false);
   const [showPw2,  setShowPw2]  = useState(false);
@@ -31,10 +34,45 @@ export default function Login() {
   const [regOk,    setRegOk]    = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const siteName = useSiteName();
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }, []);
+
+  const startCooldown = () => {
+    setSmsCooldown(60);
+    cooldownRef.current = setInterval(() => {
+      setSmsCooldown(v => {
+        if (v <= 1) { clearInterval(cooldownRef.current!); return 0; }
+        return v - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSendSmsCode = async () => {
+    if (!phone.trim()) { setError("请先填写手机号"); return; }
+    if (smsCooldown > 0 || smsSending) return;
+    setError("");
+    setSmsSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/send-sms-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "发送失败，请稍后重试"); return; }
+      startCooldown();
+    } catch {
+      setError("网络错误，请稍后重试");
+    } finally {
+      setSmsSending(false);
+    }
+  };
 
   const switchTab = (t: Tab) => {
     setTab(t); setError(""); setRegOk(false);
     setIdentifier(""); setPassword(""); setPassword2(""); setName(""); setPhone("");
+    setSmsCode(""); setSmsCooldown(0);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -69,6 +107,7 @@ export default function Login() {
     setError("");
     if (!name.trim())         { setError("请填写姓名"); return; }
     if (!phone.trim())        { setError("请填写手机号"); return; }
+    if (!smsCode.trim())      { setError("请填写短信验证码"); return; }
     if (!identifier.trim())   { setError("请填写邮箱"); return; }
     if (password.length < 6)  { setError("密码至少 6 位"); return; }
     if (password !== password2) { setError("两次密码不一致"); return; }
@@ -77,7 +116,7 @@ export default function Login() {
       const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: name.trim(), email: identifier.trim().toLowerCase(), phone: phone.trim(), password, role: regRole }),
+        body: JSON.stringify({ nickname: name.trim(), email: identifier.trim().toLowerCase(), phone: phone.trim(), smsCode: smsCode.trim(), password, role: regRole }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "注册失败，请重试"); return; }
@@ -299,15 +338,43 @@ export default function Login() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">手机号 <span className="text-red-500">*</span></label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="13800138000"
+                      autoComplete="tel"
+                      className="w-full pl-11 pr-4 py-3.5 bg-slate-100 rounded-xl border-none focus:ring-2 focus:ring-primary/30 outline-none placeholder:text-slate-400 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSendSmsCode}
+                    disabled={smsCooldown > 0 || smsSending}
+                    className="shrink-0 px-4 py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: smsCooldown > 0 ? "#e2e8f0" : "linear-gradient(to right, #00327d, #0047ab)", color: smsCooldown > 0 ? "#94a3b8" : "white" }}
+                  >
+                    {smsSending ? "发送中…" : smsCooldown > 0 ? `${smsCooldown}s` : "发验证码"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#1a1c1e] uppercase tracking-wider block">短信验证码 <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <ShieldCheck size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="tel"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    placeholder="13800138000"
-                    autoComplete="tel"
-                    className="w-full pl-11 pr-4 py-3.5 bg-slate-100 rounded-xl border-none focus:ring-2 focus:ring-primary/30 outline-none placeholder:text-slate-400 text-sm"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={smsCode}
+                    onChange={e => setSmsCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="6 位验证码"
+                    autoComplete="one-time-code"
+                    className="w-full pl-11 pr-4 py-3.5 bg-slate-100 rounded-xl border-none focus:ring-2 focus:ring-primary/30 outline-none placeholder:text-slate-400 text-sm tracking-widest"
                   />
                 </div>
               </div>
