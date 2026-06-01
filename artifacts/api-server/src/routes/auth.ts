@@ -8,6 +8,7 @@ import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable
 import { eq, inArray, or } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { logger } from "../lib/logger";
+import { sendRegisterCode } from "../lib/sms";
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -18,10 +19,58 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
+const smsCodeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.body?.phone ?? req.ip) as string,
+  message: { error: "发送过于频繁，请60秒后再试" },
+});
+
+// In-memory SMS code store: phone → { code, expiresAt }
+const smsCodeStore = new Map<string, { code: string; expiresAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of smsCodeStore) {
+    if (v.expiresAt < now) smsCodeStore.delete(k);
+  }
+}, 60_000);
+
 const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 const resendForgotPwd = new Resend(process.env.RESEND_API_KEY_FORGOT_PWD ?? process.env.RESEND_API_KEY ?? "re_missing_placeholder");
 
 const router: IRouter = Router();
+
+/* ── SMS verification code ─────────────────────────────── */
+
+router.post("/auth/send-sms-code", smsCodeLimiter, async (req, res) => {
+  try {
+    const { phone } = req.body as { phone?: string };
+    if (!phone?.trim()) return res.status(400).json({ error: "请填写手机号" });
+
+    const normalizedPhone = phone.trim();
+    if (!/^1[3-9]\d{9}$/.test(normalizedPhone)) {
+      return res.status(400).json({ error: "手机号格式不正确" });
+    }
+
+    const [existing] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.phone, normalizedPhone))
+      .limit(1);
+    if (existing) return res.status(409).json({ error: "该手机号已被注册，请直接登录" });
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    smsCodeStore.set(normalizedPhone, { code, expiresAt: Date.now() + 5 * 60 * 1000 });
+
+    await sendRegisterCode(normalizedPhone, code);
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "send-sms-code error");
+    return res.status(500).json({ error: "发送失败，请稍后重试" });
+  }
+});
 
 /* ── Welcome email helpers ─────────────────────────────── */
 
@@ -263,15 +312,16 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
 
 router.post("/auth/register", async (req, res) => {
   try {
-    const { nickname, email, password, role, phone } = req.body as {
+    const { nickname, email, password, role, phone, smsCode } = req.body as {
       nickname: string;
       email: string;
       password: string;
       role: string;
       phone: string;
+      smsCode: string;
     };
 
-    if (!nickname || !email || !password || !role || !phone) {
+    if (!nickname || !email || !password || !role || !phone || !smsCode) {
       return res.status(400).json({ error: "请填写完整的注册信息" });
     }
     if (!["opc", "publisher"].includes(role)) {
@@ -283,6 +333,18 @@ router.post("/auth/register", async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedPhone = phone.trim();
+
+    // Verify SMS code
+    const stored = smsCodeStore.get(normalizedPhone);
+    if (!stored) return res.status(400).json({ error: "验证码已过期，请重新发送" });
+    if (Date.now() > stored.expiresAt) {
+      smsCodeStore.delete(normalizedPhone);
+      return res.status(400).json({ error: "验证码已过期，请重新发送" });
+    }
+    if (stored.code !== smsCode.trim()) {
+      return res.status(400).json({ error: "验证码不正确，请重新输入" });
+    }
+    smsCodeStore.delete(normalizedPhone);
 
     const [existingEmail] = await db
       .select({ id: usersTable.id })
