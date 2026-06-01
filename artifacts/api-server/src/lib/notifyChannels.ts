@@ -2,6 +2,7 @@ import { db, notificationsTable, demandInvitationsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { Resend } from "resend";
 import { logger } from "./logger";
+import { sendDemandInvitation } from "./sms";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 
@@ -131,7 +132,7 @@ export function scheduleInvitationEmails(args: {
   budgetMax?: number | null;
   deadline: Date | string | null;
   bidDeadline?: Date | string | null;
-  invitees: Array<{ userId: number; email: string | null; nickname: string }>;
+  invitees: Array<{ userId: number; email: string | null; nickname: string; phone?: string | null }>;
 }): void {
   const ctaUrl = `${getWebOrigin()}/demands/${args.demandId}`;
   const targets = args.invitees.filter(i => i.email && i.email.trim());
@@ -181,8 +182,22 @@ export function scheduleInvitationEmails(args: {
 }
 
 /**
- * SMS channel — reserved as no-op for V1.
+ * Send invitation SMS asynchronously (fire-and-forget per invitee).
+ * Non-blocking — fires independently for each invitee that has a phone.
  */
-export function scheduleInvitationSms(_args: unknown): void {
-  // Intentionally left as a no-op placeholder for future SMS integration.
+export function scheduleInvitationSms(args: {
+  demandTitle: string;
+  bidDeadline?: Date | string | null;
+  invitees: Array<{ phone?: string | null }>;
+}): void {
+  const bidDl = args.bidDeadline
+    ? new Date(args.bidDeadline).toLocaleDateString("zh-CN")
+    : "待定";
+
+  setImmediate(() => {
+    for (const invitee of args.invitees) {
+      if (!invitee.phone) continue;
+      sendDemandInvitation(invitee.phone, args.demandTitle, bidDl).catch(() => {});
+    }
+  });
 }

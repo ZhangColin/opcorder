@@ -2,6 +2,7 @@ import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import { db, bidsTable, usersTable, opcProfilesTable, demandsTable, ordersTable, notificationsTable, settlementAccountsTable, opcTrackCertsTable, subOrdersTable, siteSettingsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { sendBidSelected } from "../lib/sms";
 import {
   CreateBidBody,
   UpdateBidStatusBody,
@@ -547,7 +548,7 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
         );
 
         // Notify winning OPC that their bid was selected but payment is pending
-        const [opcUser] = await db.select({ nickname: usersTable.nickname, email: usersTable.email })
+        const [opcUser] = await db.select({ nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone })
           .from(usersTable).where(eq(usersTable.id, updated.opcId)).limit(1);
 
         await db.insert(notificationsTable).values({
@@ -587,6 +588,8 @@ router.patch("/bids/:bidId/status", requireAuth, async (req, res) => {
             html: buildWinnerEmail(opcUser.nickname ?? opcUser.email, demand.title, orderNo),
           }).catch(() => {});
         }
+        // SMS notification
+        if (opcUser?.phone) sendBidSelected(opcUser.phone, demand.title).catch(() => {});
       }
     }
 

@@ -9,6 +9,7 @@ import { createRefund } from "../lib/payment";
 import { callLLM } from "../lib/llm";
 import { selectInvitedOpcs } from "../lib/selectInvitedOpcs";
 import { sendInvitationInAppNotifications, scheduleInvitationEmails, scheduleInvitationSms } from "../lib/notifyChannels";
+import { sendDemandApproved, sendDemandRejected } from "../lib/sms";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_missing_placeholder");
 
@@ -597,7 +598,7 @@ router.patch("/admin/demands/:id", async (req, res) => {
     const [d] = await db.select({ publisherId: demandsTable.publisherId, title: demandsTable.title })
       .from(demandsTable).where(eq(demandsTable.id, id)).limit(1);
     if (!d) return res.status(404).json({ error: "需求不存在" });
-    const [pub] = await db.select({ nickname: usersTable.nickname, email: usersTable.email })
+    const [pub] = await db.select({ nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone })
       .from(usersTable).where(eq(usersTable.id, d.publisherId)).limit(1);
 
     if (action === "approve") {
@@ -621,6 +622,8 @@ router.patch("/admin/demands/:id", async (req, res) => {
           html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」已通过平台审核，现已在需求大厅公开发布。\n\nOPC 将根据您的需求提交结构化报价卡，您可以在平台上对比各家报价后选择最合适的 OPC。`),
         }).catch(() => {/* ignore email errors */});
       }
+      // SMS notification
+      if (pub?.phone) sendDemandApproved(pub.phone, d.title).catch(() => {});
 
       // Auto-invite up to 7 OPCs based on cat_category + required track level.
       // Skip if directed-invite mode or no catCategoryId.
@@ -703,11 +706,15 @@ router.patch("/admin/demands/:id", async (req, res) => {
               // Email — async sequential 1.1s gap, non-blocking. Only newly invited OPCs.
               scheduleInvitationEmails({
                 ...channelArgs,
-                invitees: newInvitees.map(i => ({ userId: i.userId, email: i.email, nickname: i.nickname })),
+                invitees: newInvitees.map(i => ({ userId: i.userId, email: i.email, nickname: i.nickname, phone: i.phone })),
               });
 
-              // SMS — reserved no-op
-              scheduleInvitationSms({ demandId: fullDemand.id, invitees: newInvitees });
+              // SMS — fire-and-forget per invitee
+              scheduleInvitationSms({
+                demandTitle: fullDemand.title,
+                bidDeadline: fullDemand.bidDeadline,
+                invitees: newInvitees.map(i => ({ phone: i.phone })),
+              });
             }
           }
         }
@@ -741,6 +748,8 @@ router.patch("/admin/demands/:id", async (req, res) => {
           html: buildBulkEmail(pub.nickname ?? pub.email, `您的需求「${d.title}」未通过平台审核。\n\n审核意见：${reasonText}\n\n请根据上述意见修改后重新提交审核。`),
         }).catch(() => {/* ignore email errors */});
       }
+      // SMS notification
+      if (pub?.phone) sendDemandRejected(pub.phone, d.title).catch(() => {});
     } else if (action === "markUrgent") {
       await db.update(demandsTable).set({ isUrgent: true }).where(eq(demandsTable.id, id));
     } else if (action === "removeUrgent") {

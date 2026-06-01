@@ -5,6 +5,7 @@ export interface InvitedOpc {
   userId: number;
   email: string;
   nickname: string;
+  phone: string | null;
   trackLevel: "A" | "B" | "C";
 }
 
@@ -18,6 +19,7 @@ interface PoolRow {
   userId: number;
   email: string;
   nickname: string;
+  phone: string | null;
   level: "A" | "B" | "C";
 }
 
@@ -46,6 +48,7 @@ export async function selectInvitedOpcs(input: SelectInput): Promise<InvitedOpc[
         u.id AS "userId",
         u.email AS "email",
         u.nickname AS "nickname",
+        u.phone AS "phone",
         c.level AS "level"
       FROM users u
       INNER JOIN opc_track_certs c ON c.user_id = u.id
@@ -123,6 +126,7 @@ export async function selectInvitedOpcs(input: SelectInput): Promise<InvitedOpc[
     userId: r.userId,
     email: r.email,
     nickname: r.nickname,
+    phone: r.phone ?? null,
     trackLevel: r.level,
   }));
 }
