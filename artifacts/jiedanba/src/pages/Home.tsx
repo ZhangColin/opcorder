@@ -125,7 +125,6 @@ export default function Home() {
   });
   const { data: demandsResponse, isLoading: demandsLoading } = useListDemands({
     limit: 16,
-    status: 'published',
   });
 
   // 按用户等级软排序：能接的需求优先展示，不强制过滤，保证不空
