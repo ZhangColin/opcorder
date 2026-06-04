@@ -326,7 +326,7 @@ export default function PublisherOpcLibrary() {
         <OpcDetailDrawer opcId={selectedOpcId} publisherId={publisherId || undefined} onClose={() => setSelectedOpcId(null)} />
       )}
 
-      <main className="flex-1 lg:ml-64 min-h-screen">
+      <main className="flex-1 lg:ml-64 min-h-screen min-w-0 overflow-x-hidden">
         {/* Top bar */}
         <header className="fixed top-0 right-0 lg:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 lg:px-8 py-3 gap-2">
           {/* Mobile hamburger */}

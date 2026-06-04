@@ -623,7 +623,7 @@ export default function PublisherCreateDemand() {
       <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       {/* Split content area: form column (flex-1) + optional sticky chat column */}
-      <div className="flex-1 lg:ml-64 flex min-h-screen">
+      <div className="flex-1 lg:ml-64 flex min-h-screen min-w-0 overflow-x-hidden">
       <main className="flex-1 min-w-0 min-h-screen">
         {/* Top bar */}
         <header className="fixed top-0 lg:left-64 left-0 right-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 lg:px-8 py-3 gap-2">
