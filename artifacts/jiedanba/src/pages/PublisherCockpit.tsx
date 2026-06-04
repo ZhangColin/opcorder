@@ -127,10 +127,10 @@ export default function PublisherCockpit() {
     <div className="flex min-h-screen bg-[#f9f9fc] text-[#1a1c1e]">
       <Sidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 md:ml-64 min-h-screen">
+      <main className="flex-1 lg:ml-64 min-h-screen">
         {/* Top bar */}
-        <header className="fixed top-0 right-0 md:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 md:px-8 py-3 gap-2">
-          <button onClick={() => setSidebarOpen(true)} className="md:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
+        <header className="fixed top-0 right-0 lg:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 lg:px-8 py-3 gap-2">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
             <Menu size={20} />
           </button>
           <div className="relative w-full max-w-md">
@@ -151,7 +151,7 @@ export default function PublisherCockpit() {
         </header>
 
         {/* Body */}
-        <div className="pt-16 px-4 md:px-8 pb-12 space-y-8">
+        <div className="pt-16 px-4 lg:px-8 pb-12 space-y-8">
 
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">

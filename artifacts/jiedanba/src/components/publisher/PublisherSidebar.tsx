@@ -73,7 +73,7 @@ export function PublisherSidebar({ onLogout, mobileOpen = false, onMobileClose }
         {/* Close button on mobile */}
         <button
           onClick={onMobileClose}
-          className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors">
+          className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors">
           <X size={18} />
         </button>
       </div>
@@ -114,13 +114,13 @@ export function PublisherSidebar({ onLogout, mobileOpen = false, onMobileClose }
   return (
     <>
       {/* Desktop sidebar – always visible on md+ */}
-      <aside className="hidden md:flex h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1">
+      <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1">
         {sidebarContent}
       </aside>
 
       {/* Mobile sidebar – slide-over */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-[60]">
+        <div className="lg:hidden fixed inset-0 z-[60]">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
