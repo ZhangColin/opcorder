@@ -121,13 +121,23 @@ export function DemandCard({
             <Users size={14} className="mr-1" />
             {demand.bidCount || 0} 人申请
           </div>
-          <button
-            className="bg-primary/10 text-primary hover:bg-primary hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center group-hover:shadow-md"
-            onClick={(e) => { e.stopPropagation(); navigate(`/demands/${demand.id}`); }}
-          >
-            抢单
-            <ArrowRight size={16} className="ml-1 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
-          </button>
+          {demand.status === "published" && !(demand.bidDeadline && new Date(demand.bidDeadline) < new Date()) ? (
+            <button
+              className="bg-primary/10 text-primary hover:bg-primary hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center group-hover:shadow-md"
+              onClick={(e) => { e.stopPropagation(); navigate(`/demands/${demand.id}`); }}
+            >
+              立即抢单
+              <ArrowRight size={16} className="ml-1 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
+            </button>
+          ) : demand.status === "published" ? (
+            <span className="bg-muted text-muted-foreground px-4 py-2.5 rounded-xl text-sm font-bold">
+              抢单已截止
+            </span>
+          ) : (
+            <span className="bg-secondary/15 text-secondary px-4 py-2.5 rounded-xl text-sm font-bold">
+              已成交
+            </span>
+          )}
         </div>
       </div>
     </div>
