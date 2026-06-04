@@ -168,7 +168,7 @@ export default function PublisherHome() {
               </span>
             </div>
 
-            <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
               {opcList.slice(0, 5).map((u, i) => {
                 const matchPct = [98, 94, 91, 87, 85][i] ?? 85;
                 const skills = [
@@ -183,7 +183,7 @@ export default function PublisherHome() {
                 return (
                   <div
                     key={u.id}
-                    className="min-w-[220px] sm:min-w-[260px] bg-white p-4 rounded-2xl shadow-sm border border-transparent hover:border-secondary/30 transition-all group cursor-pointer shrink-0"
+                    className="bg-white p-4 rounded-2xl shadow-sm border border-transparent hover:border-secondary/30 transition-all group cursor-pointer min-w-0"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
