@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useListDemands } from "@workspace/api-client-react";
 import { stripMarkdown } from "@/components/MarkdownContent";
 import { ChevronLeft, ChevronRight, Clock, LayoutGrid, List } from "lucide-react";
-import type { ListDemandsParams, ListDemandsStatus, Demand } from "@workspace/api-client-react";
+import type { ListDemandsParams, Demand } from "@workspace/api-client-react";
 import { formatBudget } from "@/lib/utils";
 import { DEMAND_TYPES, OPC_LEVELS } from "@/lib/constants";
 
@@ -125,12 +125,27 @@ function MarketplaceCard({ demand }: { demand: Demand }) {
             <Clock size={13} />
             {daysRemaining(demand.bidDeadline)}
           </span>
-          <Link
-            href={`/demands/${demand.id}`}
-            className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-primary/20 active:scale-95"
-          >
-            查看详情
-          </Link>
+          {demand.status === "published" ? (
+            demand.bidDeadline && new Date(demand.bidDeadline) < new Date() ? (
+              <span className="bg-muted text-muted-foreground px-4 py-2 rounded-lg text-xs font-bold">
+                抢单已截止
+              </span>
+            ) : (
+              <Link
+                href={`/demands/${demand.id}`}
+                className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-primary/20 active:scale-95"
+              >
+                立即抢单
+              </Link>
+            )
+          ) : (
+            <Link
+              href={`/demands/${demand.id}`}
+              className="bg-secondary/15 text-secondary px-4 py-2 rounded-lg text-xs font-bold"
+            >
+              已成交
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -167,12 +182,27 @@ function MarketplaceListRow({ demand }: { demand: Demand }) {
       <span className="hidden lg:flex items-center gap-1.5 text-xs text-muted-foreground font-medium shrink-0 whitespace-nowrap">
         <Clock size={12} className="shrink-0" /> {daysRemaining(demand.bidDeadline)}
       </span>
-      <Link
-        href={`/demands/${demand.id}`}
-        className="bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0"
-      >
-        查看
-      </Link>
+      {demand.status === "published" ? (
+        demand.bidDeadline && new Date(demand.bidDeadline) < new Date() ? (
+          <span className="bg-muted text-muted-foreground px-4 py-1.5 rounded-lg text-xs font-bold shrink-0">
+            抢单已截止
+          </span>
+        ) : (
+          <Link
+            href={`/demands/${demand.id}`}
+            className="bg-primary text-white hover:bg-primary/90 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0"
+          >
+            立即抢单
+          </Link>
+        )
+      ) : (
+        <Link
+          href={`/demands/${demand.id}`}
+          className="bg-secondary/15 text-secondary px-4 py-1.5 rounded-lg text-xs font-bold shrink-0"
+        >
+          已成交
+        </Link>
+      )}
     </div>
   );
 }
@@ -188,7 +218,6 @@ export default function OrderHall() {
   const [appliedFilters, setAppliedFilters] = useState<ListDemandsParams>({
     page: 1,
     limit: 8,
-    status: "published" as ListDemandsStatus,
     sortBy: "newest",
   });
 
@@ -202,7 +231,6 @@ export default function OrderHall() {
     setAppliedFilters({
       page: newPage,
       limit: 8,
-      status: "published" as ListDemandsStatus,
       sortBy: "newest",
       type: selectedTypes.length === 1 ? selectedTypes[0] : undefined,
       opcLevel: selectedLevel || undefined,
@@ -381,7 +409,7 @@ export default function OrderHall() {
                 setBudgetMin("");
                 setBudgetMax("");
                 setDeadline("");
-                setAppliedFilters({ page: 1, limit: 8, status: "published" as ListDemandsStatus, sortBy: "newest" });
+                setAppliedFilters({ page: 1, limit: 8, sortBy: "newest" });
               }}
               className="px-5 py-2 bg-primary/10 text-primary font-bold rounded-xl hover:bg-primary hover:text-white transition-colors text-sm"
             >

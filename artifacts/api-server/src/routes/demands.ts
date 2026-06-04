@@ -81,6 +81,13 @@ router.get("/demands", requireAuth, async (req, res) => {
       conditions.push(eq(demandsTable.publisherId, userId));
     } else if (userRole === "admin") {
       if (params.publisherId) conditions.push(eq(demandsTable.publisherId, params.publisherId));
+    } else {
+      /* OPC: if no specific status filter, show all "visible" demands regardless of bid deadline */
+      if (!params.status) {
+        conditions.push(
+          inArray(demandsTable.status, ["published", "matched", "in_progress", "pending_acceptance", "completed"] as any[])
+        );
+      }
     }
     if (params.deadlineFilter) {
       const now = new Date();

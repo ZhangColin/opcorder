@@ -455,7 +455,7 @@ export default function DemandDetail() {
               <ChevronRight size={14} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
             </button>
             
-            {demand.status === 'published' && (
+            {demand.status === 'published' && !(demand.bidDeadline && new Date(demand.bidDeadline) < new Date()) && (
               <button 
                 onClick={handleAcceptOrder}
                 disabled={isCheckingEligibility}
@@ -464,9 +464,14 @@ export default function DemandDetail() {
                 {isCheckingEligibility ? "资格验证中…" : "立即接单"}
               </button>
             )}
-            {demand.status !== 'published' && (
+            {demand.status === 'published' && demand.bidDeadline && new Date(demand.bidDeadline) < new Date() && (
               <button disabled className="w-full bg-muted text-muted-foreground font-bold py-4 rounded-xl cursor-not-allowed text-lg">
-                不可接单
+                抢单已截止
+              </button>
+            )}
+            {demand.status !== 'published' && (
+              <button disabled className="w-full bg-secondary/20 text-secondary font-bold py-4 rounded-xl cursor-not-allowed text-lg">
+                已成交
               </button>
             )}
             <p className="text-center text-xs text-muted-foreground mt-4 flex items-center justify-center">
