@@ -1243,17 +1243,6 @@ export default function Academy() {
               </div>
             </div>
 
-            {/* Cert Status */}
-            <div className="p-5 bg-primary text-white rounded-2xl text-center">
-              <p className="text-xs font-medium mb-1 text-white/70">当前认证状态</p>
-              <p className="text-lg font-bold font-display mb-1">
-                {level === "A" ? "专家级架构师" : level === "B" ? "进阶级架构师" : level === "C" ? "基础认证 OPC" : "新手（待认证）"}
-              </p>
-              <p className="text-xs text-white/60 mb-4">{level === "newbie" ? "新手 · 待认证" : `Lv.${level} 认证`} · {profile?.completionRate ?? 96}% 履约率</p>
-              <button className="w-full py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2">
-                <Download size={14} /> 下载认证徽章
-              </button>
-            </div>
 
             {/* My enrollments count */}
             {enrollments.length > 0 && (
