@@ -250,14 +250,14 @@ export default function PublisherHome() {
                   </div>
                 </div>
 
-                <div className="p-4 overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[480px]">
+                <div className="p-4">
+                  <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="text-[10px] uppercase tracking-wider text-slate-400 font-bold border-b border-slate-50">
-                        <th className="px-4 py-3">ID / 需求标题</th>
-                        <th className="px-4 py-3">负责 OPC</th>
-                        <th className="px-4 py-3">进度</th>
-                        <th className="px-4 py-3 text-right">状态</th>
+                        <th className="px-3 py-3">ID / 需求标题</th>
+                        <th className="px-3 py-3 hidden md:table-cell">负责 OPC</th>
+                        <th className="px-3 py-3 hidden sm:table-cell">进度</th>
+                        <th className="px-3 py-3 text-right">状态</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50/50">
@@ -271,17 +271,17 @@ export default function PublisherHome() {
                         return (
                           <tr key={d.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => navigate(`/publisher/demand/${d.id}`)}>
                             {/* ID / Title */}
-                            <td className="px-4 py-4">
+                            <td className="px-3 py-4 min-w-0">
                               <p className="text-[10px] font-bold text-slate-400 font-mono">
                                 {d.demandNo ?? `#JDB-${String(d.id).padStart(4, "0")}`}
                               </p>
-                              <p className="text-sm font-bold text-blue-900 group-hover:text-primary transition-colors line-clamp-1">
+                              <p className="text-sm font-bold text-blue-900 group-hover:text-primary transition-colors line-clamp-1 break-all">
                                 {d.title}
                               </p>
                             </td>
 
-                            {/* Assigned OPC */}
-                            <td className="px-4 py-4">
+                            {/* Assigned OPC — hidden on mobile */}
+                            <td className="px-3 py-4 hidden md:table-cell">
                               {assignedOpc ? (
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-900 shrink-0">
@@ -301,9 +301,9 @@ export default function PublisherHome() {
                               )}
                             </td>
 
-                            {/* Progress */}
-                            <td className="px-4 py-4">
-                              <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            {/* Progress — hidden on mobile */}
+                            <td className="px-3 py-4 hidden sm:table-cell">
+                              <div className="w-full max-w-[120px] h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                 <div
                                   className="bg-secondary h-full rounded-full transition-all duration-500"
                                   style={{ width: `${pct}%` }}
@@ -315,8 +315,8 @@ export default function PublisherHome() {
                             </td>
 
                             {/* Status */}
-                            <td className="px-4 py-4 text-right">
-                              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${statusInfo.cls}`}>
+                            <td className="px-3 py-4 text-right">
+                              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap ${statusInfo.cls}`}>
                                 {statusInfo.label}
                               </span>
                             </td>
