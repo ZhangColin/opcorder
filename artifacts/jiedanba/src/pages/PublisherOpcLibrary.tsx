@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { clearSession } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -33,11 +34,12 @@ const LEVEL_BADGE: Record<string, string> = {
   A: "A级·专家",
 };
 
-const SKILL_TAGS_ALL = [
-  "PPT设计", "视频剪辑", "AI应用开发", "Vibe Coding", "提示词工程",
-  "教案设计", "文案撰写", "直播运营", "短视频制作", "数据处理",
-  "Web开发", "小程序开发",
-];
+const TRACK_LEVEL_COLORS: Record<string, string> = {
+  A: "bg-amber-100 text-amber-700 border border-amber-200",
+  B: "bg-purple-100 text-purple-700 border border-purple-200",
+  C: "bg-blue-100 text-blue-700 border border-blue-200",
+  newbie: "bg-slate-100 text-slate-500 border border-slate-200",
+};
 
 function StarRow({ score }: { score: number }) {
   return (
@@ -291,12 +293,18 @@ function OpcDetailDrawer({
 export default function PublisherOpcLibrary() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
-  const [filterLevel, setFilterLevel] = useState<string>("all");
-  const [filterSkill, setFilterSkill] = useState<string>("");
+  const [catFilter, setCatFilter] = useState<string>("all");
+  const [trackLevelFilter, setTrackLevelFilter] = useState<string>("all");
   const [selectedOpcId, setSelectedOpcId] = useState<number | null>(null);
 
   const { userId: publisherId, nickname } = useCurrentUser();
-  const { data: opcs = [], isLoading } = useGetOpcLeaderboard({ limit: 100 });
+  const { data: opcs = [], isLoading } = useGetOpcLeaderboard({ limit: 200 });
+
+  const { data: catCategories = [] } = useQuery<Array<{ id: number; name: string; code: string }>>({
+    queryKey: ["cat-categories"],
+    queryFn: () => fetch("/api/cat-categories").then((r) => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -305,17 +313,23 @@ export default function PublisherOpcLibrary() {
     navigate("/login");
   };
 
-  const filtered = (opcs as OpcProfile[]).filter((opc) => {
+  type OpcWithCerts = OpcProfile & { trackCerts?: Array<{catId: number; catName: string; level: string}> };
+
+  const filtered = (opcs as OpcWithCerts[]).filter((opc) => {
     const matchSearch =
       !search ||
       opc.nickname.toLowerCase().includes(search.toLowerCase()) ||
       (opc.bio ?? "").toLowerCase().includes(search.toLowerCase()) ||
       (opc.skillTags ?? []).some((t) => t.toLowerCase().includes(search.toLowerCase()));
-    const matchLevel = filterLevel === "all" || opc.level === filterLevel;
-    const matchSkill =
-      !filterSkill ||
-      (opc.skillTags ?? []).includes(filterSkill);
-    return matchSearch && matchLevel && matchSkill;
+    const certs = opc.trackCerts ?? [];
+    const matchCat =
+      catFilter === "all" ||
+      certs.some((tc) => String(tc.catId) === catFilter);
+    const matchTrackLevel =
+      catFilter === "all" ||
+      trackLevelFilter === "all" ||
+      certs.some((tc) => String(tc.catId) === catFilter && tc.level === trackLevelFilter);
+    return matchSearch && matchCat && matchTrackLevel;
   });
 
   return (
@@ -365,54 +379,48 @@ export default function PublisherOpcLibrary() {
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-3 mb-6">
-            {/* Level Filter */}
-            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-              {[
-                { key: "all",    label: "全部等级" },
-                { key: "A",      label: "A级·专家" },
-                { key: "B",      label: "B级·进阶" },
-                { key: "C",      label: "C级·基础" },
-                { key: "newbie", label: "新手" },
-              ].map((opt) => (
+          <div className="space-y-2 mb-6">
+            {/* Row 1: Track pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+              <button
+                onClick={() => { setCatFilter("all"); setTrackLevelFilter("all"); }}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === "all" ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+              >
+                全部赛道
+              </button>
+              {catCategories.map((c) => (
                 <button
-                  key={opt.key}
-                  onClick={() => setFilterLevel(opt.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    filterLevel === opt.key
-                      ? "bg-white text-primary shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  key={c.id}
+                  onClick={() => { setCatFilter(String(c.id)); setTrackLevelFilter("all"); }}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${catFilter === String(c.id) ? "bg-primary text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
                 >
-                  {opt.label}
+                  {c.name}
                 </button>
               ))}
             </div>
 
-            {/* Skill Tag Filter */}
-            <div className="flex-1 min-w-[200px]">
-              <select
-                value={filterSkill}
-                onChange={(e) => setFilterSkill(e.target.value)}
-                className="w-full max-w-xs text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-primary/20 outline-none text-slate-700"
-              >
-                <option value="">所有技能标签</option>
-                {SKILL_TAGS_ALL.map((tag) => (
-                  <option key={tag} value={tag}>{tag}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Active Filter Chips */}
-            <div className="flex items-center gap-2">
-              {filterSkill && (
-                <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1.5 rounded-full">
-                  {filterSkill}
-                  <button onClick={() => setFilterSkill("")} className="hover:text-blue-900">
-                    <X size={12} />
+            {/* Row 2: Cert level filter — only when a track is selected */}
+            {catFilter !== "all" && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-400 font-medium shrink-0">认证等级：</span>
+                {([["all", "全部等级"], ["A", "A级·专家"], ["B", "B级·进阶"], ["C", "C级·基础"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setTrackLevelFilter(val)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                      trackLevelFilter === val
+                        ? val === "all" ? "bg-slate-600 text-white" : val === "A" ? "bg-amber-400 text-white" : val === "B" ? "bg-purple-500 text-white" : "bg-blue-500 text-white"
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    }`}
+                  >
+                    {label}
                   </button>
-                </span>
-              )}
+                ))}
+              </div>
+            )}
+
+            {/* Row 3: Active filter chips + count */}
+            <div className="flex items-center gap-2">
               {search && (
                 <span className="flex items-center gap-1 bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-full">
                   搜索：{search}
@@ -421,9 +429,8 @@ export default function PublisherOpcLibrary() {
                   </button>
                 </span>
               )}
+              <span className="text-xs text-slate-400 ml-auto">共 {filtered.length} 位 OPC</span>
             </div>
-
-            <span className="text-xs text-slate-400 ml-auto">共 {filtered.length} 位 OPC</span>
           </div>
 
           {/* OPC Grid */}
@@ -436,7 +443,7 @@ export default function PublisherOpcLibrary() {
               <AlertCircle size={44} className="mb-4 text-slate-200" />
               <p className="font-medium">没有符合筛选条件的 OPC</p>
               <button
-                onClick={() => { setSearch(""); setFilterLevel("all"); setFilterSkill(""); }}
+                onClick={() => { setSearch(""); setCatFilter("all"); setTrackLevelFilter("all"); }}
                 className="mt-3 text-xs text-primary hover:underline"
               >
                 清除筛选条件
@@ -505,21 +512,32 @@ export default function PublisherOpcLibrary() {
                     )}
                   </div>
 
-                  {/* Skill Tags */}
-                  {opc.skillTags && opc.skillTags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {opc.skillTags.slice(0, 4).map((tag) => (
-                        <span key={tag} className="text-[11px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-                          {tag}
-                        </span>
-                      ))}
-                      {opc.skillTags.length > 4 && (
-                        <span className="text-[11px] text-slate-400 px-2 py-0.5">
-                          +{opc.skillTags.length - 4}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {/* Track Certs */}
+                  {(() => {
+                    const certs = (opc as OpcWithCerts).trackCerts ?? [];
+                    return certs.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {certs.slice(0, 3).map((tc) => (
+                          <span key={tc.catId} className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${TRACK_LEVEL_COLORS[tc.level] ?? TRACK_LEVEL_COLORS.newbie}`}>
+                            {tc.catName}·{tc.level}级
+                          </span>
+                        ))}
+                        {certs.length > 3 && (
+                          <span className="text-[11px] text-slate-400 px-2 py-0.5">
+                            +{certs.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    ) : opc.skillTags && opc.skillTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {opc.skillTags.slice(0, 4).map((tag) => (
+                          <span key={tag} className="text-[11px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               ))}
             </div>

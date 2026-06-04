@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, opcProfilesTable, publisherProfilesTable, ordersTable, creditLevelsTable } from "@workspace/db";
+import { db, usersTable, opcProfilesTable, publisherProfilesTable, ordersTable, creditLevelsTable, opcTrackCertsTable, catCategoriesTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { GetOpcLeaderboardQueryParams, UpdateOpcProfileBody } from "@workspace/api-zod";
 import { requireAuth } from "../middleware/auth";
@@ -67,6 +67,7 @@ router.get("/users/opc-leaderboard", async (req, res) => {
   try {
     const { limit } = GetOpcLeaderboardQueryParams.parse(req.query);
     const liveEarningsSq = sql<number>`COALESCE((SELECT SUM(${ordersTable.amount}) FROM ${ordersTable} WHERE ${ordersTable.opcId} = ${opcProfilesTable.userId} AND ${ordersTable.status} = 'completed'), 0)`;
+    const trackCertsSq = sql<Array<{catId: number; catName: string; level: string}>>`COALESCE((SELECT json_agg(json_build_object('catId', otc.cat_category_id, 'catName', cc.name, 'level', otc.level)) FROM ${opcTrackCertsTable} otc JOIN ${catCategoriesTable} cc ON otc.cat_category_id = cc.id WHERE otc.user_id = ${opcProfilesTable.userId}), '[]'::json)`;
     const profiles = await db
       .select({
         id:             opcProfilesTable.id,
@@ -84,6 +85,7 @@ router.get("/users/opc-leaderboard", async (req, res) => {
         totalEarnings:  liveEarningsSq,
         activityScore:  opcProfilesTable.activityScore,
         title:          opcProfilesTable.title,
+        trackCerts:     trackCertsSq,
       })
       .from(opcProfilesTable)
       .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
