@@ -1003,32 +1003,6 @@ export default function Community() {
               </div>
             </section>
 
-            <section className="bg-primary rounded-2xl p-6 text-white">
-              <h2 className="font-extrabold mb-5 flex items-center gap-2 text-sm">
-                <CalendarDays size={16} /> 近期活动
-              </h2>
-              <a
-                href={`${import.meta.env.BASE_URL}events/opc-meetup.html`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block bg-white/10 rounded-xl p-4 mb-4 backdrop-blur-md hover:bg-white/20 transition-colors cursor-pointer"
-              >
-                <div className="text-[10px] text-blue-200 mb-1.5 font-bold uppercase">线下见面会</div>
-                <h4 className="font-bold text-sm mb-3 leading-snug">OPC 国际枢纽站 一人公司线下见面会</h4>
-                <div className="flex items-center justify-between text-xs text-blue-200">
-                  <span>4月17日 14:00 · 原点大厦</span>
-                  <span className="flex items-center gap-1"><User size={12} /> 限额 100 席</span>
-                </div>
-              </a>
-              <a
-                href={`${import.meta.env.BASE_URL}events/opc-meetup.html`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full py-3 bg-secondary text-white rounded-xl font-bold text-sm hover:bg-secondary/90 transition-colors text-center"
-              >
-                查看详情 & 报名
-              </a>
-            </section>
 
             <section id="leaderboard" className="bg-white rounded-2xl p-6 border border-slate-100">
               <h2 className="font-extrabold text-foreground flex items-center gap-2 mb-5 text-sm">
