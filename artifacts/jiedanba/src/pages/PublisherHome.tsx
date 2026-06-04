@@ -163,7 +163,7 @@ export default function PublisherHome() {
                 </h3>
                 <p className="text-sm text-slate-500 mt-0.5">根据您当前的需求自动匹配最优人才</p>
               </div>
-              <span className="text-sm font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer">
+              <span onClick={() => navigate("/publisher/opc-library")} className="text-sm font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer">
                 查看全部匹配 <ChevronsRight size={16} />
               </span>
             </div>
