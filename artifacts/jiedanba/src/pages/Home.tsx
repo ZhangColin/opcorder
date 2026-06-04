@@ -358,25 +358,6 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Insights Block */}
-          <div className="bg-secondary rounded-2xl md:rounded-3xl p-5 md:p-8 text-white relative overflow-hidden group shadow-lg shadow-secondary/20">
-            <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-all duration-700"></div>
-            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-black/20 rounded-full blur-2xl"></div>
-            
-            <div className="relative z-10">
-              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-6 backdrop-blur-md border border-white/20">
-                <Activity size={24} className="text-accent" />
-              </div>
-              <h4 className="text-xl font-black font-display mb-3">AI市场需求洞察</h4>
-              <p className="text-white/80 text-sm mb-6 leading-relaxed">
-                本月企业级AI应用开发与大模型微调需求激增 34%，单均预算提升。
-              </p>
-              <button className="text-accent font-bold text-sm flex items-center hover:text-white transition-colors bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/10 w-max">
-                下载分析报告 <ArrowRight size={16} className="ml-2" />
-              </button>
-            </div>
-          </div>
-
         </aside>
       </div>
 
