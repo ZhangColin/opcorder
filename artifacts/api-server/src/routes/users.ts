@@ -69,6 +69,8 @@ router.get("/users/opc-leaderboard", async (req, res) => {
     const liveEarningsSq = sql<number>`COALESCE((SELECT SUM(${ordersTable.amount}) FROM ${ordersTable} WHERE ${ordersTable.opcId} = ${opcProfilesTable.userId} AND ${ordersTable.status} = 'completed'), 0)`;
     const profiles = await db
       .select({
+        id:             opcProfilesTable.id,
+        userId:         opcProfilesTable.userId,
         nickname:       usersTable.nickname,
         avatar:         usersTable.avatar,
         level:          opcProfilesTable.level,
