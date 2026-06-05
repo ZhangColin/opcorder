@@ -235,6 +235,31 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
   };
   const accumulated: AccumulatedToolData = {};
 
+  // Pre-populate from conversation history so cross-turn tool results are captured.
+  // When the user says "give me the form" in a new request, the LLM may not re-call
+  // validate_timeline, but its result is already stored in a previous tool message.
+  for (const msg of historyMessages) {
+    if (msg.role !== "tool" || !msg.content || !msg.toolName) continue;
+    try {
+      const r = JSON.parse(msg.content) as Record<string, unknown>;
+      if (msg.toolName === "validate_timeline" && r.isReasonable === true) {
+        if (typeof r.bidDeadline === "string") accumulated.bidDeadline = r.bidDeadline;
+        if (typeof r.deliveryDate === "string") accumulated.deadline = r.deliveryDate;
+      }
+      if (msg.toolName === "suggest_milestones") {
+        if (typeof r.bidDeadline === "string") accumulated.bidDeadline = r.bidDeadline;
+        if (typeof r.deliveryDate === "string") accumulated.deadline = r.deliveryDate;
+        if (Array.isArray(r.milestones)) {
+          accumulated.milestones = (r.milestones as Array<Record<string, unknown>>).map(m => ({
+            name: String(m.name ?? ""),
+            deadline: String(m.deadline ?? ""),
+            deliverableDesc: String(m.deliverableDesc ?? m.description ?? ""),
+          }));
+        }
+      }
+    } catch { /* ignore malformed history entries */ }
+  }
+
   /** Find and patch form_suggestion_json in content with any accumulated tool values. */
   function injectAccumulatedData(content: string): string {
     const marker = "form_suggestion_json:";
