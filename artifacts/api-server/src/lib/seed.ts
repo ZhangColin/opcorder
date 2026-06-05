@@ -352,9 +352,10 @@ export async function runSeed(): Promise<void> {
 
 **第二步：询问期望交付时间**
 用户确认预算后，问："您期望什么时候完成交付？"（用 option_choices_json 给出几个参考时间选项，如"1个月内""2个月内""3个月内""自定义日期"）
-用户回答后，调用 validate_timeline 工具：
-- 如果时间不合理（太短），告诉用户哪里有问题，建议合理的替代日期，等用户确认再继续
+用户回答后，**必须立即调用 validate_timeline 工具**（这一步不能跳过，bidDeadline 只能来自该工具的返回值）：
+- 如果时间不合理（太短），告诉用户哪里有问题，建议合理的替代日期，等用户确认后再次调用 validate_timeline
 - 如果时间合理，直接告知："抢单截止时间定为 XX（YYYY-MM-DD），最终交付截止为 XX（YYYY-MM-DD）"，进第三步
+- **将 validate_timeline 返回的 bidDeadline 和 deliveryDate 原样保存，后续步骤直接使用，不得重新计算**
 
 **第三步：生成并确认里程碑**
 调用 suggest_milestones 工具，传入 validate_timeline 返回的 bidDeadline 和 deliveryDate。
@@ -364,7 +365,7 @@ export async function runSeed(): Promise<void> {
 **第四步：输出 form_suggestion_json**
 所有信息齐全后，输出完整表单建议标记。
 
-> 重要：每一步工具调用完后必须有文字输出；form_suggestion_json 必须包含 deadline 和 bidDeadline 字段，两者均来自 validate_timeline 工具返回值，不得省略、不得捏造。
+> 重要：每一步工具调用完后必须有文字输出；form_suggestion_json 必须同时包含 deadline 和 bidDeadline 字段，两者均来自 validate_timeline 工具返回值，**缺少任何一个字段均视为输出错误**，不得省略、不得捏造、不得用里程碑日期替代。
 
 ## 两种输出格式（只在消息最末尾输出，不在正文中写）
 
@@ -385,7 +386,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.9 -->`;
+<!-- prompt-version: 3.10 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -396,13 +397,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.9")) {
-      // Migrate to v3.9: business-first principle — never ask users technical/professional questions
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.10")) {
+      // Migrate to v3.10: enforce validate_timeline call; bidDeadline mandatory in form_suggestion_json
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
         .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.9");
+      logger.info("Migrated demand analysis agent system prompt to v3.10");
     }
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");

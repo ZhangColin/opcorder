@@ -595,7 +595,24 @@ export default function PublisherCreateDemand() {
 
     if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
     if (suggestion.deadline) { setDeadline(suggestion.deadline); scrollTarget = scrollTarget ?? "section-deadline"; }
-    if (suggestion.bidDeadline) { setBidDeadline(suggestion.bidDeadline); scrollTarget = scrollTarget ?? "section-deadline"; }
+
+    // If AI returned a deadline but forgot bidDeadline, auto-compute it using the same
+    // logic as the validate_timeline tool: min(max(3, round(totalDays * 0.15)), 14) days from today.
+    const resolvedBidDeadline = (() => {
+      if (suggestion.bidDeadline) return suggestion.bidDeadline;
+      if (!suggestion.deadline) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const delivery = new Date(suggestion.deadline);
+      delivery.setHours(0, 0, 0, 0);
+      const totalDays = Math.round((delivery.getTime() - today.getTime()) / 86400000);
+      if (totalDays <= 0) return null;
+      const bidDays = Math.min(Math.max(3, Math.round(totalDays * 0.15)), 14);
+      const bidDate = new Date(today);
+      bidDate.setDate(today.getDate() + bidDays);
+      return bidDate.toISOString().split("T")[0];
+    })();
+    if (resolvedBidDeadline) { setBidDeadline(resolvedBidDeadline); scrollTarget = scrollTarget ?? "section-deadline"; }
     if (suggestion.milestones?.length) {
       setMilestones(suggestion.milestones.map(m => ({
         name: m.name,
