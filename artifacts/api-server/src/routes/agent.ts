@@ -259,12 +259,16 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
       }
     } catch { /* ignore malformed history entries */ }
   }
+  logger.info({ accumulated }, "[accumulator] after history pre-population");
 
   /** Find and patch form_suggestion_json in content with any accumulated tool values. */
   function injectAccumulatedData(content: string): string {
     const marker = "form_suggestion_json:";
     const markerIdx = content.indexOf(marker);
-    if (markerIdx === -1) return content;
+    if (markerIdx === -1) {
+      logger.info("[accumulator] form_suggestion_json marker NOT found in finalContent");
+      return content;
+    }
 
     const afterMarker = content.slice(markerIdx + marker.length);
     const objStart = afterMarker.indexOf("{");
@@ -296,14 +300,16 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
       }
 
       const patched = JSON.stringify(parsed);
+      logger.info({ bidDeadline: parsed.bidDeadline, deadline: parsed.deadline, milestonesCount: Array.isArray(parsed.milestones) ? (parsed.milestones as unknown[]).length : 0 }, "[accumulator] form_suggestion_json patched");
       return (
         content.slice(0, markerIdx + marker.length) +
         afterMarker.slice(0, objStart) +
         patched +
         afterMarker.slice(objEnd + 1)
       );
-    } catch {
-      return content; // malformed JSON — leave untouched, don't break streaming
+    } catch (e) {
+      logger.warn({ err: e }, "[accumulator] JSON parse failed, leaving content untouched");
+      return content;
     }
   }
 
