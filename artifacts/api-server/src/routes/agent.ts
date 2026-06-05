@@ -221,6 +221,67 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
     logger.warn({ catErr }, "Could not fetch categories/tags for tool context, falling back to static list");
   }
 
+  // ── Tool-result accumulator ─────────────────────────────────────────────────
+  // Each ReAct stage that calls a tool is the authoritative source for its field.
+  // validate_timeline → bidDeadline + deadline
+  // suggest_milestones → milestones (and confirms the two dates above)
+  // These accumulated values are injected into form_suggestion_json before streaming,
+  // so the contract is fulfilled by the tool calls, not by LLM text generation.
+  type AccumulatedMilestone = { name: string; deadline: string; deliverableDesc: string };
+  type AccumulatedToolData = {
+    bidDeadline?: string;
+    deadline?: string;       // deliveryDate from validate_timeline
+    milestones?: AccumulatedMilestone[];
+  };
+  const accumulated: AccumulatedToolData = {};
+
+  /** Find and patch form_suggestion_json in content with any accumulated tool values. */
+  function injectAccumulatedData(content: string): string {
+    const marker = "form_suggestion_json:";
+    const markerIdx = content.indexOf(marker);
+    if (markerIdx === -1) return content;
+
+    const afterMarker = content.slice(markerIdx + marker.length);
+    const objStart = afterMarker.indexOf("{");
+    if (objStart === -1) return content;
+
+    // Walk to find the matching closing brace
+    let depth = 0, inStr = false, escaped = false, objEnd = -1;
+    for (let i = objStart; i < afterMarker.length; i++) {
+      const c = afterMarker[i];
+      if (escaped) { escaped = false; continue; }
+      if (c === "\\" && inStr) { escaped = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === "{") depth++;
+      else if (c === "}") { depth--; if (depth === 0) { objEnd = i; break; } }
+    }
+    if (objEnd === -1) return content;
+
+    try {
+      const jsonStr = afterMarker.slice(objStart, objEnd + 1);
+      const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+
+      // Inject tool-derived values — they take precedence over whatever the LLM wrote
+      if (accumulated.bidDeadline) parsed.bidDeadline = accumulated.bidDeadline;
+      if (accumulated.deadline && !parsed.deadline) parsed.deadline = accumulated.deadline;
+      if (accumulated.milestones?.length &&
+          (!Array.isArray(parsed.milestones) || (parsed.milestones as unknown[]).length === 0)) {
+        parsed.milestones = accumulated.milestones;
+      }
+
+      const patched = JSON.stringify(parsed);
+      return (
+        content.slice(0, markerIdx + marker.length) +
+        afterMarker.slice(0, objStart) +
+        patched +
+        afterMarker.slice(objEnd + 1)
+      );
+    } catch {
+      return content; // malformed JSON — leave untouched, don't break streaming
+    }
+  }
+
   const MAX_TOOL_ITERATIONS = 10;
   let iteration = 0;
   const intermediateMessages: PersistedMessage[] = [];
@@ -300,6 +361,29 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
           const result = executeTool(toolName, toolArgs, toolContext);
           const resultStr = JSON.stringify(result);
 
+          // ── Accumulate authoritative values from key tool calls ────────────
+          if (toolName === "validate_timeline" && result && typeof result === "object") {
+            const r = result as Record<string, unknown>;
+            if (r.isReasonable === true) {
+              if (typeof r.bidDeadline === "string") accumulated.bidDeadline = r.bidDeadline;
+              if (typeof r.deliveryDate === "string") accumulated.deadline = r.deliveryDate;
+            }
+          }
+          if (toolName === "suggest_milestones" && result && typeof result === "object") {
+            const r = result as Record<string, unknown>;
+            // suggest_milestones also echoes back the dates — update if present
+            if (typeof r.bidDeadline === "string") accumulated.bidDeadline = r.bidDeadline;
+            if (typeof r.deliveryDate === "string") accumulated.deadline = r.deliveryDate;
+            if (Array.isArray(r.milestones)) {
+              accumulated.milestones = (r.milestones as Array<Record<string, unknown>>).map(m => ({
+                name: String(m.name ?? ""),
+                deadline: String(m.deadline ?? ""),
+                // tool returns 'description'; form_suggestion_json expects 'deliverableDesc'
+                deliverableDesc: String(m.deliverableDesc ?? m.description ?? ""),
+              }));
+            }
+          }
+
           toolResultLLMMessages.push({
             role: "tool",
             content: resultStr,
@@ -331,22 +415,26 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
       // (e.g. omitting option_choices_json), so we stream the first response directly.
       let finalContent = response.content ?? "";
 
+      if (!finalContent) {
+        // Fallback: model returned no content in the non-streaming call, use streamLLM
+        try {
+          for await (const token of streamLLM(llmMessages)) {
+            finalContent += token;
+          }
+        } catch (streamErr) {
+          logger.warn({ streamErr }, "streamLLM fallback also failed");
+          finalContent = "";
+        }
+      }
+
+      // Patch form_suggestion_json with authoritative tool-derived values before streaming
+      finalContent = injectAccumulatedData(finalContent);
+
       if (finalContent) {
         // Stream in word-sized chunks for a natural feel
         const words = finalContent.split(/(?<=\s)|(?=\s)/);
         for (const chunk of words) {
           if (chunk) sendEvent({ type: "token", content: chunk });
-        }
-      } else {
-        // Fallback: model returned no content in the non-streaming call, use streamLLM
-        try {
-          for await (const token of streamLLM(llmMessages)) {
-            finalContent += token;
-            sendEvent({ type: "token", content: token });
-          }
-        } catch (streamErr) {
-          logger.warn({ streamErr }, "streamLLM fallback also failed");
-          finalContent = "";
         }
       }
 
