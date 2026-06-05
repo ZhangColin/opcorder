@@ -642,7 +642,20 @@ export default function ScreenDisplay() {
           {/* ── Main content ─────────────────────── */}
           <div ref={contentRef} className="flex-1 min-h-0 flex gap-3 px-6 pb-2">
 
-            {/* Left column */}
+            {/* Left video column */}
+            <div className="shrink-0 flex flex-col min-h-0" style={{ width: demandColWidth > 0 ? demandColWidth : undefined }}>
+              <div className="flex-1 min-h-0 flex flex-col rounded-2xl overflow-hidden"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(16px)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
+                }}>
+                <ScreenVideoPlayer />
+              </div>
+            </div>
+
+            {/* Right column */}
             <div className="flex-1 flex flex-col gap-3 min-w-0">
 
               {/* KPI row */}
@@ -699,19 +712,6 @@ export default function ScreenDisplay() {
                   </div>
                 </Panel>
 
-              </div>
-            </div>
-
-            {/* Right video column */}
-            <div className="shrink-0 flex flex-col min-h-0" style={{ width: demandColWidth > 0 ? demandColWidth : undefined }}>
-              <div className="flex-1 min-h-0 flex flex-col rounded-2xl overflow-hidden"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  backdropFilter: "blur(16px)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
-                }}>
-                <ScreenVideoPlayer />
               </div>
             </div>
 
