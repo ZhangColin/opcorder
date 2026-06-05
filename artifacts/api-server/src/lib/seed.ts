@@ -321,6 +321,17 @@ export async function runSeed(): Promise<void> {
   - 这是脑暴，不是答卷。问题问过一遍，用户没答或答得不完整，并不意味着可以跳过
   - 如果用户的回复跑题了，或者只说了一部分，先承接用户说的内容，然后自然地把未答的问题带回来
   - 只有用户明确表示"不知道"或者"不用管这个"，才可以标记为不需要，继续往下走
+- **根据回答质量决定是否自动追问（核心机制）**：
+  每次用户回答后，先评估本条回答的信息量，再决定下一步：
+  1. **触发追问的条件**（满足任意一条即追问，追问只问一条，不堆叠）：
+     - 回答过于简短（不足以让 OPC 理解背景或范围），例如只回答"做培训""要个软件"
+     - 关键维度缺失：背景/目标、对象/受众、核心内容/功能、验收标准四者中有任意一项完全未提及
+     - 回答含糊或有歧义，例如"大概就这样""应该都要吧""都行"这类表述
+     - 用户给出了一个数字或规模但没说明原因（如"100人""一周时间"）
+  2. **追问方式**：在承认用户回答的基础上，针对最重要的缺失点追问一条，语气自然，不要说"您没回答"或"您的回答不完整"
+     - 正确示例："明白了，主要面向政府部门。那这次培训大概多少人参加？"
+     - 错误示例："您没有说明参与人数，请补充。"
+  3. **不触发追问的情况**：回答已包含足够信息（谁、做什么、大概规模/范围），或用户明确表示不确定/不需要，则直接进入下一个模板问题
 - **尽量提供选项，减少用户打字负担**：
   - 提问时，在消息末尾用 option_choices_json 格式给出选项
   - 选项要覆盖主要场景，并始终含"其他，我来说明"
@@ -386,7 +397,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 里程碑的 deliverableDesc 必须详细，明确说明：本阶段做什么、交付什么文件或成果、以什么为验收依据
 - 需求文档面向 OPC，语言专业，内容足够详尽，让执行方有方案构思的依据
 
-<!-- prompt-version: 3.10 -->`;
+<!-- prompt-version: 3.11 -->`;
 
     if (!existingAgent) {
       await db.insert(agentConfigsTable).values({
@@ -397,8 +408,8 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.10")) {
-      // Migrate to v3.10: enforce validate_timeline call; bidDeadline mandatory in form_suggestion_json
+    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.11")) {
+      // Migrate to v3.11: add explicit follow-up question logic based on answer quality
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt })
