@@ -415,8 +415,6 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
             });
           } else if (event.type === "done") {
             const { text: finalText, suggestion: finalSuggestion, optionChoices: finalChoices } = parseMessage(rawContent);
-            console.log("[AgentChat done] finalSuggestion:", JSON.stringify(finalSuggestion));
-            console.log("[AgentChat done] rawContent snippet (last 300):", rawContent.slice(-300));
             updateLastMsg({
               content: finalText,
               formSuggestion: finalSuggestion ?? undefined,

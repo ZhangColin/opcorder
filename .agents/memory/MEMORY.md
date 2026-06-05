@@ -1,3 +1,5 @@
 - [Migration run-once tracking](migration-run-once.md) — schema_migrations table tracks each migration; once() helper skips already-run blocks; pre-seeds all historical IDs on first deploy.
 - [budget_max corruption root cause](budget-max-corruption.md) — never backfill budget_max from the legacy budget field (budget = budgetMin, not budgetMax).
 - [Seed version gate pattern](seed-version-gate.md) — version check in seed.ts must match the CURRENT version tag in code, or it fires on every restart.
+- [Agent form field type contract](agent-form-field-contract.md) — bidDeadline input must be type="date"; tool returns YYYY-MM-DD; datetime-local silently rejects bare dates.
+- [Agent accumulator cross-turn](agent-accumulator-cross-turn.md) — pre-populate accumulated{} from historyMessages before ReAct loop; validate_timeline may run in a prior turn.

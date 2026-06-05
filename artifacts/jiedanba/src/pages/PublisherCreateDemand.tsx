@@ -375,7 +375,7 @@ export default function PublisherCreateDemand() {
       setBudgetMax(String(existingDemand.budgetMax ?? existingDemand.budget ?? ""));
       setDeadline(existingDemand.deadline ? String(existingDemand.deadline).split("T")[0] : "");
       setMode((existingDemand.mode as "open" | "directed") ?? "open");
-      setBidDeadline(existingDemand.bidDeadline ? String(existingDemand.bidDeadline).slice(0, 16) : "");
+      setBidDeadline(existingDemand.bidDeadline ? String(existingDemand.bidDeadline).slice(0, 10) : "");
       setIsUrgent(existingDemand.isUrgent ?? false);
       const ms = (existingDemand.milestones as any[]) ?? [];
       setMilestones(ms.map(m => ({ name: m.name ?? "", deadline: m.deadline ?? "", deliverableDesc: m.deliverableDesc ?? "" })));
@@ -539,7 +539,6 @@ export default function PublisherCreateDemand() {
   }, []);
 
   const handleFillForm = useCallback((suggestion: FormSuggestion) => {
-    console.log("[handleFillForm] received suggestion:", JSON.stringify(suggestion));
     let scrollTarget: string | null = null;
     if (suggestion.title) { setTitle(suggestion.title.slice(0, 50)); scrollTarget = scrollTarget ?? "section-basic"; }
 
@@ -597,9 +596,7 @@ export default function PublisherCreateDemand() {
     if (suggestion.isUrgent !== undefined) setIsUrgent(suggestion.isUrgent);
     if (suggestion.deadline) { setDeadline(suggestion.deadline); scrollTarget = scrollTarget ?? "section-deadline"; }
     if (suggestion.bidDeadline) {
-      // datetime-local input requires "YYYY-MM-DDTHH:mm"; tool returns "YYYY-MM-DD" — append T23:59
-      const bd = suggestion.bidDeadline.length === 10 ? suggestion.bidDeadline + "T23:59" : suggestion.bidDeadline.slice(0, 16);
-      setBidDeadline(bd);
+      setBidDeadline(suggestion.bidDeadline.slice(0, 10));
       scrollTarget = scrollTarget ?? "section-deadline";
     }
     if (suggestion.milestones?.length) {
@@ -842,12 +839,12 @@ export default function PublisherCreateDemand() {
             {/* Open mode: bid deadline */}
             {mode === "open" && (
               <FormField label="抢单截止时间" required error={errors.bidDeadline}
-                hint="OPC须在此时间前提交抢单申请">
+                hint="OPC须在此日期前提交抢单申请">
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={bidDeadline}
                   onChange={e => setBidDeadline(e.target.value)}
-                  min={new Date().toISOString().slice(0, 16)}
+                  min={new Date().toISOString().slice(0, 10)}
                   className={`w-full border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition ${
                     errors.bidDeadline ? "border-destructive bg-red-50" : "border-slate-200 bg-white"
                   }`}
