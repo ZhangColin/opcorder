@@ -1578,5 +1578,22 @@ export async function runMigrations(): Promise<void> {
     if (count > 0) logger.info({ count }, "Migration 030a: fixed demands stuck in matched status");
   });
 
+  // Migration 031a: create user_login_logs table (CRITICAL)
+  await once("031a", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS user_login_logs (
+        id serial PRIMARY KEY,
+        user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role varchar(20) NOT NULL,
+        ip varchar(60),
+        city varchar(100),
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS user_login_logs_user_id_idx ON user_login_logs(user_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS user_login_logs_created_at_idx ON user_login_logs(created_at)`);
+    logger.info("Migration 031a: created user_login_logs table");
+  });
+
   logger.info("Startup data migrations complete.");
 }

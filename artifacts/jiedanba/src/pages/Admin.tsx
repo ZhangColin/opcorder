@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef, useMemo, Fragment } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment, useCallback } from "react";
+import {
+  LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 import AdminActivities from "./AdminActivities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatBudget } from "@/lib/utils";
@@ -105,7 +109,8 @@ export type Module =
   | "sensitivewords" | "payments" | "activities"
   | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard" | "syslogs"
   | "platform_config" | "catcategories" | "cattags" | "creditlevels" | "creditrules"
-  | "demands_orders" | "opc_management" | "system_management";
+  | "demands_orders" | "opc_management" | "system_management"
+  | "operation_management" | "userData";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -147,6 +152,13 @@ const NAV: NavItem[] = [
       { key: "quotecard",     label: "报价卡配置",   moduleKey: "quotecard"     as Module, icon: BadgeCent },
       { key: "agent",         label: "智能体配置",   moduleKey: "agent"         as Module, icon: Bot },
       { key: "sensitivewords",label: "敏感词管理",   moduleKey: "sensitivewords"as Module, icon: Flame },
+    ],
+  },
+
+  {
+    key: "operation_management", icon: Activity, label: "运营管理", permKey: "operation",
+    children: [
+      { key: "userData", label: "用户数据", moduleKey: "userData" as Module, icon: BarChart3 },
     ],
   },
 
@@ -389,11 +401,29 @@ interface AdminStats {
   totalPosts: number;
 }
 
+interface LoginStatsDay { day: string; loginCount: number; userCount: number; }
+interface LoginStatsCity { city: string; loginCount: number; userCount: number; }
+interface LoginStats { days14: LoginStatsDay[]; cityBreakdown: LoginStatsCity[]; date: string; }
+
 function Dashboard() {
   const { data, isLoading, refetch } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
     queryFn: () => adminGet("/api/admin/stats"),
   });
+
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const [cityDate, setCityDate] = useState(todayStr);
+
+  const { data: loginStats, isLoading: statsLoading } = useQuery<LoginStats>({
+    queryKey: ["admin-login-stats", cityDate],
+    queryFn: () => adminGet(`/api/admin/login-stats?date=${cityDate}`),
+    staleTime: 60_000,
+  });
+
+  const handleLineDotClick = useCallback((payload: any) => {
+    const fullDay = payload?.activePayload?.[0]?.payload?._fullDay;
+    if (fullDay) setCityDate(fullDay);
+  }, []);
 
   const kpis = data ? [
     { label: "活跃 OPC 总数",  value: data.activeOpcs.toLocaleString(),      icon: Users },
@@ -408,6 +438,15 @@ function Dashboard() {
     { label: "社区帖子数", value: data.totalPosts.toLocaleString(),      up: true },
     { label: "争议订单",   value: data.disputedOrders.toLocaleString(), up: data.disputedOrders === 0 },
   ] : [];
+
+  const trendData = (loginStats?.days14 ?? []).map(d => ({
+    day: d.day.substring(5),
+    登录次数: d.loginCount,
+    用户登录数: d.userCount,
+    _fullDay: d.day,
+  }));
+
+  const cityData = loginStats?.cityBreakdown ?? [];
 
   return (
     <div className="space-y-8">
@@ -451,6 +490,70 @@ function Dashboard() {
           </div>
         </>
       )}
+
+      {/* ── 14-day login trend line chart ── */}
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-bold text-blue-900">近 14 天用户访问趋势</h3>
+            <p className="text-xs text-slate-400 mt-0.5">点击折线上的日期点，柱图将切换到该日城市分布</p>
+          </div>
+          {statsLoading && <Loader2 size={16} className="animate-spin text-slate-400" />}
+        </div>
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={trendData} onClick={handleLineDotClick} style={{ cursor: "pointer" }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+            <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} allowDecimals={false} />
+            <Tooltip
+              contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
+              formatter={(val: number, name: string) => [val.toLocaleString(), name]}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line type="monotone" dataKey="登录次数" stroke="#0047ab" strokeWidth={2} dot={{ r: 4, fill: "#0047ab" }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="用户登录数" stroke="#10b981" strokeWidth={2} dot={{ r: 4, fill: "#10b981" }} activeDot={{ r: 6 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ── City breakdown bar chart ── */}
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div>
+            <h3 className="text-base font-bold text-blue-900">城市登录分布</h3>
+            <p className="text-xs text-slate-400 mt-0.5">选择日期查看当天各城市的登录情况</p>
+          </div>
+          <input
+            type="date"
+            value={cityDate}
+            max={todayStr}
+            onChange={e => setCityDate(e.target.value)}
+            className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+          />
+        </div>
+        {statsLoading ? (
+          <div className="flex items-center justify-center h-48">
+            <Loader2 size={24} className="animate-spin text-slate-300" />
+          </div>
+        ) : cityData.length === 0 ? (
+          <div className="flex items-center justify-center h-48 text-slate-400 text-sm">该日期暂无登录数据</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={cityData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="city" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
+                formatter={(val: number, name: string) => [val.toLocaleString(), name]}
+              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="loginCount" name="登录次数" fill="#0047ab" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="userCount" name="用户登录数" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </div>
   );
 }
@@ -9607,6 +9710,132 @@ function CatTagManagement() {
   );
 }
 
+/* ─── Module: 用户数据（运营管理）────────────────────── */
+
+interface LoginLogRow {
+  id: number; userId: number; role: string; ip: string | null; city: string | null;
+  createdAt: string; nickname: string | null; email: string | null;
+}
+
+const ROLE_LABEL_MAP: Record<string, string> = { publisher: "发单方", opc: "OPC", admin: "管理员" };
+const ROLE_COLORS: Record<string, string> = {
+  publisher: "bg-blue-100 text-blue-700",
+  opc:       "bg-green-100 text-green-700",
+  admin:     "bg-violet-100 text-violet-700",
+};
+
+function UserData() {
+  const today = new Date().toISOString().substring(0, 10);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState(today);
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [cityInput, setCityInput] = useState("");
+  const [city, setCity] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const qs = new URLSearchParams();
+  if (startDate) qs.set("startDate", startDate);
+  if (endDate)   qs.set("endDate",   endDate);
+  if (roleFilter !== "all") qs.set("role", roleFilter);
+  if (city)      qs.set("city", city);
+  qs.set("page",     String(page));
+  qs.set("pageSize", String(pageSize));
+
+  const { data: resp, isLoading } = useQuery<PagedResp<LoginLogRow>>({
+    queryKey: ["admin-login-logs", startDate, endDate, roleFilter, city, page, pageSize],
+    queryFn: () => adminGet(`/api/admin/login-logs?${qs.toString()}`),
+    staleTime: 30_000,
+  });
+
+  const logs = resp?.data ?? [];
+  const total = resp?.total ?? 0;
+
+  const applyFilters = () => { setCity(cityInput); setPage(1); };
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="用户数据" sub="用户登录记录查询" />
+
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-wrap items-end gap-4">
+        <div>
+          <label className="text-xs font-bold text-slate-500 block mb-1">开始日期</label>
+          <input type="date" value={startDate} max={endDate || today}
+            onChange={e => { setStartDate(e.target.value); setPage(1); }}
+            className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-500 block mb-1">结束日期</label>
+          <input type="date" value={endDate} min={startDate} max={today}
+            onChange={e => { setEndDate(e.target.value); setPage(1); }}
+            className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-500 block mb-1">用户身份</label>
+          <select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}
+            className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white">
+            <option value="all">全部</option>
+            <option value="publisher">发单方</option>
+            <option value="opc">OPC</option>
+            <option value="admin">管理员</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-500 block mb-1">城市</label>
+          <div className="flex gap-1.5">
+            <input type="text" value={cityInput} placeholder="输入城市名"
+              onChange={e => setCityInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && applyFilters()}
+              className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white w-28" />
+            <button onClick={applyFilters}
+              className="px-3 py-1.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+              搜索
+            </button>
+            {(city || startDate || roleFilter !== "all") && (
+              <button onClick={() => { setStartDate(""); setEndDate(today); setRoleFilter("all"); setCityInput(""); setCity(""); setPage(1); }}
+                className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+                重置
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <TableShell headers={["时间", "用户", "身份", "IP 地址", "城市"]}>
+        {isLoading ? (
+          <LoadingRow cols={5} />
+        ) : logs.length === 0 ? (
+          <EmptyRow cols={5} text="暂无登录记录" />
+        ) : logs.map(log => (
+          <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+            <td className="px-6 py-3.5 text-sm text-slate-600 whitespace-nowrap">
+              {new Date(log.createdAt).toLocaleString("zh-CN", { hour12: false })}
+            </td>
+            <td className="px-6 py-3.5">
+              <div className="text-sm font-bold text-slate-800">{log.nickname ?? "—"}</div>
+              <div className="text-xs text-slate-400">{log.email ?? `ID: ${log.userId}`}</div>
+            </td>
+            <td className="px-6 py-3.5">
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${ROLE_COLORS[log.role] ?? "bg-slate-100 text-slate-600"}`}>
+                {ROLE_LABEL_MAP[log.role] ?? log.role}
+              </span>
+            </td>
+            <td className="px-6 py-3.5 text-sm text-slate-500 font-mono">{log.ip ?? "—"}</td>
+            <td className="px-6 py-3.5 text-sm text-slate-600">{log.city ?? "未知"}</td>
+          </tr>
+        ))}
+      </TableShell>
+
+      {total > 0 && (
+        <AdminPagination page={page} pageSize={pageSize} total={total}
+          onPage={setPage} onPageSize={s => { setPageSize(s); setPage(1); }} />
+      )}
+    </div>
+  );
+}
+
 function ModuleContent({ module }: { module: Module }) {
   switch (module) {
     case "dashboard":      return <Dashboard />;
@@ -9637,6 +9866,8 @@ function ModuleContent({ module }: { module: Module }) {
     case "platform_config": return <CatCategoryManagement />;
     case "catcategories":   return <CatCategoryManagement />;
     case "cattags":         return <CatTagManagement />;
+    case "userData":        return <UserData />;
+    case "operation_management": return <UserData />;
   }
 }
 

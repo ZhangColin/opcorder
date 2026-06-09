@@ -4,11 +4,12 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { rateLimit } from "express-rate-limit";
 import { Resend } from "resend";
-import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable } from "@workspace/db";
+import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable, userLoginLogsTable } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { logger } from "../lib/logger";
 import { sendRegisterCode } from "../lib/sms";
+import { lookupCity } from "../lib/geo";
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -290,6 +291,25 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
     const rawRefreshToken = generateRefreshToken();
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
     await upsertRefreshToken(user.id, hashToken(rawRefreshToken), expiresAt);
+
+    // Fire-and-forget: record login event (IP + city lookup)
+    void (async () => {
+      try {
+        const rawIp = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+          ?? req.ip
+          ?? "";
+        const ip = rawIp.startsWith("::ffff:") ? rawIp.slice(7) : rawIp;
+        const city = await lookupCity(ip);
+        await db.insert(userLoginLogsTable).values({
+          userId: user.id,
+          role: user.role,
+          ip: ip || null,
+          city,
+        });
+      } catch (logErr) {
+        logger.warn({ err: logErr }, "Failed to record login log");
+      }
+    })();
 
     return res.json({
       accessToken,

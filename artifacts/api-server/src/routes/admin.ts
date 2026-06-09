@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -226,6 +226,8 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/settings",      permission: "settings" },
   { prefix: "/api/admin/disputes",      permission: "disputes" },
   { prefix: "/api/admin/activities",    permission: "activities" },
+  { prefix: "/api/admin/login-logs",    permission: "operation" },
+  { prefix: "/api/admin/login-stats",   permission: "operation" },
 ];
 
 import { Request, Response, NextFunction } from "express";
@@ -3900,6 +3902,115 @@ router.post("/admin/users/:userId/manual-credit", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "积分调整失败" });
+  }
+});
+
+/* ─── LOGIN LOGS (运营管理 - 用户数据) ──────────────────────── */
+
+router.get("/admin/login-logs", async (req, res) => {
+  try {
+    const { startDate, endDate, role, city, q } = req.query as Record<string, string>;
+    const { page, pageSize, offset } = paginate(req.query as Record<string, string | string[] | undefined>);
+
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (role && role !== "all") conditions.push(eq(userLoginLogsTable.role, role) as any);
+    if (city) conditions.push(ilike(userLoginLogsTable.city, `%${city}%`) as any);
+    if (startDate) conditions.push(sql`${userLoginLogsTable.createdAt} >= ${startDate}::date` as any);
+    if (endDate) conditions.push(sql`${userLoginLogsTable.createdAt} < (${endDate}::date + interval '1 day')` as any);
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(userLoginLogsTable)
+      .where(where);
+
+    const rows = await db
+      .select({
+        id: userLoginLogsTable.id,
+        userId: userLoginLogsTable.userId,
+        role: userLoginLogsTable.role,
+        ip: userLoginLogsTable.ip,
+        city: userLoginLogsTable.city,
+        createdAt: userLoginLogsTable.createdAt,
+        nickname: usersTable.nickname,
+        email: usersTable.email,
+      })
+      .from(userLoginLogsTable)
+      .leftJoin(usersTable, eq(userLoginLogsTable.userId, usersTable.id))
+      .where(where)
+      .orderBy(desc(userLoginLogsTable.createdAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    return res.json({
+      data: rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })),
+      total: Number(total),
+      page,
+      pageSize,
+    });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取登录日志失败" });
+  }
+});
+
+router.get("/admin/login-stats", async (req, res) => {
+  try {
+    const { date } = req.query as { date?: string };
+
+    // 14-day trend: login count and unique user count per day
+    const trendRows = await db.execute(sql`
+      SELECT
+        DATE(created_at) AS day,
+        COUNT(*) AS login_count,
+        COUNT(DISTINCT user_id) AS user_count
+      FROM user_login_logs
+      WHERE created_at >= NOW() - INTERVAL '14 days'
+      GROUP BY DATE(created_at)
+      ORDER BY day ASC
+    `);
+
+    const trend = (trendRows.rows as any[]).map(r => ({
+      day: String(r.day).substring(0, 10),
+      loginCount: Number(r.login_count),
+      userCount: Number(r.user_count),
+    }));
+
+    // Fill in missing days with zeros
+    const days14: { day: string; loginCount: number; userCount: number }[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toISOString().substring(0, 10);
+      const found = trend.find(r => r.day === dayStr);
+      days14.push(found ?? { day: dayStr, loginCount: 0, userCount: 0 });
+    }
+
+    // City breakdown for a specific date (defaults to today)
+    const targetDate = date ?? new Date().toISOString().substring(0, 10);
+    const cityRows = await db.execute(sql`
+      SELECT
+        COALESCE(city, '未知') AS city,
+        COUNT(*) AS login_count,
+        COUNT(DISTINCT user_id) AS user_count
+      FROM user_login_logs
+      WHERE DATE(created_at) = ${targetDate}::date
+      GROUP BY COALESCE(city, '未知')
+      ORDER BY login_count DESC
+      LIMIT 30
+    `);
+
+    const cityBreakdown = (cityRows.rows as any[]).map(r => ({
+      city: String(r.city),
+      loginCount: Number(r.login_count),
+      userCount: Number(r.user_count),
+    }));
+
+    return res.json({ days14, cityBreakdown, date: targetDate });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取登录统计失败" });
   }
 });
 

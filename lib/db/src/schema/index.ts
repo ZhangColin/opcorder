@@ -32,3 +32,4 @@ export * from "./opc-user-cat-tags";
 export * from "./portfolio-review-logs";
 export * from "./demand-invitations";
 export * from "./sub-orders";
+export * from "./user-login-logs";
