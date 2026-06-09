@@ -152,7 +152,7 @@ export default function Login() {
 
           <div className="mb-12">
             <span className="text-emerald-300 font-bold tracking-widest text-xs uppercase font-display">
-              OPC 撮合交易平台
+              OPC 接单平台
             </span>
             <h1 className="text-white text-4xl xl:text-5xl font-extrabold mt-4 leading-tight tracking-tight font-display">
               连接需求方<br />与超级个体
