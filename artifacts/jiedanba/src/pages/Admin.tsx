@@ -403,7 +403,8 @@ interface AdminStats {
 
 interface LoginStatsDay { day: string; loginCount: number; userCount: number; }
 interface LoginStatsCity { city: string; loginCount: number; userCount: number; }
-interface LoginStats { days14: LoginStatsDay[]; cityBreakdown: LoginStatsCity[]; date: string; }
+interface LoginTrend { days14: LoginStatsDay[]; }
+interface LoginCity  { cityBreakdown: LoginStatsCity[]; date: string; }
 
 function Dashboard() {
   const { data, isLoading, refetch } = useQuery<AdminStats>({
@@ -414,9 +415,17 @@ function Dashboard() {
   const todayStr = new Date().toISOString().substring(0, 10);
   const [cityDate, setCityDate] = useState(todayStr);
 
-  const { data: loginStats, isLoading: statsLoading } = useQuery<LoginStats>({
-    queryKey: ["admin-login-stats", cityDate],
-    queryFn: () => adminGet(`/api/admin/login-stats?date=${cityDate}`),
+  // 折线图：固定 query key，不受 cityDate 影响
+  const { data: trendStats, isLoading: trendLoading } = useQuery<LoginTrend>({
+    queryKey: ["admin-login-stats"],
+    queryFn: () => adminGet("/api/admin/login-stats"),
+    staleTime: 5 * 60_000,
+  });
+
+  // 柱图：随 cityDate 变化
+  const { data: cityStats, isLoading: cityLoading } = useQuery<LoginCity>({
+    queryKey: ["admin-login-city", cityDate],
+    queryFn: () => adminGet(`/api/admin/login-city?date=${cityDate}`),
     staleTime: 60_000,
   });
 
@@ -439,14 +448,14 @@ function Dashboard() {
     { label: "争议订单",   value: data.disputedOrders.toLocaleString(), up: data.disputedOrders === 0 },
   ] : [];
 
-  const trendData = (loginStats?.days14 ?? []).map(d => ({
+  const trendData = (trendStats?.days14 ?? []).map(d => ({
     day: d.day.substring(5),
     登录次数: d.loginCount,
     用户登录数: d.userCount,
     _fullDay: d.day,
   }));
 
-  const cityData = loginStats?.cityBreakdown ?? [];
+  const cityData = cityStats?.cityBreakdown ?? [];
 
   return (
     <div className="space-y-8">
@@ -498,7 +507,7 @@ function Dashboard() {
             <h3 className="text-base font-bold text-blue-900">近 14 天用户访问趋势</h3>
             <p className="text-xs text-slate-400 mt-0.5">点击折线上的日期点，柱图将切换到该日城市分布</p>
           </div>
-          {statsLoading && <Loader2 size={16} className="animate-spin text-slate-400" />}
+          {trendLoading && <Loader2 size={16} className="animate-spin text-slate-400" />}
         </div>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={trendData} onClick={handleLineDotClick} style={{ cursor: "pointer" }}>
@@ -531,7 +540,7 @@ function Dashboard() {
             className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
           />
         </div>
-        {statsLoading ? (
+        {cityLoading ? (
           <div className="flex items-center justify-center h-48">
             <Loader2 size={24} className="animate-spin text-slate-300" />
           </div>

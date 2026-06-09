@@ -228,6 +228,7 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/activities",    permission: "activities" },
   { prefix: "/api/admin/login-logs",    permission: "operation" },
   { prefix: "/api/admin/login-stats",   permission: "operation" },
+  { prefix: "/api/admin/login-city",    permission: "operation" },
 ];
 
 import { Request, Response, NextFunction } from "express";
@@ -3955,11 +3956,9 @@ router.get("/admin/login-logs", async (req, res) => {
   }
 });
 
-router.get("/admin/login-stats", async (req, res) => {
+// 14-day login trend (independent of date selection)
+router.get("/admin/login-stats", async (_req, res) => {
   try {
-    const { date } = req.query as { date?: string };
-
-    // 14-day trend: login count and unique user count per day
     const trendRows = await db.execute(sql`
       SELECT
         DATE(created_at) AS day,
@@ -3977,7 +3976,6 @@ router.get("/admin/login-stats", async (req, res) => {
       userCount: Number(r.user_count),
     }));
 
-    // Fill in missing days with zeros
     const days14: { day: string; loginCount: number; userCount: number }[] = [];
     for (let i = 13; i >= 0; i--) {
       const d = new Date();
@@ -3987,8 +3985,19 @@ router.get("/admin/login-stats", async (req, res) => {
       days14.push(found ?? { day: dayStr, loginCount: 0, userCount: 0 });
     }
 
-    // City breakdown for a specific date (defaults to today)
+    return res.json({ days14 });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取登录趋势失败" });
+  }
+});
+
+// City breakdown for a specific date
+router.get("/admin/login-city", async (req, res) => {
+  try {
+    const { date } = req.query as { date?: string };
     const targetDate = date ?? new Date().toISOString().substring(0, 10);
+
     const cityRows = await db.execute(sql`
       SELECT
         COALESCE(city, '未知') AS city,
@@ -4007,10 +4016,10 @@ router.get("/admin/login-stats", async (req, res) => {
       userCount: Number(r.user_count),
     }));
 
-    return res.json({ days14, cityBreakdown, date: targetDate });
+    return res.json({ cityBreakdown, date: targetDate });
   } catch (err) {
     logger.error({ err }, "Route handler error");
-    return res.status(500).json({ error: "获取登录统计失败" });
+    return res.status(500).json({ error: "获取城市分布失败" });
   }
 });
 
