@@ -119,7 +119,7 @@ function Header() {
         </div>
         <h1 className="text-[36px] font-black tracking-[0.06em] text-white"
           style={{ textShadow: "0 0 40px rgba(168,85,247,0.3)" }}>
-          接单吧 OPC 撮合交易平台 · 数据大屏
+          接单吧 OPC 接单平台 · 数据大屏
         </h1>
       </div>
 

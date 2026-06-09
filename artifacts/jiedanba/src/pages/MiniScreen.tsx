@@ -570,7 +570,7 @@ export default function MiniScreen() {
           </div>
           <span style={{ fontSize: 10, color: C.cyan, fontWeight: 600, letterSpacing: '0.04em',
             textShadow: `0 0 12px ${C.cyan}60`, fontFamily: FONT }}>
-            接单吧 OPC 撮合交易平台
+            接单吧 OPC 接单平台
           </span>
         </div>
         <div style={{ textAlign: 'right' }}>
