@@ -113,7 +113,7 @@ function Header() {
           <div className="h-px w-24"
             style={{ background: "linear-gradient(to right, transparent, rgba(192,132,252,0.5))" }} />
           <span className="text-[11px] tracking-[0.25em] font-light"
-            style={{ color: "rgba(255,255,255,0.45)" }}>OPC撮合交易平台</span>
+            style={{ color: "rgba(255,255,255,0.45)" }}>OPC接单平台</span>
           <div className="h-px w-24"
             style={{ background: "linear-gradient(to left, transparent, rgba(192,132,252,0.5))" }} />
         </div>
