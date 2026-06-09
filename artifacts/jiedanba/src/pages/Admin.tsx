@@ -7795,12 +7795,14 @@ const PERM_LABELS: Record<string, string> = {
   sensitivewords: "敏感词管理",
   settings:       "站点设置",
   screen:         "数据大屏",
+  operation:      "运营管理",
 };
 
 const PERM_SUB: Record<string, string> = {
-  finance:  "财务管理 · 结算账户审核",
-  settings: "站点设置 · 智能体配置",
-  screen:   "横屏大屏 · 竖屏大屏",
+  finance:    "财务管理 · 结算账户审核",
+  settings:   "站点设置 · 智能体配置",
+  screen:     "横屏大屏 · 竖屏大屏",
+  operation:  "运营管理 · 用户登录数据",
 };
 
 const ALL_PERM_KEYS = Object.keys(PERM_LABELS);
