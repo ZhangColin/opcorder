@@ -430,7 +430,7 @@ export default function AccountSettings() {
         if (!sf.businessLicenseUrl?.trim()) missingFields.push("营业执照");
         if (!sf.legalRepIdFrontUrl?.trim()) missingFields.push("法人身份证正面");
         if (!sf.legalRepIdBackUrl?.trim()) missingFields.push("法人身份证背面");
-        if (!sf.ccbMerchantNo?.trim()) missingFields.push("建行商家编号");
+
         if (missingFields.length > 0) {
           toast({ title: "请填写完整结算信息", description: `缺少：${missingFields.join("、")}`, variant: "destructive" });
           setSaving(false);
