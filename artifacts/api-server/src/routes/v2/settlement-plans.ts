@@ -1,0 +1,154 @@
+import { Router, type IRouter, type Request, type Response } from "express";
+import {
+  db, v2SettlementPlansTable, v2OutsourceOrdersTable, usersTable,
+} from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
+import { requireAuth } from "../../middleware/auth";
+import { requireAdmin } from "../../middleware/adminAuth";
+import { notify } from "./utils";
+import { logger } from "../../lib/logger";
+
+const router: IRouter = Router();
+
+router.get("/settlement-plans", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+    const { outsourceOrderId, status } = req.query as Record<string, string>;
+    if (role === "publisher") return res.status(403).json({ error: "发单方无权查看结算计划" });
+
+    const conditions: any[] = [];
+    if (outsourceOrderId) conditions.push(eq(v2SettlementPlansTable.outsourceOrderId, parseInt(outsourceOrderId)));
+    if (status) conditions.push(eq(v2SettlementPlansTable.status, status as any));
+
+    if (role === "opc") {
+      const myOrders = await db
+        .select({ id: v2OutsourceOrdersTable.id })
+        .from(v2OutsourceOrdersTable)
+        .where(eq(v2OutsourceOrdersTable.opcId, userId));
+      const ids = myOrders.map(o => o.id);
+      if (ids.length === 0) return res.json([]);
+    }
+
+    const rows = await db
+      .select()
+      .from(v2SettlementPlansTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(v2SettlementPlansTable.dueDate);
+
+    const now = new Date();
+    const enriched = rows.map(r => ({
+      ...r,
+      isOverdue: r.status === "pending" && r.dueDate < now,
+    }));
+
+    return res.json(enriched);
+  } catch (err) {
+    logger.error({ err }, "GET /v2/settlement-plans failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.post("/settlement-plans", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { outsourceOrderId, contractId, itemNo, description, amount, dueDate, isLastItem } = req.body as {
+      outsourceOrderId: number; contractId?: number; itemNo?: number;
+      description?: string; amount: number; dueDate: string; isLastItem?: boolean;
+    };
+    if (!outsourceOrderId || typeof amount !== "number" || !dueDate) {
+      return res.status(400).json({ error: "outsourceOrderId、amount、dueDate 必填" });
+    }
+
+    const [order] = await db.select({ opcId: v2OutsourceOrdersTable.opcId, orderNo: v2OutsourceOrdersTable.orderNo })
+      .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, outsourceOrderId)).limit(1);
+    if (!order) return res.status(404).json({ error: "外包订单不存在" });
+
+    const [created] = await db.insert(v2SettlementPlansTable).values({
+      outsourceOrderId,
+      contractId,
+      itemNo: itemNo ?? 1,
+      description,
+      amount,
+      dueDate: new Date(dueDate),
+      isLastItem: !!isLastItem,
+      createdBy: userId,
+    }).returning();
+
+    return res.status(201).json(created);
+  } catch (err) {
+    logger.error({ err }, "POST /v2/settlement-plans failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.patch("/settlement-plans/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [plan] = await db.select().from(v2SettlementPlansTable).where(eq(v2SettlementPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "结算计划不存在" });
+    if (plan.status === "paid") return res.status(400).json({ error: "已结算的计划不可修改" });
+
+    const { itemNo, description, amount, dueDate, isLastItem } = req.body as any;
+    const updates: any = { updatedAt: new Date() };
+    if (itemNo !== undefined) updates.itemNo = itemNo;
+    if (description !== undefined) updates.description = description;
+    if (amount !== undefined) updates.amount = amount;
+    if (dueDate !== undefined) updates.dueDate = new Date(dueDate);
+    if (isLastItem !== undefined) updates.isLastItem = !!isLastItem;
+
+    const [updated] = await db.update(v2SettlementPlansTable).set(updates)
+      .where(eq(v2SettlementPlansTable.id, id)).returning();
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /v2/settlement-plans/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.post("/settlement-plans/:id/mark-paid", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const [plan] = await db.select().from(v2SettlementPlansTable).where(eq(v2SettlementPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "结算计划不存在" });
+    if (plan.status === "paid") return res.status(400).json({ error: "已结算" });
+
+    const { paymentRef, paymentNote } = req.body as { paymentRef?: string; paymentNote?: string };
+
+    const [updated] = await db.update(v2SettlementPlansTable)
+      .set({
+        status: "paid",
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+        paidAt: new Date(),
+        paymentRef,
+        paymentNote,
+        updatedAt: new Date(),
+      })
+      .where(eq(v2SettlementPlansTable.id, id))
+      .returning();
+
+    const [order] = await db.select({ opcId: v2OutsourceOrdersTable.opcId, orderNo: v2OutsourceOrdersTable.orderNo })
+      .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, plan.outsourceOrderId)).limit(1);
+    if (order) {
+      await notify(order.opcId, "v2_settlement_paid", "结算款已打款",
+        `外包订单 ${order.orderNo} 第 ${plan.itemNo} 期结算款 ¥${plan.amount.toLocaleString()} 已完成打款，请确认到账。`, plan.outsourceOrderId, "v2_outsource_order");
+
+      if (plan.isLastItem) {
+        await db.update(v2OutsourceOrdersTable)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(v2OutsourceOrdersTable.id, plan.outsourceOrderId));
+        await notify(order.opcId, "v2_settlement_paid", "外包订单已完成结算",
+          `外包订单 ${order.orderNo} 全部款项已结清，订单已关闭，感谢您的服务！`, plan.outsourceOrderId, "v2_outsource_order");
+      }
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "POST /v2/settlement-plans/:id/mark-paid failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+export default router;

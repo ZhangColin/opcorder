@@ -20,6 +20,7 @@ import screenVideosRouter from "./screen-videos";
 import activitiesRouter from "./activities";
 import agentRouter from "./agent";
 import catCategoriesRouter from "./cat-categories";
+import v2Router from "./v2/index";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(screenVideosRouter);
 router.use(activitiesRouter);
 router.use(agentRouter);
 router.use(catCategoriesRouter);
+router.use("/v2", v2Router);
 
 export default router;

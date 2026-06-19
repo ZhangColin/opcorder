@@ -7,6 +7,8 @@ import {
   notificationsTable,
   demandPaymentsTable,
   usersTable,
+  v2ClientDemandsTable,
+  v2OutsourceOrdersTable,
 } from "@workspace/db";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { logger } from "./logger";
@@ -237,6 +239,72 @@ async function pollOnlineRefundStatus() {
 }
 
 /* ─────────────────────────────────────────────────
+   JOB 4: V2 warranty auto-complete
+   Once warrantyEndDate has passed, mark v2_client_demands and
+   v2_outsource_orders as 'completed'.
+   ───────────────────────────────────────────────── */
+async function autoCompleteV2WarrantyPeriods() {
+  try {
+    const now = new Date();
+
+    const expiredClientDemands = await db
+      .select({ id: v2ClientDemandsTable.id, publisherId: v2ClientDemandsTable.publisherId, title: v2ClientDemandsTable.title })
+      .from(v2ClientDemandsTable)
+      .where(and(
+        eq(v2ClientDemandsTable.status, "warranty"),
+        lt(v2ClientDemandsTable.warrantyEndDate, now),
+      ));
+
+    for (const demand of expiredClientDemands) {
+      await db.update(v2ClientDemandsTable)
+        .set({ status: "completed", updatedAt: now })
+        .where(eq(v2ClientDemandsTable.id, demand.id));
+      await db.insert(notificationsTable).values({
+        userId: demand.publisherId,
+        type: "order_completed",
+        title: "需求质保期已满，项目完成",
+        content: `需求「${demand.title}」质保期已结束，项目已自动完成。`,
+        relatedId: demand.id,
+        relatedType: "v2_client_demand",
+      });
+      logger.info({ demandId: demand.id }, "V2 client demand warranty expired → completed");
+    }
+
+    const expiredOrders = await db
+      .select({ id: v2OutsourceOrdersTable.id, opcId: v2OutsourceOrdersTable.opcId, orderNo: v2OutsourceOrdersTable.orderNo })
+      .from(v2OutsourceOrdersTable)
+      .where(and(
+        eq(v2OutsourceOrdersTable.status, "warranty"),
+        lt(v2OutsourceOrdersTable.warrantyEndDate, now),
+      ));
+
+    for (const order of expiredOrders) {
+      await db.update(v2OutsourceOrdersTable)
+        .set({ status: "completed", updatedAt: now })
+        .where(eq(v2OutsourceOrdersTable.id, order.id));
+      await db.insert(notificationsTable).values({
+        userId: order.opcId,
+        type: "order_completed",
+        title: "外包订单质保期已满，已完成",
+        content: `外包订单 ${order.orderNo} 质保期已结束，订单已自动完成。`,
+        relatedId: order.id,
+        relatedType: "v2_outsource_order",
+      });
+      logger.info({ orderId: order.id }, "V2 outsource order warranty expired → completed");
+    }
+
+    if (expiredClientDemands.length > 0 || expiredOrders.length > 0) {
+      logger.info(
+        { clientDemands: expiredClientDemands.length, orders: expiredOrders.length },
+        "V2 warranty auto-complete job ran"
+      );
+    }
+  } catch (err) {
+    logger.error({ err }, "V2 warranty auto-complete job failed");
+  }
+}
+
+/* ─────────────────────────────────────────────────
    Start all scheduled jobs
    ───────────────────────────────────────────────── */
 export function startScheduler() {
@@ -251,5 +319,8 @@ export function startScheduler() {
   pollOnlineRefundStatus();
   setInterval(pollOnlineRefundStatus, 5 * 60 * 1000); // every 5 min
 
-  logger.info("Background scheduler started (48h auto-convert every 15min, 7-day auto-accept every 1h, refund poll every 5min)");
+  autoCompleteV2WarrantyPeriods();
+  setInterval(autoCompleteV2WarrantyPeriods, HOUR_MS); // hourly
+
+  logger.info("Background scheduler started (48h auto-convert every 15min, 7-day auto-accept every 1h, refund poll every 5min, v2 warranty every 1h)");
 }
