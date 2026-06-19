@@ -39,7 +39,7 @@ interface Tender {
 
 interface Version {
   id: number;
-  version: number;
+  versionNo: number;
   detail: string;
   createdAt: string;
   editorNickname?: string;

@@ -216,22 +216,6 @@ router.post("/tenders/:id/select-winner", requireAdmin, async (req: Request, res
       .set({ status: "executing", updatedAt: new Date() })
       .where(eq(v2OutsourceDemandsTable.id, tender.outsourceDemandId));
 
-    const otherTenders = await db
-      .select({ id: v2TendersTable.id, opcId: v2TendersTable.opcId })
-      .from(v2TendersTable)
-      .where(and(
-        eq(v2TendersTable.outsourceDemandId, tender.outsourceDemandId),
-        inArray(v2TendersTable.status, ["negotiating", "quoted"]),
-      ));
-
-    for (const other of otherTenders) {
-      await db.update(v2TendersTable)
-        .set({ status: "lost", updatedAt: new Date() })
-        .where(eq(v2TendersTable.id, other.id));
-      await notify(other.opcId, "v2_tender_lost", "本次外包投标未中选",
-        `很遗憾，外包需求「${demand.title}」本次已选定其他 OPC，感谢您的参与。`, tender.outsourceDemandId, "v2_outsource_demand");
-    }
-
     const contractNo = await genContractNo("b");
     const [contract] = await db.insert(v2ContractsTable).values({
       contractNo,
