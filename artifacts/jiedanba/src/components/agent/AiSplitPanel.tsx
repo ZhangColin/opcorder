@@ -146,7 +146,7 @@ function SplitCard({ split, onApply, onCreateDraft }: {
               created ? "bg-green-50 text-green-600 border border-green-200" : "bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
             }`}
           >
-            {creating ? <Loader2 size={12} className="animate-spin" /> : created ? <><CheckCircle2 size={12} /> 已创建草稿</> : <><Scissors size={12} /> 创建草稿</>}
+            {creating ? <Loader2 size={12} className="animate-spin" /> : created ? <><CheckCircle2 size={12} /> 已创建需求</> : <><Scissors size={12} /> 立即创建需求</>}
           </button>
         )}
       </div>

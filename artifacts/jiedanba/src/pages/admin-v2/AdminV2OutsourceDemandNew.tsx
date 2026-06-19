@@ -92,7 +92,7 @@ export default function AdminV2OutsourceDemandNew() {
       isUrgent: false,
     };
     await v2Post<{ id: number }>("/outsource-demands", payload);
-    toast({ title: "草稿已创建", description: `「${suggestion.title}」已保存为外包需求草稿` });
+    toast({ title: "外包需求已创建", description: `「${suggestion.title}」已创建并进入竞价阶段` });
   };
 
   const handleOpcSearch = async () => {

@@ -12,6 +12,7 @@ const router: IRouter = Router();
 const DEMAND_ANALYSIS_SCENE_KEY = "demand_analysis";
 
 const TOOL_FREE_SCENE_KEYS = new Set(["v2_outsource_split"]);
+const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split"]);
 
 type PersistedMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -168,6 +169,10 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 
   if (!message || typeof message !== "string" || message.trim() === "") {
     return res.status(400).json({ error: "消息内容不能为空" });
+  }
+
+  if (ADMIN_ONLY_SCENE_KEYS.has(resolvedSceneKey) && req.user!.role !== "admin") {
+    return res.status(403).json({ error: "无权访问此智能体场景" });
   }
 
   let config: Awaited<ReturnType<typeof getAgentConfig>>;
