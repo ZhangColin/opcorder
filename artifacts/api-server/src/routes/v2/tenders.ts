@@ -3,7 +3,7 @@ import {
   db, v2TendersTable, v2OutsourceDemandsTable, v2OutsourceOrdersTable,
   v2ContractsTable, v2ClientDemandsTable, usersTable,
 } from "@workspace/db";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genOutsourceOrderNo, genContractNo } from "./utils";
@@ -177,7 +177,7 @@ router.post("/tenders/:id/select-winner", requireAdmin, async (req: Request, res
 
     const [tender] = await db.select().from(v2TendersTable).where(eq(v2TendersTable.id, id)).limit(1);
     if (!tender) return res.status(404).json({ error: "投标不存在" });
-    if (!["negotiating", "quoted"].includes(tender.status)) return res.status(400).json({ error: "投标状态不可选定" });
+    if (tender.status !== "quoted") return res.status(400).json({ error: "仅已报价投标可被选定" });
 
     const [demand] = await db.select().from(v2OutsourceDemandsTable)
       .where(eq(v2OutsourceDemandsTable.id, tender.outsourceDemandId)).limit(1);
@@ -221,7 +221,7 @@ router.post("/tenders/:id/select-winner", requireAdmin, async (req: Request, res
       .from(v2TendersTable)
       .where(and(
         eq(v2TendersTable.outsourceDemandId, tender.outsourceDemandId),
-        eq(v2TendersTable.status, "negotiating"),
+        inArray(v2TendersTable.status, ["negotiating", "quoted"]),
       ));
 
     for (const other of otherTenders) {

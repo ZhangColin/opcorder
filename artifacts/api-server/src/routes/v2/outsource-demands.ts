@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2OutsourceDemandsTable, v2OutsourceDemandVersionsTable,
-  v2TendersTable, v2ClientDemandsTable, usersTable,
+  v2TendersTable, v2OutsourceOrdersTable, v2ClientDemandsTable, usersTable,
 } from "@workspace/db";
 import { eq, and, or, desc, count, ilike, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -77,10 +77,11 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
 router.post("/outsource-demands", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { clientDemandId, title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds } = req.body as {
+    const { clientDemandId, title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds, detail, attachments } = req.body as {
       clientDemandId?: number; title: string; demandType?: string; isUrgent?: boolean;
       mode?: "public" | "invited"; expectedPriceMin?: number; expectedPriceMax?: number;
       milestones?: any[]; invitedOpcIds?: number[];
+      detail?: string; attachments?: Array<{ name: string; url: string; size?: number }>;
     };
     if (!title?.trim()) return res.status(400).json({ error: "标题不能为空" });
 
@@ -98,6 +99,14 @@ router.post("/outsource-demands", requireAdmin, async (req: Request, res: Respon
       milestones: milestones ?? [],
       status: "negotiating",
     }).returning();
+
+    await db.insert(v2OutsourceDemandVersionsTable).values({
+      outsourceDemandId: created.id,
+      versionNo: 1,
+      detail: detail ?? "",
+      attachments: attachments ?? [],
+      editedBy: userId,
+    });
 
     if (mode === "invited" && Array.isArray(invitedOpcIds) && invitedOpcIds.length > 0) {
       for (const opcId of invitedOpcIds) {
@@ -255,9 +264,20 @@ router.post("/outsource-demands/:id/close", requireAdmin, async (req: Request, r
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
 
-    const closable = ["negotiating", "executing"];
-    if (!closable.includes(demand.status)) {
-      return res.status(400).json({ error: "当前状态不可关闭" });
+    if (demand.status !== "negotiating") {
+      return res.status(400).json({ error: "仅未签约阶段（竞价中）的外包需求可关闭" });
+    }
+
+    const activeOrder = await db
+      .select({ id: v2OutsourceOrdersTable.id })
+      .from(v2OutsourceOrdersTable)
+      .where(and(
+        eq(v2OutsourceOrdersTable.outsourceDemandId, id),
+        inArray(v2OutsourceOrdersTable.status, ["pending_contract", "executing", "warranty"]),
+      ))
+      .limit(1);
+    if (activeOrder.length > 0) {
+      return res.status(400).json({ error: "存在进行中的外包订单，无法关闭需求" });
     }
 
     const { reason } = req.body as { reason?: string };
