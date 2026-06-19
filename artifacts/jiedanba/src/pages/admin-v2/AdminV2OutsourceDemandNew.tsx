@@ -83,6 +83,18 @@ export default function AdminV2OutsourceDemandNew() {
     toast({ title: "拆分方案已应用", description: "已填入标题和详情，请继续完善其他字段" });
   };
 
+  const handleCreateDraft = async (suggestion: SplitSuggestion) => {
+    const payload = {
+      title: suggestion.title,
+      detail: suggestion.detail || null,
+      clientDemandId: splitClientDemand?.id ? splitClientDemand.id : null,
+      mode: "public",
+      isUrgent: false,
+    };
+    await v2Post<{ id: number }>("/outsource-demands", payload);
+    toast({ title: "草稿已创建", description: `「${suggestion.title}」已保存为外包需求草稿` });
+  };
+
   const handleOpcSearch = async () => {
     if (!opcSearch.trim()) return;
     setSearchingOpc(true);
@@ -148,6 +160,7 @@ export default function AdminV2OutsourceDemandNew() {
       onClose={() => setSplitPanelOpen(false)}
       clientDemand={splitClientDemand}
       onApply={handleSplitApply}
+      onCreateDraft={handleCreateDraft}
     />
     <AdminV2Layout title="新建外包需求" backHref="/admin/v2/outsource-demands" backLabel="外包需求">
       <div className="mt-6 space-y-4 max-w-2xl">

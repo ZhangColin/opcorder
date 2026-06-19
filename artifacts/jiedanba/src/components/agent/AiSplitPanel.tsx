@@ -22,6 +22,7 @@ interface AiSplitPanelProps {
   onClose: () => void;
   clientDemand: { id: number; title: string; detail?: string | null } | null;
   onApply: (suggestion: SplitSuggestion) => void;
+  onCreateDraft?: (suggestion: SplitSuggestion) => Promise<void>;
 }
 
 function extractJsonArray(str: string): { json: string; end: number } | null {
@@ -100,9 +101,22 @@ function FormattedContent({ content }: { content: string }) {
   );
 }
 
-function SplitCard({ split, onApply }: { split: SplitSuggestion; onApply: () => void }) {
+function SplitCard({ split, onApply, onCreateDraft }: {
+  split: SplitSuggestion;
+  onApply: () => void;
+  onCreateDraft?: () => Promise<void>;
+}) {
   const [applied, setApplied] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState(false);
+
   const handleApply = () => { onApply(); setApplied(true); };
+  const handleCreate = async () => {
+    if (!onCreateDraft || creating || created) return;
+    setCreating(true);
+    try { await onCreateDraft(); setCreated(true); } finally { setCreating(false); }
+  };
+
   return (
     <div className="border border-violet-200 bg-violet-50/60 rounded-xl overflow-hidden shadow-sm">
       <div className="px-3 py-2 bg-violet-100 border-b border-violet-200 flex items-center gap-2">
@@ -114,22 +128,33 @@ function SplitCard({ split, onApply }: { split: SplitSuggestion; onApply: () => 
           {split.detail.slice(0, 160)}{split.detail.length > 160 ? "…" : ""}
         </div>
       )}
-      <div className="px-3 pb-2">
+      <div className="px-3 pb-2 flex gap-2">
         <button
           onClick={handleApply}
           disabled={applied}
-          className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            applied ? "bg-green-50 text-green-600 border border-green-200" : "bg-violet-600 text-white hover:bg-violet-700"
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            applied ? "bg-green-50 text-green-600 border border-green-200" : "border border-violet-300 text-violet-600 hover:bg-violet-50"
           }`}
         >
-          {applied ? <><CheckCircle2 size={12} /> 已应用</> : <><ClipboardList size={12} /> 应用到表单</>}
+          {applied ? <><CheckCircle2 size={12} /> 已填入</> : <><ClipboardList size={12} /> 填入表单</>}
         </button>
+        {onCreateDraft && (
+          <button
+            onClick={handleCreate}
+            disabled={creating || created}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              created ? "bg-green-50 text-green-600 border border-green-200" : "bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+            }`}
+          >
+            {creating ? <Loader2 size={12} className="animate-spin" /> : created ? <><CheckCircle2 size={12} /> 已创建草稿</> : <><Scissors size={12} /> 创建草稿</>}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-export function AiSplitPanel({ open, onClose, clientDemand, onApply }: AiSplitPanelProps) {
+export function AiSplitPanel({ open, onClose, clientDemand, onApply, onCreateDraft }: AiSplitPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -354,7 +379,12 @@ export function AiSplitPanel({ open, onClose, clientDemand, onApply }: AiSplitPa
                     <div className="space-y-2">
                       <p className="text-xs font-bold text-slate-500 px-1">拆分方案建议</p>
                       {msg.splits.map((split, si) => (
-                        <SplitCard key={si} split={split} onApply={() => onApply(split)} />
+                        <SplitCard
+                          key={si}
+                          split={split}
+                          onApply={() => onApply(split)}
+                          onCreateDraft={onCreateDraft ? () => onCreateDraft(split) : undefined}
+                        />
                       ))}
                     </div>
                   )}
