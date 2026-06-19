@@ -92,6 +92,7 @@ router.post("/settlement-plans", requireAdmin, async (req: Request, res: Respons
     const [created] = await db.insert(v2SettlementPlansTable).values({
       outsourceOrderId,
       contractId,
+      opcId: order.opcId,
       itemNo: itemNo ?? 1,
       description,
       amount,
@@ -153,15 +154,14 @@ router.post("/settlement-plans/:id/mark-paid", requireAdmin, async (req: Request
       }
     }
 
-    const { paymentRef, paymentNote } = req.body as { paymentRef?: string; paymentNote?: string };
+    const { paymentVoucherUrl, paymentNote } = req.body as { paymentVoucherUrl?: string; paymentNote?: string };
 
     const [updated] = await db.update(v2SettlementPlansTable)
       .set({
         status: "paid",
-        reviewedBy: userId,
-        reviewedAt: new Date(),
+        paidBy: userId,
         paidAt: new Date(),
-        paymentRef,
+        paymentVoucherUrl,
         paymentNote,
         updatedAt: new Date(),
       })
