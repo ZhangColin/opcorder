@@ -153,6 +153,15 @@ router.get("/outsource-demands/:id", requireAuth, async (req: Request, res: Resp
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
 
+    if (role === "opc" && demand.mode === "invited") {
+      const [myTender] = await db
+        .select({ id: v2TendersTable.id })
+        .from(v2TendersTable)
+        .where(and(eq(v2TendersTable.outsourceDemandId, id), eq(v2TendersTable.opcId, userId)))
+        .limit(1);
+      if (!myTender) return res.status(403).json({ error: "无权查看此外包需求" });
+    }
+
     const [latestVersion] = await db
       .select()
       .from(v2OutsourceDemandVersionsTable)
@@ -305,7 +314,23 @@ router.post("/outsource-demands/:id/close", requireAdmin, async (req: Request, r
 router.get("/outsource-demands/:id/versions", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    if (req.user!.role === "publisher") return res.status(403).json({ error: "无权访问" });
+    const userId = req.user!.id;
+    const role = req.user!.role;
+    if (role === "publisher") return res.status(403).json({ error: "无权访问" });
+
+    if (role === "opc") {
+      const [demand] = await db.select({ mode: v2OutsourceDemandsTable.mode })
+        .from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
+      if (!demand) return res.status(404).json({ error: "外包需求不存在" });
+      if (demand.mode === "invited") {
+        const [myTender] = await db
+          .select({ id: v2TendersTable.id })
+          .from(v2TendersTable)
+          .where(and(eq(v2TendersTable.outsourceDemandId, id), eq(v2TendersTable.opcId, userId)))
+          .limit(1);
+        if (!myTender) return res.status(403).json({ error: "无权查看此外包需求的版本历史" });
+      }
+    }
 
     const versions = await db
       .select({

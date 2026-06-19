@@ -144,7 +144,7 @@ export default function AdminV2OutsourceDemandDetail() {
     await act(async () => {
       await v2Post(`/outsource-demands/${id}/update-detail`, {
         detail: newDetail.trim(),
-        comment: updateComment.trim() || undefined,
+        editComment: updateComment.trim() || undefined,
       });
       setShowUpdateDetail(false);
       setNewDetail(""); setUpdateComment("");
@@ -299,7 +299,7 @@ export default function AdminV2OutsourceDemandDetail() {
               {versions.map(v => (
                 <div key={v.id} className="border border-slate-100 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-primary">版本 {v.version}</span>
+                    <span className="text-xs font-bold text-primary">版本 {v.versionNo}</span>
                     <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleString("zh-CN")}</span>
                   </div>
                   <div className="text-sm text-slate-600 max-h-40 overflow-y-auto">
