@@ -152,8 +152,13 @@ router.post("/contracts/:id/publisher-confirm", requireAuth, async (req: Request
 
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
+    if (contract.channel !== "a") return res.status(403).json({ error: "仅A通道合同需发单方确认" });
+    if (contract.clientDemandId) {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
+      if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权操作此合同" });
+    }
     if (contract.status !== "pending_publisher_confirm") return res.status(400).json({ error: "合同不在待确认状态" });
-    if (contract.channel !== "a") return res.status(400).json({ error: "仅A通道合同需发单方确认" });
 
     const [updated] = await db.update(v2ContractsTable)
       .set({ status: "pending_sign", publisherConfirmedAt: new Date(), updatedAt: new Date() })
@@ -181,6 +186,12 @@ router.post("/contracts/:id/publisher-reject", requireAuth, async (req: Request,
 
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
+    if (contract.channel !== "a") return res.status(403).json({ error: "仅A通道合同可退回" });
+    if (contract.clientDemandId) {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
+      if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权操作此合同" });
+    }
     if (contract.status !== "pending_publisher_confirm") return res.status(400).json({ error: "合同不在待确认状态" });
 
     const { reason } = req.body as { reason?: string };
