@@ -1595,5 +1595,477 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 031a: created user_login_logs table");
   });
 
+  // ── V2 Business Flow Migrations ───────────────────────────────────────────
+
+  // Migration 032a: v2 enums
+  await once("032a", true, async () => {
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_client_demand_status AS ENUM (
+          'draft','negotiating','quoting','pending_contract','executing','warranty','completed','closed'
+        );
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_outsource_demand_status AS ENUM (
+          'negotiating','executing','warranty','completed','closed'
+        );
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_outsource_demand_mode AS ENUM ('public','invited');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_tender_status AS ENUM ('negotiating','quoted','won','lost');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_outsource_order_status AS ENUM (
+          'pending_contract','executing','warranty','completed','cancelled'
+        );
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_quotation_card_parent_type AS ENUM ('client_demand','tender');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_contract_channel AS ENUM ('a','b');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_contract_status AS ENUM (
+          'draft','pending_publisher_confirm','publisher_rejected','pending_sign','signed'
+        );
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_payment_plan_status AS ENUM ('pending','awaiting_review','paid');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_settlement_plan_status AS ENUM ('pending','payable','paid');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_deliverable_status AS ENUM ('pending','confirmed','revision','approved');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_ticket_status AS ENUM ('open','closed');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE v2_discussion_parent_type AS ENUM (
+          'client_demand','outsource_demand','tender',
+          'deliverable_a','deliverable_b','ticket_a','ticket_b'
+        );
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
+    logger.info("Migration 032a: created v2 enums");
+  });
+
+  // Migration 032b: v2_client_demands and v2_client_demand_versions
+  await once("032b", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_client_demands (
+        id serial PRIMARY KEY,
+        demand_no varchar(50) NOT NULL UNIQUE,
+        publisher_id integer NOT NULL REFERENCES users(id),
+        title varchar(200) NOT NULL,
+        demand_type varchar(50),
+        is_urgent boolean NOT NULL DEFAULT false,
+        budget_min real,
+        budget_max real,
+        hope_delivery_date timestamp,
+        status v2_client_demand_status NOT NULL DEFAULT 'draft',
+        warranty_end_date timestamp,
+        closed_reason text,
+        closed_by integer REFERENCES users(id),
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_client_demands_publisher_idx ON v2_client_demands(publisher_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_client_demands_status_idx ON v2_client_demands(status)`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_client_demand_versions (
+        id serial PRIMARY KEY,
+        demand_id integer NOT NULL REFERENCES v2_client_demands(id) ON DELETE CASCADE,
+        version_no integer NOT NULL DEFAULT 1,
+        detail text NOT NULL DEFAULT '',
+        attachments jsonb NOT NULL DEFAULT '[]',
+        edited_by integer REFERENCES users(id),
+        edit_comment text,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_client_demand_versions_demand_idx ON v2_client_demand_versions(demand_id)`);
+    logger.info("Migration 032b: created v2_client_demands and versions");
+  });
+
+  // Migration 032c: v2_outsource_demands and v2_outsource_demand_versions
+  await once("032c", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_outsource_demands (
+        id serial PRIMARY KEY,
+        demand_no varchar(50) NOT NULL UNIQUE,
+        client_demand_id integer REFERENCES v2_client_demands(id) ON DELETE SET NULL,
+        created_by integer NOT NULL REFERENCES users(id),
+        title varchar(200) NOT NULL,
+        demand_type varchar(50),
+        is_urgent boolean NOT NULL DEFAULT false,
+        mode v2_outsource_demand_mode NOT NULL DEFAULT 'public',
+        expected_price_min real,
+        expected_price_max real,
+        milestones jsonb NOT NULL DEFAULT '[]',
+        status v2_outsource_demand_status NOT NULL DEFAULT 'negotiating',
+        closed_reason text,
+        closed_by integer REFERENCES users(id),
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_demands_client_demand_idx ON v2_outsource_demands(client_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_demands_status_idx ON v2_outsource_demands(status)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_demands_mode_idx ON v2_outsource_demands(mode)`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_outsource_demand_versions (
+        id serial PRIMARY KEY,
+        outsource_demand_id integer NOT NULL REFERENCES v2_outsource_demands(id) ON DELETE CASCADE,
+        version_no integer NOT NULL DEFAULT 1,
+        detail text NOT NULL DEFAULT '',
+        attachments jsonb NOT NULL DEFAULT '[]',
+        edited_by integer REFERENCES users(id),
+        edit_comment text,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_demand_versions_demand_idx ON v2_outsource_demand_versions(outsource_demand_id)`);
+    logger.info("Migration 032c: created v2_outsource_demands and versions");
+  });
+
+  // Migration 032d: v2_tenders
+  await once("032d", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_tenders (
+        id serial PRIMARY KEY,
+        outsource_demand_id integer NOT NULL REFERENCES v2_outsource_demands(id) ON DELETE CASCADE,
+        opc_id integer NOT NULL REFERENCES users(id),
+        status v2_tender_status NOT NULL DEFAULT 'negotiating',
+        total_price real,
+        price_breakdown jsonb NOT NULL DEFAULT '[]',
+        quoted_at timestamp,
+        selected_by integer REFERENCES users(id),
+        selected_at timestamp,
+        cancelled_reason text,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tenders_outsource_demand_idx ON v2_tenders(outsource_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tenders_opc_idx ON v2_tenders(opc_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tenders_status_idx ON v2_tenders(status)`);
+    logger.info("Migration 032d: created v2_tenders");
+  });
+
+  // Migration 032e: v2_outsource_orders
+  await once("032e", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_outsource_orders (
+        id serial PRIMARY KEY,
+        order_no varchar(50) NOT NULL UNIQUE,
+        outsource_demand_id integer NOT NULL REFERENCES v2_outsource_demands(id),
+        tender_id integer NOT NULL REFERENCES v2_tenders(id),
+        opc_id integer NOT NULL REFERENCES users(id),
+        status v2_outsource_order_status NOT NULL DEFAULT 'pending_contract',
+        warranty_start_date timestamp,
+        warranty_end_date timestamp,
+        verified_by integer REFERENCES users(id),
+        verified_at timestamp,
+        cancelled_reason text,
+        cancelled_by integer REFERENCES users(id),
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_orders_demand_idx ON v2_outsource_orders(outsource_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_orders_tender_idx ON v2_outsource_orders(tender_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_orders_opc_idx ON v2_outsource_orders(opc_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_outsource_orders_status_idx ON v2_outsource_orders(status)`);
+    logger.info("Migration 032e: created v2_outsource_orders");
+  });
+
+  // Migration 032f: v2_quotation_cards
+  await once("032f", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_quotation_cards (
+        id serial PRIMARY KEY,
+        parent_type v2_quotation_card_parent_type NOT NULL,
+        client_demand_id integer REFERENCES v2_client_demands(id) ON DELETE CASCADE,
+        tender_id integer REFERENCES v2_tenders(id) ON DELETE CASCADE,
+        total_price real NOT NULL DEFAULT 0,
+        breakdown jsonb NOT NULL DEFAULT '[]',
+        note text,
+        created_by integer NOT NULL REFERENCES users(id),
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_quotation_cards_client_demand_idx ON v2_quotation_cards(client_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_quotation_cards_tender_idx ON v2_quotation_cards(tender_id)`);
+    logger.info("Migration 032f: created v2_quotation_cards");
+  });
+
+  // Migration 032g: v2_contracts
+  await once("032g", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_contracts (
+        id serial PRIMARY KEY,
+        contract_no varchar(50) NOT NULL UNIQUE,
+        channel v2_contract_channel NOT NULL,
+        client_demand_id integer REFERENCES v2_client_demands(id) ON DELETE CASCADE,
+        outsource_order_id integer REFERENCES v2_outsource_orders(id) ON DELETE CASCADE,
+        status v2_contract_status NOT NULL DEFAULT 'draft',
+        content text,
+        signed_file_url text,
+        publisher_confirmed_at timestamp,
+        publisher_rejected_at timestamp,
+        publisher_rejected_reason text,
+        opc_confirmed_at timestamp,
+        signed_at timestamp,
+        signed_by integer REFERENCES users(id),
+        finalized_by integer REFERENCES users(id),
+        finalized_at timestamp,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_contracts_client_demand_idx ON v2_contracts(client_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_contracts_outsource_order_idx ON v2_contracts(outsource_order_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_contracts_status_idx ON v2_contracts(status)`);
+    logger.info("Migration 032g: created v2_contracts");
+  });
+
+  // Migration 032h: v2_payment_plans (A channel) and v2_settlement_plans (B channel)
+  await once("032h", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_payment_plans (
+        id serial PRIMARY KEY,
+        client_demand_id integer NOT NULL REFERENCES v2_client_demands(id) ON DELETE CASCADE,
+        contract_id integer REFERENCES v2_contracts(id) ON DELETE SET NULL,
+        item_no integer NOT NULL DEFAULT 1,
+        description varchar(200),
+        amount real NOT NULL,
+        due_date timestamp NOT NULL,
+        status v2_payment_plan_status NOT NULL DEFAULT 'pending',
+        voucher_url text,
+        voucher_note text,
+        reviewed_by integer REFERENCES users(id),
+        reviewed_at timestamp,
+        paid_at timestamp,
+        is_last_item boolean NOT NULL DEFAULT false,
+        created_by integer NOT NULL REFERENCES users(id),
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_payment_plans_client_demand_idx ON v2_payment_plans(client_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_payment_plans_status_idx ON v2_payment_plans(status)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_payment_plans_due_date_idx ON v2_payment_plans(due_date)`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_settlement_plans (
+        id serial PRIMARY KEY,
+        outsource_order_id integer NOT NULL REFERENCES v2_outsource_orders(id) ON DELETE CASCADE,
+        contract_id integer REFERENCES v2_contracts(id) ON DELETE SET NULL,
+        opc_id integer NOT NULL REFERENCES users(id),
+        item_no integer NOT NULL DEFAULT 1,
+        description varchar(200),
+        amount real NOT NULL,
+        due_date timestamp NOT NULL,
+        status v2_settlement_plan_status NOT NULL DEFAULT 'pending',
+        is_last_item boolean NOT NULL DEFAULT false,
+        payment_voucher_url text,
+        payment_note text,
+        paid_by integer REFERENCES users(id),
+        paid_at timestamp,
+        bank_account_snapshot text,
+        created_by integer NOT NULL REFERENCES users(id),
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_settlement_plans_order_idx ON v2_settlement_plans(outsource_order_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_settlement_plans_opc_idx ON v2_settlement_plans(opc_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_settlement_plans_status_idx ON v2_settlement_plans(status)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_settlement_plans_due_date_idx ON v2_settlement_plans(due_date)`);
+    logger.info("Migration 032h: created v2_payment_plans and v2_settlement_plans");
+  });
+
+  // Migration 032i: v2_deliverables_a and v2_deliverables_b
+  await once("032i", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_deliverables_a (
+        id serial PRIMARY KEY,
+        client_demand_id integer NOT NULL REFERENCES v2_client_demands(id) ON DELETE CASCADE,
+        title varchar(200) NOT NULL,
+        content text,
+        attachments jsonb NOT NULL DEFAULT '[]',
+        status v2_deliverable_status NOT NULL DEFAULT 'pending',
+        created_by integer NOT NULL REFERENCES users(id),
+        confirmed_by integer REFERENCES users(id),
+        confirmed_at timestamp,
+        rejected_by integer REFERENCES users(id),
+        rejected_at timestamp,
+        rejected_reason text,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_deliverables_a_demand_idx ON v2_deliverables_a(client_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_deliverables_a_status_idx ON v2_deliverables_a(status)`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_deliverables_b (
+        id serial PRIMARY KEY,
+        outsource_order_id integer NOT NULL REFERENCES v2_outsource_orders(id) ON DELETE CASCADE,
+        title varchar(200) NOT NULL,
+        content text,
+        attachments jsonb NOT NULL DEFAULT '[]',
+        status v2_deliverable_status NOT NULL DEFAULT 'pending',
+        submitted_by integer NOT NULL REFERENCES users(id),
+        approved_by integer REFERENCES users(id),
+        approved_at timestamp,
+        rejected_by integer REFERENCES users(id),
+        rejected_at timestamp,
+        rejected_reason text,
+        submission_count integer NOT NULL DEFAULT 1,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_deliverables_b_order_idx ON v2_deliverables_b(outsource_order_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_deliverables_b_status_idx ON v2_deliverables_b(status)`);
+    logger.info("Migration 032i: created v2_deliverables_a and v2_deliverables_b");
+  });
+
+  // Migration 032j: v2_tickets_a and v2_tickets_b
+  await once("032j", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_tickets_a (
+        id serial PRIMARY KEY,
+        client_demand_id integer NOT NULL REFERENCES v2_client_demands(id) ON DELETE CASCADE,
+        title varchar(200) NOT NULL,
+        description text,
+        status v2_ticket_status NOT NULL DEFAULT 'open',
+        created_by integer NOT NULL REFERENCES users(id),
+        closed_by integer REFERENCES users(id),
+        closed_at timestamp,
+        closed_note text,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tickets_a_demand_idx ON v2_tickets_a(client_demand_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tickets_a_status_idx ON v2_tickets_a(status)`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_tickets_b (
+        id serial PRIMARY KEY,
+        outsource_order_id integer NOT NULL REFERENCES v2_outsource_orders(id) ON DELETE CASCADE,
+        opc_id integer NOT NULL REFERENCES users(id),
+        title varchar(200) NOT NULL,
+        description text,
+        status v2_ticket_status NOT NULL DEFAULT 'open',
+        created_by integer NOT NULL REFERENCES users(id),
+        closed_by integer REFERENCES users(id),
+        closed_at timestamp,
+        closed_note text,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tickets_b_order_idx ON v2_tickets_b(outsource_order_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tickets_b_opc_idx ON v2_tickets_b(opc_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_tickets_b_status_idx ON v2_tickets_b(status)`);
+    logger.info("Migration 032j: created v2_tickets_a and v2_tickets_b");
+  });
+
+  // Migration 032k: v2_discussion_posts (shared discussion thread component)
+  await once("032k", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS v2_discussion_posts (
+        id serial PRIMARY KEY,
+        parent_type v2_discussion_parent_type NOT NULL,
+        parent_id integer NOT NULL,
+        parent_post_id integer,
+        author_id integer NOT NULL REFERENCES users(id),
+        content text NOT NULL DEFAULT '',
+        attachments jsonb NOT NULL DEFAULT '[]',
+        is_system_message integer NOT NULL DEFAULT 0,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_discussion_posts_parent_idx ON v2_discussion_posts(parent_type, parent_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_discussion_posts_author_idx ON v2_discussion_posts(author_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS v2_discussion_posts_parent_post_idx ON v2_discussion_posts(parent_post_id)`);
+    logger.info("Migration 032k: created v2_discussion_posts");
+  });
+
+  // Migration 032l: extend notification_type enum with v2 event types
+  await once("032l", true, async () => {
+    const v2Types = [
+      "v2_demand_submitted",
+      "v2_demand_detail_updated",
+      "v2_quote_initiated",
+      "v2_quote_confirmed",
+      "v2_quote_commented",
+      "v2_contract_finalized",
+      "v2_contract_confirmed",
+      "v2_contract_rejected",
+      "v2_contract_signed",
+      "v2_payment_voucher_uploaded",
+      "v2_payment_approved",
+      "v2_delivery_a_created",
+      "v2_delivery_a_confirmed",
+      "v2_delivery_a_rejected",
+      "v2_warranty_started",
+      "v2_demand_verified",
+      "v2_ticket_a_created",
+      "v2_ticket_a_closed",
+      "v2_outsource_detail_updated",
+      "v2_tender_won",
+      "v2_tender_lost",
+      "v2_tender_cancelled",
+      "v2_delivery_b_submitted",
+      "v2_delivery_b_approved",
+      "v2_delivery_b_rejected",
+      "v2_settlement_paid",
+      "v2_ticket_b_created",
+      "v2_ticket_b_closed",
+      "v2_discussion_replied",
+    ];
+    for (const t of v2Types) {
+      await db.execute(sql`
+        DO $$ BEGIN
+          ALTER TYPE notification_type ADD VALUE IF NOT EXISTS ${sql.raw(`'${t}'`)};
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      `);
+    }
+    logger.info("Migration 032l: extended notification_type enum with v2 event types");
+  });
+
   logger.info("Startup data migrations complete.");
 }

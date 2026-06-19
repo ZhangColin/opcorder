@@ -6,7 +6,39 @@ import { z } from "zod/v4";
 export const notificationTypeEnum = pgEnum("notification_type", [
   "bid_received", "bid_accepted", "bid_rejected", "order_created",
   "delivery_submitted", "delivery_accepted", "delivery_rejected",
-  "directed_invite", "system", "order_completed", "dispute_raised"
+  "directed_invite", "system", "order_completed", "dispute_raised",
+  // V2 Channel A (Publisher ↔ Platform)
+  "v2_demand_submitted",
+  "v2_demand_detail_updated",
+  "v2_quote_initiated",
+  "v2_quote_confirmed",
+  "v2_quote_commented",
+  "v2_contract_finalized",
+  "v2_contract_confirmed",
+  "v2_contract_rejected",
+  "v2_contract_signed",
+  "v2_payment_voucher_uploaded",
+  "v2_payment_approved",
+  "v2_delivery_a_created",
+  "v2_delivery_a_confirmed",
+  "v2_delivery_a_rejected",
+  "v2_warranty_started",
+  "v2_demand_verified",
+  "v2_ticket_a_created",
+  "v2_ticket_a_closed",
+  // V2 Channel B (Platform ↔ OPC)
+  "v2_outsource_detail_updated",
+  "v2_tender_won",
+  "v2_tender_lost",
+  "v2_tender_cancelled",
+  "v2_delivery_b_submitted",
+  "v2_delivery_b_approved",
+  "v2_delivery_b_rejected",
+  "v2_settlement_paid",
+  "v2_ticket_b_created",
+  "v2_ticket_b_closed",
+  // Shared
+  "v2_discussion_replied",
 ]);
 
 export const notificationsTable = pgTable("notifications", {
