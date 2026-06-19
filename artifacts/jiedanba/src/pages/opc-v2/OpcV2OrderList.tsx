@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Package, Loader2, AlertCircle, ChevronRight, Clock,
-  CheckCircle2, FileSignature, Wrench,
+  CheckCircle2, FileSignature, Wrench, Wallet, TrendingUp,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
@@ -20,6 +20,18 @@ interface OrderItem {
   warrantyEndDate: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface TenderItem {
+  id: number;
+  totalPrice: number | null;
+}
+
+interface SettlementItem {
+  id: number;
+  outsourceOrderId: number;
+  amount: number;
+  status: string;
 }
 
 interface PagedResponse {
@@ -54,6 +66,16 @@ export default function OpcV2OrderList() {
     queryFn: () => v2Get("/outsource-orders?limit=100"),
   });
 
+  const { data: tenders = [] } = useQuery<TenderItem[]>({
+    queryKey: ["v2-opc-tenders-orderlist"],
+    queryFn: () => v2Get("/tenders?limit=100"),
+  });
+
+  const { data: settlements = [] } = useQuery<SettlementItem[]>({
+    queryKey: ["v2-opc-settlements-orderlist"],
+    queryFn: () => v2Get("/settlement-plans"),
+  });
+
   const orders = data?.items ?? [];
   const filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
 
@@ -61,6 +83,14 @@ export default function OpcV2OrderList() {
     acc[tab.key] = tab.key === "all" ? orders.length : orders.filter(o => o.status === tab.key).length;
     return acc;
   }, {} as Record<string, number>);
+
+  const tenderMap = tenders.reduce((acc, t) => { acc[t.id] = t; return acc; }, {} as Record<number, TenderItem>);
+
+  const settlementsByOrder = settlements.reduce((acc, s) => {
+    if (!acc[s.outsourceOrderId]) acc[s.outsourceOrderId] = [];
+    acc[s.outsourceOrderId].push(s);
+    return acc;
+  }, {} as Record<number, SettlementItem[]>);
 
   return (
     <OpcV2Layout title="我的订单">
@@ -118,11 +148,23 @@ export default function OpcV2OrderList() {
           <div className="space-y-3">
             {filtered.map(order => {
               const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500", icon: null };
+              const tender = tenderMap[order.tenderId];
+              const totalPrice = tender?.totalPrice;
+              const orderSettlements = settlementsByOrder[order.id] ?? [];
+              const paidAmount = orderSettlements
+                .filter(s => s.status === "paid")
+                .reduce((sum, s) => sum + s.amount, 0);
+              const totalSettled = orderSettlements.reduce((sum, s) => sum + s.amount, 0);
+
               return (
                 <button
                   key={order.id}
                   onClick={() => navigate(`/opc/orders/${order.id}`)}
-                  className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all p-5 text-left group"
+                  className={`w-full bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all p-5 text-left group ${
+                    order.status === "pending_contract"
+                      ? "border-amber-200 hover:border-amber-400"
+                      : "border-slate-100 hover:border-emerald-200"
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -133,21 +175,34 @@ export default function OpcV2OrderList() {
                         </span>
                         <span className="text-[11px] font-mono text-slate-400">{order.orderNo}</span>
                       </div>
-                      <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-1">
+                      <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-2">
                         {order.demandTitle ?? `订单 #${order.id}`}
                       </h3>
-                      <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
+
+                      <div className="flex flex-wrap gap-3 text-xs">
+                        {(totalPrice || totalSettled > 0) && (
+                          <span className="flex items-center gap-1 text-slate-700 font-bold">
+                            <Wallet size={11} className="text-emerald-600" />
+                            总金额 ¥{(totalPrice ?? totalSettled).toLocaleString()}
+                          </span>
+                        )}
+                        {paidAmount > 0 && (
+                          <span className="flex items-center gap-1 text-green-700 font-bold">
+                            <TrendingUp size={11} /> 已到账 ¥{paidAmount.toLocaleString()}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1 text-slate-400">
                           <Clock size={11} />
-                          创建于 {new Date(order.createdAt).toLocaleDateString("zh-CN")}
+                          {new Date(order.createdAt).toLocaleDateString("zh-CN")} 创建
                         </span>
                         {order.warrantyEndDate && (
-                          <span>质保至 {new Date(order.warrantyEndDate).toLocaleDateString("zh-CN")}</span>
+                          <span className="text-slate-400">质保至 {new Date(order.warrantyEndDate).toLocaleDateString("zh-CN")}</span>
                         )}
                       </div>
+
                       {order.status === "pending_contract" && (
                         <p className="mt-2 text-xs font-bold text-amber-700">
-                          ⚠️ 合同已上传，请尽快查阅并确认
+                          ⚠️ 请尽快查阅合同并上传已签PDF确认
                         </p>
                       )}
                     </div>

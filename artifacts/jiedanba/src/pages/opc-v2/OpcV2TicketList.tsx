@@ -19,6 +19,7 @@ interface TicketItem {
   closedAt: string | null;
   closedNote: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -133,6 +134,16 @@ export default function OpcV2TicketList() {
                           </span>
                         )}
                       </div>
+                      {(() => {
+                        const updatedRecently = Date.now() - new Date(ticket.createdAt).getTime() > 0 &&
+                          ticket.status === "open" &&
+                          new Date(ticket.updatedAt ?? ticket.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000;
+                        return updatedRecently ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
+                            新回复
+                          </span>
+                        ) : null;
+                      })()}
                       <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-1">
                         {ticket.title}
                       </h3>

@@ -96,6 +96,9 @@ export default function OpcV2OrderDetail() {
   const [, navigate] = useLocation();
 
   const [confirmingContract, setConfirmingContract] = useState(false);
+  const [opcSignedFileUrl, setOpcSignedFileUrl] = useState<string | null>(null);
+  const [uploadingOpcSigned, setUploadingOpcSigned] = useState(false);
+  const opcSignedFileRef = useRef<HTMLInputElement>(null);
   const [showDeliverableForm, setShowDeliverableForm] = useState(false);
   const [delivTitle, setDelivTitle] = useState("");
   const [delivContent, setDelivContent] = useState("");
@@ -133,6 +136,23 @@ export default function OpcV2OrderDetail() {
     queryFn: () => v2Get(`/tickets-b?outsourceOrderId=${orderId}`),
     enabled: !!orderId,
   });
+
+  async function handleOpcSignedUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingOpcSigned(true);
+    try {
+      const url = await uploadFile(file);
+      setOpcSignedFileUrl(url);
+      toast({ title: "文件已上传", description: "请点击「确认合同」完成签署" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "上传失败";
+      toast({ title: "上传失败", description: msg, variant: "destructive" });
+    } finally {
+      setUploadingOpcSigned(false);
+      if (opcSignedFileRef.current) opcSignedFileRef.current.value = "";
+    }
+  }
 
   async function handleConfirmContract() {
     setConfirmingContract(true);
@@ -322,27 +342,61 @@ export default function OpcV2OrderDetail() {
           <div className="px-5 py-4">
             {order.status === "pending_contract" ? (
               order.signedFileUrl ? (
-                <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
-                  <FileSignature size={18} className="text-amber-600 shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-amber-800">合同已上传，请查阅并确认</p>
-                    <a
-                      href={order.signedFileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-amber-700 underline hover:text-amber-900"
-                    >
-                      点击查看合同文件
-                    </a>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+                    <FileSignature size={18} className="text-amber-600 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-amber-800">平台已上传合同，请查阅后上传已签版本并确认</p>
+                      <a
+                        href={order.signedFileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-amber-700 underline hover:text-amber-900"
+                      >
+                        查看平台合同文件
+                      </a>
+                    </div>
                   </div>
-                  <button
-                    onClick={handleConfirmContract}
-                    disabled={confirmingContract}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white text-sm font-bold rounded-xl hover:bg-emerald-800 transition-colors disabled:opacity-60 shrink-0"
-                  >
-                    {confirmingContract ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                    确认合同
-                  </button>
+
+                  <div className="px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <p className="text-xs font-bold text-slate-700">第 1 步：上传您的已签署合同 PDF</p>
+                    {opcSignedFileUrl ? (
+                      <div className="flex items-center gap-2">
+                        <Paperclip size={13} className="text-green-600" />
+                        <a href={opcSignedFileUrl} target="_blank" rel="noreferrer" className="text-xs text-green-700 font-bold hover:underline">
+                          已签PDF已上传 ✓
+                        </a>
+                        <button onClick={() => setOpcSignedFileUrl(null)} className="text-xs text-slate-400 hover:text-red-500 ml-1">重新上传</button>
+                      </div>
+                    ) : (
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => opcSignedFileRef.current?.click()}
+                          disabled={uploadingOpcSigned}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 text-slate-600 text-xs font-bold rounded-lg hover:border-emerald-500 hover:text-emerald-700 transition-colors"
+                        >
+                          {uploadingOpcSigned ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                          选择已签 PDF 文件
+                        </button>
+                        <input ref={opcSignedFileRef} type="file" accept=".pdf" className="hidden" onChange={handleOpcSignedUpload} />
+                        <p className="text-[10px] text-slate-400 mt-1">请上传您在纸质/电子合同上签名后的 PDF 扫描件</p>
+                      </div>
+                    )}
+
+                    <p className="text-xs font-bold text-slate-700 pt-1">第 2 步：确认签约</p>
+                    <button
+                      onClick={handleConfirmContract}
+                      disabled={confirmingContract || !opcSignedFileUrl}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-700 text-white text-sm font-bold rounded-xl hover:bg-emerald-800 transition-colors disabled:opacity-60"
+                    >
+                      {confirmingContract ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                      确认合同（开始执行）
+                    </button>
+                    {!opcSignedFileUrl && (
+                      <p className="text-[11px] text-slate-400">请先上传您的已签 PDF 后再确认</p>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">

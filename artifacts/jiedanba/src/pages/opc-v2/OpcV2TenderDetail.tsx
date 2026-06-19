@@ -186,7 +186,8 @@ export default function OpcV2TenderDetail() {
   }
 
   const cfg = STATUS_CONFIG[tender.status] ?? { label: tender.status, color: "bg-slate-100 text-slate-500", guidance: "" };
-  const canSubmitQuote = tender.status === "negotiating" || tender.status === "quoted";
+  const isLost = tender.status === "lost";
+  const canSubmitQuote = !isLost && (tender.status === "negotiating" || tender.status === "quoted");
 
   return (
     <OpcV2Layout
@@ -489,7 +490,10 @@ export default function OpcV2TenderDetail() {
             <p className="text-xs text-slate-400 mt-0.5">与平台就此投标的讨论（仅本人和运营可见）</p>
           </div>
           <div className="p-5">
-            <DiscussionThread parentType="v2_tender" parentId={tenderId} />
+            <DiscussionThread parentType="v2_tender" parentId={tenderId} readOnly={isLost} />
+            {isLost && (
+              <p className="mt-3 text-xs text-slate-400 italic text-center">未中标的投标仅供查看，无法继续回复</p>
+            )}
           </div>
         </div>
       </div>

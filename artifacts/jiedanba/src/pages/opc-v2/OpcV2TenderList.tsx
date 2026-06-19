@@ -151,18 +151,18 @@ export default function OpcV2TenderList() {
                             报价于 {new Date(tender.quotedAt).toLocaleDateString("zh-CN")}
                           </span>
                         )}
-                        {!tender.totalPrice && (
+                          {!tender.totalPrice && (
                           <span className="text-amber-600">
                             尚未提交报价
                           </span>
                         )}
                         <span className="text-slate-400">
-                          报名于 {new Date(tender.createdAt).toLocaleDateString("zh-CN")}
+                          最新活动 {new Date(tender.updatedAt).toLocaleDateString("zh-CN")}
                         </span>
                       </div>
                       {tender.status === "won" && (
                         <p className="mt-2 text-xs font-bold text-green-700 flex items-center gap-1">
-                          <CheckCircle2 size={12} /> 已中标！请前往「我的订单」查看执行详情
+                          <CheckCircle2 size={12} /> 已中标！请前往「我的订单」确认合同并签署
                         </p>
                       )}
                       {tender.cancelledReason && (
