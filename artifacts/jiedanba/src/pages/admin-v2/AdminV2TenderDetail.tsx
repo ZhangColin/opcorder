@@ -15,17 +15,17 @@ interface Tender {
   opcNickname: string | null;
   status: string;
   totalPrice: number | null;
-  quoteBreakdown: Array<{ name: string; amount: number }> | null;
+  priceBreakdown: Array<{ name: string; amount: number }> | null;
   quotedAt: string | null;
   selectedAt: string | null;
   createdAt: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending:   { label: "待报价", color: "bg-slate-100 text-slate-500" },
-  quoted:    { label: "已报价", color: "bg-blue-100 text-blue-700" },
-  selected:  { label: "已中标", color: "bg-green-100 text-green-700" },
-  cancelled: { label: "已取消", color: "bg-red-100 text-red-500" },
+  negotiating: { label: "待报价", color: "bg-slate-100 text-slate-500" },
+  quoted:      { label: "已报价", color: "bg-blue-100 text-blue-700" },
+  won:         { label: "已中标", color: "bg-green-100 text-green-700" },
+  lost:        { label: "已取消", color: "bg-red-100 text-red-500" },
 };
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -149,7 +149,7 @@ export default function AdminV2TenderDetail() {
                   </button>
                 </>
               )}
-              {tender.status === "pending" && (
+              {tender.status === "negotiating" && (
                 <button onClick={() => setShowCancelModal(true)} disabled={acting}
                   className="px-4 py-2 border border-red-200 text-red-500 rounded-xl text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50">
                   取消投标
@@ -158,11 +158,11 @@ export default function AdminV2TenderDetail() {
             </div>
           </div>
 
-          {tender.quoteBreakdown && tender.quoteBreakdown.length > 0 && (
+          {tender.priceBreakdown && tender.priceBreakdown.length > 0 && (
             <div className="mt-4 border-t border-slate-100 pt-4">
               <h4 className="text-xs font-bold text-slate-500 mb-2">报价明细</h4>
               <div className="space-y-1">
-                {tender.quoteBreakdown.map((item, i) => (
+                {tender.priceBreakdown.map((item, i) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">{item.name}</span>
                     <span className="font-semibold text-slate-800">¥{item.amount.toLocaleString()}</span>

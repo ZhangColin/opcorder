@@ -19,7 +19,7 @@ interface OutsourceOrder {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending_sign:  { label: "待签约", color: "bg-orange-100 text-orange-700" },
+  pending_contract:  { label: "待签约", color: "bg-orange-100 text-orange-700" },
   executing:     { label: "执行中", color: "bg-green-100 text-green-700" },
   warranty:      { label: "质保中", color: "bg-teal-100 text-teal-700" },
   completed:     { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
@@ -28,13 +28,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 const STATUS_TABS = [
   { value: "", label: "全部" },
-  { value: "pending_sign", label: "待签约" },
+  { value: "pending_contract", label: "待签约" },
   { value: "executing", label: "执行中" },
   { value: "warranty", label: "质保中" },
   { value: "completed", label: "已完成" },
 ];
 
-const HIGHLIGHT = ["pending_sign"];
+const HIGHLIGHT = ["pending_contract"];
 
 export default function AdminV2OutsourceOrderList() {
   const [, navigate] = useLocation();

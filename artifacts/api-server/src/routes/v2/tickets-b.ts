@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, v2TicketsBTable, v2OutsourceOrdersTable, usersTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify } from "./utils";
@@ -26,6 +26,7 @@ router.get("/tickets-b", requireAuth, async (req: Request, res: Response) => {
         .where(eq(v2OutsourceOrdersTable.opcId, userId));
       const ids = myOrders.map(o => o.id);
       if (ids.length === 0) return res.json([]);
+      conditions.push(inArray(v2TicketsBTable.outsourceOrderId, ids));
     }
 
     const rows = await db

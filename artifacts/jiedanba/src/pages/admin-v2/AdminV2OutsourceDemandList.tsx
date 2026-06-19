@@ -10,7 +10,7 @@ interface OutsourceDemand {
   title: string;
   demandType: string | null;
   isUrgent: boolean;
-  publishMode: string;
+  mode: string;
   clientDemandId: number | null;
   status: string;
   tenderCount?: number;
@@ -19,10 +19,7 @@ interface OutsourceDemand {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  draft:        { label: "草稿",   color: "bg-slate-100 text-slate-500" },
-  open:         { label: "公开招标", color: "bg-blue-100 text-blue-700" },
-  selecting:    { label: "选标中", color: "bg-amber-100 text-amber-700" },
-  contracting:  { label: "签约中", color: "bg-orange-100 text-orange-700" },
+  negotiating:  { label: "招标中", color: "bg-blue-100 text-blue-700" },
   executing:    { label: "执行中", color: "bg-green-100 text-green-700" },
   warranty:     { label: "质保中", color: "bg-teal-100 text-teal-700" },
   completed:    { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
@@ -31,9 +28,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 const STATUS_TABS = [
   { value: "", label: "全部" },
-  { value: "open", label: "招标中" },
-  { value: "selecting", label: "选标中" },
-  { value: "contracting", label: "签约中" },
+  { value: "negotiating", label: "招标中" },
   { value: "executing", label: "执行中" },
   { value: "warranty", label: "质保中" },
   { value: "completed", label: "已完成" },
@@ -126,7 +121,7 @@ export default function AdminV2OutsourceDemandList() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       <span className="text-xs text-slate-400 px-2 py-0.5 rounded-full bg-slate-50">
-                        {d.publishMode === "open" ? "公开抢单" : "指定邀请"}
+                        {d.mode === "public" ? "公开抢单" : "指定邀请"}
                       </span>
                       <span className="text-xs text-slate-400 font-mono">{d.demandNo}</span>
                     </div>

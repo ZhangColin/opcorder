@@ -19,14 +19,14 @@ interface PaymentPlan {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending:        { label: "待付款",   color: "bg-slate-100 text-slate-500" },
-  pending_review: { label: "待审核",   color: "bg-amber-100 text-amber-700" },
+  awaiting_review: { label: "待审核",   color: "bg-amber-100 text-amber-700" },
   paid:           { label: "已支付",   color: "bg-green-100 text-green-700" },
   overdue:        { label: "已逾期",   color: "bg-red-100 text-red-600" },
 };
 
 const STATUS_TABS = [
   { value: "", label: "全部" },
-  { value: "pending_review", label: "待审核" },
+  { value: "awaiting_review", label: "待审核" },
   { value: "pending", label: "待付款" },
   { value: "overdue", label: "已逾期" },
   { value: "paid", label: "已支付" },
@@ -65,7 +65,7 @@ export default function AdminV2PaymentAList() {
 
   useEffect(() => { load(); }, [load]);
 
-  const needsAttention = items.filter(i => i.status === "pending_review" || isOverdue(i) || isDueSoon(i));
+  const needsAttention = items.filter(i => i.status === "awaiting_review" || isOverdue(i) || isDueSoon(i));
 
   return (
     <AdminV2Layout title="收款管理 (A)">
@@ -79,7 +79,7 @@ export default function AdminV2PaymentAList() {
                   className="text-xs bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-amber-800 hover:bg-amber-100">
                   {i.title} · ¥{i.amount.toLocaleString()}
                   {isOverdue(i) && <span className="ml-1 text-red-500 font-bold">逾期</span>}
-                  {i.status === "pending_review" && <span className="ml-1 text-amber-600 font-bold">待审核</span>}
+                  {i.status === "awaiting_review" && <span className="ml-1 text-amber-600 font-bold">待审核</span>}
                 </button>
               ))}
             </div>
@@ -107,7 +107,7 @@ export default function AdminV2PaymentAList() {
               const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
               const overdue = isOverdue(item);
               const soon = isDueSoon(item);
-              const needAttn = item.status === "pending_review" || overdue;
+              const needAttn = item.status === "awaiting_review" || overdue;
               return (
                 <button key={item.id} onClick={() => navigate(`/admin/v2/payments-a/${item.id}`)}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${

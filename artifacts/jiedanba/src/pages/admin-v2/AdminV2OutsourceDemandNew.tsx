@@ -24,10 +24,10 @@ export default function AdminV2OutsourceDemandNew() {
   const [title, setTitle] = useState("");
   const [demandType, setDemandType] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
-  const [publishMode, setPublishMode] = useState("open");
+  const [mode, setMode] = useState<"public" | "invited">("public");
   const [clientDemandId, setClientDemandId] = useState("");
-  const [budgetMin, setBudgetMin] = useState("");
-  const [budgetMax, setBudgetMax] = useState("");
+  const [expectedPriceMin, setExpectedPriceMin] = useState("");
+  const [expectedPriceMax, setExpectedPriceMax] = useState("");
   const [detail, setDetail] = useState("");
   const [milestones, setMilestones] = useState<Array<{ title: string; dueDate: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -48,8 +48,8 @@ export default function AdminV2OutsourceDemandNew() {
       const cd = await v2Get<ClientDemand>(`/client-demands/${clientDemandId}`);
       setTitle(`【外包】${cd.title}`);
       if (cd.demandType) setDemandType(cd.demandType);
-      if (cd.budgetMin != null) setBudgetMin(String(cd.budgetMin));
-      if (cd.budgetMax != null) setBudgetMax(String(cd.budgetMax));
+      if (cd.budgetMin != null) setExpectedPriceMin(String(cd.budgetMin));
+      if (cd.budgetMax != null) setExpectedPriceMax(String(cd.budgetMax));
       if (cd.detail) setDetail(cd.detail);
       if (cd.isUrgent) setIsUrgent(true);
       toast({ title: "已带入关联需求内容", description: "已同步标题、类型、预算和详情" });
@@ -74,13 +74,12 @@ export default function AdminV2OutsourceDemandNew() {
         title: title.trim(),
         demandType: demandType || null,
         isUrgent,
-        publishMode,
+        mode,
         clientDemandId: clientDemandId ? parseInt(clientDemandId) : null,
-        budgetMin: budgetMin ? parseFloat(budgetMin) : null,
-        budgetMax: budgetMax ? parseFloat(budgetMax) : null,
+        expectedPriceMin: expectedPriceMin ? parseFloat(expectedPriceMin) : null,
+        expectedPriceMax: expectedPriceMax ? parseFloat(expectedPriceMax) : null,
         detail: detail.trim() || null,
         milestones: milestones.filter(m => m.title).map(m => ({ title: m.title, dueDate: m.dueDate || null })),
-        status: asDraft ? "draft" : "open",
       };
       const result = await v2Post<{ id: number }>("/outsource-demands", payload);
       toast({ title: asDraft ? "已保存草稿" : "外包需求已发布" });
@@ -131,10 +130,10 @@ export default function AdminV2OutsourceDemandNew() {
             </div>
             <div>
               <label className="text-xs font-bold text-slate-600 mb-1 block">发布模式 *</label>
-              <select value={publishMode} onChange={e => setPublishMode(e.target.value)}
+              <select value={mode} onChange={e => setMode(e.target.value as "public" | "invited")}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                <option value="open">公开抢单</option>
-                <option value="invite">指定邀请</option>
+                <option value="public">公开抢单</option>
+                <option value="invited">指定邀请</option>
               </select>
             </div>
           </div>
@@ -142,12 +141,12 @@ export default function AdminV2OutsourceDemandNew() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold text-slate-600 mb-1 block">预算下限 (¥)</label>
-              <input type="number" value={budgetMin} onChange={e => setBudgetMin(e.target.value)} placeholder="0"
+              <input type="number" value={expectedPriceMin} onChange={e => setExpectedPriceMin(e.target.value)} placeholder="0"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-600 mb-1 block">预算上限 (¥)</label>
-              <input type="number" value={budgetMax} onChange={e => setBudgetMax(e.target.value)} placeholder="0"
+              <input type="number" value={expectedPriceMax} onChange={e => setExpectedPriceMax(e.target.value)} placeholder="0"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
           </div>

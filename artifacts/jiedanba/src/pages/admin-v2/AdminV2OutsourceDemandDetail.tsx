@@ -16,12 +16,12 @@ interface OutsourceDemand {
   title: string;
   demandType: string | null;
   isUrgent: boolean;
-  publishMode: string;
+  mode: string;
   clientDemandId: number | null;
   detail: string | null;
   status: string;
-  budgetMin: number | null;
-  budgetMax: number | null;
+  expectedPriceMin: number | null;
+  expectedPriceMax: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,10 +46,7 @@ interface Version {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  draft:       { label: "草稿",   color: "bg-slate-100 text-slate-500" },
-  open:        { label: "招标中", color: "bg-blue-100 text-blue-700" },
-  selecting:   { label: "选标中", color: "bg-amber-100 text-amber-700" },
-  contracting: { label: "签约中", color: "bg-orange-100 text-orange-700" },
+  negotiating: { label: "招标中", color: "bg-blue-100 text-blue-700" },
   executing:   { label: "执行中", color: "bg-green-100 text-green-700" },
   warranty:    { label: "质保中", color: "bg-teal-100 text-teal-700" },
   completed:   { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
@@ -57,10 +54,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const TENDER_STATUS: Record<string, { label: string; color: string }> = {
-  pending:   { label: "待报价", color: "bg-slate-100 text-slate-500" },
-  quoted:    { label: "已报价", color: "bg-blue-100 text-blue-700" },
-  selected:  { label: "已中标", color: "bg-green-100 text-green-700" },
-  cancelled: { label: "已取消", color: "bg-red-100 text-red-500" },
+  negotiating: { label: "待报价", color: "bg-slate-100 text-slate-500" },
+  quoted:      { label: "已报价", color: "bg-blue-100 text-blue-700" },
+  won:         { label: "已中标", color: "bg-green-100 text-green-700" },
+  lost:        { label: "已取消", color: "bg-red-100 text-red-500" },
 };
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
@@ -183,7 +180,7 @@ export default function AdminV2OutsourceDemandDetail() {
 
   const cfg = STATUS_CONFIG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const canUpdateDetail = !["completed","closed"].includes(demand.status);
-  const canSelectWinner = demand.status === "open" || demand.status === "selecting";
+  const canSelectWinner = demand.status === "negotiating";
   const canClose = !["completed","closed"].includes(demand.status);
   const quotedTenders = tenders.filter(t => t.status === "quoted");
 
@@ -214,7 +211,7 @@ export default function AdminV2OutsourceDemandDetail() {
               <div className="flex items-center gap-2 mb-2">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                 <span className="text-xs text-slate-400 px-2 py-0.5 rounded-full bg-slate-50">
-                  {demand.publishMode === "open" ? "公开抢单" : "指定邀请"}
+                  {demand.mode === "public" ? "公开抢单" : "指定邀请"}
                 </span>
                 {demand.isUrgent && <span className="text-xs font-bold text-red-500 flex items-center gap-0.5"><Zap size={10} />紧急</span>}
                 <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
@@ -222,7 +219,7 @@ export default function AdminV2OutsourceDemandDetail() {
               <h2 className="text-lg font-extrabold text-blue-900 mb-1">{demand.title}</h2>
               <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
                 {demand.clientDemandId && <span>关联客户需求 #{demand.clientDemandId}</span>}
-                {demand.budgetMin != null && <span>预算 ¥{demand.budgetMin.toLocaleString()}{demand.budgetMax ? `~¥${demand.budgetMax.toLocaleString()}` : "+"}</span>}
+                {demand.expectedPriceMin != null && <span>预算 ¥{demand.expectedPriceMin.toLocaleString()}{demand.expectedPriceMax ? `~¥${demand.expectedPriceMax.toLocaleString()}` : "+"}</span>}
                 <span>更新：{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</span>
               </div>
             </div>

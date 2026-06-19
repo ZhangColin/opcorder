@@ -17,7 +17,7 @@ interface OutsourceOrder {
   opcNickname: string | null;
   status: string;
   contractId: number | null;
-  signedContractUrl: string | null;
+  signedFileUrl: string | null;
   warrantyEndDate: string | null;
   createdAt: string;
   updatedAt: string;
@@ -52,7 +52,7 @@ interface TicketB {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending_sign:  { label: "待签约", color: "bg-orange-100 text-orange-700" },
+  pending_contract:  { label: "待签约", color: "bg-orange-100 text-orange-700" },
   executing:     { label: "执行中", color: "bg-green-100 text-green-700" },
   warranty:      { label: "质保中", color: "bg-teal-100 text-teal-700" },
   completed:     { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
@@ -150,7 +150,7 @@ export default function AdminV2OutsourceOrderDetail() {
     setUploadingContract(true);
     try {
       const url = await uploadFile(contractFile);
-      await v2Post(`/outsource-orders/${id}/upload-signed-contract`, { signedContractUrl: url });
+      await v2Post(`/outsource-orders/${id}/upload-signed-contract`, { signedFileUrl: url });
       toast({ title: "合同已上传，已通知OPC确认" });
       setShowUploadContract(false);
       setContractFile(null);
@@ -217,7 +217,7 @@ export default function AdminV2OutsourceOrderDetail() {
   if (!order) return <AdminV2Layout backHref="/admin/v2/outsource-orders" backLabel="接单订单"><div className="text-center py-16 text-slate-400">订单不存在</div></AdminV2Layout>;
 
   const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500" };
-  const canUploadContract = order.status === "pending_sign";
+  const canUploadContract = order.status === "pending_contract";
   const canApproveDeliverable = order.status === "executing";
   const canAdminVerify = order.status === "executing";
   const canCreateSettlement = ["executing","warranty","completed"].includes(order.status);
@@ -255,8 +255,8 @@ export default function AdminV2OutsourceOrderDetail() {
           <div className="text-xs text-slate-400 flex gap-4 flex-wrap">
             <span>OPC：{order.opcNickname ?? "—"}</span>
             {order.warrantyEndDate && <span>质保至：{new Date(order.warrantyEndDate).toLocaleDateString("zh-CN")}</span>}
-            {order.signedContractUrl && (
-              <a href={order.signedContractUrl} target="_blank" rel="noreferrer"
+            {order.signedFileUrl && (
+              <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
                 className="flex items-center gap-1 text-primary hover:underline">
                 <ExternalLink size={11} /> 查看合同
               </a>
@@ -317,7 +317,7 @@ export default function AdminV2OutsourceOrderDetail() {
                   </div>
                   <div className="flex items-center gap-2">
                     <DelivBStatusBadge status={d.status} />
-                    {canApproveDeliverable && d.status === "pending_review" && (
+                    {canApproveDeliverable && d.status === "pending" && (
                       <>
                         <button onClick={() => handleApproveDeliverable(d.id)} disabled={acting}
                           className="text-xs bg-green-600 text-white rounded-lg px-2.5 py-1 hover:bg-green-700 disabled:opacity-50">
@@ -486,9 +486,9 @@ function SettleStatusBadge({ status }: { status: string }) {
 
 function DelivBStatusBadge({ status }: { status: string }) {
   const map: Record<string, [string, string]> = {
-    pending_review: ["待审核", "bg-amber-100 text-amber-700"],
+    pending:  ["待审核", "bg-amber-100 text-amber-700"],
     approved: ["已通过", "bg-green-100 text-green-700"],
-    rejected: ["已驳回", "bg-red-100 text-red-600"],
+    revision: ["需修改", "bg-red-100 text-red-600"],
   };
   const [label, color] = map[status] ?? [status, "bg-slate-100 text-slate-500"];
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${color}`}>{label}</span>;

@@ -22,7 +22,7 @@ interface PaymentPlan {
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending:        { label: "待付款",   color: "bg-slate-100 text-slate-500" },
-  pending_review: { label: "待审核",   color: "bg-amber-100 text-amber-700" },
+  awaiting_review: { label: "待审核",   color: "bg-amber-100 text-amber-700" },
   paid:           { label: "已支付",   color: "bg-green-100 text-green-700" },
   overdue:        { label: "已逾期",   color: "bg-red-100 text-red-600" },
 };
@@ -115,7 +115,7 @@ export default function AdminV2PaymentADetail() {
                 {item.notes && <span>备注：{item.notes}</span>}
               </div>
             </div>
-            {item.status === "pending_review" && (
+            {item.status === "awaiting_review" && (
               <div className="flex gap-2 flex-col">
                 <button onClick={handleApprove} disabled={acting}
                   className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-colors disabled:opacity-50">

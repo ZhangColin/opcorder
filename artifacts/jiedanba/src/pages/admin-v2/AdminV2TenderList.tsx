@@ -18,18 +18,18 @@ interface Tender {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending:   { label: "待报价", color: "bg-slate-100 text-slate-500" },
-  quoted:    { label: "已报价", color: "bg-blue-100 text-blue-700" },
-  selected:  { label: "已中标", color: "bg-green-100 text-green-700" },
-  cancelled: { label: "已取消", color: "bg-red-100 text-red-500" },
+  negotiating: { label: "待报价", color: "bg-slate-100 text-slate-500" },
+  quoted:      { label: "已报价", color: "bg-blue-100 text-blue-700" },
+  won:         { label: "已中标", color: "bg-green-100 text-green-700" },
+  lost:        { label: "已取消", color: "bg-red-100 text-red-500" },
 };
 
 const STATUS_TABS = [
   { value: "", label: "全部" },
   { value: "quoted", label: "已报价" },
-  { value: "pending", label: "待报价" },
-  { value: "selected", label: "已中标" },
-  { value: "cancelled", label: "已取消" },
+  { value: "negotiating", label: "待报价" },
+  { value: "won", label: "已中标" },
+  { value: "lost", label: "已取消" },
 ];
 
 export default function AdminV2TenderList() {

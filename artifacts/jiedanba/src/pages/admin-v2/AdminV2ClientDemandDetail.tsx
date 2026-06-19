@@ -415,11 +415,11 @@ export default function AdminV2ClientDemandDetail() {
 function PayStatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     pending: "bg-slate-100 text-slate-500",
-    pending_review: "bg-amber-100 text-amber-700",
+    awaiting_review: "bg-amber-100 text-amber-700",
     paid: "bg-green-100 text-green-700",
     overdue: "bg-red-100 text-red-600",
   };
-  const labels: Record<string, string> = { pending: "待付款", pending_review: "待审核", paid: "已支付", overdue: "已逾期" };
+  const labels: Record<string, string> = { pending: "待付款", awaiting_review: "待审核", paid: "已支付", overdue: "已逾期" };
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${map[status] ?? "bg-slate-100 text-slate-500"}`}>{labels[status] ?? status}</span>;
 }
 
