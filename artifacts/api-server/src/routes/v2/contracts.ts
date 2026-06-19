@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2ContractsTable, v2ClientDemandsTable, v2OutsourceOrdersTable, usersTable,
 } from "@workspace/db";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genContractNo } from "./utils";
@@ -30,6 +30,7 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
       const ids = demandIds.map(d => d.id);
       if (ids.length === 0) return res.json([]);
       conditions.push(eq(v2ContractsTable.channel, "a"));
+      conditions.push(inArray(v2ContractsTable.clientDemandId, ids));
     } else if (role === "opc") {
       conditions.push(eq(v2ContractsTable.channel, "b"));
     }
@@ -50,8 +51,23 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
 router.get("/contracts/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
+
+    if (role === "publisher") {
+      if (contract.channel !== "a") return res.status(403).json({ error: "无权查看此合同" });
+      if (contract.clientDemandId) {
+        const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+          .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
+        if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权查看此合同" });
+      }
+    } else if (role === "opc") {
+      if (contract.channel !== "b") return res.status(403).json({ error: "无权查看此合同" });
+    }
+
     return res.json(contract);
   } catch (err) {
     logger.error({ err }, "GET /v2/contracts/:id failed");

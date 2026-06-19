@@ -35,6 +35,7 @@ export default function PubCreateDemand() {
   const { toast } = useToast();
 
   const [demandTypes, setDemandTypes] = useState<DemandType[]>([]);
+  const [editStatus, setEditStatus] = useState<string>("draft");
   const [title, setTitle] = useState("");
   const [demandType, setDemandType] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
@@ -63,6 +64,7 @@ export default function PubCreateDemand() {
       setBudgetMin(d.budgetMin != null ? String(d.budgetMin) : "");
       setBudgetMax(d.budgetMax != null ? String(d.budgetMax) : "");
       setHopeDeliveryDate(d.hopeDeliveryDate ? String(d.hopeDeliveryDate).slice(0, 10) : "");
+      setEditStatus(d.status ?? "draft");
       if (d.latestVersion) {
         setDetail(d.latestVersion.detail ?? "");
         setAttachments(d.latestVersion.attachments ?? []);
@@ -121,7 +123,11 @@ export default function PubCreateDemand() {
       if (isEdit && demandId) {
         await v2Patch(`/client-demands/${demandId}`, body);
         if (!asDraft && detail.trim()) {
-          await v2Post(`/client-demands/${demandId}/update-detail`, { detail: detail.trim(), attachments });
+          if (editStatus === "draft") {
+            await v2Post(`/client-demands/${demandId}/submit`, { detail: detail.trim(), attachments });
+          } else {
+            await v2Post(`/client-demands/${demandId}/update-detail`, { detail: detail.trim(), attachments });
+          }
         }
       } else {
         const created = await v2Post<{ id: number }>("/client-demands", body);

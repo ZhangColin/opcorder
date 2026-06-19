@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, v2PaymentPlansTable, v2ClientDemandsTable, usersTable } from "@workspace/db";
-import { eq, and, desc, lt } from "drizzle-orm";
+import { eq, and, desc, lt, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify } from "./utils";
@@ -25,6 +25,7 @@ router.get("/payment-plans", requireAuth, async (req: Request, res: Response) =>
         .where(eq(v2ClientDemandsTable.publisherId, userId));
       const ids = myDemands.map(d => d.id);
       if (ids.length === 0) return res.json([]);
+      conditions.push(inArray(v2PaymentPlansTable.clientDemandId, ids));
     } else if (role === "opc") {
       return res.status(403).json({ error: "OPC 无权查看收款计划" });
     }
@@ -44,6 +45,31 @@ router.get("/payment-plans", requireAuth, async (req: Request, res: Response) =>
     return res.json(enriched);
   } catch (err) {
     logger.error({ err }, "GET /v2/payment-plans failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.get("/payment-plans/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    const [plan] = await db.select().from(v2PaymentPlansTable).where(eq(v2PaymentPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "付款计划不存在" });
+
+    if (role === "publisher") {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, plan.clientDemandId)).limit(1);
+      if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权查看" });
+    } else if (role === "opc") {
+      return res.status(403).json({ error: "OPC 无权查看此付款计划" });
+    }
+
+    const now = new Date();
+    return res.json({ ...plan, isOverdue: plan.status === "pending" && plan.dueDate < now });
+  } catch (err) {
+    logger.error({ err }, "GET /v2/payment-plans/:id failed");
     return res.status(500).json({ error: "服务器错误" });
   }
 });

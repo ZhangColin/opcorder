@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, v2TicketsATable, v2ClientDemandsTable, usersTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify } from "./utils";
@@ -18,6 +18,15 @@ router.get("/tickets-a", requireAuth, async (req: Request, res: Response) => {
     if (clientDemandId) conditions.push(eq(v2TicketsATable.clientDemandId, parseInt(clientDemandId)));
     if (status) conditions.push(eq(v2TicketsATable.status, status as any));
     if (role === "opc") return res.status(403).json({ error: "OPC 无权查看此通道工单" });
+    if (role === "publisher") {
+      const myDemands = await db
+        .select({ id: v2ClientDemandsTable.id })
+        .from(v2ClientDemandsTable)
+        .where(eq(v2ClientDemandsTable.publisherId, userId));
+      const ids = myDemands.map(d => d.id);
+      if (ids.length === 0) return res.json([]);
+      conditions.push(inArray(v2TicketsATable.clientDemandId, ids));
+    }
 
     const rows = await db
       .select({
