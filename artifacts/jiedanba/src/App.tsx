@@ -157,6 +157,13 @@ function PublisherGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** /admin/v2 直接跳转到概览页 */
+function AdminV2Redirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => { navigate("/admin/v2/overview", { replace: true }); }, []);
+  return null;
+}
+
 /** 仅限管理员访问；其他角色重定向到各自首页 */
 function AdminGate({ children }: { children: React.ReactNode }) {
   const role = getRole();
@@ -238,6 +245,9 @@ function Router() {
       </Route>
 
       {/* V2 运营后台 */}
+      <Route path="/admin/v2">
+        {() => <AdminGate><AdminV2Redirect /></AdminGate>}
+      </Route>
       <Route path="/admin/v2/overview">
         {() => <AdminGate><AdminV2Overview /></AdminGate>}
       </Route>

@@ -55,6 +55,7 @@ router.get("/tickets-b", requireAuth, async (req: Request, res: Response) => {
 router.get("/tickets-b/:id", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
+    const userId = req.user!.id;
     const role = req.user!.role;
     if (role === "publisher") return res.status(403).json({ error: "发单方无权查看此通道工单" });
     const rows = await db
@@ -73,6 +74,14 @@ router.get("/tickets-b/:id", requireAuth, async (req: Request, res: Response) =>
       .where(eq(v2TicketsBTable.id, id))
       .limit(1);
     if (!rows[0]) return res.status(404).json({ error: "工单不存在" });
+    if (role === "opc") {
+      const [order] = await db
+        .select({ opcId: v2OutsourceOrdersTable.opcId })
+        .from(v2OutsourceOrdersTable)
+        .where(eq(v2OutsourceOrdersTable.id, rows[0].outsourceOrderId))
+        .limit(1);
+      if (!order || order.opcId !== userId) return res.status(403).json({ error: "无权访问" });
+    }
     return res.json(rows[0]);
   } catch (err) {
     logger.error({ err }, "GET /v2/tickets-b/:id failed");

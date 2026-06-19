@@ -10,6 +10,11 @@ interface ClientDemand {
   title: string;
   demandNo: string;
   status: string;
+  demandType?: string | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  detail?: string | null;
+  isUrgent?: boolean;
 }
 
 export default function AdminV2OutsourceDemandNew() {
@@ -37,12 +42,20 @@ export default function AdminV2OutsourceDemandNew() {
       .finally(() => setLoadingDemands(false));
   }, []);
 
-  const handleImportDetail = () => {
+  const handleImportDetail = async () => {
     if (!clientDemandId) { toast({ title: "请先选择关联需求", variant: "destructive" }); return; }
-    const cd = clientDemands.find(d => d.id === parseInt(clientDemandId));
-    if (!cd) return;
-    setTitle(`【外包】${cd.title}`);
-    toast({ title: "已带入关联需求标题" });
+    try {
+      const cd = await v2Get<ClientDemand>(`/client-demands/${clientDemandId}`);
+      setTitle(`【外包】${cd.title}`);
+      if (cd.demandType) setDemandType(cd.demandType);
+      if (cd.budgetMin != null) setBudgetMin(String(cd.budgetMin));
+      if (cd.budgetMax != null) setBudgetMax(String(cd.budgetMax));
+      if (cd.detail) setDetail(cd.detail);
+      if (cd.isUrgent) setIsUrgent(true);
+      toast({ title: "已带入关联需求内容", description: "已同步标题、类型、预算和详情" });
+    } catch {
+      toast({ title: "带入失败", description: "无法读取关联需求详情", variant: "destructive" });
+    }
   };
 
   const addMilestone = () => setMilestones([...milestones, { title: "", dueDate: "" }]);
@@ -97,8 +110,8 @@ export default function AdminV2OutsourceDemandNew() {
               </select>
               {clientDemandId && (
                 <button onClick={handleImportDetail}
-                  className="px-3 py-2 text-xs font-bold border border-primary/30 text-primary rounded-xl hover:bg-primary/5">
-                  带入标题
+                  className="px-3 py-2 text-xs font-bold border border-primary/30 text-primary rounded-xl hover:bg-primary/5 whitespace-nowrap">
+                  带入内容
                 </button>
               )}
             </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
-import { Loader2, X, CheckCircle2, Clock } from "lucide-react";
+import { useParams, useLocation } from "wouter";
+import { Loader2, X, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
@@ -34,12 +34,21 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
+interface TicketB {
+  id: number;
+  title: string;
+  status: string;
+  isBlockingPayment: boolean | null;
+}
+
 export default function AdminV2PaymentBDetail() {
   const params = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
   const id = parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
 
   const [item, setItem] = useState<SettlementPlan | null>(null);
+  const [blockingTickets, setBlockingTickets] = useState<TicketB[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
@@ -51,6 +60,8 @@ export default function AdminV2PaymentBDetail() {
     try {
       const d = await v2Get<SettlementPlan>(`/settlement-plans/${id}`);
       setItem(d);
+      const tickets = await v2Get<TicketB[]>(`/tickets-b?outsourceOrderId=${d.outsourceOrderId}`);
+      setBlockingTickets(tickets.filter(t => t.status === "open" && t.isBlockingPayment));
     } catch {
       setItem(null);
     } finally {
@@ -105,13 +116,50 @@ export default function AdminV2PaymentBDetail() {
               </div>
             </div>
             {item.status === "pending" && (
-              <button onClick={() => setShowPayModal(true)} disabled={acting}
-                className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-bold hover:bg-violet-700 transition-colors disabled:opacity-50">
+              <button
+                onClick={() => {
+                  if (blockingTickets.length > 0) {
+                    toast({ title: "无法打款", description: `存在 ${blockingTickets.length} 个阻断付款的未关闭工单，请先处理工单`, variant: "destructive" });
+                    return;
+                  }
+                  setShowPayModal(true);
+                }}
+                disabled={acting}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
+                  blockingTickets.length > 0
+                    ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                    : "bg-violet-600 text-white hover:bg-violet-700"
+                }`}>
                 <CheckCircle2 size={14} /> 标记已打款
               </button>
             )}
           </div>
         </div>
+
+        {blockingTickets.length > 0 && item.status === "pending" && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-red-700 mb-1">付款被质保工单阻断</p>
+                <p className="text-xs text-red-500 mb-2">以下工单关闭前无法打款：</p>
+                <ul className="space-y-1">
+                  {blockingTickets.map(t => (
+                    <li key={t.id} className="text-xs text-red-600 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block shrink-0" />
+                      {t.title}
+                      <button
+                        onClick={() => navigate(`/admin/v2/tickets-b/${t.id}`)}
+                        className="ml-1 underline text-red-500 hover:text-red-700">
+                        查看工单
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         {item.status === "paid" && (
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
