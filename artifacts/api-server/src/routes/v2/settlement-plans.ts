@@ -49,6 +49,21 @@ router.get("/settlement-plans", requireAuth, async (req: Request, res: Response)
   }
 });
 
+router.get("/settlement-plans/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const role = req.user!.role;
+    if (role === "publisher") return res.status(403).json({ error: "发单方无权查看结算计划" });
+    const [plan] = await db.select().from(v2SettlementPlansTable).where(eq(v2SettlementPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "结算计划不存在" });
+    const now = new Date();
+    return res.json({ ...plan, isOverdue: plan.status === "pending" && plan.dueDate < now });
+  } catch (err) {
+    logger.error({ err }, "GET /v2/settlement-plans/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/settlement-plans", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;

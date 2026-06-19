@@ -52,6 +52,34 @@ router.get("/tickets-b", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+router.get("/tickets-b/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const role = req.user!.role;
+    if (role === "publisher") return res.status(403).json({ error: "发单方无权查看此通道工单" });
+    const rows = await db
+      .select({
+        id: v2TicketsBTable.id,
+        outsourceOrderId: v2TicketsBTable.outsourceOrderId,
+        title: v2TicketsBTable.title,
+        description: v2TicketsBTable.description,
+        status: v2TicketsBTable.status,
+        isBlockingPayment: v2TicketsBTable.isBlockingPayment,
+        closedAt: v2TicketsBTable.closedAt,
+        closedNote: v2TicketsBTable.closedNote,
+        createdAt: v2TicketsBTable.createdAt,
+      })
+      .from(v2TicketsBTable)
+      .where(eq(v2TicketsBTable.id, id))
+      .limit(1);
+    if (!rows[0]) return res.status(404).json({ error: "工单不存在" });
+    return res.json(rows[0]);
+  } catch (err) {
+    logger.error({ err }, "GET /v2/tickets-b/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/tickets-b", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
