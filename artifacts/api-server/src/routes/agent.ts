@@ -561,27 +561,16 @@ router.get("/agent/demand-analysis/history/:demandId", requireAuth, async (req: 
 
 router.post("/agent/demand-analysis/bind-demand", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { conversationId, demandId, v2ClientDemandId } = req.body as {
-      conversationId: number;
-      demandId?: number;
-      v2ClientDemandId?: number;
-    };
+    const { conversationId, demandId } = req.body as { conversationId: number; demandId: number };
     const userId = req.user!.id;
 
-    if (!conversationId) {
-      return res.status(400).json({ error: "conversationId 不能为空" });
+    if (!conversationId || !demandId) {
+      return res.status(400).json({ error: "conversationId 和 demandId 不能为空" });
     }
-    if (!demandId && !v2ClientDemandId) {
-      return res.status(400).json({ error: "demandId 或 v2ClientDemandId 至少填一个" });
-    }
-
-    const setPayload: Record<string, unknown> = { updatedAt: new Date() };
-    if (v2ClientDemandId) setPayload.v2ClientDemandId = v2ClientDemandId;
-    else if (demandId) setPayload.demandId = demandId;
 
     const [updated] = await db
       .update(agentConversationsTable)
-      .set(setPayload)
+      .set({ demandId, updatedAt: new Date() })
       .where(
         and(
           eq(agentConversationsTable.id, conversationId),

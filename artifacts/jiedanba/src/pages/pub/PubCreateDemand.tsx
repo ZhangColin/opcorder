@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { AlertCircle, Upload, X, Loader2, Zap, Bot } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
@@ -6,7 +6,6 @@ import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { AgentChatPanel, type FormSuggestion } from "@/components/agent/AgentChatPanel";
-import { getValidAccessToken } from "@/lib/auth";
 
 interface DemandType { id: number; code: string; name: string; }
 
@@ -53,7 +52,6 @@ export default function PubCreateDemand() {
   const [sessionKey] = useState(() =>
     isEdit && editId ? `v2_pub_demand_${editId}` : `v2_pub_demand_new_${Date.now()}`
   );
-  const agentConversationId = useRef<number | null>(null);
 
   const handleAgentFill = (suggestion: FormSuggestion) => {
     if (suggestion.title) setTitle(suggestion.title);
@@ -151,24 +149,6 @@ export default function PubCreateDemand() {
       } else {
         const created = await v2Post<{ id: number }>("/client-demands", body);
         demandId = created.id;
-        if (agentConversationId.current) {
-          try {
-            const token = await getValidAccessToken(BASE_URL);
-            const bindRes = await fetch(`${BASE_URL}/api/agent/demand-analysis/bind-demand`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              body: JSON.stringify({ conversationId: agentConversationId.current, v2ClientDemandId: demandId }),
-            });
-            if (!bindRes.ok) {
-              console.warn("[AgentBind] bind-demand failed:", bindRes.status, await bindRes.text().catch(() => ""));
-            }
-          } catch (bindErr) {
-            console.warn("[AgentBind] bind-demand request error:", bindErr);
-          }
-        }
         if (asDraft && detail.trim()) {
           await v2Post(`/client-demands/${demandId}/save-draft-detail`, { detail: detail.trim(), attachments }).catch(() => {});
         } else if (!asDraft && detail.trim()) {
@@ -217,7 +197,6 @@ export default function PubCreateDemand() {
           sessionKey={sessionKey}
           sceneKey="v2_demand_analysis"
           onFillForm={handleAgentFill}
-          onConversationId={id => { agentConversationId.current = id; }}
         />
 
         {/* Form card */}
