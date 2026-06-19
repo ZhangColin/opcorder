@@ -16,6 +16,7 @@ interface SettlementPlan {
   paymentVoucherUrl: string | null;
   paymentNote: string | null;
   paidAt: string | null;
+  isLastItem: boolean;
   isOverdue?: boolean;
   createdAt: string;
 }
@@ -118,7 +119,7 @@ export default function AdminV2PaymentBDetail() {
             {item.status === "pending" && (
               <button
                 onClick={() => {
-                  if (blockingTickets.length > 0) {
+                  if (item.isLastItem && blockingTickets.length > 0) {
                     toast({ title: "无法打款", description: `存在 ${blockingTickets.length} 个阻断付款的未关闭工单，请先处理工单`, variant: "destructive" });
                     return;
                   }
@@ -126,7 +127,7 @@ export default function AdminV2PaymentBDetail() {
                 }}
                 disabled={acting}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
-                  blockingTickets.length > 0
+                  item.isLastItem && blockingTickets.length > 0
                     ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                     : "bg-violet-600 text-white hover:bg-violet-700"
                 }`}>
@@ -136,7 +137,7 @@ export default function AdminV2PaymentBDetail() {
           </div>
         </div>
 
-        {blockingTickets.length > 0 && item.status === "pending" && (
+        {item.isLastItem && blockingTickets.length > 0 && item.status === "pending" && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
             <div className="flex items-start gap-3">
               <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />

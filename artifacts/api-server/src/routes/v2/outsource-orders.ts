@@ -73,6 +73,7 @@ router.get("/outsource-orders/:id", requireAuth, async (req: Request, res: Respo
         outsourceDemandId: v2OutsourceOrdersTable.outsourceDemandId,
         demandTitle: v2OutsourceDemandsTable.title,
         tenderId: v2OutsourceOrdersTable.tenderId,
+        contractId: v2ContractsTable.id,
         opcId: v2OutsourceOrdersTable.opcId,
         opcNickname: usersTable.nickname,
         signedFileUrl: v2ContractsTable.signedFileUrl,
