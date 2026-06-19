@@ -4,7 +4,7 @@ import {
   Loader2, X, Upload, CheckCircle2, XCircle, Clock, ExternalLink, PlusCircle, Wrench,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,6 +30,7 @@ interface SettlementPlan {
   amount: number;
   dueDate: string | null;
   status: string;
+  isLastItem: boolean;
   paidAt: string | null;
 }
 
@@ -103,6 +104,13 @@ export default function AdminV2OutsourceOrderDetail() {
   const [settleTitle, setSettleTitle] = useState("");
   const [settleAmount, setSettleAmount] = useState("");
   const [settleDueDate, setSettleDueDate] = useState("");
+  const [settleIsLast, setSettleIsLast] = useState(false);
+
+  const [editingPlan, setEditingPlan] = useState<SettlementPlan | null>(null);
+  const [editPlanDesc, setEditPlanDesc] = useState("");
+  const [editPlanAmount, setEditPlanAmount] = useState("");
+  const [editPlanDueDate, setEditPlanDueDate] = useState("");
+  const [editPlanIsLast, setEditPlanIsLast] = useState(false);
 
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketTitle, setTicketTitle] = useState("");
@@ -195,10 +203,35 @@ export default function AdminV2OutsourceOrderDetail() {
         amount: parseFloat(settleAmount),
         dueDate: settleDueDate,
         itemNo: settlements.length + 1,
+        isLastItem: settleIsLast,
       });
       setShowSettlementModal(false);
-      setSettleTitle(""); setSettleAmount(""); setSettleDueDate("");
+      setSettleTitle(""); setSettleAmount(""); setSettleDueDate(""); setSettleIsLast(false);
     }, "结算付款项已创建");
+  };
+
+  const handleEditSettlement = async () => {
+    if (!editingPlan) return;
+    if (!editPlanAmount || parseFloat(editPlanAmount) <= 0) {
+      toast({ title: "请填写有效金额", variant: "destructive" }); return;
+    }
+    await act(async () => {
+      await v2Patch(`/settlement-plans/${editingPlan.id}`, {
+        description: editPlanDesc.trim() || undefined,
+        amount: parseFloat(editPlanAmount),
+        dueDate: editPlanDueDate || undefined,
+        isLastItem: editPlanIsLast,
+      });
+      setEditingPlan(null);
+    }, "结算计划已更新");
+  };
+
+  const openEditPlan = (s: SettlementPlan) => {
+    setEditingPlan(s);
+    setEditPlanDesc(s.description ?? "");
+    setEditPlanAmount(String(s.amount));
+    setEditPlanDueDate(s.dueDate ? s.dueDate.slice(0, 10) : "");
+    setEditPlanIsLast(s.isLastItem);
   };
 
   const handleCreateTicket = async () => {
@@ -281,12 +314,23 @@ export default function AdminV2OutsourceOrderDetail() {
               {settlements.map(s => (
                 <div key={s.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                   <div>
-                    <p className="text-sm font-semibold text-slate-700">{s.description ?? `第${s.itemNo ?? 1}期结算款`}</p>
+                    <p className="text-sm font-semibold text-slate-700">
+                      {s.description ?? `第${s.itemNo ?? 1}期结算款`}
+                      {s.isLastItem && <span className="ml-1 text-xs text-violet-600 font-bold">尾款</span>}
+                    </p>
                     {s.dueDate && <p className="text-xs text-slate-400">应付日期：{new Date(s.dueDate).toLocaleDateString("zh-CN")}</p>}
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-slate-800">¥{s.amount.toLocaleString()}</p>
-                    <SettleStatusBadge status={s.status} />
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">¥{s.amount.toLocaleString()}</p>
+                      <SettleStatusBadge status={s.status} />
+                    </div>
+                    {s.status === "pending" && (
+                      <button onClick={() => openEditPlan(s)}
+                        className="text-xs px-2 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
+                        编辑
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -432,11 +476,48 @@ export default function AdminV2OutsourceOrderDetail() {
               <input type="date" value={settleDueDate} onChange={e => setSettleDueDate(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+              <input type="checkbox" checked={settleIsLast} onChange={e => setSettleIsLast(e.target.checked)} className="w-4 h-4 accent-violet-600" />
+              标记为尾款（触发阻断付款工单检查）
+            </label>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowSettlementModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
               <button onClick={handleCreateSettlement} disabled={acting}
                 className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 disabled:opacity-50">
                 {acting ? "创建中…" : "创建"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {editingPlan && (
+        <Modal title="编辑结算付款项" onClose={() => setEditingPlan(null)}>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">付款项名称</label>
+              <input value={editPlanDesc} onChange={e => setEditPlanDesc(e.target.value)} placeholder="如：首付款"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">金额 (¥)</label>
+              <input type="number" value={editPlanAmount} onChange={e => setEditPlanAmount(e.target.value)} placeholder="0"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">应付日期（可选）</label>
+              <input type="date" value={editPlanDueDate} onChange={e => setEditPlanDueDate(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+              <input type="checkbox" checked={editPlanIsLast} onChange={e => setEditPlanIsLast(e.target.checked)} className="w-4 h-4 accent-violet-600" />
+              标记为尾款（触发阻断付款工单检查）
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditingPlan(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
+              <button onClick={handleEditSettlement} disabled={acting}
+                className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 disabled:opacity-50">
+                {acting ? "保存中…" : "保存"}
               </button>
             </div>
           </div>

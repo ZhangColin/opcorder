@@ -15,7 +15,7 @@ interface Tender {
   opcNickname: string | null;
   status: string;
   totalPrice: number | null;
-  priceBreakdown: Array<{ name: string; amount: number }> | null;
+  priceBreakdown: Array<{ item: string; amount: number; note?: string }> | null;
   quotedAt: string | null;
   selectedAt: string | null;
   createdAt: string;
@@ -164,7 +164,7 @@ export default function AdminV2TenderDetail() {
               <div className="space-y-1">
                 {tender.priceBreakdown.map((item, i) => (
                   <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">{item.name}</span>
+                    <span className="text-slate-600">{item.item}</span>
                     <span className="font-semibold text-slate-800">¥{item.amount.toLocaleString()}</span>
                   </div>
                 ))}
