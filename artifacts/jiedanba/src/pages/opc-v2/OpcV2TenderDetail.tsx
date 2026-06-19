@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, CheckCircle2, XCircle, Clock,
-  DollarSign, Plus, Trash2, Send,
+  DollarSign, Plus, Trash2, Send, FileText, History,
+  ChevronDown, ChevronUp, Paperclip, ArrowRight,
 } from "lucide-react";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
@@ -32,23 +33,91 @@ interface TenderDetail {
   updatedAt: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  negotiating: { label: "洽谈中·等待平台安排", color: "bg-blue-100 text-blue-700" },
-  quoted:      { label: "已提交报价·等待审核", color: "bg-amber-100 text-amber-700" },
-  won:         { label: "已中标",               color: "bg-green-100 text-green-700" },
-  lost:        { label: "未中标",               color: "bg-slate-100 text-slate-500" },
+interface DemandVersion {
+  id: number;
+  versionNo: number;
+  detail: string | null;
+  attachments: Array<{ name: string; url: string }>;
+  editedByNickname: string | null;
+  editComment: string | null;
+  createdAt: string;
+}
+
+interface DemandInfo {
+  id: number;
+  title: string;
+  demandType: string;
+  isUrgent: boolean;
+  expectedPriceMin: number | null;
+  expectedPriceMax: number | null;
+  status: string;
+  detail: string | null;
+  latestVersion: DemandVersion | null;
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; guidance: string }> = {
+  negotiating: {
+    label: "洽谈中",
+    color: "bg-blue-100 text-blue-700",
+    guidance: "✍️ 请与平台沟通方案、提疑问，确定方案后提交报价才算正式投标。",
+  },
+  quoted: {
+    label: "已报价",
+    color: "bg-amber-100 text-amber-700",
+    guidance: "⏳ 报价已提交，等待平台评选。如需求有变动，可修改报价后重新提交。",
+  },
+  won: {
+    label: "已中标",
+    color: "bg-green-100 text-green-700",
+    guidance: "🎉 恭喜中标！请前往「我的订单」确认合同并签约，开始执行。",
+  },
+  lost: {
+    label: "未中标",
+    color: "bg-slate-100 text-slate-500",
+    guidance: "😔 这次没有中标。需求详情仍可查看。加油，下次机会更好！",
+  },
 };
+
+const DEMAND_TYPE_LABELS: Record<string, string> = {
+  education: "教育培训",
+  software: "软件开发",
+  marketing: "营销",
+  content: "内容设计",
+  other: "其他",
+};
+
+function formatBudgetRange(min: number | null, max: number | null) {
+  if (!min && !max) return "面议";
+  if (min && max) return `¥${min.toLocaleString()} ~ ¥${max.toLocaleString()}`;
+  if (min) return `¥${min.toLocaleString()} 起`;
+  if (max) return `最高 ¥${max.toLocaleString()}`;
+  return "面议";
+}
 
 export default function OpcV2TenderDetail() {
   const { id } = useParams<{ id: string }>();
   const tenderId = parseInt(id ?? "0");
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: tender, isLoading, isError, refetch } = useQuery<TenderDetail>({
     queryKey: ["v2-opc-tender", tenderId],
     queryFn: () => v2Get(`/tenders/${tenderId}`),
     enabled: !!tenderId,
+  });
+
+  const { data: demand } = useQuery<DemandInfo>({
+    queryKey: ["v2-demand-detail", tender?.outsourceDemandId],
+    queryFn: () => v2Get(`/outsource-demands/${tender!.outsourceDemandId}`),
+    enabled: !!tender?.outsourceDemandId,
+  });
+
+  const [showVersions, setShowVersions] = useState(false);
+  const { data: versions = [] } = useQuery<DemandVersion[]>({
+    queryKey: ["v2-demand-versions", tender?.outsourceDemandId],
+    queryFn: () => v2Get(`/outsource-demands/${tender!.outsourceDemandId}/versions`),
+    enabled: showVersions && !!tender?.outsourceDemandId,
   });
 
   const [totalPrice, setTotalPrice] = useState("");
@@ -116,7 +185,7 @@ export default function OpcV2TenderDetail() {
     );
   }
 
-  const cfg = STATUS_CONFIG[tender.status] ?? { label: tender.status, color: "bg-slate-100 text-slate-500" };
+  const cfg = STATUS_CONFIG[tender.status] ?? { label: tender.status, color: "bg-slate-100 text-slate-500", guidance: "" };
   const canSubmitQuote = tender.status === "negotiating" || tender.status === "quoted";
 
   return (
@@ -126,66 +195,148 @@ export default function OpcV2TenderDetail() {
       backLabel="我的投标"
     >
       <div className="py-6 space-y-6">
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-1">
-              <h2 className="text-xl font-black text-slate-800 mb-2">
-                {tender.demandTitle ?? `需求 #${tender.outsourceDemandId}`}
-              </h2>
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${cfg.color}`}>
-                {cfg.label}
+
+        {/* Status + guidance */}
+        <div className={`flex items-start gap-3 px-5 py-4 rounded-2xl border ${
+          tender.status === "won" ? "bg-green-50 border-green-200" :
+          tender.status === "lost" ? "bg-slate-50 border-slate-200" :
+          "bg-blue-50 border-blue-200"
+        }`}>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`px-2.5 py-0.5 rounded-full text-sm font-bold ${cfg.color}`}>{cfg.label}</span>
+              <span className="text-xs text-slate-400">
+                报名于 {new Date(tender.createdAt).toLocaleDateString("zh-CN")}
               </span>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">报名时间</p>
-              <p className="text-sm font-bold text-slate-700">{new Date(tender.createdAt).toLocaleDateString("zh-CN")}</p>
-            </div>
-            {tender.totalPrice && (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">我的报价</p>
-                <p className="text-sm font-bold text-emerald-700">¥{tender.totalPrice.toLocaleString()}</p>
-              </div>
-            )}
-            {tender.quotedAt && (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">报价时间</p>
-                <p className="text-sm font-bold text-slate-700">{new Date(tender.quotedAt).toLocaleDateString("zh-CN")}</p>
-              </div>
-            )}
-            {tender.selectedAt && (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">中标时间</p>
-                <p className="text-sm font-bold text-green-700">{new Date(tender.selectedAt).toLocaleDateString("zh-CN")}</p>
-              </div>
+            <p className="text-sm font-medium text-slate-700">{cfg.guidance}</p>
+            {tender.status === "won" && (
+              <button
+                onClick={() => navigate("/opc/orders")}
+                className="mt-2 flex items-center gap-1.5 text-sm font-bold text-green-700 hover:text-green-900"
+              >
+                前往我的订单 <ArrowRight size={14} />
+              </button>
             )}
           </div>
-
-          {tender.status === "won" && (
-            <div className="flex items-center gap-2 px-4 py-3 bg-green-50 rounded-xl border border-green-200">
-              <CheckCircle2 size={18} className="text-green-600 shrink-0" />
-              <p className="text-sm font-bold text-green-700">
-                恭喜中标！请前往「我的订单」查看合同及执行详情。
-              </p>
-            </div>
-          )}
-          {tender.status === "lost" && (
-            <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
-              <XCircle size={18} className="text-slate-400 shrink-0" />
-              <p className="text-sm text-slate-500">
-                此次未能中标。{tender.cancelledReason && `原因：${tender.cancelledReason}`}
-              </p>
-            </div>
-          )}
         </div>
 
+        {/* Demand detail */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText size={16} className="text-emerald-600" />
+                <h3 className="font-bold text-slate-800">需求详情</h3>
+                {demand?.latestVersion && (
+                  <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                    v{demand.latestVersion.versionNo}
+                  </span>
+                )}
+              </div>
+              {demand?.expectedPriceMin || demand?.expectedPriceMax ? (
+                <span className="text-sm font-bold text-emerald-700">
+                  参考价：{formatBudgetRange(demand?.expectedPriceMin ?? null, demand?.expectedPriceMax ?? null)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="px-5 py-4 space-y-3">
+            {demand ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
+                    {DEMAND_TYPE_LABELS[demand.demandType] ?? demand.demandType}
+                  </span>
+                  {demand.isUrgent && (
+                    <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-bold rounded-full">紧急</span>
+                  )}
+                </div>
+
+                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-1">平台预期价格区间（报价参考锚点）</p>
+                  <p className="text-xl font-black text-emerald-800">
+                    {formatBudgetRange(demand.expectedPriceMin, demand.expectedPriceMax)}
+                  </p>
+                  <p className="text-[11px] text-emerald-600 mt-1">
+                    您的报价应在此区间内，否则可能影响中标机会
+                  </p>
+                </div>
+
+                {(demand.latestVersion?.detail || demand.detail) ? (
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
+                      {demand.latestVersion?.detail ?? demand.detail}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 italic">需求详情待补充</p>
+                )}
+
+                {demand.latestVersion?.attachments && demand.latestVersion.attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {demand.latestVersion.attachments.map((att, i) => (
+                      <a
+                        key={i}
+                        href={att.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-200 transition-colors"
+                      >
+                        <Paperclip size={11} /> {att.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                <Loader2 size={14} className="animate-spin" /> 加载需求详情…
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 pb-4">
+            <button
+              onClick={() => setShowVersions(v => !v)}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-emerald-700 transition-colors"
+            >
+              <History size={13} />
+              {showVersions ? "收起历史版本" : "查看历史版本"}
+              {showVersions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+
+            {showVersions && (
+              <div className="mt-3 space-y-3">
+                {versions.length === 0 ? (
+                  <p className="text-xs text-slate-400">暂无历史版本记录</p>
+                ) : versions.map(v => (
+                  <div key={v.id} className="border border-slate-100 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">v{v.versionNo}</span>
+                      <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
+                      {v.editComment && <span className="text-xs text-slate-500">{v.editComment}</span>}
+                    </div>
+                    {v.detail && (
+                      <p className="text-xs text-slate-600 line-clamp-3 whitespace-pre-wrap">{v.detail}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* My quote */}
         {tender.priceBreakdown && tender.priceBreakdown.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
               <DollarSign size={16} className="text-emerald-600" />
-              <h3 className="font-bold text-slate-800">报价明细</h3>
+              <h3 className="font-bold text-slate-800">我的报价明细</h3>
+              {tender.totalPrice && (
+                <span className="ml-auto text-base font-black text-emerald-700">总计 ¥{tender.totalPrice.toLocaleString()}</span>
+              )}
             </div>
             <div className="divide-y divide-slate-50">
               {tender.priceBreakdown.map((row, i) => (
@@ -197,23 +348,23 @@ export default function OpcV2TenderDetail() {
                   <p className="font-bold text-slate-800">¥{row.amount.toLocaleString()}</p>
                 </div>
               ))}
-              {tender.totalPrice && (
-                <div className="flex items-center justify-between px-5 py-3 bg-slate-50">
-                  <p className="text-sm font-extrabold text-slate-800">总计</p>
-                  <p className="text-base font-extrabold text-emerald-700">¥{tender.totalPrice.toLocaleString()}</p>
-                </div>
-              )}
             </div>
+            {tender.quotedAt && (
+              <div className="px-5 py-3 bg-slate-50 text-xs text-slate-400">
+                提交于 {new Date(tender.quotedAt).toLocaleDateString("zh-CN")}
+              </div>
+            )}
           </div>
         )}
 
+        {/* Quote form */}
         {canSubmitQuote && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Send size={16} className="text-emerald-600" />
                 <h3 className="font-bold text-slate-800">
-                  {tender.totalPrice ? "更新报价" : "提交报价"}
+                  {tender.totalPrice ? "修改报价" : "提交报价"}
                 </h3>
               </div>
               {!showForm && (
@@ -232,6 +383,12 @@ export default function OpcV2TenderDetail() {
               )}
             </div>
 
+            {!showForm && !tender.totalPrice && (
+              <div className="px-5 py-4 text-sm text-slate-500">
+                💡 在下方讨论区与平台确认方案后，提交报价才算正式投标。
+              </div>
+            )}
+
             {showForm && (
               <form onSubmit={handleSubmitQuote} className="p-5 space-y-4">
                 <div>
@@ -248,6 +405,11 @@ export default function OpcV2TenderDetail() {
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
                     required
                   />
+                  {demand?.expectedPriceMin || demand?.expectedPriceMax ? (
+                    <p className="text-[11px] text-emerald-600 mt-1">
+                      参考区间：{formatBudgetRange(demand.expectedPriceMin, demand.expectedPriceMax)}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div>
@@ -317,19 +479,14 @@ export default function OpcV2TenderDetail() {
                 </div>
               </form>
             )}
-
-            {!showForm && !tender.totalPrice && (
-              <div className="px-5 py-4 text-sm text-slate-500">
-                报名成功后，平台会与您沟通洽谈，确认方案后请提交报价。
-              </div>
-            )}
           </div>
         )}
 
+        {/* Discussion */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">沟通记录</h3>
-            <p className="text-xs text-slate-400 mt-0.5">与平台就此投标的讨论</p>
+            <h3 className="font-bold text-slate-800">沟通讨论</h3>
+            <p className="text-xs text-slate-400 mt-0.5">与平台就此投标的讨论（仅本人和运营可见）</p>
           </div>
           <div className="p-5">
             <DiscussionThread parentType="v2_tender" parentId={tenderId} />

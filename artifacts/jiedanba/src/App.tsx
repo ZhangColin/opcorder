@@ -74,6 +74,7 @@ import OpcV2OrderDetail from "@/pages/opc-v2/OpcV2OrderDetail";
 import OpcV2IncomeList from "@/pages/opc-v2/OpcV2IncomeList";
 import OpcV2TicketList from "@/pages/opc-v2/OpcV2TicketList";
 import OpcV2TicketDetail from "@/pages/opc-v2/OpcV2TicketDetail";
+import OpcV2IncomeDetail from "@/pages/opc-v2/OpcV2IncomeDetail";
 import Admin from "@/pages/Admin";
 import ScreenDisplay from "@/pages/ScreenDisplay";
 import MiniScreen from "@/pages/MiniScreen";
@@ -417,6 +418,9 @@ function Router() {
       </Route>
       <Route path="/opc/orders">
         {() => <OpcGate><OpcV2OrderList /></OpcGate>}
+      </Route>
+      <Route path="/opc/income/:id">
+        {() => <OpcGate><OpcV2IncomeDetail /></OpcGate>}
       </Route>
       <Route path="/opc/income">
         {() => <OpcGate><OpcV2IncomeList /></OpcGate>}
