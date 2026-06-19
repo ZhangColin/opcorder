@@ -36,6 +36,7 @@ router.get("/tickets-b", requireAuth, async (req: Request, res: Response) => {
         title: v2TicketsBTable.title,
         description: v2TicketsBTable.description,
         status: v2TicketsBTable.status,
+        isBlockingPayment: v2TicketsBTable.isBlockingPayment,
         createdByNickname: usersTable.nickname,
         closedAt: v2TicketsBTable.closedAt,
         closedNote: v2TicketsBTable.closedNote,

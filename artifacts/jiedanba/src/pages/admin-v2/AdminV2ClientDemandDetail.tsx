@@ -93,6 +93,10 @@ export default function AdminV2ClientDemandDetail() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeReason, setCloseReason] = useState("");
 
+  const [showUpdateDetailModal, setShowUpdateDetailModal] = useState(false);
+  const [updateDetailText, setUpdateDetailText] = useState("");
+  const [updateDetailComment, setUpdateDetailComment] = useState("");
+
   const load = async () => {
     setLoading(true);
     try {
@@ -173,11 +177,27 @@ export default function AdminV2ClientDemandDetail() {
     }, "需求已关闭");
   };
 
+  const handleUpdateDetail = async () => {
+    if (!updateDetailText.trim()) {
+      toast({ title: "需求详情不能为空", variant: "destructive" }); return;
+    }
+    await act(async () => {
+      await v2Post(`/client-demands/${id}/update-detail`, {
+        detail: updateDetailText.trim(),
+        editComment: updateDetailComment.trim() || undefined,
+      });
+      setShowUpdateDetailModal(false);
+      setUpdateDetailText(""); setUpdateDetailComment("");
+    }, "需求详情已更新，通知已发送");
+  };
+
   if (loading) return <AdminV2Layout backHref="/admin/v2/client-demands" backLabel="客户需求"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
   if (!demand) return <AdminV2Layout backHref="/admin/v2/client-demands" backLabel="客户需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
 
   const cfg = STATUS_CONFIG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const canInitiateQuote = demand.status === "negotiating";
+  const canReQuote = demand.status === "quoting";
+  const canUpdateDetail = ["negotiating", "quoting"].includes(demand.status);
   const canCreatePayment = ["pending_contract","executing","warranty","completed"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = !["completed","closed"].includes(demand.status);
@@ -223,10 +243,16 @@ export default function AdminV2ClientDemandDetail() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              {canInitiateQuote && (
+              {(canInitiateQuote || canReQuote) && (
                 <button onClick={() => setShowQuoteModal(true)} disabled={acting}
                   className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
-                  <DollarSign size={14} /> 发起报价
+                  <DollarSign size={14} /> {canReQuote ? "更新报价" : "发起报价"}
+                </button>
+              )}
+              {canUpdateDetail && (
+                <button onClick={() => { setUpdateDetailText(demand.detail ?? ""); setShowUpdateDetailModal(true); }} disabled={acting}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-600 text-white rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors">
+                  <Edit2 size={14} /> 更新详情
                 </button>
               )}
               {canCreatePayment && (
@@ -386,6 +412,30 @@ export default function AdminV2ClientDemandDetail() {
               <button onClick={handleCreateDeliverable} disabled={acting}
                 className="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50">
                 {acting ? "创建中…" : "创建"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showUpdateDetailModal && (
+        <Modal title="更新需求详情" onClose={() => setShowUpdateDetailModal(false)}>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">详情内容（支持 Markdown）</label>
+              <textarea value={updateDetailText} onChange={e => setUpdateDetailText(e.target.value)} rows={8}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">修改说明（可选）</label>
+              <input value={updateDetailComment} onChange={e => setUpdateDetailComment(e.target.value)} placeholder="说明本次修改内容"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowUpdateDetailModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleUpdateDetail} disabled={acting}
+                className="px-4 py-2 text-sm bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 disabled:opacity-50">
+                {acting ? "保存中…" : "保存并通知"}
               </button>
             </div>
           </div>

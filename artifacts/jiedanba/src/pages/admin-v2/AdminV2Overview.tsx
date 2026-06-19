@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import {
   Loader2, Users, Package, ShoppingCart, CreditCard, Wallet,
@@ -248,7 +248,8 @@ function CDRow({ node, navigate }: { node: CDNode; navigate: (p: string) => void
 /* ─── Main component ──────────────────────────────────────── */
 export default function AdminV2Overview() {
   const [, navigate] = useLocation();
-  const [tab, setTab] = useState<"stats" | "tree">("stats");
+  const cdIdFilter = useMemo(() => new URLSearchParams(window.location.search).get("clientDemandId"), []);
+  const [tab, setTab] = useState<"stats" | "tree">(cdIdFilter ? "tree" : "stats");
 
   const [statsData, setStatsData] = useState<AdminOverview | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -268,7 +269,8 @@ export default function AdminV2Overview() {
   const loadTree = useCallback(async (page = 1) => {
     setTreeLoading(true);
     try {
-      const data = await v2Get<CDNode[]>(`/overview/admin/tree?page=${page}&limit=15`);
+      const cdParam = cdIdFilter ? `&clientDemandId=${cdIdFilter}` : "";
+      const data = await v2Get<CDNode[]>(`/overview/admin/tree?page=${page}&limit=15${cdParam}`);
       if (page === 1) setTreeData(data);
       else setTreeData(prev => [...prev, ...data]);
       setTreeHasMore(data.length === 15);
@@ -278,7 +280,7 @@ export default function AdminV2Overview() {
     } finally {
       setTreeLoading(false);
     }
-  }, []);
+  }, [cdIdFilter]);
 
   useEffect(() => {
     if (tab === "tree" && treeData.length === 0) loadTree(1);

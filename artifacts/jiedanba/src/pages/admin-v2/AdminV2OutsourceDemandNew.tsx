@@ -32,6 +32,11 @@ export default function AdminV2OutsourceDemandNew() {
   const [milestones, setMilestones] = useState<Array<{ title: string; dueDate: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  const [opcSearch, setOpcSearch] = useState("");
+  const [opcResults, setOpcResults] = useState<{ id: number; nickname: string; email: string }[]>([]);
+  const [invitedOpcs, setInvitedOpcs] = useState<{ id: number; nickname: string }[]>([]);
+  const [searchingOpc, setSearchingOpc] = useState(false);
+
   const [clientDemands, setClientDemands] = useState<ClientDemand[]>([]);
   const [loadingDemands, setLoadingDemands] = useState(true);
 
@@ -58,6 +63,30 @@ export default function AdminV2OutsourceDemandNew() {
     }
   };
 
+  const handleOpcSearch = async () => {
+    if (!opcSearch.trim()) return;
+    setSearchingOpc(true);
+    try {
+      const results = await v2Get<{ id: number; nickname: string; email: string }[]>(
+        `/outsource-demands/opc-search?q=${encodeURIComponent(opcSearch.trim())}`
+      );
+      setOpcResults(results);
+    } catch {
+      setOpcResults([]);
+    } finally {
+      setSearchingOpc(false);
+    }
+  };
+
+  const addInvitedOpc = (opc: { id: number; nickname: string }) => {
+    if (!invitedOpcs.find(o => o.id === opc.id)) {
+      setInvitedOpcs(prev => [...prev, { id: opc.id, nickname: opc.nickname }]);
+    }
+    setOpcSearch(""); setOpcResults([]);
+  };
+
+  const removeInvitedOpc = (id: number) => setInvitedOpcs(prev => prev.filter(o => o.id !== id));
+
   const addMilestone = () => setMilestones([...milestones, { title: "", dueDate: "" }]);
   const removeMilestone = (i: number) => setMilestones(milestones.filter((_, j) => j !== i));
   const updateMilestone = (i: number, field: "title" | "dueDate", value: string) => {
@@ -80,6 +109,7 @@ export default function AdminV2OutsourceDemandNew() {
         expectedPriceMax: expectedPriceMax ? parseFloat(expectedPriceMax) : null,
         detail: detail.trim() || null,
         milestones: milestones.filter(m => m.title).map(m => ({ title: m.title, dueDate: m.dueDate || null })),
+        invitedOpcIds: mode === "invited" && invitedOpcs.length > 0 ? invitedOpcs.map(o => o.id) : undefined,
       };
       const result = await v2Post<{ id: number }>("/outsource-demands", payload);
       toast({ title: asDraft ? "已保存草稿" : "外包需求已发布" });
@@ -137,6 +167,45 @@ export default function AdminV2OutsourceDemandNew() {
               </select>
             </div>
           </div>
+
+          {mode === "invited" && (
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">邀请OPC（指定参与报价）</label>
+              <div className="flex gap-2 mb-2">
+                <input value={opcSearch} onChange={e => setOpcSearch(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleOpcSearch(); } }}
+                  placeholder="搜索OPC昵称…"
+                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <button type="button" onClick={handleOpcSearch} disabled={searchingOpc || !opcSearch.trim()}
+                  className="px-3 py-2 text-xs font-bold border border-primary/30 text-primary rounded-xl hover:bg-primary/5 whitespace-nowrap disabled:opacity-50">
+                  {searchingOpc ? "搜索中…" : "搜索"}
+                </button>
+              </div>
+              {opcResults.length > 0 && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden mb-2">
+                  {opcResults.map(opc => (
+                    <button key={opc.id} type="button" onClick={() => addInvitedOpc(opc)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center justify-between border-b border-slate-100 last:border-0">
+                      <span className="font-medium">{opc.nickname}</span>
+                      <span className="text-xs text-slate-400">{opc.email}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {invitedOpcs.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {invitedOpcs.map(opc => (
+                    <span key={opc.id} className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs font-bold rounded-lg">
+                      {opc.nickname}
+                      <button type="button" onClick={() => removeInvitedOpc(opc.id)} className="hover:text-red-500 ml-0.5"><X size={12} /></button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">尚未邀请任何OPC，可搜索后点击添加</p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

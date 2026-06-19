@@ -79,10 +79,10 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
 router.post("/outsource-demands", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { clientDemandId, title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones } = req.body as {
+    const { clientDemandId, title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds } = req.body as {
       clientDemandId?: number; title: string; demandType?: string; isUrgent?: boolean;
       mode?: "public" | "invited"; expectedPriceMin?: number; expectedPriceMax?: number;
-      milestones?: any[];
+      milestones?: any[]; invitedOpcIds?: number[];
     };
     if (!title?.trim()) return res.status(400).json({ error: "标题不能为空" });
 
@@ -101,9 +101,33 @@ router.post("/outsource-demands", requireAdmin, async (req: Request, res: Respon
       status: "negotiating",
     }).returning();
 
+    if (mode === "invited" && Array.isArray(invitedOpcIds) && invitedOpcIds.length > 0) {
+      for (const opcId of invitedOpcIds) {
+        await notify(opcId, "v2_demand_invited", "您收到外包需求邀请",
+          `平台邀请您参与外包需求「${title.trim()}」的报价，请登录查看详情。`, created.id, "v2_outsource_demand");
+      }
+    }
+
     return res.status(201).json(created);
   } catch (err) {
     logger.error({ err }, "POST /v2/outsource-demands failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.get("/outsource-demands/opc-search", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const q = ((req.query.q as string) ?? "").trim();
+    const rows = await db
+      .select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email })
+      .from(usersTable)
+      .where(q
+        ? and(eq(usersTable.role, "opc"), ilike(usersTable.nickname, `%${q}%`))
+        : eq(usersTable.role, "opc"))
+      .limit(20);
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "GET /v2/outsource-demands/opc-search failed");
     return res.status(500).json({ error: "服务器错误" });
   }
 });
