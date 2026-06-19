@@ -3,7 +3,7 @@ import {
   db, v2TendersTable, v2OutsourceDemandsTable, v2OutsourceOrdersTable,
   v2ContractsTable, v2ClientDemandsTable, usersTable,
 } from "@workspace/db";
-import { eq, and, desc, count, inArray } from "drizzle-orm";
+import { eq, and, ne, desc, count, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genOutsourceOrderNo, genContractNo } from "./utils";
@@ -226,6 +226,22 @@ router.post("/tenders/:id/select-winner", requireAdmin, async (req: Request, res
 
     await notify(tender.opcId, "v2_tender_won", "恭喜！您已中标",
       `您已中标外包需求「${demand.title}」，订单号 ${orderNo}，合同已生成待运营定稿。`, order.id, "v2_outsource_order");
+
+    const losers = await db.select({ id: v2TendersTable.id, opcId: v2TendersTable.opcId })
+      .from(v2TendersTable)
+      .where(and(
+        eq(v2TendersTable.outsourceDemandId, tender.outsourceDemandId),
+        ne(v2TendersTable.id, id),
+        inArray(v2TendersTable.status, ["negotiating", "quoted"]),
+      ));
+    for (const loser of losers) {
+      await db.update(v2TendersTable)
+        .set({ status: "lost", updatedAt: new Date() })
+        .where(eq(v2TendersTable.id, loser.id));
+      await notify(loser.opcId, "v2_tender_lost", "很遗憾，本次投标未入选",
+        `外包需求「${demand.title}」已完成投标筛选，本次您未被选中，感谢参与。`,
+        tender.outsourceDemandId, "v2_outsource_demand");
+    }
 
     return res.status(201).json({ order, contract });
   } catch (err) {

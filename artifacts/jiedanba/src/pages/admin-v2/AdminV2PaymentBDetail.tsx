@@ -13,7 +13,7 @@ interface SettlementPlan {
   amount: number;
   dueDate: string | null;
   status: string;
-  paymentRef: string | null;
+  paymentVoucherUrl: string | null;
   paymentNote: string | null;
   paidAt: string | null;
   isOverdue?: boolean;
@@ -75,7 +75,7 @@ export default function AdminV2PaymentBDetail() {
     setActing(true);
     try {
       await v2Post(`/settlement-plans/${id}/mark-paid`, {
-        paymentRef: payRef.trim() || undefined,
+        paymentVoucherUrl: payRef.trim() || undefined,
         paymentNote: payNote.trim() || undefined,
       });
       toast({ title: "已标记为已打款" });
@@ -111,7 +111,7 @@ export default function AdminV2PaymentBDetail() {
               <div className="text-xs text-slate-400 flex gap-4 flex-wrap">
                 {item.dueDate && <span className="flex items-center gap-1"><Clock size={11} />应付日期：{new Date(item.dueDate).toLocaleDateString("zh-CN")}</span>}
                 {item.paidAt && <span>实际支付：{new Date(item.paidAt).toLocaleDateString("zh-CN")}</span>}
-                {item.paymentRef && <span>付款参考：{item.paymentRef}</span>}
+                {item.paymentVoucherUrl && <span>支付凭证：<a href={item.paymentVoucherUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">查看凭证</a></span>}
                 {item.paymentNote && <span>备注：{item.paymentNote}</span>}
               </div>
             </div>
@@ -173,10 +173,10 @@ export default function AdminV2PaymentBDetail() {
       {showPayModal && (
         <Modal title="标记已打款" onClose={() => setShowPayModal(false)}>
           <div className="space-y-3">
-            <p className="text-xs text-slate-500">填写付款参考号并确认，该结算项将标记为已打款。</p>
+            <p className="text-xs text-slate-500">填写支付凭证 URL 并确认，该结算项将标记为已打款。</p>
             <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">付款参考号（可选）</label>
-              <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="转账流水号"
+              <label className="text-xs font-bold text-slate-600 mb-1 block">支付凭证 URL（可选）</label>
+              <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="凭证文件链接"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div>
