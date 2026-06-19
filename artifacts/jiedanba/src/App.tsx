@@ -10,6 +10,15 @@ import { useSiteSettings } from "@/hooks/use-site-settings";
 import { Layout } from "@/components/layout/Layout";
 import Login from "@/pages/Login";
 import Home from "@/pages/Home";
+import PubDemandList from "@/pages/pub/PubDemandList";
+import PubCreateDemand from "@/pages/pub/PubCreateDemand";
+import PubDemandDetail from "@/pages/pub/PubDemandDetail";
+import PubContractList from "@/pages/pub/PubContractList";
+import PubContractDetail from "@/pages/pub/PubContractDetail";
+import PubPaymentList from "@/pages/pub/PubPaymentList";
+import PubPaymentDetail from "@/pages/pub/PubPaymentDetail";
+import PubTicketList from "@/pages/pub/PubTicketList";
+import PubTicketDetail from "@/pages/pub/PubTicketDetail";
 import PublisherHome from "@/pages/PublisherHome";
 import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
 import PublisherDemandList from "@/pages/PublisherDemandList";
@@ -247,6 +256,41 @@ function Router() {
       </Route>
       <Route path="/publisher/disputes">
         {() => <PublisherGate><PublisherDisputes /></PublisherGate>}
+      </Route>
+
+      {/* V2 发单方前台路由 */}
+      <Route path="/pub/demands/new">
+        {() => <PublisherGate><PubCreateDemand /></PublisherGate>}
+      </Route>
+      <Route path="/pub/demands/:id/edit">
+        {() => <PublisherGate><PubCreateDemand /></PublisherGate>}
+      </Route>
+      <Route path="/pub/demands/:id">
+        {() => <PublisherGate><PubDemandDetail /></PublisherGate>}
+      </Route>
+      <Route path="/pub/demands">
+        {() => <PublisherGate><PubDemandList /></PublisherGate>}
+      </Route>
+      <Route path="/pub/contracts/:id">
+        {() => <PublisherGate><PubContractDetail /></PublisherGate>}
+      </Route>
+      <Route path="/pub/contracts">
+        {() => <PublisherGate><PubContractList /></PublisherGate>}
+      </Route>
+      <Route path="/pub/payments/:id">
+        {() => <PublisherGate><PubPaymentDetail /></PublisherGate>}
+      </Route>
+      <Route path="/pub/payments">
+        {() => <PublisherGate><PubPaymentList /></PublisherGate>}
+      </Route>
+      <Route path="/pub/tickets/:id">
+        {() => <PublisherGate><PubTicketDetail /></PublisherGate>}
+      </Route>
+      <Route path="/pub/tickets">
+        {() => <PublisherGate><PubTicketList /></PublisherGate>}
+      </Route>
+      <Route path="/pub">
+        {() => <PublisherGate><PubDemandList /></PublisherGate>}
       </Route>
 
       {/* 社区 & 学习资源：游客也可访问 */}
