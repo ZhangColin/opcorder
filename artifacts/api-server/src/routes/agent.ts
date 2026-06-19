@@ -11,6 +11,8 @@ const router: IRouter = Router();
 
 const DEMAND_ANALYSIS_SCENE_KEY = "demand_analysis";
 
+const TOOL_FREE_SCENE_KEYS = new Set(["v2_outsource_split"]);
+
 type PersistedMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content: string | null;
@@ -21,13 +23,17 @@ type PersistedMessage = {
   timestamp: string;
 };
 
-async function getDemandAnalysisConfig() {
+async function getAgentConfig(sceneKey: string = DEMAND_ANALYSIS_SCENE_KEY) {
   const [config] = await db
     .select()
     .from(agentConfigsTable)
-    .where(eq(agentConfigsTable.sceneKey, DEMAND_ANALYSIS_SCENE_KEY))
+    .where(eq(agentConfigsTable.sceneKey, sceneKey))
     .limit(1);
   return config;
+}
+
+async function getDemandAnalysisConfig() {
+  return getAgentConfig(DEMAND_ANALYSIS_SCENE_KEY);
 }
 
 async function getOrCreateConversation(
@@ -150,24 +156,27 @@ router.get("/agent/demand-analysis/status", requireAuth, async (_req: Request, r
 });
 
 router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res: Response) => {
-  const { message, demandId, sessionKey, conversationId } = req.body as {
+  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey } = req.body as {
     message: string;
     demandId?: number;
     sessionKey?: string;
     conversationId?: number;
+    sceneKey?: string;
   };
+
+  const resolvedSceneKey = reqSceneKey || DEMAND_ANALYSIS_SCENE_KEY;
 
   if (!message || typeof message !== "string" || message.trim() === "") {
     return res.status(400).json({ error: "消息内容不能为空" });
   }
 
-  let config: Awaited<ReturnType<typeof getDemandAnalysisConfig>>;
+  let config: Awaited<ReturnType<typeof getAgentConfig>>;
   let conversation: Awaited<ReturnType<typeof getOrCreateConversation>>;
 
   try {
-    config = await getDemandAnalysisConfig();
-    if (!config) return res.status(503).json({ error: "需求分析智能体未配置" });
-    if (!config.isEnabled) return res.status(503).json({ error: "需求分析智能体暂未启用" });
+    config = await getAgentConfig(resolvedSceneKey);
+    if (!config) return res.status(503).json({ error: "智能体未配置" });
+    if (!config.isEnabled) return res.status(503).json({ error: "智能体暂未启用" });
 
     const userId = req.user!.id;
     conversation = await getOrCreateConversation(
@@ -353,7 +362,8 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
     while (iteration < MAX_TOOL_ITERATIONS) {
       iteration++;
 
-      const response = await callLLM(llmMessages, buildAgentTools(toolContext));
+      const agentTools = TOOL_FREE_SCENE_KEYS.has(resolvedSceneKey) ? [] : buildAgentTools(toolContext);
+      const response = await callLLM(llmMessages, agentTools);
 
       if (response.toolCalls && response.toolCalls.length > 0) {
         const toolCalls: ToolCall[] = response.toolCalls;

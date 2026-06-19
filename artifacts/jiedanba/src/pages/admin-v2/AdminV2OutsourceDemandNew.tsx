@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Loader2, X, Trash2 } from "lucide-react";
+import { Loader2, X, Trash2, Scissors } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
+import { AiSplitPanel, type SplitSuggestion } from "@/components/agent/AiSplitPanel";
 
 interface ClientDemand {
   id: number;
@@ -39,6 +40,8 @@ export default function AdminV2OutsourceDemandNew() {
 
   const [clientDemands, setClientDemands] = useState<ClientDemand[]>([]);
   const [loadingDemands, setLoadingDemands] = useState(true);
+  const [splitPanelOpen, setSplitPanelOpen] = useState(false);
+  const [splitClientDemand, setSplitClientDemand] = useState<{ id: number; title: string; detail?: string | null } | null>(null);
 
   useEffect(() => {
     v2Get<{ items: ClientDemand[] }>("/client-demands?limit=100&status=executing")
@@ -61,6 +64,23 @@ export default function AdminV2OutsourceDemandNew() {
     } catch {
       toast({ title: "带入失败", description: "无法读取关联需求详情", variant: "destructive" });
     }
+  };
+
+  const handleOpenSplitPanel = async () => {
+    if (!clientDemandId) { toast({ title: "请先选择关联需求", variant: "destructive" }); return; }
+    try {
+      const cd = await v2Get<ClientDemand>(`/client-demands/${clientDemandId}`);
+      setSplitClientDemand({ id: cd.id, title: cd.title, detail: cd.detail });
+      setSplitPanelOpen(true);
+    } catch {
+      toast({ title: "读取需求失败", variant: "destructive" });
+    }
+  };
+
+  const handleSplitApply = (suggestion: SplitSuggestion) => {
+    setTitle(suggestion.title);
+    if (suggestion.detail) setDetail(suggestion.detail);
+    toast({ title: "拆分方案已应用", description: "已填入标题和详情，请继续完善其他字段" });
   };
 
   const handleOpcSearch = async () => {
@@ -122,6 +142,13 @@ export default function AdminV2OutsourceDemandNew() {
   };
 
   return (
+    <>
+    <AiSplitPanel
+      open={splitPanelOpen}
+      onClose={() => setSplitPanelOpen(false)}
+      clientDemand={splitClientDemand}
+      onApply={handleSplitApply}
+    />
     <AdminV2Layout title="新建外包需求" backHref="/admin/v2/outsource-demands" backLabel="外包需求">
       <div className="mt-6 space-y-4 max-w-2xl">
         <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
@@ -138,10 +165,17 @@ export default function AdminV2OutsourceDemandNew() {
                 ))}
               </select>
               {clientDemandId && (
-                <button onClick={handleImportDetail}
-                  className="px-3 py-2 text-xs font-bold border border-primary/30 text-primary rounded-xl hover:bg-primary/5 whitespace-nowrap">
-                  带入内容
-                </button>
+                <>
+                  <button onClick={handleImportDetail}
+                    className="px-3 py-2 text-xs font-bold border border-primary/30 text-primary rounded-xl hover:bg-primary/5 whitespace-nowrap">
+                    带入内容
+                  </button>
+                  <button onClick={handleOpenSplitPanel}
+                    className="flex items-center gap-1 px-3 py-2 text-xs font-bold border border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 whitespace-nowrap">
+                    <Scissors size={12} />
+                    AI拆分
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -273,5 +307,6 @@ export default function AdminV2OutsourceDemandNew() {
         </div>
       </div>
     </AdminV2Layout>
+    </>
   );
 }

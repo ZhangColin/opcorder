@@ -5,6 +5,7 @@ import { PubLayout } from "@/components/pub/PubLayout";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
+import { AgentChatPanel, type FormSuggestion } from "@/components/agent/AgentChatPanel";
 
 interface DemandType { id: number; code: string; name: string; }
 
@@ -47,6 +48,20 @@ export default function PubCreateDemand() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [sessionKey] = useState(() =>
+    isEdit && editId ? `v2_pub_demand_${editId}` : `v2_pub_demand_new_${Date.now()}`
+  );
+
+  const handleAgentFill = (suggestion: FormSuggestion) => {
+    if (suggestion.title) setTitle(suggestion.title);
+    if (suggestion.type) setDemandType(suggestion.type);
+    if (suggestion.description) setDetail(suggestion.description);
+    if (suggestion.budgetMin != null) setBudgetMin(String(suggestion.budgetMin));
+    if (suggestion.budgetMax != null) setBudgetMax(String(suggestion.budgetMax));
+    if (suggestion.deadline) setHopeDeliveryDate(suggestion.deadline);
+    toast({ title: "AI建议已填入", description: "请检查并完善表单内容" });
+  };
 
   useEffect(() => {
     fetch(`${BASE_URL}/api/cat-categories`)
@@ -165,13 +180,24 @@ export default function PubCreateDemand() {
             <Bot size={18} className="text-violet-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-bold text-violet-800">需求分析智能体（即将上线）</p>
+            <p className="text-sm font-bold text-violet-800">需求分析助手</p>
             <p className="text-xs text-violet-600 mt-0.5">通过 AI 对话引导，精准描述您的需求，获得更准确的报价</p>
           </div>
-          <button disabled className="shrink-0 text-xs bg-violet-100 text-violet-400 rounded-lg px-3 py-1.5 font-bold cursor-not-allowed">
-            敬请期待
+          <button
+            onClick={() => setAgentOpen(true)}
+            className="shrink-0 text-xs bg-violet-600 text-white rounded-lg px-3 py-1.5 font-bold hover:bg-violet-700 transition-colors"
+          >
+            开始对话
           </button>
         </div>
+
+        <AgentChatPanel
+          open={agentOpen}
+          onClose={() => setAgentOpen(false)}
+          sessionKey={sessionKey}
+          sceneKey="v2_demand_analysis"
+          onFillForm={handleAgentFill}
+        />
 
         {/* Form card */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">

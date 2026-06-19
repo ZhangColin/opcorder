@@ -47,6 +47,8 @@ interface AgentChatPanelProps {
   onConversationId?: (conversationId: number) => void;
   /** inline: embedded in layout (no fixed positioning); drawer: slide-in from right on desktop, bottom sheet on mobile (default) */
   mode?: "inline" | "drawer";
+  /** Agent scene key — defaults to demand_analysis */
+  sceneKey?: string;
 }
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
@@ -256,7 +258,7 @@ const WELCOME_MESSAGE: ChatMessage = {
   timestamp: new Date().toISOString(),
 };
 
-export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onConversationId, mode = "drawer" }: AgentChatPanelProps) {
+export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onConversationId, mode = "drawer", sceneKey }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -353,7 +355,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text.trim(), sessionKey, conversationId: conversationId ?? undefined, demandId: demandId ?? undefined }),
+        body: JSON.stringify({ message: text.trim(), sessionKey, conversationId: conversationId ?? undefined, demandId: demandId ?? undefined, ...(sceneKey ? { sceneKey } : {}) }),
         signal: abortRef.current.signal,
       });
 
