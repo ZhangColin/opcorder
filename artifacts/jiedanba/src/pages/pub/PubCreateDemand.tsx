@@ -208,7 +208,6 @@ export default function PubCreateDemand() {
           open={agentOpen}
           onClose={() => setAgentOpen(false)}
           sessionKey={sessionKey}
-          demandId={editId}
           sceneKey="v2_demand_analysis"
           onFillForm={handleAgentFill}
           onConversationId={id => { agentConversationId.current = id; }}
