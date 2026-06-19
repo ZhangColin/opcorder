@@ -39,7 +39,6 @@ router.get("/outsource-orders", requireAuth, async (req: Request, res: Response)
         opcId: v2OutsourceOrdersTable.opcId,
         opcNickname: usersTable.nickname,
         status: v2OutsourceOrdersTable.status,
-        contractId: v2OutsourceOrdersTable.contractId,
         warrantyEndDate: v2OutsourceOrdersTable.warrantyEndDate,
         createdAt: v2OutsourceOrdersTable.createdAt,
         updatedAt: v2OutsourceOrdersTable.updatedAt,
