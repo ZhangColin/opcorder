@@ -2075,5 +2075,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 032m: added attachments column to v2_tickets_a");
   });
 
+  // Migration 032n: add is_blocking_payment column to v2_tickets_b
+  await once("032n", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_tickets_b ADD COLUMN IF NOT EXISTS is_blocking_payment boolean NOT NULL DEFAULT false
+    `);
+    logger.info("Migration 032n: added is_blocking_payment column to v2_tickets_b");
+  });
+
   logger.info("Startup data migrations complete.");
 }

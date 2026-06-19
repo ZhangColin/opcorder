@@ -75,9 +75,8 @@ router.get("/outsource-orders/:id", requireAuth, async (req: Request, res: Respo
         tenderId: v2OutsourceOrdersTable.tenderId,
         opcId: v2OutsourceOrdersTable.opcId,
         opcNickname: usersTable.nickname,
-        signedFileUrl: v2OutsourceOrdersTable.signedFileUrl,
+        signedFileUrl: v2ContractsTable.signedFileUrl,
         status: v2OutsourceOrdersTable.status,
-        contractId: v2OutsourceOrdersTable.contractId,
         warrantyEndDate: v2OutsourceOrdersTable.warrantyEndDate,
         cancelledReason: v2OutsourceOrdersTable.cancelledReason,
         createdAt: v2OutsourceOrdersTable.createdAt,
@@ -86,6 +85,7 @@ router.get("/outsource-orders/:id", requireAuth, async (req: Request, res: Respo
       .from(v2OutsourceOrdersTable)
       .leftJoin(v2OutsourceDemandsTable, eq(v2OutsourceOrdersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
       .leftJoin(usersTable, eq(v2OutsourceOrdersTable.opcId, usersTable.id))
+      .leftJoin(v2ContractsTable, and(eq(v2ContractsTable.outsourceOrderId, v2OutsourceOrdersTable.id), eq(v2ContractsTable.channel, "b")))
       .where(eq(v2OutsourceOrdersTable.id, id))
       .limit(1);
 
@@ -113,11 +113,15 @@ router.post("/outsource-orders/:id/upload-signed-contract", requireAuth, async (
     const { signedFileUrl } = req.body as { signedFileUrl: string };
     if (!signedFileUrl) return res.status(400).json({ error: "signedFileUrl 必填" });
 
-    if (!order.contractId) return res.status(400).json({ error: "订单尚无关联合同" });
+    const [linkedContract] = await db.select({ id: v2ContractsTable.id })
+      .from(v2ContractsTable)
+      .where(and(eq(v2ContractsTable.outsourceOrderId, id), eq(v2ContractsTable.channel, "b")))
+      .limit(1);
+    if (!linkedContract) return res.status(400).json({ error: "订单尚无关联合同" });
 
     const [contract] = await db.update(v2ContractsTable)
       .set({ status: "signed", signedFileUrl, signedBy: userId, signedAt: new Date(), updatedAt: new Date() })
-      .where(eq(v2ContractsTable.id, order.contractId))
+      .where(eq(v2ContractsTable.id, linkedContract.id))
       .returning();
 
     const [updatedOrder] = await db.update(v2OutsourceOrdersTable)

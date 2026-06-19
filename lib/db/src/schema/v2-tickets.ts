@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, serial, integer, text, varchar,
-  timestamp, index, jsonb,
+  timestamp, index, jsonb, boolean,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { v2ClientDemandsTable } from "./v2-client-demands";
@@ -41,6 +41,7 @@ export const v2TicketsBTable = pgTable("v2_tickets_b", {
   status: v2TicketStatusEnum("status").notNull().default("open"),
   createdBy: integer("created_by").notNull().references(() => usersTable.id),
   closedBy: integer("closed_by").references(() => usersTable.id),
+  isBlockingPayment: boolean("is_blocking_payment").notNull().default(false),
   closedAt: timestamp("closed_at"),
   closedNote: text("closed_note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

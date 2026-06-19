@@ -97,8 +97,8 @@ router.post("/tickets-b", requireAuth, async (req: Request, res: Response) => {
     const role = req.user!.role;
     if (role === "publisher") return res.status(403).json({ error: "发单方无权发起此通道工单" });
 
-    const { outsourceOrderId, title, description } = req.body as {
-      outsourceOrderId: number; title: string; description?: string;
+    const { outsourceOrderId, title, description, isBlockingPayment } = req.body as {
+      outsourceOrderId: number; title: string; description?: string; isBlockingPayment?: boolean;
     };
     if (!outsourceOrderId || !title?.trim()) return res.status(400).json({ error: "outsourceOrderId 和 title 必填" });
 
@@ -110,8 +110,10 @@ router.post("/tickets-b", requireAuth, async (req: Request, res: Response) => {
 
     const [created] = await db.insert(v2TicketsBTable).values({
       outsourceOrderId,
+      opcId: order.opcId,
       title: title.trim(),
       description,
+      isBlockingPayment: isBlockingPayment ?? false,
       status: "open",
       createdBy: userId,
     }).returning();
