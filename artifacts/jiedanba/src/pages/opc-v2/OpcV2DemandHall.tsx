@@ -198,6 +198,12 @@ function DemandPreviewPanel({ demandId, onApply, applying, applied, onClose }: D
   );
 }
 
+interface MyTender {
+  id: number;
+  outsourceDemandId: number;
+  status: string;
+}
+
 export default function OpcV2DemandHall() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -209,16 +215,27 @@ export default function OpcV2DemandHall() {
   const qc = useQueryClient();
   const [, navigate] = useLocation();
 
+  const { data: myTenders = [] } = useQuery<MyTender[]>({
+    queryKey: ["v2-opc-tenders-hall"],
+    queryFn: () => v2Get("/tenders?limit=200"),
+  });
+
+  const appliedDemandIds = new Set([
+    ...myTenders.map(t => t.outsourceDemandId),
+    ...applied,
+  ]);
+
   const { data, isLoading, isError, refetch } = useQuery<PagedResponse>({
     queryKey: ["v2-opc-demand-hall", search, page],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), limit: "20", status: "negotiating" });
+      const params = new URLSearchParams({ page: String(page), limit: "50", status: "negotiating", mode: "public" });
       if (search) params.set("search", search);
       return v2Get(`/outsource-demands?${params}`);
     },
   });
 
-  const demands = data?.items ?? [];
+  const allDemands = data?.items ?? [];
+  const demands = allDemands.filter(d => !appliedDemandIds.has(d.id));
   const totalPages = data ? Math.ceil(data.total / 20) : 1;
 
   async function handleApply(demandId: number, title: string) {
@@ -228,6 +245,8 @@ export default function OpcV2DemandHall() {
       setApplied(prev => new Set([...prev, demandId]));
       toast({ title: "报名成功", description: `已报名「${title}」，正在跳转到投标详情…` });
       qc.invalidateQueries({ queryKey: ["v2-opc-tenders-home"] });
+      qc.invalidateQueries({ queryKey: ["v2-opc-tenders-hall"] });
+      qc.invalidateQueries({ queryKey: ["v2-opc-demand-hall"] });
       setPreviewId(null);
       navigate(`/opc/tenders/${created.id}`);
     } catch (err: unknown) {

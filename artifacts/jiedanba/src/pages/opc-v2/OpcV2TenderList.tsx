@@ -24,11 +24,6 @@ interface TenderItem {
   updatedAt: string;
 }
 
-interface PagedResponse {
-  total: number;
-  items: TenderItem[];
-}
-
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   negotiating: { label: "洽谈中",   color: "bg-blue-100 text-blue-700",    icon: <MessageSquare size={12} /> },
   quoted:      { label: "已报价",   color: "bg-amber-100 text-amber-700",  icon: <Clock size={12} /> },
@@ -50,12 +45,12 @@ export default function OpcV2TenderList() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [, navigate] = useLocation();
 
-  const { data, isLoading, isError, refetch } = useQuery<PagedResponse>({
+  const { data, isLoading, isError, refetch } = useQuery<TenderItem[]>({
     queryKey: ["v2-opc-tenders"],
     queryFn: () => v2Get("/tenders?limit=100"),
   });
 
-  const tenders = data?.items ?? [];
+  const tenders = data ?? [];
   const filtered = filter === "all" ? tenders : tenders.filter(t => t.status === filter);
 
   const counts = FILTER_TABS.reduce((acc, tab) => {
