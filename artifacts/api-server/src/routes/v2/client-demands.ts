@@ -162,6 +162,47 @@ router.patch("/client-demands/:id", requireAuth, async (req: Request, res: Respo
   }
 });
 
+router.post("/client-demands/:id/save-draft-detail", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+    const [demand] = await db.select().from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, id)).limit(1);
+    if (!demand) return res.status(404).json({ error: "需求不存在" });
+    if (role === "publisher" && demand.publisherId !== userId) return res.status(403).json({ error: "无权操作" });
+    if (demand.status !== "draft") return res.status(400).json({ error: "仅草稿状态可保存草稿详情" });
+
+    const { detail, attachments } = req.body as { detail?: string; attachments?: any[] };
+
+    const [lastVer] = await db
+      .select({ id: v2ClientDemandVersionsTable.id, versionNo: v2ClientDemandVersionsTable.versionNo })
+      .from(v2ClientDemandVersionsTable)
+      .where(eq(v2ClientDemandVersionsTable.demandId, id))
+      .orderBy(desc(v2ClientDemandVersionsTable.versionNo))
+      .limit(1);
+
+    if (lastVer) {
+      await db.update(v2ClientDemandVersionsTable)
+        .set({ detail: detail ?? "", attachments: attachments ?? [], editedBy: userId })
+        .where(eq(v2ClientDemandVersionsTable.id, lastVer.id));
+    } else {
+      await db.insert(v2ClientDemandVersionsTable).values({
+        demandId: id,
+        versionNo: 1,
+        detail: detail ?? "",
+        attachments: attachments ?? [],
+        editedBy: userId,
+        editComment: "草稿保存",
+      });
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "POST /v2/client-demands/:id/save-draft-detail failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/client-demands/:id/submit", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);

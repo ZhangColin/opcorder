@@ -14,6 +14,8 @@ interface Contract {
   signedFileUrl: string | null;
   publisherConfirmedAt: string | null;
   publisherRejectedAt: string | null;
+  signedAt: string | null;
+  demandTitle: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -117,9 +119,17 @@ export default function PubContractList() {
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       <span className="text-xs text-slate-400 font-mono">{c.contractNo}</span>
                     </div>
-                    <p className="text-sm text-slate-500 flex items-center gap-1">
-                      <Clock size={11} /> 更新于 {new Date(c.updatedAt).toLocaleDateString("zh-CN")}
-                    </p>
+                    {c.demandTitle && (
+                      <p className="text-sm font-medium text-slate-700 truncate mb-1">{c.demandTitle}</p>
+                    )}
+                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} /> 更新于 {new Date(c.updatedAt).toLocaleDateString("zh-CN")}
+                      </span>
+                      {c.signedAt && (
+                        <span>签约：{new Date(c.signedAt).toLocaleDateString("zh-CN")}</span>
+                      )}
+                    </div>
                   </div>
                   <ChevronRight size={18} className="text-slate-300 group-hover:text-primary transition-colors shrink-0" />
                 </div>

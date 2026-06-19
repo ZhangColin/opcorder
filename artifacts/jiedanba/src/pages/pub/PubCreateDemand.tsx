@@ -122,7 +122,9 @@ export default function PubCreateDemand() {
       let demandId = editId;
       if (isEdit && demandId) {
         await v2Patch(`/client-demands/${demandId}`, body);
-        if (!asDraft && detail.trim()) {
+        if (asDraft && detail.trim()) {
+          await v2Post(`/client-demands/${demandId}/save-draft-detail`, { detail: detail.trim(), attachments }).catch(() => {});
+        } else if (!asDraft && detail.trim()) {
           if (editStatus === "draft") {
             await v2Post(`/client-demands/${demandId}/submit`, { detail: detail.trim(), attachments });
           } else {
@@ -132,7 +134,9 @@ export default function PubCreateDemand() {
       } else {
         const created = await v2Post<{ id: number }>("/client-demands", body);
         demandId = created.id;
-        if (!asDraft && detail.trim()) {
+        if (asDraft && detail.trim()) {
+          await v2Post(`/client-demands/${demandId}/save-draft-detail`, { detail: detail.trim(), attachments }).catch(() => {});
+        } else if (!asDraft && detail.trim()) {
           await v2Post(`/client-demands/${demandId}/submit`, { detail: detail.trim(), attachments });
         }
       }

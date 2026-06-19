@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, Zap, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp,
-  FileText, FileSignature, CreditCard, Wrench, ExternalLink, Plus, History, Edit2,
+  FileText, FileSignature, CreditCard, Wrench, ExternalLink, Plus, History, Edit2, X,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -171,6 +171,8 @@ export default function PubDemandDetail() {
   const [showCreateTicket, setShowCreateTicket] = useState(false);
   const [ticketTitle, setTicketTitle] = useState("");
   const [ticketDesc, setTicketDesc] = useState("");
+  const [ticketAttachments, setTicketAttachments] = useState<Array<{ name: string; url: string; size?: string; type?: string }>>([]);
+  const [ticketUploading, setTicketUploading] = useState(false);
 
   /* Deliverable reject */
   const [rejectDelivId, setRejectDelivId] = useState<number | null>(null);
@@ -294,15 +296,41 @@ export default function PubDemandDetail() {
     } finally { setActing(false); }
   };
 
+  const handleTicketFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !files.length) return;
+    setTicketUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file);
+        const size = file.size >= 1048576
+          ? `${(file.size / 1048576).toFixed(1)}MB`
+          : `${Math.max(1, Math.round(file.size / 1024))}KB`;
+        setTicketAttachments(prev => [...prev, { name: file.name, url, size, type: file.type }]);
+      }
+    } catch (err: any) {
+      toast({ title: "附件上传失败", description: err.message, variant: "destructive" });
+    } finally {
+      setTicketUploading(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
   const handleCreateTicket = async () => {
     if (!ticketTitle.trim()) { toast({ title: "请填写工单标题", variant: "destructive" }); return; }
     setActing(true);
     try {
-      await v2Post("/tickets-a", { clientDemandId: demandId, title: ticketTitle.trim(), description: ticketDesc.trim() || undefined });
+      await v2Post("/tickets-a", {
+        clientDemandId: demandId,
+        title: ticketTitle.trim(),
+        description: ticketDesc.trim() || undefined,
+        attachments: ticketAttachments,
+      });
       toast({ title: "工单已提交，运营方将跟进处理" });
       setShowCreateTicket(false);
       setTicketTitle("");
       setTicketDesc("");
+      setTicketAttachments([]);
       await load();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
@@ -885,10 +913,30 @@ export default function PubDemandDetail() {
                 rows={3}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
               />
+              {/* Attachment upload */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-primary w-fit">
+                  <input type="file" multiple className="hidden" onChange={handleTicketFileUpload} disabled={ticketUploading} />
+                  <Plus size={12} /> {ticketUploading ? "上传中…" : "添加附件"}
+                </label>
+                {ticketAttachments.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {ticketAttachments.map((a, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
+                        <span className="text-xs text-slate-700 flex-1 truncate">{a.name}</span>
+                        {a.size && <span className="text-xs text-slate-400">{a.size}</span>}
+                        <button onClick={() => setTicketAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500">
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => { setShowCreateTicket(false); setTicketTitle(""); setTicketDesc(""); }} className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">取消</button>
-              <button onClick={handleCreateTicket} disabled={acting || !ticketTitle.trim()} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50">
+              <button onClick={() => { setShowCreateTicket(false); setTicketTitle(""); setTicketDesc(""); setTicketAttachments([]); }} className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">取消</button>
+              <button onClick={handleCreateTicket} disabled={acting || ticketUploading || !ticketTitle.trim()} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50">
                 {acting && <Loader2 size={14} className="animate-spin" />} 提交工单
               </button>
             </div>

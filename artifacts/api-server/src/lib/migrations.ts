@@ -2067,5 +2067,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 032l: extended notification_type enum with v2 event types");
   });
 
+  // Migration 032m: add attachments column to v2_tickets_a
+  await once("032m", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_tickets_a ADD COLUMN IF NOT EXISTS attachments jsonb NOT NULL DEFAULT '[]'
+    `);
+    logger.info("Migration 032m: added attachments column to v2_tickets_a");
+  });
+
   logger.info("Startup data migrations complete.");
 }

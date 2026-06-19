@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { Wrench, Loader2, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Wrench, Loader2, AlertCircle, CheckCircle2, Clock, ExternalLink } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { v2Get } from "@/lib/v2api";
+
+interface Attachment { name: string; url: string; size?: string; type?: string; }
 
 interface Ticket {
   id: number;
   clientDemandId: number;
   title: string;
   description: string | null;
+  attachments: Attachment[];
   status: string;
   createdByNickname: string | null;
   closedAt: string | null;
@@ -23,15 +26,13 @@ export default function PubTicketDetail() {
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (ticketId <= 0) return;
-    v2Get<Ticket[]>(`/tickets-a`)
-      .then(data => {
-        const found = data.find(t => t.id === ticketId) ?? null;
-        setTicket(found);
-      })
-      .catch(() => setTicket(null))
+    v2Get<Ticket>(`/tickets-a/${ticketId}`)
+      .then(data => setTicket(data))
+      .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [ticketId]);
 
@@ -45,7 +46,7 @@ export default function PubTicketDetail() {
     );
   }
 
-  if (!ticket) {
+  if (notFound || !ticket) {
     return (
       <PubLayout title="工单详情" backHref="/pub/tickets" backLabel="工单列表">
         <div className="flex flex-col items-center py-24 text-slate-400">
@@ -57,6 +58,7 @@ export default function PubTicketDetail() {
   }
 
   const isOpen = ticket.status === "open";
+  const attachments = Array.isArray(ticket.attachments) ? ticket.attachments : [];
 
   return (
     <PubLayout title={`工单 · ${ticket.title}`} backHref="/pub/tickets" backLabel="工单列表">
@@ -89,7 +91,29 @@ export default function PubTicketDetail() {
 
           {ticket.description && (
             <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs font-bold text-slate-500 mb-1">问题描述</p>
               <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+            </div>
+          )}
+
+          {attachments.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs font-bold text-slate-500 mb-2">附件</p>
+              <div className="space-y-1.5">
+                {attachments.map((a, i) => (
+                  <a
+                    key={i}
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 hover:border-primary/40 transition-colors"
+                  >
+                    <ExternalLink size={12} className="text-slate-400 shrink-0" />
+                    <span className="text-xs text-slate-700 flex-1 truncate">{a.name}</span>
+                    {a.size && <span className="text-xs text-slate-400">{a.size}</span>}
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 

@@ -36,8 +36,23 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
     }
 
     const rows = await db
-      .select()
+      .select({
+        id: v2ContractsTable.id,
+        contractNo: v2ContractsTable.contractNo,
+        channel: v2ContractsTable.channel,
+        clientDemandId: v2ContractsTable.clientDemandId,
+        status: v2ContractsTable.status,
+        content: v2ContractsTable.content,
+        signedFileUrl: v2ContractsTable.signedFileUrl,
+        publisherConfirmedAt: v2ContractsTable.publisherConfirmedAt,
+        publisherRejectedAt: v2ContractsTable.publisherRejectedAt,
+        signedAt: v2ContractsTable.signedAt,
+        createdAt: v2ContractsTable.createdAt,
+        updatedAt: v2ContractsTable.updatedAt,
+        demandTitle: v2ClientDemandsTable.title,
+      })
       .from(v2ContractsTable)
+      .leftJoin(v2ClientDemandsTable, eq(v2ContractsTable.clientDemandId, v2ClientDemandsTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(v2ContractsTable.createdAt));
 

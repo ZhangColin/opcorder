@@ -34,6 +34,7 @@ router.get("/tickets-a", requireAuth, async (req: Request, res: Response) => {
         clientDemandId: v2TicketsATable.clientDemandId,
         title: v2TicketsATable.title,
         description: v2TicketsATable.description,
+        attachments: v2TicketsATable.attachments,
         status: v2TicketsATable.status,
         createdByNickname: usersTable.nickname,
         closedAt: v2TicketsATable.closedAt,
@@ -58,8 +59,8 @@ router.post("/tickets-a", requireAuth, async (req: Request, res: Response) => {
     const role = req.user!.role;
     if (role === "opc") return res.status(403).json({ error: "OPC 无权发起此通道工单" });
 
-    const { clientDemandId, title, description } = req.body as {
-      clientDemandId: number; title: string; description?: string;
+    const { clientDemandId, title, description, attachments } = req.body as {
+      clientDemandId: number; title: string; description?: string; attachments?: any[];
     };
     if (!clientDemandId || !title?.trim()) return res.status(400).json({ error: "clientDemandId 和 title 必填" });
 
@@ -76,6 +77,7 @@ router.post("/tickets-a", requireAuth, async (req: Request, res: Response) => {
       clientDemandId,
       title: title.trim(),
       description,
+      attachments: attachments ?? [],
       status: "open",
       createdBy: userId,
     }).returning();
@@ -91,6 +93,45 @@ router.post("/tickets-a", requireAuth, async (req: Request, res: Response) => {
     return res.status(201).json(created);
   } catch (err) {
     logger.error({ err }, "POST /v2/tickets-a failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.get("/tickets-a/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    const [row] = await db
+      .select({
+        id: v2TicketsATable.id,
+        clientDemandId: v2TicketsATable.clientDemandId,
+        title: v2TicketsATable.title,
+        description: v2TicketsATable.description,
+        attachments: v2TicketsATable.attachments,
+        status: v2TicketsATable.status,
+        createdByNickname: usersTable.nickname,
+        closedAt: v2TicketsATable.closedAt,
+        closedNote: v2TicketsATable.closedNote,
+        createdAt: v2TicketsATable.createdAt,
+      })
+      .from(v2TicketsATable)
+      .leftJoin(usersTable, eq(v2TicketsATable.createdBy, usersTable.id))
+      .where(eq(v2TicketsATable.id, id))
+      .limit(1);
+    if (!row) return res.status(404).json({ error: "工单不存在" });
+
+    if (role === "opc") return res.status(403).json({ error: "OPC 无权查看此工单" });
+    if (role === "publisher") {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, row.clientDemandId)).limit(1);
+      if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权查看" });
+    }
+
+    return res.json(row);
+  } catch (err) {
+    logger.error({ err }, "GET /v2/tickets-a/:id failed");
     return res.status(500).json({ error: "服务器错误" });
   }
 });

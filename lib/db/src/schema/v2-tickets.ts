@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, serial, integer, text, varchar,
-  timestamp, index,
+  timestamp, index, jsonb,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { v2ClientDemandsTable } from "./v2-client-demands";
@@ -16,6 +16,7 @@ export const v2TicketsATable = pgTable("v2_tickets_a", {
   clientDemandId: integer("client_demand_id").notNull().references(() => v2ClientDemandsTable.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 200 }).notNull(),
   description: text("description"),
+  attachments: jsonb("attachments").notNull().default([]),
   status: v2TicketStatusEnum("status").notNull().default("open"),
   createdBy: integer("created_by").notNull().references(() => usersTable.id),
   closedBy: integer("closed_by").references(() => usersTable.id),
