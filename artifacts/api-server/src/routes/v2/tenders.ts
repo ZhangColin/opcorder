@@ -260,4 +260,97 @@ router.post("/tenders/:id/cancel", requireAdmin, async (req: Request, res: Respo
   }
 });
 
+router.post("/tenders/batch-select-winners", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { tenderIds } = req.body as { tenderIds: number[] };
+    if (!Array.isArray(tenderIds) || tenderIds.length === 0) {
+      return res.status(400).json({ error: "tenderIds 不能为空" });
+    }
+
+    const tenders = await db.select().from(v2TendersTable).where(inArray(v2TendersTable.id, tenderIds));
+    if (tenders.length !== tenderIds.length) return res.status(400).json({ error: "部分投标不存在" });
+    if (!tenders.every(t => t.status === "quoted")) return res.status(400).json({ error: "仅已报价投标可被选定" });
+
+    const demandIds = [...new Set(tenders.map(t => t.outsourceDemandId))];
+    if (demandIds.length > 1) return res.status(400).json({ error: "所选投标须属于同一外包需求" });
+    const demandId = demandIds[0];
+
+    const [demand] = await db.select().from(v2OutsourceDemandsTable)
+      .where(eq(v2OutsourceDemandsTable.id, demandId)).limit(1);
+    if (!demand) return res.status(404).json({ error: "外包需求不存在" });
+
+    if (demand.clientDemandId) {
+      const [signedContract] = await db
+        .select({ id: v2ContractsTable.id })
+        .from(v2ContractsTable)
+        .where(and(
+          eq(v2ContractsTable.clientDemandId, demand.clientDemandId),
+          eq(v2ContractsTable.channel, "a"),
+          eq(v2ContractsTable.status, "signed"),
+        ))
+        .limit(1);
+      if (!signedContract) {
+        return res.status(400).json({ error: "关联的客户需求合同尚未签署，不可选定中标 OPC" });
+      }
+    }
+
+    const orders = [];
+    const contracts = [];
+
+    for (const tender of tenders) {
+      const orderNo = await genOutsourceOrderNo();
+      const [order] = await db.insert(v2OutsourceOrdersTable).values({
+        orderNo,
+        outsourceDemandId: tender.outsourceDemandId,
+        tenderId: tender.id,
+        opcId: tender.opcId,
+        status: "pending_contract",
+      }).returning();
+      orders.push(order);
+
+      await db.update(v2TendersTable)
+        .set({ status: "won", selectedBy: userId, selectedAt: new Date(), updatedAt: new Date() })
+        .where(eq(v2TendersTable.id, tender.id));
+
+      const contractNo = await genContractNo("b");
+      const [contract] = await db.insert(v2ContractsTable).values({
+        contractNo,
+        channel: "b",
+        outsourceOrderId: order.id,
+        status: "draft",
+      }).returning();
+      contracts.push(contract);
+
+      await notify(tender.opcId, "v2_tender_won", "恭喜！您已中标",
+        `您已中标外包需求「${demand.title}」，订单号 ${orderNo}，合同已生成待运营定稿。`, order.id, "v2_outsource_order");
+    }
+
+    await db.update(v2OutsourceDemandsTable)
+      .set({ status: "executing", updatedAt: new Date() })
+      .where(eq(v2OutsourceDemandsTable.id, demandId));
+
+    const loserTenders = await db
+      .select({ id: v2TendersTable.id, opcId: v2TendersTable.opcId })
+      .from(v2TendersTable)
+      .where(and(
+        eq(v2TendersTable.outsourceDemandId, demandId),
+        inArray(v2TendersTable.status, ["negotiating", "quoted"]),
+      ));
+
+    for (const loser of loserTenders) {
+      await db.update(v2TendersTable)
+        .set({ status: "lost", updatedAt: new Date() })
+        .where(eq(v2TendersTable.id, loser.id));
+      await notify(loser.opcId, "v2_tender_lost", "本次外包投标未中选",
+        `很遗憾，外包需求「${demand.title}」本次已选定其他 OPC，感谢您的参与。`, demandId, "v2_outsource_demand");
+    }
+
+    return res.status(201).json({ orders, contracts });
+  } catch (err) {
+    logger.error({ err }, "POST /v2/tenders/batch-select-winners failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 export default router;

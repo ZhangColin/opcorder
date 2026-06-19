@@ -139,16 +139,18 @@ router.post("/settlement-plans/:id/mark-paid", requireAdmin, async (req: Request
     if (!plan) return res.status(404).json({ error: "结算计划不存在" });
     if (plan.status === "paid") return res.status(400).json({ error: "已结算" });
 
-    const blockingTickets = await db
-      .select({ id: v2TicketsBTable.id })
-      .from(v2TicketsBTable)
-      .where(and(
-        eq(v2TicketsBTable.outsourceOrderId, plan.outsourceOrderId),
-        eq(v2TicketsBTable.status, "open"),
-        eq(v2TicketsBTable.isBlockingPayment, true)
-      ));
-    if (blockingTickets.length > 0) {
-      return res.status(400).json({ error: `存在 ${blockingTickets.length} 个阻断工单未关闭，无法打款` });
+    if (plan.isLastItem) {
+      const blockingTickets = await db
+        .select({ id: v2TicketsBTable.id })
+        .from(v2TicketsBTable)
+        .where(and(
+          eq(v2TicketsBTable.outsourceOrderId, plan.outsourceOrderId),
+          eq(v2TicketsBTable.status, "open"),
+          eq(v2TicketsBTable.isBlockingPayment, true)
+        ));
+      if (blockingTickets.length > 0) {
+        return res.status(400).json({ error: `存在 ${blockingTickets.length} 个阻断工单未关闭，尾款无法打款` });
+      }
     }
 
     const { paymentRef, paymentNote } = req.body as { paymentRef?: string; paymentNote?: string };

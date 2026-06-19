@@ -154,9 +154,7 @@ export default function AdminV2OutsourceDemandDetail() {
   const handleSelectWinner = async () => {
     if (selectedWinners.length === 0) { toast({ title: "请选择中标投标", variant: "destructive" }); return; }
     await act(async () => {
-      for (const tenderId of selectedWinners) {
-        await v2Post(`/tenders/${tenderId}/select-winner`, {});
-      }
+      await v2Post(`/tenders/batch-select-winners`, { tenderIds: selectedWinners });
       setShowSelectWinner(false);
       setSelectedWinners([]);
     }, "中标已选定，已通知OPC及生成订单");

@@ -3,7 +3,7 @@ import {
   db, v2OutsourceDemandsTable, v2OutsourceDemandVersionsTable,
   v2TendersTable, v2OutsourceOrdersTable, v2ClientDemandsTable, usersTable,
 } from "@workspace/db";
-import { eq, and, or, desc, count, ilike, inArray } from "drizzle-orm";
+import { eq, and, or, desc, count, ilike, inArray, sql } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genOutsourceDemandNo } from "./utils";
@@ -58,6 +58,7 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
         expectedPriceMin: v2OutsourceDemandsTable.expectedPriceMin,
         expectedPriceMax: v2OutsourceDemandsTable.expectedPriceMax,
         status: v2OutsourceDemandsTable.status,
+        tenderCount: sql<number>`(SELECT COUNT(*)::int FROM v2_tenders WHERE v2_tenders.outsource_demand_id = ${v2OutsourceDemandsTable.id})`,
         createdAt: v2OutsourceDemandsTable.createdAt,
         updatedAt: v2OutsourceDemandsTable.updatedAt,
       })
