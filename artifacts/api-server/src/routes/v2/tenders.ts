@@ -36,6 +36,7 @@ router.get("/tenders", requireAuth, async (req: Request, res: Response) => {
         quotedAt: v2TendersTable.quotedAt,
         selectedAt: v2TendersTable.selectedAt,
         createdAt: v2TendersTable.createdAt,
+        updatedAt: v2TendersTable.updatedAt,
       })
       .from(v2TendersTable)
       .leftJoin(v2OutsourceDemandsTable, eq(v2TendersTable.outsourceDemandId, v2OutsourceDemandsTable.id))

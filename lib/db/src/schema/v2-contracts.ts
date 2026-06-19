@@ -28,6 +28,7 @@ export const v2ContractsTable = pgTable("v2_contracts", {
   status: v2ContractStatusEnum("status").notNull().default("draft"),
   content: text("content"),
   signedFileUrl: text("signed_file_url"),
+  opcSignedFileUrl: text("opc_signed_file_url"),
   publisherConfirmedAt: timestamp("publisher_confirmed_at"),
   publisherRejectedAt: timestamp("publisher_rejected_at"),
   publisherRejectedReason: text("publisher_rejected_reason"),

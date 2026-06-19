@@ -154,8 +154,15 @@ router.post("/outsource-orders/:id/opc-confirm-contract", requireAuth, async (re
     if (!linkedContract) return res.status(400).json({ error: "订单尚无关联合同" });
     if (!linkedContract.signedFileUrl) return res.status(400).json({ error: "运营方尚未上传合同文件，请等待" });
 
+    const { opcSignedFileUrl } = req.body as { opcSignedFileUrl?: string };
+
     const [contract] = await db.update(v2ContractsTable)
-      .set({ status: "signed", updatedAt: new Date() })
+      .set({
+        status: "signed",
+        opcConfirmedAt: new Date(),
+        ...(opcSignedFileUrl ? { opcSignedFileUrl } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(v2ContractsTable.id, linkedContract.id))
       .returning();
 

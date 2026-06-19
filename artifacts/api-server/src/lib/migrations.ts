@@ -2083,5 +2083,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 032n: added is_blocking_payment column to v2_tickets_b");
   });
 
+  // Migration 032o: add opc_signed_file_url to v2_contracts
+  await once("032o", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS opc_signed_file_url text
+    `);
+    logger.info("Migration 032o: added opc_signed_file_url column to v2_contracts");
+  });
+
   logger.info("Startup data migrations complete.");
 }

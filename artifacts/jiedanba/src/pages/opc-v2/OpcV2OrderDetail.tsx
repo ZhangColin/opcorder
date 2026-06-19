@@ -157,7 +157,9 @@ export default function OpcV2OrderDetail() {
   async function handleConfirmContract() {
     setConfirmingContract(true);
     try {
-      await v2Post(`/outsource-orders/${orderId}/opc-confirm-contract`);
+      await v2Post(`/outsource-orders/${orderId}/opc-confirm-contract`, {
+        ...(opcSignedFileUrl ? { opcSignedFileUrl } : {}),
+      });
       toast({ title: "合同已确认", description: "订单已进入执行阶段" });
       qc.invalidateQueries({ queryKey: ["v2-opc-order", orderId] });
       qc.invalidateQueries({ queryKey: ["v2-opc-orders"] });
