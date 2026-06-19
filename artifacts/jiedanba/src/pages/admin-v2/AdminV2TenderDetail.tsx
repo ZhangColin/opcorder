@@ -88,7 +88,7 @@ export default function AdminV2TenderDetail() {
 
   const handleCancel = async () => {
     await act(
-      () => v2Post(`/tenders/${id}/cancel`, { note: cancelNote.trim() || undefined }),
+      () => v2Post(`/tenders/${id}/cancel`, { reason: cancelNote.trim() || undefined }),
       "投标已取消，已通知OPC"
     );
     setShowCancelModal(false);

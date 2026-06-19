@@ -74,6 +74,8 @@ router.get("/outsource-orders/:id", requireAuth, async (req: Request, res: Respo
         demandTitle: v2OutsourceDemandsTable.title,
         tenderId: v2OutsourceOrdersTable.tenderId,
         opcId: v2OutsourceOrdersTable.opcId,
+        opcNickname: usersTable.nickname,
+        signedFileUrl: v2OutsourceOrdersTable.signedFileUrl,
         status: v2OutsourceOrdersTable.status,
         contractId: v2OutsourceOrdersTable.contractId,
         warrantyEndDate: v2OutsourceOrdersTable.warrantyEndDate,
@@ -83,6 +85,7 @@ router.get("/outsource-orders/:id", requireAuth, async (req: Request, res: Respo
       })
       .from(v2OutsourceOrdersTable)
       .leftJoin(v2OutsourceDemandsTable, eq(v2OutsourceOrdersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
+      .leftJoin(usersTable, eq(v2OutsourceOrdersTable.opcId, usersTable.id))
       .where(eq(v2OutsourceOrdersTable.id, id))
       .limit(1);
 

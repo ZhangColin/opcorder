@@ -3,7 +3,7 @@ import {
   db, v2OutsourceDemandsTable, v2OutsourceDemandVersionsTable,
   v2TendersTable, v2ClientDemandsTable, usersTable,
 } from "@workspace/db";
-import { eq, and, desc, count, ilike, inArray } from "drizzle-orm";
+import { eq, and, or, desc, count, ilike, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genOutsourceDemandNo } from "./utils";
@@ -35,9 +35,7 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
       const publicCondition = eq(v2OutsourceDemandsTable.mode, "public");
       if (myDemandIds.length > 0) {
         conditions.push(
-          and(
-            ...[publicCondition]
-          )
+          or(publicCondition, inArray(v2OutsourceDemandsTable.id, myDemandIds))!
         );
       } else {
         conditions.push(publicCondition);
@@ -103,6 +101,11 @@ router.post("/outsource-demands", requireAdmin, async (req: Request, res: Respon
 
     if (mode === "invited" && Array.isArray(invitedOpcIds) && invitedOpcIds.length > 0) {
       for (const opcId of invitedOpcIds) {
+        await db.insert(v2TendersTable).values({
+          outsourceDemandId: created.id,
+          opcId,
+          status: "negotiating",
+        });
         await notify(opcId, "v2_demand_invited", "您收到外包需求邀请",
           `平台邀请您参与外包需求「${title.trim()}」的报价，请登录查看详情。`, created.id, "v2_outsource_demand");
       }
@@ -165,7 +168,7 @@ router.get("/outsource-demands/:id", requireAuth, async (req: Request, res: Resp
       .leftJoin(usersTable, eq(v2TendersTable.opcId, usersTable.id))
       .where(and(...tenderConditions));
 
-    return res.json({ ...demand, latestVersion: latestVersion ?? null, tenders });
+    return res.json({ ...demand, detail: latestVersion?.detail ?? null, latestVersion: latestVersion ?? null, tenders });
   } catch (err) {
     logger.error({ err }, "GET /v2/outsource-demands/:id failed");
     return res.status(500).json({ error: "服务器错误" });

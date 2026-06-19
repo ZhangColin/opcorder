@@ -98,7 +98,9 @@ router.get("/tenders/:id", requireAuth, async (req: Request, res: Response) => {
       .select({
         id: v2TendersTable.id,
         outsourceDemandId: v2TendersTable.outsourceDemandId,
+        demandTitle: v2OutsourceDemandsTable.title,
         opcId: v2TendersTable.opcId,
+        opcNickname: usersTable.nickname,
         status: v2TendersTable.status,
         totalPrice: v2TendersTable.totalPrice,
         priceBreakdown: v2TendersTable.priceBreakdown,
@@ -109,6 +111,8 @@ router.get("/tenders/:id", requireAuth, async (req: Request, res: Response) => {
         updatedAt: v2TendersTable.updatedAt,
       })
       .from(v2TendersTable)
+      .leftJoin(v2OutsourceDemandsTable, eq(v2TendersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
+      .leftJoin(usersTable, eq(v2TendersTable.opcId, usersTable.id))
       .where(eq(v2TendersTable.id, id))
       .limit(1);
 
