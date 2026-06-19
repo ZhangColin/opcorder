@@ -56,18 +56,27 @@ export function DiscussionThread({ parentType, parentId, placeholder = "输入�
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     try {
       const data = await v2Get<{ items: Post[] }>(`/discussions?parentType=${parentType}&parentId=${parentId}&limit=200`);
       setPosts(data.items);
     } catch {
       // silent
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [parentType, parentId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const interval = setInterval(() => load(true), 15000);
+    const handleFocus = () => load(true);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [load]);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

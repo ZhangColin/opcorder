@@ -36,8 +36,10 @@ export default function PubPaymentDetail() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [markingOnlinePaid, setMarkingOnlinePaid] = useState(false);
   const [voucherNote, setVoucherNote] = useState("");
   const [pendingVoucherUrl, setPendingVoucherUrl] = useState<string | null>(null);
+  const [showOnlinePaidConfirm, setShowOnlinePaidConfirm] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -66,6 +68,20 @@ export default function PubPaymentDetail() {
     } finally {
       setUploading(false);
       if (e.target) e.target.value = "";
+    }
+  };
+
+  const handleMarkOnlinePaid = async () => {
+    setMarkingOnlinePaid(true);
+    try {
+      await v2Post(`/payment-plans/${planId}/mark-online-paid`);
+      toast({ title: "已标记为线上已支付" });
+      setShowOnlinePaidConfirm(false);
+      await load();
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } finally {
+      setMarkingOnlinePaid(false);
     }
   };
 
@@ -185,7 +201,27 @@ export default function PubPaymentDetail() {
 
         {canUpload && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-800">上传付款凭证</h3>
+            <h3 className="text-sm font-bold text-slate-800">付款方式</h3>
+
+            {/* 线上已支付 */}
+            <div className="border border-blue-200 bg-blue-50 rounded-xl p-4">
+              <p className="text-sm font-bold text-blue-800 mb-1">线上已支付</p>
+              <p className="text-xs text-blue-600 mb-3">若您已通过平台支付系统完成付款，点击此按钮直接确认</p>
+              <button
+                onClick={() => setShowOnlinePaidConfirm(true)}
+                className="flex items-center gap-2 bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-blue-700 transition-colors"
+              >
+                <CheckCircle2 size={14} /> 线上已支付
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-xs text-slate-400">或</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            <p className="text-sm font-bold text-slate-800">上传付款凭证（线下转账）</p>
             <p className="text-xs text-slate-500">请线下完成付款后上传转账截图或收据，运营方审核后将更新状态</p>
 
             {pendingVoucherUrl ? (
@@ -221,6 +257,39 @@ export default function PubPaymentDetail() {
           </div>
         )}
       </div>
+
+      {/* 线上已支付确认弹窗 */}
+      {showOnlinePaidConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-base font-extrabold text-slate-800 mb-2">确认线上已支付</h3>
+            <p className="text-sm text-slate-600 mb-2">
+              您即将确认已通过平台支付系统完成本次付款：
+            </p>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
+              <p className="text-2xl font-black text-blue-700">¥{plan?.amount.toLocaleString()}</p>
+              <p className="text-xs text-blue-500 mt-1">第 {plan?.itemNo} 期</p>
+            </div>
+            <p className="text-xs text-slate-400 mb-5">确认后系统将直接标记该付款项为「已付款」并通知运营方</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowOnlinePaidConfirm(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleMarkOnlinePaid}
+                disabled={markingOnlinePaid}
+                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {markingOnlinePaid && <Loader2 size={14} className="animate-spin" />}
+                确认线上已支付
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PubLayout>
   );
 }

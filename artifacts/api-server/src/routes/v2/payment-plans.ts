@@ -139,6 +139,46 @@ router.post("/payment-plans/:id/upload-voucher", requireAuth, async (req: Reques
   }
 });
 
+router.post("/payment-plans/:id/mark-online-paid", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+    const [plan] = await db.select().from(v2PaymentPlansTable).where(eq(v2PaymentPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "收款计划不存在" });
+    if (plan.status === "paid") return res.status(400).json({ error: "已付款" });
+
+    if (role === "publisher") {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, plan.clientDemandId)).limit(1);
+      if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权操作" });
+    } else if (role !== "admin") {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    const [updated] = await db.update(v2PaymentPlansTable)
+      .set({
+        status: "paid",
+        voucherNote: "线上支付（发单方自动确认）",
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(v2PaymentPlansTable.id, id))
+      .returning();
+
+    const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
+    for (const admin of admins) {
+      await notify(admin.id, "v2_payment_online_paid", "发单方声明线上已支付",
+        `收款计划项 #${plan.itemNo}（¥${plan.amount.toLocaleString()}）：发单方通过平台确认已线上完成支付。`, plan.clientDemandId, "v2_client_demand");
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "POST /v2/payment-plans/:id/mark-online-paid failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/payment-plans/:id/approve", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
