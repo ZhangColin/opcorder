@@ -2091,5 +2091,16 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 032o: added opc_signed_file_url column to v2_contracts");
   });
 
+  // Migration 032p: add v2_client_demand_id column to agent_conversations
+  await once("032p", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE agent_conversations ADD COLUMN IF NOT EXISTS v2_client_demand_id integer REFERENCES v2_client_demands(id) ON DELETE SET NULL
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS agent_conversations_v2_client_demand_idx ON agent_conversations(v2_client_demand_id)
+    `);
+    logger.info("Migration 032p: added v2_client_demand_id column to agent_conversations");
+  });
+
   logger.info("Startup data migrations complete.");
 }

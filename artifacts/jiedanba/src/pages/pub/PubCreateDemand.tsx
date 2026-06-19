@@ -154,15 +154,20 @@ export default function PubCreateDemand() {
         if (agentConversationId.current) {
           try {
             const token = await getValidAccessToken(BASE_URL);
-            await fetch(`${BASE_URL}/api/agent/demand-analysis/bind-demand`, {
+            const bindRes = await fetch(`${BASE_URL}/api/agent/demand-analysis/bind-demand`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
-              body: JSON.stringify({ conversationId: agentConversationId.current, demandId }),
+              body: JSON.stringify({ conversationId: agentConversationId.current, v2ClientDemandId: demandId }),
             });
-          } catch { /* non-blocking */ }
+            if (!bindRes.ok) {
+              console.warn("[AgentBind] bind-demand failed:", bindRes.status, await bindRes.text().catch(() => ""));
+            }
+          } catch (bindErr) {
+            console.warn("[AgentBind] bind-demand request error:", bindErr);
+          }
         }
         if (asDraft && detail.trim()) {
           await v2Post(`/client-demands/${demandId}/save-draft-detail`, { detail: detail.trim(), attachments }).catch(() => {});

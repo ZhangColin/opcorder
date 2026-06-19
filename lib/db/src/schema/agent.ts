@@ -1,6 +1,7 @@
 import { pgTable, serial, integer, text, varchar, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { demandsTable } from "./demands";
+import { v2ClientDemandsTable } from "./v2-client-demands";
 
 export const llmProvidersTable = pgTable("llm_providers", {
   id: serial("id").primaryKey(),
@@ -32,6 +33,7 @@ export type AgentConfig = typeof agentConfigsTable.$inferSelect;
 export const agentConversationsTable = pgTable("agent_conversations", {
   id: serial("id").primaryKey(),
   demandId: integer("demand_id").references(() => demandsTable.id, { onDelete: "set null" }),
+  v2ClientDemandId: integer("v2_client_demand_id").references(() => v2ClientDemandsTable.id, { onDelete: "set null" }),
   sessionKey: varchar("session_key", { length: 100 }),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   messages: jsonb("messages").$type<Array<{
