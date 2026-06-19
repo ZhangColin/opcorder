@@ -65,6 +65,15 @@ import Notifications from "@/pages/Notifications";
 import OpcIncome from "@/pages/OpcIncome";
 import OpcMyBids from "@/pages/OpcMyBids";
 import AccountSettings from "@/pages/AccountSettings";
+import OpcV2Home from "@/pages/opc-v2/OpcV2Home";
+import OpcV2DemandHall from "@/pages/opc-v2/OpcV2DemandHall";
+import OpcV2TenderList from "@/pages/opc-v2/OpcV2TenderList";
+import OpcV2TenderDetail from "@/pages/opc-v2/OpcV2TenderDetail";
+import OpcV2OrderList from "@/pages/opc-v2/OpcV2OrderList";
+import OpcV2OrderDetail from "@/pages/opc-v2/OpcV2OrderDetail";
+import OpcV2IncomeList from "@/pages/opc-v2/OpcV2IncomeList";
+import OpcV2TicketList from "@/pages/opc-v2/OpcV2TicketList";
+import OpcV2TicketDetail from "@/pages/opc-v2/OpcV2TicketDetail";
 import Admin from "@/pages/Admin";
 import ScreenDisplay from "@/pages/ScreenDisplay";
 import MiniScreen from "@/pages/MiniScreen";
@@ -389,6 +398,35 @@ function Router() {
       <Route path="/community" component={Community} />
       <Route path="/academy">{() => <Layout><Academy /></Layout>}</Route>
       <Route path="/academy/course/:id">{() => <Layout><AcademyDetail /></Layout>}</Route>
+
+      {/* OPC V2 工作台路由 */}
+      <Route path="/opc">
+        {() => <OpcGate><OpcV2Home /></OpcGate>}
+      </Route>
+      <Route path="/opc/demand-hall">
+        {() => <OpcGate><OpcV2DemandHall /></OpcGate>}
+      </Route>
+      <Route path="/opc/tenders/:id">
+        {() => <OpcGate><OpcV2TenderDetail /></OpcGate>}
+      </Route>
+      <Route path="/opc/tenders">
+        {() => <OpcGate><OpcV2TenderList /></OpcGate>}
+      </Route>
+      <Route path="/opc/orders/:id">
+        {() => <OpcGate><OpcV2OrderDetail /></OpcGate>}
+      </Route>
+      <Route path="/opc/orders">
+        {() => <OpcGate><OpcV2OrderList /></OpcGate>}
+      </Route>
+      <Route path="/opc/income">
+        {() => <OpcGate><OpcV2IncomeList /></OpcGate>}
+      </Route>
+      <Route path="/opc/tickets/:id">
+        {() => <OpcGate><OpcV2TicketDetail /></OpcGate>}
+      </Route>
+      <Route path="/opc/tickets">
+        {() => <OpcGate><OpcV2TicketList /></OpcGate>}
+      </Route>
 
       {/* OPC 专属路由 */}
       <Route>
