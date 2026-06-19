@@ -236,7 +236,8 @@ export default function OpcV2DemandHall() {
 
   const allDemands = data?.items ?? [];
   const demands = allDemands.filter(d => !appliedDemandIds.has(d.id));
-  const totalPages = data ? Math.ceil(data.total / 20) : 1;
+  const pageLimit = 50;
+  const totalPages = data ? Math.ceil(data.total / pageLimit) : 1;
 
   async function handleApply(demandId: number, title: string) {
     setApplying(demandId);

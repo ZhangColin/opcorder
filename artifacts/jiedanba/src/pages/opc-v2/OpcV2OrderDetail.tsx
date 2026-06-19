@@ -73,7 +73,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 const DELIVERABLE_STATUS: Record<string, { label: string; color: string }> = {
   pending:  { label: "待审核", color: "bg-amber-100 text-amber-700" },
   approved: { label: "已通过", color: "bg-green-100 text-green-700" },
-  rejected: { label: "已退回", color: "bg-red-100 text-red-600" },
+  revision: { label: "已退回", color: "bg-red-100 text-red-600" },
 };
 
 const SETTLEMENT_STATUS: Record<string, { label: string; color: string }> = {
@@ -564,7 +564,7 @@ export default function OpcV2OrderDetail() {
             <div className="divide-y divide-slate-50">
               {deliverables.map(d => {
                 const ds = DELIVERABLE_STATUS[d.status] ?? DELIVERABLE_STATUS.pending;
-                const canResubmit = d.status === "rejected" && canSubmitDeliverable;
+                const canResubmit = d.status === "revision" && canSubmitDeliverable;
                 return (
                   <div key={d.id} className="px-5 py-4">
                     <div className="flex items-start justify-between gap-3">

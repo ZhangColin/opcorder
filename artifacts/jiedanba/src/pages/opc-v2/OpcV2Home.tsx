@@ -118,7 +118,7 @@ export default function OpcV2Home() {
     queryFn: () => v2Get("/deliverables-b?limit=200"),
   });
 
-  const { data: hallDemands = [] } = useQuery<DemandHallItem[]>({
+  const { data: hallData } = useQuery<{ total: number; items: DemandHallItem[] }>({
     queryKey: ["v2-opc-hall-count-home"],
     queryFn: () => v2Get("/outsource-demands?status=negotiating&mode=public&limit=200"),
   });
@@ -126,9 +126,8 @@ export default function OpcV2Home() {
   const orders = orderData?.items ?? [];
 
   const appliedDemandIds = new Set(tenders.map(t => t.outsourceDemandId));
-  const availableDemandsCount = Array.isArray(hallDemands)
-    ? hallDemands.filter((d: DemandHallItem) => !appliedDemandIds.has(d.id)).length
-    : 0;
+  const hallItems = hallData?.items ?? [];
+  const availableDemandsCount = hallItems.filter(d => !appliedDemandIds.has(d.id)).length;
 
   const activeTenders = tenders.filter(t => t.status === "negotiating" || t.status === "quoted");
   const wonTenders = tenders.filter(t => t.status === "won");
@@ -139,7 +138,7 @@ export default function OpcV2Home() {
   const blockingTickets = tickets.filter(t => t.status === "open" && t.isBlockingPayment);
   const pendingSettlements = settlements.filter(s => s.status === "pending");
   const overdueSettlements = settlements.filter(s => s.status === "pending" && s.isOverdue);
-  const rejectedDelivs = deliverables.filter(d => d.status === "rejected");
+  const rejectedDelivs = deliverables.filter(d => d.status === "revision");
 
   const isLoading = loadingTenders || loadingOrders || loadingTickets || loadingSettlements || loadingDelivs;
 
