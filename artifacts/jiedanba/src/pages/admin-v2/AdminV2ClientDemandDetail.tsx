@@ -177,7 +177,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   useEffect(() => { if (id > 0) load(); }, [id]);
   useEffect(() => {
     if (id > 0) markRead("client", id);
-    return () => { if (id > 0) markRead("client", id); };
   }, [id]);
 
   const loadVersions = async () => {

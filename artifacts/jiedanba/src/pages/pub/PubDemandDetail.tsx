@@ -190,7 +190,6 @@ export default function PubDemandDetail() {
 
   useEffect(() => {
     if (demandId > 0) markRead("client", demandId);
-    return () => { if (demandId > 0) markRead("client", demandId); };
   }, [demandId]);
 
   const load = useCallback(async () => {

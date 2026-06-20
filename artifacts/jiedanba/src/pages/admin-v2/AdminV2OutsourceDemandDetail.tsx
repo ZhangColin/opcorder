@@ -168,7 +168,6 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
   useEffect(() => { if (id > 0) load(); }, [id]);
   useEffect(() => {
     if (id > 0) markRead("outsource", id);
-    return () => { if (id > 0) markRead("outsource", id); };
   }, [id]);
 
   const loadVersions = async () => {

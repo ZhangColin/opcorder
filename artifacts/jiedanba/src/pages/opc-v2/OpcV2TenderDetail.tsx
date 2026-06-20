@@ -125,7 +125,6 @@ export default function OpcV2TenderDetail() {
   useEffect(() => {
     if (!tender?.outsourceDemandId) return;
     markRead("outsource", tender.outsourceDemandId);
-    return () => { markRead("outsource", tender!.outsourceDemandId); };
   }, [tender?.outsourceDemandId]);
 
   const [showVersions, setShowVersions] = useState(false);
