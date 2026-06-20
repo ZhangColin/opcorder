@@ -12,6 +12,15 @@ import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
 
+/* ── Constants ── */
+const DEMAND_TYPE_LABEL: Record<string, string> = {
+  website: "网站建设", app: "App开发", miniprogram: "小程序",
+  ecommerce: "电商运营", design: "设计制作", marketing: "营销推广", other: "其他",
+  content: "内容设计", education: "教育培训", software: "软件开发",
+  CG: "内容设计", SA: "软件开发", TK: "教育培训", BO: "营销推广", OTHER: "其他",
+  cg: "内容设计", sa: "软件开发", tk: "教育培训", bo: "营销推广",
+};
+
 /* ── Types ── */
 interface Demand {
   id: number;
@@ -433,6 +442,14 @@ export default function PubDemandDetail() {
                 <p className="text-xs text-slate-400 mb-0.5">预算区间</p>
                 <p className="font-bold text-slate-800">
                   ¥{demand.budgetMin?.toLocaleString()} – ¥{demand.budgetMax?.toLocaleString()}
+                </p>
+              </div>
+            )}
+            {demand.demandType && (
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">需求类型</p>
+                <p className="font-bold text-slate-800">
+                  {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
                 </p>
               </div>
             )}

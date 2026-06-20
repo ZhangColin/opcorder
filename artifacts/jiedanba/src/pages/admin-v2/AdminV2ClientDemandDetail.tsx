@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, PlusCircle, Trash2, Edit2, X,
-  Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp,
+  Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
@@ -84,6 +84,9 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 const DEMAND_TYPE_LABEL: Record<string, string> = {
   website: "网站建设", app: "App开发", miniprogram: "小程序",
   ecommerce: "电商运营", design: "设计制作", marketing: "营销推广", other: "其他",
+  content: "内容设计", education: "教育培训", software: "软件开发",
+  CG: "内容设计", SA: "软件开发", TK: "教育培训", BO: "营销推广", OTHER: "其他",
+  cg: "内容设计", sa: "软件开发", tk: "教育培训", bo: "营销推广",
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -199,6 +202,10 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     }
   };
 
+  const handleStartNegotiating = () => act(async () => {
+    await v2Post(`/client-demands/${id}/submit`, {});
+  }, "需求已启动沟通，现在可以发起报价");
+
   const handleInitiateQuote = () => act(async () => {
     if (!quoteTotal || parseFloat(quoteTotal) <= 0) throw new Error("请填写报价总额");
     await v2Post(`/client-demands/${id}/initiate-quote`, {
@@ -266,6 +273,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   if (!demand) return <AdminV2Layout backHref="/admin/v2/client-demands" backLabel="客户需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
 
   const cfg = STATUS_CONFIG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
+  const canStartNegotiating = demand.status === "draft";
   const canInitiateQuote = demand.status === "negotiating";
   const canReQuote = demand.status === "quoting";
   const canEditDetail = ["draft", "negotiating", "quoting"].includes(demand.status);
@@ -298,6 +306,15 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           >
             <ExternalLink size={13} /> 关联总览
           </button>
+          {canStartNegotiating && (
+            <button
+              onClick={handleStartNegotiating}
+              disabled={acting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-blue-300 text-blue-700 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50"
+            >
+              <PlayCircle size={13} /> 启动沟通
+            </button>
+          )}
           {(canInitiateQuote || canReQuote) && (
             <button
               onClick={() => setActivePanel(prev => prev === "quote" ? null : "quote")}
