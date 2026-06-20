@@ -140,7 +140,7 @@ function getRole(): string | null {
 
 function roleHomePath(role: string | null): string {
   if (role === "publisher") return "/pub/demands";
-  if (role === "admin")     return "/admin";
+  if (role === "admin")     return "/admin/v2/overview";
   if (role === "opc")       return "/";
   return "/login";
 }
