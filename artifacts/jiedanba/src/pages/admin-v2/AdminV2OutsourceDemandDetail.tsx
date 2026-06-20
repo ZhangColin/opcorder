@@ -8,6 +8,7 @@ import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
 
 interface OutsourceDemand {
@@ -68,20 +69,6 @@ const TENDER_STATUS: Record<string, { label: string; color: string }> = {
   lost:        { label: "已取消", color: "bg-red-100 text-red-500" },
 };
 
-function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className={`bg-white rounded-2xl shadow-2xl w-full p-6 max-h-[90vh] overflow-y-auto ${wide ? "max-w-3xl" : "max-w-md"}`}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-extrabold text-blue-900">{title}</h3>
-          <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-5">
@@ -90,6 +77,22 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   );
 }
+
+function InlinePanel({ title, color = "bg-slate-50 border-slate-200", onClose, children }: {
+  title: string; color?: string; onClose: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div className={`rounded-2xl border p-5 ${color}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-sm font-bold text-slate-800">{title}</h4>
+        <button onClick={onClose}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+type Panel = "update_detail" | "select_winner" | "close" | null;
 
 export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
@@ -104,13 +107,12 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
   const [acting, setActing] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
-  const [showUpdateDetail, setShowUpdateDetail] = useState(false);
-  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [activePanel, setActivePanel] = useState<Panel>(null);
+
   const [newDetail, setNewDetail] = useState("");
   const [updateComment, setUpdateComment] = useState("");
   const [closeReason, setCloseReason] = useState("");
   const [selectedWinners, setSelectedWinners] = useState<number[]>([]);
-  const [showSelectWinner, setShowSelectWinner] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -140,12 +142,18 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     try {
       await fn();
       toast({ title: msg });
+      setActivePanel(null);
       await load();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally {
       setActing(false);
     }
+  };
+
+  const openPanel = (p: Panel, extra?: () => void) => {
+    extra?.();
+    setActivePanel(prev => (prev === p ? null : p));
   };
 
   const handleUpdateDetail = async () => {
@@ -155,8 +163,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
         detail: newDetail.trim(),
         editComment: updateComment.trim() || undefined,
       });
-      setShowUpdateDetail(false);
-      setNewDetail(""); setUpdateComment("");
+      setUpdateComment("");
     }, "需求详情已更新，已通知相关OPC");
   };
 
@@ -164,7 +171,6 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     if (selectedWinners.length === 0) { toast({ title: "请选择中标投标", variant: "destructive" }); return; }
     await act(async () => {
       await v2Post(`/tenders/batch-select-winners`, { tenderIds: selectedWinners });
-      setShowSelectWinner(false);
       setSelectedWinners([]);
     }, "中标已选定，已通知OPC及生成订单");
   };
@@ -178,7 +184,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     if (!closeReason.trim()) { toast({ title: "请填写关闭原因", variant: "destructive" }); return; }
     await act(async () => {
       await v2Post(`/outsource-demands/${id}/close`, { reason: closeReason.trim() });
-      setShowCloseModal(false); setCloseReason("");
+      setCloseReason("");
     }, "需求已关闭");
   };
 
@@ -203,8 +209,8 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
             <History size={13} /> 历史版本
           </button>
           {canClose && (
-            <button onClick={() => setShowCloseModal(true)}
-              className="px-3 py-1.5 text-xs font-bold border border-red-200 rounded-xl text-red-500 hover:bg-red-50 transition-colors">
+            <button onClick={() => openPanel("close")}
+              className={`px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
               关闭需求
             </button>
           )}
@@ -212,6 +218,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
       }
     >
       <div className="mt-6 space-y-4">
+        {/* 基本信息卡 */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -230,16 +237,16 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
                 <span>更新：{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</span>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
               {canUpdateDetail && (
-                <button onClick={() => { setNewDetail(demand.detail ?? ""); setShowUpdateDetail(true); }} disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+                <button onClick={() => openPanel("update_detail", () => setNewDetail(demand.detail ?? ""))} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "update_detail" ? "bg-primary/90 text-white" : "bg-primary text-white hover:bg-primary/90"}`}>
                   <Edit2 size={14} /> 更新需求详情
                 </button>
               )}
               {canSelectWinner && quotedTenders.length > 0 && (
-                <button onClick={() => setShowSelectWinner(true)} disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-colors">
+                <button onClick={() => openPanel("select_winner")} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "select_winner" ? "bg-green-700 text-white" : "bg-green-600 text-white hover:bg-green-700"}`}>
                   <CheckCircle2 size={14} /> 选定中标
                 </button>
               )}
@@ -247,12 +254,86 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
           </div>
         </div>
 
+        {/* 关闭需求面板 */}
+        {activePanel === "close" && (
+          <InlinePanel title="关闭外包需求" color="bg-red-50 border-red-200" onClose={() => setActivePanel(null)}>
+            <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
+            <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3} placeholder="关闭原因"
+              className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 resize-none bg-white mb-3" />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleClose} disabled={acting}
+                className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
+                {acting ? "关闭中…" : "确认关闭"}
+              </button>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 更新需求详情面板 */}
+        {activePanel === "update_detail" && (
+          <InlinePanel title="更新共享需求详情" color="bg-primary/5 border-primary/20" onClose={() => setActivePanel(null)}>
+            <p className="text-xs text-slate-500 mb-3">更新后将通知所有未中标OPC查看最新详情，并生成新版本记录。</p>
+            <div className="space-y-3">
+              <MarkdownEditor
+                value={newDetail}
+                onChange={setNewDetail}
+                placeholder="输入新的需求详情，支持 Markdown 富文本…"
+              />
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">更新说明（可选）</label>
+                <input value={updateComment} onChange={e => setUpdateComment(e.target.value)} placeholder="本次更新的原因或摘要"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleUpdateDetail} disabled={acting}
+                  className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
+                  {acting ? "提交中…" : "发布更新"}
+                </button>
+              </div>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 需求详情 */}
         {demand.detail && (
           <Section title="需求详情">
             <MarkdownContent content={demand.detail} />
           </Section>
         )}
 
+        {/* 选定中标面板 */}
+        {activePanel === "select_winner" && (
+          <InlinePanel title="选定中标 OPC" color="bg-green-50 border-green-200" onClose={() => setActivePanel(null)}>
+            <p className="text-xs text-slate-500 mb-3">选择一个或多个中标OPC，确认后将自动生成接单订单并通知相关OPC。</p>
+            <div className="space-y-2 mb-4">
+              {quotedTenders.map(t => (
+                <label key={t.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                  selectedWinners.includes(t.id) ? "border-green-500 bg-green-50" : "border-slate-200 bg-white hover:border-green-300"
+                }`}>
+                  <input type="checkbox" checked={selectedWinners.includes(t.id)}
+                    onChange={e => setSelectedWinners(e.target.checked ? [...selectedWinners, t.id] : selectedWinners.filter(i => i !== t.id))}
+                    className="w-4 h-4 rounded border-slate-300 text-green-600" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-700">{t.opcNickname}</p>
+                    {t.totalPrice != null && <p className="text-xs text-slate-400">报价 ¥{t.totalPrice.toLocaleString()}</p>}
+                  </div>
+                </label>
+              ))}
+              {quotedTenders.length === 0 && <p className="text-sm text-slate-400 text-center py-4">没有可选的已报价投标</p>}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleSelectWinner} disabled={acting || selectedWinners.length === 0}
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50">
+                {acting ? "处理中…" : `选定 ${selectedWinners.length > 0 ? selectedWinners.length + " 位" : ""} 中标`}
+              </button>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 投标列表 */}
         <Section title={`投标列表（${tenders.length} 个）`}>
           {tenders.length === 0 ? (
             <p className="text-sm text-slate-400">暂无投标</p>
@@ -297,6 +378,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
         </Section>
       </div>
 
+      {/* 历史版本对比 Modal（保留，因为是对比查看，不是编辑） */}
       {showVersions && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col" style={{ maxHeight: "90vh" }}>
@@ -359,77 +441,6 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
             )}
           </div>
         </div>
-      )}
-
-      {showUpdateDetail && (
-        <Modal title="更新共享需求详情" onClose={() => setShowUpdateDetail(false)} wide>
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500">更新后将通知所有未中标OPC查看最新详情，并生成新版本记录。</p>
-            <textarea value={newDetail} onChange={e => setNewDetail(e.target.value)} rows={10}
-              placeholder="输入新的需求详情（支持 Markdown）…"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">更新说明（可选）</label>
-              <input value={updateComment} onChange={e => setUpdateComment(e.target.value)} placeholder="本次更新的原因或摘要"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowUpdateDetail(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
-              <button onClick={handleUpdateDetail} disabled={acting}
-                className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
-                {acting ? "提交中…" : "发布更新"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showSelectWinner && (
-        <Modal title="选定中标 OPC" onClose={() => setShowSelectWinner(false)}>
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500">选择一个或多个中标OPC，确认后将自动生成接单订单并通知相关OPC。</p>
-            <div className="space-y-2">
-              {quotedTenders.map(t => (
-                <label key={t.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                  selectedWinners.includes(t.id) ? "border-primary bg-primary/5" : "border-slate-200 hover:border-primary/30"
-                }`}>
-                  <input type="checkbox" checked={selectedWinners.includes(t.id)}
-                    onChange={e => setSelectedWinners(e.target.checked ? [...selectedWinners, t.id] : selectedWinners.filter(i => i !== t.id))}
-                    className="w-4 h-4 rounded border-slate-300 text-primary" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-700">{t.opcNickname}</p>
-                    {t.totalPrice != null && <p className="text-xs text-slate-400">报价 ¥{t.totalPrice.toLocaleString()}</p>}
-                  </div>
-                </label>
-              ))}
-            </div>
-            {quotedTenders.length === 0 && <p className="text-sm text-slate-400 text-center py-4">没有可选的已报价投标</p>}
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowSelectWinner(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
-              <button onClick={handleSelectWinner} disabled={acting || selectedWinners.length === 0}
-                className="px-4 py-2 text-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50">
-                {acting ? "处理中…" : `选定 ${selectedWinners.length > 0 ? selectedWinners.length + " 位" : ""} 中标`}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showCloseModal && (
-        <Modal title="关闭外包需求" onClose={() => setShowCloseModal(false)}>
-          <div className="space-y-3">
-            <p className="text-sm text-slate-500">关闭后需求将不可再操作，请填写关闭原因。</p>
-            <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3} placeholder="关闭原因"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCloseModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
-              <button onClick={handleClose} disabled={acting}
-                className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
-                {acting ? "关闭中…" : "确认关闭"}
-              </button>
-            </div>
-          </div>
-        </Modal>
       )}
     </AdminV2Layout>
   );

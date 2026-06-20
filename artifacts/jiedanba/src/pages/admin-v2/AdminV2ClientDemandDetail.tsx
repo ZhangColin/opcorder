@@ -8,6 +8,7 @@ import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
 
 interface ClientDemand {
@@ -65,6 +66,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+type Panel = "quote" | "payment" | "deliverable" | "close" | "update_detail" | null;
+
 export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
@@ -76,24 +79,20 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [payments, setPayments] = useState<PaymentPlan[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [acting, setActing] = useState(false);
+  const [activePanel, setActivePanel] = useState<Panel>(null);
 
-  const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [quoteTotal, setQuoteTotal] = useState("");
   const [quoteItems, setQuoteItems] = useState([{ name: "", amount: "" }]);
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [payTitle, setPayTitle] = useState("");
   const [payAmount, setPayAmount] = useState("");
   const [payDueDate, setPayDueDate] = useState("");
 
-  const [showDeliverableModal, setShowDeliverableModal] = useState(false);
   const [delivTitle, setDelivTitle] = useState("");
   const [delivDesc, setDelivDesc] = useState("");
 
-  const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeReason, setCloseReason] = useState("");
 
-  const [showUpdateDetailModal, setShowUpdateDetailModal] = useState(false);
   const [updateDetailText, setUpdateDetailText] = useState("");
   const [updateDetailComment, setUpdateDetailComment] = useState("");
 
@@ -115,17 +114,23 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
   useEffect(() => { if (id > 0) load(); }, [id]);
 
-  const act = async (fn: () => Promise<unknown>, msg: string) => {
+  const act = async (fn: () => Promise<unknown>, msg: string, closePanel = true) => {
     setActing(true);
     try {
       await fn();
       toast({ title: msg });
+      if (closePanel) setActivePanel(null);
       await load();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally {
       setActing(false);
     }
+  };
+
+  const openPanel = (p: Panel, extra?: () => void) => {
+    extra?.();
+    setActivePanel(prev => (prev === p ? null : p));
   };
 
   const handleInitiateQuote = async () => {
@@ -137,7 +142,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         totalAmount: parseFloat(quoteTotal),
         breakdown: quoteItems.filter(i => i.name && i.amount).map(i => ({ name: i.name, amount: parseFloat(i.amount) })),
       });
-      setShowQuoteModal(false);
       setQuoteTotal(""); setQuoteItems([{ name: "", amount: "" }]);
     }, "报价已发起，通知发单方");
   };
@@ -151,7 +155,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         clientDemandId: id, title: payTitle.trim(),
         amount: parseFloat(payAmount), dueDate: payDueDate || null,
       });
-      setShowPaymentModal(false);
       setPayTitle(""); setPayAmount(""); setPayDueDate("");
     }, "收款计划已创建");
   };
@@ -162,7 +165,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     }
     await act(async () => {
       await v2Post("/deliverables-a", { clientDemandId: id, title: delivTitle.trim(), description: delivDesc.trim() || null });
-      setShowDeliverableModal(false);
       setDelivTitle(""); setDelivDesc("");
     }, "交付记录已创建");
   };
@@ -173,7 +175,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     }
     await act(async () => {
       await v2Post(`/client-demands/${id}/close`, { reason: closeReason.trim() });
-      setShowCloseModal(false); setCloseReason("");
+      setCloseReason("");
     }, "需求已关闭");
   };
 
@@ -186,8 +188,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         detail: updateDetailText.trim(),
         editComment: updateDetailComment.trim() || undefined,
       });
-      setShowUpdateDetailModal(false);
-      setUpdateDetailText(""); setUpdateDetailComment("");
+      setUpdateDetailComment("");
     }, "需求详情已更新，通知已发送");
   };
 
@@ -201,7 +202,12 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canCreatePayment = ["pending_contract","executing","warranty","completed"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = !["completed","closed"].includes(demand.status);
-  const canViewOverview = demand.id > 0;
+
+  const InlinePanel = ({ children, color = "bg-slate-50 border-slate-200" }: { children: React.ReactNode; color?: string }) => (
+    <div className={`rounded-2xl border p-5 ${color}`}>
+      {children}
+    </div>
+  );
 
   return (
     <AdminV2Layout
@@ -210,15 +216,13 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
       backLabel="客户需求"
       actions={
         <div className="flex gap-2">
-          {canViewOverview && (
-            <button onClick={() => navigate(`/admin/v2/overview?clientDemandId=${id}`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
-              <ExternalLink size={13} /> 关联总览
-            </button>
-          )}
+          <button onClick={() => navigate(`/admin/v2/overview?clientDemandId=${id}`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
+            <ExternalLink size={13} /> 关联总览
+          </button>
           {canClose && (
-            <button onClick={() => setShowCloseModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-red-200 rounded-xl text-red-500 hover:bg-red-50 transition-colors">
+            <button onClick={() => openPanel("close")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
               关闭需求
             </button>
           )}
@@ -226,6 +230,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
       }
     >
       <div className="mt-6 space-y-4">
+        {/* 基本信息卡 */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -239,31 +244,32 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                 <span>发单方：{demand.publisherNickname ?? "—"}</span>
                 {demand.budgetMin != null && <span>预算：¥{demand.budgetMin.toLocaleString()}{demand.budgetMax ? `～¥${demand.budgetMax.toLocaleString()}` : "+"}</span>}
                 {demand.demandType && <span>类型：{demand.demandType}</span>}
+                {demand.quoteTotal != null && <span className="font-bold text-primary">报价：¥{demand.quoteTotal.toLocaleString()}</span>}
                 <span>更新：{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</span>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
               {(canInitiateQuote || canReQuote) && (
-                <button onClick={() => setShowQuoteModal(true)} disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+                <button onClick={() => openPanel("quote")} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "quote" ? "bg-primary/90 text-white" : "bg-primary text-white hover:bg-primary/90"}`}>
                   <DollarSign size={14} /> {canReQuote ? "更新报价" : "发起报价"}
                 </button>
               )}
               {canUpdateDetail && (
-                <button onClick={() => { setUpdateDetailText(demand.detail ?? ""); setShowUpdateDetailModal(true); }} disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-600 text-white rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors">
-                  <Edit2 size={14} /> 更新详情
+                <button onClick={() => openPanel("update_detail", () => setUpdateDetailText(demand.detail ?? ""))} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "update_detail" ? "bg-slate-700 text-white" : "bg-slate-600 text-white hover:bg-slate-700"}`}>
+                  <Edit2 size={14} /> 更新需求详情
                 </button>
               )}
               {canCreatePayment && (
-                <button onClick={() => setShowPaymentModal(true)} disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors">
+                <button onClick={() => openPanel("payment")} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "payment" ? "bg-emerald-700 text-white" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
                   <PlusCircle size={14} /> 创建收款项
                 </button>
               )}
               {canCreateDeliverable && (
-                <button onClick={() => setShowDeliverableModal(true)} disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white rounded-xl text-sm font-bold hover:bg-teal-700 transition-colors">
+                <button onClick={() => openPanel("deliverable")} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "deliverable" ? "bg-teal-700 text-white" : "bg-teal-600 text-white hover:bg-teal-700"}`}>
                   <CheckCircle2 size={14} /> 创建交付记录
                 </button>
               )}
@@ -271,6 +277,99 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </div>
         </div>
 
+        {/* 关闭需求面板 */}
+        {activePanel === "close" && (
+          <InlinePanel color="bg-red-50 border-red-200">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-bold text-red-700">关闭需求</h4>
+              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
+            <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3} placeholder="关闭原因"
+              className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 resize-none bg-white mb-3" />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleClose} disabled={acting}
+                className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
+                {acting ? "关闭中…" : "确认关闭"}
+              </button>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 发起报价面板 */}
+        {activePanel === "quote" && (
+          <InlinePanel color="bg-primary/5 border-primary/20">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-bold text-blue-900">{canReQuote ? "更新报价" : "发起报价"}</h4>
+              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">报价总额 (¥)</label>
+                <input type="number" value={quoteTotal} onChange={e => setQuoteTotal(e.target.value)} placeholder="0"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-600">报价明细（可选）</label>
+                  <button onClick={() => setQuoteItems([...quoteItems, { name: "", amount: "" }])}
+                    className="text-xs text-primary font-bold">+ 添加</button>
+                </div>
+                {quoteItems.map((item, i) => (
+                  <div key={i} className="flex gap-2 mb-2">
+                    <input placeholder="项目名称" value={item.name} onChange={e => { const arr = [...quoteItems]; arr[i].name = e.target.value; setQuoteItems(arr); }}
+                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="number" placeholder="金额" value={item.amount} onChange={e => { const arr = [...quoteItems]; arr[i].amount = e.target.value; setQuoteItems(arr); }}
+                      className="w-28 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    {quoteItems.length > 1 && (
+                      <button onClick={() => setQuoteItems(quoteItems.filter((_, j) => j !== i))}
+                        className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleInitiateQuote} disabled={acting}
+                  className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
+                  {acting ? "提交中…" : "发起报价"}
+                </button>
+              </div>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 更新需求详情面板 */}
+        {activePanel === "update_detail" && (
+          <InlinePanel color="bg-slate-50 border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-bold text-blue-900">更新需求详情</h4>
+              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
+            </div>
+            <div className="space-y-3">
+              <MarkdownEditor
+                value={updateDetailText}
+                onChange={setUpdateDetailText}
+                placeholder="编辑需求详情，支持 Markdown 富文本…"
+              />
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">修改说明（可选）</label>
+                <input value={updateDetailComment} onChange={e => setUpdateDetailComment(e.target.value)} placeholder="说明本次修改内容"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleUpdateDetail} disabled={acting}
+                  className="px-4 py-2 text-sm bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 disabled:opacity-50">
+                  {acting ? "保存中…" : "保存并通知"}
+                </button>
+              </div>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 需求详情 */}
         {demand.detail && (
           <Section title="需求详情">
             <MarkdownContent content={demand.detail} />
@@ -287,6 +386,43 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </Section>
         )}
 
+        {/* 创建收款项面板 */}
+        {activePanel === "payment" && (
+          <InlinePanel color="bg-emerald-50 border-emerald-200">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-bold text-emerald-800">创建收款项</h4>
+              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">收款项名称</label>
+                <input value={payTitle} onChange={e => setPayTitle(e.target.value)} placeholder="如：首付款、尾款"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">金额 (¥)</label>
+                  <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">应收日期（可选）</label>
+                  <input type="date" value={payDueDate} onChange={e => setPayDueDate(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleCreatePayment} disabled={acting}
+                  className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50">
+                  {acting ? "创建中…" : "创建"}
+                </button>
+              </div>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 收款计划 */}
         {payments.length > 0 && (
           <Section title={`收款计划（${payments.length} 项）`}>
             <div className="space-y-2">
@@ -306,6 +442,36 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </Section>
         )}
 
+        {/* 创建交付记录面板 */}
+        {activePanel === "deliverable" && (
+          <InlinePanel color="bg-teal-50 border-teal-200">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-bold text-teal-800">创建交付记录</h4>
+              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">交付标题</label>
+                <input value={delivTitle} onChange={e => setDelivTitle(e.target.value)} placeholder="本次交付内容"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">说明（可选）</label>
+                <textarea value={delivDesc} onChange={e => setDelivDesc(e.target.value)} rows={3} placeholder="补充说明"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 resize-none" />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleCreateDeliverable} disabled={acting}
+                  className="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50">
+                  {acting ? "创建中…" : "创建"}
+                </button>
+              </div>
+            </div>
+          </InlinePanel>
+        )}
+
+        {/* 交付记录 */}
         {deliverables.length > 0 && (
           <Section title={`交付记录（${deliverables.length} 项）`}>
             <div className="space-y-2">
@@ -326,138 +492,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" />
         </Section>
       </div>
-
-      {showQuoteModal && (
-        <Modal title="发起报价" onClose={() => setShowQuoteModal(false)}>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">报价总额 (¥)</label>
-              <input type="number" value={quoteTotal} onChange={e => setQuoteTotal(e.target.value)} placeholder="0"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-slate-600">报价明细（可选）</label>
-                <button onClick={() => setQuoteItems([...quoteItems, { name: "", amount: "" }])}
-                  className="text-xs text-primary font-bold">+ 添加</button>
-              </div>
-              {quoteItems.map((item, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                  <input placeholder="项目名称" value={item.name} onChange={e => { const arr = [...quoteItems]; arr[i].name = e.target.value; setQuoteItems(arr); }}
-                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  <input type="number" placeholder="金额" value={item.amount} onChange={e => { const arr = [...quoteItems]; arr[i].amount = e.target.value; setQuoteItems(arr); }}
-                    className="w-24 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  {quoteItems.length > 1 && (
-                    <button onClick={() => setQuoteItems(quoteItems.filter((_, j) => j !== i))}
-                      className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowQuoteModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleInitiateQuote} disabled={acting}
-                className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
-                {acting ? "提交中…" : "发起报价"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showPaymentModal && (
-        <Modal title="创建收款项" onClose={() => setShowPaymentModal(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">收款项名称</label>
-              <input value={payTitle} onChange={e => setPayTitle(e.target.value)} placeholder="如：首付款、尾款"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">金额 (¥)</label>
-              <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">应收日期（可选）</label>
-              <input type="date" value={payDueDate} onChange={e => setPayDueDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowPaymentModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleCreatePayment} disabled={acting}
-                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50">
-                {acting ? "创建中…" : "创建"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showDeliverableModal && (
-        <Modal title="创建交付记录" onClose={() => setShowDeliverableModal(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">交付标题</label>
-              <input value={delivTitle} onChange={e => setDelivTitle(e.target.value)} placeholder="本次交付内容"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">说明（可选）</label>
-              <textarea value={delivDesc} onChange={e => setDelivDesc(e.target.value)} rows={3} placeholder="补充说明"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowDeliverableModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleCreateDeliverable} disabled={acting}
-                className="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50">
-                {acting ? "创建中…" : "创建"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showUpdateDetailModal && (
-        <Modal title="更新需求详情" onClose={() => setShowUpdateDetailModal(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">详情内容（支持 Markdown）</label>
-              <textarea value={updateDetailText} onChange={e => setUpdateDetailText(e.target.value)} rows={8}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">修改说明（可选）</label>
-              <input value={updateDetailComment} onChange={e => setUpdateDetailComment(e.target.value)} placeholder="说明本次修改内容"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowUpdateDetailModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleUpdateDetail} disabled={acting}
-                className="px-4 py-2 text-sm bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 disabled:opacity-50">
-                {acting ? "保存中…" : "保存并通知"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showCloseModal && (
-        <Modal title="关闭需求" onClose={() => setShowCloseModal(false)}>
-          <div className="space-y-3">
-            <p className="text-sm text-slate-500">关闭后需求将不可再操作，请填写关闭原因。</p>
-            <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3} placeholder="关闭原因"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCloseModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleClose} disabled={acting}
-                className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
-                {acting ? "关闭中…" : "确认关闭"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </AdminV2Layout>
   );
 }
@@ -475,24 +509,11 @@ function PayStatusBadge({ status }: { status: string }) {
 
 function DelivStatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending_confirm: "bg-amber-100 text-amber-700",
-    confirmed: "bg-green-100 text-green-700",
+    pending: "bg-slate-100 text-slate-500",
+    delivered: "bg-blue-100 text-blue-700",
+    accepted: "bg-green-100 text-green-700",
     rejected: "bg-red-100 text-red-600",
   };
-  const labels: Record<string, string> = { pending_confirm: "待确认", confirmed: "已确认", rejected: "已驳回" };
+  const labels: Record<string, string> = { pending: "待交付", delivered: "已提交", accepted: "已验收", rejected: "已拒绝" };
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${map[status] ?? "bg-slate-100 text-slate-500"}`}>{labels[status] ?? status}</span>;
-}
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-extrabold text-blue-900">{title}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
 }
