@@ -51,7 +51,10 @@ export async function uploadFile(file: File): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
   });
-  if (!reqRes.ok) throw new Error("获取上传链接失败");
+  if (!reqRes.ok) {
+    const e = await reqRes.json().catch(() => ({}));
+    throw new Error((e as any).error || "获取上传链接失败");
+  }
   const { uploadURL, objectPath, sessionToken } = await reqRes.json();
   const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
   if (!putRes.ok) throw new Error("文件上传失败");
