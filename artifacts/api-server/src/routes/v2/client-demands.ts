@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
-  db, v2ClientDemandsTable, v2ClientDemandVersionsTable, notificationsTable, usersTable,
+  db, v2ClientDemandsTable, v2ClientDemandVersionsTable, v2DiscussionPostsTable, notificationsTable, usersTable,
 } from "@workspace/db";
 import { eq, and, desc, count, ilike, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
