@@ -730,7 +730,7 @@ export default function OpcV2OrderDetail() {
             <p className="text-xs text-slate-400 mt-0.5">与平台就此订单的讨论</p>
           </div>
           <div className="p-5">
-            <DiscussionThread parentType="v2_outsource_order" parentId={orderId} />
+            <DiscussionThread parentType="outsource_demand" parentId={orderId} />
           </div>
         </div>
       </div>

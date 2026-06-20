@@ -424,6 +424,12 @@ export default function PubDemandDetail() {
                 </p>
               </div>
             )}
+            <div>
+              <p className="text-xs text-slate-400 mb-0.5">是否紧急</p>
+              <p className={`font-bold flex items-center gap-1 ${demand.isUrgent ? "text-red-500" : "text-slate-500"}`}>
+                {demand.isUrgent ? <><Zap size={13} /> 紧急需求</> : "普通需求"}
+              </p>
+            </div>
             {demand.hopeDeliveryDate && (
               <div>
                 <p className="text-xs text-slate-400 mb-0.5">希望交付</p>
@@ -652,7 +658,7 @@ export default function PubDemandDetail() {
         <Section title="需求沟通区" icon={FileText}>
           <div className="mt-4">
             <DiscussionThread
-              parentType="v2_client_demand"
+              parentType="client_demand"
               parentId={demandId}
               placeholder="向运营方提问或补充信息…"
               readOnly={["completed", "closed"].includes(demand.status)}

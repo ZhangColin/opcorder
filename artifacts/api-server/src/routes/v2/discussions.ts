@@ -29,10 +29,10 @@ router.get("/discussions", requireAuth, async (req: Request, res: Response) => {
         id: v2DiscussionPostsTable.id,
         parentType: v2DiscussionPostsTable.parentType,
         parentId: v2DiscussionPostsTable.parentId,
-        replyToId: v2DiscussionPostsTable.replyToId,
+        replyToId: v2DiscussionPostsTable.parentPostId,
         content: v2DiscussionPostsTable.content,
         attachments: v2DiscussionPostsTable.attachments,
-        isInternal: v2DiscussionPostsTable.isInternal,
+        isInternal: v2DiscussionPostsTable.isSystemMessage,
         authorId: v2DiscussionPostsTable.authorId,
         authorNickname: usersTable.nickname,
         authorRole: usersTable.role,
@@ -69,10 +69,10 @@ router.post("/discussions", requireAuth, async (req: Request, res: Response) => 
       return res.status(400).json({ error: "parentType、parentId、content 必填" });
     }
 
-    if (role === "publisher" && parentType === "v2_outsource_demand") {
+    if (role === "publisher" && parentType === "outsource_demand") {
       return res.status(403).json({ error: "发单方无权在外包需求讨论区发帖" });
     }
-    if (role === "opc" && parentType === "v2_client_demand") {
+    if (role === "opc" && parentType === "client_demand") {
       return res.status(403).json({ error: "OPC 无权在客户需求讨论区发帖" });
     }
 
@@ -81,10 +81,10 @@ router.post("/discussions", requireAuth, async (req: Request, res: Response) => 
     const [created] = await db.insert(v2DiscussionPostsTable).values({
       parentType: parentType as any,
       parentId,
-      replyToId,
+      parentPostId: replyToId,
       content: content.trim(),
       attachments: attachments ?? [],
-      isInternal: internal,
+      isSystemMessage: internal ? 1 : 0,
       authorId: userId,
     }).returning();
 
