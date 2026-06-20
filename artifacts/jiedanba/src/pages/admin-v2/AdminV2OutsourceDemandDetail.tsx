@@ -1,15 +1,30 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, X, ChevronRight, Clock, ExternalLink, CheckCircle2,
-  Network, Users2, Edit2, History, Zap,
+  Loader2, X, ExternalLink, CheckCircle2,
+  Edit2, History, Zap, AlertTriangle, Calendar,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post, v2Patch } from "@/lib/v2api";
+import { v2Get, v2Post } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
+
+interface LatestVersion {
+  id: number;
+  versionNo: number;
+  detail: string;
+  attachments: Array<{ name: string; url: string }>;
+  editComment: string | null;
+  createdAt: string;
+}
+
+interface Milestone {
+  name: string;
+  deadline?: string;
+  description?: string;
+}
 
 interface OutsourceDemand {
   id: number;
@@ -23,8 +38,12 @@ interface OutsourceDemand {
   status: string;
   expectedPriceMin: number | null;
   expectedPriceMax: number | null;
+  milestones: Milestone[];
+  closedReason: string | null;
+  createdBy: number;
   createdAt: string;
   updatedAt: string;
+  latestVersion: LatestVersion | null;
 }
 
 interface Tender {
@@ -49,9 +68,7 @@ interface Version {
 }
 
 const VERSION_ROLE_LABEL: Record<string, string> = {
-  publisher: "发单方",
-  opc: "OPC",
-  admin: "运营方",
+  publisher: "发单方", opc: "OPC", admin: "运营方",
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -67,6 +84,11 @@ const TENDER_STATUS: Record<string, { label: string; color: string }> = {
   quoted:      { label: "已报价", color: "bg-blue-100 text-blue-700" },
   won:         { label: "已中标", color: "bg-green-100 text-green-700" },
   lost:        { label: "已取消", color: "bg-red-100 text-red-500" },
+};
+
+const DEMAND_TYPE_LABEL: Record<string, string> = {
+  website: "网站建设", app: "App开发", miniprogram: "小程序",
+  ecommerce: "电商运营", design: "设计制作", marketing: "营销推广", other: "其他",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -117,10 +139,15 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
   const load = async () => {
     setLoading(true);
     try {
-      const d = await v2Get<OutsourceDemand>(`/outsource-demands/${id}`);
+      const d = await v2Get<OutsourceDemand & { tenders?: Tender[] }>(`/outsource-demands/${id}`);
       setDemand(d);
-      const t = await v2Get<Tender[]>(`/tenders?outsourceDemandId=${id}`);
-      setTenders(t);
+      // tenders come back embedded in the response
+      if (d.tenders) {
+        setTenders(d.tenders);
+      } else {
+        const t = await v2Get<Tender[]>(`/tenders?outsourceDemandId=${id}`);
+        setTenders(Array.isArray(t) ? t : []);
+      }
     } catch {
       setDemand(null);
     } finally {
@@ -156,37 +183,31 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     setActivePanel(prev => (prev === p ? null : p));
   };
 
-  const handleUpdateDetail = async () => {
-    if (!newDetail.trim()) { toast({ title: "请填写新的需求详情", variant: "destructive" }); return; }
-    await act(async () => {
-      await v2Post(`/outsource-demands/${id}/update-detail`, {
-        detail: newDetail.trim(),
-        editComment: updateComment.trim() || undefined,
-      });
-      setUpdateComment("");
-    }, "需求详情已更新，已通知相关OPC");
-  };
+  const handleUpdateDetail = () => act(async () => {
+    if (!newDetail.trim()) throw new Error("请填写新的需求详情");
+    await v2Post(`/outsource-demands/${id}/update-detail`, {
+      detail: newDetail.trim(),
+      editComment: updateComment.trim() || undefined,
+    });
+    setUpdateComment("");
+  }, "需求详情已更新，已通知相关OPC");
 
-  const handleSelectWinner = async () => {
-    if (selectedWinners.length === 0) { toast({ title: "请选择中标投标", variant: "destructive" }); return; }
-    await act(async () => {
-      await v2Post(`/tenders/batch-select-winners`, { tenderIds: selectedWinners });
-      setSelectedWinners([]);
-    }, "中标已选定，已通知OPC及生成订单");
-  };
+  const handleSelectWinner = () => act(async () => {
+    if (selectedWinners.length === 0) throw new Error("请选择中标投标");
+    await v2Post(`/tenders/batch-select-winners`, { tenderIds: selectedWinners });
+    setSelectedWinners([]);
+  }, "中标已选定，已通知OPC及生成订单");
 
   const handleCancelTender = (tenderId: number) => act(
     () => v2Post(`/tenders/${tenderId}/cancel`, {}),
     "投标已取消，已通知OPC"
   );
 
-  const handleClose = async () => {
-    if (!closeReason.trim()) { toast({ title: "请填写关闭原因", variant: "destructive" }); return; }
-    await act(async () => {
-      await v2Post(`/outsource-demands/${id}/close`, { reason: closeReason.trim() });
-      setCloseReason("");
-    }, "需求已关闭");
-  };
+  const handleClose = () => act(async () => {
+    if (!closeReason.trim()) throw new Error("请填写关闭原因");
+    await v2Post(`/outsource-demands/${id}/close`, { reason: closeReason.trim() });
+    setCloseReason("");
+  }, "需求已关闭");
 
   if (loading) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="外包需求"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
   if (!demand) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="外包需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
@@ -196,6 +217,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
   const canSelectWinner = demand.status === "negotiating";
   const canClose = !["completed","closed"].includes(demand.status);
   const quotedTenders = tenders.filter(t => t.status === "quoted");
+  const currentDetail = demand.detail ?? demand.latestVersion?.detail ?? null;
 
   return (
     <AdminV2Layout
@@ -218,29 +240,63 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
       }
     >
       <div className="mt-6 space-y-4">
-        {/* 基本信息卡 */}
+
+        {/* ── 基本信息卡 ── */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                <span className="text-xs text-slate-400 px-2 py-0.5 rounded-full bg-slate-50">
+                <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                   {demand.mode === "public" ? "公开抢单" : "指定邀请"}
                 </span>
-                {demand.isUrgent && <span className="text-xs font-bold text-red-500 flex items-center gap-0.5"><Zap size={10} />紧急</span>}
+                {demand.isUrgent && (
+                  <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
+                    <Zap size={10} />紧急
+                  </span>
+                )}
+                {demand.demandType && (
+                  <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
+                  </span>
+                )}
                 <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
               </div>
-              <h2 className="text-lg font-extrabold text-blue-900 mb-1">{demand.title}</h2>
-              <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
-                {demand.clientDemandId && <span>关联客户需求 #{demand.clientDemandId}</span>}
-                {demand.expectedPriceMin != null && <span>预算 ¥{demand.expectedPriceMin.toLocaleString()}{demand.expectedPriceMax ? `~¥${demand.expectedPriceMax.toLocaleString()}` : "+"}</span>}
-                <span>更新：{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</span>
+              <h2 className="text-lg font-extrabold text-blue-900 mb-3">{demand.title}</h2>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-slate-500">
+                {demand.clientDemandId && (
+                  <div><span className="font-medium text-slate-400">关联客户需求：</span>#{demand.clientDemandId}</div>
+                )}
+                <div>
+                  <span className="font-medium text-slate-400">预算范围：</span>
+                  {demand.expectedPriceMin != null
+                    ? `¥${demand.expectedPriceMin.toLocaleString()}${demand.expectedPriceMax ? ` ～ ¥${demand.expectedPriceMax.toLocaleString()}` : "+"}`
+                    : "面议"}
+                </div>
+                <div><span className="font-medium text-slate-400">投标数：</span>{tenders.length} 个</div>
+                <div><span className="font-medium text-slate-400">更新时间：</span>{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</div>
+                <div><span className="font-medium text-slate-400">创建时间：</span>{new Date(demand.createdAt).toLocaleDateString("zh-CN")}</div>
               </div>
+              {demand.closedReason && (
+                <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-3">
+                  <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-red-600 mb-0.5">关闭原因</p>
+                    <p className="text-xs text-red-500">{demand.closedReason}</p>
+                  </div>
+                </div>
+              )}
+              {demand.latestVersion && (
+                <p className="mt-2 text-xs text-slate-400">
+                  需求详情版本 v{demand.latestVersion.versionNo}
+                  {demand.latestVersion.editComment ? `（${demand.latestVersion.editComment}）` : ""}
+                </p>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 shrink-0">
               {canUpdateDetail && (
-                <button onClick={() => openPanel("update_detail", () => setNewDetail(demand.detail ?? ""))} disabled={acting}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "update_detail" ? "bg-primary/90 text-white" : "bg-primary text-white hover:bg-primary/90"}`}>
+                <button onClick={() => openPanel("update_detail", () => setNewDetail(currentDetail ?? ""))} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "update_detail" ? "bg-primary/80 text-white" : "bg-primary text-white hover:bg-primary/90"}`}>
                   <Edit2 size={14} /> 更新需求详情
                 </button>
               )}
@@ -254,7 +310,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
           </div>
         </div>
 
-        {/* 关闭需求面板 */}
+        {/* ── 关闭需求面板 ── */}
         {activePanel === "close" && (
           <InlinePanel title="关闭外包需求" color="bg-red-50 border-red-200" onClose={() => setActivePanel(null)}>
             <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
@@ -270,7 +326,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
           </InlinePanel>
         )}
 
-        {/* 更新需求详情面板 */}
+        {/* ── 更新需求详情面板 ── */}
         {activePanel === "update_detail" && (
           <InlinePanel title="更新共享需求详情" color="bg-primary/5 border-primary/20" onClose={() => setActivePanel(null)}>
             <p className="text-xs text-slate-500 mb-3">更新后将通知所有未中标OPC查看最新详情，并生成新版本记录。</p>
@@ -297,16 +353,48 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
           </InlinePanel>
         )}
 
-        {/* 需求详情 */}
-        <Section title="需求详情">
-          {demand.detail ? (
-            <MarkdownContent content={demand.detail} />
+        {/* ── 需求详情内容 ── */}
+        <Section title={`需求详情${demand.latestVersion ? ` (v${demand.latestVersion.versionNo})` : ""}`}>
+          {currentDetail ? (
+            <MarkdownContent content={currentDetail} />
           ) : (
-            <p className="text-sm text-slate-400 italic">暂无需求详情，可点击"更新需求详情"填写。</p>
+            <p className="text-sm text-slate-400 italic py-2">暂无需求详情，可点击"更新需求详情"填写。</p>
+          )}
+          {demand.latestVersion?.attachments && demand.latestVersion.attachments.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-slate-50">
+              {demand.latestVersion.attachments.map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
+                  <ExternalLink size={11} />{a.name}
+                </a>
+              ))}
+            </div>
           )}
         </Section>
 
-        {/* 选定中标面板 */}
+        {/* ── 里程碑 ── */}
+        {demand.milestones && demand.milestones.length > 0 && (
+          <Section title={`里程碑（${demand.milestones.length} 个）`}>
+            <div className="space-y-2">
+              {demand.milestones.map((m, i) => (
+                <div key={i} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{m.name}</p>
+                    {m.deadline && (
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Calendar size={10} />截止 {new Date(m.deadline).toLocaleDateString("zh-CN")}
+                      </p>
+                    )}
+                    {m.description && <p className="text-xs text-slate-500 mt-1">{m.description}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* ── 选定中标面板 ── */}
         {activePanel === "select_winner" && (
           <InlinePanel title="选定中标 OPC" color="bg-green-50 border-green-200" onClose={() => setActivePanel(null)}>
             <p className="text-xs text-slate-500 mb-3">选择一个或多个中标OPC，确认后将自动生成接单订单并通知相关OPC。</p>
@@ -336,7 +424,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
           </InlinePanel>
         )}
 
-        {/* 投标列表 */}
+        {/* ── 投标列表 ── */}
         <Section title={`投标列表（${tenders.length} 个）`}>
           {tenders.length === 0 ? (
             <p className="text-sm text-slate-400">暂无投标</p>
@@ -381,7 +469,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
         </Section>
       </div>
 
-      {/* 历史版本对比 Modal（保留，因为是对比查看，不是编辑） */}
+      {/* ── 历史版本对比 Modal（只读查看） ── */}
       {showVersions && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col" style={{ maxHeight: "90vh" }}>
@@ -428,9 +516,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
                           <span className="text-slate-400">修改</span>
                         </p>
                       )}
-                      <div className="text-sm text-slate-700 leading-relaxed">
-                        <MarkdownContent content={v.detail} />
-                      </div>
+                      <MarkdownContent content={v.detail} />
                     </div>
                   );
                   return (

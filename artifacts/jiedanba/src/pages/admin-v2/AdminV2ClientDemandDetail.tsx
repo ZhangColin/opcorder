@@ -1,15 +1,23 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, AlertCircle, ChevronRight, Zap, Clock, ExternalLink,
-  CheckCircle2, FileText, DollarSign, Send, PlusCircle, Trash2, Edit2, X,
+  Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, PlusCircle, Trash2, Edit2, X, Calendar, AlertTriangle,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post, v2Patch } from "@/lib/v2api";
+import { v2Get, v2Post } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
+
+interface LatestVersion {
+  id: number;
+  versionNo: number;
+  detail: string;
+  attachments: Array<{ name: string; url: string; size?: number }>;
+  editComment: string | null;
+  createdAt: string;
+}
 
 interface ClientDemand {
   id: number;
@@ -21,13 +29,15 @@ interface ClientDemand {
   isUrgent: boolean;
   budgetMin: number | null;
   budgetMax: number | null;
-  detail: string | null;
-  attachments: Array<{ name: string; url: string }> | null;
+  hopeDeliveryDate: string | null;
+  warrantyEndDate: string | null;
+  closedReason: string | null;
   status: string;
   quoteCardId: number | null;
   quoteTotal: number | null;
   createdAt: string;
   updatedAt: string;
+  latestVersion: LatestVersion | null;
 }
 
 interface PaymentPlan {
@@ -57,10 +67,23 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   closed:           { label: "已关闭",   color: "bg-red-100 text-red-500" },
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+const DEMAND_TYPE_LABEL: Record<string, string> = {
+  website: "网站建设",
+  app: "App开发",
+  miniprogram: "小程序",
+  ecommerce: "电商运营",
+  design: "设计制作",
+  marketing: "营销推广",
+  other: "其他",
+};
+
+function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-5">
-      <h3 className="text-sm font-bold text-slate-700 mb-4">{title}</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+        {action}
+      </div>
       {children}
     </div>
   );
@@ -114,12 +137,12 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
   useEffect(() => { if (id > 0) load(); }, [id]);
 
-  const act = async (fn: () => Promise<unknown>, msg: string, closePanel = true) => {
+  const act = async (fn: () => Promise<unknown>, msg: string) => {
     setActing(true);
     try {
       await fn();
       toast({ title: msg });
-      if (closePanel) setActivePanel(null);
+      setActivePanel(null);
       await load();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
@@ -133,64 +156,44 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     setActivePanel(prev => (prev === p ? null : p));
   };
 
-  const handleInitiateQuote = async () => {
-    if (!quoteTotal || parseFloat(quoteTotal) <= 0) {
-      toast({ title: "请填写报价总额", variant: "destructive" }); return;
-    }
-    await act(async () => {
-      await v2Post(`/client-demands/${id}/initiate-quote`, {
-        totalAmount: parseFloat(quoteTotal),
-        breakdown: quoteItems.filter(i => i.name && i.amount).map(i => ({ name: i.name, amount: parseFloat(i.amount) })),
-      });
-      setQuoteTotal(""); setQuoteItems([{ name: "", amount: "" }]);
-    }, "报价已发起，通知发单方");
-  };
+  const handleInitiateQuote = () => act(async () => {
+    if (!quoteTotal || parseFloat(quoteTotal) <= 0) throw new Error("请填写报价总额");
+    await v2Post(`/client-demands/${id}/initiate-quote`, {
+      totalAmount: parseFloat(quoteTotal),
+      breakdown: quoteItems.filter(i => i.name && i.amount).map(i => ({ name: i.name, amount: parseFloat(i.amount) })),
+    });
+    setQuoteTotal(""); setQuoteItems([{ name: "", amount: "" }]);
+  }, "报价已发起，通知发单方");
 
-  const handleCreatePayment = async () => {
-    if (!payTitle.trim() || !payAmount) {
-      toast({ title: "请填写收款项标题和金额", variant: "destructive" }); return;
-    }
-    await act(async () => {
-      await v2Post("/payment-plans", {
-        clientDemandId: id, title: payTitle.trim(),
-        amount: parseFloat(payAmount), dueDate: payDueDate || null,
-      });
-      setPayTitle(""); setPayAmount(""); setPayDueDate("");
-    }, "收款计划已创建");
-  };
+  const handleCreatePayment = () => act(async () => {
+    if (!payTitle.trim() || !payAmount) throw new Error("请填写收款项标题和金额");
+    await v2Post("/payment-plans", {
+      clientDemandId: id, title: payTitle.trim(),
+      amount: parseFloat(payAmount), dueDate: payDueDate || null,
+    });
+    setPayTitle(""); setPayAmount(""); setPayDueDate("");
+  }, "收款计划已创建");
 
-  const handleCreateDeliverable = async () => {
-    if (!delivTitle.trim()) {
-      toast({ title: "请填写交付标题", variant: "destructive" }); return;
-    }
-    await act(async () => {
-      await v2Post("/deliverables-a", { clientDemandId: id, title: delivTitle.trim(), description: delivDesc.trim() || null });
-      setDelivTitle(""); setDelivDesc("");
-    }, "交付记录已创建");
-  };
+  const handleCreateDeliverable = () => act(async () => {
+    if (!delivTitle.trim()) throw new Error("请填写交付标题");
+    await v2Post("/deliverables-a", { clientDemandId: id, title: delivTitle.trim(), description: delivDesc.trim() || null });
+    setDelivTitle(""); setDelivDesc("");
+  }, "交付记录已创建");
 
-  const handleClose = async () => {
-    if (!closeReason.trim()) {
-      toast({ title: "请填写关闭原因", variant: "destructive" }); return;
-    }
-    await act(async () => {
-      await v2Post(`/client-demands/${id}/close`, { reason: closeReason.trim() });
-      setCloseReason("");
-    }, "需求已关闭");
-  };
+  const handleClose = () => act(async () => {
+    if (!closeReason.trim()) throw new Error("请填写关闭原因");
+    await v2Post(`/client-demands/${id}/close`, { reason: closeReason.trim() });
+    setCloseReason("");
+  }, "需求已关闭");
 
-  const handleUpdateDetail = async () => {
-    if (!updateDetailText.trim()) {
-      toast({ title: "需求详情不能为空", variant: "destructive" }); return;
-    }
-    await act(async () => {
-      await v2Post(`/client-demands/${id}/update-detail`, {
-        detail: updateDetailText.trim(),
-        editComment: updateDetailComment.trim() || undefined,
-      });
-      setUpdateDetailComment("");
-    }, "需求详情已更新，通知已发送");
-  };
+  const handleUpdateDetail = () => act(async () => {
+    if (!updateDetailText.trim()) throw new Error("需求详情不能为空");
+    await v2Post(`/client-demands/${id}/update-detail`, {
+      detail: updateDetailText.trim(),
+      editComment: updateDetailComment.trim() || undefined,
+    });
+    setUpdateDetailComment("");
+  }, "需求详情已更新，通知已发送");
 
   if (loading) return <AdminV2Layout backHref="/admin/v2/client-demands" backLabel="客户需求"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
   if (!demand) return <AdminV2Layout backHref="/admin/v2/client-demands" backLabel="客户需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
@@ -198,13 +201,22 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const cfg = STATUS_CONFIG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const canInitiateQuote = demand.status === "negotiating";
   const canReQuote = demand.status === "quoting";
-  const canUpdateDetail = ["negotiating", "quoting"].includes(demand.status);
+  const canUpdateDetail = ["draft","negotiating", "quoting"].includes(demand.status);
   const canCreatePayment = ["pending_contract","executing","warranty","completed"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = !["completed","closed"].includes(demand.status);
 
-  const InlinePanel = ({ children, color = "bg-slate-50 border-slate-200" }: { children: React.ReactNode; color?: string }) => (
+  const currentDetail = demand.latestVersion?.detail ?? null;
+  const currentAttachments = demand.latestVersion?.attachments ?? [];
+
+  const InlinePanel = ({ title, color = "bg-slate-50 border-slate-200", children }: {
+    title: string; color?: string; children: React.ReactNode;
+  }) => (
     <div className={`rounded-2xl border p-5 ${color}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-sm font-bold text-slate-800">{title}</h4>
+        <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
+      </div>
       {children}
     </div>
   );
@@ -230,33 +242,80 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
       }
     >
       <div className="mt-6 space-y-4">
-        {/* 基本信息卡 */}
+
+        {/* ── 基本信息卡 ── */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                {demand.isUrgent && <span className="text-xs font-bold text-red-500 flex items-center gap-0.5"><Zap size={10} />紧急</span>}
+                {demand.isUrgent && (
+                  <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
+                    <Zap size={10} />紧急
+                  </span>
+                )}
+                {demand.demandType && (
+                  <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
+                  </span>
+                )}
                 <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
               </div>
-              <h2 className="text-lg font-extrabold text-blue-900 mb-1">{demand.title}</h2>
-              <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
-                <span>发单方：{demand.publisherNickname ?? "—"}</span>
-                {demand.budgetMin != null && <span>预算：¥{demand.budgetMin.toLocaleString()}{demand.budgetMax ? `～¥${demand.budgetMax.toLocaleString()}` : "+"}</span>}
-                {demand.demandType && <span>类型：{demand.demandType}</span>}
-                {demand.quoteTotal != null && <span className="font-bold text-primary">报价：¥{demand.quoteTotal.toLocaleString()}</span>}
-                <span>更新：{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</span>
+              <h2 className="text-lg font-extrabold text-blue-900 mb-3">{demand.title}</h2>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-slate-500">
+                <div><span className="font-medium text-slate-400">发单方：</span>{demand.publisherNickname ?? "—"}</div>
+                <div>
+                  <span className="font-medium text-slate-400">预算：</span>
+                  {demand.budgetMin != null
+                    ? `¥${demand.budgetMin.toLocaleString()}${demand.budgetMax ? ` ～ ¥${demand.budgetMax.toLocaleString()}` : "+"}`
+                    : "面议"}
+                </div>
+                {demand.hopeDeliveryDate && (
+                  <div className="flex items-center gap-1">
+                    <Calendar size={11} className="text-slate-400" />
+                    <span className="font-medium text-slate-400">期望交付：</span>
+                    {new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}
+                  </div>
+                )}
+                {demand.quoteTotal != null && (
+                  <div><span className="font-medium text-primary">报价总额：</span>
+                    <span className="font-bold text-primary">¥{demand.quoteTotal.toLocaleString()}</span>
+                  </div>
+                )}
+                {demand.warrantyEndDate && (
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium text-slate-400">质保到期：</span>
+                    {new Date(demand.warrantyEndDate).toLocaleDateString("zh-CN")}
+                  </div>
+                )}
+                <div><span className="font-medium text-slate-400">更新时间：</span>{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</div>
+                <div><span className="font-medium text-slate-400">创建时间：</span>{new Date(demand.createdAt).toLocaleDateString("zh-CN")}</div>
               </div>
+              {demand.closedReason && (
+                <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-3">
+                  <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-red-600 mb-0.5">关闭原因</p>
+                    <p className="text-xs text-red-500">{demand.closedReason}</p>
+                  </div>
+                </div>
+              )}
+              {demand.latestVersion && (
+                <p className="mt-2 text-xs text-slate-400">
+                  需求详情版本 v{demand.latestVersion.versionNo}
+                  {demand.latestVersion.editComment ? `（${demand.latestVersion.editComment}）` : ""}
+                </p>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 shrink-0">
               {(canInitiateQuote || canReQuote) && (
                 <button onClick={() => openPanel("quote")} disabled={acting}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "quote" ? "bg-primary/90 text-white" : "bg-primary text-white hover:bg-primary/90"}`}>
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "quote" ? "bg-primary/80 text-white" : "bg-primary text-white hover:bg-primary/90"}`}>
                   <DollarSign size={14} /> {canReQuote ? "更新报价" : "发起报价"}
                 </button>
               )}
               {canUpdateDetail && (
-                <button onClick={() => openPanel("update_detail", () => setUpdateDetailText(demand.detail ?? ""))} disabled={acting}
+                <button onClick={() => openPanel("update_detail", () => setUpdateDetailText(currentDetail ?? ""))} disabled={acting}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "update_detail" ? "bg-slate-700 text-white" : "bg-slate-600 text-white hover:bg-slate-700"}`}>
                   <Edit2 size={14} /> 更新需求详情
                 </button>
@@ -277,13 +336,9 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </div>
         </div>
 
-        {/* 关闭需求面板 */}
+        {/* ── 关闭需求面板 ── */}
         {activePanel === "close" && (
-          <InlinePanel color="bg-red-50 border-red-200">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold text-red-700">关闭需求</h4>
-              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
-            </div>
+          <InlinePanel title="关闭需求" color="bg-red-50 border-red-200">
             <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
             <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3} placeholder="关闭原因"
               className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 resize-none bg-white mb-3" />
@@ -297,13 +352,9 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* 发起报价面板 */}
+        {/* ── 发起报价面板 ── */}
         {activePanel === "quote" && (
-          <InlinePanel color="bg-primary/5 border-primary/20">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-bold text-blue-900">{canReQuote ? "更新报价" : "发起报价"}</h4>
-              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
-            </div>
+          <InlinePanel title={canReQuote ? "更新报价" : "发起报价"} color="bg-primary/5 border-primary/20">
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">报价总额 (¥)</label>
@@ -340,13 +391,9 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* 更新需求详情面板 */}
+        {/* ── 更新需求详情面板 ── */}
         {activePanel === "update_detail" && (
-          <InlinePanel color="bg-slate-50 border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-bold text-blue-900">更新需求详情</h4>
-              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
-            </div>
+          <InlinePanel title="更新需求详情" color="bg-slate-50 border-slate-200">
             <div className="space-y-3">
               <MarkdownEditor
                 key={`client-detail-${id}`}
@@ -370,16 +417,18 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* 需求详情 */}
-        <Section title="需求详情">
-          {demand.detail ? (
-            <MarkdownContent content={demand.detail} />
+        {/* ── 需求详情内容 ── */}
+        <Section
+          title={`需求详情${demand.latestVersion ? ` (v${demand.latestVersion.versionNo})` : ""}`}
+        >
+          {currentDetail ? (
+            <MarkdownContent content={currentDetail} />
           ) : (
-            <p className="text-sm text-slate-400 italic">暂无需求详情，可点击"更新需求详情"填写。</p>
+            <p className="text-sm text-slate-400 italic py-2">暂无需求详情，可点击"更新需求详情"填写。</p>
           )}
-          {demand.attachments && demand.attachments.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {demand.attachments.map((a, i) => (
+          {currentAttachments.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-slate-50">
+              {currentAttachments.map((a, i) => (
                 <a key={i} href={a.url} target="_blank" rel="noreferrer"
                   className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
                   <ExternalLink size={11} />{a.name}
@@ -389,13 +438,9 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           )}
         </Section>
 
-        {/* 创建收款项面板 */}
+        {/* ── 创建收款项面板 ── */}
         {activePanel === "payment" && (
-          <InlinePanel color="bg-emerald-50 border-emerald-200">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-bold text-emerald-800">创建收款项</h4>
-              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
-            </div>
+          <InlinePanel title="创建收款项" color="bg-emerald-50 border-emerald-200">
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">收款项名称</label>
@@ -425,7 +470,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* 收款计划 */}
+        {/* ── 收款计划 ── */}
         {payments.length > 0 && (
           <Section title={`收款计划（${payments.length} 项）`}>
             <div className="space-y-2">
@@ -445,13 +490,9 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </Section>
         )}
 
-        {/* 创建交付记录面板 */}
+        {/* ── 创建交付记录面板 ── */}
         {activePanel === "deliverable" && (
-          <InlinePanel color="bg-teal-50 border-teal-200">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-bold text-teal-800">创建交付记录</h4>
-              <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400" /></button>
-            </div>
+          <InlinePanel title="创建交付记录" color="bg-teal-50 border-teal-200">
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">交付标题</label>
@@ -474,7 +515,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* 交付记录 */}
+        {/* ── 交付记录 ── */}
         {deliverables.length > 0 && (
           <Section title={`交付记录（${deliverables.length} 项）`}>
             <div className="space-y-2">
@@ -494,6 +535,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         <Section title="沟通讨论">
           <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" />
         </Section>
+
       </div>
     </AdminV2Layout>
   );
