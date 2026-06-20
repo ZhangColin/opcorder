@@ -23,6 +23,7 @@ interface DiscussionThreadProps {
   parentId: number;
   placeholder?: string;
   readOnly?: boolean;
+  onAfterPost?: () => void;
 }
 
 function RoleTag({ role }: { role: string }) {
@@ -42,7 +43,7 @@ function formatTime(iso: string) {
   return d.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function DiscussionThread({ parentType, parentId, placeholder = "输入回复内容…", readOnly = false }: DiscussionThreadProps) {
+export function DiscussionThread({ parentType, parentId, placeholder = "输入回复内容…", readOnly = false, onAfterPost }: DiscussionThreadProps) {
   const { toast } = useToast();
   const { userId } = useCurrentUser();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -109,6 +110,7 @@ export function DiscussionThread({ parentType, parentId, placeholder = "输入�
       setAttachments([]);
       setReplyToId(null);
       setReplyToNickname("");
+      onAfterPost?.();
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (err: any) {
       toast({ title: "发送失败", description: err.message, variant: "destructive" });

@@ -487,7 +487,7 @@ export default function OpcV2TenderDetail() {
             <p className="text-xs text-slate-400 mt-0.5">与平台就此投标的讨论（仅本人和运营可见）</p>
           </div>
           <div className="p-5">
-            <DiscussionThread parentType="v2_tender" parentId={tenderId} readOnly={isLost} />
+            <DiscussionThread parentType="v2_tender" parentId={tenderId} readOnly={isLost} onAfterPost={() => tender && markRead("outsource", tender.outsourceDemandId)} />
             {isLost && (
               <p className="mt-3 text-xs text-slate-400 italic text-center">未中标的投标仅供查看，无法继续回复</p>
             )}

@@ -137,6 +137,7 @@ export default function PubTicketDetail() {
             parentId={ticketId}
             placeholder="描述问题详情或回复运营方…"
             readOnly={!isOpen}
+            onAfterPost={() => markRead("ticket_a", ticketId)}
           />
         </div>
       </div>

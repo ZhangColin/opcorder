@@ -552,7 +552,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
         </Section>
 
         <Section title="讨论" icon={FileText}>
-          <DiscussionThread parentType="outsource_demand" parentId={id} placeholder="发布公共公告或讨论…" />
+          <DiscussionThread parentType="outsource_demand" parentId={id} placeholder="发布公共公告或讨论…" onAfterPost={() => markRead("outsource", id)} />
         </Section>
 
       </div>

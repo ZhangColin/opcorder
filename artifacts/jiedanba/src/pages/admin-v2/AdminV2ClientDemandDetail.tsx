@@ -649,7 +649,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         )}
 
         <Section title="沟通讨论" icon={FileText}>
-          <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" />
+          <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" onAfterPost={() => markRead("client", id)} />
         </Section>
 
       </div>

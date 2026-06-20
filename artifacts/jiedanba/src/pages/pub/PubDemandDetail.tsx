@@ -659,6 +659,7 @@ export default function PubDemandDetail() {
               parentId={demandId}
               placeholder="向运营方提问或补充信息…"
               readOnly={["completed", "closed"].includes(demand.status)}
+              onAfterPost={() => markRead("client", demandId)}
             />
           </div>
         </Section>

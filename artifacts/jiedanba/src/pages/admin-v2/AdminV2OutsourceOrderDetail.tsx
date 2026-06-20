@@ -419,7 +419,7 @@ export default function AdminV2OutsourceOrderDetail() {
         </Section>
 
         <Section title="与OPC沟通">
-          <DiscussionThread parentType="outsource_order" parentId={id} placeholder="与OPC沟通…" />
+          <DiscussionThread parentType="outsource_order" parentId={id} placeholder="与OPC沟通…" onAfterPost={() => markRead("order", id)} />
         </Section>
       </div>
 

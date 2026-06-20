@@ -155,6 +155,7 @@ export default function OpcV2TicketDetail() {
               parentType="v2_ticket_b"
               parentId={ticketId}
               readOnly={ticket.status === "closed"}
+              onAfterPost={() => markRead("ticket_b", ticketId)}
             />
           </div>
         </div>
