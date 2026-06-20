@@ -37,7 +37,7 @@ export function MarkdownEditor({
         transformCopiedText: false,
       }),
     ],
-    content: "",
+    content: value,
     onUpdate({ editor }) {
       const md = (editor.storage as unknown as Record<string, { getMarkdown: () => string }>).markdown.getMarkdown();
       onChange(md);

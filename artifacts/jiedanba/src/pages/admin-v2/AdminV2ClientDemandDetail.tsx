@@ -349,6 +349,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </div>
             <div className="space-y-3">
               <MarkdownEditor
+                key={`client-detail-${id}`}
                 value={updateDetailText}
                 onChange={setUpdateDetailText}
                 placeholder="编辑需求详情，支持 Markdown 富文本…"
@@ -370,21 +371,23 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         )}
 
         {/* 需求详情 */}
-        {demand.detail && (
-          <Section title="需求详情">
+        <Section title="需求详情">
+          {demand.detail ? (
             <MarkdownContent content={demand.detail} />
-            {demand.attachments && demand.attachments.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {demand.attachments.map((a, i) => (
-                  <a key={i} href={a.url} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
-                    <ExternalLink size={11} />{a.name}
-                  </a>
-                ))}
-              </div>
-            )}
-          </Section>
-        )}
+          ) : (
+            <p className="text-sm text-slate-400 italic">暂无需求详情，可点击"更新需求详情"填写。</p>
+          )}
+          {demand.attachments && demand.attachments.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {demand.attachments.map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
+                  <ExternalLink size={11} />{a.name}
+                </a>
+              ))}
+            </div>
+          )}
+        </Section>
 
         {/* 创建收款项面板 */}
         {activePanel === "payment" && (

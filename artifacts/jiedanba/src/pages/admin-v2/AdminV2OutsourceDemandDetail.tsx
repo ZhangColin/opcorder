@@ -276,6 +276,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
             <p className="text-xs text-slate-500 mb-3">更新后将通知所有未中标OPC查看最新详情，并生成新版本记录。</p>
             <div className="space-y-3">
               <MarkdownEditor
+                key={`outsource-detail-${id}`}
                 value={newDetail}
                 onChange={setNewDetail}
                 placeholder="输入新的需求详情，支持 Markdown 富文本…"
@@ -297,11 +298,13 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
         )}
 
         {/* 需求详情 */}
-        {demand.detail && (
-          <Section title="需求详情">
+        <Section title="需求详情">
+          {demand.detail ? (
             <MarkdownContent content={demand.detail} />
-          </Section>
-        )}
+          ) : (
+            <p className="text-sm text-slate-400 italic">暂无需求详情，可点击"更新需求详情"填写。</p>
+          )}
+        </Section>
 
         {/* 选定中标面板 */}
         {activePanel === "select_winner" && (
