@@ -53,8 +53,8 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
         <div className="flex items-center gap-3">
           <SiteLogo size={30} />
           <div>
-            <h2 className="text-base font-extrabold text-emerald-900 leading-tight font-display">OPC 工作台</h2>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest">V2 双通道</p>
+            <h2 className="text-base font-extrabold text-primary leading-tight font-display">OPC 工作台</h2>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest">接单吧</p>
           </div>
         </div>
         <button

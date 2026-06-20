@@ -41,7 +41,7 @@ router.get("/deliverables-b", requireAuth, async (req: Request, res: Response) =
         content: v2DeliverablesBTable.content,
         attachments: v2DeliverablesBTable.attachments,
         status: v2DeliverablesBTable.status,
-        createdByNickname: usersTable.nickname,
+        submittedByNickname: usersTable.nickname,
         approvedAt: v2DeliverablesBTable.approvedAt,
         rejectedAt: v2DeliverablesBTable.rejectedAt,
         rejectedReason: v2DeliverablesBTable.rejectedReason,
@@ -49,7 +49,7 @@ router.get("/deliverables-b", requireAuth, async (req: Request, res: Response) =
         updatedAt: v2DeliverablesBTable.updatedAt,
       })
       .from(v2DeliverablesBTable)
-      .leftJoin(usersTable, eq(v2DeliverablesBTable.createdBy, usersTable.id))
+      .leftJoin(usersTable, eq(v2DeliverablesBTable.submittedBy, usersTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(v2DeliverablesBTable.createdAt));
 

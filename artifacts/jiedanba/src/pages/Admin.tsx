@@ -22,7 +22,7 @@ import {
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet, Video,
-  Pin, Paperclip, ScrollText,
+  Pin, Paperclip, ScrollText, Layers,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -110,7 +110,8 @@ export type Module =
   | "roles" | "adminusers" | "screen" | "screenvideos" | "agent" | "settlement" | "quotecard" | "syslogs"
   | "platform_config" | "catcategories" | "cattags" | "creditlevels" | "creditrules"
   | "demands_orders" | "opc_management" | "system_management"
-  | "operation_management" | "userData";
+  | "operation_management" | "userData"
+  | "v2_workbench";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -178,6 +179,22 @@ const NAV: NavItem[] = [
       { key: "screen_h",     label: "横屏大屏", href: "/screen",     icon: Monitor },
       { key: "screen_v",     label: "竖屏大屏", href: "/miniscreen", icon: Tablet },
       { key: "screenvideos", label: "视频管理", moduleKey: "screenvideos" as Module, icon: Video },
+    ],
+  },
+
+  {
+    key: "v2_workbench", icon: Layers, label: "V2 工作台", permKey: "demands",
+    children: [
+      { key: "v2_overview",         label: "跨通道总览",     href: "/admin/v2/overview",                 icon: LayoutDashboard },
+      { key: "v2_client_demands",   label: "客户需求",       href: "/admin/v2/client-demands",           icon: FileText },
+      { key: "v2_contracts_a",      label: "甲方合同",       href: "/admin/v2/contracts-a",              icon: FileCheck },
+      { key: "v2_payments_a",       label: "甲方收款",       href: "/admin/v2/payments-a",               icon: Wallet },
+      { key: "v2_tickets_a",        label: "甲方工单",       href: "/admin/v2/tickets-a",                icon: ClipboardList },
+      { key: "v2_outsource_demands",label: "外包需求",       href: "/admin/v2/outsource-demands",        icon: Network },
+      { key: "v2_tenders",          label: "投标管理",       href: "/admin/v2/tenders",                  icon: Trophy },
+      { key: "v2_outsource_orders", label: "外包订单",       href: "/admin/v2/outsource-orders",         icon: ShoppingBag },
+      { key: "v2_payments_b",       label: "乙方付款",       href: "/admin/v2/payments-b",               icon: CreditCard },
+      { key: "v2_tickets_b",        label: "乙方工单",       href: "/admin/v2/tickets-b",                icon: ClipboardList },
     ],
   },
 ];
