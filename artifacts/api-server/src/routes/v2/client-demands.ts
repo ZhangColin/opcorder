@@ -459,6 +459,7 @@ router.get("/client-demands/:id/versions", requireAuth, async (req: Request, res
         detail: v2ClientDemandVersionsTable.detail,
         attachments: v2ClientDemandVersionsTable.attachments,
         editedByNickname: usersTable.nickname,
+        editedByRole: usersTable.role,
         editComment: v2ClientDemandVersionsTable.editComment,
         createdAt: v2ClientDemandVersionsTable.createdAt,
       })

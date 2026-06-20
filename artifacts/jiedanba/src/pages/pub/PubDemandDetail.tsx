@@ -84,9 +84,16 @@ interface VersionItem {
   detail: string;
   attachments: Array<{ name: string; url: string }>;
   editedByNickname: string | null;
+  editedByRole: "publisher" | "opc" | "admin" | null;
   editComment: string | null;
   createdAt: string;
 }
+
+const ROLE_LABEL: Record<string, string> = {
+  publisher: "发单方",
+  opc: "OPC",
+  admin: "运营方",
+};
 
 /* ── Status configs ── */
 const DEMAND_STATUS: Record<string, { label: string; color: string }> = {
@@ -645,6 +652,13 @@ export default function PubDemandDetail() {
                       <span className="text-xs font-bold text-slate-600">v{v.versionNo}</span>
                       <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
                     </div>
+                    {(v.editedByRole || v.editedByNickname) && (
+                      <p className="text-xs text-slate-500 mb-1 flex items-center gap-1">
+                        <span className="bg-slate-200 text-slate-600 rounded px-1 py-0.5 font-medium">{v.editedByRole ? ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
+                        {v.editedByNickname && <span>{v.editedByNickname}</span>}
+                        <span className="text-slate-400">修改</span>
+                      </p>
+                    )}
                     {v.editComment && <p className="text-xs text-slate-500 mb-1">备注：{v.editComment}</p>}
                     <p className="text-xs text-slate-600 line-clamp-3">{v.detail}</p>
                   </div>

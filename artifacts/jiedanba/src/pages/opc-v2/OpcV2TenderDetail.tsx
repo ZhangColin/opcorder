@@ -39,9 +39,16 @@ interface DemandVersion {
   detail: string | null;
   attachments: Array<{ name: string; url: string }>;
   editedByNickname: string | null;
+  editedByRole: "publisher" | "opc" | "admin" | null;
   editComment: string | null;
   createdAt: string;
 }
+
+const VERSION_ROLE_LABEL: Record<string, string> = {
+  publisher: "发单方",
+  opc: "OPC",
+  admin: "运营方",
+};
 
 interface DemandInfo {
   id: number;
@@ -317,8 +324,15 @@ export default function OpcV2TenderDetail() {
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">v{v.versionNo}</span>
                       <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
-                      {v.editComment && <span className="text-xs text-slate-500">{v.editComment}</span>}
                     </div>
+                    {(v.editedByRole || v.editedByNickname) && (
+                      <p className="text-xs text-slate-500 mb-1.5 flex items-center gap-1">
+                        <span className="bg-slate-200 text-slate-600 rounded px-1 py-0.5 font-medium">{v.editedByRole ? VERSION_ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
+                        {v.editedByNickname && <span>{v.editedByNickname}</span>}
+                        <span className="text-slate-400">修改</span>
+                      </p>
+                    )}
+                    {v.editComment && <p className="text-xs text-slate-500 mb-1.5">备注：{v.editComment}</p>}
                     {v.detail && (
                       <p className="text-xs text-slate-600 line-clamp-3 whitespace-pre-wrap">{v.detail}</p>
                     )}

@@ -42,8 +42,16 @@ interface Version {
   versionNo: number;
   detail: string;
   createdAt: string;
-  editorNickname?: string;
+  editedByNickname?: string | null;
+  editedByRole?: "publisher" | "opc" | "admin" | null;
+  editComment?: string | null;
 }
+
+const VERSION_ROLE_LABEL: Record<string, string> = {
+  publisher: "发单方",
+  opc: "OPC",
+  admin: "运营方",
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   negotiating: { label: "招标中", color: "bg-blue-100 text-blue-700" },
@@ -300,6 +308,14 @@ export default function AdminV2OutsourceDemandDetail() {
                     <span className="text-xs font-bold text-primary">版本 {v.versionNo}</span>
                     <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleString("zh-CN")}</span>
                   </div>
+                  {(v.editedByRole || v.editedByNickname) && (
+                    <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                      <span className="bg-slate-100 text-slate-600 rounded px-1.5 py-0.5 font-medium">{v.editedByRole ? VERSION_ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
+                      {v.editedByNickname && <span>{v.editedByNickname}</span>}
+                      <span className="text-slate-400">修改</span>
+                    </p>
+                  )}
+                  {v.editComment && <p className="text-xs text-slate-500 mb-2">备注：{v.editComment}</p>}
                   <div className="text-sm text-slate-600 max-h-40 overflow-y-auto">
                     <MarkdownContent content={v.detail} />
                   </div>

@@ -340,6 +340,7 @@ router.get("/outsource-demands/:id/versions", requireAuth, async (req: Request, 
         detail: v2OutsourceDemandVersionsTable.detail,
         attachments: v2OutsourceDemandVersionsTable.attachments,
         editedByNickname: usersTable.nickname,
+        editedByRole: usersTable.role,
         editComment: v2OutsourceDemandVersionsTable.editComment,
         createdAt: v2OutsourceDemandVersionsTable.createdAt,
       })
