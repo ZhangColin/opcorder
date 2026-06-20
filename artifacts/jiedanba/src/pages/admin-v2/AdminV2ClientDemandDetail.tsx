@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, PlusCircle, Trash2, Edit2, X,
+  Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, PlusCircle, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
@@ -102,6 +102,29 @@ const ROLE_LABEL: Record<string, string> = {
   publisher: "发单方", opc: "OPC", admin: "运营方",
 };
 
+interface QuoteTierData {
+  id: number; tier: string; tierLabel: string;
+  basePrice: number; coefficient?: number | null;
+  description?: string | null; sortOrder: number;
+}
+interface QuoteDimData {
+  id: number; code: string; label: string;
+  sortOrder: number; tiers: QuoteTierData[];
+}
+interface QuoteCategoryConfig {
+  category: string;
+  base: QuoteDimData[];
+  adjustment: QuoteDimData[];
+  optional: QuoteDimData[];
+}
+const V2_DEMAND_CATEGORY_MAP: Record<string, string | null> = {
+  content: "content", education: "education", software: "software", marketing: "marketing",
+  CG: "content", SA: "software", TK: "education", BO: "marketing",
+  cg: "content", sa: "software", tk: "education", bo: "marketing",
+  OTHER: null, other: null,
+};
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 function Section({
   title, icon: Icon, defaultOpen = true, headerRight, children,
 }: {
@@ -155,9 +178,14 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [showVersions, setShowVersions] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
 
-  // Quote form
-  const [quoteTotal, setQuoteTotal] = useState("");
-  const [quoteItems, setQuoteItems] = useState([{ name: "", amount: "" }]);
+  // OPC quote card
+  const [showQuoteOverlay, setShowQuoteOverlay] = useState(false);
+  const [quoteSelections, setQuoteSelections] = useState<Record<string, string>>({});
+  const [adjustmentPercent, setAdjustmentPercent] = useState(0);
+  const [maintenancePackage, setMaintenancePackage] = useState("none");
+  const [quoteConfig, setQuoteConfig] = useState<QuoteCategoryConfig | null>(null);
+  const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
+  const [quoteNote, setQuoteNote] = useState("");
 
   // Payment form
   const [payTitle, setPayTitle] = useState("");
@@ -170,6 +198,42 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
   // Close form
   const [closeReason, setCloseReason] = useState("");
+
+  const baseDims = quoteConfig?.base ?? [];
+  const adjustDims = quoteConfig?.adjustment ?? [];
+  const hasQuoteCard = baseDims.length > 0 || adjustDims.length > 0;
+  const maintTiers = (quoteConfig?.optional ?? []).find(d => d.code === "MAINT")?.tiers ?? [];
+  const selectedMaintTier = maintTiers.find(t => t.tier === maintenancePackage);
+
+  const quoteTotals = useMemo(() => {
+    const rawBase = baseDims.reduce((sum, dim) => {
+      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+      return sum + (tier?.basePrice ?? 0);
+    }, 0);
+    const clampedAdj = Math.max(-20, Math.min(20, adjustmentPercent || 0));
+    const calibratedBase = Math.round(rawBase * (1 + clampedAdj / 100));
+    const factorProduct = adjustDims.reduce((prod, dim) => {
+      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+      return prod * (tier?.coefficient ?? 1);
+    }, 1);
+    const adjustedPrice = Math.round(calibratedBase * factorProduct);
+    const maintRate = selectedMaintTier?.coefficient ?? 0;
+    const maintenanceFee = Math.round(adjustedPrice * maintRate);
+    const finalPrice = adjustedPrice + maintenanceFee;
+    return { rawBase, clampedAdj, calibratedBase, factorProduct, adjustedPrice, maintenanceFee, finalPrice };
+  }, [quoteSelections, quoteConfig, adjustmentPercent, maintenancePackage, baseDims, adjustDims, selectedMaintTier]);
+
+  useEffect(() => {
+    if (!showQuoteOverlay) return;
+    const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
+    if (!category) { setQuoteConfig(null); return; }
+    setQuoteConfigLoading(true);
+    fetch(`${API_BASE}/api/quote-card/config?category=${category}`)
+      .then(r => r.json())
+      .then((cfg: QuoteCategoryConfig) => setQuoteConfig(cfg))
+      .catch(() => setQuoteConfig(null))
+      .finally(() => setQuoteConfigLoading(false));
+  }, [showQuoteOverlay, demand?.demandType]);
 
   const load = async () => {
     setLoading(true);
@@ -221,23 +285,25 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   }, "需求已启动沟通，现在可以发起报价");
 
   const handleInitiateQuote = () => act(async () => {
-    if (!quoteTotal || parseFloat(quoteTotal) <= 0) throw new Error("请填写报价总额");
-    const totalPrice = parseFloat(quoteTotal);
-    const breakdown = quoteItems.filter(i => i.name && i.amount).map(i => ({ item: i.name, amount: parseFloat(i.amount) }));
+    if (quoteTotals.finalPrice <= 0) throw new Error("请先完成报价卡各项选择");
+    const totalPrice = quoteTotals.finalPrice;
+    const breakdown = baseDims.filter(d => quoteSelections[d.code]).map(dim => {
+      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+      return { item: `${dim.label}（${tier?.tierLabel ?? ""}）`, amount: tier?.basePrice ?? 0 };
+    });
+    const note = quoteNote.trim() || null;
     if (demand?.status === "quoting") {
       if (quotation) {
-        // 已有报价卡 → 更新
-        await v2Patch(`/quotation-cards/${quotation.id}`, { totalPrice, breakdown });
+        await v2Patch(`/quotation-cards/${quotation.id}`, { totalPrice, breakdown, ...(note ? { note } : {}) });
       } else {
-        // 状态已是 quoting（旧数据遗留）但卡未创建 → 只建卡，无需再改状态
-        await v2Post(`/quotation-cards`, { parentType: "client_demand", clientDemandId: id, totalPrice, breakdown });
+        await v2Post(`/quotation-cards`, { parentType: "client_demand", clientDemandId: id, totalPrice, breakdown, ...(note ? { note } : {}) });
       }
     } else {
-      // negotiating → 建卡 + 改状态到 quoting
-      await v2Post(`/quotation-cards`, { parentType: "client_demand", clientDemandId: id, totalPrice, breakdown });
+      await v2Post(`/quotation-cards`, { parentType: "client_demand", clientDemandId: id, totalPrice, breakdown, ...(note ? { note } : {}) });
       await v2Post(`/client-demands/${id}/initiate-quote`, {});
     }
-    setQuoteTotal(""); setQuoteItems([{ name: "", amount: "" }]);
+    setShowQuoteOverlay(false);
+    setQuoteSelections({}); setAdjustmentPercent(0); setMaintenancePackage("none"); setQuoteNote("");
   }, demand?.status === "quoting" ? "报价已更新" : "报价已发起，通知发单方");
 
   const handleCreatePayment = () => act(async () => {
@@ -345,8 +411,8 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           )}
           {(canInitiateQuote || canReQuote) && (
             <button
-              onClick={() => setActivePanel(prev => prev === "quote" ? null : "quote")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "quote" ? "bg-primary text-white border-primary" : "border-primary/30 text-primary hover:bg-primary/5"}`}
+              onClick={() => setShowQuoteOverlay(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
             >
               <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
             </button>
@@ -492,45 +558,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {activePanel === "quote" && (
-          <InlinePanel title={canReQuote ? "更新报价" : "发起报价"} color="bg-primary/5 border-primary/20">
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">报价总额 (¥)</label>
-                <input type="number" value={quoteTotal} onChange={e => setQuoteTotal(e.target.value)} placeholder="0"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-600">报价明细（可选）</label>
-                  <button onClick={() => setQuoteItems([...quoteItems, { name: "", amount: "" }])}
-                    className="text-xs text-primary font-bold">+ 添加</button>
-                </div>
-                {quoteItems.map((item, i) => (
-                  <div key={i} className="flex gap-2 mb-2">
-                    <input placeholder="项目名称" value={item.name}
-                      onChange={e => { const arr = [...quoteItems]; arr[i].name = e.target.value; setQuoteItems(arr); }}
-                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-                    <input type="number" placeholder="金额" value={item.amount}
-                      onChange={e => { const arr = [...quoteItems]; arr[i].amount = e.target.value; setQuoteItems(arr); }}
-                      className="w-28 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-                    {quoteItems.length > 1 && (
-                      <button onClick={() => setQuoteItems(quoteItems.filter((_, j) => j !== i))}
-                        className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-                <button onClick={handleInitiateQuote} disabled={acting}
-                  className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
-                  {acting ? "提交中…" : (demand?.status === "quoting" ? "更新报价" : "发起报价")}
-                </button>
-              </div>
-            </div>
-          </InlinePanel>
-        )}
 
         {activePanel === "payment" && (
           <InlinePanel title="创建收款项" color="bg-emerald-50 border-emerald-200">
@@ -816,6 +843,254 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               </>
             )}
           </div>
+        </div>
+      )}
+      {showQuoteOverlay && (
+        <div className="fixed inset-0 z-[100] bg-[#f3f4f6] flex flex-col animate-in fade-in duration-200">
+          <header className="shrink-0 bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <span className="text-xs font-black text-white bg-primary px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">OPC</span>
+              <div className="min-w-0">
+                <h2 className="text-sm font-black text-slate-900 leading-none">OPC 报价卡</h2>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">需求：{demand?.title}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button type="button"
+                onClick={() => { setQuoteSelections({}); setAdjustmentPercent(0); setMaintenancePackage("none"); setQuoteNote(""); }}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors">重置</button>
+              <button type="button" onClick={() => setShowQuoteOverlay(false)}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors flex items-center gap-1.5">
+                <X size={14} /> 关闭
+              </button>
+              <button type="button" onClick={handleInitiateQuote} disabled={acting}
+                className="px-5 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                {acting ? "提交中…" : (demand?.status === "quoting" ? "更新报价" : "发起报价")}
+              </button>
+            </div>
+          </header>
+          <main className="flex-1 overflow-y-auto">
+            {quoteConfigLoading ? (
+              <div className="flex justify-center items-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div>
+            ) : (
+              <div className="max-w-6xl mx-auto px-4 py-6 flex gap-6 items-start">
+                <div className="flex-1 space-y-5 min-w-0">
+                  {baseDims.length > 0 && (() => {
+                    const baseTotal = baseDims.reduce((sum, dim) => {
+                      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+                      return sum + (tier?.basePrice ?? 0);
+                    }, 0);
+                    return (
+                      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md">01</span>
+                            <h3 className="font-black text-slate-900">基准层</h3>
+                          </div>
+                          <span className="font-bold text-slate-700 text-sm">{baseTotal > 0 ? `${baseTotal.toLocaleString()} 元` : "—"}</span>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {baseDims.map(dim => {
+                            const sel = quoteSelections[dim.code];
+                            const selRow = dim.tiers.find(t => t.tier === sel);
+                            return (
+                              <div key={dim.code} className="px-6 py-4 flex items-center gap-4">
+                                <div className="w-44 shrink-0">
+                                  <p className="text-sm font-bold text-slate-800 leading-tight">{dim.code} {dim.label}</p>
+                                </div>
+                                <div className="flex gap-1.5 flex-1">
+                                  {dim.tiers.map(t => (
+                                    <button key={t.tier} type="button"
+                                      title={`${t.tierLabel}${t.basePrice > 0 ? ` · ¥${t.basePrice.toLocaleString()}` : ""}`}
+                                      onClick={() => setQuoteSelections(prev => ({ ...prev, [dim.code]: t.tier }))}
+                                      className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold border transition-all leading-tight ${sel === t.tier ? "bg-primary text-white border-primary shadow-sm" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-primary/50 hover:bg-primary/5"}`}>
+                                      <span className="block">{t.tierLabel}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="w-28 text-right shrink-0">
+                                  <span className={`text-sm font-bold ${sel ? "text-primary" : "text-slate-300"}`}>
+                                    {selRow ? (selRow.basePrice > 0 ? `${selRow.basePrice.toLocaleString()} 元` : "0 元") : "— 元"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })()}
+                  {baseDims.length > 0 && (
+                    <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                        <span className="text-xs font-black text-violet-700 bg-violet-100 px-2 py-0.5 rounded-md">±%</span>
+                        <h3 className="font-black text-slate-900">微调</h3>
+                        <span className="text-xs text-slate-400">基准层 ±20% 范围内</span>
+                      </div>
+                      <div className="px-6 py-5">
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-slate-500 w-16 shrink-0">调整幅度</span>
+                          <input type="range" min={-20} max={20} step={1} value={adjustmentPercent}
+                            onChange={e => setAdjustmentPercent(parseInt(e.target.value))}
+                            className="flex-1 accent-violet-600" />
+                          <div className="relative w-24 shrink-0">
+                            <input type="number" min={-20} max={20} step={1} value={adjustmentPercent}
+                              onChange={e => setAdjustmentPercent(Math.max(-20, Math.min(20, parseInt(e.target.value) || 0)))}
+                              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-right pr-7 outline-none focus:border-violet-400" />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">%</span>
+                          </div>
+                          <div className="w-36 text-right shrink-0">
+                            {adjustmentPercent !== 0 ? (
+                              <span className={`text-sm font-bold ${adjustmentPercent > 0 ? "text-red-500" : "text-green-600"}`}>
+                                {adjustmentPercent > 0 ? "+" : ""}{adjustmentPercent}% → {quoteTotals.calibratedBase.toLocaleString()} 元
+                              </span>
+                            ) : <span className="text-sm text-slate-400">不调整</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                  {adjustDims.length > 0 && (() => {
+                    const cFactor = adjustDims.reduce((prod, dim) => {
+                      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+                      return prod * (tier?.coefficient ?? 1);
+                    }, 1);
+                    return (
+                      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">02</span>
+                            <h3 className="font-black text-slate-900">调整层</h3>
+                            <span className="text-xs text-slate-400">各项系数相乘作用于基准层</span>
+                          </div>
+                          <span className="font-bold text-amber-700 text-sm">×{cFactor.toFixed(2)}</span>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {adjustDims.map(dim => {
+                            const sel = quoteSelections[dim.code];
+                            const selRow = dim.tiers.find(t => t.tier === sel);
+                            return (
+                              <div key={dim.code} className="px-6 py-4 flex items-center gap-4">
+                                <div className="w-44 shrink-0">
+                                  <p className="text-sm font-bold text-slate-800 leading-tight">{dim.code} {dim.label}</p>
+                                </div>
+                                <div className="flex gap-1.5 flex-1">
+                                  {dim.tiers.map(t => (
+                                    <button key={t.tier} type="button"
+                                      title={`${t.tierLabel}（×${(t.coefficient ?? 1).toFixed(2)}）`}
+                                      onClick={() => setQuoteSelections(prev => ({ ...prev, [dim.code]: t.tier }))}
+                                      className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold border transition-all leading-tight ${sel === t.tier ? "bg-amber-500 text-white border-amber-500 shadow-sm" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-amber-400/50 hover:bg-amber-50"}`}>
+                                      <span className="block">{t.tierLabel}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="w-20 text-right shrink-0">
+                                  <span className={`text-sm font-bold ${sel ? "text-amber-600" : "text-slate-300"}`}>
+                                    {selRow?.coefficient != null ? `×${selRow.coefficient.toFixed(2)}` : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })()}
+                  {hasQuoteCard && maintTiers.length > 0 && (
+                    <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                        <span className="text-xs font-black text-green-700 bg-green-100 px-2 py-0.5 rounded-md">03</span>
+                        <h3 className="font-black text-slate-900">可选层</h3>
+                        <span className="text-xs text-slate-400">叠加至最终报价</span>
+                      </div>
+                      <div className="px-6 py-5">
+                        <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">维护包</p>
+                        <div className="grid grid-cols-4 gap-3">
+                          {maintTiers.map(t => {
+                            const rate = t.coefficient ?? 0;
+                            const fee = rate > 0 ? Math.round(quoteTotals.adjustedPrice * rate) : 0;
+                            return (
+                              <button key={t.tier} type="button"
+                                onClick={() => setMaintenancePackage(t.tier)}
+                                title={t.description ?? ""}
+                                className={`py-3.5 px-2 rounded-xl border text-center transition-all ${maintenancePackage === t.tier ? "bg-green-600 text-white border-green-600 shadow-md" : "bg-slate-50 text-slate-600 border-slate-200 hover:border-green-400/60 hover:bg-green-50/50"}`}>
+                                <p className="text-xs font-black leading-none">{t.tierLabel}</p>
+                                {rate > 0 ? (
+                                  <>
+                                    <p className={`text-xs mt-1 ${maintenancePackage === t.tier ? "text-white/80" : "text-slate-400"}`}>+{Math.round(rate * 100)}%</p>
+                                    {quoteTotals.adjustedPrice > 0 && (
+                                      <p className={`text-xs font-bold mt-0.5 ${maintenancePackage === t.tier ? "text-white/90" : "text-green-600"}`}>+{fee.toLocaleString()} 元</p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className={`text-xs mt-1 ${maintenancePackage === t.tier ? "text-white/80" : "text-slate-400"}`}>不叠加</p>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                  {!quoteConfigLoading && !hasQuoteCard && (
+                    <section className="bg-amber-50 rounded-2xl border border-amber-200 px-6 py-5">
+                      <p className="text-sm font-bold text-amber-700">此需求类型暂无报价卡模板</p>
+                      <p className="text-xs text-amber-600 mt-1">请在后台管理中配置对应类别的报价维度后再使用报价卡功能。</p>
+                    </section>
+                  )}
+                  <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                      <span className="text-xs font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">04</span>
+                      <h3 className="font-black text-slate-900">备注说明（选填）</h3>
+                    </div>
+                    <div className="px-6 py-5">
+                      <textarea rows={3} placeholder="报价备注、特殊说明等…" value={quoteNote}
+                        onChange={e => setQuoteNote(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none resize-none" />
+                    </div>
+                  </section>
+                </div>
+                <aside className="w-72 shrink-0 sticky top-6">
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-6 py-5 bg-primary text-white">
+                      <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">最终报价</p>
+                      <p className="text-3xl font-black">{quoteTotals.finalPrice > 0 ? `${quoteTotals.finalPrice.toLocaleString()} 元` : "—"}</p>
+                    </div>
+                    <div className="px-6 py-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">基准层合计</span>
+                        <span className="font-bold text-slate-800">{quoteTotals.rawBase > 0 ? `${quoteTotals.rawBase.toLocaleString()} 元` : "—"}</span>
+                      </div>
+                      {quoteTotals.clampedAdj !== 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">微调</span>
+                          <span className={`font-bold ${quoteTotals.clampedAdj > 0 ? "text-red-500" : "text-green-600"}`}>
+                            {quoteTotals.clampedAdj > 0 ? "+" : ""}{quoteTotals.clampedAdj}% → {quoteTotals.calibratedBase.toLocaleString()} 元
+                          </span>
+                        </div>
+                      )}
+                      {quoteTotals.factorProduct !== 1 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">调整层系数</span>
+                          <span className="font-bold text-amber-600">×{quoteTotals.factorProduct.toFixed(2)} = {quoteTotals.adjustedPrice.toLocaleString()} 元</span>
+                        </div>
+                      )}
+                      {quoteTotals.maintenanceFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">维护包</span>
+                          <span className="font-bold text-green-600">+{quoteTotals.maintenanceFee.toLocaleString()} 元</span>
+                        </div>
+                      )}
+                      <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between">
+                        <span className="text-sm font-black text-slate-700">合计</span>
+                        <span className="text-sm font-black text-primary">{quoteTotals.finalPrice > 0 ? `${quoteTotals.finalPrice.toLocaleString()} 元` : "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            )}
+          </main>
         </div>
       )}
     </AdminV2Layout>
