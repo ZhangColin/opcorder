@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Plus, Search, Loader2, ChevronRight, Clock, Network, Users2 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface OutsourceDemand {
   id: number;
@@ -36,6 +37,7 @@ const STATUS_TABS = [
 
 export default function AdminV2OutsourceDemandList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<OutsourceDemand[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -112,7 +114,7 @@ export default function AdminV2OutsourceDemandList() {
             {items.map(d => {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
               return (
-                <button key={d.id} onClick={() => navigate(`/admin/v2/outsource-demands/${d.id}`)}
+                <button key={d.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${d.id}`) : navigate(`/admin/v2/outsource-demands/${d.id}`)}
                   className="w-full text-left flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-white transition-all hover:shadow-md hover:border-primary/20 group">
                   <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
                     <Network size={18} className="text-violet-500" />

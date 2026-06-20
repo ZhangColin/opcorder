@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Plus, Search, Loader2, ChevronRight, Zap, Clock, AlertCircle, Users2 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface ClientDemand {
   id: number;
@@ -45,6 +46,7 @@ const HIGHLIGHT_STATUSES = ["negotiating", "quoting"];
 
 export default function AdminV2ClientDemandList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<ClientDemand[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,7 @@ export default function AdminV2ClientDemandList() {
             <p className="text-xs font-bold text-amber-700 mb-2">⚡ 待处理（{highlighted.length} 件）</p>
             <div className="flex flex-wrap gap-2">
               {highlighted.map(d => (
-                <button key={d.id} onClick={() => navigate(`/admin/v2/client-demands/${d.id}`)}
+                <button key={d.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/client-demands/${d.id}`) : navigate(`/admin/v2/client-demands/${d.id}`)}
                   className="text-xs bg-white border border-amber-200 rounded-xl px-3 py-1.5 font-medium text-amber-800 hover:bg-amber-100 transition-colors">
                   {d.title}
                   <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_CONFIG[d.status]?.color}`}>
@@ -127,7 +129,7 @@ export default function AdminV2ClientDemandList() {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
               const needsAttention = HIGHLIGHT_STATUSES.includes(d.status);
               return (
-                <button key={d.id} onClick={() => navigate(`/admin/v2/client-demands/${d.id}`)}
+                <button key={d.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/client-demands/${d.id}`) : navigate(`/admin/v2/client-demands/${d.id}`)}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
                     needsAttention ? "bg-amber-50/60 border-amber-200" : "bg-white border-slate-100 hover:border-primary/20"
                   }`}>

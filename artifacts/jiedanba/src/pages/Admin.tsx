@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useMemo, Fragment, useCallback } from "react";
+import { AdminInlineNavContext } from "@/context/AdminInlineNavContext";
+import AdminV2ClientDemandDetail from "@/pages/admin-v2/AdminV2ClientDemandDetail";
+import AdminV2OutsourceDemandDetail from "@/pages/admin-v2/AdminV2OutsourceDemandDetail";
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -9886,6 +9889,51 @@ function UserData() {
 }
 
 function ModuleContent({ module }: { module: Module }) {
+  const [inlineRoute, setInlineRoute] = useState<string | null>(null);
+  const inlineNav = useMemo(() => ({
+    push: (path: string) => setInlineRoute(path),
+    back: () => setInlineRoute(null),
+  }), []);
+
+  if (inlineRoute) {
+    const clientMatch = inlineRoute.match(/\/admin\/v2\/client-demands\/(\d+)/);
+    if (clientMatch) {
+      const inlineId = parseInt(clientMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回客户需求列表
+            </button>
+            <AdminV2ClientDemandDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const outsourceMatch = inlineRoute.match(/\/admin\/v2\/outsource-demands\/(\d+)/);
+    if (outsourceMatch) {
+      const inlineId = parseInt(outsourceMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回外包需求列表
+            </button>
+            <AdminV2OutsourceDemandDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+  }
+
+  const withEmbedded = (node: React.ReactNode) => (
+    <AdminInlineNavContext.Provider value={inlineNav}>
+      <AdminEmbeddedContext.Provider value={true}>{node}</AdminEmbeddedContext.Provider>
+    </AdminInlineNavContext.Provider>
+  );
+
   switch (module) {
     case "dashboard":      return <Dashboard />;
     case "cockpit":        return <PlatformCockpit />;
@@ -9917,18 +9965,18 @@ function ModuleContent({ module }: { module: Module }) {
     case "cattags":         return <CatTagManagement />;
     case "userData":        return <UserData />;
     case "operation_management": return <UserData />;
-    case "v2_overview":      return <AdminEmbeddedContext.Provider value={true}><AdminV2Overview /></AdminEmbeddedContext.Provider>;
-    case "v2_pub_demands":   return <AdminEmbeddedContext.Provider value={true}><AdminV2ClientDemandList /></AdminEmbeddedContext.Provider>;
-    case "v2_pub_contracts": return <AdminEmbeddedContext.Provider value={true}><AdminV2ContractAList /></AdminEmbeddedContext.Provider>;
-    case "v2_pub_payments":  return <AdminEmbeddedContext.Provider value={true}><AdminV2PaymentAList /></AdminEmbeddedContext.Provider>;
-    case "v2_pub_tickets":   return <AdminEmbeddedContext.Provider value={true}><AdminV2TicketAList /></AdminEmbeddedContext.Provider>;
-    case "v2_opc_demands":   return <AdminEmbeddedContext.Provider value={true}><AdminV2OutsourceDemandList /></AdminEmbeddedContext.Provider>;
-    case "v2_opc_tenders":   return <AdminEmbeddedContext.Provider value={true}><AdminV2TenderList /></AdminEmbeddedContext.Provider>;
-    case "v2_opc_orders":    return <AdminEmbeddedContext.Provider value={true}><AdminV2OutsourceOrderList /></AdminEmbeddedContext.Provider>;
-    case "v2_opc_payments":  return <AdminEmbeddedContext.Provider value={true}><AdminV2PaymentBList /></AdminEmbeddedContext.Provider>;
-    case "v2_opc_tickets":   return <AdminEmbeddedContext.Provider value={true}><AdminV2TicketBList /></AdminEmbeddedContext.Provider>;
-    case "v2_pub_workbench": return <AdminEmbeddedContext.Provider value={true}><AdminV2Overview /></AdminEmbeddedContext.Provider>;
-    case "v2_opc_workbench": return <AdminEmbeddedContext.Provider value={true}><AdminV2Overview /></AdminEmbeddedContext.Provider>;
+    case "v2_overview":      return withEmbedded(<AdminV2Overview />);
+    case "v2_pub_demands":   return withEmbedded(<AdminV2ClientDemandList />);
+    case "v2_pub_contracts": return withEmbedded(<AdminV2ContractAList />);
+    case "v2_pub_payments":  return withEmbedded(<AdminV2PaymentAList />);
+    case "v2_pub_tickets":   return withEmbedded(<AdminV2TicketAList />);
+    case "v2_opc_demands":   return withEmbedded(<AdminV2OutsourceDemandList />);
+    case "v2_opc_tenders":   return withEmbedded(<AdminV2TenderList />);
+    case "v2_opc_orders":    return withEmbedded(<AdminV2OutsourceOrderList />);
+    case "v2_opc_payments":  return withEmbedded(<AdminV2PaymentBList />);
+    case "v2_opc_tickets":   return withEmbedded(<AdminV2TicketBList />);
+    case "v2_pub_workbench": return withEmbedded(<AdminV2Overview />);
+    case "v2_opc_workbench": return withEmbedded(<AdminV2Overview />);
   }
 }
 
@@ -10137,7 +10185,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
         </header>
 
         <div className="flex-1 px-8 py-8">
-          <ModuleContent module={active} />
+          <ModuleContent key={active} module={active} />
         </div>
       </main>
     </div>
