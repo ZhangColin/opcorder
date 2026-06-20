@@ -51,11 +51,11 @@ export function AdminV2Layout({ children, title, backHref, backLabel, actions }:
             </button>
           )}
           {title && (
-            <h1 className="text-base font-extrabold text-blue-900 font-display truncate">{title}</h1>
+            <h1 className="text-base font-extrabold text-blue-900 font-display truncate min-w-0">{title}</h1>
           )}
-          {actions && <div className="flex items-center gap-2 ml-2">{actions}</div>}
+          {actions && <div className="flex items-center gap-2 ml-auto shrink-0">{actions}</div>}
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <button className="relative p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
               <Bell size={18} />
             </button>
