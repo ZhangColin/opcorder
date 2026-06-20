@@ -172,7 +172,10 @@ function AttachmentInput({ onAdd, onUploadError }: {
             contentType: resolvedContentType,
           }),
         });
-        if (!resp.ok) throw new Error("获取上传链接失败");
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || "获取上传链接失败");
+        }
         const { uploadURL, objectPath, sessionToken } = await resp.json();
 
         const put = await fetch(uploadURL, {
