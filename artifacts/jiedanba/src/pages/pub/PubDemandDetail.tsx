@@ -577,6 +577,58 @@ export default function PubDemandDetail() {
           </div>
         )}
 
+        {/* ── Quotation card ── */}
+        {(demand.status === "quoting" || quotation) && (
+          <Section title="报价单" icon={CreditCard}>
+            <div className="mt-4">
+              {quotation ? (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
+                    <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
+                  </div>
+                  {quotation.breakdown?.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {quotation.breakdown.map((b, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
+                          <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {quotation.note && (
+                    <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
+                  )}
+                  {canConfirmQuote && (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleConfirmQuote}
+                        disabled={acting}
+                        className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                        确认报价
+                      </button>
+                      <button
+                        onClick={() => setShowCommentModal(true)}
+                        disabled={acting}
+                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
+                      >
+                        提出意见
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <p className="text-sm">运营方正在核算报价，请耐心等待</p>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
         {/* ── Demand detail section ── */}
         <Section title="需求详情" icon={FileText}>
           <div className="mt-4">
@@ -680,58 +732,6 @@ export default function PubDemandDetail() {
             />
           </div>
         </Section>
-
-        {/* ── Quotation card ── */}
-        {(demand.status === "quoting" || quotation) && (
-          <Section title="报价单" icon={CreditCard}>
-            <div className="mt-4">
-              {quotation ? (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
-                    <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
-                  </div>
-                  {quotation.breakdown?.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      {quotation.breakdown.map((b, i) => (
-                        <div key={i} className="flex justify-between text-sm">
-                          <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
-                          <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {quotation.note && (
-                    <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
-                  )}
-                  {canConfirmQuote && (
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleConfirmQuote}
-                        disabled={acting}
-                        className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                      >
-                        {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                        确认报价
-                      </button>
-                      <button
-                        onClick={() => setShowCommentModal(true)}
-                        disabled={acting}
-                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
-                      >
-                        提出意见
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-slate-400">
-                  <p className="text-sm">运营方正在核算报价，请耐心等待</p>
-                </div>
-              )}
-            </div>
-          </Section>
-        )}
 
         {/* ── Contract ── */}
         {(demand.status !== "draft" && demand.status !== "negotiating") && aContract && (
