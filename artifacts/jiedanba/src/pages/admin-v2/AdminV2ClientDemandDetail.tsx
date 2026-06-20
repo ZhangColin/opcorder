@@ -5,7 +5,7 @@ import {
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -70,6 +70,15 @@ interface Deliverable {
   createdAt: string;
 }
 
+interface QuotationCard {
+  id: number;
+  totalPrice: number;
+  breakdown: Array<{ item: string; amount: number; note?: string }>;
+  note: string | null;
+  createdByNickname: string | null;
+  createdAt: string;
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:            { label: "草稿",     color: "bg-slate-100 text-slate-500" },
   negotiating:      { label: "沟通中",   color: "bg-blue-100 text-blue-700" },
@@ -130,6 +139,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<PaymentPlan[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [quotation, setQuotation] = useState<QuotationCard | null>(null);
   const [acting, setActing] = useState(false);
   const [activePanel, setActivePanel] = useState<ActionPanel>(null);
 
@@ -164,12 +174,16 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const load = async () => {
     setLoading(true);
     try {
-      const d = await v2Get<ClientDemand>(`/client-demands/${id}`);
+      const [d, qData, pData, delData] = await Promise.all([
+        v2Get<ClientDemand>(`/client-demands/${id}`),
+        v2Get<QuotationCard[]>(`/quotation-cards?clientDemandId=${id}`).catch(() => [] as QuotationCard[]),
+        v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${id}`).catch(() => [] as PaymentPlan[]),
+        v2Get<Deliverable[]>(`/deliverables-a?clientDemandId=${id}`).catch(() => [] as Deliverable[]),
+      ]);
       setDemand(d);
       markRead("client", id);
-      const pData = await v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${id}`);
+      setQuotation(Array.isArray(qData) ? qData[0] ?? null : null);
       setPayments(Array.isArray(pData) ? pData : []);
-      const delData = await v2Get<Deliverable[]>(`/deliverables-a?clientDemandId=${id}`);
       setDeliverables(Array.isArray(delData) ? delData : []);
     } catch {
       setDemand(null);
@@ -208,12 +222,16 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
   const handleInitiateQuote = () => act(async () => {
     if (!quoteTotal || parseFloat(quoteTotal) <= 0) throw new Error("请填写报价总额");
-    await v2Post(`/client-demands/${id}/initiate-quote`, {
-      totalAmount: parseFloat(quoteTotal),
-      breakdown: quoteItems.filter(i => i.name && i.amount).map(i => ({ name: i.name, amount: parseFloat(i.amount) })),
-    });
+    const totalPrice = parseFloat(quoteTotal);
+    const breakdown = quoteItems.filter(i => i.name && i.amount).map(i => ({ item: i.name, amount: parseFloat(i.amount) }));
+    if (demand?.status === "quoting" && quotation) {
+      await v2Patch(`/quotation-cards/${quotation.id}`, { totalPrice, breakdown });
+    } else {
+      await v2Post(`/quotation-cards`, { parentType: "client_demand", clientDemandId: id, totalPrice, breakdown });
+      await v2Post(`/client-demands/${id}/initiate-quote`, {});
+    }
     setQuoteTotal(""); setQuoteItems([{ name: "", amount: "" }]);
-  }, "报价已发起，通知发单方");
+  }, demand?.status === "quoting" ? "报价已更新" : "报价已发起，通知发单方");
 
   const handleCreatePayment = () => act(async () => {
     if (!payTitle.trim() || !payAmount) throw new Error("请填写收款项标题和金额");
@@ -388,10 +406,16 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                 <p className="font-semibold text-slate-700">{new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}</p>
               </div>
             )}
-            {demand.quoteTotal != null && (
+            <div>
+              <p className="text-xs text-slate-400 mb-0.5">是否紧急</p>
+              <p className={`font-semibold flex items-center gap-1 ${demand.isUrgent ? "text-red-500" : "text-slate-500"}`}>
+                {demand.isUrgent ? <><Zap size={12} /> 紧急需求</> : "普通需求"}
+              </p>
+            </div>
+            {quotation && (
               <div>
                 <p className="text-xs text-slate-400 mb-0.5">报价总额</p>
-                <p className="font-bold text-primary">¥{demand.quoteTotal.toLocaleString()}</p>
+                <p className="font-bold text-primary">¥{quotation.totalPrice.toLocaleString()}</p>
               </div>
             )}
             {demand.warrantyEndDate && (
@@ -415,6 +439,35 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </div>
           )}
         </div>
+
+        {/* ── 报价卡 ── */}
+        {(quotation || demand.status === "quoting") && (
+          <Section title="报价单" icon={DollarSign}>
+            {quotation ? (
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-2xl font-black text-primary">¥{quotation.totalPrice.toLocaleString()}</p>
+                  <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
+                </div>
+                {quotation.breakdown?.length > 0 && (
+                  <div className="space-y-2 mb-4 border border-slate-100 rounded-xl p-3 bg-slate-50">
+                    {quotation.breakdown.map((b, i) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
+                        <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {quotation.note && (
+                  <p className="text-xs text-slate-500 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 py-4">报价单尚未生成，请点击右上角「发起报价」。</p>
+            )}
+          </Section>
+        )}
 
         {/* ── 操作面板 ── */}
         {activePanel === "close" && (
@@ -465,7 +518,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                 <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
                 <button onClick={handleInitiateQuote} disabled={acting}
                   className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
-                  {acting ? "提交中…" : "发起报价"}
+                  {acting ? "提交中…" : (demand?.status === "quoting" ? "更新报价" : "发起报价")}
                 </button>
               </div>
             </div>
