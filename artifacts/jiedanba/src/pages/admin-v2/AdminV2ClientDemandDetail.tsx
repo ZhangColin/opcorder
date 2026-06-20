@@ -287,10 +287,26 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const handleInitiateQuote = () => act(async () => {
     if (quoteTotals.finalPrice <= 0) throw new Error("请先完成报价卡各项选择");
     const totalPrice = quoteTotals.finalPrice;
-    const breakdown = baseDims.filter(d => quoteSelections[d.code]).map(dim => {
+    const breakdown: Array<{ item: string; amount: number; note?: string }> = [];
+    // 1. 基准层各项（原始价格）
+    baseDims.filter(d => quoteSelections[d.code]).forEach(dim => {
       const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
-      return { item: `${dim.label}（${tier?.tierLabel ?? ""}）`, amount: tier?.basePrice ?? 0 };
+      if (tier) breakdown.push({ item: `${dim.label}（${tier.tierLabel}）`, amount: tier.basePrice });
     });
+    // 2. ±% 综合调整（若非零）
+    if (quoteTotals.clampedAdj !== 0) {
+      const delta = quoteTotals.calibratedBase - quoteTotals.rawBase;
+      breakdown.push({ item: `综合调整（${quoteTotals.clampedAdj > 0 ? "+" : ""}${quoteTotals.clampedAdj}%）`, amount: delta });
+    }
+    // 3. 调整层系数影响（若系数乘积 ≠ 1）
+    if (quoteTotals.factorProduct !== 1) {
+      const impact = quoteTotals.adjustedPrice - quoteTotals.calibratedBase;
+      breakdown.push({ item: `调整系数（×${quoteTotals.factorProduct.toFixed(2)}）`, amount: impact });
+    }
+    // 4. 维护包
+    if (quoteTotals.maintenanceFee > 0 && selectedMaintTier) {
+      breakdown.push({ item: `维护包（${selectedMaintTier.tierLabel}）`, amount: quoteTotals.maintenanceFee });
+    }
     const note = quoteNote.trim() || null;
     if (demand?.status === "quoting") {
       if (quotation) {
