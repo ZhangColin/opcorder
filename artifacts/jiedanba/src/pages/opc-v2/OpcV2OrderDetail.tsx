@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
@@ -7,6 +7,7 @@ import {
   RefreshCw, Lock, ChevronRight,
 } from "lucide-react";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
+import { markRead } from "@/lib/demandRead";
 import { useToast } from "@/hooks/use-toast";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { OpcV2Layout } from "./OpcV2Layout";
@@ -94,6 +95,8 @@ export default function OpcV2OrderDetail() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resubmitFileRef = useRef<HTMLInputElement>(null);
   const [, navigate] = useLocation();
+
+  useEffect(() => { if (orderId > 0) markRead("order", orderId); }, [orderId]);
 
   const [confirmingContract, setConfirmingContract] = useState(false);
   const [opcSignedFileUrl, setOpcSignedFileUrl] = useState<string | null>(null);

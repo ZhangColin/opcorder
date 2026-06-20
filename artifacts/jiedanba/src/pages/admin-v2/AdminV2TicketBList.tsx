@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Loader2, ChevronRight, Package, Clock } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { hasUnread } from "@/lib/demandRead";
 
 interface TicketB {
   id: number;
@@ -11,6 +12,7 @@ interface TicketB {
   status: string;
   createdByNickname: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -66,7 +68,9 @@ export default function AdminV2TicketBList() {
           <div className="text-center py-16 text-slate-400 text-sm">暂无工单</div>
         ) : (
           <div className="space-y-2">
-            {items.map(t => {
+            {[...items].sort((a, b) =>
+              (hasUnread("ticket_b", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("ticket_b", a.id, a.updatedAt) ? 1 : 0)
+            ).map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               return (
                 <button key={t.id} onClick={() => navigate(`/admin/v2/tickets-b/${t.id}`)}
@@ -78,6 +82,7 @@ export default function AdminV2TicketBList() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       <span className="text-xs text-slate-400 font-mono">#{t.id}</span>
+                      {hasUnread("ticket_b", t.id, t.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                     </div>
                     <p className="text-sm font-semibold text-slate-800 truncate">{t.title}</p>
                     <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">

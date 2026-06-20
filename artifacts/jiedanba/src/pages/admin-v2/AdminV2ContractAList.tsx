@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Loader2, ChevronRight, FileSignature, Clock } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { hasUnread } from "@/lib/demandRead";
 
 interface Contract {
   id: number;
@@ -95,7 +96,9 @@ export default function AdminV2ContractAList() {
           <div className="text-center py-16 text-slate-400 text-sm">暂无合同</div>
         ) : (
           <div className="space-y-2">
-            {items.map(c => {
+            {[...items].sort((a, b) =>
+              (hasUnread("contract", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("contract", a.id, a.updatedAt) ? 1 : 0)
+            ).map(c => {
               const cfg = STATUS_CONFIG[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
               const highlight = HIGHLIGHT.includes(c.status);
               return (
@@ -110,6 +113,7 @@ export default function AdminV2ContractAList() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       <span className="text-xs text-slate-400 font-mono">{c.contractNo}</span>
+                      {hasUnread("contract", c.id, c.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                     </div>
                     {c.demandTitle && <p className="text-sm font-semibold text-slate-800 truncate mb-0.5">{c.demandTitle}</p>}
                     <div className="flex items-center gap-3 text-xs text-slate-400">

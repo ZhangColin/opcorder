@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Loader2, ChevronRight, Boxes, Clock, Users2 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { hasUnread } from "@/lib/demandRead";
 
 interface OutsourceOrder {
   id: number;
@@ -96,7 +97,9 @@ export default function AdminV2OutsourceOrderList() {
           <div className="text-center py-16 text-slate-400 text-sm">暂无订单</div>
         ) : (
           <div className="space-y-2">
-            {items.map(o => {
+            {[...items].sort((a, b) =>
+              (hasUnread("order", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("order", a.id, a.updatedAt) ? 1 : 0)
+            ).map(o => {
               const cfg = STATUS_CONFIG[o.status] ?? { label: o.status, color: "bg-slate-100 text-slate-500" };
               const highlight = HIGHLIGHT.includes(o.status);
               return (
@@ -111,6 +114,7 @@ export default function AdminV2OutsourceOrderList() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       <span className="text-xs text-slate-400 font-mono">{o.orderNo}</span>
+                      {hasUnread("order", o.id, o.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                     </div>
                     <p className="text-sm font-semibold text-slate-800 truncate">
                       {o.demandTitle ?? `外包需求 #${o.outsourceDemandId}`}

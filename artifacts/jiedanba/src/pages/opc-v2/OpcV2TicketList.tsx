@@ -6,6 +6,7 @@ import {
   CheckCircle2, Lock,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
+import { hasUnread } from "@/lib/demandRead";
 import { OpcV2Layout } from "./OpcV2Layout";
 
 interface TicketItem {
@@ -113,7 +114,9 @@ export default function OpcV2TicketList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map(ticket => {
+            {[...filtered].sort((a, b) =>
+              (hasUnread("ticket_b", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("ticket_b", a.id, a.updatedAt) ? 1 : 0)
+            ).map(ticket => {
               const cfg = STATUS_CONFIG[ticket.status] ?? { label: ticket.status, color: "bg-slate-100 text-slate-500", icon: null };
               return (
                 <button
@@ -134,16 +137,9 @@ export default function OpcV2TicketList() {
                           </span>
                         )}
                       </div>
-                      {(() => {
-                        const updatedRecently = Date.now() - new Date(ticket.createdAt).getTime() > 0 &&
-                          ticket.status === "open" &&
-                          new Date(ticket.updatedAt ?? ticket.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000;
-                        return updatedRecently ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
-                            新回复
-                          </span>
-                        ) : null;
-                      })()}
+                      {hasUnread("ticket_b", ticket.id, ticket.updatedAt) && (
+                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                      )}
                       <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-1">
                         {ticket.title}
                       </h3>

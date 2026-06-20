@@ -40,11 +40,12 @@ router.get("/tickets-a", requireAuth, async (req: Request, res: Response) => {
         closedAt: v2TicketsATable.closedAt,
         closedNote: v2TicketsATable.closedNote,
         createdAt: v2TicketsATable.createdAt,
+        updatedAt: v2TicketsATable.updatedAt,
       })
       .from(v2TicketsATable)
       .leftJoin(usersTable, eq(v2TicketsATable.createdBy, usersTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(v2TicketsATable.createdAt));
+      .orderBy(desc(v2TicketsATable.updatedAt));
 
     return res.json(rows);
   } catch (err) {

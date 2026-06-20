@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { Loader2, X, CheckCircle2, Clock, Wrench } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
+import { markRead } from "@/lib/demandRead";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,6 +57,7 @@ export default function AdminV2TicketADetail() {
     }
   };
 
+  useEffect(() => { if (id > 0) markRead("ticket_a", id); }, [id]);
   useEffect(() => { if (id > 0) load(); }, [id]);
 
   const handleClose = async () => {

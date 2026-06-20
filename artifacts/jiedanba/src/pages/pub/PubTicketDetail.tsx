@@ -4,6 +4,7 @@ import { Wrench, Loader2, AlertCircle, CheckCircle2, Clock, ExternalLink } from 
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { v2Get } from "@/lib/v2api";
+import { markRead } from "@/lib/demandRead";
 
 interface Attachment { name: string; url: string; size?: string; type?: string; }
 
@@ -27,6 +28,8 @@ export default function PubTicketDetail() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => { if (ticketId > 0) markRead("ticket_a", ticketId); }, [ticketId]);
 
   useEffect(() => {
     if (ticketId <= 0) return;

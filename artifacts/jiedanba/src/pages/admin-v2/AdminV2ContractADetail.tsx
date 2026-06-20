@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { Loader2, X, ExternalLink, Upload } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
+import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { useToast } from "@/hooks/use-toast";
 
@@ -72,6 +73,7 @@ export default function AdminV2ContractADetail() {
     }
   };
 
+  useEffect(() => { if (id > 0) markRead("contract", id); }, [id]);
   useEffect(() => { if (id > 0) load(); }, [id]);
 
   const act = async (fn: () => Promise<unknown>, msg: string) => {

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
+import { markRead } from "@/lib/demandRead";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
 
@@ -138,6 +139,7 @@ export default function AdminV2OutsourceOrderDetail() {
     }
   };
 
+  useEffect(() => { if (id > 0) markRead("order", id); }, [id]);
   useEffect(() => { if (id > 0) load(); }, [id]);
 
   const act = async (fn: () => Promise<unknown>, msg: string) => {

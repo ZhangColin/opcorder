@@ -6,6 +6,7 @@ import {
   CheckCircle2, FileSignature, Wrench, Wallet, TrendingUp,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
+import { hasUnread } from "@/lib/demandRead";
 import { OpcV2Layout } from "./OpcV2Layout";
 
 interface OrderItem {
@@ -146,7 +147,9 @@ export default function OpcV2OrderList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map(order => {
+            {[...filtered].sort((a, b) =>
+              (hasUnread("order", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("order", a.id, a.updatedAt) ? 1 : 0)
+            ).map(order => {
               const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500", icon: null };
               const tender = tenderMap[order.tenderId];
               const totalPrice = tender?.totalPrice;
@@ -174,6 +177,7 @@ export default function OpcV2OrderList() {
                           {cfg.label}
                         </span>
                         <span className="text-[11px] font-mono text-slate-400">{order.orderNo}</span>
+                        {hasUnread("order", order.id, order.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                       </div>
                       <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-2">
                         {order.demandTitle ?? `订单 #${order.id}`}

@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { markRead } from "@/lib/demandRead";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, Clock, CheckCircle2, Lock, Package,
@@ -29,6 +31,8 @@ export default function OpcV2TicketDetail() {
   const { id } = useParams<{ id: string }>();
   const ticketId = parseInt(id ?? "0");
   const [, navigate] = useLocation();
+
+  useEffect(() => { if (ticketId > 0) markRead("ticket_b", ticketId); }, [ticketId]);
 
   const { data: ticket, isLoading, isError } = useQuery<TicketDetail>({
     queryKey: ["v2-opc-ticket", ticketId],

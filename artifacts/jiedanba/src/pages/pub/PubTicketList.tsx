@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Wrench, Loader2, AlertCircle, ChevronRight, Clock } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get } from "@/lib/v2api";
+import { hasUnread } from "@/lib/demandRead";
 
 interface Ticket {
   id: number;
@@ -14,6 +15,7 @@ interface Ticket {
   closedAt: string | null;
   closedNote: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -93,7 +95,9 @@ export default function PubTicketList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {tickets.map(t => {
+            {[...tickets].sort((a, b) =>
+              (hasUnread("ticket_a", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("ticket_a", a.id, a.updatedAt) ? 1 : 0)
+            ).map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               return (
                 <div
@@ -108,6 +112,7 @@ export default function PubTicketList() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       <span className="text-xs text-slate-400">需求 #{t.clientDemandId}</span>
+                      {hasUnread("ticket_a", t.id, t.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                     </div>
                     <p className="font-bold text-slate-800 truncate">{t.title}</p>
                     <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">

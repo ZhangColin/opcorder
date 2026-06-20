@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { FileSignature, Loader2, AlertCircle, CheckCircle2, XCircle, ExternalLink, Clock } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get, v2Post } from "@/lib/v2api";
+import { markRead } from "@/lib/demandRead";
 import { useToast } from "@/hooks/use-toast";
 
 interface Contract {
@@ -51,6 +52,7 @@ export default function PubContractDetail() {
     }
   };
 
+  useEffect(() => { if (contractId > 0) markRead("contract", contractId); }, [contractId]);
   useEffect(() => { if (contractId > 0) load(); }, [contractId]);
 
   const handleConfirm = async () => {
