@@ -169,6 +169,7 @@ export default function PubDemandDetail() {
   const [editMode, setEditMode] = useState(false);
   const [editDetail, setEditDetail] = useState("");
   const [editAttachments, setEditAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [editComment, setEditComment] = useState("");
   const [editUploading, setEditUploading] = useState(false);
 
   /* Quote actions */
@@ -270,9 +271,10 @@ export default function PubDemandDetail() {
     if (!editDetail.trim()) { toast({ title: "请填写需求详情", variant: "destructive" }); return; }
     setActing(true);
     try {
-      await v2Post(`/client-demands/${demandId}/update-detail`, { detail: editDetail.trim(), attachments: editAttachments });
+      await v2Post(`/client-demands/${demandId}/update-detail`, { detail: editDetail.trim(), attachments: editAttachments, editComment: editComment.trim() || undefined });
       toast({ title: "需求详情已更新" });
       setEditMode(false);
+      setEditComment("");
       await load();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
@@ -602,11 +604,17 @@ export default function PubDemandDetail() {
                     </div>
                   ))}
                 </div>
+                <input
+                  value={editComment}
+                  onChange={e => setEditComment(e.target.value)}
+                  placeholder="修改说明（可选）"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
                 <div className="flex gap-2">
                   <button onClick={handleSubmitEdit} disabled={acting} className="bg-primary text-white rounded-lg px-4 py-1.5 text-xs font-bold disabled:opacity-50">
                     {acting ? "提交中…" : "提交更新"}
                   </button>
-                  <button onClick={() => setEditMode(false)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">取消</button>
+                  <button onClick={() => { setEditMode(false); setEditComment(""); }} className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">取消</button>
                 </div>
               </div>
             ) : demand.latestVersion ? (
