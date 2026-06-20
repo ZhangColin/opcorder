@@ -96,8 +96,6 @@ export default function OpcV2OrderDetail() {
   const resubmitFileRef = useRef<HTMLInputElement>(null);
   const [, navigate] = useLocation();
 
-  useEffect(() => { if (orderId > 0) markRead("order", orderId); }, [orderId]);
-
   const [confirmingContract, setConfirmingContract] = useState(false);
   const [opcSignedFileUrl, setOpcSignedFileUrl] = useState<string | null>(null);
   const [uploadingOpcSigned, setUploadingOpcSigned] = useState(false);
@@ -116,11 +114,13 @@ export default function OpcV2OrderDetail() {
   const [resubmitUploading, setResubmitUploading] = useState(false);
   const [submittingResubmit, setSubmittingResubmit] = useState(false);
 
-  const { data: order, isLoading, isError, refetch } = useQuery<OrderDetail>({
+  const { data: order, isLoading, isError, refetch, dataUpdatedAt } = useQuery<OrderDetail>({
     queryKey: ["v2-opc-order", orderId],
     queryFn: () => v2Get(`/outsource-orders/${orderId}`),
     enabled: !!orderId,
   });
+
+  useEffect(() => { if (orderId > 0 && order) markRead("order", orderId); }, [orderId, dataUpdatedAt]);
 
   const { data: deliverables = [], refetch: refetchDelivs } = useQuery<DeliverableItem[]>({
     queryKey: ["v2-opc-deliverables", orderId],

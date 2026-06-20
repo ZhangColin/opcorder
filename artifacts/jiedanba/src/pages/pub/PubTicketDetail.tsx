@@ -29,12 +29,10 @@ export default function PubTicketDetail() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  useEffect(() => { if (ticketId > 0) markRead("ticket_a", ticketId); }, [ticketId]);
-
   useEffect(() => {
     if (ticketId <= 0) return;
     v2Get<Ticket>(`/tickets-a/${ticketId}`)
-      .then(data => setTicket(data))
+      .then(data => { setTicket(data); markRead("ticket_a", ticketId); })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [ticketId]);

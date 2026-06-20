@@ -45,6 +45,7 @@ export default function PubContractDetail() {
     try {
       const data = await v2Get<Contract>(`/contracts/${contractId}`);
       setContract(data);
+      markRead("contract", contractId);
     } catch {
       setContract(null);
     } finally {
@@ -52,7 +53,6 @@ export default function PubContractDetail() {
     }
   };
 
-  useEffect(() => { if (contractId > 0) markRead("contract", contractId); }, [contractId]);
   useEffect(() => { if (contractId > 0) load(); }, [contractId]);
 
   const handleConfirm = async () => {

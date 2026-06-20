@@ -110,7 +110,7 @@ export default function OpcV2TenderDetail() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const { data: tender, isLoading, isError, refetch } = useQuery<TenderDetail>({
+  const { data: tender, isLoading, isError, refetch, dataUpdatedAt: tenderDataUpdatedAt } = useQuery<TenderDetail>({
     queryKey: ["v2-opc-tender", tenderId],
     queryFn: () => v2Get(`/tenders/${tenderId}`),
     enabled: !!tenderId,
@@ -125,7 +125,7 @@ export default function OpcV2TenderDetail() {
   useEffect(() => {
     if (!tender?.outsourceDemandId) return;
     markRead("outsource", tender.outsourceDemandId);
-  }, [tender?.outsourceDemandId]);
+  }, [tender?.outsourceDemandId, tenderDataUpdatedAt]);
 
   const [showVersions, setShowVersions] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);

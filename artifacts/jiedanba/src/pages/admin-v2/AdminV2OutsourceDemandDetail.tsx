@@ -152,6 +152,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     try {
       const d = await v2Get<OutsourceDemand>(`/outsource-demands/${id}`);
       setDemand(d);
+      markRead("outsource", id);
       if (d.tenders) {
         setTenders(d.tenders);
       } else {
@@ -166,9 +167,6 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
-  useEffect(() => {
-    if (id > 0) markRead("outsource", id);
-  }, [id]);
 
   const loadVersions = async () => {
     try {

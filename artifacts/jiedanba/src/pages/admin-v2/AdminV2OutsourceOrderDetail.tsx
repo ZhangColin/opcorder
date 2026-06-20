@@ -126,6 +126,7 @@ export default function AdminV2OutsourceOrderDetail() {
     try {
       const d = await v2Get<OutsourceOrder>(`/outsource-orders/${id}`);
       setOrder(d);
+      markRead("order", id);
       const sp = await v2Get<SettlementPlan[]>(`/settlement-plans?outsourceOrderId=${id}`);
       setSettlements(Array.isArray(sp) ? sp : []);
       const db = await v2Get<DeliverableB[]>(`/deliverables-b?outsourceOrderId=${id}`);
@@ -139,7 +140,6 @@ export default function AdminV2OutsourceOrderDetail() {
     }
   };
 
-  useEffect(() => { if (id > 0) markRead("order", id); }, [id]);
   useEffect(() => { if (id > 0) load(); }, [id]);
 
   const act = async (fn: () => Promise<unknown>, msg: string) => {

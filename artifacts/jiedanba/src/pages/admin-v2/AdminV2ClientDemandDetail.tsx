@@ -163,6 +163,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     try {
       const d = await v2Get<ClientDemand>(`/client-demands/${id}`);
       setDemand(d);
+      markRead("client", id);
       const pData = await v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${id}`);
       setPayments(Array.isArray(pData) ? pData : []);
       const delData = await v2Get<Deliverable[]>(`/deliverables-a?clientDemandId=${id}`);
@@ -175,9 +176,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
-  useEffect(() => {
-    if (id > 0) markRead("client", id);
-  }, [id]);
 
   const loadVersions = async () => {
     try {

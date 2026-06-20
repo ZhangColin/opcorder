@@ -66,6 +66,7 @@ export default function AdminV2ContractADetail() {
     try {
       const d = await v2Get<Contract>(`/contracts/${id}`);
       setContract(d);
+      markRead("contract", id);
     } catch {
       setContract(null);
     } finally {
@@ -73,7 +74,6 @@ export default function AdminV2ContractADetail() {
     }
   };
 
-  useEffect(() => { if (id > 0) markRead("contract", id); }, [id]);
   useEffect(() => { if (id > 0) load(); }, [id]);
 
   const act = async (fn: () => Promise<unknown>, msg: string) => {

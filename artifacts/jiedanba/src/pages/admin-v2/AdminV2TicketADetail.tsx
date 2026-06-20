@@ -50,6 +50,7 @@ export default function AdminV2TicketADetail() {
     try {
       const d = await v2Get<Ticket>(`/tickets-a/${id}`);
       setTicket(d);
+      markRead("ticket_a", id);
     } catch {
       setTicket(null);
     } finally {
@@ -57,7 +58,6 @@ export default function AdminV2TicketADetail() {
     }
   };
 
-  useEffect(() => { if (id > 0) markRead("ticket_a", id); }, [id]);
   useEffect(() => { if (id > 0) load(); }, [id]);
 
   const handleClose = async () => {

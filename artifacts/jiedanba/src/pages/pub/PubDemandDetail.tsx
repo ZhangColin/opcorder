@@ -188,10 +188,6 @@ export default function PubDemandDetail() {
   const [rejectDelivId, setRejectDelivId] = useState<number | null>(null);
   const [rejectDelivReason, setRejectDelivReason] = useState("");
 
-  useEffect(() => {
-    if (demandId > 0) markRead("client", demandId);
-  }, [demandId]);
-
   const load = useCallback(async () => {
     if (demandId <= 0) return;
     try {
@@ -204,6 +200,7 @@ export default function PubDemandDetail() {
         v2Get<TicketA[]>(`/tickets-a?clientDemandId=${demandId}`).catch(() => [] as TicketA[]),
       ]);
       setDemand(d);
+      markRead("client", demandId);
       setQuotation(q);
       setContracts(c);
       setPayments(p);

@@ -32,13 +32,13 @@ export default function OpcV2TicketDetail() {
   const ticketId = parseInt(id ?? "0");
   const [, navigate] = useLocation();
 
-  useEffect(() => { if (ticketId > 0) markRead("ticket_b", ticketId); }, [ticketId]);
-
-  const { data: ticket, isLoading, isError } = useQuery<TicketDetail>({
+  const { data: ticket, isLoading, isError, dataUpdatedAt } = useQuery<TicketDetail>({
     queryKey: ["v2-opc-ticket", ticketId],
     queryFn: () => v2Get(`/tickets-b/${ticketId}`),
     enabled: !!ticketId,
   });
+
+  useEffect(() => { if (ticketId > 0 && ticket) markRead("ticket_b", ticketId); }, [ticketId, dataUpdatedAt]);
 
   if (isLoading) {
     return (
