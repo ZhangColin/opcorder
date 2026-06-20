@@ -978,19 +978,19 @@ export default function PubDemandDetail() {
                   const curr = versions[0];
                   const renderPanel = (v: VersionItem, isCurrent: boolean) => (
                     <div className={`overflow-y-auto min-h-0 p-5 ${isCurrent ? "bg-blue-50/30" : ""}`}>
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isCurrent ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
                           v{v.versionNo} {isCurrent ? "当前" : "历史"}
                         </span>
                         <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
+                        {v.editedByRole && (
+                          <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                            {ROLE_LABEL[v.editedByRole] ?? v.editedByRole}
+                          </span>
+                        )}
+                        {v.editedByNickname && <span className="text-xs text-slate-500">{v.editedByNickname}</span>}
+                        {v.editComment && <span className="text-xs text-slate-400 italic">「{v.editComment}」</span>}
                       </div>
-                      {(v.editedByRole || v.editedByNickname) && (
-                        <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                          <span className="bg-slate-200 text-slate-600 rounded px-1 py-0.5 font-medium">{v.editedByRole ? ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
-                          {v.editedByNickname && <span>{v.editedByNickname}</span>}
-                          <span className="text-slate-400">修改</span>
-                        </p>
-                      )}
                       <div className="text-sm text-slate-700 leading-relaxed">
                         <MarkdownContent content={v.detail} />
                       </div>
