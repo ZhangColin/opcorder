@@ -224,9 +224,16 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     if (!quoteTotal || parseFloat(quoteTotal) <= 0) throw new Error("请填写报价总额");
     const totalPrice = parseFloat(quoteTotal);
     const breakdown = quoteItems.filter(i => i.name && i.amount).map(i => ({ item: i.name, amount: parseFloat(i.amount) }));
-    if (demand?.status === "quoting" && quotation) {
-      await v2Patch(`/quotation-cards/${quotation.id}`, { totalPrice, breakdown });
+    if (demand?.status === "quoting") {
+      if (quotation) {
+        // 已有报价卡 → 更新
+        await v2Patch(`/quotation-cards/${quotation.id}`, { totalPrice, breakdown });
+      } else {
+        // 状态已是 quoting（旧数据遗留）但卡未创建 → 只建卡，无需再改状态
+        await v2Post(`/quotation-cards`, { parentType: "client_demand", clientDemandId: id, totalPrice, breakdown });
+      }
     } else {
+      // negotiating → 建卡 + 改状态到 quoting
       await v2Post(`/quotation-cards`, { parentType: "client_demand", clientDemandId: id, totalPrice, breakdown });
       await v2Post(`/client-demands/${id}/initiate-quote`, {});
     }
