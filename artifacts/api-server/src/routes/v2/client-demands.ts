@@ -363,6 +363,18 @@ router.post("/client-demands/:id/comment-quote", requireAuth, async (req: Reques
     const { comment } = req.body as { comment: string };
     if (!comment?.trim()) return res.status(400).json({ error: "意见内容不能为空" });
 
+    // 写入讨论区，让运营后台直接可见
+    await db.insert(v2DiscussionPostsTable).values({
+      parentType: "client_demand",
+      parentId: id,
+      content: `【报价意见】${comment.trim()}`,
+      attachments: [],
+      isSystemMessage: 0,
+      authorId: userId,
+    });
+    await db.update(v2ClientDemandsTable).set({ updatedAt: new Date() }).where(eq(v2ClientDemandsTable.id, id));
+
+    // 同时发站内通知
     const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
     for (const admin of admins) {
       await notify(admin.id, "v2_quote_commented", "发单方对报价提出意见",
