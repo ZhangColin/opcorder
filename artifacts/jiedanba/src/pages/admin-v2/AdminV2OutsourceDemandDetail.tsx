@@ -343,7 +343,6 @@ export default function AdminV2OutsourceDemandDetail() {
                           <span className="text-slate-400">修改</span>
                         </p>
                       )}
-                      {v.editComment && <p className={`text-xs rounded p-2 mb-3 ${isCurrent ? "text-blue-700 bg-blue-50" : "text-amber-700 bg-amber-50"}`}>备注：{v.editComment}</p>}
                       <div className="text-sm text-slate-700 leading-relaxed">
                         <MarkdownContent content={v.detail} />
                       </div>
