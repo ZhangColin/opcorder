@@ -3,12 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, CheckCircle2, XCircle, Clock,
-  DollarSign, Plus, Trash2, Send, FileText, History,
+  DollarSign, Plus, Trash2, Send, FileText, History, X,
   ChevronDown, ChevronUp, Paperclip, ArrowRight,
 } from "lucide-react";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import { OpcV2Layout } from "./OpcV2Layout";
 
 interface PriceBreakdownItem {
@@ -121,6 +122,7 @@ export default function OpcV2TenderDetail() {
   });
 
   const [showVersions, setShowVersions] = useState(false);
+  const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
   const { data: versions = [] } = useQuery<DemandVersion[]>({
     queryKey: ["v2-demand-versions", tender?.outsourceDemandId],
     queryFn: () => v2Get(`/outsource-demands/${tender!.outsourceDemandId}/versions`),
@@ -315,31 +317,6 @@ export default function OpcV2TenderDetail() {
               {showVersions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
 
-            {showVersions && (
-              <div className="mt-3 space-y-3">
-                {versions.length === 0 ? (
-                  <p className="text-xs text-slate-400">暂无历史版本记录</p>
-                ) : versions.map(v => (
-                  <div key={v.id} className="border border-slate-100 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">v{v.versionNo}</span>
-                      <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
-                    </div>
-                    {(v.editedByRole || v.editedByNickname) && (
-                      <p className="text-xs text-slate-500 mb-1.5 flex items-center gap-1">
-                        <span className="bg-slate-200 text-slate-600 rounded px-1 py-0.5 font-medium">{v.editedByRole ? VERSION_ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
-                        {v.editedByNickname && <span>{v.editedByNickname}</span>}
-                        <span className="text-slate-400">修改</span>
-                      </p>
-                    )}
-                    {v.editComment && <p className="text-xs text-slate-500 mb-1.5">备注：{v.editComment}</p>}
-                    {v.detail && (
-                      <p className="text-xs text-slate-600 line-clamp-3 whitespace-pre-wrap">{v.detail}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -511,6 +488,81 @@ export default function OpcV2TenderDetail() {
           </div>
         </div>
       </div>
+      {/* ── Version Diff Modal ── */}
+      {showVersions && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col" style={{ maxHeight: "90vh" }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <History size={15} className="text-emerald-600" />
+                <span className="text-sm font-extrabold text-slate-800">历史版本对比</span>
+                {demand?.latestVersion && <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">当前 v{demand.latestVersion.versionNo}</span>}
+              </div>
+              <button onClick={() => setShowVersions(false)} className="text-slate-400 hover:text-slate-700 transition-colors"><X size={18} /></button>
+            </div>
+            {versions.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center py-12 text-slate-400 text-sm">
+                <Loader2 size={16} className="animate-spin mr-2" /> 加载中…
+              </div>
+            ) : versions.length <= 1 ? (
+              <div className="flex-1 flex items-center justify-center py-12 text-slate-400 text-sm">暂无更早的历史版本</div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-100 overflow-x-auto shrink-0">
+                  <span className="text-xs text-slate-400 shrink-0 mr-1">选择历史版本：</span>
+                  {versions.slice(1).map((v, i) => (
+                    <button key={v.id} onClick={() => setSelectedVersionIdx(i)}
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors border ${selectedVersionIdx === i ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-500 border-slate-200 hover:border-emerald-500 hover:text-emerald-600"}`}>
+                      v{v.versionNo}{v.editedByRole ? ` · ${VERSION_ROLE_LABEL[v.editedByRole] ?? v.editedByRole}` : ""}
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const hist = versions.slice(1)[selectedVersionIdx] ?? versions[1];
+                  const curr = versions[0];
+                  const renderPanel = (v: DemandVersion, isCurrent: boolean) => (
+                    <div className={`overflow-auto p-5 ${isCurrent ? "bg-emerald-50/20" : ""}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isCurrent ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                          v{v.versionNo} {isCurrent ? "当前" : "历史"}
+                        </span>
+                        <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
+                      </div>
+                      {(v.editedByRole || v.editedByNickname) && (
+                        <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                          <span className="bg-slate-200 text-slate-600 rounded px-1 py-0.5 font-medium">{v.editedByRole ? VERSION_ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
+                          {v.editedByNickname && <span>{v.editedByNickname}</span>}
+                          <span className="text-slate-400">修改</span>
+                        </p>
+                      )}
+                      {v.editComment && <p className={`text-xs rounded p-2 mb-3 ${isCurrent ? "text-emerald-700 bg-emerald-50" : "text-amber-700 bg-amber-50"}`}>备注：{v.editComment}</p>}
+                      <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {v.detail ?? ""}
+                      </div>
+                      {v.attachments?.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          {v.attachments.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline">
+                              <Paperclip size={11} /> {a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                  return (
+                    <div className="flex-1 grid grid-cols-2 min-h-0 divide-x divide-slate-100 overflow-hidden">
+                      {renderPanel(hist, false)}
+                      {renderPanel(curr, true)}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </OpcV2Layout>
   );
 }

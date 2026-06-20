@@ -165,6 +165,7 @@ export default function PubDemandDetail() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [editDetail, setEditDetail] = useState("");
   const [editAttachments, setEditAttachments] = useState<Array<{ name: string; url: string }>>([]);
@@ -638,34 +639,6 @@ export default function PubDemandDetail() {
             )}
           </div>
 
-          {/* Versions modal */}
-          {showVersions && versions.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-slate-600">历史版本记录</span>
-                <button onClick={() => setShowVersions(false)} className="text-xs text-slate-400 hover:text-slate-600">收起</button>
-              </div>
-              <div className="space-y-3">
-                {versions.map(v => (
-                  <div key={v.id} className="border border-slate-100 rounded-xl p-3 bg-slate-50">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-slate-600">v{v.versionNo}</span>
-                      <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
-                    </div>
-                    {(v.editedByRole || v.editedByNickname) && (
-                      <p className="text-xs text-slate-500 mb-1 flex items-center gap-1">
-                        <span className="bg-slate-200 text-slate-600 rounded px-1 py-0.5 font-medium">{v.editedByRole ? ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
-                        {v.editedByNickname && <span>{v.editedByNickname}</span>}
-                        <span className="text-slate-400">修改</span>
-                      </p>
-                    )}
-                    {v.editComment && <p className="text-xs text-slate-500 mb-1">备注：{v.editComment}</p>}
-                    <p className="text-xs text-slate-600 line-clamp-3">{v.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </Section>
 
         {/* ── Discussion ── */}
@@ -960,6 +933,81 @@ export default function PubDemandDetail() {
                 {acting && <Loader2 size={14} className="animate-spin" />} 提交工单
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ── Version Diff Modal ── */}
+      {showVersions && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col" style={{ maxHeight: "90vh" }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <History size={15} className="text-primary" />
+                <span className="text-sm font-extrabold text-slate-800">历史版本对比</span>
+                {demand.latestVersion && <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">当前 v{demand.latestVersion.versionNo}</span>}
+              </div>
+              <button onClick={() => setShowVersions(false)} className="text-slate-400 hover:text-slate-700 transition-colors"><X size={18} /></button>
+            </div>
+            {versions.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center py-12 text-slate-400 text-sm">
+                <Loader2 size={16} className="animate-spin mr-2" /> 加载中…
+              </div>
+            ) : versions.length <= 1 ? (
+              <div className="flex-1 flex items-center justify-center py-12 text-slate-400 text-sm">暂无更早的历史版本</div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-100 overflow-x-auto shrink-0">
+                  <span className="text-xs text-slate-400 shrink-0 mr-1">选择历史版本：</span>
+                  {versions.slice(1).map((v, i) => (
+                    <button key={v.id} onClick={() => setSelectedVersionIdx(i)}
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors border ${selectedVersionIdx === i ? "bg-primary text-white border-primary" : "bg-white text-slate-500 border-slate-200 hover:border-primary hover:text-primary"}`}>
+                      v{v.versionNo}{v.editedByRole ? ` · ${ROLE_LABEL[v.editedByRole] ?? v.editedByRole}` : ""}
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const hist = versions.slice(1)[selectedVersionIdx] ?? versions[1];
+                  const curr = versions[0];
+                  const renderPanel = (v: VersionItem, isCurrent: boolean) => (
+                    <div className={`overflow-auto p-5 ${isCurrent ? "bg-blue-50/30" : ""}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isCurrent ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                          v{v.versionNo} {isCurrent ? "当前" : "历史"}
+                        </span>
+                        <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
+                      </div>
+                      {(v.editedByRole || v.editedByNickname) && (
+                        <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                          <span className="bg-slate-200 text-slate-600 rounded px-1 py-0.5 font-medium">{v.editedByRole ? ROLE_LABEL[v.editedByRole] ?? v.editedByRole : ""}</span>
+                          {v.editedByNickname && <span>{v.editedByNickname}</span>}
+                          <span className="text-slate-400">修改</span>
+                        </p>
+                      )}
+                      {v.editComment && <p className={`text-xs rounded p-2 mb-3 ${isCurrent ? "text-blue-700 bg-blue-50" : "text-amber-700 bg-amber-50"}`}>备注：{v.editComment}</p>}
+                      <div className="text-sm text-slate-700 leading-relaxed">
+                        <MarkdownContent content={v.detail} />
+                      </div>
+                      {v.attachments?.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          {v.attachments.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                              <ExternalLink size={11} /> {a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                  return (
+                    <div className="flex-1 grid grid-cols-2 min-h-0 divide-x divide-slate-100 overflow-hidden">
+                      {renderPanel(hist, false)}
+                      {renderPanel(curr, true)}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
           </div>
         </div>
       )}
