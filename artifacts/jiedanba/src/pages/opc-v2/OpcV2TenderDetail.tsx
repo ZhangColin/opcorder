@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
+import { markRead } from "@/lib/demandRead";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { OpcV2Layout } from "./OpcV2Layout";
@@ -120,6 +121,12 @@ export default function OpcV2TenderDetail() {
     queryFn: () => v2Get(`/outsource-demands/${tender!.outsourceDemandId}`),
     enabled: !!tender?.outsourceDemandId,
   });
+
+  useEffect(() => {
+    if (!tender?.outsourceDemandId) return;
+    markRead("outsource", tender.outsourceDemandId);
+    return () => { markRead("outsource", tender!.outsourceDemandId); };
+  }, [tender?.outsourceDemandId]);
 
   const [showVersions, setShowVersions] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);

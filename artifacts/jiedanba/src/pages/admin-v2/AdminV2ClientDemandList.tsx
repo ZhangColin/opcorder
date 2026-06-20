@@ -4,6 +4,7 @@ import { Plus, Search, Loader2, ChevronRight, Zap, Clock, AlertCircle, Users2 } 
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
+import { hasUnread } from "@/lib/demandRead";
 
 interface ClientDemand {
   id: number;
@@ -141,6 +142,9 @@ export default function AdminV2ClientDemandList() {
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       {d.isUrgent && <span className="text-xs font-bold text-red-500 flex items-center gap-0.5"><Zap size={10} />紧急</span>}
                       <span className="text-xs text-slate-400 font-mono">{d.demandNo}</span>
+                      {hasUnread("client", d.id, d.updatedAt) && (
+                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="有新动态" />
+                      )}
                     </div>
                     <p className="text-sm font-semibold text-slate-800 truncate">{d.title}</p>
                     <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">

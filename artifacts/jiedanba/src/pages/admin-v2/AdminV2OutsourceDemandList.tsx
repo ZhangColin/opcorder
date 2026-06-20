@@ -4,6 +4,7 @@ import { Plus, Search, Loader2, ChevronRight, Clock, Network, Users2 } from "luc
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
+import { hasUnread } from "@/lib/demandRead";
 
 interface OutsourceDemand {
   id: number;
@@ -126,6 +127,9 @@ export default function AdminV2OutsourceDemandList() {
                         {d.mode === "public" ? "公开抢单" : "指定邀请"}
                       </span>
                       <span className="text-xs text-slate-400 font-mono">{d.demandNo}</span>
+                      {hasUnread("outsource", d.id, d.updatedAt) && (
+                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="有新动态" />
+                      )}
                     </div>
                     <p className="text-sm font-semibold text-slate-800 truncate">{d.title}</p>
                     <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">

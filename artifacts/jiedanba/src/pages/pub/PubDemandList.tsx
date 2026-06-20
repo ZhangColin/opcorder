@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Plus, Search, Loader2, AlertCircle, Zap, Clock, ChevronRight } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get } from "@/lib/v2api";
+import { hasUnread } from "@/lib/demandRead";
 
 interface ClientDemand {
   id: number;
@@ -148,6 +149,9 @@ export default function PubDemandList() {
                         </span>
                       )}
                       <span className="text-xs text-slate-400">{d.demandNo}</span>
+                      {hasUnread("client", d.id, d.updatedAt) && (
+                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="有新动态" />
+                      )}
                     </div>
                     <h3 className="font-bold text-slate-800 truncate">{d.title}</h3>
                     <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-400">

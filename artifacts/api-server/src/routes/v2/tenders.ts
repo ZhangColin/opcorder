@@ -29,6 +29,7 @@ router.get("/tenders", requireAuth, async (req: Request, res: Response) => {
         id: v2TendersTable.id,
         outsourceDemandId: v2TendersTable.outsourceDemandId,
         demandTitle: v2OutsourceDemandsTable.title,
+        demandUpdatedAt: v2OutsourceDemandsTable.updatedAt,
         opcId: v2TendersTable.opcId,
         opcNickname: usersTable.nickname,
         status: v2TendersTable.status,

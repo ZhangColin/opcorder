@@ -10,6 +10,7 @@ import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
+import { markRead } from "@/lib/demandRead";
 
 /* ── Types ── */
 interface Demand {
@@ -186,6 +187,11 @@ export default function PubDemandDetail() {
   /* Deliverable reject */
   const [rejectDelivId, setRejectDelivId] = useState<number | null>(null);
   const [rejectDelivReason, setRejectDelivReason] = useState("");
+
+  useEffect(() => {
+    if (demandId > 0) markRead("client", demandId);
+    return () => { if (demandId > 0) markRead("client", demandId); };
+  }, [demandId]);
 
   const load = useCallback(async () => {
     if (demandId <= 0) return;

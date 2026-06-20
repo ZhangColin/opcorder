@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
+import { hasUnread } from "@/lib/demandRead";
 
 interface TenderItem {
   id: number;
@@ -20,6 +21,7 @@ interface TenderItem {
   quotedAt: string | null;
   selectedAt: string | null;
   cancelledReason: string | null;
+  demandUpdatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -135,6 +137,9 @@ export default function OpcV2TenderList() {
                           {cfg.icon}
                           {cfg.label}
                         </span>
+                        {hasUnread("outsource", tender.outsourceDemandId, tender.demandUpdatedAt) && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="有新动态" />
+                        )}
                       </div>
                       <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-1">
                         {tender.demandTitle ?? `需求 #${tender.outsourceDemandId}`}

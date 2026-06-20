@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, v2DiscussionPostsTable, usersTable } from "@workspace/db";
+import { db, v2DiscussionPostsTable, usersTable, v2ClientDemandsTable, v2OutsourceDemandsTable } from "@workspace/db";
 import { eq, and, desc, count } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { notify } from "./utils";
@@ -87,6 +87,12 @@ router.post("/discussions", requireAuth, async (req: Request, res: Response) => 
       isSystemMessage: internal ? 1 : 0,
       authorId: userId,
     }).returning();
+
+    if (parentType === "client_demand") {
+      await db.update(v2ClientDemandsTable).set({ updatedAt: new Date() }).where(eq(v2ClientDemandsTable.id, parentId));
+    } else if (parentType === "outsource_demand") {
+      await db.update(v2OutsourceDemandsTable).set({ updatedAt: new Date() }).where(eq(v2OutsourceDemandsTable.id, parentId));
+    }
 
     if (replyToId) {
       const [original] = await db.select({ authorId: v2DiscussionPostsTable.authorId })
