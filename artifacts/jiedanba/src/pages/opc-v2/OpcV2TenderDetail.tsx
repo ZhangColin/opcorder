@@ -521,7 +521,7 @@ export default function OpcV2TenderDetail() {
                   const hist = versions.slice(1)[selectedVersionIdx] ?? versions[1];
                   const curr = versions[0];
                   const renderPanel = (v: DemandVersion, isCurrent: boolean) => (
-                    <div className={`overflow-auto p-5 ${isCurrent ? "bg-emerald-50/20" : ""}`}>
+                    <div className={`overflow-y-auto min-h-0 p-5 ${isCurrent ? "bg-emerald-50/20" : ""}`}>
                       <div className="flex items-center gap-2 mb-3">
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isCurrent ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                           v{v.versionNo} {isCurrent ? "当前" : "历史"}
@@ -552,7 +552,7 @@ export default function OpcV2TenderDetail() {
                     </div>
                   );
                   return (
-                    <div className="flex-1 grid grid-cols-2 min-h-0 divide-x divide-slate-100 overflow-hidden">
+                    <div className="flex-1 grid grid-cols-2 min-h-0 divide-x divide-slate-100" style={{ overflow: "hidden" }}>
                       {renderPanel(hist, false)}
                       {renderPanel(curr, true)}
                     </div>
