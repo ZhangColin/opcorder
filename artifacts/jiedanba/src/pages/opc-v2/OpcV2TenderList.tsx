@@ -122,7 +122,9 @@ export default function OpcV2TenderList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map(tender => {
+            {[...filtered].sort((a, b) =>
+              (hasUnread("outsource", b.outsourceDemandId, b.demandUpdatedAt) ? 1 : 0) - (hasUnread("outsource", a.outsourceDemandId, a.demandUpdatedAt) ? 1 : 0)
+            ).map(tender => {
               const cfg = STATUS_CONFIG[tender.status] ?? { label: tender.status, color: "bg-slate-100 text-slate-500", icon: null };
               return (
                 <button

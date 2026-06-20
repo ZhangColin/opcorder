@@ -132,7 +132,9 @@ export default function PubDemandList() {
           </div>
         ) : (
           <div className="space-y-3">
-            {demands.map(d => {
+            {[...demands].sort((a, b) =>
+              (hasUnread("client", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("client", a.id, a.updatedAt) ? 1 : 0)
+            ).map(d => {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
               return (
                 <div

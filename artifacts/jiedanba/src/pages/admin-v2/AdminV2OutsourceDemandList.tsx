@@ -112,7 +112,9 @@ export default function AdminV2OutsourceDemandList() {
           </div>
         ) : (
           <div className="space-y-2">
-            {items.map(d => {
+            {[...items].sort((a, b) =>
+              (hasUnread("outsource", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("outsource", a.id, a.updatedAt) ? 1 : 0)
+            ).map(d => {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
               return (
                 <button key={d.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${d.id}`) : navigate(`/admin/v2/outsource-demands/${d.id}`)}

@@ -126,7 +126,9 @@ export default function AdminV2ClientDemandList() {
           <div className="text-center py-16 text-slate-400 text-sm">暂无需求</div>
         ) : (
           <div className="space-y-2">
-            {items.map(d => {
+            {[...items].sort((a, b) =>
+              (hasUnread("client", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("client", a.id, a.updatedAt) ? 1 : 0)
+            ).map(d => {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
               const needsAttention = HIGHLIGHT_STATUSES.includes(d.status);
               return (
