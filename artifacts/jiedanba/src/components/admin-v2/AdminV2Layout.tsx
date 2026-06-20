@@ -4,6 +4,7 @@ import { Menu, Bell } from "lucide-react";
 import { AdminV2Sidebar } from "./AdminV2Sidebar";
 import { clearSession } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useAdminEmbedded } from "@/context/AdminEmbeddedContext";
 
 interface AdminV2LayoutProps {
   children: React.ReactNode;
@@ -14,9 +15,14 @@ interface AdminV2LayoutProps {
 }
 
 export function AdminV2Layout({ children, title, backHref, backLabel, actions }: AdminV2LayoutProps) {
+  const embedded = useAdminEmbedded();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, navigate] = useLocation();
   const { avatarChar } = useCurrentUser();
+
+  if (embedded) {
+    return <div className="space-y-4">{children}</div>;
+  }
 
   const logout = () => {
     clearSession();

@@ -4,6 +4,17 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import AdminActivities from "./AdminActivities";
+import { AdminEmbeddedContext } from "@/context/AdminEmbeddedContext";
+import AdminV2Overview from "@/pages/admin-v2/AdminV2Overview";
+import AdminV2ClientDemandList from "@/pages/admin-v2/AdminV2ClientDemandList";
+import AdminV2ContractAList from "@/pages/admin-v2/AdminV2ContractAList";
+import AdminV2PaymentAList from "@/pages/admin-v2/AdminV2PaymentAList";
+import AdminV2TicketAList from "@/pages/admin-v2/AdminV2TicketAList";
+import AdminV2OutsourceDemandList from "@/pages/admin-v2/AdminV2OutsourceDemandList";
+import AdminV2TenderList from "@/pages/admin-v2/AdminV2TenderList";
+import AdminV2OutsourceOrderList from "@/pages/admin-v2/AdminV2OutsourceOrderList";
+import AdminV2PaymentBList from "@/pages/admin-v2/AdminV2PaymentBList";
+import AdminV2TicketBList from "@/pages/admin-v2/AdminV2TicketBList";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatBudget } from "@/lib/utils";
 import { useLocation } from "wouter";
@@ -111,7 +122,9 @@ export type Module =
   | "platform_config" | "catcategories" | "cattags" | "creditlevels" | "creditrules"
   | "demands_orders" | "opc_management" | "system_management"
   | "operation_management" | "userData"
-  | "v2_workbench";
+  | "v2_overview"
+  | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_tickets"
+  | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_tickets";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -182,19 +195,26 @@ const NAV: NavItem[] = [
     ],
   },
 
+  { key: "v2_overview", icon: Layers, label: "跨通道总览", permKey: "demands" },
+
   {
-    key: "v2_workbench", icon: Layers, label: "V2 工作台", permKey: "demands",
+    key: "v2_pub_workbench", icon: Users, label: "发单方工作台", permKey: "demands",
     children: [
-      { key: "v2_overview",         label: "跨通道总览",     href: "/admin/v2/overview",                 icon: LayoutDashboard },
-      { key: "v2_client_demands",   label: "客户需求",       href: "/admin/v2/client-demands",           icon: FileText },
-      { key: "v2_contracts_a",      label: "甲方合同",       href: "/admin/v2/contracts-a",              icon: FileCheck },
-      { key: "v2_payments_a",       label: "甲方收款",       href: "/admin/v2/payments-a",               icon: Wallet },
-      { key: "v2_tickets_a",        label: "甲方工单",       href: "/admin/v2/tickets-a",                icon: ClipboardList },
-      { key: "v2_outsource_demands",label: "外包需求",       href: "/admin/v2/outsource-demands",        icon: Network },
-      { key: "v2_tenders",          label: "投标管理",       href: "/admin/v2/tenders",                  icon: Trophy },
-      { key: "v2_outsource_orders", label: "外包订单",       href: "/admin/v2/outsource-orders",         icon: ShoppingBag },
-      { key: "v2_payments_b",       label: "乙方付款",       href: "/admin/v2/payments-b",               icon: CreditCard },
-      { key: "v2_tickets_b",        label: "乙方工单",       href: "/admin/v2/tickets-b",                icon: ClipboardList },
+      { key: "v2_pub_demands",   label: "需求", moduleKey: "v2_pub_demands"   as Module, icon: FileText },
+      { key: "v2_pub_contracts", label: "合同", moduleKey: "v2_pub_contracts" as Module, icon: FileCheck },
+      { key: "v2_pub_payments",  label: "收款", moduleKey: "v2_pub_payments"  as Module, icon: Wallet },
+      { key: "v2_pub_tickets",   label: "工单", moduleKey: "v2_pub_tickets"   as Module, icon: ClipboardList },
+    ],
+  },
+
+  {
+    key: "v2_opc_workbench", icon: Network, label: "OPC 工作台", permKey: "demands",
+    children: [
+      { key: "v2_opc_demands",  label: "需求", moduleKey: "v2_opc_demands"  as Module, icon: FileText },
+      { key: "v2_opc_tenders",  label: "投标", moduleKey: "v2_opc_tenders"  as Module, icon: Trophy },
+      { key: "v2_opc_orders",   label: "订单", moduleKey: "v2_opc_orders"   as Module, icon: ShoppingBag },
+      { key: "v2_opc_payments", label: "付款", moduleKey: "v2_opc_payments" as Module, icon: CreditCard },
+      { key: "v2_opc_tickets",  label: "工单", moduleKey: "v2_opc_tickets"  as Module, icon: ClipboardList },
     ],
   },
 ];
@@ -9896,6 +9916,18 @@ function ModuleContent({ module }: { module: Module }) {
     case "cattags":         return <CatTagManagement />;
     case "userData":        return <UserData />;
     case "operation_management": return <UserData />;
+    case "v2_overview":      return <AdminEmbeddedContext.Provider value={true}><AdminV2Overview /></AdminEmbeddedContext.Provider>;
+    case "v2_pub_demands":   return <AdminEmbeddedContext.Provider value={true}><AdminV2ClientDemandList /></AdminEmbeddedContext.Provider>;
+    case "v2_pub_contracts": return <AdminEmbeddedContext.Provider value={true}><AdminV2ContractAList /></AdminEmbeddedContext.Provider>;
+    case "v2_pub_payments":  return <AdminEmbeddedContext.Provider value={true}><AdminV2PaymentAList /></AdminEmbeddedContext.Provider>;
+    case "v2_pub_tickets":   return <AdminEmbeddedContext.Provider value={true}><AdminV2TicketAList /></AdminEmbeddedContext.Provider>;
+    case "v2_opc_demands":   return <AdminEmbeddedContext.Provider value={true}><AdminV2OutsourceDemandList /></AdminEmbeddedContext.Provider>;
+    case "v2_opc_tenders":   return <AdminEmbeddedContext.Provider value={true}><AdminV2TenderList /></AdminEmbeddedContext.Provider>;
+    case "v2_opc_orders":    return <AdminEmbeddedContext.Provider value={true}><AdminV2OutsourceOrderList /></AdminEmbeddedContext.Provider>;
+    case "v2_opc_payments":  return <AdminEmbeddedContext.Provider value={true}><AdminV2PaymentBList /></AdminEmbeddedContext.Provider>;
+    case "v2_opc_tickets":   return <AdminEmbeddedContext.Provider value={true}><AdminV2TicketBList /></AdminEmbeddedContext.Provider>;
+    case "v2_pub_workbench": return <AdminEmbeddedContext.Provider value={true}><AdminV2Overview /></AdminEmbeddedContext.Provider>;
+    case "v2_opc_workbench": return <AdminEmbeddedContext.Provider value={true}><AdminV2Overview /></AdminEmbeddedContext.Provider>;
   }
 }
 
