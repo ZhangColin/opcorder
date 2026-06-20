@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, PlusCircle, Trash2, Edit2, X, Calendar, AlertTriangle,
+  Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, PlusCircle, Trash2, Edit2, X,
+  Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post } from "@/lib/v2api";
+import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -15,6 +16,7 @@ interface LatestVersion {
   versionNo: number;
   detail: string;
   attachments: Array<{ name: string; url: string; size?: number }>;
+  editedByNickname?: string | null;
   editComment: string | null;
   createdAt: string;
 }
@@ -38,6 +40,17 @@ interface ClientDemand {
   createdAt: string;
   updatedAt: string;
   latestVersion: LatestVersion | null;
+}
+
+interface VersionItem {
+  id: number;
+  versionNo: number;
+  detail: string;
+  attachments: Array<{ name: string; url: string }>;
+  editedByNickname: string | null;
+  editedByRole: "publisher" | "opc" | "admin" | null;
+  editComment: string | null;
+  createdAt: string;
 }
 
 interface PaymentPlan {
@@ -68,28 +81,40 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const DEMAND_TYPE_LABEL: Record<string, string> = {
-  website: "网站建设",
-  app: "App开发",
-  miniprogram: "小程序",
-  ecommerce: "电商运营",
-  design: "设计制作",
-  marketing: "营销推广",
-  other: "其他",
+  website: "网站建设", app: "App开发", miniprogram: "小程序",
+  ecommerce: "电商运营", design: "设计制作", marketing: "营销推广", other: "其他",
 };
 
-function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+const ROLE_LABEL: Record<string, string> = {
+  publisher: "发单方", opc: "OPC", admin: "运营方",
+};
+
+function Section({
+  title, icon: Icon, defaultOpen = true, headerRight, children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  defaultOpen?: boolean;
+  headerRight?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-slate-700">{title}</h3>
-        {action}
+    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div className="flex items-center w-full px-5 py-4 border-b border-slate-50">
+        <button onClick={() => setOpen(v => !v)} className="flex items-center gap-2 flex-1 text-left">
+          <Icon size={15} className="text-primary shrink-0" />
+          <span className="text-sm font-bold text-slate-700">{title}</span>
+          {open ? <ChevronUp size={14} className="text-slate-300 ml-1" /> : <ChevronDown size={14} className="text-slate-300 ml-1" />}
+        </button>
+        {headerRight && <div className="shrink-0">{headerRight}</div>}
       </div>
-      {children}
+      {open && <div className="px-5 py-4">{children}</div>}
     </div>
   );
 }
 
-type Panel = "quote" | "payment" | "deliverable" | "close" | "update_detail" | null;
+type ActionPanel = "quote" | "payment" | "deliverable" | "close" | null;
 
 export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
@@ -102,22 +127,35 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [payments, setPayments] = useState<PaymentPlan[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [acting, setActing] = useState(false);
-  const [activePanel, setActivePanel] = useState<Panel>(null);
+  const [activePanel, setActivePanel] = useState<ActionPanel>(null);
 
+  // Detail inline edit
+  const [editMode, setEditMode] = useState(false);
+  const [editDetail, setEditDetail] = useState("");
+  const [editAttachments, setEditAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [editComment, setEditComment] = useState("");
+  const [editUploading, setEditUploading] = useState(false);
+
+  // Version history
+  const [versions, setVersions] = useState<VersionItem[]>([]);
+  const [showVersions, setShowVersions] = useState(false);
+  const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
+
+  // Quote form
   const [quoteTotal, setQuoteTotal] = useState("");
   const [quoteItems, setQuoteItems] = useState([{ name: "", amount: "" }]);
 
+  // Payment form
   const [payTitle, setPayTitle] = useState("");
   const [payAmount, setPayAmount] = useState("");
   const [payDueDate, setPayDueDate] = useState("");
 
+  // Deliverable form
   const [delivTitle, setDelivTitle] = useState("");
   const [delivDesc, setDelivDesc] = useState("");
 
+  // Close form
   const [closeReason, setCloseReason] = useState("");
-
-  const [updateDetailText, setUpdateDetailText] = useState("");
-  const [updateDetailComment, setUpdateDetailComment] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -137,6 +175,14 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
   useEffect(() => { if (id > 0) load(); }, [id]);
 
+  const loadVersions = async () => {
+    try {
+      const v = await v2Get<VersionItem[]>(`/client-demands/${id}/versions`);
+      setVersions(v);
+      setShowVersions(true);
+    } catch { setVersions([]); setShowVersions(true); }
+  };
+
   const act = async (fn: () => Promise<unknown>, msg: string) => {
     setActing(true);
     try {
@@ -149,11 +195,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     } finally {
       setActing(false);
     }
-  };
-
-  const openPanel = (p: Panel, extra?: () => void) => {
-    extra?.();
-    setActivePanel(prev => (prev === p ? null : p));
   };
 
   const handleInitiateQuote = () => act(async () => {
@@ -186,14 +227,38 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     setCloseReason("");
   }, "需求已关闭");
 
-  const handleUpdateDetail = () => act(async () => {
-    if (!updateDetailText.trim()) throw new Error("需求详情不能为空");
-    await v2Post(`/client-demands/${id}/update-detail`, {
-      detail: updateDetailText.trim(),
-      editComment: updateDetailComment.trim() || undefined,
-    });
-    setUpdateDetailComment("");
-  }, "需求详情已更新，通知已发送");
+  const handleSubmitEdit = async () => {
+    if (!editDetail.trim()) { toast({ title: "需求详情不能为空", variant: "destructive" }); return; }
+    setActing(true);
+    try {
+      await v2Post(`/client-demands/${id}/update-detail`, {
+        detail: editDetail.trim(),
+        attachments: editAttachments,
+        editComment: editComment.trim() || undefined,
+      });
+      toast({ title: "需求详情已更新，通知已发送" });
+      setEditMode(false);
+      setEditComment("");
+      await load();
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } finally { setActing(false); }
+  };
+
+  const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditUploading(true);
+    try {
+      const url = await uploadFile(file);
+      setEditAttachments(prev => [...prev, { name: file.name, url }]);
+    } catch (err: any) {
+      toast({ title: "上传失败", description: err.message, variant: "destructive" });
+    } finally {
+      setEditUploading(false);
+      if (e.target) e.target.value = "";
+    }
+  };
 
   if (loading) return <AdminV2Layout backHref="/admin/v2/client-demands" backLabel="客户需求"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
   if (!demand) return <AdminV2Layout backHref="/admin/v2/client-demands" backLabel="客户需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
@@ -201,17 +266,14 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const cfg = STATUS_CONFIG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const canInitiateQuote = demand.status === "negotiating";
   const canReQuote = demand.status === "quoting";
-  const canUpdateDetail = ["draft","negotiating", "quoting"].includes(demand.status);
-  const canCreatePayment = ["pending_contract","executing","warranty","completed"].includes(demand.status);
+  const canEditDetail = ["draft", "negotiating", "quoting"].includes(demand.status);
+  const canCreatePayment = ["pending_contract", "executing", "warranty", "completed"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
-  const canClose = !["completed","closed"].includes(demand.status);
+  const canClose = !["completed", "closed"].includes(demand.status);
 
-  const currentDetail = demand.latestVersion?.detail ?? null;
-  const currentAttachments = demand.latestVersion?.attachments ?? [];
-
-  const InlinePanel = ({ title, color = "bg-slate-50 border-slate-200", children }: {
-    title: string; color?: string; children: React.ReactNode;
-  }) => (
+  const InlinePanel = ({
+    title, color = "bg-slate-50 border-slate-200", children,
+  }: { title: string; color?: string; children: React.ReactNode }) => (
     <div className={`rounded-2xl border p-5 ${color}`}>
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-sm font-bold text-slate-800">{title}</h4>
@@ -228,13 +290,41 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
       backLabel="客户需求"
       actions={
         <div className="flex gap-2">
-          <button onClick={() => navigate(`/admin/v2/overview?clientDemandId=${id}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
+          <button
+            onClick={() => navigate(`/admin/v2/overview?clientDemandId=${id}`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors"
+          >
             <ExternalLink size={13} /> 关联总览
           </button>
+          {(canInitiateQuote || canReQuote) && (
+            <button
+              onClick={() => setActivePanel(prev => prev === "quote" ? null : "quote")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "quote" ? "bg-primary text-white border-primary" : "border-primary/30 text-primary hover:bg-primary/5"}`}
+            >
+              <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
+            </button>
+          )}
+          {canCreatePayment && (
+            <button
+              onClick={() => setActivePanel(prev => prev === "payment" ? null : "payment")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "payment" ? "bg-emerald-600 text-white border-emerald-600" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"}`}
+            >
+              <PlusCircle size={13} /> 收款项
+            </button>
+          )}
+          {canCreateDeliverable && (
+            <button
+              onClick={() => setActivePanel(prev => prev === "deliverable" ? null : "deliverable")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "deliverable" ? "bg-teal-600 text-white border-teal-600" : "border-teal-300 text-teal-700 hover:bg-teal-50"}`}
+            >
+              <CheckCircle2 size={13} /> 交付记录
+            </button>
+          )}
           {canClose && (
-            <button onClick={() => openPanel("close")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
+            <button
+              onClick={() => setActivePanel(prev => prev === "close" ? null : "close")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}
+            >
               关闭需求
             </button>
           )}
@@ -245,98 +335,69 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
         {/* ── 基本信息卡 ── */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                {demand.isUrgent && (
-                  <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
-                    <Zap size={10} />紧急
-                  </span>
-                )}
-                {demand.demandType && (
-                  <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
-                  </span>
-                )}
-                <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
-              </div>
-              <h2 className="text-lg font-extrabold text-blue-900 mb-3">{demand.title}</h2>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-slate-500">
-                <div><span className="font-medium text-slate-400">发单方：</span>{demand.publisherNickname ?? "—"}</div>
-                <div>
-                  <span className="font-medium text-slate-400">预算：</span>
-                  {demand.budgetMin != null
-                    ? `¥${demand.budgetMin.toLocaleString()}${demand.budgetMax ? ` ～ ¥${demand.budgetMax.toLocaleString()}` : "+"}`
-                    : "面议"}
-                </div>
-                {demand.hopeDeliveryDate && (
-                  <div className="flex items-center gap-1">
-                    <Calendar size={11} className="text-slate-400" />
-                    <span className="font-medium text-slate-400">期望交付：</span>
-                    {new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}
-                  </div>
-                )}
-                {demand.quoteTotal != null && (
-                  <div><span className="font-medium text-primary">报价总额：</span>
-                    <span className="font-bold text-primary">¥{demand.quoteTotal.toLocaleString()}</span>
-                  </div>
-                )}
-                {demand.warrantyEndDate && (
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium text-slate-400">质保到期：</span>
-                    {new Date(demand.warrantyEndDate).toLocaleDateString("zh-CN")}
-                  </div>
-                )}
-                <div><span className="font-medium text-slate-400">更新时间：</span>{new Date(demand.updatedAt).toLocaleDateString("zh-CN")}</div>
-                <div><span className="font-medium text-slate-400">创建时间：</span>{new Date(demand.createdAt).toLocaleDateString("zh-CN")}</div>
-              </div>
-              {demand.closedReason && (
-                <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-3">
-                  <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-red-600 mb-0.5">关闭原因</p>
-                    <p className="text-xs text-red-500">{demand.closedReason}</p>
-                  </div>
-                </div>
-              )}
-              {demand.latestVersion && (
-                <p className="mt-2 text-xs text-slate-400">
-                  需求详情版本 v{demand.latestVersion.versionNo}
-                  {demand.latestVersion.editComment ? `（${demand.latestVersion.editComment}）` : ""}
-                </p>
-              )}
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+            {demand.isUrgent && (
+              <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
+                <Zap size={10} />紧急
+              </span>
+            )}
+            {demand.demandType && (
+              <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
+              </span>
+            )}
+            <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
+          </div>
+          <h2 className="text-lg font-extrabold text-blue-900 mb-3">{demand.title}</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+            <div>
+              <p className="text-xs text-slate-400 mb-0.5">发单方</p>
+              <p className="font-semibold text-slate-700">{demand.publisherNickname ?? "—"}</p>
             </div>
-            <div className="flex flex-col gap-2 shrink-0">
-              {(canInitiateQuote || canReQuote) && (
-                <button onClick={() => openPanel("quote")} disabled={acting}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "quote" ? "bg-primary/80 text-white" : "bg-primary text-white hover:bg-primary/90"}`}>
-                  <DollarSign size={14} /> {canReQuote ? "更新报价" : "发起报价"}
-                </button>
-              )}
-              {canUpdateDetail && (
-                <button onClick={() => openPanel("update_detail", () => setUpdateDetailText(currentDetail ?? ""))} disabled={acting}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "update_detail" ? "bg-slate-700 text-white" : "bg-slate-600 text-white hover:bg-slate-700"}`}>
-                  <Edit2 size={14} /> 更新需求详情
-                </button>
-              )}
-              {canCreatePayment && (
-                <button onClick={() => openPanel("payment")} disabled={acting}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "payment" ? "bg-emerald-700 text-white" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
-                  <PlusCircle size={14} /> 创建收款项
-                </button>
-              )}
-              {canCreateDeliverable && (
-                <button onClick={() => openPanel("deliverable")} disabled={acting}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${activePanel === "deliverable" ? "bg-teal-700 text-white" : "bg-teal-600 text-white hover:bg-teal-700"}`}>
-                  <CheckCircle2 size={14} /> 创建交付记录
-                </button>
-              )}
+            <div>
+              <p className="text-xs text-slate-400 mb-0.5">预算</p>
+              <p className="font-semibold text-slate-700">
+                {demand.budgetMin != null
+                  ? `¥${demand.budgetMin.toLocaleString()}${demand.budgetMax ? ` ～ ¥${demand.budgetMax.toLocaleString()}` : "+"}`
+                  : "面议"}
+              </p>
+            </div>
+            {demand.hopeDeliveryDate && (
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><Calendar size={10} />期望交付</p>
+                <p className="font-semibold text-slate-700">{new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}</p>
+              </div>
+            )}
+            {demand.quoteTotal != null && (
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">报价总额</p>
+                <p className="font-bold text-primary">¥{demand.quoteTotal.toLocaleString()}</p>
+              </div>
+            )}
+            {demand.warrantyEndDate && (
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">质保到期</p>
+                <p className="font-semibold text-teal-700">{new Date(demand.warrantyEndDate).toLocaleDateString("zh-CN")}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-slate-400 mb-0.5">创建时间</p>
+              <p className="font-semibold text-slate-700">{new Date(demand.createdAt).toLocaleDateString("zh-CN")}</p>
             </div>
           </div>
+          {demand.closedReason && (
+            <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-3">
+              <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-red-600 mb-0.5">关闭原因</p>
+                <p className="text-xs text-red-500">{demand.closedReason}</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* ── 关闭需求面板 ── */}
+        {/* ── 操作面板 ── */}
         {activePanel === "close" && (
           <InlinePanel title="关闭需求" color="bg-red-50 border-red-200">
             <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
@@ -352,7 +413,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* ── 发起报价面板 ── */}
         {activePanel === "quote" && (
           <InlinePanel title={canReQuote ? "更新报价" : "发起报价"} color="bg-primary/5 border-primary/20">
             <div className="space-y-4">
@@ -369,10 +429,12 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                 </div>
                 {quoteItems.map((item, i) => (
                   <div key={i} className="flex gap-2 mb-2">
-                    <input placeholder="项目名称" value={item.name} onChange={e => { const arr = [...quoteItems]; arr[i].name = e.target.value; setQuoteItems(arr); }}
-                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                    <input type="number" placeholder="金额" value={item.amount} onChange={e => { const arr = [...quoteItems]; arr[i].amount = e.target.value; setQuoteItems(arr); }}
-                      className="w-28 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input placeholder="项目名称" value={item.name}
+                      onChange={e => { const arr = [...quoteItems]; arr[i].name = e.target.value; setQuoteItems(arr); }}
+                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
+                    <input type="number" placeholder="金额" value={item.amount}
+                      onChange={e => { const arr = [...quoteItems]; arr[i].amount = e.target.value; setQuoteItems(arr); }}
+                      className="w-28 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
                     {quoteItems.length > 1 && (
                       <button onClick={() => setQuoteItems(quoteItems.filter((_, j) => j !== i))}
                         className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
@@ -391,72 +453,24 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* ── 更新需求详情面板 ── */}
-        {activePanel === "update_detail" && (
-          <InlinePanel title="更新需求详情" color="bg-slate-50 border-slate-200">
-            <div className="space-y-3">
-              <MarkdownEditor
-                key={`client-detail-${id}`}
-                value={updateDetailText}
-                onChange={setUpdateDetailText}
-                placeholder="编辑需求详情，支持 Markdown 富文本…"
-              />
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">修改说明（可选）</label>
-                <input value={updateDetailComment} onChange={e => setUpdateDetailComment(e.target.value)} placeholder="说明本次修改内容"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-                <button onClick={handleUpdateDetail} disabled={acting}
-                  className="px-4 py-2 text-sm bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 disabled:opacity-50">
-                  {acting ? "保存中…" : "保存并通知"}
-                </button>
-              </div>
-            </div>
-          </InlinePanel>
-        )}
-
-        {/* ── 需求详情内容 ── */}
-        <Section
-          title={`需求详情${demand.latestVersion ? ` (v${demand.latestVersion.versionNo})` : ""}`}
-        >
-          {currentDetail ? (
-            <MarkdownContent content={currentDetail} />
-          ) : (
-            <p className="text-sm text-slate-400 italic py-2">暂无需求详情，可点击"更新需求详情"填写。</p>
-          )}
-          {currentAttachments.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-slate-50">
-              {currentAttachments.map((a, i) => (
-                <a key={i} href={a.url} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
-                  <ExternalLink size={11} />{a.name}
-                </a>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* ── 创建收款项面板 ── */}
         {activePanel === "payment" && (
           <InlinePanel title="创建收款项" color="bg-emerald-50 border-emerald-200">
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">收款项名称</label>
                 <input value={payTitle} onChange={e => setPayTitle(e.target.value)} placeholder="如：首付款、尾款"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-600 mb-1 block">金额 (¥)</label>
                   <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-600 mb-1 block">应收日期（可选）</label>
                   <input type="date" value={payDueDate} onChange={e => setPayDueDate(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
@@ -470,39 +484,18 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
-        {/* ── 收款计划 ── */}
-        {payments.length > 0 && (
-          <Section title={`收款计划（${payments.length} 项）`}>
-            <div className="space-y-2">
-              {payments.map(p => (
-                <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">{p.title}</p>
-                    {p.dueDate && <p className="text-xs text-slate-400">应收日期：{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-slate-800">¥{p.amount.toLocaleString()}</p>
-                    <PayStatusBadge status={p.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {/* ── 创建交付记录面板 ── */}
         {activePanel === "deliverable" && (
           <InlinePanel title="创建交付记录" color="bg-teal-50 border-teal-200">
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">交付标题</label>
                 <input value={delivTitle} onChange={e => setDelivTitle(e.target.value)} placeholder="本次交付内容"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200" />
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">说明（可选）</label>
                 <textarea value={delivDesc} onChange={e => setDelivDesc(e.target.value)} rows={3} placeholder="补充说明"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 resize-none" />
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none" />
               </div>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
@@ -515,9 +508,130 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </InlinePanel>
         )}
 
+        {/* ── 需求详情区块（查看/编辑内联切换）── */}
+        <Section
+          title="需求详情"
+          icon={FileText}
+          headerRight={
+            <div className="flex items-center gap-3">
+              {demand.latestVersion && (
+                <span className="text-xs text-slate-400">v{demand.latestVersion.versionNo}</span>
+              )}
+              {canEditDetail && !editMode && (
+                <button
+                  onClick={() => {
+                    setEditDetail(demand.latestVersion?.detail ?? "");
+                    setEditAttachments(demand.latestVersion?.attachments?.map(a => ({ name: a.name, url: a.url })) ?? []);
+                    setEditMode(true);
+                  }}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <Edit2 size={11} /> 编辑
+                </button>
+              )}
+              {demand.latestVersion && (
+                <button
+                  onClick={loadVersions}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
+                >
+                  <History size={11} /> 历史版本
+                </button>
+              )}
+            </div>
+          }
+        >
+          {editMode ? (
+            <div className="space-y-3">
+              <MarkdownEditor
+                key={`client-detail-edit-${id}`}
+                value={editDetail}
+                onChange={setEditDetail}
+                placeholder="编辑需求详情，支持 Markdown 富文本…"
+              />
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:underline">
+                  {editUploading ? <Loader2 size={12} className="animate-spin" /> : "+ 添加附件"}
+                  <input type="file" className="hidden" onChange={handleEditFileUpload} disabled={editUploading} />
+                </label>
+                {editAttachments.map((a, i) => (
+                  <div key={i} className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
+                    {a.name}
+                    <button onClick={() => setEditAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500 ml-1">✕</button>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <input
+                  value={editComment}
+                  onChange={e => setEditComment(e.target.value)}
+                  placeholder="修改说明（可选）"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleSubmitEdit} disabled={acting}
+                  className="bg-primary text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
+                  {acting ? "提交中…" : "保存并通知"}
+                </button>
+                <button onClick={() => { setEditMode(false); setEditComment(""); }}
+                  className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : demand.latestVersion ? (
+            <div>
+              <MarkdownContent content={demand.latestVersion.detail} />
+              {demand.latestVersion.attachments?.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-slate-50">
+                  {demand.latestVersion.attachments.map((a, i) => (
+                    <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
+                      <ExternalLink size={11} />{a.name}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-400">
+              <FileText size={24} className="mx-auto mb-2 text-slate-300" />
+              <p className="text-sm">暂无需求详情</p>
+              {canEditDetail && (
+                <button
+                  onClick={() => { setEditDetail(""); setEditAttachments([]); setEditMode(true); }}
+                  className="mt-2 text-xs text-primary hover:underline"
+                >
+                  点击填写
+                </button>
+              )}
+            </div>
+          )}
+        </Section>
+
+        {/* ── 收款计划 ── */}
+        {payments.length > 0 && (
+          <Section title={`收款计划（${payments.length} 项）`} icon={DollarSign}>
+            <div className="space-y-2">
+              {payments.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{p.title}</p>
+                    {p.dueDate && <p className="text-xs text-slate-400">应收：{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-800">¥{p.amount.toLocaleString()}</p>
+                    <PayStatusBadge status={p.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* ── 交付记录 ── */}
         {deliverables.length > 0 && (
-          <Section title={`交付记录（${deliverables.length} 项）`}>
+          <Section title={`交付记录（${deliverables.length} 项）`} icon={CheckCircle2}>
             <div className="space-y-2">
               {deliverables.map(d => (
                 <div key={d.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
@@ -532,11 +646,99 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </Section>
         )}
 
-        <Section title="沟通讨论">
+        <Section title="沟通讨论" icon={FileText} defaultOpen={false}>
           <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" />
         </Section>
 
       </div>
+
+      {/* ── 历史版本对比 Modal ── */}
+      {showVersions && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col" style={{ maxHeight: "90vh" }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <History size={15} className="text-primary" />
+                <span className="text-sm font-extrabold text-slate-800">历史版本对比</span>
+                {versions.length > 0 && (
+                  <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                    当前 v{versions[0].versionNo}
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setShowVersions(false)} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+            </div>
+
+            {versions.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center py-12 text-slate-400 text-sm">
+                <Loader2 size={16} className="animate-spin mr-2" /> 加载中…
+              </div>
+            ) : versions.length <= 1 ? (
+              <div className="flex-1 flex items-center justify-center py-12 text-slate-400 text-sm">
+                暂无更早的历史版本
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 px-6 py-3 border-b border-slate-100 overflow-x-auto shrink-0">
+                  <span className="text-xs text-slate-400 shrink-0 mr-1">选择历史版本：</span>
+                  {versions.slice(1).map((v, i) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVersionIdx(i)}
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors border ${
+                        selectedVersionIdx === i
+                          ? "bg-primary text-white border-primary"
+                          : "bg-white text-slate-500 border-slate-200 hover:border-primary hover:text-primary"
+                      }`}
+                    >
+                      v{v.versionNo}
+                      {v.editedByRole ? ` · ${ROLE_LABEL[v.editedByRole] ?? v.editedByRole}` : ""}
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const hist = versions.slice(1)[selectedVersionIdx] ?? versions[1];
+                  const curr = versions[0];
+                  const renderPanel = (v: VersionItem, isCurrent: boolean) => (
+                    <div className={`overflow-y-auto min-h-0 p-5 ${isCurrent ? "bg-blue-50/30" : ""}`}>
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isCurrent ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                          v{v.versionNo} {isCurrent ? "当前" : "历史"}
+                        </span>
+                        <span className="text-xs text-slate-400">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</span>
+                        {v.editedByRole && (
+                          <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                            {ROLE_LABEL[v.editedByRole] ?? v.editedByRole}
+                          </span>
+                        )}
+                        {v.editedByNickname && <span className="text-xs text-slate-500">{v.editedByNickname}</span>}
+                        {v.editComment && <span className="text-xs text-slate-400 italic">「{v.editComment}」</span>}
+                      </div>
+                      <MarkdownContent content={v.detail} />
+                      {v.attachments?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+                          {v.attachments.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5">
+                              <ExternalLink size={11} />{a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                  return (
+                    <div className="flex-1 grid grid-cols-2 min-h-0 divide-x divide-slate-100" style={{ overflow: "hidden" }}>
+                      {renderPanel(hist, false)}
+                      {renderPanel(curr, true)}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </AdminV2Layout>
   );
 }
