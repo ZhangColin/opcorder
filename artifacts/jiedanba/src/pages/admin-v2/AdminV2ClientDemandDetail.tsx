@@ -100,8 +100,8 @@ function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-      <div className="flex items-center w-full px-5 py-4 border-b border-slate-50">
+    <div className="bg-white rounded-2xl border border-slate-100">
+      <div className="flex items-center w-full px-5 py-4 border-b border-slate-100">
         <button onClick={() => setOpen(v => !v)} className="flex items-center gap-2 flex-1 text-left">
           <Icon size={15} className="text-primary shrink-0" />
           <span className="text-sm font-bold text-slate-700">{title}</span>
@@ -646,7 +646,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </Section>
         )}
 
-        <Section title="沟通讨论" icon={FileText} defaultOpen={false}>
+        <Section title="沟通讨论" icon={FileText}>
           <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" />
         </Section>
 
