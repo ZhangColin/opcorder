@@ -131,6 +131,28 @@ type NavItem = { key: Module; icon: React.ElementType; label: string; superAdmin
 
 const NAV: NavItem[] = [
   { key: "dashboard", icon: LayoutDashboard, label: "数据看板",   permKey: "dashboard" },
+
+  {
+    key: "v2_pub_workbench", icon: Users, label: "发单方工作台", permKey: "demands",
+    children: [
+      { key: "v2_pub_demands",   label: "需求", moduleKey: "v2_pub_demands"   as Module, icon: FileText },
+      { key: "v2_pub_contracts", label: "合同", moduleKey: "v2_pub_contracts" as Module, icon: FileCheck },
+      { key: "v2_pub_payments",  label: "收款", moduleKey: "v2_pub_payments"  as Module, icon: Wallet },
+      { key: "v2_pub_tickets",   label: "工单", moduleKey: "v2_pub_tickets"   as Module, icon: ClipboardList },
+    ],
+  },
+
+  {
+    key: "v2_opc_workbench", icon: Network, label: "OPC 工作台", permKey: "demands",
+    children: [
+      { key: "v2_opc_demands",  label: "需求", moduleKey: "v2_opc_demands"  as Module, icon: FileText },
+      { key: "v2_opc_tenders",  label: "投标", moduleKey: "v2_opc_tenders"  as Module, icon: Trophy },
+      { key: "v2_opc_orders",   label: "订单", moduleKey: "v2_opc_orders"   as Module, icon: ShoppingBag },
+      { key: "v2_opc_payments", label: "付款", moduleKey: "v2_opc_payments" as Module, icon: CreditCard },
+      { key: "v2_opc_tickets",  label: "工单", moduleKey: "v2_opc_tickets"  as Module, icon: ClipboardList },
+    ],
+  },
+
   { key: "cockpit",   icon: BarChart3,       label: "平台驾驶舱", permKey: "cockpit" },
   { key: "users",     icon: Users,           label: "用户管理",   permKey: "users" },
   { key: "finance",   icon: Wallet,          label: "财务管理",   permKey: "finance" },
@@ -196,27 +218,6 @@ const NAV: NavItem[] = [
   },
 
   { key: "v2_overview", icon: Layers, label: "跨通道总览", permKey: "demands" },
-
-  {
-    key: "v2_pub_workbench", icon: Users, label: "发单方工作台", permKey: "demands",
-    children: [
-      { key: "v2_pub_demands",   label: "需求", moduleKey: "v2_pub_demands"   as Module, icon: FileText },
-      { key: "v2_pub_contracts", label: "合同", moduleKey: "v2_pub_contracts" as Module, icon: FileCheck },
-      { key: "v2_pub_payments",  label: "收款", moduleKey: "v2_pub_payments"  as Module, icon: Wallet },
-      { key: "v2_pub_tickets",   label: "工单", moduleKey: "v2_pub_tickets"   as Module, icon: ClipboardList },
-    ],
-  },
-
-  {
-    key: "v2_opc_workbench", icon: Network, label: "OPC 工作台", permKey: "demands",
-    children: [
-      { key: "v2_opc_demands",  label: "需求", moduleKey: "v2_opc_demands"  as Module, icon: FileText },
-      { key: "v2_opc_tenders",  label: "投标", moduleKey: "v2_opc_tenders"  as Module, icon: Trophy },
-      { key: "v2_opc_orders",   label: "订单", moduleKey: "v2_opc_orders"   as Module, icon: ShoppingBag },
-      { key: "v2_opc_payments", label: "付款", moduleKey: "v2_opc_payments" as Module, icon: CreditCard },
-      { key: "v2_opc_tickets",  label: "工单", moduleKey: "v2_opc_tickets"  as Module, icon: ClipboardList },
-    ],
-  },
 ];
 
 /* ─── Admin profile hook ─────────────────────────── */
