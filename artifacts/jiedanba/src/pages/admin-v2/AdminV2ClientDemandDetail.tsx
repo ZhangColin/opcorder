@@ -5,6 +5,7 @@ import {
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -166,6 +167,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const inlineNav = useAdminInlineNav();
 
   const [demand, setDemand] = useState<ClientDemand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -792,10 +794,11 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
-                          <a href={`/admin/v2/contracts-a/${c.id}`}
+                          <button
+                            onClick={() => inlineNav?.push(`/admin/v2/contracts-a/${c.id}`)}
                             className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
                             查看详情
-                          </a>
+                          </button>
                         </div>
                       </div>
                     );
