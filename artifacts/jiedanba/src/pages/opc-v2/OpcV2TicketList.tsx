@@ -21,6 +21,8 @@ interface TicketItem {
   closedNote: string | null;
   createdAt: string;
   updatedAt: string;
+  orderNo: string | null;
+  demandTitle: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -156,7 +158,11 @@ export default function OpcV2TicketList() {
                         {ticket.createdByNickname && (
                           <span>发起方：{ticket.createdByNickname}</span>
                         )}
-                        <span>订单 #{ticket.outsourceOrderId}</span>
+                        {ticket.demandTitle
+                          ? <span className="truncate max-w-[160px]">{ticket.demandTitle}</span>
+                          : <span>订单 #{ticket.outsourceOrderId}</span>
+                        }
+                        {ticket.orderNo && <span className="font-mono">{ticket.orderNo}</span>}
                       </div>
                     </div>
                     <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 transition-colors mt-1 shrink-0" />

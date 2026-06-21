@@ -16,6 +16,7 @@ interface Ticket {
   closedNote: string | null;
   createdAt: string;
   updatedAt: string;
+  demandTitle: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -109,9 +110,11 @@ export default function PubTicketList() {
                     <Wrench size={18} className="text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
+                    {t.demandTitle && (
+                      <p className="text-xs text-slate-500 truncate mb-0.5">{t.demandTitle}</p>
+                    )}
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                      <span className="text-xs text-slate-400">需求 #{t.clientDemandId}</span>
                       {hasUnread("ticket_a", t.id, t.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                     </div>
                     <p className="font-bold text-slate-800 truncate">{t.title}</p>

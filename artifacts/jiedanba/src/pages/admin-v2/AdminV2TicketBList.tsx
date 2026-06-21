@@ -14,6 +14,8 @@ interface TicketB {
   createdByNickname: string | null;
   createdAt: string;
   updatedAt: string;
+  orderNo?: string | null;
+  demandTitle?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -81,15 +83,19 @@ export default function AdminV2TicketBList() {
                     <Package size={18} className="text-violet-500" />
                   </div>
                   <div className="flex-1 min-w-0">
+                    {t.demandTitle && (
+                      <p className="text-xs text-slate-500 truncate mb-0.5">{t.demandTitle}</p>
+                    )}
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                      <span className="text-xs text-slate-400 font-mono">#{t.id}</span>
+                      {t.orderNo && <span className="text-xs text-slate-400 font-mono">{t.orderNo}</span>}
                       {hasUnread("ticket_b", t.id, t.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                     </div>
                     <p className="text-sm font-semibold text-slate-800 truncate">{t.title}</p>
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                      <Clock size={11} /> 创建于 {new Date(t.createdAt).toLocaleDateString("zh-CN")}
-                    </p>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                      <span className="flex items-center gap-1"><Clock size={11} /> 创建于 {new Date(t.createdAt).toLocaleDateString("zh-CN")}</span>
+                      {t.createdByNickname && <span>{t.createdByNickname}</span>}
+                    </div>
                   </div>
                   <ChevronRight size={18} className="text-slate-300 group-hover:text-primary shrink-0" />
                 </button>

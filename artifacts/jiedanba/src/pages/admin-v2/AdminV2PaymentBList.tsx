@@ -16,6 +16,8 @@ interface SettlementPlan {
   paidAt: string | null;
   isOverdue?: boolean;
   createdAt: string;
+  orderNo?: string | null;
+  demandTitle?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -112,15 +114,19 @@ export default function AdminV2PaymentBList() {
                     <Wallet size={18} className="text-violet-500" />
                   </div>
                   <div className="flex-1 min-w-0">
+                    {item.demandTitle && (
+                      <p className="text-xs text-slate-500 truncate mb-0.5">{item.demandTitle}</p>
+                    )}
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${overdue ? "bg-red-100 text-red-600" : cfg.color}`}>
                         {overdue ? "已逾期" : cfg.label}
                       </span>
                       {soon && !overdue && <span className="text-xs text-orange-500 flex items-center gap-0.5 font-bold"><AlertTriangle size={10} />即将到期</span>}
+                      {item.orderNo && <span className="text-xs text-slate-400 font-mono">{item.orderNo}</span>}
                     </div>
                     <p className="text-sm font-semibold text-slate-800 truncate">{item.description ?? `第${item.itemNo ?? 1}期结算款`}</p>
                     <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      <span className="font-bold text-slate-700">¥{item.amount.toLocaleString()}</span>
+                      <span className="font-bold text-slate-700 text-base">¥{item.amount.toLocaleString()}</span>
                       {item.dueDate && <span className="flex items-center gap-1"><Clock size={11} />应付 {new Date(item.dueDate).toLocaleDateString("zh-CN")}</span>}
                     </div>
                   </div>

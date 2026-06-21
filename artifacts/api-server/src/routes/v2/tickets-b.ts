@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, v2TicketsBTable, v2OutsourceOrdersTable, usersTable } from "@workspace/db";
+import { db, v2TicketsBTable, v2OutsourceOrdersTable, v2OutsourceDemandsTable, usersTable } from "@workspace/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
@@ -42,9 +42,13 @@ router.get("/tickets-b", requireAuth, async (req: Request, res: Response) => {
         closedNote: v2TicketsBTable.closedNote,
         createdAt: v2TicketsBTable.createdAt,
         updatedAt: v2TicketsBTable.updatedAt,
+        orderNo: v2OutsourceOrdersTable.orderNo,
+        demandTitle: v2OutsourceDemandsTable.title,
       })
       .from(v2TicketsBTable)
       .leftJoin(usersTable, eq(v2TicketsBTable.createdBy, usersTable.id))
+      .leftJoin(v2OutsourceOrdersTable, eq(v2TicketsBTable.outsourceOrderId, v2OutsourceOrdersTable.id))
+      .leftJoin(v2OutsourceDemandsTable, eq(v2OutsourceOrdersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(v2TicketsBTable.updatedAt));
 

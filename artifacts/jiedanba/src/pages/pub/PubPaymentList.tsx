@@ -15,6 +15,7 @@ interface PaymentPlan {
   voucherUrl: string | null;
   isOverdue: boolean;
   createdAt: string;
+  demandTitle: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -108,6 +109,9 @@ export default function PubPaymentList() {
                     <CreditCard size={18} className={overdue ? "text-red-600" : "text-primary"} />
                   </div>
                   <div className="flex-1 min-w-0">
+                    {plan.demandTitle && (
+                      <p className="text-xs text-slate-500 truncate mb-0.5">{plan.demandTitle}</p>
+                    )}
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                       {overdue && (

@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
-  db, v2SettlementPlansTable, v2OutsourceOrdersTable, v2TicketsBTable, usersTable,
+  db, v2SettlementPlansTable, v2OutsourceOrdersTable, v2OutsourceDemandsTable,
+  v2TicketsBTable, usersTable,
 } from "@workspace/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -32,8 +33,26 @@ router.get("/settlement-plans", requireAuth, async (req: Request, res: Response)
     }
 
     const rows = await db
-      .select()
+      .select({
+        id: v2SettlementPlansTable.id,
+        outsourceOrderId: v2SettlementPlansTable.outsourceOrderId,
+        opcId: v2SettlementPlansTable.opcId,
+        itemNo: v2SettlementPlansTable.itemNo,
+        description: v2SettlementPlansTable.description,
+        amount: v2SettlementPlansTable.amount,
+        dueDate: v2SettlementPlansTable.dueDate,
+        status: v2SettlementPlansTable.status,
+        isLastItem: v2SettlementPlansTable.isLastItem,
+        paymentVoucherUrl: v2SettlementPlansTable.paymentVoucherUrl,
+        paidAt: v2SettlementPlansTable.paidAt,
+        createdAt: v2SettlementPlansTable.createdAt,
+        updatedAt: v2SettlementPlansTable.updatedAt,
+        orderNo: v2OutsourceOrdersTable.orderNo,
+        demandTitle: v2OutsourceDemandsTable.title,
+      })
       .from(v2SettlementPlansTable)
+      .leftJoin(v2OutsourceOrdersTable, eq(v2SettlementPlansTable.outsourceOrderId, v2OutsourceOrdersTable.id))
+      .leftJoin(v2OutsourceDemandsTable, eq(v2OutsourceOrdersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(v2SettlementPlansTable.dueDate);
 

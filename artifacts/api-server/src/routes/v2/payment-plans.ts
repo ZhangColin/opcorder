@@ -32,8 +32,24 @@ router.get("/payment-plans", requireAuth, async (req: Request, res: Response) =>
     }
 
     const rows = await db
-      .select()
+      .select({
+        id: v2PaymentPlansTable.id,
+        clientDemandId: v2PaymentPlansTable.clientDemandId,
+        contractId: v2PaymentPlansTable.contractId,
+        itemNo: v2PaymentPlansTable.itemNo,
+        description: v2PaymentPlansTable.description,
+        amount: v2PaymentPlansTable.amount,
+        dueDate: v2PaymentPlansTable.dueDate,
+        status: v2PaymentPlansTable.status,
+        voucherUrl: v2PaymentPlansTable.voucherUrl,
+        paidAt: v2PaymentPlansTable.paidAt,
+        isLastItem: v2PaymentPlansTable.isLastItem,
+        createdAt: v2PaymentPlansTable.createdAt,
+        updatedAt: v2PaymentPlansTable.updatedAt,
+        demandTitle: v2ClientDemandsTable.title,
+      })
       .from(v2PaymentPlansTable)
+      .leftJoin(v2ClientDemandsTable, eq(v2PaymentPlansTable.clientDemandId, v2ClientDemandsTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(v2PaymentPlansTable.dueDate);
 
