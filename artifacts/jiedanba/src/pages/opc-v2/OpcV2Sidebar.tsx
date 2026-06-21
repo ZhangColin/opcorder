@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutGrid, Search, FileText, Package, Wallet, Wrench, LogOut, X, ChevronRight,
+  LayoutGrid, Search, FileText, Package, Wallet, Wrench, LogOut, X, ChevronRight, PackageCheck,
 } from "lucide-react";
 import { SiteLogo } from "@/components/SiteLogo";
 import { clearSession } from "@/lib/auth";
@@ -70,8 +70,9 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
         <SidebarLink icon={Search}     label="需求大厅"  href="/opc/demand-hall"  active={isActive("/opc/demand-hall")} onClick={close} />
         <SidebarLink icon={FileText}   label="我的投标"  href="/opc/tenders"      active={isActive("/opc/tenders")}     onClick={close} />
         <SidebarLink icon={Package}    label="我的订单"  href="/opc/orders"       active={isActive("/opc/orders")}      onClick={close} />
-        <SidebarLink icon={Wallet}     label="我的收款"  href="/opc/income"       active={isActive("/opc/income")}      onClick={close} />
-        <SidebarLink icon={Wrench}     label="工单"      href="/opc/tickets"      active={isActive("/opc/tickets")}     onClick={close} />
+        <SidebarLink icon={Wallet}        label="我的收款"  href="/opc/income"      active={isActive("/opc/income")}       onClick={close} />
+        <SidebarLink icon={PackageCheck} label="交付管理"  href="/opc/deliveries"  active={isActive("/opc/deliveries")}  onClick={close} />
+        <SidebarLink icon={Wrench}        label="工单"      href="/opc/tickets"    active={isActive("/opc/tickets")}     onClick={close} />
       </nav>
 
       <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5">

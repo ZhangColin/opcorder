@@ -74,6 +74,7 @@ import OpcV2TenderDetail from "@/pages/opc-v2/OpcV2TenderDetail";
 import OpcV2OrderList from "@/pages/opc-v2/OpcV2OrderList";
 import OpcV2OrderDetail from "@/pages/opc-v2/OpcV2OrderDetail";
 import OpcV2IncomeList from "@/pages/opc-v2/OpcV2IncomeList";
+import OpcV2DeliveryList from "@/pages/opc-v2/OpcV2DeliveryList";
 import OpcV2TicketList from "@/pages/opc-v2/OpcV2TicketList";
 import OpcV2TicketDetail from "@/pages/opc-v2/OpcV2TicketDetail";
 import OpcV2IncomeDetail from "@/pages/opc-v2/OpcV2IncomeDetail";
@@ -433,6 +434,9 @@ function Router() {
       </Route>
       <Route path="/opc/income">
         {() => <OpcGate><OpcV2IncomeList /></OpcGate>}
+      </Route>
+      <Route path="/opc/deliveries">
+        {() => <OpcGate><OpcV2DeliveryList /></OpcGate>}
       </Route>
       <Route path="/opc/tickets/:id">
         {() => <OpcGate><OpcV2TicketDetail /></OpcGate>}
