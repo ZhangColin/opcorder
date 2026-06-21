@@ -1,11 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
-  db, v2ClientDemandsTable, v2ClientDemandVersionsTable, v2DiscussionPostsTable, notificationsTable, usersTable,
+  db, v2ClientDemandsTable, v2ClientDemandVersionsTable, v2ContractsTable, v2DiscussionPostsTable, notificationsTable, usersTable,
 } from "@workspace/db";
 import { eq, and, desc, count, ilike, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
-import { notify, genClientDemandNo } from "./utils";
+import { notify, genClientDemandNo, genContractNo } from "./utils";
 import { logger } from "../../lib/logger";
 
 const router: IRouter = Router();
@@ -338,10 +338,19 @@ router.post("/client-demands/:id/confirm-quote", requireAuth, async (req: Reques
       .where(eq(v2ClientDemandsTable.id, id))
       .returning();
 
+    // 自动创建草稿合同，供运营方填写内容后定稿
+    const contractNo = await genContractNo("a");
+    await db.insert(v2ContractsTable).values({
+      contractNo,
+      channel: "a",
+      clientDemandId: id,
+      status: "draft",
+    });
+
     const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
     for (const admin of admins) {
       await notify(admin.id, "v2_quote_confirmed", "发单方已确认报价",
-        `发单方已确认需求「${demand.title}」的报价，请安排签约。`, id, "v2_client_demand");
+        `发单方已确认需求「${demand.title}」的报价，草稿合同已自动创建，请填写合同内容并定稿。`, id, "v2_client_demand");
     }
 
     return res.json(updated);
