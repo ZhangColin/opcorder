@@ -93,7 +93,8 @@ const queryClient = new QueryClient({
   },
 });
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const API_BASE = "";
+const ROUTER_BASE = (import.meta.env.VITE_ROUTER_BASE as string | undefined) ?? "";
 
 /* Send the JWT access token with every API request; auto-refresh when near expiry */
 setAuthTokenGetter(() => getValidAccessToken(API_BASE));
@@ -105,12 +106,11 @@ const PUBLIC_PAGES = ["/community", "/academy"];
 setOn401Handler(async () => {
   const newToken = await refreshAccessToken(API_BASE);
   if (!newToken) {
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    const path = window.location.pathname.slice(base.length) || "/";
+    const path = window.location.pathname.slice(ROUTER_BASE.length) || "/";
     const isPublicPage = PUBLIC_PAGES.some(p => path === p || path.startsWith(p + "/"));
     if (!isPublicPage) {
       clearSession();
-      window.location.href = base + "/login";
+      window.location.href = ROUTER_BASE + "/login";
     }
   }
   return newToken;
@@ -202,7 +202,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
  */
 function SessionWatcher() {
   useEffect(() => {
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     let checking = false;
 
     const check = async () => {
@@ -215,7 +214,7 @@ function SessionWatcher() {
         const token = await getValidAccessToken(API_BASE);
         if (!token) {
           clearSession();
-          window.location.href = base + "/login";
+          window.location.href = ROUTER_BASE + "/login";
         }
       } finally {
         checking = false;
@@ -485,7 +484,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <SessionWatcher />
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <WouterRouter base={ROUTER_BASE}>
           <SiteFaviconUpdater />
           <Router />
         </WouterRouter>
