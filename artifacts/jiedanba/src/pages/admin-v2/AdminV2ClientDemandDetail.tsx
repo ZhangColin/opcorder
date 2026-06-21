@@ -403,7 +403,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canCreatePayment = ["pending_contract", "executing", "warranty", "completed"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = !["completed", "closed"].includes(demand.status);
-  const canCreateContract = ["pending_contract", "negotiating", "quoting"].includes(demand.status);
+  const canCreateContract = !["completed", "closed"].includes(demand.status);
 
   const InlinePanel = ({
     title, color = "bg-slate-50 border-slate-200", children,
@@ -770,37 +770,54 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         </Section>
 
         {/* ── 合同 ── */}
-        {contracts.length > 0 && (
-          <Section title={`合同（${contracts.length} 份）`} icon={FileText}>
-            <div className="space-y-2">
-              {contracts.map(c => {
-                const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
-                  draft:                     { label: "草稿",       color: "bg-slate-100 text-slate-500" },
-                  pending_publisher_confirm: { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
-                  publisher_rejected:        { label: "已退回",      color: "bg-red-100 text-red-600" },
-                  pending_sign:              { label: "待签约",      color: "bg-orange-100 text-orange-700" },
-                  signed:                    { label: "已签约",      color: "bg-green-100 text-green-700" },
-                };
-                const cs = CONTRACT_STATUS[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
-                return (
-                  <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
-                      <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
-                      <a href={`/admin/v2/contracts-a/${c.id}`}
-                        className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
-                        查看详情
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Section>
-        )}
+        {(() => {
+          const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
+            draft:                     { label: "草稿",       color: "bg-slate-100 text-slate-500" },
+            pending_publisher_confirm: { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
+            publisher_rejected:        { label: "已退回",      color: "bg-red-100 text-red-600" },
+            pending_sign:              { label: "待签约",      color: "bg-orange-100 text-orange-700" },
+            signed:                    { label: "已签约",      color: "bg-green-100 text-green-700" },
+          };
+          return (
+            <Section title={contracts.length > 0 ? `合同（${contracts.length} 份）` : "合同"} icon={FileText}>
+              {contracts.length > 0 ? (
+                <div className="space-y-2">
+                  {contracts.map(c => {
+                    const cs = CONTRACT_STATUS[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
+                    return (
+                      <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
+                          <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
+                          <a href={`/admin/v2/contracts-a/${c.id}`}
+                            className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
+                            查看详情
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-400">
+                  <FileText size={22} className="mx-auto mb-2 text-slate-300" />
+                  <p className="text-sm mb-3">暂无合同</p>
+                  {canCreateContract && (
+                    <button
+                      onClick={() => setActivePanel(prev => prev === "contract" ? null : "contract")}
+                      className="text-xs font-bold text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-xl px-3 py-1.5 transition-colors"
+                    >
+                      + 创建合同
+                    </button>
+                  )}
+                </div>
+              )}
+            </Section>
+          );
+        })()}
 
         {/* ── 收款计划 ── */}
         {payments.length > 0 && (
