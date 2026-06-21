@@ -17,6 +17,7 @@ export const v2DeliverablesATable = pgTable("v2_deliverables_a", {
   id: serial("id").primaryKey(),
   clientDemandId: integer("client_demand_id").notNull().references(() => v2ClientDemandsTable.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 200 }).notNull(),
+  url: text("url"),
   content: text("content"),
   attachments: jsonb("attachments").$type<Array<{ name: string; url: string; size?: number }>>().notNull().default([]),
   status: v2DeliverableStatusEnum("status").notNull().default("pending"),

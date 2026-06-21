@@ -2091,5 +2091,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 032o: added opc_signed_file_url column to v2_contracts");
   });
 
+  // Migration 032p: add url column to v2_deliverables_a
+  await once("032p", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_deliverables_a ADD COLUMN IF NOT EXISTS url text
+    `);
+    logger.info("Migration 032p: added url column to v2_deliverables_a");
+  });
+
   logger.info("Startup data migrations complete.");
 }

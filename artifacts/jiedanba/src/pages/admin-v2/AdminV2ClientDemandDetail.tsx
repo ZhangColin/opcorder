@@ -3,6 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
+  Link2, Paperclip, Plus, RotateCcw,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -75,8 +76,14 @@ interface PaymentPlan {
 interface Deliverable {
   id: number;
   title: string;
-  description: string | null;
+  url: string | null;
+  content: string | null;
+  attachments: Array<{ name: string; url: string }>;
   status: string;
+  createdByNickname: string | null;
+  confirmedAt: string | null;
+  rejectedAt: string | null;
+  rejectedReason: string | null;
   createdAt: string;
 }
 
@@ -199,9 +206,23 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
   const [quoteNote, setQuoteNote] = useState("");
 
+  // Tab
+  const [activeTab, setActiveTab] = useState<"detail" | "delivery">("detail");
+
   // Deliverable form
   const [delivTitle, setDelivTitle] = useState("");
   const [delivDesc, setDelivDesc] = useState("");
+  const [delivUrl, setDelivUrl] = useState("");
+  const [delivAttachments, setDelivAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [delivAttachUploading, setDelivAttachUploading] = useState(false);
+
+  // Deliverable expand / resubmit
+  const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
+  const [resubmitId, setResubmitId] = useState<number | null>(null);
+  const [resubmitUrl, setResubmitUrl] = useState("");
+  const [resubmitContent, setResubmitContent] = useState("");
+  const [resubmitAttachments, setResubmitAttachments] = useState<Array<{ name: string; url: string }>>([]);
+  const [resubmitAttachUploading, setResubmitAttachUploading] = useState(false);
 
   // Close form
   const [closeReason, setCloseReason] = useState("");
@@ -333,9 +354,58 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
   const handleCreateDeliverable = () => act(async () => {
     if (!delivTitle.trim()) throw new Error("请填写交付标题");
-    await v2Post("/deliverables-a", { clientDemandId: id, title: delivTitle.trim(), description: delivDesc.trim() || null });
-    setDelivTitle(""); setDelivDesc("");
+    await v2Post("/deliverables-a", {
+      clientDemandId: id,
+      title: delivTitle.trim(),
+      url: delivUrl.trim() || null,
+      content: delivDesc.trim() || null,
+      attachments: delivAttachments,
+    });
+    setDelivTitle(""); setDelivDesc(""); setDelivUrl(""); setDelivAttachments([]);
+    setActivePanel(null);
+    await load();
   }, "交付记录已创建");
+
+  const handleDelivAttachUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDelivAttachUploading(true);
+    try {
+      const fileUrl = await uploadFile(file);
+      setDelivAttachments(prev => [...prev, { name: file.name, url: fileUrl }]);
+    } catch (err: any) {
+      toast({ title: "上传失败", description: err.message, variant: "destructive" });
+    } finally {
+      setDelivAttachUploading(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
+  const handleResubmit = () => act(async () => {
+    if (!resubmitId) return;
+    await v2Post(`/deliverables-a/${resubmitId}/resubmit`, {
+      url: resubmitUrl.trim() || null,
+      content: resubmitContent.trim() || null,
+      attachments: resubmitAttachments,
+    });
+    setResubmitId(null); setResubmitUrl(""); setResubmitContent(""); setResubmitAttachments([]);
+    await load();
+  }, "已重新提交交付记录");
+
+  const handleResubmitAttachUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setResubmitAttachUploading(true);
+    try {
+      const fileUrl = await uploadFile(file);
+      setResubmitAttachments(prev => [...prev, { name: file.name, url: fileUrl }]);
+    } catch (err: any) {
+      toast({ title: "上传失败", description: err.message, variant: "destructive" });
+    } finally {
+      setResubmitAttachUploading(false);
+      if (e.target) e.target.value = "";
+    }
+  };
 
   const handleClose = () => act(async () => {
     if (!closeReason.trim()) throw new Error("请填写关闭原因");
@@ -432,14 +502,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
             </button>
           )}
-          {canCreateDeliverable && (
-            <button
-              onClick={() => setActivePanel(prev => prev === "deliverable" ? null : "deliverable")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "deliverable" ? "bg-teal-600 text-white border-teal-600" : "border-teal-300 text-teal-700 hover:bg-teal-50"}`}
-            >
-              <CheckCircle2 size={13} /> 交付记录
-            </button>
-          )}
           {canClose && (
             <button
               onClick={() => setActivePanel(prev => prev === "close" ? null : "close")}
@@ -449,6 +511,34 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </button>
           )}
         </div>
+
+        {/* ── Tab 导航 ── */}
+        <div className="flex gap-1 bg-white rounded-2xl border border-slate-100 p-1">
+          {(["detail", "delivery"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
+                activeTab === tab
+                  ? "bg-primary text-white"
+                  : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              {tab === "detail" ? "需求详情" : (
+                <>
+                  交付
+                  {deliverables.length > 0 && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === "delivery" ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
+                      {deliverables.length}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "detail" && <>
 
         {/* ── 基本信息卡 ── */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
@@ -561,30 +651,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                 className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
                 {acting ? "关闭中…" : "确认关闭"}
               </button>
-            </div>
-          </InlinePanel>
-        )}
-
-        {activePanel === "deliverable" && (
-          <InlinePanel title="创建交付记录" color="bg-teal-50 border-teal-200">
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">交付标题</label>
-                <input value={delivTitle} onChange={e => setDelivTitle(e.target.value)} placeholder="本次交付内容"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">说明（可选）</label>
-                <textarea value={delivDesc} onChange={e => setDelivDesc(e.target.value)} rows={3} placeholder="补充说明"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none" />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-                <button onClick={handleCreateDeliverable} disabled={acting}
-                  className="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50">
-                  {acting ? "创建中…" : "创建"}
-                </button>
-              </div>
             </div>
           </InlinePanel>
         )}
@@ -753,26 +819,205 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           </Section>
         )}
 
-        {/* ── 交付记录 ── */}
-        {deliverables.length > 0 && (
-          <Section title={`交付记录（${deliverables.length} 项）`} icon={CheckCircle2}>
-            <div className="space-y-2">
-              {deliverables.map(d => (
-                <div key={d.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">{d.title}</p>
-                    {d.description && <p className="text-xs text-slate-400">{d.description}</p>}
-                  </div>
-                  <DelivStatusBadge status={d.status} />
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
         <Section title="沟通讨论" icon={FileText}>
           <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" onAfterPost={() => markRead("client", id)} />
         </Section>
+
+        </>}
+
+        {/* ── 交付 Tab ── */}
+        {activeTab === "delivery" && (
+          <div className="space-y-4">
+            {/* 新建按钮 + 内联表单 */}
+            {canCreateDeliverable && (
+              activePanel === "deliverable" ? (
+                <div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-teal-800">新建交付记录</span>
+                    <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1 block">交付标题 *</label>
+                    <input value={delivTitle} onChange={e => setDelivTitle(e.target.value)} placeholder="本次交付内容简述"
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 bg-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1 block">交付链接（可选）</label>
+                    <input value={delivUrl} onChange={e => setDelivUrl(e.target.value)} placeholder="https://…"
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 bg-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1 block">说明（可选）</label>
+                    <textarea value={delivDesc} onChange={e => setDelivDesc(e.target.value)} rows={3} placeholder="补充说明"
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none bg-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 mb-1 block">附件</label>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <label className="flex items-center gap-1 text-xs text-teal-700 cursor-pointer hover:underline">
+                        {delivAttachUploading ? <Loader2 size={12} className="animate-spin" /> : <><Paperclip size={12} /> 上传附件</>}
+                        <input type="file" className="hidden" onChange={handleDelivAttachUpload} disabled={delivAttachUploading} />
+                      </label>
+                      {delivAttachments.map((a, i) => (
+                        <div key={i} className="flex items-center gap-1 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                          {a.name}
+                          <button onClick={() => setDelivAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500 ml-1">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                    <button onClick={handleCreateDeliverable} disabled={acting}
+                      className="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50">
+                      {acting ? "创建中…" : "创建交付"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => { setActivePanel("deliverable"); setDelivTitle(""); setDelivUrl(""); setDelivDesc(""); setDelivAttachments([]); }}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl border border-teal-300 text-teal-700 hover:bg-teal-50 transition-colors"
+                  >
+                    <Plus size={14} /> 新建交付记录
+                  </button>
+                </div>
+              )
+            )}
+
+            {/* 空态 */}
+            {deliverables.length === 0 && (
+              <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center">
+                <CheckCircle2 size={32} className="mx-auto mb-3 text-slate-200" />
+                <p className="text-sm text-slate-400">暂无交付记录</p>
+                {canCreateDeliverable && <p className="text-xs text-slate-300 mt-1">点击右上角「新建交付记录」开始提交</p>}
+              </div>
+            )}
+
+            {/* 交付卡片列表 */}
+            {deliverables.map(d => {
+              const isExpanded = expandedDelivId === d.id;
+              const isResubmitting = resubmitId === d.id;
+              const statusCfg: Record<string, { label: string; color: string }> = {
+                pending:   { label: "待确认", color: "bg-amber-100 text-amber-700" },
+                confirmed: { label: "已确认", color: "bg-green-100 text-green-700" },
+                revision:  { label: "已驳回", color: "bg-red-100 text-red-600" },
+                approved:  { label: "已通过", color: "bg-emerald-100 text-emerald-700" },
+              };
+              const sc = statusCfg[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
+              return (
+                <div key={d.id} className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                  {/* Card header */}
+                  <button
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                    onClick={() => setExpandedDelivId(isExpanded ? null : d.id)}
+                  >
+                    <CheckCircle2 size={16} className="text-teal-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{d.title}</p>
+                      <p className="text-xs text-slate-400">{d.createdByNickname ?? "运营方"} · {new Date(d.createdAt).toLocaleDateString("zh-CN")}</p>
+                    </div>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${sc.color}`}>{sc.label}</span>
+                    {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
+                  </button>
+
+                  {/* Expanded body */}
+                  {isExpanded && (
+                    <div className="px-5 pb-5 space-y-4 border-t border-slate-50">
+                      {/* URL */}
+                      {d.url && (
+                        <div className="pt-4 flex items-center gap-2">
+                          <Link2 size={13} className="text-primary shrink-0" />
+                          <a href={d.url} target="_blank" rel="noreferrer"
+                            className="text-sm text-primary hover:underline break-all">{d.url}</a>
+                        </div>
+                      )}
+                      {/* Content */}
+                      {d.content && (
+                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{d.content}</p>
+                      )}
+                      {/* Attachments */}
+                      {d.attachments?.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {d.attachments.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
+                              <Paperclip size={11} /> {a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {/* Rejected reason */}
+                      {d.status === "revision" && d.rejectedReason && (
+                        <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                          <p className="text-xs font-bold text-red-600 mb-1">驳回原因</p>
+                          <p className="text-xs text-red-500">{d.rejectedReason}</p>
+                        </div>
+                      )}
+                      {/* Resubmit form */}
+                      {d.status === "revision" && !isResubmitting && (
+                        <button
+                          onClick={() => {
+                            setResubmitId(d.id);
+                            setResubmitUrl(d.url ?? "");
+                            setResubmitContent(d.content ?? "");
+                            setResubmitAttachments(d.attachments ?? []);
+                          }}
+                          className="flex items-center gap-1.5 text-xs font-bold text-amber-700 border border-amber-200 rounded-xl px-3 py-1.5 hover:bg-amber-50 transition-colors"
+                        >
+                          <RotateCcw size={12} /> 重新提交
+                        </button>
+                      )}
+                      {isResubmitting && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                          <p className="text-xs font-bold text-amber-800">修改并重新提交</p>
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">交付链接</label>
+                            <input value={resubmitUrl} onChange={e => setResubmitUrl(e.target.value)} placeholder="https://…"
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">说明</label>
+                            <textarea value={resubmitContent} onChange={e => setResubmitContent(e.target.value)} rows={3} placeholder="修改说明"
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none bg-white" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 mb-1 block">附件</label>
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <label className="flex items-center gap-1 text-xs text-amber-700 cursor-pointer hover:underline">
+                                {resubmitAttachUploading ? <Loader2 size={12} className="animate-spin" /> : <><Paperclip size={12} /> 上传附件</>}
+                                <input type="file" className="hidden" onChange={handleResubmitAttachUpload} disabled={resubmitAttachUploading} />
+                              </label>
+                              {resubmitAttachments.map((a, i) => (
+                                <div key={i} className="flex items-center gap-1 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                                  {a.name}
+                                  <button onClick={() => setResubmitAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500 ml-1">✕</button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => setResubmitId(null)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                            <button onClick={handleResubmit} disabled={acting}
+                              className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 disabled:opacity-50">
+                              {acting ? "提交中…" : "重新提交"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {/* Discussion thread */}
+                      <div className="border-t border-slate-50 pt-4">
+                        <p className="text-xs font-bold text-slate-500 mb-3">交付讨论</p>
+                        <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或备注…" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       </div>
 

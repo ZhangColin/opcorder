@@ -3,6 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, Zap, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp,
   FileText, FileSignature, CreditCard, Wrench, ExternalLink, Plus, History, Edit2, X,
+  Link2, Paperclip,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -74,9 +75,11 @@ interface PaymentPlan {
 interface DeliverableA {
   id: number;
   title: string;
+  url: string | null;
   content: string | null;
   attachments: Array<{ name: string; url: string }>;
   status: string;
+  createdByNickname: string | null;
   confirmedAt: string | null;
   rejectedAt: string | null;
   rejectedReason: string | null;
@@ -196,6 +199,10 @@ export default function PubDemandDetail() {
   /* Deliverable reject */
   const [rejectDelivId, setRejectDelivId] = useState<number | null>(null);
   const [rejectDelivReason, setRejectDelivReason] = useState("");
+
+  /* Tab / deliverable expand */
+  const [activeTab, setActiveTab] = useState<"detail" | "delivery">("detail");
+  const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (demandId <= 0) return;
@@ -484,6 +491,32 @@ export default function PubDemandDetail() {
             </div>
           )}
         </div>
+
+        {/* ── Tab 导航 ── */}
+        <div className="flex gap-1 bg-white rounded-2xl border border-slate-200 p-1">
+          {(["detail", "delivery"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
+                activeTab === tab ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              {tab === "detail" ? "需求详情" : (
+                <>
+                  交付
+                  {deliverables.length > 0 && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === "delivery" ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
+                      {deliverables.length}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "detail" && <>
 
         {/* ── Pending contract confirm banner ── */}
         {pendingContractConfirm && (
@@ -866,6 +899,106 @@ export default function PubDemandDetail() {
             </div>
           </Section>
         )}
+        </>}
+
+        {/* ── 交付 Tab ── */}
+        {activeTab === "delivery" && (
+          <div className="space-y-4">
+            {/* 空态 */}
+            {deliverables.length === 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+                <CheckCircle2 size={32} className="mx-auto mb-3 text-slate-200" />
+                <p className="text-sm text-slate-400">暂无交付记录</p>
+                <p className="text-xs text-slate-300 mt-1">运营方提交交付后，您可以在这里查看并确认</p>
+              </div>
+            )}
+
+            {/* 交付卡片列表 */}
+            {deliverables.map(d => {
+              const isExpanded = expandedDelivId === d.id;
+              const cfg = DELIVERABLE_STATUS[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
+              return (
+                <div key={d.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  {/* Card header */}
+                  <button
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                    onClick={() => setExpandedDelivId(isExpanded ? null : d.id)}
+                  >
+                    <CheckCircle2 size={16} className="text-teal-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{d.title}</p>
+                      <p className="text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</p>
+                    </div>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${cfg.color}`}>{cfg.label}</span>
+                    {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
+                  </button>
+
+                  {/* Expanded body */}
+                  {isExpanded && (
+                    <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
+                      {/* URL */}
+                      {d.url && (
+                        <div className="pt-4 flex items-center gap-2">
+                          <Link2 size={13} className="text-primary shrink-0" />
+                          <a href={d.url} target="_blank" rel="noreferrer"
+                            className="text-sm text-primary hover:underline break-all">{d.url}</a>
+                        </div>
+                      )}
+                      {/* Content */}
+                      {d.content && (
+                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{d.content}</p>
+                      )}
+                      {/* Attachments */}
+                      {d.attachments?.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {d.attachments.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
+                              <Paperclip size={11} /> {a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {/* Rejected reason */}
+                      {d.status === "revision" && d.rejectedReason && (
+                        <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                          <p className="text-xs font-bold text-red-600 mb-1">驳回原因</p>
+                          <p className="text-xs text-red-500">{d.rejectedReason}</p>
+                        </div>
+                      )}
+                      {/* Confirm / Reject actions */}
+                      {d.status === "pending" && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => handleConfirmDelivery(d.id)}
+                            disabled={acting}
+                            className="flex items-center gap-1.5 bg-green-600 text-white rounded-xl px-4 py-2 text-xs font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
+                          >
+                            {acting ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                            确认交付
+                          </button>
+                          <button
+                            onClick={() => setRejectDelivId(d.id)}
+                            disabled={acting}
+                            className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 rounded-xl px-4 py-2 text-xs font-bold hover:bg-red-50 disabled:opacity-50 transition-colors"
+                          >
+                            <XCircle size={12} /> 驳回
+                          </button>
+                        </div>
+                      )}
+                      {/* Discussion thread */}
+                      <div className="border-t border-slate-100 pt-4">
+                        <p className="text-xs font-bold text-slate-500 mb-3">交付讨论</p>
+                        <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或留言…" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
       </div>
 
       {/* ── Comment quote modal ── */}

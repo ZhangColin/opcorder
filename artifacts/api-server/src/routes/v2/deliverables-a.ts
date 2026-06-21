@@ -34,6 +34,7 @@ router.get("/deliverables-a", requireAuth, async (req: Request, res: Response) =
         id: v2DeliverablesATable.id,
         clientDemandId: v2DeliverablesATable.clientDemandId,
         title: v2DeliverablesATable.title,
+        url: v2DeliverablesATable.url,
         content: v2DeliverablesATable.content,
         attachments: v2DeliverablesATable.attachments,
         status: v2DeliverablesATable.status,
@@ -59,8 +60,8 @@ router.get("/deliverables-a", requireAuth, async (req: Request, res: Response) =
 router.post("/deliverables-a", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { clientDemandId, title, content, attachments } = req.body as {
-      clientDemandId: number; title: string; content?: string; attachments?: any[];
+    const { clientDemandId, title, url, content, attachments } = req.body as {
+      clientDemandId: number; title: string; url?: string; content?: string; attachments?: any[];
     };
     if (!clientDemandId || !title?.trim()) return res.status(400).json({ error: "clientDemandId 和 title 必填" });
 
@@ -72,6 +73,7 @@ router.post("/deliverables-a", requireAdmin, async (req: Request, res: Response)
     const [created] = await db.insert(v2DeliverablesATable).values({
       clientDemandId,
       title: title.trim(),
+      url: url?.trim() || null,
       content,
       attachments: attachments ?? [],
       status: "pending",
@@ -161,9 +163,10 @@ router.post("/deliverables-a/:id/resubmit", requireAdmin, async (req: Request, r
     if (!deliverable) return res.status(404).json({ error: "交付记录不存在" });
     if (deliverable.status !== "revision") return res.status(400).json({ error: "非驳回状态，无法重新提交" });
 
-    const { title, content, attachments } = req.body as { title?: string; content?: string; attachments?: any[] };
+    const { title, url, content, attachments } = req.body as { title?: string; url?: string; content?: string; attachments?: any[] };
     const updates: any = { status: "pending", updatedAt: new Date() };
     if (title) updates.title = title;
+    if (url !== undefined) updates.url = url?.trim() || null;
     if (content !== undefined) updates.content = content;
     if (attachments) updates.attachments = attachments;
 
