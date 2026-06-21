@@ -3,3 +3,4 @@
 - [Seed version gate pattern](seed-version-gate.md) — version check in seed.ts must match the CURRENT version tag in code, or it fires on every restart.
 - [Agent form field type contract](agent-form-field-contract.md) — bidDeadline input must be type="date"; tool returns YYYY-MM-DD; datetime-local silently rejects bare dates.
 - [Agent accumulator cross-turn](agent-accumulator-cross-turn.md) — pre-populate accumulated{} from historyMessages before ReAct loop; validate_timeline may run in a prior turn.
+- [Replit proxy base path](replit-proxy-base-path.md) — vite base MUST be hardcoded "/jiedanba/"; using "/" causes white screen because external proxy only routes /jiedanba/* to artifact.
