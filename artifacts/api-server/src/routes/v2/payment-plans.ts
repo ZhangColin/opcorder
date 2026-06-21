@@ -208,7 +208,7 @@ router.post("/payment-plans/:id/create-online-payment", requireAuth, async (req:
     const businessOrderNo = `v2pp-${id}-${Date.now()}`;
     const order = await createPaymentOrder({
       businessOrderNo,
-      amount: plan.amount,
+      amount: Math.round(plan.amount * 100),
       subject: `接单吧 · ${demandTitle} 第${plan.itemNo}期`,
       businessName: "接单吧",
       notifyUrl: NOTIFY_URL,
