@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign, Edit2, Send } from "lucide-react";
+import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign, Edit2, Send, ChevronDown, ChevronUp, Zap, Calendar, User } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
@@ -25,6 +25,20 @@ interface Contract {
   updatedAt: string;
 }
 
+interface Demand {
+  id: number;
+  demandNo: string;
+  title: string;
+  demandType: string | null;
+  isUrgent: boolean;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  hopeDeliveryDate: string | null;
+  status: string;
+  publisherNickname: string | null;
+  latestVersion: { detail: string; attachments: Array<{ name: string; url: string }> } | null;
+}
+
 interface PaymentPlan {
   id: number;
   itemNo: number;
@@ -34,6 +48,17 @@ interface PaymentPlan {
   status: string;
   contractId: number | null;
 }
+
+const DEMAND_STATUS: Record<string, { label: string; color: string }> = {
+  draft:            { label: "草稿",   color: "bg-slate-100 text-slate-500" },
+  negotiating:      { label: "洽谈中", color: "bg-blue-100 text-blue-700" },
+  quoting:          { label: "报价中", color: "bg-violet-100 text-violet-700" },
+  pending_contract: { label: "待合同", color: "bg-amber-100 text-amber-700" },
+  executing:        { label: "执行中", color: "bg-emerald-100 text-emerald-700" },
+  warranty:         { label: "质保期", color: "bg-teal-100 text-teal-700" },
+  completed:        { label: "已完成", color: "bg-green-100 text-green-700" },
+  closed:           { label: "已关闭", color: "bg-red-100 text-red-600" },
+};
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:                      { label: "草稿",       color: "bg-slate-100 text-slate-500" },
@@ -68,9 +93,11 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   const { toast } = useToast();
 
   const [contract, setContract] = useState<Contract | null>(null);
+  const [demand, setDemand] = useState<Demand | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
+  const [showDemandDetail, setShowDemandDetail] = useState(false);
 
   // 编辑正文面板
   const [showEditPanel, setShowEditPanel] = useState(false);
@@ -95,8 +122,12 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
       setContract(d);
       markRead("contract", id);
       if (d.clientDemandId) {
-        const ps = await v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${d.clientDemandId}&contractId=${id}`).catch(() => [] as PaymentPlan[]);
+        const [ps, dem] = await Promise.all([
+          v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${d.clientDemandId}&contractId=${id}`).catch(() => [] as PaymentPlan[]),
+          v2Get<Demand>(`/client-demands/${d.clientDemandId}`).catch(() => null),
+        ]);
         setPlans(Array.isArray(ps) ? ps : []);
+        setDemand(dem);
       }
     } catch {
       setContract(null);
@@ -255,6 +286,93 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
             </div>
           </div>
         </div>
+
+        {/* ── 关联需求信息 ── */}
+        {demand && (() => {
+          const ds = DEMAND_STATUS[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
+          return (
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                  <FileText size={14} className="text-slate-400" /> 关联需求
+                </h3>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ds.color}`}>{ds.label}</span>
+              </div>
+
+              {/* 基本信息网格 */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-3">
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">需求编号</p>
+                  <p className="text-xs font-mono text-slate-600">{demand.demandNo}</p>
+                </div>
+                {demand.demandType && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">需求类型</p>
+                    <p className="text-xs text-slate-700">{demand.demandType}</p>
+                  </div>
+                )}
+                {(demand.budgetMin != null || demand.budgetMax != null) && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
+                    <p className="text-xs font-semibold text-slate-700">
+                      {demand.budgetMin != null ? `¥${Number(demand.budgetMin).toLocaleString()}` : "—"}
+                      {" ~ "}
+                      {demand.budgetMax != null ? `¥${Number(demand.budgetMax).toLocaleString()}` : "—"}
+                    </p>
+                  </div>
+                )}
+                {demand.hopeDeliveryDate && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><Calendar size={11} /> 期望交付</p>
+                    <p className="text-xs text-slate-700">{new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}</p>
+                  </div>
+                )}
+                {demand.publisherNickname && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><User size={11} /> 发单方</p>
+                    <p className="text-xs text-slate-700">{demand.publisherNickname}</p>
+                  </div>
+                )}
+                {demand.isUrgent && (
+                  <div className="flex items-center gap-1 col-span-2">
+                    <Zap size={12} className="text-orange-500" />
+                    <span className="text-xs font-bold text-orange-600">加急需求</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 需求详情折叠 */}
+              {demand.latestVersion?.detail && (
+                <div className="border-t border-slate-50 pt-3">
+                  <button
+                    onClick={() => setShowDemandDetail(v => !v)}
+                    className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {showDemandDetail ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    {showDemandDetail ? "收起需求详情" : "展开需求详情"}
+                  </button>
+                  {showDemandDetail && (
+                    <div className="mt-3 prose prose-sm max-w-none">
+                      <MarkdownContent content={demand.latestVersion.detail} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 附件 */}
+              {demand.latestVersion?.attachments?.length > 0 && (
+                <div className="mt-3 border-t border-slate-50 pt-3 flex flex-wrap gap-2">
+                  {demand.latestVersion.attachments.map((att, i) => (
+                    <a key={i} href={att.url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-700 border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded-xl px-2.5 py-1 transition-colors">
+                      <ExternalLink size={11} /> {att.name}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── 编辑正文面板 ── */}
         {showEditPanel && canEdit && (
