@@ -17,6 +17,8 @@ import AdminV2ContractAList from "@/pages/admin-v2/AdminV2ContractAList";
 import AdminV2ContractADetail from "@/pages/admin-v2/AdminV2ContractADetail";
 import AdminV2PaymentAList from "@/pages/admin-v2/AdminV2PaymentAList";
 import AdminV2PaymentADetail from "@/pages/admin-v2/AdminV2PaymentADetail";
+import AdminV2DeliveryAList from "@/pages/admin-v2/AdminV2DeliveryAList";
+import AdminV2DeliveryBList from "@/pages/admin-v2/AdminV2DeliveryBList";
 import AdminV2TicketAList from "@/pages/admin-v2/AdminV2TicketAList";
 import AdminV2TicketADetail from "@/pages/admin-v2/AdminV2TicketADetail";
 import AdminV2OutsourceDemandList from "@/pages/admin-v2/AdminV2OutsourceDemandList";
@@ -280,6 +282,9 @@ function Router() {
       <Route path="/admin/v2/payments-a">
         {() => <AdminGate><AdminV2PaymentAList /></AdminGate>}
       </Route>
+      <Route path="/admin/v2/deliveries-a">
+        {() => <AdminGate><AdminV2DeliveryAList /></AdminGate>}
+      </Route>
       <Route path="/admin/v2/tickets-a/:id">
         {() => <AdminGate><AdminV2TicketADetail /></AdminGate>}
       </Route>
@@ -312,6 +317,9 @@ function Router() {
       </Route>
       <Route path="/admin/v2/payments-b">
         {() => <AdminGate><AdminV2PaymentBList /></AdminGate>}
+      </Route>
+      <Route path="/admin/v2/deliveries-b">
+        {() => <AdminGate><AdminV2DeliveryBList /></AdminGate>}
       </Route>
       <Route path="/admin/v2/tickets-b/:id">
         {() => <AdminGate><AdminV2TicketBDetail /></AdminGate>}

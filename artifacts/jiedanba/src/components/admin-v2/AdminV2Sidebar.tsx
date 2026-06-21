@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import {
   FileText, FileSignature, CreditCard, Wrench,
   LogOut, X, ChevronRight, Package, Users2, Boxes,
-  Wallet, LayoutGrid, Network, Gavel,
+  Wallet, LayoutGrid, Network, Gavel, PackageCheck,
 } from "lucide-react";
 import { SiteLogo } from "@/components/SiteLogo";
 import { useEffect } from "react";
@@ -82,9 +82,11 @@ export function AdminV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: 
           active={isActive("/admin/v2/client-demands")} onClick={close} />
         <SidebarLink icon={FileSignature} label="合同 (A)"   href="/admin/v2/contracts-a"
           active={isActive("/admin/v2/contracts-a")} onClick={close} />
-        <SidebarLink icon={CreditCard}    label="收款 (A)"   href="/admin/v2/payments-a"
+        <SidebarLink icon={CreditCard}    label="收款 (A)"      href="/admin/v2/payments-a"
           active={isActive("/admin/v2/payments-a")} onClick={close} />
-        <SidebarLink icon={Wrench}        label="工单 (A)"   href="/admin/v2/tickets-a"
+        <SidebarLink icon={PackageCheck} label="交付 (A)"      href="/admin/v2/deliveries-a"
+          active={isActive("/admin/v2/deliveries-a")} onClick={close} />
+        <SidebarLink icon={Wrench}        label="工单 (A)"      href="/admin/v2/tickets-a"
           active={isActive("/admin/v2/tickets-a")} onClick={close} />
 
         <SectionLabel label="通道B · OPC" />
@@ -94,9 +96,11 @@ export function AdminV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: 
           active={isActive("/admin/v2/tenders")} onClick={close} />
         <SidebarLink icon={Boxes}    label="接单订单"   href="/admin/v2/outsource-orders"
           active={isActive("/admin/v2/outsource-orders")} onClick={close} />
-        <SidebarLink icon={Wallet}   label="结算付款"   href="/admin/v2/payments-b"
+        <SidebarLink icon={Wallet}       label="结算付款"      href="/admin/v2/payments-b"
           active={isActive("/admin/v2/payments-b")} onClick={close} />
-        <SidebarLink icon={Package}  label="工单 (B)"   href="/admin/v2/tickets-b"
+        <SidebarLink icon={PackageCheck} label="交付 (B)"      href="/admin/v2/deliveries-b"
+          active={isActive("/admin/v2/deliveries-b")} onClick={close} />
+        <SidebarLink icon={Package}      label="工单 (B)"      href="/admin/v2/tickets-b"
           active={isActive("/admin/v2/tickets-b")} onClick={close} />
       </nav>
 

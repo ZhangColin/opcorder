@@ -47,9 +47,11 @@ router.get("/deliverables-b", requireAuth, async (req: Request, res: Response) =
         rejectedReason: v2DeliverablesBTable.rejectedReason,
         createdAt: v2DeliverablesBTable.createdAt,
         updatedAt: v2DeliverablesBTable.updatedAt,
+        orderNo: v2OutsourceOrdersTable.orderNo,
       })
       .from(v2DeliverablesBTable)
       .leftJoin(usersTable, eq(v2DeliverablesBTable.submittedBy, usersTable.id))
+      .leftJoin(v2OutsourceOrdersTable, eq(v2DeliverablesBTable.outsourceOrderId, v2OutsourceOrdersTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(v2DeliverablesBTable.createdAt));
 

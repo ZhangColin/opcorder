@@ -44,9 +44,12 @@ router.get("/deliverables-a", requireAuth, async (req: Request, res: Response) =
         rejectedReason: v2DeliverablesATable.rejectedReason,
         createdAt: v2DeliverablesATable.createdAt,
         updatedAt: v2DeliverablesATable.updatedAt,
+        demandTitle: v2ClientDemandsTable.title,
+        demandNo: v2ClientDemandsTable.demandNo,
       })
       .from(v2DeliverablesATable)
       .leftJoin(usersTable, eq(v2DeliverablesATable.createdBy, usersTable.id))
+      .leftJoin(v2ClientDemandsTable, eq(v2DeliverablesATable.clientDemandId, v2ClientDemandsTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(v2DeliverablesATable.createdAt));
 
