@@ -10,28 +10,6 @@ import { useSiteSettings } from "@/hooks/use-site-settings";
 import { Layout } from "@/components/layout/Layout";
 import Login from "@/pages/Login";
 import Home from "@/pages/Home";
-import AdminV2Overview from "@/pages/admin-v2/AdminV2Overview";
-import AdminV2ClientDemandList from "@/pages/admin-v2/AdminV2ClientDemandList";
-import AdminV2ClientDemandDetail from "@/pages/admin-v2/AdminV2ClientDemandDetail";
-import AdminV2ContractAList from "@/pages/admin-v2/AdminV2ContractAList";
-import AdminV2ContractADetail from "@/pages/admin-v2/AdminV2ContractADetail";
-import AdminV2PaymentAList from "@/pages/admin-v2/AdminV2PaymentAList";
-import AdminV2PaymentADetail from "@/pages/admin-v2/AdminV2PaymentADetail";
-import AdminV2DeliveryAList from "@/pages/admin-v2/AdminV2DeliveryAList";
-import AdminV2DeliveryBList from "@/pages/admin-v2/AdminV2DeliveryBList";
-import AdminV2TicketAList from "@/pages/admin-v2/AdminV2TicketAList";
-import AdminV2TicketADetail from "@/pages/admin-v2/AdminV2TicketADetail";
-import AdminV2OutsourceDemandList from "@/pages/admin-v2/AdminV2OutsourceDemandList";
-import AdminV2OutsourceDemandNew from "@/pages/admin-v2/AdminV2OutsourceDemandNew";
-import AdminV2OutsourceDemandDetail from "@/pages/admin-v2/AdminV2OutsourceDemandDetail";
-import AdminV2TenderList from "@/pages/admin-v2/AdminV2TenderList";
-import AdminV2TenderDetail from "@/pages/admin-v2/AdminV2TenderDetail";
-import AdminV2OutsourceOrderList from "@/pages/admin-v2/AdminV2OutsourceOrderList";
-import AdminV2OutsourceOrderDetail from "@/pages/admin-v2/AdminV2OutsourceOrderDetail";
-import AdminV2PaymentBList from "@/pages/admin-v2/AdminV2PaymentBList";
-import AdminV2PaymentBDetail from "@/pages/admin-v2/AdminV2PaymentBDetail";
-import AdminV2TicketBList from "@/pages/admin-v2/AdminV2TicketBList";
-import AdminV2TicketBDetail from "@/pages/admin-v2/AdminV2TicketBDetail";
 import PubDemandList from "@/pages/pub/PubDemandList";
 import PubCreateDemand from "@/pages/pub/PubCreateDemand";
 import PubDemandDetail from "@/pages/pub/PubDemandDetail";
@@ -146,7 +124,7 @@ function getRole(): string | null {
 
 function roleHomePath(role: string | null): string {
   if (role === "publisher") return "/pub/demands";
-  if (role === "admin")     return "/admin/v2/overview";
+  if (role === "admin")     return "/admin";
   if (role === "opc")       return "/opc";
   return "/login";
 }
@@ -173,12 +151,6 @@ function PublisherGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** /admin/v2 直接跳转到概览页 */
-function AdminV2Redirect() {
-  const [, navigate] = useLocation();
-  useEffect(() => { navigate("/admin/v2/overview", { replace: true }); }, []);
-  return null;
-}
 
 /** 仅限管理员访问；其他角色重定向到各自首页 */
 function AdminGate({ children }: { children: React.ReactNode }) {
@@ -260,76 +232,6 @@ function Router() {
         {() => <AdminGate><Admin /></AdminGate>}
       </Route>
 
-      {/* V2 运营后台 */}
-      <Route path="/admin/v2">
-        {() => <AdminGate><AdminV2Redirect /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/overview">
-        {() => <AdminGate><AdminV2Overview /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/client-demands/:id">
-        {() => <AdminGate><AdminV2ClientDemandDetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/client-demands">
-        {() => <AdminGate><AdminV2ClientDemandList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/contracts-a/:id">
-        {() => <AdminGate><AdminV2ContractADetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/contracts-a">
-        {() => <AdminGate><AdminV2ContractAList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/payments-a/:id">
-        {() => <AdminGate><AdminV2PaymentADetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/payments-a">
-        {() => <AdminGate><AdminV2PaymentAList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/deliveries-a">
-        {() => <AdminGate><AdminV2DeliveryAList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/tickets-a/:id">
-        {() => <AdminGate><AdminV2TicketADetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/tickets-a">
-        {() => <AdminGate><AdminV2TicketAList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/outsource-demands/new">
-        {() => <AdminGate><AdminV2OutsourceDemandNew /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/outsource-demands/:id">
-        {() => <AdminGate><AdminV2OutsourceDemandDetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/outsource-demands">
-        {() => <AdminGate><AdminV2OutsourceDemandList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/tenders/:id">
-        {() => <AdminGate><AdminV2TenderDetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/tenders">
-        {() => <AdminGate><AdminV2TenderList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/outsource-orders/:id">
-        {() => <AdminGate><AdminV2OutsourceOrderDetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/outsource-orders">
-        {() => <AdminGate><AdminV2OutsourceOrderList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/payments-b/:id">
-        {() => <AdminGate><AdminV2PaymentBDetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/payments-b">
-        {() => <AdminGate><AdminV2PaymentBList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/deliveries-b">
-        {() => <AdminGate><AdminV2DeliveryBList /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/tickets-b/:id">
-        {() => <AdminGate><AdminV2TicketBDetail /></AdminGate>}
-      </Route>
-      <Route path="/admin/v2/tickets-b">
-        {() => <AdminGate><AdminV2TicketBList /></AdminGate>}
-      </Route>
 
       {/* 发单方专属路由 */}
       <Route path="/publisher">
