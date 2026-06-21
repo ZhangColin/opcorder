@@ -60,6 +60,48 @@ router.get("/deliverables-a", requireAuth, async (req: Request, res: Response) =
   }
 });
 
+router.get("/deliverables-a/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+    if (role === "opc") return res.status(403).json({ error: "OPC 无权查看此通道交付" });
+
+    const [row] = await db
+      .select({
+        id: v2DeliverablesATable.id,
+        clientDemandId: v2DeliverablesATable.clientDemandId,
+        title: v2DeliverablesATable.title,
+        url: v2DeliverablesATable.url,
+        content: v2DeliverablesATable.content,
+        attachments: v2DeliverablesATable.attachments,
+        status: v2DeliverablesATable.status,
+        createdByNickname: usersTable.nickname,
+        confirmedAt: v2DeliverablesATable.confirmedAt,
+        rejectedAt: v2DeliverablesATable.rejectedAt,
+        rejectedReason: v2DeliverablesATable.rejectedReason,
+        createdAt: v2DeliverablesATable.createdAt,
+        updatedAt: v2DeliverablesATable.updatedAt,
+        demandTitle: v2ClientDemandsTable.title,
+        demandNo: v2ClientDemandsTable.demandNo,
+        publisherId: v2ClientDemandsTable.publisherId,
+      })
+      .from(v2DeliverablesATable)
+      .leftJoin(usersTable, eq(v2DeliverablesATable.createdBy, usersTable.id))
+      .leftJoin(v2ClientDemandsTable, eq(v2DeliverablesATable.clientDemandId, v2ClientDemandsTable.id))
+      .where(eq(v2DeliverablesATable.id, id))
+      .limit(1);
+
+    if (!row) return res.status(404).json({ error: "交付记录不存在" });
+    if (role === "publisher" && row.publisherId !== userId) return res.status(403).json({ error: "无权查看" });
+
+    return res.json(row);
+  } catch (err) {
+    logger.error({ err }, "GET /v2/deliverables-a/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/deliverables-a", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
