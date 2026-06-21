@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign } from "lucide-react";
+import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign, Edit2, Send } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -72,8 +72,12 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   const [acting, setActing] = useState(false);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
 
-  const [showFinalizePanel, setShowFinalizePanel] = useState(false);
-  const [finalizeContent, setFinalizeContent] = useState("");
+  // 编辑正文面板
+  const [showEditPanel, setShowEditPanel] = useState(false);
+  const [editContent, setEditContent] = useState("");
+
+  // 定稿通知确认面板
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -116,14 +120,19 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
     }
   };
 
-  const handleFinalize = async () => {
-    if (!finalizeContent.trim()) {
-      toast({ title: "请填写合同内容", variant: "destructive" }); return;
-    }
+  // 保存正文（不改状态）
+  const handleSaveContent = async () => {
     await act(async () => {
-      await v2Post(`/contracts/${id}/finalize`, { content: finalizeContent.trim() });
-      setShowFinalizePanel(false);
-      setFinalizeContent("");
+      await v2Patch(`/contracts/${id}/content`, { content: editContent });
+      setShowEditPanel(false);
+    }, "合同内容已保存");
+  };
+
+  // 定稿并通知（不再传 content，使用已保存的版本）
+  const handleFinalize = async () => {
+    await act(async () => {
+      await v2Post(`/contracts/${id}/finalize`, {});
+      setShowFinalizeConfirm(false);
     }, "合同已定稿，通知发单方确认");
   };
 
@@ -181,7 +190,8 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   );
 
   const cfg = STATUS_CONFIG[contract.status] ?? { label: contract.status, color: "bg-slate-100 text-slate-500" };
-  const canFinalize = ["draft", "publisher_rejected"].includes(contract.status);
+  const canEdit = ["draft", "publisher_rejected"].includes(contract.status);
+  const canFinalize = canEdit;
   const canUploadSigned = contract.status === "pending_sign";
 
   return (
@@ -212,13 +222,22 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
               )}
             </div>
             <div className="flex flex-col gap-2 shrink-0">
+              {canEdit && (
+                <button
+                  onClick={() => { setEditContent(contract.content ?? ""); setShowEditPanel(v => !v); setShowFinalizeConfirm(false); }}
+                  disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${showEditPanel ? "bg-slate-200 text-slate-700" : "border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+                >
+                  <Edit2 size={14} /> {showEditPanel ? "收起编辑" : "编辑正文"}
+                </button>
+              )}
               {canFinalize && (
                 <button
-                  onClick={() => { setFinalizeContent(contract.content ?? ""); setShowFinalizePanel(v => !v); }}
+                  onClick={() => { setShowFinalizeConfirm(v => !v); setShowEditPanel(false); }}
                   disabled={acting}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${showFinalizePanel ? "bg-slate-200 text-slate-700" : "bg-primary text-white hover:bg-primary/90"}`}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${showFinalizeConfirm ? "bg-primary/10 text-primary" : "bg-primary text-white hover:bg-primary/90"}`}
                 >
-                  {showFinalizePanel ? "收起编辑" : "编辑 / 定稿"}
+                  <Send size={14} /> 定稿通知
                 </button>
               )}
               {canUploadSigned && (
@@ -237,23 +256,38 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
           </div>
         </div>
 
-        {/* ── 内联编辑 / 定稿面板 ── */}
-        {showFinalizePanel && canFinalize && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-            <p className="text-xs text-blue-600 mb-3">编辑合同正文后，点击「定稿并通知」将发给发单方确认。支持 Markdown 格式。</p>
-            <MarkdownEditor value={finalizeContent} onChange={setFinalizeContent} minHeight={280} />
+        {/* ── 编辑正文面板 ── */}
+        {showEditPanel && canEdit && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+            <p className="text-xs text-slate-500 mb-3">编辑合同正文，保存后不会通知发单方。支持 Markdown 格式。</p>
+            <MarkdownEditor value={editContent} onChange={setEditContent} minHeight={280} />
             <div className="flex gap-2 justify-end mt-3">
-              <button onClick={() => setShowFinalizePanel(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={() => setShowEditPanel(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleSaveContent} disabled={acting}
+                className="px-4 py-2 text-sm bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50">
+                {acting ? "保存中…" : "保存草稿"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 定稿通知确认面板 ── */}
+        {showFinalizeConfirm && canFinalize && (
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5">
+            <p className="text-sm font-bold text-blue-900 mb-1">确认将合同发送给发单方确认？</p>
+            <p className="text-xs text-slate-500 mb-4">操作后合同状态变为「待发单方确认」，发单方将收到通知。请确保合同正文已编辑完毕。</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowFinalizeConfirm(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
               <button onClick={handleFinalize} disabled={acting}
-                className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
-                {acting ? "提交中…" : "定稿并通知发单方"}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
+                <Send size={13} /> {acting ? "发送中…" : "确认定稿并通知"}
               </button>
             </div>
           </div>
         )}
 
         {/* ── 合同内容 ── */}
-        {contract.content && !showFinalizePanel && (
+        {contract.content && !showEditPanel && (
           <Section title="合同内容" icon={FileText}>
             <MarkdownContent content={contract.content} />
           </Section>

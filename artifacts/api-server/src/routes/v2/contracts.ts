@@ -142,6 +142,28 @@ router.post("/contracts", requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
+router.patch("/contracts/:id/content", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
+    if (!contract) return res.status(404).json({ error: "合同不存在" });
+    if (!["draft", "publisher_rejected"].includes(contract.status)) {
+      return res.status(400).json({ error: "当前状态不可编辑内容" });
+    }
+    const { content } = req.body as { content: string };
+    if (content === undefined) return res.status(400).json({ error: "content 必填" });
+
+    const [updated] = await db.update(v2ContractsTable)
+      .set({ content, updatedAt: new Date() })
+      .where(eq(v2ContractsTable.id, id))
+      .returning();
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /v2/contracts/:id/content failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/contracts/:id/finalize", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
