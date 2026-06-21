@@ -259,7 +259,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
                 {contract.publisherRejectedAt && <span className="text-red-500">发单方退回：{new Date(contract.publisherRejectedAt).toLocaleDateString("zh-CN")}</span>}
                 <span>更新：{new Date(contract.updatedAt).toLocaleDateString("zh-CN")}</span>
               </div>
-              {contract.publisherRejectedReason && (
+              {contract.status === "publisher_rejected" && contract.publisherRejectedReason && (
                 <div className="mt-2 text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2">
                   退回原因：{contract.publisherRejectedReason}
                 </div>
