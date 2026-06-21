@@ -25,6 +25,8 @@ import AdminV2TenderList from "@/pages/admin-v2/AdminV2TenderList";
 import AdminV2OutsourceOrderList from "@/pages/admin-v2/AdminV2OutsourceOrderList";
 import AdminV2PaymentBList from "@/pages/admin-v2/AdminV2PaymentBList";
 import AdminV2TicketBList from "@/pages/admin-v2/AdminV2TicketBList";
+import AdminV2DeliveryAList from "@/pages/admin-v2/AdminV2DeliveryAList";
+import AdminV2DeliveryBList from "@/pages/admin-v2/AdminV2DeliveryBList";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatBudget } from "@/lib/utils";
 import { useLocation } from "wouter";
@@ -43,7 +45,7 @@ import {
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet, Video,
-  Pin, Paperclip, ScrollText, Layers,
+  Pin, Paperclip, ScrollText, Layers, PackageCheck,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -133,8 +135,8 @@ export type Module =
   | "demands_orders" | "opc_management" | "system_management"
   | "operation_management" | "userData"
   | "v2_overview"
-  | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_tickets"
-  | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_tickets";
+  | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_deliveries" | "v2_pub_tickets"
+  | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -147,8 +149,9 @@ const NAV: NavItem[] = [
     children: [
       { key: "v2_pub_demands",   label: "需求", moduleKey: "v2_pub_demands"   as Module, icon: FileText },
       { key: "v2_pub_contracts", label: "合同", moduleKey: "v2_pub_contracts" as Module, icon: FileCheck },
-      { key: "v2_pub_payments",  label: "收款", moduleKey: "v2_pub_payments"  as Module, icon: Wallet },
-      { key: "v2_pub_tickets",   label: "工单", moduleKey: "v2_pub_tickets"   as Module, icon: ClipboardList },
+      { key: "v2_pub_payments",    label: "收款", moduleKey: "v2_pub_payments"    as Module, icon: Wallet },
+      { key: "v2_pub_deliveries",  label: "交付", moduleKey: "v2_pub_deliveries"  as Module, icon: PackageCheck },
+      { key: "v2_pub_tickets",     label: "工单", moduleKey: "v2_pub_tickets"     as Module, icon: ClipboardList },
     ],
   },
 
@@ -158,8 +161,9 @@ const NAV: NavItem[] = [
       { key: "v2_opc_demands",  label: "需求", moduleKey: "v2_opc_demands"  as Module, icon: FileText },
       { key: "v2_opc_tenders",  label: "投标", moduleKey: "v2_opc_tenders"  as Module, icon: Trophy },
       { key: "v2_opc_orders",   label: "订单", moduleKey: "v2_opc_orders"   as Module, icon: ShoppingBag },
-      { key: "v2_opc_payments", label: "付款", moduleKey: "v2_opc_payments" as Module, icon: CreditCard },
-      { key: "v2_opc_tickets",  label: "工单", moduleKey: "v2_opc_tickets"  as Module, icon: ClipboardList },
+      { key: "v2_opc_payments",   label: "付款", moduleKey: "v2_opc_payments"   as Module, icon: CreditCard },
+      { key: "v2_opc_deliveries", label: "交付", moduleKey: "v2_opc_deliveries" as Module, icon: PackageCheck },
+      { key: "v2_opc_tickets",    label: "工单", moduleKey: "v2_opc_tickets"    as Module, icon: ClipboardList },
     ],
   },
 
@@ -10080,13 +10084,15 @@ function ModuleContent({ module }: { module: Module }) {
     case "v2_overview":      return withEmbedded(<AdminV2Overview />);
     case "v2_pub_demands":   return withEmbedded(<AdminV2ClientDemandList />);
     case "v2_pub_contracts": return withEmbedded(<AdminV2ContractAList />);
-    case "v2_pub_payments":  return withEmbedded(<AdminV2PaymentAList />);
-    case "v2_pub_tickets":   return withEmbedded(<AdminV2TicketAList />);
-    case "v2_opc_demands":   return withEmbedded(<AdminV2OutsourceDemandList />);
+    case "v2_pub_payments":    return withEmbedded(<AdminV2PaymentAList />);
+    case "v2_pub_deliveries":  return withEmbedded(<AdminV2DeliveryAList />);
+    case "v2_pub_tickets":     return withEmbedded(<AdminV2TicketAList />);
+    case "v2_opc_demands":     return withEmbedded(<AdminV2OutsourceDemandList />);
     case "v2_opc_tenders":   return withEmbedded(<AdminV2TenderList />);
     case "v2_opc_orders":    return withEmbedded(<AdminV2OutsourceOrderList />);
-    case "v2_opc_payments":  return withEmbedded(<AdminV2PaymentBList />);
-    case "v2_opc_tickets":   return withEmbedded(<AdminV2TicketBList />);
+    case "v2_opc_payments":    return withEmbedded(<AdminV2PaymentBList />);
+    case "v2_opc_deliveries":  return withEmbedded(<AdminV2DeliveryBList />);
+    case "v2_opc_tickets":     return withEmbedded(<AdminV2TicketBList />);
     case "v2_pub_workbench": return withEmbedded(<AdminV2Overview />);
     case "v2_opc_workbench": return withEmbedded(<AdminV2Overview />);
   }
