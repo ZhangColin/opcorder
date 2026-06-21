@@ -256,8 +256,8 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
               <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
                 {contract.signedAt && <span>签约：{new Date(contract.signedAt).toLocaleDateString("zh-CN")}</span>}
                 {contract.publisherConfirmedAt && <span>发单方确认：{new Date(contract.publisherConfirmedAt).toLocaleDateString("zh-CN")}</span>}
-                {contract.publisherRejectedAt && <span className="text-red-500">发单方退回：{new Date(contract.publisherRejectedAt).toLocaleDateString("zh-CN")}</span>}
-                <span>更新：{new Date(contract.updatedAt).toLocaleDateString("zh-CN")}</span>
+                {contract.status === "publisher_rejected" && contract.publisherRejectedAt && <span className="text-red-500">发单方退回：{new Date(contract.publisherRejectedAt).toLocaleDateString("zh-CN")}</span>}
+                {contract.status === "publisher_rejected" && <span>更新：{new Date(contract.updatedAt).toLocaleDateString("zh-CN")}</span>}
               </div>
               {contract.status === "publisher_rejected" && contract.publisherRejectedReason && (
                 <div className="mt-2 text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2">
