@@ -4,6 +4,7 @@ import {
   CreditCard, Upload, Loader2, CheckCircle2, Clock, AlertCircle,
   ExternalLink, QrCode, X, RefreshCw,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
@@ -358,12 +359,8 @@ export default function PubPaymentDetail() {
                 </div>
 
                 <div className="flex justify-center mb-4">
-                  <div className="p-2 border-2 border-slate-200 rounded-xl bg-white">
-                    <img
-                      src={onlinePayment.qrCodeUrl}
-                      alt="支付二维码"
-                      className="w-44 h-44 object-contain"
-                    />
+                  <div className="p-3 border-2 border-slate-200 rounded-xl bg-white">
+                    <QRCodeSVG value={onlinePayment.qrCodeUrl} size={176} />
                   </div>
                 </div>
 
