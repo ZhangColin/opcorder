@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import {
   FileSignature, Loader2, AlertCircle, CheckCircle2, XCircle, ExternalLink,
-  Clock, DollarSign, ChevronDown, ChevronUp, Zap, Calendar,
+  Clock, DollarSign, ChevronDown, ChevronUp, Zap, Calendar, Receipt,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get, v2Post } from "@/lib/v2api";
@@ -38,6 +38,14 @@ interface Demand {
   latestVersion: { detail: string; attachments: Array<{ name: string; url: string }> } | null;
 }
 
+interface QuotationCard {
+  id: number;
+  totalPrice: number;
+  breakdown: Array<{ item: string; amount: number; note?: string }>;
+  note: string | null;
+  createdAt: string;
+}
+
 interface PaymentPlan {
   id: number;
   itemNo: number;
@@ -69,6 +77,7 @@ export default function PubContractDetail() {
 
   const [contract, setContract] = useState<Contract | null>(null);
   const [demand, setDemand] = useState<Demand | null>(null);
+  const [quotes, setQuotes] = useState<QuotationCard[]>([]);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDemandDetail, setShowDemandDetail] = useState(false);
@@ -83,13 +92,13 @@ export default function PubContractDetail() {
       setContract(data);
       markRead("contract", contractId);
       if (data.clientDemandId) {
-        const [dem, ps] = await Promise.all([
+        const [dem, qs, ps] = await Promise.all([
           v2Get<Demand>(`/client-demands/${data.clientDemandId}`).catch(() => null),
-          data.status === "signed"
-            ? v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${data.clientDemandId}&contractId=${contractId}`).catch(() => [] as PaymentPlan[])
-            : Promise.resolve([] as PaymentPlan[]),
+          v2Get<QuotationCard[]>(`/quotation-cards?clientDemandId=${data.clientDemandId}`).catch(() => [] as QuotationCard[]),
+          v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${data.clientDemandId}&contractId=${contractId}`).catch(() => [] as PaymentPlan[]),
         ]);
         setDemand(dem);
+        setQuotes(Array.isArray(qs) ? qs.slice(0, 1) : []); // 只取最新一条
         setPlans(Array.isArray(ps) ? ps : []);
       }
     } catch {
@@ -156,6 +165,7 @@ export default function PubContractDetail() {
 
   const cfg = STATUS_CONFIG[contract.status] ?? { label: contract.status, color: "bg-slate-100 text-slate-500" };
   const canAct = contract.status === "pending_publisher_confirm";
+  const quote = quotes[0] ?? null;
 
   return (
     <PubLayout title={demand?.title ?? `合同 ${contract.contractNo}`} backHref="/pub/contracts" backLabel="合同列表">
@@ -221,8 +231,6 @@ export default function PubContractDetail() {
                 </div>
               )}
             </div>
-
-            {/* 需求详情折叠 */}
             {demand.latestVersion?.detail && (
               <div className="mt-3 border-t border-slate-100 pt-3">
                 <button
@@ -239,8 +247,6 @@ export default function PubContractDetail() {
                 )}
               </div>
             )}
-
-            {/* 附件 */}
             {demand.latestVersion?.attachments?.length > 0 && (
               <div className="mt-3 border-t border-slate-100 pt-3 flex flex-wrap gap-2">
                 {demand.latestVersion.attachments.map((att, i) => (
@@ -251,6 +257,62 @@ export default function PubContractDetail() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── 报价 ── */}
+        {quote && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+              <Receipt size={14} className="text-slate-400" /> 报价
+            </h3>
+            <div className="space-y-1.5 mb-3">
+              {quote.breakdown.map((b, i) => (
+                <div key={i} className="flex justify-between items-center text-sm">
+                  <span className="text-slate-500">{b.item}</span>
+                  <span className="font-semibold text-slate-700">¥{Number(b.amount).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-700">合计</span>
+              <span className="text-lg font-extrabold text-primary">¥{Number(quote.totalPrice).toLocaleString()}</span>
+            </div>
+            {quote.note && (
+              <p className="text-xs text-slate-400 mt-2">{quote.note}</p>
+            )}
+          </div>
+        )}
+
+        {/* ── 付款计划 ── */}
+        {plans.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+              <DollarSign size={14} className="text-slate-400" /> 付款计划
+            </h3>
+            <div className="space-y-0">
+              {plans.map(p => {
+                const ps = PAY_STATUS[p.status] ?? PAY_STATUS.pending;
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">
+                        第 {p.itemNo} 期{p.description ? `·${p.description}` : ""}
+                      </p>
+                      {p.dueDate && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          应付：{new Date(p.dueDate).toLocaleDateString("zh-CN")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <p className="text-sm font-bold text-slate-800">¥{Number(p.amount).toLocaleString()}</p>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ps.color}`}>{ps.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -304,36 +366,6 @@ export default function PubContractDetail() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-4">合同正文</h3>
             <MarkdownContent content={contract.content} />
-          </div>
-        )}
-
-        {/* ── 付款计划（仅合同签订后展示） ── */}
-        {contract.status === "signed" && plans.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
-              <DollarSign size={14} className="text-slate-400" /> 付款计划
-            </h3>
-            <div className="space-y-2">
-              {plans.map(p => {
-                const ps = PAY_STATUS[p.status] ?? PAY_STATUS.pending;
-                return (
-                  <div key={p.id} className="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">
-                        第 {p.itemNo} 期{p.description ? `·${p.description}` : ""}
-                      </p>
-                      {p.dueDate && (
-                        <p className="text-xs text-slate-400">应付：{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>
-                      )}
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-1">
-                      <p className="text-sm font-bold text-slate-800">¥{Number(p.amount).toLocaleString()}</p>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ps.color}`}>{ps.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         )}
 
