@@ -193,6 +193,123 @@ export default function PubContractDetail() {
           )}
         </div>
 
+        {/* ── 操作 banner（待确认） ── */}
+        {canAct && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+            <p className="text-sm font-bold text-amber-800 mb-1">运营方已完成合同定稿，请您仔细阅读后操作</p>
+            <p className="text-xs text-amber-600 mb-4">确认后合同将进入签约流程；如有异议请退回并说明原因</p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirm}
+                disabled={acting}
+                className="flex items-center gap-2 bg-green-600 text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                确认合同
+              </button>
+              <button
+                onClick={() => setShowRejectModal(true)}
+                disabled={acting}
+                className="flex items-center gap-2 bg-white border border-red-200 text-red-600 rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
+              >
+                <XCircle size={14} /> 退回修改
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 退回说明 ── */}
+        {contract.status === "publisher_rejected" && contract.publisherRejectedReason && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+            <p className="text-xs font-bold text-red-700 mb-1">您的退回说明</p>
+            <p className="text-sm text-red-800">{contract.publisherRejectedReason}</p>
+            <p className="text-xs text-red-400 mt-2">运营方正在修订合同内容</p>
+          </div>
+        )}
+
+        {/* ── 已签约文件 ── */}
+        {contract.signedFileUrl && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 className="text-sm font-bold text-slate-800 mb-3">已签约合同文件</h3>
+            <a href={contract.signedFileUrl} target="_blank" rel="noreferrer"
+              className="flex items-center gap-2 text-sm text-primary hover:underline">
+              <ExternalLink size={14} /> 查看 / 下载签约文件
+            </a>
+          </div>
+        )}
+
+        {/* ── 合同正文 ── */}
+        {contract.content && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-4">合同正文</h3>
+            <MarkdownContent content={contract.content} />
+          </div>
+        )}
+
+        {!contract.content && contract.status === "draft" && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center text-slate-400">
+            <FileSignature size={32} className="mx-auto mb-3 text-slate-300" />
+            <p className="text-sm font-medium">合同内容正在起草中</p>
+            <p className="text-xs mt-1">运营方完成定稿后将通知您确认</p>
+          </div>
+        )}
+
+        {/* ── 报价 ── */}
+        {quote && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+              <Receipt size={14} className="text-slate-400" /> 报价
+            </h3>
+            <div className="space-y-1.5 mb-3">
+              {quote.breakdown.map((b, i) => (
+                <div key={i} className="flex justify-between items-center text-sm">
+                  <span className="text-slate-500">{b.item}</span>
+                  <span className="font-semibold text-slate-700">¥{Number(b.amount).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-700">合计</span>
+              <span className="text-lg font-extrabold text-primary">¥{Number(quote.totalPrice).toLocaleString()}</span>
+            </div>
+            {quote.note && (
+              <p className="text-xs text-slate-400 mt-2">{quote.note}</p>
+            )}
+          </div>
+        )}
+
+        {/* ── 付款计划 ── */}
+        {plans.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+              <DollarSign size={14} className="text-slate-400" /> 付款计划
+            </h3>
+            <div className="space-y-0">
+              {plans.map(p => {
+                const ps = PAY_STATUS[p.status] ?? PAY_STATUS.pending;
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">
+                        第 {p.itemNo} 期{p.description ? `·${p.description}` : ""}
+                      </p>
+                      {p.dueDate && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          应付：{new Date(p.dueDate).toLocaleDateString("zh-CN")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <p className="text-sm font-bold text-slate-800">¥{Number(p.amount).toLocaleString()}</p>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ps.color}`}>{ps.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── 关联需求信息 ── */}
         {demand && (
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
@@ -257,123 +374,6 @@ export default function PubContractDetail() {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── 报价 ── */}
-        {quote && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
-              <Receipt size={14} className="text-slate-400" /> 报价
-            </h3>
-            <div className="space-y-1.5 mb-3">
-              {quote.breakdown.map((b, i) => (
-                <div key={i} className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">{b.item}</span>
-                  <span className="font-semibold text-slate-700">¥{Number(b.amount).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
-              <span className="text-sm font-bold text-slate-700">合计</span>
-              <span className="text-lg font-extrabold text-primary">¥{Number(quote.totalPrice).toLocaleString()}</span>
-            </div>
-            {quote.note && (
-              <p className="text-xs text-slate-400 mt-2">{quote.note}</p>
-            )}
-          </div>
-        )}
-
-        {/* ── 付款计划 ── */}
-        {plans.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
-              <DollarSign size={14} className="text-slate-400" /> 付款计划
-            </h3>
-            <div className="space-y-0">
-              {plans.map(p => {
-                const ps = PAY_STATUS[p.status] ?? PAY_STATUS.pending;
-                return (
-                  <div key={p.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">
-                        第 {p.itemNo} 期{p.description ? `·${p.description}` : ""}
-                      </p>
-                      {p.dueDate && (
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          应付：{new Date(p.dueDate).toLocaleDateString("zh-CN")}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-1">
-                      <p className="text-sm font-bold text-slate-800">¥{Number(p.amount).toLocaleString()}</p>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ps.color}`}>{ps.label}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── 操作 banner（待确认） ── */}
-        {canAct && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-            <p className="text-sm font-bold text-amber-800 mb-1">运营方已完成合同定稿，请您仔细阅读后操作</p>
-            <p className="text-xs text-amber-600 mb-4">确认后合同将进入签约流程；如有异议请退回并说明原因</p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleConfirm}
-                disabled={acting}
-                className="flex items-center gap-2 bg-green-600 text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                确认合同
-              </button>
-              <button
-                onClick={() => setShowRejectModal(true)}
-                disabled={acting}
-                className="flex items-center gap-2 bg-white border border-red-200 text-red-600 rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
-              >
-                <XCircle size={14} /> 退回修改
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── 退回说明 ── */}
-        {contract.status === "publisher_rejected" && contract.publisherRejectedReason && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-            <p className="text-xs font-bold text-red-700 mb-1">您的退回说明</p>
-            <p className="text-sm text-red-800">{contract.publisherRejectedReason}</p>
-            <p className="text-xs text-red-400 mt-2">运营方正在修订合同内容</p>
-          </div>
-        )}
-
-        {/* ── 已签约文件 ── */}
-        {contract.signedFileUrl && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h3 className="text-sm font-bold text-slate-800 mb-3">已签约合同文件</h3>
-            <a href={contract.signedFileUrl} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 text-sm text-primary hover:underline">
-              <ExternalLink size={14} /> 查看 / 下载签约文件
-            </a>
-          </div>
-        )}
-
-        {/* ── 合同正文 ── */}
-        {contract.content && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-4">合同正文</h3>
-            <MarkdownContent content={contract.content} />
-          </div>
-        )}
-
-        {!contract.content && contract.status === "draft" && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center text-slate-400">
-            <FileSignature size={32} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-sm font-medium">合同内容正在起草中</p>
-            <p className="text-xs mt-1">运营方完成定稿后将通知您确认</p>
           </div>
         )}
       </div>
