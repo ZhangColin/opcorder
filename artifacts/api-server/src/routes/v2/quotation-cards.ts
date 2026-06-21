@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, v2QuotationCardsTable, usersTable } from "@workspace/db";
+import { db, v2QuotationCardsTable, v2ClientDemandsTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
+import { notify } from "./utils";
 import { logger } from "../../lib/logger";
 
 const router: IRouter = Router();
@@ -66,6 +67,20 @@ router.post("/quotation-cards", requireAdmin, async (req: Request, res: Response
       createdBy: userId,
     }).returning();
 
+    // 当需求已在报价中状态（未走 initiate-quote）时，手动触发红点 + 通知
+    if (parentType === "client_demand" && clientDemandId) {
+      const [demand] = await db.select().from(v2ClientDemandsTable)
+        .where(eq(v2ClientDemandsTable.id, clientDemandId)).limit(1);
+      if (demand && demand.status === "quoting") {
+        await db.update(v2ClientDemandsTable)
+          .set({ updatedAt: new Date() })
+          .where(eq(v2ClientDemandsTable.id, clientDemandId));
+        await notify(demand.publisherId, "v2_quote_initiated", "运营方已发起报价",
+          `运营方已对您的需求「${demand.title}」发起报价，请查阅报价卡并确认。`,
+          clientDemandId, "v2_client_demand");
+      }
+    }
+
     return res.status(201).json(created);
   } catch (err) {
     logger.error({ err }, "POST /v2/quotation-cards failed");
@@ -99,6 +114,21 @@ router.patch("/quotation-cards/:id", requireAdmin, async (req: Request, res: Res
 
     const [updated] = await db.update(v2QuotationCardsTable).set(updates)
       .where(eq(v2QuotationCardsTable.id, id)).returning();
+
+    // 触发发单方红点 + 通知
+    if (card.clientDemandId) {
+      const [demand] = await db.select().from(v2ClientDemandsTable)
+        .where(eq(v2ClientDemandsTable.id, card.clientDemandId)).limit(1);
+      if (demand) {
+        await db.update(v2ClientDemandsTable)
+          .set({ updatedAt: new Date() })
+          .where(eq(v2ClientDemandsTable.id, card.clientDemandId));
+        await notify(demand.publisherId, "v2_quote_initiated", "运营方已更新报价",
+          `运营方已更新您的需求「${demand.title}」的报价，请查阅报价卡并确认。`,
+          card.clientDemandId, "v2_client_demand");
+      }
+    }
+
     return res.json(updated);
   } catch (err) {
     logger.error({ err }, "PATCH /v2/quotation-cards/:id failed");
