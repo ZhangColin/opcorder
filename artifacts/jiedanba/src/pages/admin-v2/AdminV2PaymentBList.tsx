@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Loader2, ChevronRight, Wallet, Clock, AlertTriangle } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface SettlementPlan {
   id: number;
@@ -40,6 +41,7 @@ function isDueSoon(item: SettlementPlan) {
 
 export default function AdminV2PaymentBList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<SettlementPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -70,7 +72,7 @@ export default function AdminV2PaymentBList() {
             <p className="text-xs font-bold text-amber-700 mb-2">⚡ 需关注（{alerts.length} 件）</p>
             <div className="flex flex-wrap gap-2">
               {alerts.slice(0, 6).map(i => (
-                <button key={i.id} onClick={() => navigate(`/admin/v2/payments-b/${i.id}`)}
+                <button key={i.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${i.id}`) : navigate(`/admin/v2/payments-b/${i.id}`)}
                   className="text-xs bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-amber-800 hover:bg-amber-100">
                   {i.description ?? `第${i.itemNo ?? 1}期`} · ¥{i.amount.toLocaleString()}
                   {isOverdue(i) && <span className="ml-1 text-red-500 font-bold">逾期</span>}
@@ -102,7 +104,7 @@ export default function AdminV2PaymentBList() {
               const overdue = isOverdue(item);
               const soon = isDueSoon(item);
               return (
-                <button key={item.id} onClick={() => navigate(`/admin/v2/payments-b/${item.id}`)}
+                <button key={item.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${item.id}`) : navigate(`/admin/v2/payments-b/${item.id}`)}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
                     overdue ? "bg-red-50/40 border-red-200" : soon ? "bg-amber-50/40 border-amber-100" : "bg-white border-slate-100 hover:border-primary/20"
                   }`}>

@@ -45,9 +45,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-export default function AdminV2ContractADetail() {
+export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
-  const id = parseInt(params.id ?? "0", 10);
+  const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
 
   const [contract, setContract] = useState<Contract | null>(null);

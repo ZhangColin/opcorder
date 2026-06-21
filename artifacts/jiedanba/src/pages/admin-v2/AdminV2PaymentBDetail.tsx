@@ -42,10 +42,10 @@ interface TicketB {
   isBlockingPayment: boolean | null;
 }
 
-export default function AdminV2PaymentBDetail() {
+export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const id = parseInt(params.id ?? "0", 10);
+  const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
 
   const [item, setItem] = useState<SettlementPlan | null>(null);

@@ -2,6 +2,13 @@ import { useState, useEffect, useRef, useMemo, Fragment, useCallback } from "rea
 import { AdminInlineNavContext } from "@/context/AdminInlineNavContext";
 import AdminV2ClientDemandDetail from "@/pages/admin-v2/AdminV2ClientDemandDetail";
 import AdminV2OutsourceDemandDetail from "@/pages/admin-v2/AdminV2OutsourceDemandDetail";
+import AdminV2ContractADetail from "@/pages/admin-v2/AdminV2ContractADetail";
+import AdminV2PaymentADetail from "@/pages/admin-v2/AdminV2PaymentADetail";
+import AdminV2TicketADetail from "@/pages/admin-v2/AdminV2TicketADetail";
+import AdminV2TenderDetail from "@/pages/admin-v2/AdminV2TenderDetail";
+import AdminV2OutsourceOrderDetail from "@/pages/admin-v2/AdminV2OutsourceOrderDetail";
+import AdminV2PaymentBDetail from "@/pages/admin-v2/AdminV2PaymentBDetail";
+import AdminV2TicketBDetail from "@/pages/admin-v2/AdminV2TicketBDetail";
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -9922,6 +9929,111 @@ function ModuleContent({ module }: { module: Module }) {
               ← 返回外包需求列表
             </button>
             <AdminV2OutsourceDemandDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const contractAMatch = inlineRoute.match(/\/admin\/v2\/contracts-a\/(\d+)/);
+    if (contractAMatch) {
+      const inlineId = parseInt(contractAMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回合同列表
+            </button>
+            <AdminV2ContractADetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const paymentAMatch = inlineRoute.match(/\/admin\/v2\/payments-a\/(\d+)/);
+    if (paymentAMatch) {
+      const inlineId = parseInt(paymentAMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回收款列表
+            </button>
+            <AdminV2PaymentADetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const ticketAMatch = inlineRoute.match(/\/admin\/v2\/tickets-a\/(\d+)/);
+    if (ticketAMatch) {
+      const inlineId = parseInt(ticketAMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回工单列表
+            </button>
+            <AdminV2TicketADetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const tenderMatch = inlineRoute.match(/\/admin\/v2\/tenders\/(\d+)/);
+    if (tenderMatch) {
+      const inlineId = parseInt(tenderMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回投标列表
+            </button>
+            <AdminV2TenderDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const outsourceOrderMatch = inlineRoute.match(/\/admin\/v2\/outsource-orders\/(\d+)/);
+    if (outsourceOrderMatch) {
+      const inlineId = parseInt(outsourceOrderMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回订单列表
+            </button>
+            <AdminV2OutsourceOrderDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const paymentBMatch = inlineRoute.match(/\/admin\/v2\/payments-b\/(\d+)/);
+    if (paymentBMatch) {
+      const inlineId = parseInt(paymentBMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回结算列表
+            </button>
+            <AdminV2PaymentBDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const ticketBMatch = inlineRoute.match(/\/admin\/v2\/tickets-b\/(\d+)/);
+    if (ticketBMatch) {
+      const inlineId = parseInt(ticketBMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回工单列表
+            </button>
+            <AdminV2TicketBDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
       );

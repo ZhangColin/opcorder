@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Loader2, ChevronRight, Gavel, Clock, DollarSign } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface Tender {
   id: number;
@@ -34,6 +35,7 @@ const STATUS_TABS = [
 
 export default function AdminV2TenderList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -64,7 +66,7 @@ export default function AdminV2TenderList() {
             <p className="text-xs font-bold text-blue-700 mb-2">📋 有新报价（{highlighted.length} 件）</p>
             <div className="flex flex-wrap gap-2">
               {highlighted.slice(0, 6).map(t => (
-                <button key={t.id} onClick={() => navigate(`/admin/v2/tenders/${t.id}`)}
+                <button key={t.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tenders/${t.id}`) : navigate(`/admin/v2/tenders/${t.id}`)}
                   className="text-xs bg-white border border-blue-200 rounded-xl px-3 py-1.5 text-blue-800 hover:bg-blue-100">
                   {t.opcNickname ?? "OPC"} — {t.demandTitle ?? "外包需求"}
                   {t.totalPrice != null && <span className="ml-1 font-bold">¥{t.totalPrice.toLocaleString()}</span>}
@@ -95,7 +97,7 @@ export default function AdminV2TenderList() {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               const highlight = t.status === "quoted";
               return (
-                <button key={t.id} onClick={() => navigate(`/admin/v2/tenders/${t.id}`)}
+                <button key={t.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tenders/${t.id}`) : navigate(`/admin/v2/tenders/${t.id}`)}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
                     highlight ? "bg-blue-50/60 border-blue-200" : "bg-white border-slate-100 hover:border-primary/20"
                   }`}>

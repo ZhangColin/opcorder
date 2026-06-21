@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Loader2, ChevronRight, CreditCard, Clock, AlertTriangle } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface PaymentPlan {
   id: number;
@@ -45,6 +46,7 @@ function isDueSoon(item: PaymentPlan) {
 
 export default function AdminV2PaymentAList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<PaymentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -75,7 +77,7 @@ export default function AdminV2PaymentAList() {
             <p className="text-xs font-bold text-amber-700 mb-2">⚡ 需关注（{needsAttention.length} 件）</p>
             <div className="flex flex-wrap gap-2">
               {needsAttention.slice(0, 6).map(i => (
-                <button key={i.id} onClick={() => navigate(`/admin/v2/payments-a/${i.id}`)}
+                <button key={i.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-a/${i.id}`) : navigate(`/admin/v2/payments-a/${i.id}`)}
                   className="text-xs bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-amber-800 hover:bg-amber-100">
                   {i.title} · ¥{i.amount.toLocaleString()}
                   {isOverdue(i) && <span className="ml-1 text-red-500 font-bold">逾期</span>}
@@ -109,7 +111,7 @@ export default function AdminV2PaymentAList() {
               const soon = isDueSoon(item);
               const needAttn = item.status === "awaiting_review" || overdue;
               return (
-                <button key={item.id} onClick={() => navigate(`/admin/v2/payments-a/${item.id}`)}
+                <button key={item.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-a/${item.id}`) : navigate(`/admin/v2/payments-a/${item.id}`)}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
                     needAttn ? "bg-amber-50/60 border-amber-200" : soon ? "bg-orange-50/40 border-orange-100" : "bg-white border-slate-100 hover:border-primary/20"
                   }`}>

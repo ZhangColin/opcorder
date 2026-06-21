@@ -4,6 +4,7 @@ import { Loader2, ChevronRight, Boxes, Clock, Users2 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface OutsourceOrder {
   id: number;
@@ -39,6 +40,7 @@ const HIGHLIGHT = ["pending_contract"];
 
 export default function AdminV2OutsourceOrderList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<OutsourceOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export default function AdminV2OutsourceOrderList() {
             <p className="text-xs font-bold text-orange-700 mb-2">⚡ 待签约（{highlighted.length} 件）</p>
             <div className="flex flex-wrap gap-2">
               {highlighted.map(o => (
-                <button key={o.id} onClick={() => navigate(`/admin/v2/outsource-orders/${o.id}`)}
+                <button key={o.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${o.id}`) : navigate(`/admin/v2/outsource-orders/${o.id}`)}
                   className="text-xs bg-white border border-orange-200 rounded-xl px-3 py-1.5 text-orange-800 hover:bg-orange-100">
                   {o.orderNo} — {o.opcNickname ?? "OPC"}
                 </button>
@@ -103,7 +105,7 @@ export default function AdminV2OutsourceOrderList() {
               const cfg = STATUS_CONFIG[o.status] ?? { label: o.status, color: "bg-slate-100 text-slate-500" };
               const highlight = HIGHLIGHT.includes(o.status);
               return (
-                <button key={o.id} onClick={() => navigate(`/admin/v2/outsource-orders/${o.id}`)}
+                <button key={o.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${o.id}`) : navigate(`/admin/v2/outsource-orders/${o.id}`)}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
                     highlight ? "bg-orange-50/60 border-orange-200" : "bg-white border-slate-100 hover:border-primary/20"
                   }`}>

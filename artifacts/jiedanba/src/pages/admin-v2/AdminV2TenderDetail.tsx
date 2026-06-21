@@ -42,9 +42,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-export default function AdminV2TenderDetail() {
+export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
-  const id = parseInt(params.id ?? "0", 10);
+  const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 

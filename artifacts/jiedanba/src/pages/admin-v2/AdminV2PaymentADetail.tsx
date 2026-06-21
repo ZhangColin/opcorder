@@ -41,9 +41,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-export default function AdminV2PaymentADetail() {
+export default function AdminV2PaymentADetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
-  const id = parseInt(params.id ?? "0", 10);
+  const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
 
   const [item, setItem] = useState<PaymentPlan | null>(null);

@@ -4,6 +4,7 @@ import { Loader2, ChevronRight, Package, Clock } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface TicketB {
   id: number;
@@ -28,6 +29,7 @@ const STATUS_TABS = [
 
 export default function AdminV2TicketBList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<TicketB[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("open");
@@ -73,7 +75,7 @@ export default function AdminV2TicketBList() {
             ).map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               return (
-                <button key={t.id} onClick={() => navigate(`/admin/v2/tickets-b/${t.id}`)}
+                <button key={t.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tickets-b/${t.id}`) : navigate(`/admin/v2/tickets-b/${t.id}`)}
                   className="w-full text-left flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-white transition-all hover:shadow-md hover:border-primary/20 group">
                   <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
                     <Package size={18} className="text-violet-500" />

@@ -34,9 +34,9 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-export default function AdminV2TicketADetail() {
+export default function AdminV2TicketADetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
-  const id = parseInt(params.id ?? "0", 10);
+  const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);

@@ -4,6 +4,7 @@ import { Loader2, ChevronRight, FileSignature, Clock } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 interface Contract {
   id: number;
@@ -37,6 +38,7 @@ const HIGHLIGHT = ["pending_publisher_confirm", "publisher_rejected"];
 
 export default function AdminV2ContractAList() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -67,7 +69,7 @@ export default function AdminV2ContractAList() {
             <p className="text-xs font-bold text-amber-700 mb-2">⚡ 待处理（{highlighted.length} 件）</p>
             <div className="flex flex-wrap gap-2">
               {highlighted.map(c => (
-                <button key={c.id} onClick={() => navigate(`/admin/v2/contracts-a/${c.id}`)}
+                <button key={c.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/contracts-a/${c.id}`) : navigate(`/admin/v2/contracts-a/${c.id}`)}
                   className="text-xs bg-white border border-amber-200 rounded-xl px-3 py-1.5 text-amber-800 hover:bg-amber-100">
                   {c.contractNo}
                   <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_CONFIG[c.status]?.color}`}>
@@ -102,7 +104,7 @@ export default function AdminV2ContractAList() {
               const cfg = STATUS_CONFIG[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
               const highlight = HIGHLIGHT.includes(c.status);
               return (
-                <button key={c.id} onClick={() => navigate(`/admin/v2/contracts-a/${c.id}`)}
+                <button key={c.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/contracts-a/${c.id}`) : navigate(`/admin/v2/contracts-a/${c.id}`)}
                   className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
                     highlight ? "bg-amber-50/60 border-amber-200" : "bg-white border-slate-100 hover:border-primary/20"
                   }`}>

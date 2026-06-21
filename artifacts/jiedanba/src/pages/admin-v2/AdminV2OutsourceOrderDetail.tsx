@@ -84,9 +84,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function AdminV2OutsourceOrderDetail() {
+export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
-  const id = parseInt(params.id ?? "0", 10);
+  const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
