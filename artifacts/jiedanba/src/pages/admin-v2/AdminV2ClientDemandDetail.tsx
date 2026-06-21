@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, PlusCircle, Edit2, X,
+  Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
@@ -160,7 +160,7 @@ function Section({
   );
 }
 
-type ActionPanel = "quote" | "payment" | "deliverable" | "close" | "contract" | null;
+type ActionPanel = "quote" | "deliverable" | "close" | null;
 
 export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
@@ -198,11 +198,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [quoteConfig, setQuoteConfig] = useState<QuoteCategoryConfig | null>(null);
   const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
   const [quoteNote, setQuoteNote] = useState("");
-
-  // Payment form
-  const [payTitle, setPayTitle] = useState("");
-  const [payAmount, setPayAmount] = useState("");
-  const [payDueDate, setPayDueDate] = useState("");
 
   // Deliverable form
   const [delivTitle, setDelivTitle] = useState("");
@@ -336,19 +331,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     setQuoteSelections({}); setAdjustmentPercent(0); setMaintenancePackage("none"); setQuoteNote("");
   }, demand?.status === "quoting" ? "报价已更新" : "报价已发起，通知发单方");
 
-  const handleCreatePayment = () => act(async () => {
-    if (!payTitle.trim() || !payAmount) throw new Error("请填写收款项标题和金额");
-    await v2Post("/payment-plans", {
-      clientDemandId: id, title: payTitle.trim(),
-      amount: parseFloat(payAmount), dueDate: payDueDate || null,
-    });
-    setPayTitle(""); setPayAmount(""); setPayDueDate("");
-  }, "收款计划已创建");
-
-  const handleCreateContract = () => act(async () => {
-    await v2Post("/contracts", { channel: "a", clientDemandId: id });
-  }, "合同已创建，请在合同列表中编辑内容");
-
   const handleCreateDeliverable = () => act(async () => {
     if (!delivTitle.trim()) throw new Error("请填写交付标题");
     await v2Post("/deliverables-a", { clientDemandId: id, title: delivTitle.trim(), description: delivDesc.trim() || null });
@@ -402,10 +384,8 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canInitiateQuote = demand.status === "negotiating";
   const canReQuote = demand.status === "quoting";
   const canEditDetail = ["draft", "negotiating", "quoting"].includes(demand.status);
-  const canCreatePayment = ["pending_contract", "executing", "warranty", "completed"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = !["completed", "closed"].includes(demand.status);
-  const canCreateContract = !["completed", "closed"].includes(demand.status);
 
   const InlinePanel = ({
     title, color = "bg-slate-50 border-slate-200", children,
@@ -450,22 +430,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
             >
               <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
-            </button>
-          )}
-          {canCreateContract && (
-            <button
-              onClick={() => setActivePanel(prev => prev === "contract" ? null : "contract")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "contract" ? "bg-blue-600 text-white border-blue-600" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
-            >
-              <FileText size={13} /> 创建合同
-            </button>
-          )}
-          {canCreatePayment && (
-            <button
-              onClick={() => setActivePanel(prev => prev === "payment" ? null : "payment")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "payment" ? "bg-emerald-600 text-white border-emerald-600" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"}`}
-            >
-              <PlusCircle size={13} /> 收款项
             </button>
           )}
           {canCreateDeliverable && (
@@ -597,51 +561,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                 className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
                 {acting ? "关闭中…" : "确认关闭"}
               </button>
-            </div>
-          </InlinePanel>
-        )}
-
-        {activePanel === "contract" && (
-          <InlinePanel title="创建合同" color="bg-blue-50 border-blue-200">
-            <p className="text-sm text-slate-500 mb-4">为该需求创建一份空白合同（A 通道），创建后可在合同详情页编辑正文与付款计划。</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleCreateContract} disabled={acting}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50">
-                {acting ? "创建中…" : "确认创建"}
-              </button>
-            </div>
-          </InlinePanel>
-        )}
-
-
-        {activePanel === "payment" && (
-          <InlinePanel title="创建收款项" color="bg-emerald-50 border-emerald-200">
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">收款项名称</label>
-                <input value={payTitle} onChange={e => setPayTitle(e.target.value)} placeholder="如：首付款、尾款"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-600 mb-1 block">金额 (¥)</label>
-                  <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-600 mb-1 block">应收日期（可选）</label>
-                  <input type="date" value={payDueDate} onChange={e => setPayDueDate(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-                </div>
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-                <button onClick={handleCreatePayment} disabled={acting}
-                  className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50">
-                  {acting ? "创建中…" : "创建"}
-                </button>
-              </div>
             </div>
           </InlinePanel>
         )}
@@ -807,15 +726,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               ) : (
                 <div className="text-center py-6 text-slate-400">
                   <FileText size={22} className="mx-auto mb-2 text-slate-300" />
-                  <p className="text-sm mb-3">暂无合同</p>
-                  {canCreateContract && (
-                    <button
-                      onClick={() => setActivePanel(prev => prev === "contract" ? null : "contract")}
-                      className="text-xs font-bold text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-xl px-3 py-1.5 transition-colors"
-                    >
-                      + 创建合同
-                    </button>
-                  )}
+                  <p className="text-sm">暂无合同</p>
                 </div>
               )}
             </Section>
