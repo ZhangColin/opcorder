@@ -5,6 +5,7 @@ import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { useToast } from "@/hooks/use-toast";
+import { MarkdownContent } from "@/components/MarkdownContent";
 
 interface Contract {
   id: number;
@@ -189,9 +190,7 @@ export default function PubContractDetail() {
         {contract.content && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-4">合同正文</h3>
-            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap border border-slate-100 rounded-xl p-4 bg-slate-50 max-h-[600px] overflow-y-auto">
-              {contract.content}
-            </div>
+            <MarkdownContent content={contract.content} />
           </div>
         )}
 
