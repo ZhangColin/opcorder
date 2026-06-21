@@ -383,7 +383,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
               <button onClick={() => setShowEditPanel(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
               <button onClick={handleSaveContent} disabled={acting}
                 className="px-4 py-2 text-sm bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50">
-                {acting ? "保存中…" : "保存草稿"}
+                {acting ? "保存中…" : "保存"}
               </button>
             </div>
           </div>
