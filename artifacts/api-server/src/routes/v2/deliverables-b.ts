@@ -62,6 +62,38 @@ router.get("/deliverables-b", requireAuth, async (req: Request, res: Response) =
   }
 });
 
+router.get("/deliverables-b/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [row] = await db
+      .select({
+        id: v2DeliverablesBTable.id,
+        outsourceOrderId: v2DeliverablesBTable.outsourceOrderId,
+        title: v2DeliverablesBTable.title,
+        content: v2DeliverablesBTable.content,
+        attachments: v2DeliverablesBTable.attachments,
+        status: v2DeliverablesBTable.status,
+        submittedByNickname: usersTable.nickname,
+        approvedAt: v2DeliverablesBTable.approvedAt,
+        rejectedAt: v2DeliverablesBTable.rejectedAt,
+        rejectedReason: v2DeliverablesBTable.rejectedReason,
+        createdAt: v2DeliverablesBTable.createdAt,
+        updatedAt: v2DeliverablesBTable.updatedAt,
+        orderNo: v2OutsourceOrdersTable.orderNo,
+      })
+      .from(v2DeliverablesBTable)
+      .leftJoin(usersTable, eq(v2DeliverablesBTable.submittedBy, usersTable.id))
+      .leftJoin(v2OutsourceOrdersTable, eq(v2DeliverablesBTable.outsourceOrderId, v2OutsourceOrdersTable.id))
+      .where(eq(v2DeliverablesBTable.id, id))
+      .limit(1);
+    if (!row) return res.status(404).json({ error: "交付记录不存在" });
+    return res.json(row);
+  } catch (err) {
+    logger.error({ err }, "GET /v2/deliverables-b/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/deliverables-b", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;

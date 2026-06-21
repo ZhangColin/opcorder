@@ -27,6 +27,8 @@ import AdminV2PaymentBList from "@/pages/admin-v2/AdminV2PaymentBList";
 import AdminV2TicketBList from "@/pages/admin-v2/AdminV2TicketBList";
 import AdminV2DeliveryAList from "@/pages/admin-v2/AdminV2DeliveryAList";
 import AdminV2DeliveryBList from "@/pages/admin-v2/AdminV2DeliveryBList";
+import AdminV2DeliveryADetail from "@/pages/admin-v2/AdminV2DeliveryADetail";
+import AdminV2DeliveryBDetail from "@/pages/admin-v2/AdminV2DeliveryBDetail";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatBudget } from "@/lib/utils";
 import { useLocation } from "wouter";
@@ -10038,6 +10040,36 @@ function ModuleContent({ module }: { module: Module }) {
               ← 返回工单列表
             </button>
             <AdminV2TicketBDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const deliveryAMatch = inlineRoute.match(/\/admin\/v2\/deliveries-a\/(\d+)/);
+    if (deliveryAMatch) {
+      const inlineId = parseInt(deliveryAMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回交付列表
+            </button>
+            <AdminV2DeliveryADetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    const deliveryBMatch = inlineRoute.match(/\/admin\/v2\/deliveries-b\/(\d+)/);
+    if (deliveryBMatch) {
+      const inlineId = parseInt(deliveryBMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回交付列表
+            </button>
+            <AdminV2DeliveryBDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
       );
