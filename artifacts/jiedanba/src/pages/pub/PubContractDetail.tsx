@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { FileSignature, Loader2, AlertCircle, CheckCircle2, XCircle, ExternalLink, Clock } from "lucide-react";
+import { FileSignature, Loader2, AlertCircle, CheckCircle2, XCircle, ExternalLink, Clock, DollarSign } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
@@ -22,6 +22,22 @@ interface Contract {
   updatedAt: string;
 }
 
+interface PaymentPlan {
+  id: number;
+  itemNo: number;
+  description: string | null;
+  amount: number;
+  dueDate: string;
+  status: string;
+}
+
+const PAY_STATUS: Record<string, { label: string; color: string }> = {
+  pending:         { label: "待付款", color: "text-amber-700 bg-amber-50" },
+  awaiting_review: { label: "待审核", color: "text-blue-700 bg-blue-50" },
+  paid:            { label: "已付款", color: "text-green-700 bg-green-50" },
+  overdue:         { label: "已逾期", color: "text-red-700 bg-red-50" },
+};
+
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   draft:                    { label: "草稿",     color: "bg-slate-100 text-slate-500" },
   pending_publisher_confirm:{ label: "待您确认", color: "bg-amber-100 text-amber-700" },
@@ -36,6 +52,7 @@ export default function PubContractDetail() {
   const { toast } = useToast();
 
   const [contract, setContract] = useState<Contract | null>(null);
+  const [plans, setPlans] = useState<PaymentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -47,6 +64,10 @@ export default function PubContractDetail() {
       const data = await v2Get<Contract>(`/contracts/${contractId}`);
       setContract(data);
       markRead("contract", contractId);
+      if (data.status === "signed" && data.clientDemandId) {
+        const ps = await v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${data.clientDemandId}&contractId=${contractId}`).catch(() => [] as PaymentPlan[]);
+        setPlans(Array.isArray(ps) ? ps : []);
+      }
     } catch {
       setContract(null);
     } finally {
@@ -191,6 +212,36 @@ export default function PubContractDetail() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-4">合同正文</h3>
             <MarkdownContent content={contract.content} />
+          </div>
+        )}
+
+        {/* ── Payment plans（仅合同已签后展示） ── */}
+        {contract.status === "signed" && plans.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
+              <DollarSign size={14} className="text-slate-400" /> 付款计划
+            </h3>
+            <div className="space-y-2">
+              {plans.map(p => {
+                const ps = PAY_STATUS[p.status] ?? PAY_STATUS.pending;
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">
+                        第 {p.itemNo} 期{p.description ? `·${p.description}` : ""}
+                      </p>
+                      {p.dueDate && (
+                        <p className="text-xs text-slate-400">应付：{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>
+                      )}
+                    </div>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <p className="text-sm font-bold text-slate-800">¥{Number(p.amount).toLocaleString()}</p>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ps.color}`}>{ps.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

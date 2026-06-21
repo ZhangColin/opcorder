@@ -501,8 +501,8 @@ export default function PubDemandDetail() {
           </div>
         )}
 
-        {/* ── Pending payment banner ── */}
-        {pendingPayment && (
+        {/* ── Pending payment banner（仅合同已签后才有效） ── */}
+        {pendingPayment && ["executing", "warranty", "completed"].includes(demand.status) && (
           <div className={`border rounded-2xl p-4 flex items-center justify-between gap-3 ${pendingPayment.isOverdue ? "bg-red-50 border-red-200" : "bg-orange-50 border-orange-200"}`}>
             <div className="flex items-center gap-2">
               <CreditCard size={16} className={pendingPayment.isOverdue ? "text-red-600" : "text-orange-600"} />
@@ -764,8 +764,8 @@ export default function PubDemandDetail() {
           </Section>
         )}
 
-        {/* ── Payment plans ── */}
-        {payments.length > 0 && (
+        {/* ── Payment plans（仅合同签订后才展示） ── */}
+        {payments.length > 0 && ["executing", "warranty", "completed"].includes(demand.status) && (
           <Section title="付款计划" icon={CreditCard}>
             <div className="mt-4 space-y-3">
               {payments.map(p => {
