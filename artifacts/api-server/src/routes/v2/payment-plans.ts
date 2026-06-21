@@ -78,16 +78,22 @@ router.get("/payment-plans/:id", requireAuth, async (req: Request, res: Response
     const [plan] = await db.select().from(v2PaymentPlansTable).where(eq(v2PaymentPlansTable.id, id)).limit(1);
     if (!plan) return res.status(404).json({ error: "付款计划不存在" });
 
+    const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId, title: v2ClientDemandsTable.title, demandNo: v2ClientDemandsTable.demandNo })
+      .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, plan.clientDemandId)).limit(1);
+
     if (role === "publisher") {
-      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
-        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, plan.clientDemandId)).limit(1);
       if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权查看" });
     } else if (role === "opc") {
       return res.status(403).json({ error: "OPC 无权查看此付款计划" });
     }
 
     const now = new Date();
-    return res.json({ ...plan, isOverdue: plan.status === "pending" && plan.dueDate < now });
+    return res.json({
+      ...plan,
+      demandTitle: demand?.title ?? null,
+      demandNo: demand?.demandNo ?? null,
+      isOverdue: plan.status === "pending" && plan.dueDate < now,
+    });
   } catch (err) {
     logger.error({ err }, "GET /v2/payment-plans/:id failed");
     return res.status(500).json({ error: "服务器错误" });

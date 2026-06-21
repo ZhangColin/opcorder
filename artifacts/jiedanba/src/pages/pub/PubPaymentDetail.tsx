@@ -19,6 +19,8 @@ interface PaymentPlan {
   status: string;
   voucherUrl: string | null;
   voucherNote: string | null;
+  demandTitle: string | null;
+  demandNo: string | null;
   isLastItem: boolean;
   isOverdue: boolean;
   createdAt: string;
@@ -220,7 +222,8 @@ export default function PubPaymentDetail() {
             </div>
             <div>
               <p className="text-xs text-slate-400 mb-1">关联需求</p>
-              <p className="font-bold text-slate-800">需求 #{plan.clientDemandId}</p>
+              <p className="font-bold text-slate-800">{plan.demandTitle ?? `需求 #${plan.clientDemandId}`}</p>
+              {plan.demandNo && <p className="text-xs text-slate-400 mt-0.5">{plan.demandNo}</p>}
             </div>
           </div>
         </div>
