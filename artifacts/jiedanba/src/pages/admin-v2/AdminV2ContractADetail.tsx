@@ -300,93 +300,6 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
           </div>
         </div>
 
-        {/* ── 关联需求信息 ── */}
-        {demand && (() => {
-          const ds = DEMAND_STATUS[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
-          return (
-            <div className="bg-white rounded-2xl border border-slate-100 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                  <FileText size={14} className="text-slate-400" /> 关联需求
-                </h3>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ds.color}`}>{ds.label}</span>
-              </div>
-
-              {/* 基本信息网格 */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-3">
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">需求编号</p>
-                  <p className="text-xs font-mono text-slate-600">{demand.demandNo}</p>
-                </div>
-                {demand.demandType && (
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5">需求类型</p>
-                    <p className="text-xs text-slate-700">{demand.demandType}</p>
-                  </div>
-                )}
-                {(demand.budgetMin != null || demand.budgetMax != null) && (
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
-                    <p className="text-xs font-semibold text-slate-700">
-                      {demand.budgetMin != null ? `¥${Number(demand.budgetMin).toLocaleString()}` : "—"}
-                      {" ~ "}
-                      {demand.budgetMax != null ? `¥${Number(demand.budgetMax).toLocaleString()}` : "—"}
-                    </p>
-                  </div>
-                )}
-                {demand.hopeDeliveryDate && (
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><Calendar size={11} /> 期望交付</p>
-                    <p className="text-xs text-slate-700">{new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}</p>
-                  </div>
-                )}
-                {demand.publisherNickname && (
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><User size={11} /> 发单方</p>
-                    <p className="text-xs text-slate-700">{demand.publisherNickname}</p>
-                  </div>
-                )}
-                {demand.isUrgent && (
-                  <div className="flex items-center gap-1 col-span-2">
-                    <Zap size={12} className="text-orange-500" />
-                    <span className="text-xs font-bold text-orange-600">加急需求</span>
-                  </div>
-                )}
-              </div>
-
-              {/* 需求详情折叠 */}
-              {demand.latestVersion?.detail && (
-                <div className="border-t border-slate-50 pt-3">
-                  <button
-                    onClick={() => setShowDemandDetail(v => !v)}
-                    className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
-                  >
-                    {showDemandDetail ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                    {showDemandDetail ? "收起需求详情" : "展开需求详情"}
-                  </button>
-                  {showDemandDetail && (
-                    <div className="mt-3 prose prose-sm max-w-none">
-                      <MarkdownContent content={demand.latestVersion.detail} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 附件 */}
-              {demand.latestVersion?.attachments?.length > 0 && (
-                <div className="mt-3 border-t border-slate-50 pt-3 flex flex-wrap gap-2">
-                  {demand.latestVersion.attachments.map((att, i) => (
-                    <a key={i} href={att.url} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-1 text-xs text-blue-700 border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded-xl px-2.5 py-1 transition-colors">
-                      <ExternalLink size={11} /> {att.name}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
         {/* ── 编辑正文面板 ── */}
         {showEditPanel && canEdit && (
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
@@ -515,6 +428,87 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
             )}
           </Section>
         )}
+
+        {/* ── 关联需求信息 ── */}
+        {demand && (() => {
+          const ds = DEMAND_STATUS[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
+          return (
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                  <FileText size={14} className="text-slate-400" /> 关联需求
+                </h3>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ds.color}`}>{ds.label}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-3">
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">需求编号</p>
+                  <p className="text-xs font-mono text-slate-600">{demand.demandNo}</p>
+                </div>
+                {demand.demandType && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">需求类型</p>
+                    <p className="text-xs text-slate-700">{demand.demandType}</p>
+                  </div>
+                )}
+                {(demand.budgetMin != null || demand.budgetMax != null) && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
+                    <p className="text-xs font-semibold text-slate-700">
+                      {demand.budgetMin != null ? `¥${Number(demand.budgetMin).toLocaleString()}` : "—"}
+                      {" ~ "}
+                      {demand.budgetMax != null ? `¥${Number(demand.budgetMax).toLocaleString()}` : "—"}
+                    </p>
+                  </div>
+                )}
+                {demand.hopeDeliveryDate && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><Calendar size={11} /> 期望交付</p>
+                    <p className="text-xs text-slate-700">{new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}</p>
+                  </div>
+                )}
+                {demand.publisherNickname && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><User size={11} /> 发单方</p>
+                    <p className="text-xs text-slate-700">{demand.publisherNickname}</p>
+                  </div>
+                )}
+                {demand.isUrgent && (
+                  <div className="flex items-center gap-1 col-span-2">
+                    <Zap size={12} className="text-orange-500" />
+                    <span className="text-xs font-bold text-orange-600">加急需求</span>
+                  </div>
+                )}
+              </div>
+              {demand.latestVersion?.detail && (
+                <div className="border-t border-slate-50 pt-3">
+                  <button
+                    onClick={() => setShowDemandDetail(v => !v)}
+                    className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {showDemandDetail ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    {showDemandDetail ? "收起需求详情" : "展开需求详情"}
+                  </button>
+                  {showDemandDetail && (
+                    <div className="mt-3 prose prose-sm max-w-none">
+                      <MarkdownContent content={demand.latestVersion.detail} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {demand.latestVersion?.attachments?.length > 0 && (
+                <div className="mt-3 border-t border-slate-50 pt-3 flex flex-wrap gap-2">
+                  {demand.latestVersion.attachments.map((att, i) => (
+                    <a key={i} href={att.url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-700 border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded-xl px-2.5 py-1 transition-colors">
+                      <ExternalLink size={11} /> {att.name}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       </div>
 
