@@ -402,26 +402,6 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
           </div>
         )}
 
-        {/* ── 定稿通知确认面板 ── */}
-        {showFinalizeConfirm && canFinalize && (
-          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5">
-            <p className="text-sm font-bold text-blue-900 mb-1">确认将合同发送给发单方确认？</p>
-            <p className="text-xs text-slate-500 mb-3">操作后合同状态变为「待发单方确认」，发单方将收到通知。请确保合同正文与付款计划均已准备好。</p>
-            {plans.length === 0 && (
-              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
-                <DollarSign size={14} className="text-amber-500 mt-0.5 shrink-0" />
-                <p className="text-xs text-amber-700 font-medium">尚未添加任何付款项。付款计划是合同的重要组成部分，请先在下方添加付款项后再定稿通知。</p>
-              </div>
-            )}
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowFinalizeConfirm(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleFinalize} disabled={acting || plans.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
-                <Send size={13} /> {acting ? "发送中…" : "确认定稿并通知"}
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* ── 合同内容 ── */}
         {contract.content && !showEditPanel && (
@@ -537,6 +517,33 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
         )}
 
       </div>
+
+      {/* ── 定稿通知确认 Modal ── */}
+      {showFinalizeConfirm && canFinalize && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-extrabold text-blue-900">定稿并通知发单方</h3>
+              <button onClick={() => setShowFinalizeConfirm(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-slate-600 mb-3">操作后合同状态变为「待发单方确认」，发单方将立即收到通知。</p>
+            <p className="text-xs text-slate-400 mb-4">请确保合同正文与付款计划均已准备好再发送。</p>
+            {plans.length === 0 && (
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4">
+                <DollarSign size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700 font-medium">尚未添加任何付款项，请先在付款计划中添加后再定稿。</p>
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowFinalizeConfirm(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleFinalize} disabled={acting || plans.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                <Send size={13} /> {acting ? "发送中…" : "确认发送"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 上传已签合同 Modal ── */}
       {showUploadModal && (
