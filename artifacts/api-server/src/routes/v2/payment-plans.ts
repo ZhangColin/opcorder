@@ -5,6 +5,9 @@ import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify } from "./utils";
 import { logger } from "../../lib/logger";
+import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS } from "../../lib/payment";
+
+const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
 const router: IRouter = Router();
 
@@ -179,6 +182,102 @@ router.post("/payment-plans/:id/upload-voucher", requireAuth, async (req: Reques
   } catch (err) {
     logger.error({ err }, "POST /v2/payment-plans/:id/upload-voucher failed");
     return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.post("/payment-plans/:id/create-online-payment", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    const [plan] = await db.select().from(v2PaymentPlansTable).where(eq(v2PaymentPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "付款计划不存在" });
+    if (plan.status === "paid") return res.status(400).json({ error: "该期已付款" });
+
+    let demandTitle = "合同付款";
+    if (role === "publisher") {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId, title: v2ClientDemandsTable.title })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, plan.clientDemandId)).limit(1);
+      if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权操作" });
+      demandTitle = demand?.title ?? demandTitle;
+    } else if (role !== "admin") {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    const businessOrderNo = `v2pp-${id}-${Date.now()}`;
+    const order = await createPaymentOrder({
+      businessOrderNo,
+      amount: plan.amount,
+      subject: `接单吧 · ${demandTitle} 第${plan.itemNo}期`,
+      businessName: "接单吧",
+      notifyUrl: NOTIFY_URL,
+    });
+
+    await db.update(v2PaymentPlansTable)
+      .set({ paymentOrderNo: order.paymentOrderNo, updatedAt: new Date() })
+      .where(eq(v2PaymentPlansTable.id, id));
+
+    return res.json({
+      qrCodeUrl: order.qrCodeUrl,
+      paymentOrderNo: order.paymentOrderNo,
+      amount: plan.amount,
+      expiredAt: order.expiredAt,
+    });
+  } catch (err) {
+    logger.error({ err }, "POST /v2/payment-plans/:id/create-online-payment failed");
+    return res.status(500).json({ error: "创建支付订单失败" });
+  }
+});
+
+router.post("/payment-plans/:id/query-online-payment", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    const [plan] = await db.select().from(v2PaymentPlansTable).where(eq(v2PaymentPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "付款计划不存在" });
+
+    if (role === "publisher") {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, plan.clientDemandId)).limit(1);
+      if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权查看" });
+    } else if (role !== "admin") {
+      return res.status(403).json({ error: "无权操作" });
+    }
+
+    if (plan.status === "paid") return res.json({ status: "paid" });
+    if (!plan.paymentOrderNo) return res.json({ status: "no_order" });
+
+    const order = await queryPaymentStatus(plan.paymentOrderNo);
+
+    if (order.status === PAYMENT_STATUS.PAID) {
+      const now = new Date();
+      await db.update(v2PaymentPlansTable)
+        .set({ status: "paid", paidAt: now, updatedAt: now })
+        .where(eq(v2PaymentPlansTable.id, id));
+
+      const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
+      for (const admin of admins) {
+        await notify(admin.id, "v2_payment_online_paid", "发单方在线支付成功",
+          `收款计划项 #${plan.itemNo}（¥${plan.amount.toLocaleString()}）：发单方通过平台在线完成支付。`,
+          plan.clientDemandId, "v2_client_demand");
+      }
+
+      return res.json({ status: "paid" });
+    }
+
+    if (order.status === PAYMENT_STATUS.FAILED ||
+        order.status === PAYMENT_STATUS.CANCELLED ||
+        order.status === PAYMENT_STATUS.EXPIRED) {
+      return res.json({ status: "failed", statusName: order.statusName });
+    }
+
+    return res.json({ status: "pending" });
+  } catch (err) {
+    logger.error({ err }, "POST /v2/payment-plans/:id/query-online-payment failed");
+    return res.status(500).json({ error: "查询支付状态失败" });
   }
 });
 

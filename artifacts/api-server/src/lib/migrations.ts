@@ -2099,5 +2099,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 032p: added url column to v2_deliverables_a");
   });
 
+  // Migration 033a: add payment_order_no to v2_payment_plans for online payment
+  await once("033a", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_payment_plans ADD COLUMN IF NOT EXISTS payment_order_no text
+    `);
+    logger.info("Migration 033a: added payment_order_no column to v2_payment_plans");
+  });
+
   logger.info("Startup data migrations complete.");
 }

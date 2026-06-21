@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, enrollmentsTable, demandPaymentsTable, demandsTable, notificationsTable, usersTable } from "@workspace/db";
+import { db, enrollmentsTable, demandPaymentsTable, demandsTable, notificationsTable, usersTable, v2PaymentPlansTable, v2ClientDemandsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { PAYMENT_STATUS } from "../lib/payment";
 import { Resend } from "resend";
@@ -119,8 +119,47 @@ router.post("/payment/callback", async (req, res) => {
       return res.status(200).send();
     }
 
+    // ── 3. Try to match a v2 payment plan ─────────────────────────────────
+    const [v2Plan] = await db
+      .select()
+      .from(v2PaymentPlansTable)
+      .where(eq(v2PaymentPlansTable.paymentOrderNo, paymentOrderNo))
+      .limit(1);
+
+    if (v2Plan) {
+      if (v2Plan.status === "paid") {
+        console.log(`[payment-callback] v2Plan ${v2Plan.id} already paid, skipping`);
+        return res.status(200).send();
+      }
+
+      if (status === PAYMENT_STATUS.PAID) {
+        const now = new Date();
+        await db.update(v2PaymentPlansTable)
+          .set({ status: "paid", paidAt: now, updatedAt: now })
+          .where(eq(v2PaymentPlansTable.id, v2Plan.id));
+
+        const admins = await db.select({ id: usersTable.id }).from(usersTable)
+          .where(eq(usersTable.role, "admin"));
+        for (const admin of admins) {
+          await db.insert(notificationsTable).values({
+            userId: admin.id,
+            type: "system",
+            title: "发单方在线支付成功（回调）",
+            content: `收款计划项 #${v2Plan.itemNo}（¥${v2Plan.amount.toLocaleString()}）已通过支付网关确认到账。`,
+            relatedId: v2Plan.clientDemandId,
+            relatedType: "v2_client_demand",
+          });
+        }
+        console.log(`[payment-callback] v2Plan ${v2Plan.id} marked paid via gateway callback`);
+      } else {
+        console.log(`[payment-callback] v2Plan ${v2Plan.id} status=${status} — no update`);
+      }
+
+      return res.status(200).send();
+    }
+
     // No matching record found
-    console.warn(`[payment-callback] no matching enrollment or demand payment for paymentOrderNo=${paymentOrderNo}`);
+    console.warn(`[payment-callback] no matching enrollment, demand payment, or v2 plan for paymentOrderNo=${paymentOrderNo}`);
     return res.status(200).send();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "回调处理失败";

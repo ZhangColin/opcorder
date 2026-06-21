@@ -27,6 +27,7 @@ export const v2PaymentPlansTable = pgTable("v2_payment_plans", {
   reviewedAt: timestamp("reviewed_at"),
   paidAt: timestamp("paid_at"),
   isLastItem: boolean("is_last_item").notNull().default(false),
+  paymentOrderNo: text("payment_order_no"),
   createdBy: integer("created_by").notNull().references(() => usersTable.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
