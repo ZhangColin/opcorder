@@ -69,21 +69,43 @@ router.get("/contracts/:id", requireAuth, async (req: Request, res: Response) =>
     const userId = req.user!.id;
     const role = req.user!.role;
 
-    const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
-    if (!contract) return res.status(404).json({ error: "合同不存在" });
+    const [row] = await db
+      .select({
+        id: v2ContractsTable.id,
+        contractNo: v2ContractsTable.contractNo,
+        channel: v2ContractsTable.channel,
+        clientDemandId: v2ContractsTable.clientDemandId,
+        outsourceOrderId: v2ContractsTable.outsourceOrderId,
+        content: v2ContractsTable.content,
+        status: v2ContractsTable.status,
+        signedFileUrl: v2ContractsTable.signedFileUrl,
+        signedAt: v2ContractsTable.signedAt,
+        publisherConfirmedAt: v2ContractsTable.publisherConfirmedAt,
+        publisherRejectedAt: v2ContractsTable.publisherRejectedAt,
+        publisherRejectedReason: v2ContractsTable.publisherRejectedReason,
+        createdAt: v2ContractsTable.createdAt,
+        updatedAt: v2ContractsTable.updatedAt,
+        demandTitle: v2ClientDemandsTable.title,
+      })
+      .from(v2ContractsTable)
+      .leftJoin(v2ClientDemandsTable, eq(v2ContractsTable.clientDemandId, v2ClientDemandsTable.id))
+      .where(eq(v2ContractsTable.id, id))
+      .limit(1);
+
+    if (!row) return res.status(404).json({ error: "合同不存在" });
 
     if (role === "publisher") {
-      if (contract.channel !== "a") return res.status(403).json({ error: "无权查看此合同" });
-      if (contract.clientDemandId) {
+      if (row.channel !== "a") return res.status(403).json({ error: "无权查看此合同" });
+      if (row.clientDemandId) {
         const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
-          .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
+          .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, row.clientDemandId)).limit(1);
         if (demand?.publisherId !== userId) return res.status(403).json({ error: "无权查看此合同" });
       }
     } else if (role === "opc") {
-      if (contract.channel !== "b") return res.status(403).json({ error: "无权查看此合同" });
+      if (row.channel !== "b") return res.status(403).json({ error: "无权查看此合同" });
     }
 
-    return res.json(contract);
+    return res.json(row);
   } catch (err) {
     logger.error({ err }, "GET /v2/contracts/:id failed");
     return res.status(500).json({ error: "服务器错误" });

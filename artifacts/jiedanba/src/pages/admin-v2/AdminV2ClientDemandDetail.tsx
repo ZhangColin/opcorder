@@ -54,6 +54,15 @@ interface VersionItem {
   createdAt: string;
 }
 
+interface ContractItem {
+  id: number;
+  contractNo: string;
+  status: string;
+  content: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface PaymentPlan {
   id: number;
   title: string;
@@ -150,7 +159,7 @@ function Section({
   );
 }
 
-type ActionPanel = "quote" | "payment" | "deliverable" | "close" | null;
+type ActionPanel = "quote" | "payment" | "deliverable" | "close" | "contract" | null;
 
 export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
@@ -163,6 +172,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [payments, setPayments] = useState<PaymentPlan[]>([]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [quotation, setQuotation] = useState<QuotationCard | null>(null);
+  const [contracts, setContracts] = useState<ContractItem[]>([]);
   const [acting, setActing] = useState(false);
   const [activePanel, setActivePanel] = useState<ActionPanel>(null);
 
@@ -238,17 +248,19 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const load = async () => {
     setLoading(true);
     try {
-      const [d, qData, pData, delData] = await Promise.all([
+      const [d, qData, pData, delData, cData] = await Promise.all([
         v2Get<ClientDemand>(`/client-demands/${id}`),
         v2Get<QuotationCard[]>(`/quotation-cards?clientDemandId=${id}`).catch(() => [] as QuotationCard[]),
         v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${id}`).catch(() => [] as PaymentPlan[]),
         v2Get<Deliverable[]>(`/deliverables-a?clientDemandId=${id}`).catch(() => [] as Deliverable[]),
+        v2Get<ContractItem[]>(`/contracts?clientDemandId=${id}&channel=a`).catch(() => [] as ContractItem[]),
       ]);
       setDemand(d);
       markRead("client", id);
       setQuotation(Array.isArray(qData) ? qData[0] ?? null : null);
       setPayments(Array.isArray(pData) ? pData : []);
       setDeliverables(Array.isArray(delData) ? delData : []);
+      setContracts(Array.isArray(cData) ? cData : []);
     } catch {
       setDemand(null);
     } finally {
@@ -331,6 +343,10 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     setPayTitle(""); setPayAmount(""); setPayDueDate("");
   }, "收款计划已创建");
 
+  const handleCreateContract = () => act(async () => {
+    await v2Post("/contracts", { channel: "a", clientDemandId: id });
+  }, "合同已创建，请在合同列表中编辑内容");
+
   const handleCreateDeliverable = () => act(async () => {
     if (!delivTitle.trim()) throw new Error("请填写交付标题");
     await v2Post("/deliverables-a", { clientDemandId: id, title: delivTitle.trim(), description: delivDesc.trim() || null });
@@ -387,6 +403,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canCreatePayment = ["pending_contract", "executing", "warranty", "completed"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = !["completed", "closed"].includes(demand.status);
+  const canCreateContract = ["pending_contract", "negotiating", "quoting"].includes(demand.status);
 
   const InlinePanel = ({
     title, color = "bg-slate-50 border-slate-200", children,
@@ -431,6 +448,14 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
             >
               <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
+            </button>
+          )}
+          {canCreateContract && (
+            <button
+              onClick={() => setActivePanel(prev => prev === "contract" ? null : "contract")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "contract" ? "bg-blue-600 text-white border-blue-600" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
+            >
+              <FileText size={13} /> 创建合同
             </button>
           )}
           {canCreatePayment && (
@@ -569,6 +594,19 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               <button onClick={handleClose} disabled={acting}
                 className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
                 {acting ? "关闭中…" : "确认关闭"}
+              </button>
+            </div>
+          </InlinePanel>
+        )}
+
+        {activePanel === "contract" && (
+          <InlinePanel title="创建合同" color="bg-blue-50 border-blue-200">
+            <p className="text-sm text-slate-500 mb-4">为该需求创建一份空白合同（A 通道），创建后可在合同详情页编辑正文与付款计划。</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleCreateContract} disabled={acting}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50">
+                {acting ? "创建中…" : "确认创建"}
               </button>
             </div>
           </InlinePanel>
@@ -730,6 +768,39 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </div>
           )}
         </Section>
+
+        {/* ── 合同 ── */}
+        {contracts.length > 0 && (
+          <Section title={`合同（${contracts.length} 份）`} icon={FileText}>
+            <div className="space-y-2">
+              {contracts.map(c => {
+                const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
+                  draft:                     { label: "草稿",       color: "bg-slate-100 text-slate-500" },
+                  pending_publisher_confirm: { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
+                  publisher_rejected:        { label: "已退回",      color: "bg-red-100 text-red-600" },
+                  pending_sign:              { label: "待签约",      color: "bg-orange-100 text-orange-700" },
+                  signed:                    { label: "已签约",      color: "bg-green-100 text-green-700" },
+                };
+                const cs = CONTRACT_STATUS[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
+                return (
+                  <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
+                      <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
+                      <a href={`/admin/v2/contracts-a/${c.id}`}
+                        className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
+                        查看详情
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        )}
 
         {/* ── 收款计划 ── */}
         {payments.length > 0 && (

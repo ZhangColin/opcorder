@@ -12,10 +12,11 @@ router.get("/payment-plans", requireAuth, async (req: Request, res: Response) =>
   try {
     const userId = req.user!.id;
     const role = req.user!.role;
-    const { clientDemandId, status } = req.query as Record<string, string>;
+    const { clientDemandId, contractId, status } = req.query as Record<string, string>;
     const conditions: any[] = [];
 
     if (clientDemandId) conditions.push(eq(v2PaymentPlansTable.clientDemandId, parseInt(clientDemandId)));
+    if (contractId) conditions.push(eq(v2PaymentPlansTable.contractId, parseInt(contractId)));
     if (status) conditions.push(eq(v2PaymentPlansTable.status, status as any));
 
     if (role === "publisher") {
