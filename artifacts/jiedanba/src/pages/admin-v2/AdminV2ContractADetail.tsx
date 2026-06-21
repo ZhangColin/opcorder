@@ -39,6 +39,16 @@ interface Demand {
   latestVersion: { detail: string; attachments: Array<{ name: string; url: string }> } | null;
 }
 
+interface QuotationCard {
+  id: number;
+  totalPrice: number;
+  breakdown: Array<{ item: string; amount: number; note?: string }>;
+  note: string | null;
+  createdByNickname: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface PaymentPlan {
   id: number;
   itemNo: number;
@@ -97,6 +107,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
+  const [quotes, setQuotes] = useState<QuotationCard[]>([]);
   const [showDemandDetail, setShowDemandDetail] = useState(false);
 
   // 编辑正文面板
@@ -122,12 +133,14 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
       setContract(d);
       markRead("contract", id);
       if (d.clientDemandId) {
-        const [ps, dem] = await Promise.all([
+        const [ps, dem, qs] = await Promise.all([
           v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${d.clientDemandId}&contractId=${id}`).catch(() => [] as PaymentPlan[]),
           v2Get<Demand>(`/client-demands/${d.clientDemandId}`).catch(() => null),
+          v2Get<QuotationCard[]>(`/quotation-cards?clientDemandId=${d.clientDemandId}`).catch(() => [] as QuotationCard[]),
         ]);
         setPlans(Array.isArray(ps) ? ps : []);
         setDemand(dem);
+        setQuotes(Array.isArray(qs) ? qs : []);
       }
     } catch {
       setContract(null);
@@ -416,6 +429,46 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
             <MarkdownContent content={contract.content} />
           </Section>
         )}
+
+        {/* ── 报价 ── */}
+        {quotes.length > 0 && (() => {
+          const latest = quotes[0];
+          return (
+            <Section title={`报价（最新）`} icon={DollarSign}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-2xl font-extrabold text-blue-900">
+                  ¥{Number(latest.totalPrice).toLocaleString()}
+                </p>
+                <span className="text-xs text-slate-400">
+                  {latest.createdByNickname && `${latest.createdByNickname} · `}
+                  {new Date(latest.updatedAt).toLocaleDateString("zh-CN")}
+                </span>
+              </div>
+
+              {latest.breakdown.length > 0 && (
+                <div className="space-y-1.5 mb-3">
+                  {latest.breakdown.map((b, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm border-b border-slate-50 pb-1.5 last:border-0">
+                      <div>
+                        <span className="text-slate-700">{b.item}</span>
+                        {b.note && <span className="text-xs text-slate-400 ml-2">{b.note}</span>}
+                      </div>
+                      <span className="font-semibold text-slate-800">¥{Number(b.amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {latest.note && (
+                <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2">{latest.note}</p>
+              )}
+
+              {quotes.length > 1 && (
+                <p className="text-xs text-slate-400 mt-2">共 {quotes.length} 个历史报价版本</p>
+              )}
+            </Section>
+          );
+        })()}
 
         {/* ── 付款计划 ── */}
         {contract.clientDemandId && (
