@@ -61,12 +61,18 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    proxy: {
-      "/api": {
-        target: process.env.API_PROXY_TARGET ?? "http://localhost:3000",
-        changeOrigin: true,
-      },
-    },
+    proxy: (() => {
+      const apiProxyBase = basePath.replace(/\/$/, "");
+      return {
+        [`${apiProxyBase}/api`]: {
+          target: process.env.API_PROXY_TARGET ?? "http://localhost:3000",
+          changeOrigin: true,
+          ...(apiProxyBase
+            ? { rewrite: (path: string) => path.slice(apiProxyBase.length) }
+            : {}),
+        },
+      };
+    })(),
   },
   preview: {
     port,

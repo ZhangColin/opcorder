@@ -62,11 +62,11 @@ name = "Start application"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "console"
+outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/jiedanba run dev"
+args = "PORT=8080 BASE_PATH=/jiedanba/ pnpm --filter @workspace/jiedanba run dev"
 waitForPort = 8080
 
 [agent]
