@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { FileSignature, Loader2, AlertCircle, CheckCircle2, XCircle, ExternalLink, Clock, DollarSign } from "lucide-react";
+import {
+  FileSignature, Loader2, AlertCircle, CheckCircle2, XCircle, ExternalLink,
+  Clock, DollarSign, ChevronDown, ChevronUp, Zap, Calendar,
+} from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
@@ -20,6 +23,19 @@ interface Contract {
   publisherRejectedReason: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface Demand {
+  id: number;
+  demandNo: string;
+  title: string;
+  demandType: string | null;
+  isUrgent: boolean;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  hopeDeliveryDate: string | null;
+  status: string;
+  latestVersion: { detail: string; attachments: Array<{ name: string; url: string }> } | null;
 }
 
 interface PaymentPlan {
@@ -52,8 +68,10 @@ export default function PubContractDetail() {
   const { toast } = useToast();
 
   const [contract, setContract] = useState<Contract | null>(null);
+  const [demand, setDemand] = useState<Demand | null>(null);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDemandDetail, setShowDemandDetail] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [acting, setActing] = useState(false);
@@ -64,8 +82,14 @@ export default function PubContractDetail() {
       const data = await v2Get<Contract>(`/contracts/${contractId}`);
       setContract(data);
       markRead("contract", contractId);
-      if (data.status === "signed" && data.clientDemandId) {
-        const ps = await v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${data.clientDemandId}&contractId=${contractId}`).catch(() => [] as PaymentPlan[]);
+      if (data.clientDemandId) {
+        const [dem, ps] = await Promise.all([
+          v2Get<Demand>(`/client-demands/${data.clientDemandId}`).catch(() => null),
+          data.status === "signed"
+            ? v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${data.clientDemandId}&contractId=${contractId}`).catch(() => [] as PaymentPlan[])
+            : Promise.resolve([] as PaymentPlan[]),
+        ]);
+        setDemand(dem);
         setPlans(Array.isArray(ps) ? ps : []);
       }
     } catch {
@@ -134,9 +158,10 @@ export default function PubContractDetail() {
   const canAct = contract.status === "pending_publisher_confirm";
 
   return (
-    <PubLayout title={`合同 ${contract.contractNo}`} backHref="/pub/contracts" backLabel="合同列表">
+    <PubLayout title={demand?.title ?? `合同 ${contract.contractNo}`} backHref="/pub/contracts" backLabel="合同列表">
       <div className="mt-6 space-y-5">
-        {/* Status card */}
+
+        {/* ── 状态卡片 ── */}
         <div className={`rounded-2xl border p-5 flex items-center gap-4 ${
           canAct ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"
         }`}>
@@ -158,7 +183,78 @@ export default function PubContractDetail() {
           )}
         </div>
 
-        {/* Action banner for pending confirm */}
+        {/* ── 关联需求信息 ── */}
+        {demand && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-3">需求信息</h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">需求编号</p>
+                <p className="text-xs font-mono text-slate-600">{demand.demandNo}</p>
+              </div>
+              {demand.demandType && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">需求类型</p>
+                  <p className="text-xs text-slate-700">{demand.demandType}</p>
+                </div>
+              )}
+              {(demand.budgetMin != null || demand.budgetMax != null) && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">预算范围</p>
+                  <p className="text-xs font-semibold text-slate-700">
+                    {demand.budgetMin != null ? `¥${Number(demand.budgetMin).toLocaleString()}` : "—"}
+                    {" ~ "}
+                    {demand.budgetMax != null ? `¥${Number(demand.budgetMax).toLocaleString()}` : "—"}
+                  </p>
+                </div>
+              )}
+              {demand.hopeDeliveryDate && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><Calendar size={11} /> 期望交付</p>
+                  <p className="text-xs text-slate-700">{new Date(demand.hopeDeliveryDate).toLocaleDateString("zh-CN")}</p>
+                </div>
+              )}
+              {demand.isUrgent && (
+                <div className="flex items-center gap-1 col-span-2">
+                  <Zap size={12} className="text-orange-500" />
+                  <span className="text-xs font-bold text-orange-600">加急需求</span>
+                </div>
+              )}
+            </div>
+
+            {/* 需求详情折叠 */}
+            {demand.latestVersion?.detail && (
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <button
+                  onClick={() => setShowDemandDetail(v => !v)}
+                  className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                >
+                  {showDemandDetail ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  {showDemandDetail ? "收起需求详情" : "展开需求详情"}
+                </button>
+                {showDemandDetail && (
+                  <div className="mt-3">
+                    <MarkdownContent content={demand.latestVersion.detail} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 附件 */}
+            {demand.latestVersion?.attachments?.length > 0 && (
+              <div className="mt-3 border-t border-slate-100 pt-3 flex flex-wrap gap-2">
+                {demand.latestVersion.attachments.map((att, i) => (
+                  <a key={i} href={att.url} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-700 border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded-xl px-2.5 py-1 transition-colors">
+                    <ExternalLink size={11} /> {att.name}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 操作 banner（待确认） ── */}
         {canAct && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
             <p className="text-sm font-bold text-amber-800 mb-1">运营方已完成合同定稿，请您仔细阅读后操作</p>
@@ -183,7 +279,7 @@ export default function PubContractDetail() {
           </div>
         )}
 
-        {/* Reject reason shown if rejected */}
+        {/* ── 退回说明 ── */}
         {contract.status === "publisher_rejected" && contract.publisherRejectedReason && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
             <p className="text-xs font-bold text-red-700 mb-1">您的退回说明</p>
@@ -192,22 +288,18 @@ export default function PubContractDetail() {
           </div>
         )}
 
-        {/* Signed file */}
+        {/* ── 已签约文件 ── */}
         {contract.signedFileUrl && (
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
             <h3 className="text-sm font-bold text-slate-800 mb-3">已签约合同文件</h3>
-            <a
-              href={contract.signedFileUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 text-sm text-primary hover:underline"
-            >
+            <a href={contract.signedFileUrl} target="_blank" rel="noreferrer"
+              className="flex items-center gap-2 text-sm text-primary hover:underline">
               <ExternalLink size={14} /> 查看 / 下载签约文件
             </a>
           </div>
         )}
 
-        {/* Contract content */}
+        {/* ── 合同正文 ── */}
         {contract.content && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-4">合同正文</h3>
@@ -215,7 +307,7 @@ export default function PubContractDetail() {
           </div>
         )}
 
-        {/* ── Payment plans（仅合同已签后展示） ── */}
+        {/* ── 付款计划（仅合同签订后展示） ── */}
         {contract.status === "signed" && plans.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
@@ -254,7 +346,7 @@ export default function PubContractDetail() {
         )}
       </div>
 
-      {/* Reject modal */}
+      {/* ── 退回合同 Modal ── */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
