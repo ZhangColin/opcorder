@@ -385,7 +385,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canReQuote = demand.status === "quoting";
   const canEditDetail = ["draft", "negotiating", "quoting"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
-  const canClose = !["completed", "closed"].includes(demand.status);
+  const canClose = ["draft", "negotiating", "quoting", "pending_contract"].includes(demand.status);
 
   const InlinePanel = ({
     title, color = "bg-slate-50 border-slate-200", children,

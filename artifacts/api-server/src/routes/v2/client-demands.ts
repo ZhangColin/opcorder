@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
-  db, v2ClientDemandsTable, v2ClientDemandVersionsTable, v2ContractsTable, v2DiscussionPostsTable, notificationsTable, usersTable,
+  db, v2ClientDemandsTable, v2ClientDemandVersionsTable, v2ContractsTable, v2PaymentPlansTable, v2DiscussionPostsTable, notificationsTable, usersTable,
 } from "@workspace/db";
 import { eq, and, desc, count, ilike, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -450,6 +450,20 @@ router.post("/client-demands/:id/close", requireAuth, async (req: Request, res: 
       .set({ status: "closed", closedReason: reason, closedBy: userId, updatedAt: new Date() })
       .where(eq(v2ClientDemandsTable.id, id))
       .returning();
+
+    // 级联取消：合同（未签约）和付款计划
+    const unsignedStatuses = ["draft", "pending_publisher_confirm", "publisher_rejected", "pending_sign"];
+    const contracts = await db.select({ id: v2ContractsTable.id })
+      .from(v2ContractsTable)
+      .where(and(eq(v2ContractsTable.clientDemandId, id), inArray(v2ContractsTable.status, unsignedStatuses)));
+    if (contracts.length > 0) {
+      await db.update(v2ContractsTable)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(and(eq(v2ContractsTable.clientDemandId, id), inArray(v2ContractsTable.status, unsignedStatuses)));
+    }
+    await db.update(v2PaymentPlansTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(v2PaymentPlansTable.clientDemandId, id));
 
     if (role === "admin") {
       await notify(demand.publisherId, "v2_demand_submitted", "需求已关闭",
