@@ -1,10 +1,14 @@
 import { Link, useLocation } from "wouter";
 import {
   FileText, FileSignature, CreditCard, Wrench,
-  PlusCircle, LogOut, X, ChevronRight,
+  PlusCircle, LogOut, X, ChevronRight, PackageCheck,
 } from "lucide-react";
 import { SiteLogo } from "@/components/SiteLogo";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { v2Get } from "@/lib/v2api";
+
+interface BadgeCounts { pendingA: number; pendingB: number; }
 
 interface SidebarLinkProps {
   icon: React.ElementType;
@@ -12,9 +16,10 @@ interface SidebarLinkProps {
   href: string;
   active?: boolean;
   onClick?: () => void;
+  dot?: boolean;
 }
 
-function SidebarLink({ icon: Icon, label, href, active, onClick }: SidebarLinkProps) {
+function SidebarLink({ icon: Icon, label, href, active, onClick, dot }: SidebarLinkProps) {
   const cls = `w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 cursor-pointer ${
     active ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-primary"
   }`;
@@ -22,7 +27,8 @@ function SidebarLink({ icon: Icon, label, href, active, onClick }: SidebarLinkPr
     <Link href={href}>
       <div className={cls} onClick={onClick}>
         <Icon size={18} />
-        {label}
+        <span className="flex-1">{label}</span>
+        {dot && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />}
       </div>
     </Link>
   );
@@ -36,6 +42,13 @@ interface PubSidebarProps {
 
 export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubSidebarProps) {
   const [location] = useLocation();
+
+  const { data: badges } = useQuery<BadgeCounts>({
+    queryKey: ["delivery-badge-counts"],
+    queryFn: () => v2Get("/delivery-badge-counts"),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  });
 
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
@@ -53,7 +66,7 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
 
   const content = (
     <>
-      <div className="mb-6 px-2 flex items-center justify-between">
+      <div className="mb-6 px-2 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <SiteLogo size={32} />
           <div>
@@ -68,20 +81,22 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
         </button>
       </div>
 
-      <nav className="flex-1 flex flex-col gap-0.5">
-        <SidebarLink icon={FileText}      label="需求管理"  href="/pub/demands"   active={isActive("/pub/demands")}   onClick={close} />
-        <SidebarLink icon={FileSignature} label="合同管理"  href="/pub/contracts" active={isActive("/pub/contracts")} onClick={close} />
-        <SidebarLink icon={CreditCard}    label="付款管理"  href="/pub/payments"  active={isActive("/pub/payments")}  onClick={close} />
-        <SidebarLink icon={Wrench}        label="质保工单"  href="/pub/tickets"   active={isActive("/pub/tickets")}   onClick={close} />
+      <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">
+        <SidebarLink icon={FileText}      label="需求管理"  href="/pub/demands"    active={isActive("/pub/demands")}    onClick={close} />
+        <SidebarLink icon={FileSignature} label="合同管理"  href="/pub/contracts"  active={isActive("/pub/contracts")}  onClick={close} />
+        <SidebarLink icon={CreditCard}    label="付款管理"  href="/pub/payments"   active={isActive("/pub/payments")}   onClick={close} />
+        <SidebarLink icon={PackageCheck}  label="交付确认"  href="/pub/deliveries" active={isActive("/pub/deliveries")} onClick={close}
+          dot={(badges?.pendingA ?? 0) > 0} />
+        <SidebarLink icon={Wrench}        label="质保工单"  href="/pub/tickets"    active={isActive("/pub/tickets")}    onClick={close} />
       </nav>
 
       <Link href="/pub/demands/new" onClick={close}>
-        <div className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer">
+        <div className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl px-4 py-3 font-bold text-sm shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer mt-4">
           <PlusCircle size={16} /> 发布新需求
         </div>
       </Link>
 
-      <div className="mt-4 border-t border-slate-200 pt-4">
+      <div className="mt-4 border-t border-slate-200 pt-4 shrink-0">
         <Link href="/publisher" onClick={close}>
           <div className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
             <ChevronRight size={14} className="rotate-180" /> 返回旧版门户

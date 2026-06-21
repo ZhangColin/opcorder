@@ -13,6 +13,7 @@ import deliverablesBRouter from "./deliverables-b";
 import ticketsBRouter from "./tickets-b";
 import discussionsRouter from "./discussions";
 import overviewRouter from "./overview";
+import deliveryBadgeCountsRouter from "./delivery-badge-counts";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/", deliverablesBRouter);
 router.use("/", ticketsBRouter);
 router.use("/", discussionsRouter);
 router.use("/", overviewRouter);
+router.use("/", deliveryBadgeCountsRouter);
 
 export default router;

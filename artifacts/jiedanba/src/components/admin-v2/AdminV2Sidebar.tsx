@@ -6,6 +6,10 @@ import {
 } from "lucide-react";
 import { SiteLogo } from "@/components/SiteLogo";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { v2Get } from "@/lib/v2api";
+
+interface BadgeCounts { pendingA: number; pendingB: number; }
 
 interface SidebarLinkProps {
   icon: React.ElementType;
@@ -14,9 +18,10 @@ interface SidebarLinkProps {
   active?: boolean;
   onClick?: () => void;
   highlight?: boolean;
+  dot?: boolean;
 }
 
-function SidebarLink({ icon: Icon, label, href, active, onClick, highlight }: SidebarLinkProps) {
+function SidebarLink({ icon: Icon, label, href, active, onClick, highlight, dot }: SidebarLinkProps) {
   const cls = `w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 cursor-pointer ${
     active ? "bg-white text-primary shadow-sm" : highlight ? "text-amber-600 hover:text-amber-700" : "text-slate-500 hover:text-primary"
   }`;
@@ -25,6 +30,7 @@ function SidebarLink({ icon: Icon, label, href, active, onClick, highlight }: Si
       <div className={cls} onClick={onClick}>
         <Icon size={17} />
         <span className="flex-1">{label}</span>
+        {dot && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />}
       </div>
     </Link>
   );
@@ -47,6 +53,13 @@ interface AdminV2SidebarProps {
 export function AdminV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: AdminV2SidebarProps) {
   const [location] = useLocation();
 
+  const { data: badges } = useQuery<BadgeCounts>({
+    queryKey: ["delivery-badge-counts"],
+    queryFn: () => v2Get("/delivery-badge-counts"),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  });
+
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
     if (isMobile) document.body.style.overflow = mobileOpen ? "hidden" : "";
@@ -58,7 +71,7 @@ export function AdminV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: 
 
   const content = (
     <>
-      <div className="mb-4 px-2 flex items-center justify-between">
+      <div className="mb-4 px-2 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <SiteLogo size={30} />
           <div>
@@ -73,7 +86,7 @@ export function AdminV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: 
         </button>
       </div>
 
-      <nav className="flex-1 flex flex-col">
+      <nav className="flex-1 flex flex-col overflow-y-auto min-h-0 pb-2">
         <SidebarLink icon={LayoutGrid} label="跨通道总览" href="/admin/v2/overview"
           active={isActive("/admin/v2/overview")} onClick={close} />
 
@@ -82,11 +95,12 @@ export function AdminV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: 
           active={isActive("/admin/v2/client-demands")} onClick={close} />
         <SidebarLink icon={FileSignature} label="合同 (A)"   href="/admin/v2/contracts-a"
           active={isActive("/admin/v2/contracts-a")} onClick={close} />
-        <SidebarLink icon={CreditCard}    label="收款 (A)"      href="/admin/v2/payments-a"
+        <SidebarLink icon={CreditCard}    label="收款 (A)"   href="/admin/v2/payments-a"
           active={isActive("/admin/v2/payments-a")} onClick={close} />
-        <SidebarLink icon={PackageCheck} label="交付 (A)"      href="/admin/v2/deliveries-a"
-          active={isActive("/admin/v2/deliveries-a")} onClick={close} />
-        <SidebarLink icon={Wrench}        label="工单 (A)"      href="/admin/v2/tickets-a"
+        <SidebarLink icon={PackageCheck}  label="交付 (A)"   href="/admin/v2/deliveries-a"
+          active={isActive("/admin/v2/deliveries-a")} onClick={close}
+          dot={(badges?.pendingA ?? 0) > 0} />
+        <SidebarLink icon={Wrench}        label="工单 (A)"   href="/admin/v2/tickets-a"
           active={isActive("/admin/v2/tickets-a")} onClick={close} />
 
         <SectionLabel label="通道B · OPC" />
@@ -96,15 +110,16 @@ export function AdminV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: 
           active={isActive("/admin/v2/tenders")} onClick={close} />
         <SidebarLink icon={Boxes}    label="接单订单"   href="/admin/v2/outsource-orders"
           active={isActive("/admin/v2/outsource-orders")} onClick={close} />
-        <SidebarLink icon={Wallet}       label="结算付款"      href="/admin/v2/payments-b"
+        <SidebarLink icon={Wallet}       label="结算付款"  href="/admin/v2/payments-b"
           active={isActive("/admin/v2/payments-b")} onClick={close} />
-        <SidebarLink icon={PackageCheck} label="交付 (B)"      href="/admin/v2/deliveries-b"
-          active={isActive("/admin/v2/deliveries-b")} onClick={close} />
-        <SidebarLink icon={Package}      label="工单 (B)"      href="/admin/v2/tickets-b"
+        <SidebarLink icon={PackageCheck} label="交付 (B)"  href="/admin/v2/deliveries-b"
+          active={isActive("/admin/v2/deliveries-b")} onClick={close}
+          dot={(badges?.pendingB ?? 0) > 0} />
+        <SidebarLink icon={Package}      label="工单 (B)"  href="/admin/v2/tickets-b"
           active={isActive("/admin/v2/tickets-b")} onClick={close} />
       </nav>
 
-      <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5">
+      <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5 shrink-0">
         <Link href="/admin" onClick={close}>
           <div className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
             <ChevronRight size={14} className="rotate-180" /> 返回旧版后台

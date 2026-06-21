@@ -39,6 +39,7 @@ import PubContractList from "@/pages/pub/PubContractList";
 import PubContractDetail from "@/pages/pub/PubContractDetail";
 import PubPaymentList from "@/pages/pub/PubPaymentList";
 import PubPaymentDetail from "@/pages/pub/PubPaymentDetail";
+import PubDeliveryList from "@/pages/pub/PubDeliveryList";
 import PubTicketList from "@/pages/pub/PubTicketList";
 import PubTicketDetail from "@/pages/pub/PubTicketDetail";
 import PublisherHome from "@/pages/PublisherHome";
@@ -394,6 +395,9 @@ function Router() {
       </Route>
       <Route path="/pub/payments">
         {() => <PublisherGate><PubPaymentList /></PublisherGate>}
+      </Route>
+      <Route path="/pub/deliveries">
+        {() => <PublisherGate><PubDeliveryList /></PublisherGate>}
       </Route>
       <Route path="/pub/tickets/:id">
         {() => <PublisherGate><PubTicketDetail /></PublisherGate>}
