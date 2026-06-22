@@ -1275,17 +1275,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                 <X size={18} className="text-slate-400 hover:text-slate-600" />
               </button>
             </div>
-            <p className="text-sm text-slate-500">关闭后工单进入「已关闭」状态，不可再回复。</p>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">关闭备注（选填）</label>
-              <textarea
-                rows={3}
-                placeholder="填写处理结果或备注说明…"
-                value={closeTicketNote}
-                onChange={e => setCloseTicketNote(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-slate-50 resize-none"
-              />
-            </div>
+            <p className="text-sm text-slate-500">关闭后工单进入「已关闭」状态，不可再回复。确认关闭？</p>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => handleCloseTicket(closingTicketId)}
