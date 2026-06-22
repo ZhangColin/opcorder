@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
-  Link2, Paperclip, Plus, RotateCcw,
+  Link2, Paperclip, Plus, RotateCcw, Wrench,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -86,6 +86,26 @@ interface Deliverable {
   confirmedAt: string | null;
   rejectedAt: string | null;
   rejectedReason: string | null;
+  createdAt: string;
+}
+
+interface TicketItem {
+  id: number;
+  title: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TicketFull {
+  id: number;
+  title: string;
+  description: string | null;
+  status: string;
+  attachments: Array<{ name: string; url: string }> | null;
+  closedNote: string | null;
+  closedAt: string | null;
+  createdByNickname: string | null;
   createdAt: string;
 }
 
@@ -215,10 +235,10 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [quoteNote, setQuoteNote] = useState("");
 
   // Tab — read initial value from ?tab= URL param
-  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery">(() => {
+  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">(() => {
     const p = new URLSearchParams(window.location.search);
     const t = p.get("tab");
-    return (["needs", "contract", "delivery"] as const).includes(t as any) ? (t as "needs" | "contract" | "delivery") : "needs";
+    return (["needs", "contract", "delivery", "ticket"] as const).includes(t as any) ? (t as "needs" | "contract" | "delivery" | "ticket") : "needs";
   });
   const initialId = useMemo(() => {
     const p = new URLSearchParams(window.location.search);
@@ -233,6 +253,13 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [delivUrl, setDelivUrl] = useState("");
   const [delivAttachments, setDelivAttachments] = useState<Array<{ name: string; url: string }>>([]);
   const [delivAttachUploading, setDelivAttachUploading] = useState(false);
+
+  // Tickets
+  const [tickets, setTickets] = useState<TicketItem[]>([]);
+  const [ticketFull, setTicketFull] = useState<Record<number, TicketFull>>({});
+  const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
+  const [closingTicketId, setClosingTicketId] = useState<number | null>(null);
+  const [closeTicketNote, setCloseTicketNote] = useState("");
 
   // Deliverable expand / resubmit
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
@@ -284,12 +311,13 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const load = async () => {
     setLoading(true);
     try {
-      const [d, qData, pData, delData, cData] = await Promise.all([
+      const [d, qData, pData, delData, cData, tData] = await Promise.all([
         v2Get<ClientDemand>(`/client-demands/${id}`),
         v2Get<QuotationCard[]>(`/quotation-cards?clientDemandId=${id}`).catch(() => [] as QuotationCard[]),
         v2Get<PaymentPlan[]>(`/payment-plans?clientDemandId=${id}`).catch(() => [] as PaymentPlan[]),
         v2Get<Deliverable[]>(`/deliverables-a?clientDemandId=${id}`).catch(() => [] as Deliverable[]),
         v2Get<ContractItem[]>(`/contracts?clientDemandId=${id}&channel=a`).catch(() => [] as ContractItem[]),
+        v2Get<TicketItem[]>(`/tickets-a?clientDemandId=${id}`).catch(() => [] as TicketItem[]),
       ]);
       setDemand(d);
       markRead("client", id);
@@ -297,6 +325,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
       setPayments(Array.isArray(pData) ? pData : []);
       setDeliverables(Array.isArray(delData) ? delData : []);
       setContracts(Array.isArray(cData) ? cData : []);
+      setTickets(Array.isArray(tData) ? tData : []);
     } catch {
       setDemand(null);
     } finally {
@@ -311,8 +340,36 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     if (activeTab === "delivery" && initialId && deliverables.length > 0) {
       const found = deliverables.find(d => d.id === initialId);
       if (found) { setExpandedDelivId(initialId); didAutoExpand.current = true; }
+    } else if (activeTab === "ticket" && initialId && tickets.length > 0) {
+      const found = tickets.find(t => t.id === initialId);
+      if (found) { handleExpandTicket(initialId); didAutoExpand.current = true; }
     }
-  }, [activeTab, deliverables, initialId]);
+  }, [activeTab, deliverables, tickets, initialId]);
+
+  const handleExpandTicket = async (ticketId: number) => {
+    setExpandedTicketId(prev => prev === ticketId ? null : ticketId);
+    if (!ticketFull[ticketId]) {
+      try {
+        const full = await v2Get<TicketFull>(`/tickets-a/${ticketId}`);
+        setTicketFull(prev => ({ ...prev, [ticketId]: full }));
+        markRead("ticket_a", ticketId);
+      } catch { /* ignore */ }
+    }
+  };
+
+  const handleCloseTicket = async (ticketId: number) => {
+    try {
+      await v2Post(`/tickets-a/${ticketId}/close`, { note: closeTicketNote.trim() || undefined });
+      setClosingTicketId(null);
+      setCloseTicketNote("");
+      const fresh = await v2Get<TicketFull>(`/tickets-a/${ticketId}`);
+      setTicketFull(prev => ({ ...prev, [ticketId]: fresh }));
+      setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: "closed" } : t));
+      toast({ title: "工单已关闭" });
+    } catch (err: any) {
+      toast({ title: "关闭失败", description: err.message, variant: "destructive" });
+    }
+  };
 
   const loadVersions = async () => {
     try {
@@ -484,12 +541,13 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canClose = ["draft", "negotiating", "quoting", "pending_contract"].includes(demand.status);
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
-  const visibleTabs: Array<"needs" | "contract" | "delivery"> = [
+  const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket"> = [
     "needs",
     ...(isPast("quoting")   ? ["contract" as const] : []),
     ...(isPast("executing") ? ["delivery" as const] : []),
+    ...(isPast("warranty")  ? ["ticket"   as const] : []),
   ];
-  const TAB_LABELS: Record<string, string> = { needs: "需求详情", contract: "报价与合同", delivery: "交付" };
+  const TAB_LABELS: Record<string, string> = { needs: "需求详情", contract: "报价与合同", delivery: "交付", ticket: "工单" };
 
   const InlinePanel = ({
     title, color = "bg-slate-50 border-slate-200", children,
@@ -1081,6 +1139,127 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                         <p className="text-xs font-bold text-slate-500 mb-3">交付讨论</p>
                         <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或备注…" />
                       </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── 工单 Tab ── */}
+        {activeTab === "ticket" && (
+          <div className="space-y-3">
+            {tickets.length === 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+                <Wrench size={32} className="mx-auto mb-3 text-slate-200" />
+                <p className="text-sm text-slate-400">暂无工单</p>
+              </div>
+            )}
+            {tickets.map(t => {
+              const isExpanded = expandedTicketId === t.id;
+              const full = ticketFull[t.id];
+              const isOpen = t.status === "open";
+              return (
+                <div key={t.id} data-ticket-id={t.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  <button
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                    onClick={() => handleExpandTicket(t.id)}
+                  >
+                    <Wrench size={16} className="text-blue-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{t.title}</p>
+                      <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
+                    </div>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                      {isOpen ? "处理中" : "已关闭"}
+                    </span>
+                    {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
+                  </button>
+                  {isExpanded && (
+                    <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
+                      {!full ? (
+                        <div className="flex items-center justify-center py-6 text-slate-400">
+                          <Loader2 size={16} className="animate-spin mr-2" /> 加载中…
+                        </div>
+                      ) : (
+                        <>
+                          {full.createdByNickname && (
+                            <p className="text-xs text-slate-400 pt-3">发起人：{full.createdByNickname}</p>
+                          )}
+                          {full.description && (
+                            <div>
+                              <p className="text-xs font-bold text-slate-500 mb-2">问题描述</p>
+                              <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 prose prose-sm max-w-none">
+                                <MarkdownContent content={full.description} />
+                              </div>
+                            </div>
+                          )}
+                          {full.attachments && full.attachments.length > 0 && (
+                            <div>
+                              <p className="text-xs font-bold text-slate-500 mb-2">附件</p>
+                              <div className="flex flex-wrap gap-2">
+                                {full.attachments.map((a, i) => (
+                                  <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                                    className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
+                                    <Paperclip size={11} /> {a.name}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {!isOpen && full.closedNote && (
+                            <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
+                              <p className="text-xs font-bold text-slate-500 mb-1">关闭备注</p>
+                              <p className="text-xs text-slate-600">{full.closedNote}</p>
+                              {full.closedAt && (
+                                <p className="text-xs text-slate-400 mt-1">关闭于 {new Date(full.closedAt).toLocaleDateString("zh-CN")}</p>
+                              )}
+                            </div>
+                          )}
+                          {isOpen && (
+                            closingTicketId === t.id ? (
+                              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                                <p className="text-xs font-bold text-slate-700">关闭工单</p>
+                                <textarea
+                                  rows={3}
+                                  placeholder="关闭备注（选填）"
+                                  value={closeTicketNote}
+                                  onChange={e => setCloseTicketNote(e.target.value)}
+                                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none bg-white resize-none"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleCloseTicket(t.id)}
+                                    className="px-4 py-1.5 text-xs bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors"
+                                  >确认关闭</button>
+                                  <button
+                                    onClick={() => { setClosingTicketId(null); setCloseTicketNote(""); }}
+                                    className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50"
+                                  >取消</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setClosingTicketId(t.id)}
+                                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                              >
+                                <X size={12} /> 关闭工单
+                              </button>
+                            )
+                          )}
+                          <div className="border-t border-slate-100 pt-4">
+                            <p className="text-xs font-bold text-slate-500 mb-3">工单讨论</p>
+                            <DiscussionThread
+                              parentType="ticket_a"
+                              parentId={t.id}
+                              placeholder="回复客户或记录处理进展…"
+                              readOnly={!isOpen}
+                              onAfterPost={() => markRead("ticket_a", t.id)}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
