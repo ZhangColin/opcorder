@@ -4,6 +4,7 @@ import { Loader2, X, CheckCircle2, Clock, Package, AlertTriangle } from "lucide-
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
+import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
 
 interface TicketB {
@@ -133,6 +134,10 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
           )}
         </div>
 
+        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+          <h3 className="text-sm font-bold text-slate-700 mb-4">与OPC的讨论</h3>
+          <DiscussionThread parentType="ticket_b" parentId={id} placeholder="回复OPC…" readOnly={!isOpen} onAfterPost={() => markRead("ticket_b", id)} />
+        </div>
       </div>
 
       {showCloseModal && (
