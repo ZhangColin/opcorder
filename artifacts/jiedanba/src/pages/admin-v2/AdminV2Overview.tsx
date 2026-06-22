@@ -172,7 +172,7 @@ function CDRow({ node, navigate }: { node: CDNode; navigate: (p: string) => void
           {/* Outsource demands */}
           {node.outsourceDemands.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Package size={10} />外包需求 ({node.outsourceDemands.length})</p>
+              <p className="text-[10px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Package size={10} />OPC 需求 ({node.outsourceDemands.length})</p>
               <div className="space-y-2">
                 {node.outsourceDemands.map(od => {
                   const odCfg = OD_STATUS[od.status] ?? { label: od.status, color: "bg-slate-100 text-slate-500" };
@@ -330,7 +330,7 @@ export default function AdminV2Overview() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Package size={15} className="text-violet-500" />
-                <h2 className="text-sm font-bold text-slate-700">通道 B — 外包需求</h2>
+                <h2 className="text-sm font-bold text-slate-700">通道 B — OPC 需求</h2>
                 <span className="text-xs text-slate-400">共 {statsData.channelB.total} 个</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

@@ -122,7 +122,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
                 <div>
                   <p className="text-sm font-bold text-slate-800">{tender.opcNickname ?? "OPC"}</p>
                   <p className="text-xs text-slate-400">
-                    外包需求：
+                    OPC 需求：
                     <button onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${tender.outsourceDemandId}`) : navigate(`/admin/v2/outsource-demands/${tender.outsourceDemandId}`)}
                       className="text-primary hover:underline">{tender.demandTitle ?? `#${tender.outsourceDemandId}`}</button>
                   </p>

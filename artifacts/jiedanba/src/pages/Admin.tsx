@@ -9931,7 +9931,7 @@ function ModuleContent({ module }: { module: Module }) {
           <AdminEmbeddedContext.Provider value={true}>
             <button onClick={() => setInlineRoute(null)}
               className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回外包需求列表
+              ← 返回 OPC 需求列表
             </button>
             <AdminV2OutsourceDemandNew />
           </AdminEmbeddedContext.Provider>
@@ -9946,7 +9946,7 @@ function ModuleContent({ module }: { module: Module }) {
           <AdminEmbeddedContext.Provider value={true}>
             <button onClick={() => setInlineRoute(null)}
               className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回外包需求列表
+              ← 返回 OPC 需求列表
             </button>
             <AdminV2OutsourceDemandDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>

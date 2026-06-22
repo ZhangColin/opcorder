@@ -241,8 +241,8 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     setShowClose(false);
   }, "需求已关闭");
 
-  if (loading) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="外包需求"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
-  if (!demand) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="外包需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
+  if (loading) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="OPC 需求"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
+  if (!demand) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="OPC 需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
 
   const cfg = STATUS_CONFIG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const canEditDetail = !["completed", "closed"].includes(demand.status);
@@ -256,7 +256,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     <AdminV2Layout
       title={demand.title}
       backHref="/admin/v2/outsource-demands"
-      backLabel="外包需求"
+      backLabel="OPC 需求"
       actions={
         <div className="flex gap-2">
           {canSelectWinner && quotedTenders.length > 0 && (
@@ -339,7 +339,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
         {showClose && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold text-slate-800">关闭外包需求</h4>
+              <h4 className="text-sm font-bold text-slate-800">关闭 OPC 需求</h4>
               <button onClick={() => setShowClose(false)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
             </div>
             <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>

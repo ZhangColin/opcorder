@@ -66,11 +66,11 @@ export default function AdminV2OutsourceDemandList() {
 
   return (
     <AdminV2Layout
-      title="外包需求"
+      title="OPC 需求"
       actions={
         <button onClick={() => inlineNav ? inlineNav.push("/admin/v2/outsource-demands/new") : navigate("/admin/v2/outsource-demands/new")}
           className="flex items-center gap-1.5 bg-primary text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
-          <Plus size={15} /> 新建外包需求
+          <Plus size={15} /> 新建 OPC 需求
         </button>
       }
     >
@@ -81,7 +81,7 @@ export default function AdminV2OutsourceDemandList() {
             <div className="relative flex-1">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
-                placeholder="搜索外包需求标题…"
+                placeholder="搜索 OPC 需求标题…"
                 className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
             </div>
             <button type="submit" className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90">搜索</button>
@@ -104,10 +104,10 @@ export default function AdminV2OutsourceDemandList() {
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
         ) : items.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">
-            <p>暂无外包需求</p>
+            <p>暂无 OPC 需求</p>
             <button onClick={() => inlineNav ? inlineNav.push("/admin/v2/outsource-demands/new") : navigate("/admin/v2/outsource-demands/new")}
               className="mt-4 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
-              新建外包需求
+              新建 OPC 需求
             </button>
           </div>
         ) : (
