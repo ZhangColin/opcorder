@@ -109,7 +109,7 @@ export default function PubContractList() {
               return (
                 <div
                   key={c.id}
-                  onClick={() => navigate(`/pub/contracts/${c.id}`)}
+                  onClick={() => c.clientDemandId ? navigate(`/pub/demands/${c.clientDemandId}?tab=contract`) : navigate(`/pub/contracts/${c.id}`)}
                   className={`bg-white rounded-2xl border p-5 flex items-center gap-4 hover:shadow-sm cursor-pointer transition-all group ${
                     isPending ? "border-amber-300 bg-amber-50/30" : "border-slate-200 hover:border-primary/30"
                   }`}

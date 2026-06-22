@@ -88,8 +88,14 @@ interface DeliverableA {
 interface TicketA {
   id: number;
   title: string;
+  description: string | null;
+  attachments: Array<{ name: string; url: string; size?: string }>;
   status: string;
+  createdByNickname: string | null;
+  closedAt: string | null;
+  closedNote: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 interface VersionItem {
   id: number;
@@ -207,8 +213,15 @@ export default function PubDemandDetail() {
   const [rejectDelivReason, setRejectDelivReason] = useState("");
 
   /* Tab / deliverable expand */
-  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">("needs");
+  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">(() => {
+    const p = new URLSearchParams(window.location.search);
+    const t = p.get("tab");
+    if (t === "contract" || t === "delivery" || t === "ticket") return t;
+    return "needs";
+  });
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
+  const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
+  const [ticketFull, setTicketFull] = useState<Record<number, TicketA>>({});
 
   const load = useCallback(async () => {
     if (demandId <= 0) return;
@@ -369,6 +382,18 @@ export default function PubDemandDetail() {
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally { setActing(false); }
+  };
+
+  const handleExpandTicket = async (id: number) => {
+    if (expandedTicketId === id) { setExpandedTicketId(null); return; }
+    setExpandedTicketId(id);
+    markRead("ticket_a", id);
+    if (!ticketFull[id]) {
+      try {
+        const t = await v2Get<TicketA>(`/tickets-a/${id}`);
+        setTicketFull(prev => ({ ...prev, [id]: t }));
+      } catch {}
+    }
   };
 
   const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -879,24 +904,81 @@ export default function PubDemandDetail() {
                   <Plus size={16} /> 发起新工单
                 </button>
               )}
-              {tickets.map(t => (
-                <div
-                  key={t.id}
-                  onClick={() => navigate(`/pub/tickets/${t.id}`)}
-                  className="border border-slate-200 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all"
-                >
-                  <div>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.status === "open" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"} mr-2`}>
-                      {t.status === "open" ? "处理中" : "已关闭"}
-                    </span>
-                    <span className="text-sm font-bold text-slate-800">{t.title}</span>
-                  </div>
-                  <span className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</span>
-                </div>
-              ))}
               {!isWarranty && tickets.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-4">暂无工单</p>
               )}
+              {tickets.map(t => {
+                const isExpanded = expandedTicketId === t.id;
+                const full = ticketFull[t.id];
+                return (
+                  <div key={t.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <button
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+                      onClick={() => handleExpandTicket(t.id)}
+                    >
+                      <Wrench size={16} className="text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 truncate">{t.title}</p>
+                        <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${t.status === "open" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                        {t.status === "open" ? "处理中" : "已关闭"}
+                      </span>
+                      {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
+                    </button>
+                    {isExpanded && (
+                      <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
+                        {!full ? (
+                          <div className="flex items-center justify-center py-6 text-slate-400">
+                            <Loader2 size={16} className="animate-spin mr-2" /> 加载中…
+                          </div>
+                        ) : (
+                          <>
+                            {full.description && (
+                              <div className="pt-4">
+                                <p className="text-xs font-bold text-slate-500 mb-1">问题描述</p>
+                                <p className="text-sm text-slate-600 whitespace-pre-wrap">{full.description}</p>
+                              </div>
+                            )}
+                            {full.attachments?.length > 0 && (
+                              <div>
+                                <p className="text-xs font-bold text-slate-500 mb-2">附件</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {full.attachments.map((a, i) => (
+                                    <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                                      className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors">
+                                      <Paperclip size={11} /> {a.name}
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {full.status !== "open" && full.closedNote && (
+                              <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
+                                <p className="text-xs font-bold text-slate-500 mb-1">关闭备注</p>
+                                <p className="text-xs text-slate-600">{full.closedNote}</p>
+                                {full.closedAt && (
+                                  <p className="text-xs text-slate-400 mt-1">关闭于 {new Date(full.closedAt).toLocaleDateString("zh-CN")}</p>
+                                )}
+                              </div>
+                            )}
+                            <div className="border-t border-slate-100 pt-4">
+                              <p className="text-xs font-bold text-slate-500 mb-3">工单讨论</p>
+                              <DiscussionThread
+                                parentType="ticket_a"
+                                parentId={t.id}
+                                placeholder="描述问题详情或回复运营方…"
+                                readOnly={t.status !== "open"}
+                                onAfterPost={() => markRead("ticket_a", t.id)}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Section>
         )}
