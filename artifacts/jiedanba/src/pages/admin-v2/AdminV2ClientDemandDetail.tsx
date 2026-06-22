@@ -1173,20 +1173,32 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               const isOpen = t.status === "open";
               return (
                 <div key={t.id} data-ticket-id={t.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                  <button
-                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
-                    onClick={() => handleExpandTicket(t.id)}
-                  >
-                    <Wrench size={16} className="text-blue-500 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate">{t.title}</p>
-                      <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
-                    </div>
+                  <div className="flex items-center gap-2 px-5 py-4">
+                    <button
+                      className="flex-1 flex items-center gap-3 hover:opacity-80 transition-opacity text-left min-w-0"
+                      onClick={() => handleExpandTicket(t.id)}
+                    >
+                      <Wrench size={16} className="text-blue-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 truncate">{t.title}</p>
+                        <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
+                    </button>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                       {isOpen ? "处理中" : "已关闭"}
                     </span>
-                    {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
-                  </button>
+                    {isOpen && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setClosingTicketId(closingTicketId === t.id ? null : t.id); setCloseTicketNote(""); }}
+                        className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700 transition-colors"
+                      >
+                        关闭
+                      </button>
+                    )}
+                    <button onClick={() => handleExpandTicket(t.id)} className="shrink-0">
+                      {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                    </button>
+                  </div>
                   {isExpanded && (
                     <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
                       {!full ? (
@@ -1228,36 +1240,27 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                               )}
                             </div>
                           )}
-                          {isOpen && (
-                            closingTicketId === t.id ? (
-                              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                                <p className="text-xs font-bold text-slate-700">关闭工单</p>
-                                <textarea
-                                  rows={3}
-                                  placeholder="关闭备注（选填）"
-                                  value={closeTicketNote}
-                                  onChange={e => setCloseTicketNote(e.target.value)}
-                                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none bg-white resize-none"
-                                />
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleCloseTicket(t.id)}
-                                    className="px-4 py-1.5 text-xs bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors"
-                                  >确认关闭</button>
-                                  <button
-                                    onClick={() => { setClosingTicketId(null); setCloseTicketNote(""); }}
-                                    className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50"
-                                  >取消</button>
-                                </div>
+                          {isOpen && closingTicketId === t.id && (
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                              <p className="text-xs font-bold text-slate-700">确认关闭工单</p>
+                              <textarea
+                                rows={3}
+                                placeholder="关闭备注（选填）"
+                                value={closeTicketNote}
+                                onChange={e => setCloseTicketNote(e.target.value)}
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none bg-white resize-none"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleCloseTicket(t.id)}
+                                  className="px-4 py-1.5 text-xs bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors"
+                                >确认关闭</button>
+                                <button
+                                  onClick={() => { setClosingTicketId(null); setCloseTicketNote(""); }}
+                                  className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50"
+                                >取消</button>
                               </div>
-                            ) : (
-                              <button
-                                onClick={() => setClosingTicketId(t.id)}
-                                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 hover:bg-slate-50 transition-colors"
-                              >
-                                <X size={12} /> 关闭工单
-                              </button>
-                            )
+                            </div>
                           )}
                           <div className="border-t border-slate-100 pt-4">
                             <p className="text-xs font-bold text-slate-500 mb-3">工单讨论</p>
