@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
-import { Loader2, PackageCheck, Clock, CheckCircle2, XCircle, Link2, X, Pencil } from "lucide-react";
+import { Loader2, PackageCheck, Clock, CheckCircle2, XCircle, Link2, X, Pencil, Paperclip, Upload } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post } from "@/lib/v2api";
+import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,10 +24,10 @@ interface DeliveryA {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  pending:  { label: "待确认", color: "bg-orange-100 text-orange-700", icon: Clock },
-  confirmed:{ label: "已确认", color: "bg-green-100 text-green-700",  icon: CheckCircle2 },
-  rejected: { label: "已驳回", color: "bg-red-100 text-red-700",      icon: XCircle },
-  revision: { label: "修改中", color: "bg-yellow-100 text-yellow-700", icon: Clock },
+  pending:   { label: "待确认", color: "bg-orange-100 text-orange-700", icon: Clock },
+  confirmed: { label: "已确认", color: "bg-green-100 text-green-700",  icon: CheckCircle2 },
+  rejected:  { label: "已驳回", color: "bg-red-100 text-red-700",      icon: XCircle },
+  revision:  { label: "修改中", color: "bg-yellow-100 text-yellow-700", icon: Clock },
 };
 
 function EditModal({
@@ -38,41 +38,104 @@ function EditModal({
 }: {
   delivery: DeliveryA;
   onClose: () => void;
-  onSave: (data: { title: string; url: string; content: string }) => void;
+  onSave: (data: { title: string; url: string; content: string; attachments: Array<{ name: string; url: string }> }) => void;
   saving: boolean;
 }) {
-  const [title, setTitle] = useState(delivery.title);
-  const [url, setUrl] = useState(delivery.url ?? "");
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [title, setTitle]   = useState(delivery.title);
+  const [url, setUrl]       = useState(delivery.url ?? "");
   const [content, setContent] = useState(delivery.content ?? "");
+  const [attachments, setAttachments] = useState<Array<{ name: string; url: string }>>(
+    delivery.attachments ?? []
+  );
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(
+        files.map(async f => {
+          const fileUrl = await uploadFile(f);
+          return { name: f.name, url: fileUrl };
+        })
+      );
+      setAttachments(prev => [...prev, ...uploaded]);
+    } catch (err: any) {
+      toast({ title: "上传失败", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (idx: number) =>
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-extrabold text-blue-900">编辑交付物</h3>
           <button onClick={onClose}><X size={18} className="text-slate-400 hover:text-slate-600" /></button>
         </div>
+
         <div className="space-y-4">
           <div>
             <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">标题</label>
             <input value={title} onChange={e => setTitle(e.target.value)}
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
+
           <div>
             <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">交付链接</label>
             <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…"
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
           </div>
+
           <div>
             <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">交付说明</label>
             <textarea value={content} onChange={e => setContent(e.target.value)} rows={4}
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
           </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">附件</label>
+            {attachments.length > 0 && (
+              <div className="mb-2 space-y-1.5">
+                {attachments.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2">
+                    <Paperclip size={13} className="text-slate-400 shrink-0" />
+                    <a href={a.url} target="_blank" rel="noreferrer"
+                      className="flex-1 text-sm text-primary truncate hover:underline">
+                      {a.name}
+                    </a>
+                    <button type="button" onClick={() => removeAttachment(i)}
+                      className="text-slate-300 hover:text-red-500 transition-colors shrink-0">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input ref={fileRef} type="file" multiple className="hidden" onChange={handleFileChange} />
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold border border-dashed border-slate-300 rounded-xl text-slate-500 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-50 w-full justify-center">
+              {uploading
+                ? <><Loader2 size={13} className="animate-spin" />上传中…</>
+                : <><Upload size={13} />点击上传附件</>}
+            </button>
+          </div>
         </div>
+
         <div className="flex gap-2 justify-end mt-5">
           <button onClick={onClose}
             className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-          <button onClick={() => onSave({ title, url, content })} disabled={saving || !title.trim()}
+          <button onClick={() => onSave({ title, url, content, attachments })}
+            disabled={saving || uploading || !title.trim()}
             className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
             {saving && <Loader2 size={13} className="animate-spin" />}
             {saving ? "保存中…" : "保存"}
@@ -89,8 +152,8 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
   const { toast } = useToast();
 
   const [delivery, setDelivery] = useState<DeliveryA | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [acting, setActing] = useState(false);
+  const [loading, setLoading]   = useState(true);
+  const [acting, setActing]     = useState(false);
   const [showEdit, setShowEdit] = useState(false);
 
   const load = async () => {
@@ -107,7 +170,7 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
 
   useEffect(() => { if (id > 0) load(); }, [id]);
 
-  const handleEdit = async (data: { title: string; url: string; content: string }) => {
+  const handleEdit = async (data: { title: string; url: string; content: string; attachments: Array<{ name: string; url: string }> }) => {
     setActing(true);
     try {
       await v2Post(`/deliverables-a/${id}/admin-edit`, data);
@@ -149,7 +212,9 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
               </div>
               <div className="flex-1 min-w-0">
                 {delivery.demandTitle && (
-                  <p className="text-xs text-slate-500 mb-0.5">{delivery.demandTitle}{delivery.demandNo && ` · ${delivery.demandNo}`}</p>
+                  <p className="text-xs text-slate-500 mb-0.5">
+                    {delivery.demandTitle}{delivery.demandNo && ` · ${delivery.demandNo}`}
+                  </p>
                 )}
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>
@@ -158,7 +223,9 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
                   <span className="text-xs text-slate-400 font-mono">#{delivery.id}</span>
                 </div>
                 <h2 className="text-lg font-extrabold text-blue-900 mb-1">{delivery.title}</h2>
-                {delivery.content && <p className="text-sm text-slate-600 whitespace-pre-wrap">{delivery.content}</p>}
+                {delivery.content && (
+                  <p className="text-sm text-slate-600 whitespace-pre-wrap">{delivery.content}</p>
+                )}
                 {delivery.url && (
                   <a href={delivery.url} target="_blank" rel="noreferrer"
                     className="inline-flex items-center gap-1 mt-2 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5">
@@ -170,7 +237,7 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
                     {delivery.attachments.map((a, i) => (
                       <a key={i} href={a.url} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1 text-xs text-primary border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5">
-                        {a.name}
+                        <Paperclip size={11} /> {a.name}
                       </a>
                     ))}
                   </div>
