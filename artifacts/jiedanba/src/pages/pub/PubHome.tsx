@@ -4,7 +4,7 @@ import {
   FileSignature, CreditCard, PackageCheck, Wrench,
   Bell, ChevronRight, AlertCircle, ArrowRight,
   CheckCircle2, Clock, PlusCircle, Building2,
-  LayoutDashboard,
+  LayoutDashboard, FileText,
 } from "lucide-react";
 import { useListNotifications } from "@workspace/api-client-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -13,6 +13,9 @@ import { v2Get } from "@/lib/v2api";
 import { PubLayout } from "@/components/pub/PubLayout";
 
 /* ── types ── */
+interface ClientDemand {
+  id: number; title: string; status: string; createdAt: string;
+}
 interface Contract {
   id: number; contractNo: string; status: string;
   demandTitle: string | null; createdAt: string;
@@ -134,6 +137,11 @@ export default function PubHome() {
   const companyLogo = usePublisherCompanyLogo(userId);
 
   /* v2 data */
+  const { data: demands = [] } = useQuery<ClientDemand[]>({
+    queryKey: ["pub-home-demands-list"],
+    queryFn:  () => v2Get<{ items: ClientDemand[] }>("/client-demands?limit=200").then(r => Array.isArray(r) ? r : (r.items ?? [])),
+    staleTime: 30_000,
+  });
   const { data: contracts = [] } = useQuery<Contract[]>({
     queryKey: ["pub-home-contracts"],
     queryFn:  () => v2Get("/contracts?channel=a"),
@@ -157,6 +165,8 @@ export default function PubHome() {
   const { data: notifData } = useListNotifications({ page: 1, limit: 1 });
 
   /* computed */
+  const demandsActive     = demands.filter(d => !["completed", "closed"].includes(d.status));
+  const demandsPending    = demands.filter(d => d.status === "pending_review");
   const contractsPending  = contracts.filter(c => c.status === "pending_publisher_confirm");
   const contractsSigning  = contracts.filter(c => c.status === "pending_sign");
   const contractsSigned   = contracts.filter(c => c.status === "signed");
@@ -250,7 +260,23 @@ export default function PubHome() {
         </div>
 
         {/* ── Stat Cards ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* 需求 */}
+          <button onClick={() => navigate("/pub/demands")}
+            className="group text-left bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-2xl p-5 shadow-sm shadow-orange-200 hover:shadow-md hover:shadow-orange-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
+            <div className="absolute bottom-2 right-6 w-8 h-8 bg-white/10 rounded-full" />
+            <div className="relative">
+              <FileText size={22} className="mb-3 text-white/80" />
+              <p className="text-3xl font-extrabold leading-none">{demandsActive.length}</p>
+              <p className="text-orange-100 text-xs font-bold mt-1 uppercase tracking-wider">进行中需求</p>
+              {demandsPending.length > 0
+                ? <p className="text-[11px] font-bold text-yellow-200 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />{demandsPending.length} 待审核</p>
+                : <p className="text-[11px] text-white/50 mt-2">共 {demands.length} 个需求</p>
+              }
+            </div>
+          </button>
+
           {/* 合同 */}
           <button onClick={() => navigate("/pub/contracts")}
             className="group text-left bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-2xl p-5 shadow-sm shadow-cyan-200 hover:shadow-md hover:shadow-cyan-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
