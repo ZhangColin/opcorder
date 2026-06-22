@@ -354,4 +354,18 @@ router.post("/payment-plans/:id/approve", requireAdmin, async (req: Request, res
   }
 });
 
+router.delete("/payment-plans/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [plan] = await db.select().from(v2PaymentPlansTable).where(eq(v2PaymentPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "收款计划不存在" });
+    if (plan.status === "paid") return res.status(400).json({ error: "已付款的计划不可删除" });
+    await db.delete(v2PaymentPlansTable).where(eq(v2PaymentPlansTable.id, id));
+    return res.status(204).end();
+  } catch (err) {
+    logger.error({ err }, "DELETE /v2/payment-plans/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 export default router;

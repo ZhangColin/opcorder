@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
-import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -69,10 +69,12 @@ interface ContractItem {
 
 interface PaymentPlan {
   id: number;
-  title: string;
+  itemNo: number;
+  description: string | null;
   amount: number;
   dueDate: string | null;
   status: string;
+  isLastItem: boolean;
 }
 
 interface Deliverable {
@@ -270,6 +272,13 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   // Close form
   const [closeReason, setCloseReason] = useState("");
 
+  // Payment plan CRUD
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  const [addPaymentForm, setAddPaymentForm] = useState({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+  const [editPaymentId, setEditPaymentId] = useState<number | null>(null);
+  const [editPaymentForm, setEditPaymentForm] = useState({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+  const [paymentActing, setPaymentActing] = useState(false);
+
   const baseDims = quoteConfig?.base ?? [];
   const adjustDims = quoteConfig?.adjustment ?? [];
   const hasQuoteCard = baseDims.length > 0 || adjustDims.length > 0;
@@ -460,6 +469,68 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
     await load();
   }, "交付记录已创建");
 
+  const handleAddPayment = async () => {
+    if (!addPaymentForm.amount || !addPaymentForm.dueDate) {
+      toast({ title: "请填写金额和到期日", variant: "destructive" }); return;
+    }
+    setPaymentActing(true);
+    try {
+      const created = await v2Post<PaymentPlan>("/payment-plans", {
+        clientDemandId: id,
+        itemNo: addPaymentForm.itemNo ? parseInt(addPaymentForm.itemNo) : payments.length + 1,
+        description: addPaymentForm.description.trim() || null,
+        amount: parseFloat(addPaymentForm.amount),
+        dueDate: addPaymentForm.dueDate,
+        isLastItem: addPaymentForm.isLastItem,
+      });
+      setPayments(prev => [...prev, created].sort((a, b) => a.itemNo - b.itemNo));
+      setShowAddPayment(false);
+      setAddPaymentForm({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+      toast({ title: "收款计划已添加" });
+    } catch (err: any) {
+      toast({ title: "添加失败", description: err.message, variant: "destructive" });
+    } finally {
+      setPaymentActing(false);
+    }
+  };
+
+  const handleSavePayment = async (planId: number) => {
+    if (!editPaymentForm.amount || !editPaymentForm.dueDate) {
+      toast({ title: "请填写金额和到期日", variant: "destructive" }); return;
+    }
+    setPaymentActing(true);
+    try {
+      const updated = await v2Patch<PaymentPlan>(`/payment-plans/${planId}`, {
+        ...(editPaymentForm.itemNo ? { itemNo: parseInt(editPaymentForm.itemNo) } : {}),
+        description: editPaymentForm.description.trim() || null,
+        amount: parseFloat(editPaymentForm.amount),
+        dueDate: editPaymentForm.dueDate,
+        isLastItem: editPaymentForm.isLastItem,
+      });
+      setPayments(prev => prev.map(p => p.id === planId ? updated : p).sort((a, b) => a.itemNo - b.itemNo));
+      setEditPaymentId(null);
+      toast({ title: "收款计划已更新" });
+    } catch (err: any) {
+      toast({ title: "更新失败", description: err.message, variant: "destructive" });
+    } finally {
+      setPaymentActing(false);
+    }
+  };
+
+  const handleDeletePayment = async (planId: number) => {
+    if (!confirm("确认删除此收款计划项？")) return;
+    setPaymentActing(true);
+    try {
+      await v2Delete(`/payment-plans/${planId}`);
+      setPayments(prev => prev.filter(p => p.id !== planId));
+      toast({ title: "已删除" });
+    } catch (err: any) {
+      toast({ title: "删除失败", description: err.message, variant: "destructive" });
+    } finally {
+      setPaymentActing(false);
+    }
+  };
+
   const handleDelivAttachUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -552,6 +623,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const canClose = ["draft", "negotiating", "quoting", "pending_contract"].includes(demand.status);
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
+  const canEditPayments = !isPast("pending_contract");
   const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket"> = [
     "needs",
     ...(isPast("quoting")   ? ["contract" as const] : []),
@@ -912,19 +984,159 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
         })()}
 
         {/* 收款计划 */}
-        {payments.length > 0 && (
-          <Section title={`收款计划（${payments.length} 项）`} icon={DollarSign}>
-            <div className="space-y-2">
+        {(payments.length > 0 || canEditPayments) && (
+          <Section
+            title={`收款计划（${payments.length} 项）`}
+            icon={DollarSign}
+            headerRight={canEditPayments ? (
+              <button
+                onClick={() => { setShowAddPayment(v => !v); setEditPaymentId(null); }}
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <Plus size={12} /> 添加
+              </button>
+            ) : undefined}
+          >
+            <div className="mt-3 space-y-2">
+              {/* 内联添加表单 */}
+              {showAddPayment && (
+                <div className="border border-primary/30 rounded-xl p-3 bg-primary/5 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="期号（自动）"
+                      value={addPaymentForm.itemNo}
+                      onChange={e => setAddPaymentForm(f => ({ ...f, itemNo: e.target.value }))}
+                      className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                    <input
+                      type="text"
+                      placeholder="描述（可选）"
+                      value={addPaymentForm.description}
+                      onChange={e => setAddPaymentForm(f => ({ ...f, description: e.target.value }))}
+                      className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="金额（元）*"
+                      value={addPaymentForm.amount}
+                      onChange={e => setAddPaymentForm(f => ({ ...f, amount: e.target.value }))}
+                      className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                    <input
+                      type="date"
+                      placeholder="到期日 *"
+                      value={addPaymentForm.dueDate}
+                      onChange={e => setAddPaymentForm(f => ({ ...f, dueDate: e.target.value }))}
+                      className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={addPaymentForm.isLastItem} onChange={e => setAddPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} />
+                    最后一期
+                  </label>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={handleAddPayment} disabled={paymentActing} className="bg-primary text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+                      {paymentActing ? "提交中…" : "确认添加"}
+                    </button>
+                    <button onClick={() => setShowAddPayment(false)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
+                  </div>
+                </div>
+              )}
+
+              {payments.length === 0 && !showAddPayment && (
+                <p className="text-sm text-slate-400 py-2">暂无收款计划</p>
+              )}
+
               {payments.map(p => (
-                <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">{p.title}</p>
-                    {p.dueDate && <p className="text-xs text-slate-400">应收：{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-slate-800">¥{p.amount.toLocaleString()}</p>
-                    <PayStatusBadge status={p.status} />
-                  </div>
+                <div key={p.id}>
+                  {editPaymentId === p.id ? (
+                    /* 内联编辑表单 */
+                    <div className="border border-amber-300 rounded-xl p-3 bg-amber-50/50 space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="期号"
+                          value={editPaymentForm.itemNo}
+                          onChange={e => setEditPaymentForm(f => ({ ...f, itemNo: e.target.value }))}
+                          className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <input
+                          type="text"
+                          placeholder="描述（可选）"
+                          value={editPaymentForm.description}
+                          onChange={e => setEditPaymentForm(f => ({ ...f, description: e.target.value }))}
+                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="金额（元）*"
+                          value={editPaymentForm.amount}
+                          onChange={e => setEditPaymentForm(f => ({ ...f, amount: e.target.value }))}
+                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <input
+                          type="date"
+                          value={editPaymentForm.dueDate}
+                          onChange={e => setEditPaymentForm(f => ({ ...f, dueDate: e.target.value }))}
+                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                      <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                        <input type="checkbox" checked={editPaymentForm.isLastItem} onChange={e => setEditPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} />
+                        最后一期
+                      </label>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => handleSavePayment(p.id)} disabled={paymentActing} className="bg-primary text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+                          {paymentActing ? "保存中…" : "保存"}
+                        </button>
+                        <button onClick={() => setEditPaymentId(null)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 普通展示行（与发单方同款卡片样式） */
+                    <div className="border border-slate-200 rounded-xl p-3 flex items-center justify-between hover:border-slate-300 transition-colors">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <PayStatusBadge status={p.status} />
+                          <span className="text-xs text-slate-400">第 {p.itemNo} 期</span>
+                          {p.isLastItem && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">末期</span>}
+                        </div>
+                        {p.description && <p className="text-xs text-slate-500 mt-0.5">{p.description}</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <p className="font-black text-slate-800">¥{p.amount.toLocaleString()}</p>
+                        {p.dueDate && <p className="text-xs text-slate-400">{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>}
+                        {canEditPayments && p.status !== "paid" && (
+                          <div className="flex items-center gap-2 justify-end mt-1">
+                            <button
+                              onClick={() => {
+                                setEditPaymentId(p.id);
+                                setShowAddPayment(false);
+                                setEditPaymentForm({
+                                  itemNo: String(p.itemNo),
+                                  description: p.description ?? "",
+                                  amount: String(p.amount),
+                                  dueDate: p.dueDate ? p.dueDate.slice(0, 10) : "",
+                                  isLastItem: p.isLastItem,
+                                });
+                              }}
+                              className="text-xs text-primary hover:underline"
+                            >编辑</button>
+                            <button
+                              onClick={() => handleDeletePayment(p.id)}
+                              disabled={paymentActing}
+                              className="text-xs text-red-500 hover:underline disabled:opacity-40"
+                            >删除</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -43,6 +43,14 @@ export async function v2Patch<T>(path: string, body?: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export async function v2Delete(path: string): Promise<void> {
+  const res = await v2Fetch(path, { method: "DELETE" });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e as any).error ?? `请求失败 (${res.status})`);
+  }
+}
+
 export const STORAGE_BASE = BASE;
 
 export async function uploadFile(file: File): Promise<string> {
