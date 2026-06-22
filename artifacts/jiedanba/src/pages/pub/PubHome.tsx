@@ -1,294 +1,200 @@
 import { useLocation } from "wouter";
 import {
-  FileText, ShieldCheck, Bell, UserCircle,
-  CheckCircle2, Clock, ChevronsRight, ArrowRight,
-  ClipboardList, Banknote,
+  FileText, FileSignature, Banknote, ShieldCheck,
+  Bell, Building2, ChevronRight, CheckCircle2,
+  Clock, ArrowUpRight,
 } from "lucide-react";
-import {
-  useListDemands,
-  useListNotifications,
-} from "@workspace/api-client-react";
-import type { Notification as NotificationItem } from "@workspace/api-client-react";
+import { useListDemands, useListNotifications } from "@workspace/api-client-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { PubLayout } from "@/components/pub/PubLayout";
-
-const DEMAND_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  draft:              { label: "草稿",   cls: "bg-slate-100 text-slate-500" },
-  pending_review:     { label: "待审核", cls: "bg-amber-50 text-amber-700" },
-  published:          { label: "招募中", cls: "bg-amber-50 text-amber-700" },
-  open:               { label: "招募中", cls: "bg-amber-50 text-amber-700" },
-  matched:            { label: "已匹配", cls: "bg-cyan-50 text-cyan-700" },
-  in_progress:        { label: "进行中", cls: "bg-blue-50 text-blue-700" },
-  pending_acceptance: { label: "待验收", cls: "bg-purple-50 text-purple-700" },
-  completed:          { label: "已完成", cls: "bg-green-50 text-green-700" },
-  closed:             { label: "已关闭", cls: "bg-slate-100 text-slate-500" },
-};
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours   = Math.floor(diff / 3600000);
-  const days    = Math.floor(diff / 86400000);
-  if (minutes < 1)  return "刚刚";
-  if (minutes < 60) return `${minutes}分钟前`;
-  if (hours < 24)   return `${hours}小时前`;
-  if (days < 30)    return `${days}天前`;
-  return new Date(dateStr).toLocaleDateString("zh-CN");
-}
 
 export default function PubHome() {
   const [, navigate] = useLocation();
   const { userId, nickname } = useCurrentUser();
 
-  const { data: allDemands }   = useListDemands({ publisherId: userId || undefined, limit: 100 });
-  const { data: tableData }    = useListDemands({ publisherId: userId || undefined, limit: 8 });
-  const { data: notifData }    = useListNotifications({ page: 1, limit: 5 });
+  const { data: demandsAll } = useListDemands({ publisherId: userId || undefined, limit: 200 });
+  const { data: notifData }  = useListNotifications({ page: 1, limit: 1 });
 
-  const demands     = allDemands?.items ?? [];
+  const demands     = demandsAll?.items ?? [];
   const unreadCount = notifData?.unreadCount ?? 0;
-  const recentNotifs: NotificationItem[] = notifData?.items?.slice(0, 4) ?? [];
 
-  const countByStatus = (status: string | string[]) => {
-    const statuses = Array.isArray(status) ? status : [status];
-    return demands.filter(d => statuses.includes(d.status)).length;
-  };
+  const count = (statuses: string[]) => demands.filter(d => statuses.includes(d.status)).length;
 
-  const inProgressCount   = countByStatus("in_progress");
-  const pendingAcceptCount = countByStatus("pending_acceptance");
-  const recruitingCount   = countByStatus(["published", "open"]);
-  const completedCount    = countByStatus("completed");
+  const activeCount   = count(["in_progress", "matched"]);
+  const recruitCount  = count(["published", "open", "pending_review"]);
+  const pendingCount  = count(["pending_acceptance"]);
 
-  const STAT_CARDS = [
+  const today = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+
+  const MODULES = [
     {
-      label:    "进行中需求",
-      value:    inProgressCount,
-      sub:      "合同执行阶段",
-      icon:     ClipboardList,
-      iconBg:   "bg-blue-50",
-      iconClr:  "text-blue-600",
-      accent:   "border-l-blue-400",
-      href:     "/pub/demands",
+      id:    "demands",
+      icon:  FileText,
+      title: "需求管理",
+      desc:  "发布需求、管理招募进度、指派 OPC 承接",
+      href:  "/pub/demands",
+      color: "bg-blue-500",
+      light: "bg-blue-50",
+      text:  "text-blue-600",
+      border:"border-blue-100",
+      badge: activeCount + recruitCount > 0
+        ? `${activeCount} 进行中${recruitCount > 0 ? "  ·  " + recruitCount + " 招募中" : ""}`
+        : "暂无活跃需求",
+      badgeUrgent: false,
     },
     {
-      label:    "待验收交付",
-      value:    pendingAcceptCount,
-      sub:      "等待您确认验收",
-      icon:     CheckCircle2,
-      iconBg:   "bg-purple-50",
-      iconClr:  "text-purple-600",
-      accent:   "border-l-purple-400",
-      href:     "/pub/demands",
-      urgent:   pendingAcceptCount > 0,
+      id:    "contracts",
+      icon:  FileSignature,
+      title: "合同管理",
+      desc:  "查看与 OPC 的合同条款、签署状态、履约记录",
+      href:  "/pub/demands",
+      color: "bg-cyan-500",
+      light: "bg-cyan-50",
+      text:  "text-cyan-600",
+      border:"border-cyan-100",
+      badge: activeCount > 0 ? `${activeCount} 份合同执行中` : "暂无执行合同",
+      badgeUrgent: false,
     },
     {
-      label:    "招募中",
-      value:    recruitingCount,
-      sub:      "等待 OPC 申请",
-      icon:     FileText,
-      iconBg:   "bg-amber-50",
-      iconClr:  "text-amber-600",
-      accent:   "border-l-amber-400",
-      href:     "/pub/demands",
+      id:    "payment",
+      icon:  Banknote,
+      title: "付款与交付",
+      desc:  "收款计划付款、审核 OPC 提交的交付物",
+      href:  "/pub/demands",
+      color: "bg-emerald-500",
+      light: "bg-emerald-50",
+      text:  "text-emerald-600",
+      border:"border-emerald-100",
+      badge: pendingCount > 0 ? `${pendingCount} 个待验收` : "暂无待处理",
+      badgeUrgent: pendingCount > 0,
     },
     {
-      label:    "已完成项目",
-      value:    completedCount,
-      sub:      "累计完成需求",
-      icon:     Banknote,
-      iconBg:   "bg-green-50",
-      iconClr:  "text-green-600",
-      accent:   "border-l-green-400",
-      href:     "/pub/demands",
+      id:    "warranty",
+      icon:  ShieldCheck,
+      title: "质保管理",
+      desc:  "跟进交付后质保期、问题反馈与修复记录",
+      href:  "/pub/demands",
+      color: "bg-violet-500",
+      light: "bg-violet-50",
+      text:  "text-violet-600",
+      border:"border-violet-100",
+      badge: "查看质保详情",
+      badgeUrgent: false,
     },
     {
-      label:    "未读消息",
-      value:    unreadCount,
-      sub:      "业务通知",
-      icon:     Bell,
-      iconBg:   "bg-red-50",
-      iconClr:  "text-red-500",
-      accent:   "border-l-red-400",
-      href:     "/pub/notifications",
-      urgent:   unreadCount > 0,
+      id:    "notifications",
+      icon:  Bell,
+      title: "消息中心",
+      desc:  "需求动态、交付提醒、质保到期等业务通知",
+      href:  "/pub/notifications",
+      color: "bg-rose-500",
+      light: "bg-rose-50",
+      text:  "text-rose-600",
+      border:"border-rose-100",
+      badge: unreadCount > 0 ? `${unreadCount} 条未读` : "暂无未读消息",
+      badgeUrgent: unreadCount > 0,
     },
     {
-      label:    "质保管理",
-      value:    null,
-      sub:      "查看质保详情",
-      icon:     ShieldCheck,
-      iconBg:   "bg-violet-50",
-      iconClr:  "text-violet-600",
-      accent:   "border-l-violet-400",
-      href:     "/pub/demands",
+      id:    "profile",
+      icon:  Building2,
+      title: "企业信息",
+      desc:  "完善企业资料、上传 Logo、管理联系方式",
+      href:  "/pub/profile",
+      color: "bg-slate-500",
+      light: "bg-slate-50",
+      text:  "text-slate-600",
+      border:"border-slate-100",
+      badge: "编辑企业信息",
+      badgeUrgent: false,
     },
   ];
 
   return (
     <PubLayout>
-      <div className="space-y-8">
+      <div className="max-w-4xl mx-auto space-y-8">
 
-        {/* ── Welcome Card ── */}
-        <div className="bg-gradient-to-br from-primary to-blue-700 rounded-2xl p-6 text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <p className="text-blue-200 text-sm font-medium mb-1">欢迎回来</p>
-            <h1 className="text-2xl font-extrabold tracking-tight mb-4">
-              {nickname || "发单方"}
+        {/* ── Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 pt-2">
+          <div>
+            <p className="text-xs text-slate-400 font-medium mb-1">{today}</p>
+            <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight">
+              欢迎回来，{nickname || "发单方"}
             </h1>
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={() => navigate("/pub/demands")}
-                className="bg-white text-primary px-4 py-2 rounded-xl font-bold text-sm shadow hover:bg-blue-50 transition-all active:scale-95"
-              >
-                需求管理
-              </button>
-              <button
-                onClick={() => navigate("/pub/notifications")}
-                className="bg-white/15 text-white border border-white/30 px-4 py-2 rounded-xl font-bold text-sm hover:bg-white/25 transition-all"
-              >
-                消息中心
-                {unreadCount > 0 && (
-                  <span className="ml-1.5 bg-red-400 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => navigate("/pub/profile")}
-                className="bg-white/15 text-white border border-white/30 px-4 py-2 rounded-xl font-bold text-sm hover:bg-white/25 transition-all"
-              >
-                企业信息
-              </button>
-            </div>
           </div>
-          <UserCircle size={120} className="absolute -bottom-6 -right-6 text-white/10" />
+          <div className="flex items-center gap-3 text-xs text-slate-500">
+            {activeCount > 0 && (
+              <span className="flex items-center gap-1 bg-blue-50 text-blue-700 font-bold px-2.5 py-1 rounded-full">
+                <Clock size={11} /> {activeCount} 个需求进行中
+              </span>
+            )}
+            {pendingCount > 0 && (
+              <span className="flex items-center gap-1 bg-purple-50 text-purple-700 font-bold px-2.5 py-1 rounded-full animate-pulse">
+                <CheckCircle2 size={11} /> {pendingCount} 个待验收
+              </span>
+            )}
+            {unreadCount > 0 && (
+              <span className="flex items-center gap-1 bg-rose-50 text-rose-600 font-bold px-2.5 py-1 rounded-full">
+                <Bell size={11} /> {unreadCount} 条未读
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* ── Business KPI Cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-          {STAT_CARDS.map(card => {
-            const Icon = card.icon;
+        {/* ── Module Grid ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {MODULES.map(mod => {
+            const Icon = mod.icon;
             return (
               <button
-                key={card.label}
-                onClick={() => navigate(card.href)}
-                className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${card.accent} text-left hover:shadow-md transition-all group relative`}
+                key={mod.id}
+                onClick={() => navigate(mod.href)}
+                className={`group relative bg-white rounded-2xl border ${mod.border} p-6 text-left shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}
               >
-                {card.urgent && (
-                  <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                )}
-                <div className={`w-9 h-9 rounded-xl ${card.iconBg} flex items-center justify-center mb-3`}>
-                  <Icon size={18} className={card.iconClr} />
+                {/* Icon */}
+                <div className={`w-12 h-12 rounded-2xl ${mod.light} flex items-center justify-center mb-4`}>
+                  <Icon size={22} className={mod.text} />
                 </div>
-                <p className="text-[22px] font-extrabold text-blue-900 leading-none mb-1">
-                  {card.value !== null ? card.value : "—"}
-                </p>
-                <p className="text-[11px] font-bold text-slate-700 leading-snug">{card.label}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">{card.sub}</p>
+
+                {/* Title + arrow */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h2 className="text-base font-extrabold text-blue-900">{mod.title}</h2>
+                  <ArrowUpRight
+                    size={16}
+                    className={`shrink-0 mt-0.5 text-slate-300 group-hover:${mod.text} transition-colors`}
+                  />
+                </div>
+
+                {/* Description */}
+                <p className="text-xs text-slate-500 leading-relaxed mb-4">{mod.desc}</p>
+
+                {/* Status badge */}
+                <div className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                  mod.badgeUrgent
+                    ? `${mod.light} ${mod.text}`
+                    : "bg-slate-50 text-slate-500"
+                }`}>
+                  {mod.badgeUrgent && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
+                  {mod.badge}
+                </div>
+
+                {/* Color bar at bottom */}
+                <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl ${mod.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
               </button>
             );
           })}
         </div>
 
-        {/* ── Bottom Grid ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
-          {/* Demand Table */}
-          <div className="lg:col-span-8">
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
-                <h3 className="font-display text-base font-bold text-blue-900">需求进度追踪</h3>
-                <button
-                  onClick={() => navigate("/pub/demands")}
-                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                >
-                  查看全部 <ChevronsRight size={14} />
-                </button>
-              </div>
-              <div className="divide-y divide-slate-50/80">
-                {tableData?.items?.length === 0 && (
-                  <div className="py-12 text-center text-slate-400 text-sm">暂无需求，前往发布第一个需求</div>
-                )}
-                {tableData?.items?.slice(0, 6).map((d) => {
-                  const statusInfo = DEMAND_STATUS_LABELS[d.status] ?? { label: d.status, cls: "bg-slate-100 text-slate-500" };
-                  return (
-                    <div
-                      key={d.id}
-                      className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50/60 transition-colors cursor-pointer group"
-                      onClick={() => navigate(`/pub/demands/${d.id}`)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-slate-400 font-mono mb-0.5">
-                          {(d as any).demandNo ?? `#JDB-${String(d.id).padStart(4, "0")}`}
-                        </p>
-                        <p className="text-sm font-bold text-blue-900 group-hover:text-primary transition-colors truncate">
-                          {d.title}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap ${statusInfo.cls}`}>
-                          {statusInfo.label}
-                        </span>
-                        {d.deadline && (
-                          <span className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400">
-                            <Clock size={10} /> {String(d.deadline).slice(0, 10)}
-                          </span>
-                        )}
-                        <ArrowRight size={14} className="text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Notifications */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden h-full">
-              <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
-                <h3 className="font-display text-base font-bold text-blue-900 flex items-center gap-2">
-                  最近消息
-                  {unreadCount > 0 && (
-                    <span className="text-[10px] bg-red-400 text-white font-bold px-1.5 py-0.5 rounded-full">
-                      {unreadCount}
-                    </span>
-                  )}
-                </h3>
-                <button
-                  onClick={() => navigate("/pub/notifications")}
-                  className="text-xs font-bold text-primary hover:underline"
-                >
-                  查看全部
-                </button>
-              </div>
-              <div className="divide-y divide-slate-50/80">
-                {recentNotifs.length === 0 && (
-                  <div className="py-10 text-center text-slate-400 text-sm">暂无消息</div>
-                )}
-                {recentNotifs.map(n => (
-                  <div
-                    key={n.id}
-                    className={`flex items-start gap-3 px-5 py-3.5 cursor-pointer hover:bg-slate-50/60 transition-colors ${
-                      !n.isRead ? "bg-blue-50/40" : ""
-                    }`}
-                    onClick={() => navigate("/pub/notifications")}
-                  >
-                    <div className={`mt-0.5 shrink-0 w-2 h-2 rounded-full ${!n.isRead ? "bg-primary" : "bg-transparent"}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-bold leading-snug truncate ${!n.isRead ? "text-blue-900" : "text-slate-600"}`}>
-                        {n.title}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                        <Clock size={9} /> {timeAgo(n.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
+        {/* ── Quick Entry Footer ── */}
+        <div className="flex items-center justify-between pt-2 pb-4 border-t border-slate-100">
+          <p className="text-xs text-slate-400">选择模块进入详细管理页面</p>
+          <button
+            onClick={() => navigate("/pub/demands")}
+            className="flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
+          >
+            需求总览 <ChevronRight size={14} />
+          </button>
         </div>
+
       </div>
     </PubLayout>
   );
