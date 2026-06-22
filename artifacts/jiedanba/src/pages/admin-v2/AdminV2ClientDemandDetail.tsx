@@ -1187,6 +1187,9 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                       {isOpen ? "处理中" : "已关闭"}
                     </span>
+                    <button onClick={() => handleExpandTicket(t.id)} className="shrink-0">
+                      {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                    </button>
                     {isOpen && (
                       <button
                         onClick={e => { e.stopPropagation(); setClosingTicketId(closingTicketId === t.id ? null : t.id); setCloseTicketNote(""); }}
@@ -1195,9 +1198,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                         关闭
                       </button>
                     )}
-                    <button onClick={() => handleExpandTicket(t.id)} className="shrink-0">
-                      {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
-                    </button>
                   </div>
                   {isExpanded && (
                     <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
