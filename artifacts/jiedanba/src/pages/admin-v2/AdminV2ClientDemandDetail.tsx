@@ -718,7 +718,10 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
         {visibleTabs.length > 1 && (
           <div className="flex gap-1 bg-white rounded-2xl border border-slate-100 p-1">
             {visibleTabs.map(tab => {
-              const badge = tab === "delivery" ? (deliverables.length > 0 ? deliverables.length : null) : null;
+              const openTickets = tickets.filter(t => t.status === "open").length;
+              const badge = tab === "delivery" ? (deliverables.length > 0 ? deliverables.length : null)
+                : tab === "ticket" ? (openTickets > 0 ? openTickets : null)
+                : null;
               return (
                 <button
                   key={tab}
@@ -1184,9 +1187,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                         <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
                       </div>
                     </button>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
-                      {isOpen ? "处理中" : "已关闭"}
-                    </span>
                     {isOpen && (
                       closingTicketId === t.id ? (
                         <span className="flex items-center gap-1 shrink-0">
@@ -1209,6 +1209,9 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                         </button>
                       )
                     )}
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                      {isOpen ? "处理中" : "已关闭"}
+                    </span>
                     <button onClick={() => handleExpandTicket(t.id)} className="shrink-0 ml-1">
                       {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
                     </button>
