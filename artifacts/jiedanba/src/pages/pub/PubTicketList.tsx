@@ -17,6 +17,7 @@ interface Ticket {
   createdAt: string;
   updatedAt: string;
   demandTitle: string | null;
+  demandNo: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -129,7 +130,10 @@ export default function PubTicketList() {
                     {t.demandTitle && (
                       <div>
                         <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关联需求</p>
-                        <p className="text-slate-600 truncate max-w-[14rem]">{t.demandTitle}</p>
+                        <p className="text-slate-600 truncate max-w-[12rem]">
+                          {t.demandTitle}
+                          {t.demandNo && <span className="text-slate-400"> · {t.demandNo}</span>}
+                        </p>
                       </div>
                     )}
                     <div>
