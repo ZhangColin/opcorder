@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
@@ -61,6 +61,8 @@ interface ContractItem {
   contractNo: string;
   status: string;
   content: string | null;
+  signedFileUrl: string | null;
+  publisherRejectedReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -212,8 +214,18 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
   const [quoteNote, setQuoteNote] = useState("");
 
-  // Tab
-  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery">("needs");
+  // Tab — read initial value from ?tab= URL param
+  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery">(() => {
+    const p = new URLSearchParams(window.location.search);
+    const t = p.get("tab");
+    return (["needs", "contract", "delivery"] as const).includes(t as any) ? (t as "needs" | "contract" | "delivery") : "needs";
+  });
+  const initialId = useMemo(() => {
+    const p = new URLSearchParams(window.location.search);
+    const raw = p.get("id");
+    return raw ? parseInt(raw, 10) : null;
+  }, []);
+  const didAutoExpand = useRef(false);
 
   // Deliverable form
   const [delivTitle, setDelivTitle] = useState("");
@@ -293,6 +305,14 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
+
+  useEffect(() => {
+    if (didAutoExpand.current) return;
+    if (activeTab === "delivery" && initialId && deliverables.length > 0) {
+      const found = deliverables.find(d => d.id === initialId);
+      if (found) { setExpandedDelivId(initialId); didAutoExpand.current = true; }
+    }
+  }, [activeTab, deliverables, initialId]);
 
   const loadVersions = async () => {
     try {
@@ -485,70 +505,12 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
   return (
     <AdminV2Layout
-      title={demand.title}
       backHref="/admin/v2/client-demands"
       backLabel="客户需求"
     >
       <div className="mt-6 space-y-4">
 
-        {/* ── 操作按钮栏（嵌入/独立模式均可见） ── */}
-        <div className="flex flex-wrap gap-2">
-          {canStartNegotiating && (
-            <button
-              onClick={handleStartNegotiating}
-              disabled={acting}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-blue-300 text-blue-700 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50"
-            >
-              <PlayCircle size={13} /> 启动沟通
-            </button>
-          )}
-          {(canInitiateQuote || canReQuote) && (
-            <button
-              onClick={() => setShowQuoteOverlay(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
-            >
-              <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
-            </button>
-          )}
-          {canClose && (
-            <button
-              onClick={() => setActivePanel(prev => prev === "close" ? null : "close")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}
-            >
-              关闭需求
-            </button>
-          )}
-        </div>
-
-        {/* ── Tab 导航（两个及以上 tab 才显示） ── */}
-        {visibleTabs.length > 1 && (
-          <div className="flex gap-1 bg-white rounded-2xl border border-slate-100 p-1">
-            {visibleTabs.map(tab => {
-              const badge = tab === "delivery" ? (deliverables.length > 0 ? deliverables.length : null) : null;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
-                    activeTab === tab ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  {TAB_LABELS[tab]}
-                  {badge != null && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
-                      {badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── 需求详情 Tab ── */}
-        {activeTab === "needs" && <>
-
-        {/* ── 基本信息卡 ── */}
+        {/* ── 基本信息卡（始终显示，Tab 上方）── */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
@@ -638,6 +600,35 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           )}
         </div>
 
+        {/* ── 操作按钮栏 ── */}
+        <div className="flex flex-wrap gap-2">
+          {canStartNegotiating && (
+            <button
+              onClick={handleStartNegotiating}
+              disabled={acting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-blue-300 text-blue-700 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50"
+            >
+              <PlayCircle size={13} /> 启动沟通
+            </button>
+          )}
+          {(canInitiateQuote || canReQuote) && (
+            <button
+              onClick={() => setShowQuoteOverlay(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
+            >
+              <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
+            </button>
+          )}
+          {canClose && (
+            <button
+              onClick={() => setActivePanel(prev => prev === "close" ? null : "close")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}
+            >
+              关闭需求
+            </button>
+          )}
+        </div>
+
         {/* ── 操作面板 ── */}
         {activePanel === "close" && (
           <InlinePanel title="关闭需求" color="bg-red-50 border-red-200">
@@ -653,6 +644,34 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </div>
           </InlinePanel>
         )}
+
+        {/* ── Tab 导航（两个及以上 tab 才显示） ── */}
+        {visibleTabs.length > 1 && (
+          <div className="flex gap-1 bg-white rounded-2xl border border-slate-100 p-1">
+            {visibleTabs.map(tab => {
+              const badge = tab === "delivery" ? (deliverables.length > 0 ? deliverables.length : null) : null;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
+                    activeTab === tab ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  {TAB_LABELS[tab]}
+                  {badge != null && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── 需求详情 Tab ── */}
+        {activeTab === "needs" && <>
 
         {/* ── 需求详情区块（查看/编辑内联切换）── */}
         <Section
@@ -782,29 +801,34 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               <div className="space-y-3">
                 {contracts.map(c => {
                   const cs = CONTRACT_STATUS_MAP[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
-                  const isSigned = c.status === "signed";
                   return (
-                    <div key={c.id} className={`rounded-2xl border overflow-hidden ${isSigned ? "bg-green-50 border-green-200" : "bg-white border-slate-100"}`}>
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
-                          <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
-                          <button
-                            onClick={() => inlineNav?.push(`/admin/v2/contracts-a/${c.id}`)}
-                            className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
-                            查看详情
-                          </button>
-                        </div>
+                    <div key={c.id} className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${cs.color}`}>{cs.label}</span>
+                        <span className="text-xs text-slate-400 font-mono">{c.contractNo}</span>
                       </div>
                       {c.content && (
-                        <div className="px-4 pb-4 border-t border-slate-100">
-                          <p className="text-xs font-bold text-slate-500 mt-3 mb-2">合同内容</p>
-                          <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 max-h-72 overflow-y-auto prose prose-sm max-w-none">
-                            <MarkdownContent content={c.content} />
+                        <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
+                          <MarkdownContent content={c.content} />
+                        </div>
+                      )}
+                      {c.signedFileUrl && (
+                        <a href={c.signedFileUrl} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group">
+                          <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors flex items-center justify-center shrink-0">
+                            <FileText size={15} className="text-green-700" />
                           </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-green-700">已签约合同文件</p>
+                            <p className="text-xs text-green-600">点击下载</p>
+                          </div>
+                          <ExternalLink size={14} className="text-green-500 shrink-0" />
+                        </a>
+                      )}
+                      {c.publisherRejectedReason && (
+                        <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                          <p className="text-xs font-bold text-red-600 mb-1">发单方驳回原因</p>
+                          <p className="text-xs text-red-500">{c.publisherRejectedReason}</p>
                         </div>
                       )}
                     </div>

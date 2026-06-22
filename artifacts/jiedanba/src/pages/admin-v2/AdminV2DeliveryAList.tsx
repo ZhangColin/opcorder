@@ -78,7 +78,7 @@ export default function AdminV2DeliveryAList() {
             {items.map(item => {
               const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500", icon: Clock };
               const StatusIcon = cfg.icon;
-              const go = () => inlineNav ? inlineNav.push(`/admin/v2/deliveries-a/${item.id}`) : navigate(`/admin/v2/deliveries-a/${item.id}`);
+              const go = () => inlineNav ? inlineNav.push(`/admin/v2/client-demands/${item.clientDemandId}?tab=delivery&id=${item.id}`) : navigate(`/admin/v2/client-demands/${item.clientDemandId}?tab=delivery&id=${item.id}`);
               return (
                 <button key={item.id} onClick={go}
                   className="w-full text-left flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-white transition-all hover:shadow-md hover:border-primary/20 group">
