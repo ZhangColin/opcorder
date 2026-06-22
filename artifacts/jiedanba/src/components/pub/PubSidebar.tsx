@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
 import {
   FileText, FileSignature, CreditCard, Wrench,
-  PlusCircle, LogOut, X, ChevronRight, PackageCheck,
+  PlusCircle, LogOut, X, PackageCheck,
+  LayoutDashboard, Bell,
 } from "lucide-react";
 import { SiteLogo } from "@/components/SiteLogo";
 import { useState, useEffect } from "react";
@@ -57,8 +58,9 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
   }, [mobileOpen]);
 
   const isActive = (path: string) => {
+    if (path === "/publisher" && location === "/publisher") return true;
     if (path === "/pub" && location === "/pub") return true;
-    if (path !== "/pub" && location.startsWith(path)) return true;
+    if (path !== "/publisher" && path !== "/pub" && (location.startsWith(path))) return true;
     return false;
   };
 
@@ -70,8 +72,8 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
         <div className="flex items-center gap-3">
           <SiteLogo size={32} />
           <div>
-            <h2 className="text-base font-extrabold text-blue-900 leading-tight font-display">发单方 V2</h2>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest">新版双通道平台</p>
+            <h2 className="text-base font-extrabold text-blue-900 leading-tight font-display">发单方门户</h2>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest">机构专属通道</p>
           </div>
         </div>
         <button
@@ -82,12 +84,14 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
       </div>
 
       <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">
-        <SidebarLink icon={FileText}      label="需求管理"  href="/pub/demands"    active={isActive("/pub/demands")}    onClick={close} />
-        <SidebarLink icon={FileSignature} label="合同管理"  href="/pub/contracts"  active={isActive("/pub/contracts")}  onClick={close} />
-        <SidebarLink icon={CreditCard}    label="付款管理"  href="/pub/payments"   active={isActive("/pub/payments")}   onClick={close} />
-        <SidebarLink icon={PackageCheck}  label="交付确认"  href="/pub/deliveries" active={isActive("/pub/deliveries")} onClick={close}
+        <SidebarLink icon={LayoutDashboard} label="工作台"    href="/publisher"           active={isActive("/publisher")}          onClick={close} />
+        <SidebarLink icon={FileText}        label="需求管理"   href="/pub/demands"          active={isActive("/pub/demands")}        onClick={close} />
+        <SidebarLink icon={FileSignature}   label="合同管理"   href="/pub/contracts"        active={isActive("/pub/contracts")}      onClick={close} />
+        <SidebarLink icon={CreditCard}      label="付款管理"   href="/pub/payments"         active={isActive("/pub/payments")}       onClick={close} />
+        <SidebarLink icon={PackageCheck}    label="交付确认"   href="/pub/deliveries"       active={isActive("/pub/deliveries")}     onClick={close}
           dot={(badges?.pendingA ?? 0) > 0} />
-        <SidebarLink icon={Wrench}        label="质保工单"  href="/pub/tickets"    active={isActive("/pub/tickets")}    onClick={close} />
+        <SidebarLink icon={Wrench}          label="质保工单"   href="/pub/tickets"          active={isActive("/pub/tickets")}        onClick={close} />
+        <SidebarLink icon={Bell}            label="消息中心"   href="/publisher/notifications" active={isActive("/publisher/notifications")} onClick={close} />
       </nav>
 
       <Link href="/pub/demands/new" onClick={close}>
@@ -97,14 +101,9 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
       </Link>
 
       <div className="mt-4 border-t border-slate-200 pt-4 shrink-0">
-        <Link href="/publisher" onClick={close}>
-          <div className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
-            <ChevronRight size={14} className="rotate-180" /> 返回旧版门户
-          </div>
-        </Link>
         <button
           onClick={() => { close(); onLogout(); }}
-          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors mt-1"
+          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors"
         >
           <LogOut size={18} /> 退出登录
         </button>
