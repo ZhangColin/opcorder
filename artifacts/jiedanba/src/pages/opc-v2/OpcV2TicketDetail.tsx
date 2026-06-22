@@ -152,7 +152,7 @@ export default function OpcV2TicketDetail() {
           </div>
           <div className="p-5">
             <DiscussionThread
-              parentType="v2_ticket_b"
+              parentType="ticket_b"
               parentId={ticketId}
               readOnly={ticket.status === "closed"}
               onAfterPost={() => markRead("ticket_b", ticketId)}

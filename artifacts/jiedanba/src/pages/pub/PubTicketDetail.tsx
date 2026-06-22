@@ -133,7 +133,7 @@ export default function PubTicketDetail() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-sm font-bold text-slate-800 mb-4">工单讨论</h3>
           <DiscussionThread
-            parentType="v2_ticket_a"
+            parentType="ticket_a"
             parentId={ticketId}
             placeholder="描述问题详情或回复运营方…"
             readOnly={!isOpen}
