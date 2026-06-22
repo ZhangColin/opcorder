@@ -196,7 +196,7 @@ export default function PubHome() {
       <div className="max-w-5xl mx-auto space-y-5">
 
         {/* ── Identity Banner ── */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-primary to-blue-900 text-white p-6 shadow-lg shadow-primary/20">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 text-white p-6 shadow-lg shadow-indigo-900/40">
           {/* Decorative blobs */}
           <div className="absolute -top-12 -right-12 w-56 h-56 bg-white/5 rounded-full" />
           <div className="absolute -bottom-8 right-32 w-28 h-28 bg-white/5 rounded-full" />
@@ -261,15 +261,15 @@ export default function PubHome() {
 
         {/* ── Stat Cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* 需求 */}
+          {/* 需求 — indigo */}
           <button onClick={() => navigate("/pub/demands")}
-            className="group text-left bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-2xl p-5 shadow-sm shadow-orange-200 hover:shadow-md hover:shadow-orange-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+            className="group text-left bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl p-5 shadow-sm shadow-indigo-200 hover:shadow-md hover:shadow-indigo-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
             <div className="absolute bottom-2 right-6 w-8 h-8 bg-white/10 rounded-full" />
             <div className="relative">
               <FileText size={22} className="mb-3 text-white/80" />
               <p className="text-3xl font-extrabold leading-none">{demandsActive.length}</p>
-              <p className="text-orange-100 text-xs font-bold mt-1 uppercase tracking-wider">进行中需求</p>
+              <p className="text-indigo-100 text-xs font-bold mt-1 uppercase tracking-wider">进行中需求</p>
               {demandsPending.length > 0
                 ? <p className="text-[11px] font-bold text-yellow-200 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />{demandsPending.length} 待审核</p>
                 : <p className="text-[11px] text-white/50 mt-2">共 {demands.length} 个需求</p>
@@ -277,15 +277,15 @@ export default function PubHome() {
             </div>
           </button>
 
-          {/* 合同 */}
+          {/* 合同 — blue */}
           <button onClick={() => navigate("/pub/contracts")}
-            className="group text-left bg-gradient-to-br from-cyan-500 to-cyan-600 text-white rounded-2xl p-5 shadow-sm shadow-cyan-200 hover:shadow-md hover:shadow-cyan-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+            className="group text-left bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl p-5 shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
             <div className="absolute bottom-2 right-6 w-8 h-8 bg-white/10 rounded-full" />
             <div className="relative">
               <FileSignature size={22} className="mb-3 text-white/80" />
               <p className="text-3xl font-extrabold leading-none">{contracts.length}</p>
-              <p className="text-cyan-100 text-xs font-bold mt-1 uppercase tracking-wider">合同</p>
+              <p className="text-blue-100 text-xs font-bold mt-1 uppercase tracking-wider">合同</p>
               {contractsPending.length > 0
                 ? <p className="text-[11px] font-bold text-amber-200 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />{contractsPending.length} 待确认</p>
                 : <p className="text-[11px] text-white/50 mt-2">全部正常</p>
@@ -293,9 +293,9 @@ export default function PubHome() {
             </div>
           </button>
 
-          {/* 付款 */}
+          {/* 付款 — sky */}
           <button onClick={() => navigate("/pub/payments")}
-            className="group text-left bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl p-5 shadow-sm shadow-emerald-200 hover:shadow-md hover:shadow-emerald-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+            className="group text-left bg-gradient-to-br from-sky-500 to-sky-600 text-white rounded-2xl p-5 shadow-sm shadow-sky-200 hover:shadow-md hover:shadow-sky-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
             <div className="absolute bottom-2 right-6 w-8 h-8 bg-white/10 rounded-full" />
             <div className="relative">
@@ -303,7 +303,7 @@ export default function PubHome() {
               <p className="text-3xl font-extrabold leading-none">
                 {pendingAmount > 0 ? fmtAmount(pendingAmount) : paymentsPaid.length > 0 ? "—" : "—"}
               </p>
-              <p className="text-emerald-100 text-xs font-bold mt-1 uppercase tracking-wider">待付款</p>
+              <p className="text-sky-100 text-xs font-bold mt-1 uppercase tracking-wider">待付款</p>
               {paymentsOverdue.length > 0
                 ? <p className="text-[11px] font-bold text-red-200 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-300 animate-pulse" />{paymentsOverdue.length} 项已逾期</p>
                 : paymentsPaid.length > 0
@@ -313,15 +313,15 @@ export default function PubHome() {
             </div>
           </button>
 
-          {/* 交付 */}
+          {/* 交付 — teal */}
           <button onClick={() => navigate("/pub/deliveries")}
-            className="group text-left bg-gradient-to-br from-violet-500 to-violet-600 text-white rounded-2xl p-5 shadow-sm shadow-violet-200 hover:shadow-md hover:shadow-violet-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+            className="group text-left bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-2xl p-5 shadow-sm shadow-teal-200 hover:shadow-md hover:shadow-teal-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
             <div className="absolute bottom-2 right-6 w-8 h-8 bg-white/10 rounded-full" />
             <div className="relative">
               <PackageCheck size={22} className="mb-3 text-white/80" />
               <p className="text-3xl font-extrabold leading-none">{deliveries.length}</p>
-              <p className="text-violet-100 text-xs font-bold mt-1 uppercase tracking-wider">交付件</p>
+              <p className="text-teal-100 text-xs font-bold mt-1 uppercase tracking-wider">交付件</p>
               {deliveriesPending.length > 0
                 ? <p className="text-[11px] font-bold text-yellow-200 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />{deliveriesPending.length} 待确认</p>
                 : <p className="text-[11px] text-white/50 mt-2">已确认 {deliveriesOk.length} 件</p>
@@ -329,15 +329,15 @@ export default function PubHome() {
             </div>
           </button>
 
-          {/* 质保 */}
+          {/* 质保 — emerald */}
           <button onClick={() => navigate("/pub/tickets")}
-            className="group text-left bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl p-5 shadow-sm shadow-blue-200 hover:shadow-md hover:shadow-blue-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
+            className="group text-left bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl p-5 shadow-sm shadow-emerald-200 hover:shadow-md hover:shadow-emerald-200 transition-all hover:-translate-y-0.5 relative overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
             <div className="absolute bottom-2 right-6 w-8 h-8 bg-white/10 rounded-full" />
             <div className="relative">
               <Wrench size={22} className="mb-3 text-white/80" />
               <p className="text-3xl font-extrabold leading-none">{tickets.length}</p>
-              <p className="text-blue-100 text-xs font-bold mt-1 uppercase tracking-wider">质保工单</p>
+              <p className="text-emerald-100 text-xs font-bold mt-1 uppercase tracking-wider">质保工单</p>
               {ticketsOpen.length > 0
                 ? <p className="text-[11px] font-bold text-yellow-200 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-pulse" />{ticketsOpen.length} 处理中</p>
                 : <p className="text-[11px] text-white/50 mt-2">已关闭 {ticketsClosed.length} 个</p>
