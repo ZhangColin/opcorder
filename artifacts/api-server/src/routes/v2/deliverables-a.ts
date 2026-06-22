@@ -200,6 +200,29 @@ router.post("/deliverables-a/:id/publisher-reject", requireAuth, async (req: Req
   }
 });
 
+router.post("/deliverables-a/:id/admin-edit", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [deliverable] = await db.select().from(v2DeliverablesATable).where(eq(v2DeliverablesATable.id, id)).limit(1);
+    if (!deliverable) return res.status(404).json({ error: "交付记录不存在" });
+
+    const { title, url, content, attachments } = req.body as { title?: string; url?: string; content?: string; attachments?: any[] };
+    const updates: any = { updatedAt: new Date() };
+    if (title !== undefined) updates.title = title.trim() || deliverable.title;
+    if (url !== undefined) updates.url = url?.trim() || null;
+    if (content !== undefined) updates.content = content;
+    if (attachments !== undefined) updates.attachments = attachments;
+
+    const [updated] = await db.update(v2DeliverablesATable).set(updates)
+      .where(eq(v2DeliverablesATable.id, id)).returning();
+
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "POST /v2/deliverables-a/:id/admin-edit failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/deliverables-a/:id/resubmit", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
