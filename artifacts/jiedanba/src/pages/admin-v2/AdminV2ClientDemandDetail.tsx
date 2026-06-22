@@ -480,7 +480,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         {/* ── 操作按钮栏（嵌入/独立模式均可见） ── */}
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => navigate(`/admin/v2/overview?clientDemandId=${id}`)}
+            onClick={() => inlineNav ? inlineNav.push(`/admin/v2/overview?clientDemandId=${id}`) : navigate(`/admin/v2/overview?clientDemandId=${id}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors"
           >
             <ExternalLink size={13} /> 关联总览

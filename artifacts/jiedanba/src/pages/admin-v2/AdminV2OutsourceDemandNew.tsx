@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { Loader2, X, Trash2, Scissors } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
@@ -20,6 +21,7 @@ interface ClientDemand {
 
 export default function AdminV2OutsourceDemandNew() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const { toast } = useToast();
 
   const [title, setTitle] = useState("");
@@ -145,7 +147,8 @@ export default function AdminV2OutsourceDemandNew() {
       };
       const result = await v2Post<{ id: number }>("/outsource-demands", payload);
       toast({ title: asDraft ? "已保存草稿" : "外包需求已发布" });
-      navigate(`/admin/v2/outsource-demands/${result.id}`);
+      if (inlineNav) inlineNav.push(`/admin/v2/outsource-demands/${result.id}`);
+      else navigate(`/admin/v2/outsource-demands/${result.id}`);
     } catch (err: any) {
       toast({ title: "创建失败", description: err.message, variant: "destructive" });
     } finally {

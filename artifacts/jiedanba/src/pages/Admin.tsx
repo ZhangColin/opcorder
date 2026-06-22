@@ -29,6 +29,7 @@ import AdminV2DeliveryAList from "@/pages/admin-v2/AdminV2DeliveryAList";
 import AdminV2DeliveryBList from "@/pages/admin-v2/AdminV2DeliveryBList";
 import AdminV2DeliveryADetail from "@/pages/admin-v2/AdminV2DeliveryADetail";
 import AdminV2DeliveryBDetail from "@/pages/admin-v2/AdminV2DeliveryBDetail";
+import AdminV2OutsourceDemandNew from "@/pages/admin-v2/AdminV2OutsourceDemandNew";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatBudget } from "@/lib/utils";
 import { useLocation } from "wouter";
@@ -9920,6 +9921,19 @@ function ModuleContent({ module }: { module: Module }) {
               ← 返回客户需求列表
             </button>
             <AdminV2ClientDemandDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
+    if (inlineRoute === "/admin/v2/outsource-demands/new") {
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <button onClick={() => setInlineRoute(null)}
+              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
+              ← 返回外包需求列表
+            </button>
+            <AdminV2OutsourceDemandNew />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
       );

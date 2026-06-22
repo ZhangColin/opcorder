@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { Loader2, X, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
@@ -45,6 +46,7 @@ interface TicketB {
 export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
 
@@ -150,7 +152,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
                       <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block shrink-0" />
                       {t.title}
                       <button
-                        onClick={() => navigate(`/admin/v2/tickets-b/${t.id}`)}
+                        onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tickets-b/${t.id}`) : navigate(`/admin/v2/tickets-b/${t.id}`)}
                         className="ml-1 underline text-red-500 hover:text-red-700">
                         查看工单
                       </button>

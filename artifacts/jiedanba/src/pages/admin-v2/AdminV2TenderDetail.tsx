@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { Loader2, X, CheckCircle2, DollarSign, Clock } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
@@ -46,6 +47,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const { toast } = useToast();
 
   const [tender, setTender] = useState<Tender | null>(null);
@@ -121,7 +123,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
                   <p className="text-sm font-bold text-slate-800">{tender.opcNickname ?? "OPC"}</p>
                   <p className="text-xs text-slate-400">
                     外包需求：
-                    <button onClick={() => navigate(`/admin/v2/outsource-demands/${tender.outsourceDemandId}`)}
+                    <button onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${tender.outsourceDemandId}`) : navigate(`/admin/v2/outsource-demands/${tender.outsourceDemandId}`)}
                       className="text-primary hover:underline">{tender.demandTitle ?? `#${tender.outsourceDemandId}`}</button>
                   </p>
                 </div>

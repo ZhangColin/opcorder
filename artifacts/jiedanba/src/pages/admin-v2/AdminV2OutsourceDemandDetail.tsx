@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
   Loader2, X, ExternalLink, CheckCircle2,
   Edit2, History, Zap, AlertTriangle, Calendar, FileText, ChevronDown, ChevronUp,
@@ -122,6 +123,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const { toast } = useToast();
 
   const [demand, setDemand] = useState<OutsourceDemand | null>(null);
@@ -532,7 +534,7 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ts.color}`}>{ts.label}</span>
                       <button
-                        onClick={() => navigate(`/admin/v2/tenders/${t.id}`)}
+                        onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tenders/${t.id}`) : navigate(`/admin/v2/tenders/${t.id}`)}
                         className="text-xs text-primary font-bold border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5 transition-colors"
                       >
                         查看详情

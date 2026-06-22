@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
   Loader2, Users, Package, ShoppingCart, CreditCard, Wallet,
   ChevronRight, ChevronDown, Clock, AlertTriangle, CheckCircle2,
@@ -248,6 +249,8 @@ function CDRow({ node, navigate }: { node: CDNode; navigate: (p: string) => void
 /* ─── Main component ──────────────────────────────────────── */
 export default function AdminV2Overview() {
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
+  const go = (path: string) => { if (inlineNav) inlineNav.push(path); else navigate(path); };
   const cdIdFilter = useMemo(() => new URLSearchParams(window.location.search).get("clientDemandId"), []);
   const [tab, setTab] = useState<"stats" | "tree">(cdIdFilter ? "tree" : "stats");
 
@@ -358,7 +361,7 @@ export default function AdminV2Overview() {
                 { label: "收款已逾期", val: statsData.paymentStats.overdue,       href: "/admin/v2/payments-a", icon: CreditCard, iconColor: "text-red-500",   bg: "bg-red-50",   accent: "text-red-600" },
                 { label: "结算待打款", val: statsData.settlementStats.pendingPay,  href: "/admin/v2/payments-b", icon: Wallet,     iconColor: "text-violet-500",bg: "bg-violet-50",accent: "text-violet-600" },
               ].map(({ label, val, href, icon: Icon, iconColor, bg, accent }) => (
-                <button key={label} onClick={() => navigate(href)}
+                <button key={label} onClick={() => go(href)}
                   className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 p-4 text-left hover:border-primary/20 hover:shadow-sm transition-all group">
                   <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                     <Icon size={18} className={iconColor} />
@@ -376,14 +379,14 @@ export default function AdminV2Overview() {
               <div className="bg-white rounded-2xl border border-slate-100 p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-slate-700">最近客户需求</h3>
-                  <button onClick={() => navigate("/admin/v2/client-demands")}
+                  <button onClick={() => go("/admin/v2/client-demands")}
                     className="text-xs text-primary font-bold hover:text-primary/80 transition-colors">查看全部</button>
                 </div>
                 <div className="space-y-2">
                   {statsData.recentDemands.map(d => {
                     const cfg = CD_STATUS[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
                     return (
-                      <button key={d.id} onClick={() => navigate(`/admin/v2/client-demands/${d.id}`)}
+                      <button key={d.id} onClick={() => go(`/admin/v2/client-demands/${d.id}`)}
                         className="w-full flex items-center gap-3 py-2 border-b border-slate-50 last:border-0 text-left hover:bg-slate-50 rounded-lg px-1 -mx-1 transition-colors group">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${cfg.color}`}>{cfg.label}</span>
                         <span className="text-sm text-slate-800 flex-1 truncate font-medium">{d.title}</span>
@@ -418,7 +421,7 @@ export default function AdminV2Overview() {
           ) : (
             <>
               {treeData.map(node => (
-                <CDRow key={node.id} node={node} navigate={navigate} />
+                <CDRow key={node.id} node={node} navigate={go} />
               ))}
               {treeHasMore && (
                 <div className="flex justify-center pt-2">

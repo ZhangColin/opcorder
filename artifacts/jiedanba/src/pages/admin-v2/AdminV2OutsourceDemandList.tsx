@@ -68,7 +68,7 @@ export default function AdminV2OutsourceDemandList() {
     <AdminV2Layout
       title="外包需求"
       actions={
-        <button onClick={() => navigate("/admin/v2/outsource-demands/new")}
+        <button onClick={() => inlineNav ? inlineNav.push("/admin/v2/outsource-demands/new") : navigate("/admin/v2/outsource-demands/new")}
           className="flex items-center gap-1.5 bg-primary text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
           <Plus size={15} /> 新建外包需求
         </button>
@@ -105,7 +105,7 @@ export default function AdminV2OutsourceDemandList() {
         ) : items.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">
             <p>暂无外包需求</p>
-            <button onClick={() => navigate("/admin/v2/outsource-demands/new")}
+            <button onClick={() => inlineNav ? inlineNav.push("/admin/v2/outsource-demands/new") : navigate("/admin/v2/outsource-demands/new")}
               className="mt-4 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
               新建外包需求
             </button>

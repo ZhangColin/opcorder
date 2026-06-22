@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
   Loader2, X, Upload, CheckCircle2, XCircle, Clock, ExternalLink, PlusCircle, Wrench,
 } from "lucide-react";
@@ -88,6 +89,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
+  const inlineNav = useAdminInlineNav();
   const { toast } = useToast();
 
   const [order, setOrder] = useState<OutsourceOrder | null>(null);
@@ -407,7 +409,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.status === "open" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                       {t.status === "open" ? "开放中" : "已关闭"}
                     </span>
-                    <button onClick={() => navigate(`/admin/v2/tickets-b/${t.id}`)}
+                    <button onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tickets-b/${t.id}`) : navigate(`/admin/v2/tickets-b/${t.id}`)}
                       className="text-xs text-primary font-bold border border-primary/20 rounded-lg px-2.5 py-1 hover:bg-primary/5">
                       详情
                     </button>
