@@ -727,7 +727,9 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </div>
           ) : demand.latestVersion ? (
             <div>
-              <MarkdownContent content={demand.latestVersion.detail} />
+              <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 prose prose-sm max-w-none">
+                <MarkdownContent content={demand.latestVersion.detail} />
+              </div>
               {demand.latestVersion.attachments?.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-slate-50">
                   {demand.latestVersion.attachments.map((a, i) => (
@@ -762,8 +764,78 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         </>}
 
         {/* ── 报价与合同 Tab ── */}
-        {activeTab === "contract" && <>
+        {activeTab === "contract" && (() => {
+          const CONTRACT_STATUS_MAP: Record<string, { label: string; color: string }> = {
+            draft:                     { label: "草稿",        color: "bg-slate-100 text-slate-500" },
+            pending_publisher_confirm: { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
+            publisher_rejected:        { label: "已退回",       color: "bg-red-100 text-red-600" },
+            pending_sign:              { label: "待签约",       color: "bg-orange-100 text-orange-700" },
+            signed:                    { label: "已签约",       color: "bg-green-100 text-green-700" },
+          };
+          return (
+            <>
 
+        {/* 合同列表（内联展开）*/}
+        {contracts.length > 0 && (() => {
+          return (
+            <Section title={`合同（${contracts.length} 份）`} icon={FileText}>
+              <div className="space-y-3">
+                {contracts.map(c => {
+                  const cs = CONTRACT_STATUS_MAP[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
+                  const isSigned = c.status === "signed";
+                  return (
+                    <div key={c.id} className={`rounded-2xl border overflow-hidden ${isSigned ? "bg-green-50 border-green-200" : "bg-white border-slate-100"}`}>
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
+                          <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
+                          <button
+                            onClick={() => inlineNav?.push(`/admin/v2/contracts-a/${c.id}`)}
+                            className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
+                            查看详情
+                          </button>
+                        </div>
+                      </div>
+                      {c.content && (
+                        <div className="px-4 pb-4 border-t border-slate-100">
+                          <p className="text-xs font-bold text-slate-500 mt-3 mb-2">合同内容</p>
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 max-h-72 overflow-y-auto prose prose-sm max-w-none">
+                            <MarkdownContent content={c.content} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          );
+        })()}
+
+        {/* 收款计划 */}
+        {payments.length > 0 && (
+          <Section title={`收款计划（${payments.length} 项）`} icon={DollarSign}>
+            <div className="space-y-2">
+              {payments.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{p.title}</p>
+                    {p.dueDate && <p className="text-xs text-slate-400">应收：{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-800">¥{p.amount.toLocaleString()}</p>
+                    <PayStatusBadge status={p.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* 报价单（移至底部）*/}
         <Section title="报价单" icon={DollarSign}>
           {quotation ? (
             <div className="pt-2">
@@ -790,60 +862,9 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           )}
         </Section>
 
-        {contracts.length > 0 && (() => {
-          const CONTRACT_STATUS_MAP: Record<string, { label: string; color: string }> = {
-            draft:                     { label: "草稿",        color: "bg-slate-100 text-slate-500" },
-            pending_publisher_confirm: { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
-            publisher_rejected:        { label: "已退回",       color: "bg-red-100 text-red-600" },
-            pending_sign:              { label: "待签约",       color: "bg-orange-100 text-orange-700" },
-            signed:                    { label: "已签约",       color: "bg-green-100 text-green-700" },
-          };
-          return (
-            <Section title={`合同（${contracts.length} 份）`} icon={FileText}>
-              <div className="space-y-2">
-                {contracts.map(c => {
-                  const cs = CONTRACT_STATUS_MAP[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
-                  return (
-                    <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
-                        <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
-                        <button
-                          onClick={() => inlineNav?.push(`/admin/v2/contracts-a/${c.id}`)}
-                          className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
-                          查看详情
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Section>
+            </>
           );
         })()}
-
-        {payments.length > 0 && (
-          <Section title={`收款计划（${payments.length} 项）`} icon={DollarSign}>
-            <div className="space-y-2">
-              {payments.map(p => (
-                <div key={p.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">{p.title}</p>
-                    {p.dueDate && <p className="text-xs text-slate-400">应收：{new Date(p.dueDate).toLocaleDateString("zh-CN")}</p>}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-slate-800">¥{p.amount.toLocaleString()}</p>
-                    <PayStatusBadge status={p.status} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-        </>}
 
         {/* ── 交付 Tab ── */}
         {activeTab === "delivery" && (
@@ -955,7 +976,12 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
                       )}
                       {/* Content */}
                       {d.content && (
-                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{d.content}</p>
+                        <div>
+                          <p className="text-xs font-bold text-slate-500 mb-2">交付说明</p>
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 prose prose-sm max-w-none">
+                            <MarkdownContent content={d.content} />
+                          </div>
+                        </div>
                       )}
                       {/* Attachments */}
                       {d.attachments?.length > 0 && (
