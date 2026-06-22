@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Menu, Bell, Search } from "lucide-react";
+import { Menu, Bell } from "lucide-react";
 import { PubSidebar } from "./PubSidebar";
 import { clearSession } from "@/lib/auth";
 import { PublisherHeaderUser } from "@/components/publisher/PublisherHeaderUser";
@@ -34,7 +34,7 @@ export function PubLayout({ children, title, backHref, backLabel, actions }: Pub
             <Menu size={20} />
           </button>
 
-          {backHref ? (
+          {backHref && (
             <button
               onClick={() => navigate(backHref)}
               className="flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors shrink-0"
@@ -42,15 +42,6 @@ export function PubLayout({ children, title, backHref, backLabel, actions }: Pub
               <span className="text-lg leading-none">←</span>
               {backLabel ?? "返回"}
             </button>
-          ) : (
-            <div className="relative w-full max-w-md hidden sm:block">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="搜索需求 ID、人才、结算记录…"
-                className="w-full bg-slate-100 border-none rounded-full py-2 pl-9 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-slate-400"
-              />
-            </div>
           )}
 
           {title && (
@@ -61,7 +52,7 @@ export function PubLayout({ children, title, backHref, backLabel, actions }: Pub
           <div className="ml-auto flex items-center gap-3">
             <button
               className="relative p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors"
-              onClick={() => navigate("/publisher/notifications")}
+              onClick={() => navigate("/pub/notifications")}
             >
               <Bell size={20} />
             </button>
