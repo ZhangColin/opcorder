@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Loader2, ChevronRight, FileSignature, Clock } from "lucide-react";
+import { Loader2, ChevronRight } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
@@ -11,6 +11,7 @@ interface Contract {
   contractNo: string;
   clientDemandId: number | null;
   demandTitle?: string | null;
+  demandNo?: string | null;
   status: string;
   signedAt: string | null;
   createdAt: string;
@@ -103,27 +104,40 @@ export default function AdminV2ContractAList() {
             ).map(c => {
               const cfg = STATUS_CONFIG[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
               const highlight = HIGHLIGHT.includes(c.status);
+              const go = () => c.clientDemandId
+                ? (inlineNav ? inlineNav.push(`/admin/v2/client-demands/${c.clientDemandId}?tab=contract`) : navigate(`/admin/v2/client-demands/${c.clientDemandId}?tab=contract`))
+                : (inlineNav ? inlineNav.push(`/admin/v2/contracts-a/${c.id}`) : navigate(`/admin/v2/contracts-a/${c.id}`));
               return (
-                <button key={c.id} onClick={() => c.clientDemandId ? (inlineNav ? inlineNav.push(`/admin/v2/client-demands/${c.clientDemandId}?tab=contract`) : navigate(`/admin/v2/client-demands/${c.clientDemandId}?tab=contract`)) : (inlineNav ? inlineNav.push(`/admin/v2/contracts-a/${c.id}`) : navigate(`/admin/v2/contracts-a/${c.id}`))}
-                  className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
-                    highlight ? "bg-amber-50/60 border-amber-200" : "bg-white border-slate-100 hover:border-primary/20"
+                <button key={c.id} onClick={go}
+                  className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${
+                    highlight ? "bg-amber-50/40 border-amber-200" : "bg-white border-slate-100"
                   }`}>
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <FileSignature size={18} className="text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                      <span className="text-xs text-slate-400 font-mono">{c.contractNo}</span>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
+                      {c.demandTitle || c.contractNo}
                       {hasUnread("contract", c.id, c.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
-                    </div>
-                    {c.demandTitle && <p className="text-sm font-semibold text-slate-800 truncate mb-0.5">{c.demandTitle}</p>}
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
-                      <span className="flex items-center gap-1"><Clock size={11} />{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</span>
-                      {c.signedAt && <span>签约：{new Date(c.signedAt).toLocaleDateString("zh-CN")}</span>}
-                    </div>
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                   </div>
-                  <ChevronRight size={18} className="text-slate-300 group-hover:text-primary shrink-0" />
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">合同编号</p>
+                        <p className="text-sm text-slate-500 font-mono">{c.contractNo}</p>
+                      </div>
+                      {c.signedAt && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">签约时间</p>
+                          <p className="text-sm text-slate-600">{new Date(c.signedAt).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">更新</p>
+                        <p className="text-sm text-slate-600">{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary shrink-0" />
+                  </div>
                 </button>
               );
             })}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Loader2, ChevronRight, Wallet, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, ChevronRight, AlertTriangle } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -21,8 +21,8 @@ interface SettlementPlan {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending: { label: "待付款",   color: "bg-slate-100 text-slate-500" },
-  paid:    { label: "已支付",   color: "bg-green-100 text-green-700" },
+  pending: { label: "待付款", color: "bg-slate-100 text-slate-500" },
+  paid:    { label: "已支付", color: "bg-green-100 text-green-700" },
 };
 
 const STATUS_TABS = [
@@ -102,35 +102,53 @@ export default function AdminV2PaymentBList() {
         ) : (
           <div className="space-y-2">
             {items.map(item => {
-              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
               const overdue = isOverdue(item);
               const soon = isDueSoon(item);
+              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
+              const badgeColor = overdue ? "bg-red-100 text-red-600" : cfg.color;
+              const badgeLabel = overdue ? "已逾期" : cfg.label;
+              const go = () => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${item.id}`) : navigate(`/admin/v2/payments-b/${item.id}`);
               return (
-                <button key={item.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${item.id}`) : navigate(`/admin/v2/payments-b/${item.id}`)}
-                  className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
-                    overdue ? "bg-red-50/40 border-red-200" : soon ? "bg-amber-50/40 border-amber-100" : "bg-white border-slate-100 hover:border-primary/20"
+                <button key={item.id} onClick={go}
+                  className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${
+                    overdue ? "bg-red-50/30 border-red-200" : soon ? "bg-amber-50/30 border-amber-100" : "bg-white border-slate-100"
                   }`}>
-                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                    <Wallet size={18} className="text-violet-500" />
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
+                      {item.description ?? `第 ${item.itemNo ?? 1} 期结算款`}
+                      {soon && !overdue && <AlertTriangle size={13} className="text-orange-500 shrink-0" />}
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${badgeColor}`}>{badgeLabel}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    {item.demandTitle && (
-                      <p className="text-xs text-slate-500 truncate mb-0.5">{item.demandTitle}</p>
-                    )}
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${overdue ? "bg-red-100 text-red-600" : cfg.color}`}>
-                        {overdue ? "已逾期" : cfg.label}
-                      </span>
-                      {soon && !overdue && <span className="text-xs text-orange-500 flex items-center gap-0.5 font-bold"><AlertTriangle size={10} />即将到期</span>}
-                      {item.orderNo && <span className="text-xs text-slate-400 font-mono">{item.orderNo}</span>}
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      {item.demandTitle && (
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">关联需求</p>
+                          <p className="text-sm text-slate-600 truncate max-w-[12rem]">{item.demandTitle}</p>
+                        </div>
+                      )}
+                      {item.orderNo && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">订单号</p>
+                          <p className="text-sm text-slate-500 font-mono">{item.orderNo}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">金额</p>
+                        <p className={`text-xl font-black leading-tight ${overdue ? "text-red-600" : item.status === "paid" ? "text-emerald-600" : "text-slate-800"}`}>
+                          ¥{item.amount.toLocaleString()}
+                        </p>
+                      </div>
+                      {item.dueDate && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">应付日期</p>
+                          <p className="text-sm text-slate-600">{new Date(item.dueDate).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm font-semibold text-slate-800 truncate">{item.description ?? `第${item.itemNo ?? 1}期结算款`}</p>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      <span className="font-bold text-slate-700 text-base">¥{item.amount.toLocaleString()}</span>
-                      {item.dueDate && <span className="flex items-center gap-1"><Clock size={11} />应付 {new Date(item.dueDate).toLocaleDateString("zh-CN")}</span>}
-                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary shrink-0" />
                   </div>
-                  <ChevronRight size={18} className="text-slate-300 group-hover:text-primary shrink-0" />
                 </button>
               );
             })}

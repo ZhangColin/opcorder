@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Loader2, ChevronRight, CreditCard, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, ChevronRight, AlertTriangle } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -9,6 +9,7 @@ interface PaymentPlan {
   id: number;
   clientDemandId: number | null;
   demandTitle?: string | null;
+  demandNo?: string | null;
   title: string;
   itemNo?: number | null;
   amount: number;
@@ -20,10 +21,10 @@ interface PaymentPlan {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending:        { label: "待付款",   color: "bg-slate-100 text-slate-500" },
-  awaiting_review: { label: "待审核",   color: "bg-amber-100 text-amber-700" },
-  paid:           { label: "已支付",   color: "bg-green-100 text-green-700" },
-  overdue:        { label: "已逾期",   color: "bg-red-100 text-red-600" },
+  pending:         { label: "待付款",  color: "bg-slate-100 text-slate-500" },
+  awaiting_review: { label: "待审核",  color: "bg-amber-100 text-amber-700" },
+  paid:            { label: "已支付",  color: "bg-green-100 text-green-700" },
+  overdue:         { label: "已逾期",  color: "bg-red-100 text-red-600" },
 };
 
 const STATUS_TABS = [
@@ -107,36 +108,54 @@ export default function AdminV2PaymentAList() {
         ) : (
           <div className="space-y-2">
             {items.map(item => {
-              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
               const overdue = isOverdue(item);
               const soon = isDueSoon(item);
               const needAttn = item.status === "awaiting_review" || overdue;
+              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
+              const badgeColor = overdue ? "bg-red-100 text-red-600" : cfg.color;
+              const badgeLabel = overdue ? "已逾期" : cfg.label;
+              const go = () => inlineNav ? inlineNav.push(`/admin/v2/payments-a/${item.id}`) : navigate(`/admin/v2/payments-a/${item.id}`);
               return (
-                <button key={item.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-a/${item.id}`) : navigate(`/admin/v2/payments-a/${item.id}`)}
-                  className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
-                    needAttn ? "bg-amber-50/60 border-amber-200" : soon ? "bg-orange-50/40 border-orange-100" : "bg-white border-slate-100 hover:border-primary/20"
+                <button key={item.id} onClick={go}
+                  className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${
+                    needAttn ? "bg-amber-50/40 border-amber-200" : soon ? "bg-orange-50/30 border-orange-100" : "bg-white border-slate-100"
                   }`}>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                    <CreditCard size={18} className="text-emerald-600" />
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
+                      第 {item.itemNo ?? 1} 期 · {item.title}
+                      {soon && !overdue && <AlertTriangle size={13} className="text-orange-500 shrink-0" />}
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${badgeColor}`}>{badgeLabel}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    {item.demandTitle && (
-                      <p className="text-xs text-slate-500 truncate mb-0.5">{item.demandTitle}</p>
-                    )}
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${overdue ? "bg-red-100 text-red-600" : cfg.color}`}>
-                        {overdue ? "已逾期" : cfg.label}
-                      </span>
-                      {soon && <span className="text-xs text-orange-500 flex items-center gap-0.5 font-bold"><AlertTriangle size={10} />即将到期</span>}
-                      <span className="text-xs text-slate-400">第 {item.itemNo ?? 1} 期</span>
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      {item.demandTitle && (
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">关联需求</p>
+                          <p className="text-sm text-slate-600 truncate max-w-[12rem]">{item.demandTitle}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">金额</p>
+                        <p className={`text-xl font-black leading-tight ${overdue ? "text-red-600" : item.status === "paid" ? "text-emerald-600" : "text-slate-800"}`}>
+                          ¥{item.amount.toLocaleString()}
+                        </p>
+                      </div>
+                      {item.dueDate && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">应收日期</p>
+                          <p className="text-sm text-slate-600">{new Date(item.dueDate).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                      )}
+                      {item.paidAt && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">支付时间</p>
+                          <p className="text-sm text-slate-600">{new Date(item.paidAt).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      <span className="font-bold text-slate-700 text-base">¥{item.amount.toLocaleString()}</span>
-                      {item.dueDate && <span className="flex items-center gap-1"><Clock size={11} />应收 {new Date(item.dueDate).toLocaleDateString("zh-CN")}</span>}
-                      {item.paidAt && <span>支付：{new Date(item.paidAt).toLocaleDateString("zh-CN")}</span>}
-                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary shrink-0" />
                   </div>
-                  <ChevronRight size={18} className="text-slate-300 group-hover:text-primary shrink-0" />
                 </button>
               );
             })}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Loader2, ChevronRight, PackageCheck, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, ChevronRight } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -18,10 +18,10 @@ interface DeliveryB {
   updatedAt: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  pending:  { label: "待审核", color: "bg-orange-100 text-orange-700", icon: Clock },
-  approved: { label: "已通过", color: "bg-green-100 text-green-700",  icon: CheckCircle2 },
-  rejected: { label: "已驳回", color: "bg-red-100 text-red-700",      icon: XCircle },
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  pending:  { label: "待审核", color: "bg-orange-100 text-orange-700" },
+  approved: { label: "已通过", color: "bg-green-100 text-green-700" },
+  rejected: { label: "已驳回", color: "bg-red-100 text-red-700" },
 };
 
 const STATUS_TABS = [
@@ -75,31 +75,36 @@ export default function AdminV2DeliveryBList() {
         ) : (
           <div className="space-y-2">
             {items.map(item => {
-              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500", icon: Clock };
-              const StatusIcon = cfg.icon;
+              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
               const go = () => inlineNav ? inlineNav.push(`/admin/v2/deliveries-b/${item.id}`) : navigate(`/admin/v2/deliveries-b/${item.id}`);
               return (
                 <button key={item.id} onClick={go}
-                  className="w-full text-left flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-white transition-all hover:shadow-md hover:border-primary/20 group">
-                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                    <PackageCheck size={18} className="text-violet-500" />
+                  className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate">{item.title}</span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    {item.orderNo && (
-                      <p className="text-xs text-slate-500 truncate mb-0.5">订单 {item.orderNo}</p>
-                    )}
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>
-                        <StatusIcon size={11} /> {cfg.label}
-                      </span>
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      {item.orderNo && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">订单号</p>
+                          <p className="text-sm text-slate-500 font-mono">{item.orderNo}</p>
+                        </div>
+                      )}
+                      {item.submittedByNickname && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">提交人</p>
+                          <p className="text-sm text-slate-600">{item.submittedByNickname}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">提交时间</p>
+                        <p className="text-sm text-slate-600">{new Date(item.createdAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
                     </div>
-                    <p className="text-sm font-semibold text-slate-800 truncate">{item.title}</p>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      <span className="flex items-center gap-1"><Clock size={11} /> {new Date(item.createdAt).toLocaleDateString("zh-CN")}</span>
-                      {item.submittedByNickname && <span>{item.submittedByNickname}</span>}
-                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary shrink-0" />
                   </div>
-                  <ChevronRight size={18} className="text-slate-300 group-hover:text-primary shrink-0" />
                 </button>
               );
             })}

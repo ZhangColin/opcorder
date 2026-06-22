@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Plus, Search, Loader2, ChevronRight, Clock, Network, Users2 } from "lucide-react";
+import { Plus, Search, Loader2, ChevronRight, Zap } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -116,30 +116,41 @@ export default function AdminV2OutsourceDemandList() {
               (hasUnread("outsource", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("outsource", a.id, a.updatedAt) ? 1 : 0)
             ).map(d => {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
+              const go = () => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${d.id}`) : navigate(`/admin/v2/outsource-demands/${d.id}`);
               return (
-                <button key={d.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${d.id}`) : navigate(`/admin/v2/outsource-demands/${d.id}`)}
-                  className="w-full text-left flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-white transition-all hover:shadow-md hover:border-primary/20 group">
-                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                    <Network size={18} className="text-violet-500" />
+                <button key={d.id} onClick={go}
+                  className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
+                      {d.title}
+                      {d.isUrgent && <Zap size={13} className="text-red-500 shrink-0" />}
+                      {hasUnread("outsource", d.id, d.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                      <span className="text-xs text-slate-400 px-2 py-0.5 rounded-full bg-slate-50">
-                        {d.mode === "public" ? "公开抢单" : "指定邀请"}
-                      </span>
-                      <span className="text-xs text-slate-400 font-mono">{d.demandNo}</span>
-                      {hasUnread("outsource", d.id, d.updatedAt) && (
-                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="有新动态" />
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">编号</p>
+                        <p className="text-sm text-slate-500 font-mono">{d.demandNo}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">模式</p>
+                        <p className="text-sm text-slate-600">{d.mode === "public" ? "公开抢单" : "指定邀请"}</p>
+                      </div>
+                      {d.clientDemandId && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">关联客需</p>
+                          <p className="text-sm text-slate-600">#{d.clientDemandId}</p>
+                        </div>
                       )}
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">更新</p>
+                        <p className="text-sm text-slate-600">{new Date(d.updatedAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
                     </div>
-                    <p className="text-sm font-semibold text-slate-800 truncate">{d.title}</p>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      {d.clientDemandId && <span className="flex items-center gap-1"><Users2 size={11} />关联客户需求 #{d.clientDemandId}</span>}
-                      <span className="flex items-center gap-1"><Clock size={11} />{new Date(d.updatedAt).toLocaleDateString("zh-CN")}</span>
-                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary shrink-0" />
                   </div>
-                  <ChevronRight size={18} className="text-slate-300 group-hover:text-primary shrink-0" />
                 </button>
               );
             })}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Loader2, ChevronRight, Boxes, Clock, Users2 } from "lucide-react";
+import { Loader2, ChevronRight } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
@@ -104,29 +104,38 @@ export default function AdminV2OutsourceOrderList() {
             ).map(o => {
               const cfg = STATUS_CONFIG[o.status] ?? { label: o.status, color: "bg-slate-100 text-slate-500" };
               const highlight = HIGHLIGHT.includes(o.status);
+              const go = () => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${o.id}`) : navigate(`/admin/v2/outsource-orders/${o.id}`);
               return (
-                <button key={o.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${o.id}`) : navigate(`/admin/v2/outsource-orders/${o.id}`)}
-                  className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all hover:shadow-md group ${
-                    highlight ? "bg-orange-50/60 border-orange-200" : "bg-white border-slate-100 hover:border-primary/20"
+                <button key={o.id} onClick={go}
+                  className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${
+                    highlight ? "bg-orange-50/40 border-orange-200" : "bg-white border-slate-100"
                   }`}>
-                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                    <Boxes size={18} className="text-violet-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                      <span className="text-xs text-slate-400 font-mono">{o.orderNo}</span>
-                      {hasUnread("order", o.id, o.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
-                    </div>
-                    <p className="text-sm font-semibold text-slate-800 truncate">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
                       {o.demandTitle ?? `外包需求 #${o.outsourceDemandId}`}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                      <span className="flex items-center gap-1"><Users2 size={11} />{o.opcNickname ?? "—"}</span>
-                      <span className="flex items-center gap-1"><Clock size={11} />{new Date(o.updatedAt).toLocaleDateString("zh-CN")}</span>
-                    </div>
+                      {hasUnread("order", o.id, o.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                   </div>
-                  <ChevronRight size={18} className="text-slate-300 group-hover:text-primary shrink-0" />
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">订单号</p>
+                        <p className="text-sm text-slate-500 font-mono">{o.orderNo}</p>
+                      </div>
+                      {o.opcNickname && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">OPC</p>
+                          <p className="text-sm text-slate-600">{o.opcNickname}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">更新</p>
+                        <p className="text-sm text-slate-600">{new Date(o.updatedAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary shrink-0" />
+                  </div>
                 </button>
               );
             })}

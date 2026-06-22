@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import {
-  PackageCheck, Loader2, AlertCircle, ChevronRight, Clock,
-  CheckCircle2, XCircle,
-} from "lucide-react";
+import { PackageCheck, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
 
@@ -23,10 +20,10 @@ interface DeliveryItem {
   updatedAt: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  pending:  { label: "待审核", color: "bg-orange-100 text-orange-700", icon: <Clock size={12} /> },
-  approved: { label: "已通过", color: "bg-green-100 text-green-700",  icon: <CheckCircle2 size={12} /> },
-  rejected: { label: "已驳回", color: "bg-red-100 text-red-700",      icon: <XCircle size={12} /> },
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  pending:  { label: "待审核", color: "bg-orange-100 text-orange-700" },
+  approved: { label: "已通过", color: "bg-green-100 text-green-700" },
+  rejected: { label: "已驳回", color: "bg-red-100 text-red-700" },
 };
 
 const FILTER_TABS = [
@@ -63,15 +60,10 @@ export default function OpcV2DeliveryList() {
 
         <div className="flex gap-2 flex-wrap">
           {FILTER_TABS.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key)}
+            <button key={tab.key} onClick={() => setFilter(tab.key)}
               className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-                filter === tab.key
-                  ? "bg-emerald-700 text-white shadow-sm"
-                  : "bg-white text-slate-500 border border-slate-200 hover:border-emerald-400"
-              }`}
-            >
+                filter === tab.key ? "bg-emerald-700 text-white shadow-sm" : "bg-white text-slate-500 border border-slate-200 hover:border-emerald-400"
+              }`}>
               {tab.label}
               {counts[tab.key] > 0 && (
                 <span className={`ml-1.5 text-[11px] font-bold ${filter === tab.key ? "opacity-75" : "text-slate-400"}`}>
@@ -80,10 +72,8 @@ export default function OpcV2DeliveryList() {
               )}
             </button>
           ))}
-          <button
-            onClick={() => refetch()}
-            className="ml-auto text-xs text-slate-400 hover:text-emerald-700 px-3 py-2 hover:bg-slate-50 rounded-xl transition-colors"
-          >
+          <button onClick={() => refetch()}
+            className="ml-auto text-xs text-slate-400 hover:text-emerald-700 px-3 py-2 hover:bg-slate-50 rounded-xl transition-colors">
             刷新
           </button>
         </div>
@@ -106,41 +96,36 @@ export default function OpcV2DeliveryList() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {filtered.map(item => {
-              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500", icon: null };
+              const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
               return (
-                <button
-                  key={item.id}
-                  onClick={() => navigate(`/opc/deliveries/${item.id}`)}
-                  className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all p-5 text-left group"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${cfg.color}`}>
-                          {cfg.icon}
-                          {cfg.label}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-1">
-                        {item.title}
-                      </h3>
-                      {item.content && (
-                        <p className="text-xs text-slate-500 line-clamp-2 mb-1">{item.content}</p>
+                <button key={item.id} onClick={() => navigate(`/opc/deliveries/${item.id}`)}
+                  className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate">{item.title}</span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+                  </div>
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      {item.orderNo && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">订单号</p>
+                          <p className="text-sm text-slate-500 font-mono">{item.orderNo}</p>
+                        </div>
                       )}
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">提交时间</p>
+                        <p className="text-sm text-slate-600">{new Date(item.createdAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
                       {item.status === "rejected" && item.rejectedReason && (
-                        <p className="text-xs text-red-500 mb-1">驳回原因：{item.rejectedReason}</p>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">驳回原因</p>
+                          <p className="text-sm text-red-500 truncate max-w-[14rem]">{item.rejectedReason}</p>
+                        </div>
                       )}
-                      <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <Clock size={11} />
-                          {new Date(item.createdAt).toLocaleDateString("zh-CN")} 提交
-                        </span>
-                        {item.orderNo && <span className="font-mono">{item.orderNo}</span>}
-                      </div>
                     </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 transition-colors mt-1 shrink-0" />
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 shrink-0" />
                   </div>
                 </button>
               );

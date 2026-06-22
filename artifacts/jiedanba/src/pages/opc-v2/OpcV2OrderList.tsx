@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
-  Package, Loader2, AlertCircle, ChevronRight, Clock,
-  CheckCircle2, FileSignature, Wrench, Wallet, TrendingUp,
+  Package, Loader2, AlertCircle, ChevronRight,
+  FileSignature, Wrench, Clock, CheckCircle2,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
@@ -40,20 +40,20 @@ interface PagedResponse {
   items: OrderItem[];
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  pending_contract: { label: "待签约",  color: "bg-amber-100 text-amber-700",  icon: <FileSignature size={12} /> },
-  executing:        { label: "执行中",  color: "bg-blue-100 text-blue-700",    icon: <Wrench size={12} /> },
-  warranty:         { label: "质保期",  color: "bg-violet-100 text-violet-700", icon: <Clock size={12} /> },
-  completed:        { label: "已完成",  color: "bg-green-100 text-green-700",  icon: <CheckCircle2 size={12} /> },
-  cancelled:        { label: "已取消",  color: "bg-slate-100 text-slate-500",  icon: null },
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  pending_contract: { label: "待签约", color: "bg-amber-100 text-amber-700",   icon: FileSignature },
+  executing:        { label: "执行中", color: "bg-blue-100 text-blue-700",     icon: Wrench },
+  warranty:         { label: "质保期", color: "bg-violet-100 text-violet-700", icon: Clock },
+  completed:        { label: "已完成", color: "bg-green-100 text-green-700",   icon: CheckCircle2 },
+  cancelled:        { label: "已取消", color: "bg-slate-100 text-slate-500",   icon: Package },
 };
 
 const FILTER_TABS = [
-  { key: "all",             label: "全部" },
+  { key: "all",              label: "全部" },
   { key: "pending_contract", label: "待签约" },
-  { key: "executing",       label: "执行中" },
-  { key: "warranty",        label: "质保期" },
-  { key: "completed",       label: "已完成" },
+  { key: "executing",        label: "执行中" },
+  { key: "warranty",         label: "质保期" },
+  { key: "completed",        label: "已完成" },
 ] as const;
 
 type FilterKey = (typeof FILTER_TABS)[number]["key"];
@@ -103,15 +103,10 @@ export default function OpcV2OrderList() {
 
         <div className="flex gap-2 flex-wrap">
           {FILTER_TABS.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setFilter(tab.key)}
+            <button key={tab.key} onClick={() => setFilter(tab.key)}
               className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-                filter === tab.key
-                  ? "bg-emerald-700 text-white shadow-sm"
-                  : "bg-white text-slate-500 border border-slate-200 hover:border-emerald-400"
-              }`}
-            >
+                filter === tab.key ? "bg-emerald-700 text-white shadow-sm" : "bg-white text-slate-500 border border-slate-200 hover:border-emerald-400"
+              }`}>
               {tab.label}
               {counts[tab.key] > 0 && (
                 <span className={`ml-1.5 text-[11px] font-bold ${filter === tab.key ? "opacity-75" : "text-slate-400"}`}>
@@ -120,10 +115,8 @@ export default function OpcV2OrderList() {
               )}
             </button>
           ))}
-          <button
-            onClick={() => refetch()}
-            className="ml-auto text-xs text-slate-400 hover:text-emerald-700 px-3 py-2 hover:bg-slate-50 rounded-xl transition-colors"
-          >
+          <button onClick={() => refetch()}
+            className="ml-auto text-xs text-slate-400 hover:text-emerald-700 px-3 py-2 hover:bg-slate-50 rounded-xl transition-colors">
             刷新
           </button>
         </div>
@@ -146,72 +139,65 @@ export default function OpcV2OrderList() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[...filtered].sort((a, b) =>
               (hasUnread("order", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("order", a.id, a.updatedAt) ? 1 : 0)
             ).map(order => {
-              const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500", icon: null };
+              const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500", icon: Package };
               const tender = tenderMap[order.tenderId];
               const totalPrice = tender?.totalPrice;
               const orderSettlements = settlementsByOrder[order.id] ?? [];
-              const paidAmount = orderSettlements
-                .filter(s => s.status === "paid")
-                .reduce((sum, s) => sum + s.amount, 0);
+              const paidAmount = orderSettlements.filter(s => s.status === "paid").reduce((sum, s) => sum + s.amount, 0);
               const totalSettled = orderSettlements.reduce((sum, s) => sum + s.amount, 0);
-
+              const displayPrice = totalPrice ?? (totalSettled > 0 ? totalSettled : null);
               return (
-                <button
-                  key={order.id}
-                  onClick={() => navigate(`/opc/orders/${order.id}`)}
-                  className={`w-full bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all p-5 text-left group ${
-                    order.status === "pending_contract"
-                      ? "border-amber-200 hover:border-amber-400"
-                      : "border-slate-100 hover:border-emerald-200"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${cfg.color}`}>
-                          {cfg.icon}
-                          {cfg.label}
-                        </span>
-                        <span className="text-[11px] font-mono text-slate-400">{order.orderNo}</span>
-                        {hasUnread("order", order.id, order.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+                <button key={order.id} onClick={() => navigate(`/opc/orders/${order.id}`)}
+                  className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${
+                    order.status === "pending_contract" ? "bg-amber-50/40 border-amber-200" : "bg-white border-slate-100"
+                  }`}>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
+                      {order.demandTitle ?? `订单 #${order.id}`}
+                      {hasUnread("order", order.id, order.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+                    </span>
+                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+                  </div>
+                  <div className="flex items-end gap-4">
+                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">订单号</p>
+                        <p className="text-sm text-slate-500 font-mono">{order.orderNo}</p>
                       </div>
-                      <h3 className="font-bold text-slate-800 group-hover:text-emerald-800 transition-colors mb-2">
-                        {order.demandTitle ?? `订单 #${order.id}`}
-                      </h3>
-
-                      <div className="flex flex-wrap gap-3 text-xs">
-                        {(totalPrice || totalSettled > 0) && (
-                          <span className="flex items-center gap-1 text-slate-700 font-bold">
-                            <Wallet size={11} className="text-emerald-600" />
-                            总金额 ¥{(totalPrice ?? totalSettled).toLocaleString()}
-                          </span>
-                        )}
-                        {paidAmount > 0 && (
-                          <span className="flex items-center gap-1 text-green-700 font-bold">
-                            <TrendingUp size={11} /> 已到账 ¥{paidAmount.toLocaleString()}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1 text-slate-400">
-                          <Clock size={11} />
-                          {new Date(order.createdAt).toLocaleDateString("zh-CN")} 创建
-                        </span>
-                        {order.warrantyEndDate && (
-                          <span className="text-slate-400">质保至 {new Date(order.warrantyEndDate).toLocaleDateString("zh-CN")}</span>
-                        )}
-                      </div>
-
-                      {order.status === "pending_contract" && (
-                        <p className="mt-2 text-xs font-bold text-amber-700">
-                          ⚠️ 请尽快查阅合同并上传已签PDF确认
-                        </p>
+                      {displayPrice != null && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">合同金额</p>
+                          <p className="text-xl font-black text-slate-800">¥{displayPrice.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {paidAmount > 0 && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">已到账</p>
+                          <p className="text-xl font-black text-emerald-600">¥{paidAmount.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {order.warrantyEndDate && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">质保至</p>
+                          <p className="text-sm text-slate-600">{new Date(order.warrantyEndDate).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                      )}
+                      {!order.warrantyEndDate && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">创建</p>
+                          <p className="text-sm text-slate-600">{new Date(order.createdAt).toLocaleDateString("zh-CN")}</p>
+                        </div>
                       )}
                     </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 transition-colors mt-1 shrink-0" />
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 shrink-0" />
                   </div>
+                  {order.status === "pending_contract" && (
+                    <p className="mt-2 text-xs font-bold text-amber-700">⚠️ 请尽快查阅合同并上传已签 PDF 确认</p>
+                  )}
                 </button>
               );
             })}
