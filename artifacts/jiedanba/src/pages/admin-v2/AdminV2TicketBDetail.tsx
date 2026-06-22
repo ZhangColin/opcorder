@@ -123,21 +123,22 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
                 {ticket.isBlockingPayment && (
                   <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">阻断付款</span>
                 )}
-                <span className="text-xs text-slate-400 font-mono">#{ticket.id}</span>
+                {ticket.outsourceDemandId ? (
+                  <button
+                    onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`) : navigate(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`)}
+                    className="text-xs text-primary hover:underline font-mono"
+                  >
+                    {ticket.demandTitle ?? `需求 #${ticket.outsourceDemandId}`}
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400 font-mono">#{ticket.id}</span>
+                )}
               </div>
               <h2 className="text-lg font-extrabold text-blue-900 mb-1">{ticket.title}</h2>
               {ticket.description && <p className="text-sm text-slate-600">{ticket.description}</p>}
               <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
                 <Clock size={11} /> 创建于 {new Date(ticket.createdAt).toLocaleString("zh-CN")}
               </p>
-              {ticket.outsourceDemandId && (
-                <button
-                  onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`) : navigate(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`)}
-                  className="text-xs text-primary hover:underline mt-1"
-                >
-                  关联需求：{ticket.demandTitle ?? `#${ticket.outsourceDemandId}`}
-                </button>
-              )}
             </div>
           </div>
           {!isOpen && (

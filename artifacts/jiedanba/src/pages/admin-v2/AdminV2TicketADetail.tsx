@@ -109,21 +109,22 @@ export default function AdminV2TicketADetail({ inlineId }: { inlineId?: number }
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                   {isOpen ? "开放中" : "已关闭"}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">#{ticket.id}</span>
+                {ticket.clientDemandId ? (
+                  <button
+                    onClick={() => inlineNav ? inlineNav.push(`/admin/v2/client-demands/${ticket.clientDemandId}`) : navigate(`/admin/v2/client-demands/${ticket.clientDemandId}`)}
+                    className="text-xs text-primary hover:underline font-mono"
+                  >
+                    {ticket.demandTitle ?? `需求 #${ticket.clientDemandId}`}
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400 font-mono">#{ticket.id}</span>
+                )}
               </div>
               <h2 className="text-lg font-extrabold text-blue-900 mb-1">{ticket.title}</h2>
               {ticket.description && <p className="text-sm text-slate-600">{ticket.description}</p>}
               <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
                 <Clock size={11} /> 创建于 {new Date(ticket.createdAt).toLocaleString("zh-CN")}
               </p>
-              {ticket.clientDemandId && (
-                <button
-                  onClick={() => inlineNav ? inlineNav.push(`/admin/v2/client-demands/${ticket.clientDemandId}`) : navigate(`/admin/v2/client-demands/${ticket.clientDemandId}`)}
-                  className="text-xs text-primary hover:underline mt-1"
-                >
-                  关联需求：{ticket.demandTitle ?? `#${ticket.clientDemandId}`}
-                </button>
-              )}
             </div>
           </div>
           {ticket.attachments && ticket.attachments.length > 0 && (
