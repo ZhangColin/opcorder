@@ -1184,20 +1184,34 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                         <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
                       </div>
                     </button>
-                    {isOpen && (
-                      <button
-                        onClick={e => { e.stopPropagation(); setClosingTicketId(closingTicketId === t.id ? null : t.id); setCloseTicketNote(""); }}
-                        className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700 transition-colors"
-                      >
-                        关闭
-                      </button>
-                    )}
-                    <button onClick={() => handleExpandTicket(t.id)} className="shrink-0">
-                      {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
-                    </button>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                       {isOpen ? "处理中" : "已关闭"}
                     </span>
+                    {isOpen && (
+                      closingTicketId === t.id ? (
+                        <span className="flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] text-slate-500 font-medium">确认关闭？</span>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleCloseTicket(t.id); }}
+                            className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-white hover:bg-slate-900 transition-colors"
+                          >✓</button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setClosingTicketId(null); }}
+                            className="text-[11px] font-bold px-1.5 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+                          >✗</button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={e => { e.stopPropagation(); setClosingTicketId(t.id); }}
+                          className="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700 transition-colors"
+                        >
+                          关闭
+                        </button>
+                      )
+                    )}
+                    <button onClick={() => handleExpandTicket(t.id)} className="shrink-0 ml-1">
+                      {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                    </button>
                   </div>
                   {isExpanded && (
                     <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
@@ -1238,28 +1252,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                               {full.closedAt && (
                                 <p className="text-xs text-slate-400 mt-1">关闭于 {new Date(full.closedAt).toLocaleDateString("zh-CN")}</p>
                               )}
-                            </div>
-                          )}
-                          {isOpen && closingTicketId === t.id && (
-                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                              <p className="text-xs font-bold text-slate-700">确认关闭工单</p>
-                              <textarea
-                                rows={3}
-                                placeholder="关闭备注（选填）"
-                                value={closeTicketNote}
-                                onChange={e => setCloseTicketNote(e.target.value)}
-                                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none bg-white resize-none"
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleCloseTicket(t.id)}
-                                  className="px-4 py-1.5 text-xs bg-slate-700 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors"
-                                >确认关闭</button>
-                                <button
-                                  onClick={() => { setClosingTicketId(null); setCloseTicketNote(""); }}
-                                  className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50"
-                                >取消</button>
-                              </div>
                             </div>
                           )}
                           <div className="border-t border-slate-100 pt-4">
