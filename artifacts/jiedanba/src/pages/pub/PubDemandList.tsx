@@ -30,6 +30,13 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
 };
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
+  // 现行分类 code（cat_categories 表）
+  CG:               "内容生成",
+  SA:               "软件系统与智能体",
+  TK:               "培训与知识产品",
+  BO:               "商业运营",
+  OTHER:            "其他",
+  // 旧枚举值（兼容历史数据）
   education:        "教育培训",
   software:         "软件开发",
   marketing:        "市场营销",
