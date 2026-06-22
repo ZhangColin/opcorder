@@ -813,85 +813,46 @@ export default function PubDemandDetail() {
         {/* ── 报价与合同 Tab ── */}
         {activeTab === "contract" && <>
 
-        <Section title="报价单" icon={CreditCard}>
-          <div className="mt-4">
-            {quotation ? (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
-                  <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
-                </div>
-                {quotation.breakdown?.length > 0 && (
-                  <div className="space-y-2 mb-4">
-                    {quotation.breakdown.map((b, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
-                        <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {quotation.note && (
-                  <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
-                )}
-                {canConfirmQuote && (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleConfirmQuote}
-                      disabled={acting}
-                      className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                    >
-                      {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                      确认报价
-                    </button>
-                    <button
-                      onClick={() => setShowCommentModal(true)}
-                      disabled={acting}
-                      className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
-                    >
-                      提出意见
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-400">
-                <p className="text-sm">运营方正在核算报价，请耐心等待</p>
-              </div>
-            )}
-          </div>
-        </Section>
-
+        {/* 合同 */}
         {aContract && (
           <Section title="合同" icon={FileSignature}>
-            <div className="mt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const cfg = CONTRACT_STATUS[aContract.status] ?? { label: aContract.status, color: "bg-slate-100 text-slate-500" };
-                      return <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>;
-                    })()}
-                    <span className="text-xs text-slate-400 font-mono">{aContract.contractNo}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => navigate(`/pub/contracts/${aContract.id}`)}
-                  className="text-xs text-primary hover:underline flex items-center gap-1"
-                >
-                  查看合同 <ExternalLink size={11} />
-                </button>
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const cfg = CONTRACT_STATUS[aContract.status] ?? { label: aContract.status, color: "bg-slate-100 text-slate-500" };
+                  return <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${cfg.color}`}>{cfg.label}</span>;
+                })()}
+                <span className="text-xs text-slate-400 font-mono">{aContract.contractNo}</span>
               </div>
+              {aContract.content && (
+                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto">
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{aContract.content}</p>
+                </div>
+              )}
               {aContract.signedFileUrl && (
                 <a href={aContract.signedFileUrl} target="_blank" rel="noreferrer"
-                  className="mt-3 flex items-center gap-2 text-sm text-primary hover:underline">
-                  <ExternalLink size={14} /> 下载已签约文件
+                  className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group">
+                  <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors flex items-center justify-center shrink-0">
+                    <FileSignature size={15} className="text-green-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-green-700">已签约合同文件</p>
+                    <p className="text-xs text-green-600">点击下载</p>
+                  </div>
+                  <ExternalLink size={14} className="text-green-500 shrink-0" />
                 </a>
+              )}
+              {aContract.publisherRejectedReason && (
+                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold text-red-600 mb-1">驳回原因</p>
+                  <p className="text-xs text-red-500">{aContract.publisherRejectedReason}</p>
+                </div>
               )}
             </div>
           </Section>
         )}
 
+        {/* 付款计划 */}
         {payments.length > 0 && (
           <><div id="section-payments" className="scroll-mt-4" />
           <Section title="付款计划" icon={CreditCard}>
@@ -925,6 +886,51 @@ export default function PubDemandDetail() {
           </Section>
           </>
         )}
+
+        {/* 报价单 — 放最下面，有数据才显示 */}
+        {quotation && (
+          <Section title="报价单" icon={CreditCard}>
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
+                <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
+              </div>
+              {quotation.breakdown?.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {quotation.breakdown.map((b, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
+                      <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {quotation.note && (
+                <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
+              )}
+              {canConfirmQuote && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleConfirmQuote}
+                    disabled={acting}
+                    className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                    确认报价
+                  </button>
+                  <button
+                    onClick={() => setShowCommentModal(true)}
+                    disabled={acting}
+                    className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
+                  >
+                    提出意见
+                  </button>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
         </>}
 
         {/* ── 工单 Tab ── */}
