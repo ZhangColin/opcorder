@@ -7,9 +7,18 @@ interface SiteLogoProps {
   imgClassName?: string;
 }
 
+function resolveAssetUrl(src: string): string {
+  if (!src) return src;
+  if (src.startsWith("/api/")) {
+    const base = import.meta.env.BASE_URL ?? "/";
+    return base.replace(/\/$/, "") + src;
+  }
+  return src;
+}
+
 export function SiteLogo({ size = 28, className = "", imgClassName = "" }: SiteLogoProps) {
   const { data: s } = useSiteSettings();
-  const src = s?.site_logo;
+  const src = s?.site_logo ? resolveAssetUrl(s.site_logo) : null;
   const name = s?.site_name ?? "接单吧";
 
   if (src) {
