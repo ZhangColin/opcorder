@@ -765,7 +765,9 @@ export default function PubDemandDetail() {
               </div>
             ) : demand.latestVersion ? (
               <div>
-                <MarkdownContent content={demand.latestVersion.detail} />
+                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 prose prose-sm max-w-none">
+                  <MarkdownContent content={demand.latestVersion.detail} />
+                </div>
                 {demand.latestVersion.attachments?.length > 0 && (
                   <div className="mt-3 space-y-1">
                     {demand.latestVersion.attachments.map((a, i) => (
