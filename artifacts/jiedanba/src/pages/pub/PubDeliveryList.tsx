@@ -42,6 +42,11 @@ const FILTER_TABS = [
 
 type FilterKey = (typeof FILTER_TABS)[number]["key"];
 
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
 export default function PubDeliveryList() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [, navigate] = useLocation();
@@ -51,10 +56,11 @@ export default function PubDeliveryList() {
     queryFn: () => v2Get("/deliverables-a"),
   });
 
-  const filtered = filter === "all" ? data : data.filter(d => d.status === filter);
-  const pendingCount = data.filter(d => d.status === "pending").length;
+  const filtered = filter === "all" ? data : data.filter(d =>
+    filter === "revision" ? ["revision", "rejected"].includes(d.status) : d.status === filter
+  );
 
-  const counts: Record<string, number> = {
+  const counts = {
     all: data.length,
     pending: data.filter(d => d.status === "pending").length,
     confirmed: data.filter(d => d.status === "confirmed").length,
@@ -64,11 +70,11 @@ export default function PubDeliveryList() {
   return (
     <PubLayout>
       <div className="py-4 space-y-4">
-        {pendingCount > 0 && (
+        {counts.pending > 0 && (
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <PackageCheck size={18} className="text-amber-600 shrink-0" />
+            <PackageCheck size={16} className="text-amber-600 shrink-0" />
             <p className="text-sm text-amber-800 font-medium">
-              <strong>{pendingCount}</strong> 份交付待您确认，请检查内容后回复
+              <strong>{counts.pending}</strong> 份交付待您确认
             </p>
             <button onClick={() => setFilter("pending")}
               className="ml-auto text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg shrink-0 transition-colors">
@@ -132,8 +138,8 @@ export default function PubDeliveryList() {
                     isPending ? "border-amber-200 bg-amber-50/30" : "border-slate-100"
                   }`}>
 
-                  {/* Row 1: 交付物标题（主体）+ 状态 */}
-                  <div className="flex items-start justify-between gap-4 mb-2.5">
+                  {/* Row 1: 交付物标题 + 状态 */}
+                  <div className="flex items-start justify-between gap-4 mb-1">
                     <p className={`text-[15px] font-bold leading-snug group-hover:text-teal-700 transition-colors flex-1 min-w-0 truncate ${
                       isRejected ? "text-red-800" : "text-slate-800"
                     }`}>
@@ -144,42 +150,36 @@ export default function PubDeliveryList() {
                     </span>
                   </div>
 
-                  {/* 驳回原因（如有）*/}
+                  {/* 来自需求（副标题，紧跟标题） */}
+                  {item.demandTitle && (
+                    <p className="text-xs text-slate-400 mb-2.5 truncate">
+                      需求：{item.demandTitle}
+                    </p>
+                  )}
+
+                  {/* 驳回原因 */}
                   {isRejected && item.rejectedReason && (
                     <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-2.5 text-left">
                       <span className="font-bold">驳回原因：</span>{item.rejectedReason}
                     </p>
                   )}
 
-                  {/* Row 2: 元数据横排 */}
-                  <div className="flex items-center gap-6 text-xs flex-wrap">
-                    {item.demandTitle && (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关联需求</p>
-                        <p className="text-slate-600 truncate max-w-[12rem]">
-                          {item.demandTitle}{item.demandNo && <span className="text-slate-400"> · {item.demandNo}</span>}
-                        </p>
-                      </div>
-                    )}
+                  {/* Row 3: 提交人 · 附件 · 时间 */}
+                  <div className="flex items-center gap-4 text-xs text-slate-400">
                     {item.createdByNickname && (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">提交人</p>
-                        <p className="text-slate-600 flex items-center gap-1"><User size={10} /> {item.createdByNickname}</p>
-                      </div>
+                      <span className="flex items-center gap-1">
+                        <User size={11} /> {item.createdByNickname}
+                      </span>
                     )}
                     {item.attachments?.length > 0 && (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">附件</p>
-                        <p className="text-slate-600 flex items-center gap-1"><Paperclip size={10} /> {item.attachments.length} 个</p>
-                      </div>
+                      <span className="flex items-center gap-1">
+                        <Paperclip size={11} /> 附件 {item.attachments.length} 个
+                      </span>
                     )}
-                    <div className="ml-auto">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">提交时间</p>
-                      <p className="text-slate-600 flex items-center gap-1">
-                        <Clock size={10} /> {new Date(item.createdAt).toLocaleDateString("zh-CN")}
-                      </p>
-                    </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
+                    <span className="ml-auto flex items-center gap-1">
+                      <Clock size={11} /> {fmtDate(item.createdAt)}
+                    </span>
+                    <ChevronRight size={15} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
                   </div>
                 </button>
               );

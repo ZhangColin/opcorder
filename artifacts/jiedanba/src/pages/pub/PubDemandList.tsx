@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import {
-  Plus, Search, Loader2, Zap, Clock, ChevronRight, FileText,
-} from "lucide-react";
+import { Plus, Search, Loader2, Zap, ChevronRight, FileText } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
@@ -31,6 +29,20 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   closed:           { label: "已关闭", cls: "bg-slate-100 text-slate-400" },
 };
 
+const DEMAND_TYPE_LABELS: Record<string, string> = {
+  education:        "教育培训",
+  software:         "软件开发",
+  marketing:        "市场营销",
+  content:          "内容设计",
+  other:            "其他",
+  ai_education:     "AI 教育",
+  gov_training:     "政务培训",
+  ai_research:      "AI 研究",
+  party_building:   "党建",
+  livestream_media: "直播媒体",
+  ai_tool_dev:      "AI 工具",
+};
+
 const TABS = [
   { value: "", label: "全部" },
   { value: "negotiating", label: "沟通中" },
@@ -45,9 +57,14 @@ const TABS = [
 function fmtBudget(min: number | null, max: number | null) {
   if (!min && !max) return null;
   const f = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(n % 10000 === 0 ? 0 : 1)}万` : n.toLocaleString();
-  if (min && max) return `¥${f(min)} – ¥${f(max)}`;
+  if (min && max) return `¥${f(min)} – ${f(max)}`;
   if (min) return `¥${f(min)} 起`;
   return null;
+}
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 export default function PubDemandList() {
@@ -89,7 +106,6 @@ export default function PubDemandList() {
       }
     >
       <div className="mt-5 space-y-4">
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 items-start">
           <div className="flex gap-1.5 flex-wrap">
             {TABS.map(t => (
@@ -132,24 +148,23 @@ export default function PubDemandList() {
             {sorted.map(d => {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, cls: "bg-slate-100 text-slate-500" };
               const budget = fmtBudget(d.budgetMin, d.budgetMax);
+              const typeLabel = d.demandType ? (DEMAND_TYPE_LABELS[d.demandType] ?? d.demandType) : null;
               const unread = hasUnread("client", d.id, d.updatedAt);
+
               return (
                 <div key={d.id} onClick={() => navigate(`/pub/demands/${d.id}`)}
-                  className={`bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group px-5 py-4`}>
+                  className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group px-5 py-4">
 
-                  {/* Row 1: 需求号 · 状态 · 紧急 · 时间 */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[11px] font-mono text-slate-400">{d.demandNo}</span>
+                  {/* Row 1: 状态 · 紧急 · 编号（右） */}
+                  <div className="flex items-center gap-2 mb-2.5">
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
                     {d.isUrgent && (
-                      <span className="flex items-center gap-0.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
-                        <Zap size={9} /> 紧急
+                      <span className="flex items-center gap-0.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded-full">
+                        <Zap size={9} fill="currentColor" /> 紧急
                       </span>
                     )}
                     {unread && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />}
-                    <span className="ml-auto text-[11px] text-slate-400 flex items-center gap-1">
-                      <Clock size={10} /> {new Date(d.updatedAt).toLocaleDateString("zh-CN")}
-                    </span>
+                    <span className="ml-auto text-[11px] font-mono text-slate-300">{d.demandNo}</span>
                   </div>
 
                   {/* Row 2: 需求标题（主体） */}
@@ -157,30 +172,20 @@ export default function PubDemandList() {
                     {d.title}
                   </p>
 
-                  {/* Row 3: 业务元数据横排 */}
-                  <div className="flex items-center gap-6 text-xs">
-                    {budget ? (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">预算范围</p>
-                        <p className="font-bold text-slate-700">{budget}</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">预算范围</p>
-                        <p className="text-slate-400">未填写</p>
-                      </div>
+                  {/* Row 3: 预算 · 类型 · 更新时间 · → */}
+                  <div className="flex items-center gap-5 text-xs text-slate-500">
+                    {budget
+                      ? <span className="font-semibold text-slate-700">{budget}</span>
+                      : <span className="text-slate-300">预算面议</span>
+                    }
+                    {typeLabel && (
+                      <>
+                        <span className="text-slate-200">·</span>
+                        <span>{typeLabel}</span>
+                      </>
                     )}
-                    {d.demandType && (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">需求类型</p>
-                        <p className="text-slate-600">{d.demandType}</p>
-                      </div>
-                    )}
-                    <div className="ml-auto">
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">创建时间</p>
-                      <p className="text-slate-600">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</p>
-                    </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors" />
+                    <span className="ml-auto text-slate-400">更新 {fmtDate(d.updatedAt)}</span>
+                    <ChevronRight size={15} className="text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors" />
                   </div>
                 </div>
               );

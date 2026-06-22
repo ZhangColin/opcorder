@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import {
-  Wrench, Loader2, ChevronRight, Clock, CheckCircle2,
-} from "lucide-react";
+import { Wrench, Loader2, ChevronRight, Clock, CheckCircle2 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
@@ -31,6 +29,11 @@ const TABS = [
   { value: "open", label: "处理中" },
   { value: "closed", label: "已关闭" },
 ];
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
 
 export default function PubTicketList() {
   const [, navigate] = useLocation();
@@ -61,7 +64,7 @@ export default function PubTicketList() {
       <div className="mt-5 space-y-4">
         {openCount > 0 && (
           <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-            <Wrench size={18} className="text-emerald-600 shrink-0" />
+            <Wrench size={16} className="text-emerald-600 shrink-0" />
             <p className="text-sm text-emerald-800 font-medium">
               <strong>{openCount}</strong> 个工单正在处理中，有更新会通知您
             </p>
@@ -105,18 +108,25 @@ export default function PubTicketList() {
                     !isOpen ? "opacity-70 border-slate-100" : "border-slate-100"
                   }`}>
 
-                  {/* Row 1: 工单标题（主体）+ 状态 */}
-                  <div className="flex items-start justify-between gap-4 mb-2">
+                  {/* Row 1: 工单标题 + 状态 */}
+                  <div className="flex items-start justify-between gap-4 mb-1">
                     <p className="text-[15px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-snug flex-1 min-w-0 truncate">
                       {t.title}
                     </p>
                     <div className="flex items-center gap-2 shrink-0">
-                      {unread && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                      {unread && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
                     </div>
                   </div>
 
-                  {/* Row 2: 描述摘要（仅处理中时显示）*/}
+                  {/* 来自需求（副标题，与交付/合同/付款统一） */}
+                  {t.demandTitle && (
+                    <p className="text-xs text-slate-400 mb-2.5 truncate">
+                      需求：{t.demandTitle}
+                    </p>
+                  )}
+
+                  {/* 描述摘要（处理中时显示）*/}
                   {isOpen && t.description && (
                     <p className="text-xs text-slate-500 leading-relaxed line-clamp-1 mb-2.5">
                       {t.description}
@@ -130,29 +140,17 @@ export default function PubTicketList() {
                     </p>
                   )}
 
-                  {/* Row 3: 元数据横排 */}
-                  <div className="flex items-center gap-6 text-xs flex-wrap">
-                    {t.demandTitle && (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关联需求</p>
-                        <p className="text-slate-600 truncate max-w-[14rem]">{t.demandTitle}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">创建时间</p>
-                      <p className="text-slate-600 flex items-center gap-1">
-                        <Clock size={10} /> {new Date(t.createdAt).toLocaleDateString("zh-CN")}
-                      </p>
-                    </div>
+                  {/* Row 3: 时间信息 */}
+                  <div className="flex items-center gap-4 text-xs text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} /> 创建 {fmtDate(t.createdAt)}
+                    </span>
                     {t.closedAt && (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关闭时间</p>
-                        <p className="text-slate-500 flex items-center gap-1">
-                          <CheckCircle2 size={10} /> {new Date(t.closedAt).toLocaleDateString("zh-CN")}
-                        </p>
-                      </div>
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 size={11} /> 关闭 {fmtDate(t.closedAt)}
+                      </span>
                     )}
-                    <ChevronRight size={16} className="ml-auto text-slate-300 group-hover:text-emerald-500 transition-colors" />
+                    <ChevronRight size={15} className="ml-auto text-slate-300 group-hover:text-emerald-500 transition-colors" />
                   </div>
                 </div>
               );

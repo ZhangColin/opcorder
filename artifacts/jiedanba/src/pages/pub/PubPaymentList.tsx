@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { CreditCard, Loader2, ChevronRight, AlertTriangle, CheckCircle2, Hourglass } from "lucide-react";
+import {
+  CreditCard, Loader2, ChevronRight, AlertTriangle,
+  CheckCircle2, Clock, Hourglass,
+} from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get } from "@/lib/v2api";
 
@@ -18,10 +21,10 @@ interface PaymentPlan {
   demandTitle: string | null;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
-  pending:         { label: "待付款", cls: "bg-sky-100 text-sky-700",    icon: CreditCard },
-  awaiting_review: { label: "审核中", cls: "bg-amber-100 text-amber-700", icon: Hourglass },
-  paid:            { label: "已付款", cls: "bg-green-100 text-green-700", icon: CheckCircle2 },
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  pending:         { label: "待付款", cls: "bg-sky-100 text-sky-700" },
+  awaiting_review: { label: "审核中", cls: "bg-amber-100 text-amber-700" },
+  paid:            { label: "已付款", cls: "bg-green-100 text-green-700" },
 };
 
 const TABS = [
@@ -32,8 +35,13 @@ const TABS = [
 ];
 
 function fmtAmt(n: number) {
-  if (n >= 10000) return `${(n / 10000).toFixed(n % 10000 === 0 ? 0 : 1)}万`;
-  return n.toLocaleString();
+  if (n >= 10000) return `¥${(n / 10000).toFixed(n % 10000 === 0 ? 0 : 1)}万`;
+  return `¥${n.toLocaleString()}`;
+}
+
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 export default function PubPaymentList() {
@@ -63,7 +71,7 @@ export default function PubPaymentList() {
       <div className="mt-5 space-y-4">
         {overdueCount > 0 && (
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
-            <AlertTriangle size={18} className="text-red-500 shrink-0" />
+            <AlertTriangle size={16} className="text-red-500 shrink-0" />
             <p className="text-sm text-red-800 font-medium">
               <strong>{overdueCount}</strong> 项付款已逾期，请尽快处理
             </p>
@@ -85,7 +93,7 @@ export default function PubPaymentList() {
           </div>
           {pendingTotal > 0 && (
             <p className="ml-auto text-xs text-slate-500">
-              待付合计 <span className="font-black text-slate-700">¥{pendingTotal.toLocaleString()}</span>
+              待付合计 <span className="font-black text-slate-700">{fmtAmt(pendingTotal)}</span>
             </p>
           )}
         </div>
@@ -102,88 +110,49 @@ export default function PubPaymentList() {
           </div>
         ) : (
           <div className="space-y-2">
-            {/* Column header */}
-            <div className="hidden sm:grid grid-cols-[3rem_1fr_9rem_9rem_1.5rem] gap-4 px-5 pb-1">
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider text-center">期数</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">需求 / 说明</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">应付日期</p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider text-right">金额</p>
-              <span />
-            </div>
-
             {plans.map(plan => {
-              const cfg = STATUS_CONFIG[plan.status] ?? { label: plan.status, cls: "bg-slate-100 text-slate-500", icon: CreditCard };
-              const StatusIcon = cfg.icon;
+              const cfg = STATUS_CONFIG[plan.status] ?? { label: plan.status, cls: "bg-slate-100 text-slate-500" };
               const overdue = plan.isOverdue;
               const isPaid = plan.status === "paid";
+              const isReview = plan.status === "awaiting_review";
 
               return (
-                <div key={plan.id} onClick={() => navigate(`/pub/payments/${plan.id}`)}
-                  className={`bg-white rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group ${
-                    overdue ? "border-red-200 bg-red-50/40" : "border-slate-100"
+                <div key={plan.id}
+                  onClick={() => navigate(`/pub/payments/${plan.id}`)}
+                  className={`bg-white rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group px-5 py-4 ${
+                    overdue ? "border-red-200 bg-red-50/30" : "border-slate-100"
                   }`}>
 
-                  {/* Mobile layout */}
-                  <div className="sm:hidden px-5 py-4">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        {plan.demandTitle && <p className="text-xs text-slate-400 mb-0.5 truncate">{plan.demandTitle}</p>}
-                        <p className="text-sm font-bold text-slate-700">第 {plan.itemNo} 期{plan.description ? `  · ${plan.description}` : ""}</p>
-                      </div>
-                      <p className={`text-xl font-black shrink-0 ${overdue ? "text-red-600" : isPaid ? "text-green-600" : "text-slate-800"}`}>
-                        ¥{fmtAmt(plan.amount)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${overdue ? "bg-red-100 text-red-700" : cfg.cls}`}>
-                        <StatusIcon size={10} /> {overdue ? "已逾期" : cfg.label}
-                      </span>
-                      <span className={`text-xs ${overdue ? "text-red-600 font-bold" : "text-slate-400"}`}>
-                        应付 {new Date(plan.dueDate).toLocaleDateString("zh-CN")}
-                      </span>
-                    </div>
+                  {/* Row 1: 需求名称（主体）+ 状态 */}
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <p className="text-[15px] font-bold text-slate-800 group-hover:text-sky-700 transition-colors leading-snug flex-1 min-w-0 truncate">
+                      {plan.demandTitle ?? "（无关联需求）"}
+                    </p>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${overdue ? "bg-red-100 text-red-700" : cfg.cls}`}>
+                      {overdue ? "已逾期" : cfg.label}
+                    </span>
                   </div>
 
-                  {/* Desktop layout: grid columns */}
-                  <div className="hidden sm:grid grid-cols-[3rem_1fr_9rem_9rem_1.5rem] gap-4 items-center px-5 py-4">
-                    {/* 期数 */}
-                    <div className="text-center">
-                      <p className="text-[10px] text-slate-400 mb-0.5">期</p>
-                      <p className="text-lg font-black text-slate-600 leading-none">{plan.itemNo}</p>
-                    </div>
+                  {/* Row 2: 说明（如有）*/}
+                  {plan.description && (
+                    <p className="text-xs text-slate-500 mb-2.5 truncate">{plan.description}</p>
+                  )}
 
-                    {/* 需求 / 说明 */}
-                    <div className="min-w-0">
-                      {plan.demandTitle && (
-                        <p className="text-[13px] font-bold text-slate-800 truncate group-hover:text-sky-700 transition-colors">{plan.demandTitle}</p>
-                      )}
-                      {plan.description && (
-                        <p className="text-xs text-slate-400 truncate mt-0.5">{plan.description}</p>
-                      )}
-                      {!plan.demandTitle && !plan.description && (
-                        <p className="text-sm text-slate-400">—</p>
-                      )}
-                    </div>
-
-                    {/* 应付日期 */}
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">应付日期</p>
-                      <p className={`text-sm font-semibold ${overdue ? "text-red-600" : "text-slate-700"}`}>
-                        {new Date(plan.dueDate).toLocaleDateString("zh-CN")}
-                      </p>
-                      {overdue && <p className="text-[10px] text-red-500 font-bold mt-0.5">已逾期</p>}
-                    </div>
-
-                    {/* 金额 + 状态 */}
-                    <div className="text-right">
-                      <p className={`text-xl font-black leading-none mb-1 ${overdue ? "text-red-600" : isPaid ? "text-green-600" : "text-slate-800"}`}>
-                        ¥{fmtAmt(plan.amount)}
-                      </p>
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${overdue ? "bg-red-100 text-red-700" : cfg.cls}`}>
-                        <StatusIcon size={10} /> {cfg.label}
-                      </span>
-                    </div>
-
+                  {/* Row 3: 第N期 · 应付日期 · 金额（右） */}
+                  <div className="flex items-center gap-5 text-xs text-slate-500">
+                    <span className={`font-bold px-2 py-0.5 rounded-md text-[11px] ${
+                      isPaid ? "bg-slate-100 text-slate-400" : "bg-sky-50 text-sky-700"
+                    }`}>
+                      第 {plan.itemNo} 期
+                    </span>
+                    <span className="text-slate-200">·</span>
+                    <span className={`flex items-center gap-1 ${overdue ? "text-red-600 font-semibold" : "text-slate-500"}`}>
+                      {overdue ? <AlertTriangle size={11} /> : isPaid ? <CheckCircle2 size={11} className="text-green-500" /> : <Clock size={11} />}
+                      应付 {fmtDate(plan.dueDate)}
+                    </span>
+                    <span className={`ml-auto text-base font-black ${overdue ? "text-red-600" : isPaid ? "text-green-600" : "text-slate-800"}`}>
+                      {fmtAmt(plan.amount)}
+                    </span>
                     <ChevronRight size={15} className="text-slate-300 group-hover:text-sky-500 transition-colors" />
                   </div>
                 </div>
