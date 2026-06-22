@@ -30,11 +30,6 @@ const TABS = [
   { value: "closed", label: "已关闭" },
 ];
 
-function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
-}
-
 export default function PubTicketList() {
   const [, navigate] = useLocation();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -108,8 +103,8 @@ export default function PubTicketList() {
                     !isOpen ? "opacity-70 border-slate-100" : "border-slate-100"
                   }`}>
 
-                  {/* Row 1: 工单标题 + 状态 */}
-                  <div className="flex items-start justify-between gap-4 mb-1">
+                  {/* Row 1: 工单标题（主体）+ 状态（同合同管理） */}
+                  <div className="flex items-start justify-between gap-4 mb-2.5">
                     <p className="text-[15px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-snug flex-1 min-w-0 truncate">
                       {t.title}
                     </p>
@@ -119,38 +114,39 @@ export default function PubTicketList() {
                     </div>
                   </div>
 
-                  {/* 来自需求（副标题，与交付/合同/付款统一） */}
-                  {t.demandTitle && (
-                    <p className="text-xs text-slate-400 mb-2.5 truncate">
-                      需求：{t.demandTitle}
-                    </p>
-                  )}
-
-                  {/* 描述摘要（处理中时显示）*/}
+                  {/* 描述摘要（处理中时）/ 关闭备注（已关闭时）*/}
                   {isOpen && t.description && (
-                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-1 mb-2.5">
-                      {t.description}
-                    </p>
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-1 mb-2.5">{t.description}</p>
                   )}
-
-                  {/* 关闭备注（已关闭时显示）*/}
                   {!isOpen && t.closedNote && (
                     <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 mb-2.5">
                       <span className="font-medium text-slate-500">关闭备注：</span>{t.closedNote}
                     </p>
                   )}
 
-                  {/* Row 3: 时间信息 */}
-                  <div className="flex items-center gap-4 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} /> 创建 {fmtDate(t.createdAt)}
-                    </span>
-                    {t.closedAt && (
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 size={11} /> 关闭 {fmtDate(t.closedAt)}
-                      </span>
+                  {/* Row 2: 2-line label-value 块横排（同合同管理） */}
+                  <div className="flex items-end gap-6 text-xs flex-wrap">
+                    {t.demandTitle && (
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关联需求</p>
+                        <p className="text-slate-600 truncate max-w-[14rem]">{t.demandTitle}</p>
+                      </div>
                     )}
-                    <ChevronRight size={15} className="ml-auto text-slate-300 group-hover:text-emerald-500 transition-colors" />
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">创建时间</p>
+                      <p className="text-slate-500 flex items-center gap-1">
+                        <Clock size={10} /> {new Date(t.createdAt).toLocaleDateString("zh-CN")}
+                      </p>
+                    </div>
+                    {t.closedAt && (
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关闭时间</p>
+                        <p className="text-slate-500 flex items-center gap-1">
+                          <CheckCircle2 size={10} /> {new Date(t.closedAt).toLocaleDateString("zh-CN")}
+                        </p>
+                      </div>
+                    )}
+                    <ChevronRight size={16} className="ml-auto text-slate-300 group-hover:text-emerald-500 transition-colors" />
                   </div>
                 </div>
               );

@@ -56,15 +56,14 @@ const TABS = [
 
 function fmtBudget(min: number | null, max: number | null) {
   if (!min && !max) return null;
-  const f = (n: number) => n >= 10000 ? `${(n / 10000).toFixed(n % 10000 === 0 ? 0 : 1)}万` : n.toLocaleString();
-  if (min && max) return `¥${f(min)} – ${f(max)}`;
-  if (min) return `¥${f(min)} 起`;
+  const f = (n: number) => n >= 10000 ? `¥${(n / 10000).toFixed(n % 10000 === 0 ? 0 : 1)}万` : `¥${n.toLocaleString()}`;
+  if (min && max) return `${f(min)} – ${f(max)}`;
+  if (min) return `${f(min)} 起`;
   return null;
 }
 
 function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  return new Date(iso).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
 }
 
 export default function PubDemandList() {
@@ -155,37 +154,50 @@ export default function PubDemandList() {
                 <div key={d.id} onClick={() => navigate(`/pub/demands/${d.id}`)}
                   className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group px-5 py-4">
 
-                  {/* Row 1: 状态 · 紧急 · 编号（右） */}
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
-                    {d.isUrgent && (
-                      <span className="flex items-center gap-0.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded-full">
-                        <Zap size={9} fill="currentColor" /> 紧急
-                      </span>
-                    )}
-                    {unread && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />}
-                    <span className="ml-auto text-[11px] font-mono text-slate-300">{d.demandNo}</span>
+                  {/* Row 1: 需求标题（主体）+ 状态 */}
+                  <div className="flex items-start justify-between gap-4 mb-2.5">
+                    <p className="text-[15px] font-bold text-slate-800 group-hover:text-indigo-700 transition-colors leading-snug flex-1 min-w-0 truncate">
+                      {d.title}
+                    </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {unread && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                      {d.isUrgent && (
+                        <span className="flex items-center gap-0.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded-full">
+                          <Zap size={9} fill="currentColor" /> 紧急
+                        </span>
+                      )}
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
+                    </div>
                   </div>
 
-                  {/* Row 2: 需求标题（主体） */}
-                  <p className="text-[15px] font-bold text-slate-800 group-hover:text-indigo-700 transition-colors leading-snug mb-3">
-                    {d.title}
-                  </p>
-
-                  {/* Row 3: 预算 · 类型 · 更新时间 · → */}
-                  <div className="flex items-center gap-5 text-xs text-slate-500">
-                    {budget
-                      ? <span className="font-semibold text-slate-700">{budget}</span>
-                      : <span className="text-slate-300">预算面议</span>
-                    }
+                  {/* Row 2: 元数据，2-line label-value 块横排（同合同管理） */}
+                  <div className="flex items-end gap-6 text-xs flex-wrap">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">需求编号</p>
+                      <p className="font-mono text-slate-600">{d.demandNo}</p>
+                    </div>
                     {typeLabel && (
-                      <>
-                        <span className="text-slate-200">·</span>
-                        <span>{typeLabel}</span>
-                      </>
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">需求类型</p>
+                        <p className="text-slate-600">{typeLabel}</p>
+                      </div>
                     )}
-                    <span className="ml-auto text-slate-400">更新 {fmtDate(d.updatedAt)}</span>
-                    <ChevronRight size={15} className="text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors" />
+                    {budget ? (
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">预算范围</p>
+                        <p className="font-semibold text-slate-700">{budget}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">预算范围</p>
+                        <p className="text-slate-400">面议</p>
+                      </div>
+                    )}
+                    <div className="ml-auto">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">最近更新</p>
+                      <p className="text-slate-500">{fmtDate(d.updatedAt)}</p>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
                   </div>
                 </div>
               );

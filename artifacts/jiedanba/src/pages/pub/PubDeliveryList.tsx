@@ -42,11 +42,6 @@ const FILTER_TABS = [
 
 type FilterKey = (typeof FILTER_TABS)[number]["key"];
 
-function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
-}
-
 export default function PubDeliveryList() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [, navigate] = useLocation();
@@ -138,8 +133,8 @@ export default function PubDeliveryList() {
                     isPending ? "border-amber-200 bg-amber-50/30" : "border-slate-100"
                   }`}>
 
-                  {/* Row 1: 交付物标题 + 状态 */}
-                  <div className="flex items-start justify-between gap-4 mb-1">
+                  {/* Row 1: 交付物标题（主体）+ 状态（同合同管理） */}
+                  <div className="flex items-start justify-between gap-4 mb-2.5">
                     <p className={`text-[15px] font-bold leading-snug group-hover:text-teal-700 transition-colors flex-1 min-w-0 truncate ${
                       isRejected ? "text-red-800" : "text-slate-800"
                     }`}>
@@ -150,36 +145,47 @@ export default function PubDeliveryList() {
                     </span>
                   </div>
 
-                  {/* 来自需求（副标题，紧跟标题） */}
-                  {item.demandTitle && (
-                    <p className="text-xs text-slate-400 mb-2.5 truncate">
-                      需求：{item.demandTitle}
-                    </p>
-                  )}
-
-                  {/* 驳回原因 */}
+                  {/* 驳回原因（如有）*/}
                   {isRejected && item.rejectedReason && (
                     <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-2.5 text-left">
                       <span className="font-bold">驳回原因：</span>{item.rejectedReason}
                     </p>
                   )}
 
-                  {/* Row 3: 提交人 · 附件 · 时间 */}
-                  <div className="flex items-center gap-4 text-xs text-slate-400">
+                  {/* Row 2: 2-line label-value 块横排（同合同管理） */}
+                  <div className="flex items-end gap-6 text-xs flex-wrap">
+                    {item.demandTitle && (
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关联需求</p>
+                        <p className="text-slate-600 truncate max-w-[12rem]">
+                          {item.demandTitle}
+                          {item.demandNo && <span className="text-slate-400"> · {item.demandNo}</span>}
+                        </p>
+                      </div>
+                    )}
                     {item.createdByNickname && (
-                      <span className="flex items-center gap-1">
-                        <User size={11} /> {item.createdByNickname}
-                      </span>
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">提交人</p>
+                        <p className="text-slate-600 flex items-center gap-1">
+                          <User size={10} /> {item.createdByNickname}
+                        </p>
+                      </div>
                     )}
                     {item.attachments?.length > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Paperclip size={11} /> 附件 {item.attachments.length} 个
-                      </span>
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">附件</p>
+                        <p className="text-slate-600 flex items-center gap-1">
+                          <Paperclip size={10} /> {item.attachments.length} 个
+                        </p>
+                      </div>
                     )}
-                    <span className="ml-auto flex items-center gap-1">
-                      <Clock size={11} /> {fmtDate(item.createdAt)}
-                    </span>
-                    <ChevronRight size={15} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
+                    <div className="ml-auto">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">提交时间</p>
+                      <p className="text-slate-500 flex items-center gap-1">
+                        <Clock size={10} /> {new Date(item.createdAt).toLocaleDateString("zh-CN")}
+                      </p>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
                   </div>
                 </button>
               );

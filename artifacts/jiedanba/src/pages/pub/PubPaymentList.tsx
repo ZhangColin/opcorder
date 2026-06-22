@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import {
-  CreditCard, Loader2, ChevronRight, AlertTriangle,
-  CheckCircle2, Clock, Hourglass,
-} from "lucide-react";
+import { CreditCard, Loader2, ChevronRight, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { v2Get } from "@/lib/v2api";
 
@@ -40,8 +37,7 @@ function fmtAmt(n: number) {
 }
 
 function fmtDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  return new Date(iso).toLocaleDateString("zh-CN", { year: "numeric", month: "numeric", day: "numeric" });
 }
 
 export default function PubPaymentList() {
@@ -114,7 +110,6 @@ export default function PubPaymentList() {
               const cfg = STATUS_CONFIG[plan.status] ?? { label: plan.status, cls: "bg-slate-100 text-slate-500" };
               const overdue = plan.isOverdue;
               const isPaid = plan.status === "paid";
-              const isReview = plan.status === "awaiting_review";
 
               return (
                 <div key={plan.id}
@@ -123,8 +118,8 @@ export default function PubPaymentList() {
                     overdue ? "border-red-200 bg-red-50/30" : "border-slate-100"
                   }`}>
 
-                  {/* Row 1: 需求名称（主体）+ 状态 */}
-                  <div className="flex items-start justify-between gap-4 mb-2">
+                  {/* Row 1: 需求名称（主体）+ 状态（同合同管理） */}
+                  <div className="flex items-start justify-between gap-4 mb-2.5">
                     <p className="text-[15px] font-bold text-slate-800 group-hover:text-sky-700 transition-colors leading-snug flex-1 min-w-0 truncate">
                       {plan.demandTitle ?? "（无关联需求）"}
                     </p>
@@ -133,27 +128,27 @@ export default function PubPaymentList() {
                     </span>
                   </div>
 
-                  {/* Row 2: 说明（如有）*/}
-                  {plan.description && (
-                    <p className="text-xs text-slate-500 mb-2.5 truncate">{plan.description}</p>
-                  )}
-
-                  {/* Row 3: 第N期 · 应付日期 · 金额（右） */}
-                  <div className="flex items-center gap-5 text-xs text-slate-500">
-                    <span className={`font-bold px-2 py-0.5 rounded-md text-[11px] ${
-                      isPaid ? "bg-slate-100 text-slate-400" : "bg-sky-50 text-sky-700"
-                    }`}>
-                      第 {plan.itemNo} 期
-                    </span>
-                    <span className="text-slate-200">·</span>
-                    <span className={`flex items-center gap-1 ${overdue ? "text-red-600 font-semibold" : "text-slate-500"}`}>
-                      {overdue ? <AlertTriangle size={11} /> : isPaid ? <CheckCircle2 size={11} className="text-green-500" /> : <Clock size={11} />}
-                      应付 {fmtDate(plan.dueDate)}
-                    </span>
-                    <span className={`ml-auto text-base font-black ${overdue ? "text-red-600" : isPaid ? "text-green-600" : "text-slate-800"}`}>
-                      {fmtAmt(plan.amount)}
-                    </span>
-                    <ChevronRight size={15} className="text-slate-300 group-hover:text-sky-500 transition-colors" />
+                  {/* Row 2: 2-line label-value 块横排（同合同管理），金额作特殊处理 */}
+                  <div className="flex items-end gap-6 text-xs flex-wrap">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">期数</p>
+                      <p className="text-slate-600">第 {plan.itemNo} 期{plan.description ? `  · ${plan.description}` : ""}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">应付日期</p>
+                      <p className={`flex items-center gap-1 ${overdue ? "text-red-600 font-semibold" : "text-slate-600"}`}>
+                        {overdue ? <AlertTriangle size={10} /> : isPaid ? <CheckCircle2 size={10} className="text-green-500" /> : <Clock size={10} />}
+                        {fmtDate(plan.dueDate)}
+                      </p>
+                    </div>
+                    {/* 金额：特殊处理，字号更大更突出 */}
+                    <div className="ml-auto">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">付款金额</p>
+                      <p className={`text-xl font-black leading-none ${overdue ? "text-red-600" : isPaid ? "text-green-600" : "text-slate-800"}`}>
+                        {fmtAmt(plan.amount)}
+                      </p>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-sky-500 transition-colors mb-0.5" />
                   </div>
                 </div>
               );
