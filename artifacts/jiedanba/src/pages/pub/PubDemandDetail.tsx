@@ -825,8 +825,8 @@ export default function PubDemandDetail() {
                 <span className="text-xs text-slate-400 font-mono">{aContract.contractNo}</span>
               </div>
               {aContract.content && (
-                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto">
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{aContract.content}</p>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
+                  <MarkdownContent content={aContract.content} />
                 </div>
               )}
               {aContract.signedFileUrl && (
