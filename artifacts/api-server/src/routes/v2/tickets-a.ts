@@ -42,6 +42,7 @@ router.get("/tickets-a", requireAuth, async (req: Request, res: Response) => {
         createdAt: v2TicketsATable.createdAt,
         updatedAt: v2TicketsATable.updatedAt,
         demandTitle: v2ClientDemandsTable.title,
+        demandNo: v2ClientDemandsTable.demandNo,
       })
       .from(v2TicketsATable)
       .leftJoin(usersTable, eq(v2TicketsATable.createdBy, usersTable.id))
