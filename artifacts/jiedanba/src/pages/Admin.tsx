@@ -9913,6 +9913,9 @@ function ModuleContent({ module }: { module: Module }) {
     const clientMatch = inlineRoute.match(/\/admin\/v2\/client-demands\/(\d+)/);
     if (clientMatch) {
       const inlineId = parseInt(clientMatch[1], 10);
+      const inlineSearch = new URLSearchParams(inlineRoute.includes("?") ? inlineRoute.split("?")[1] : "");
+      const inlineTab = inlineSearch.get("tab") ?? undefined;
+      const inlineItemId = inlineSearch.get("id") ? parseInt(inlineSearch.get("id")!, 10) : undefined;
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
@@ -9920,7 +9923,7 @@ function ModuleContent({ module }: { module: Module }) {
               className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
               ← 返回客户需求列表
             </button>
-            <AdminV2ClientDemandDetail inlineId={inlineId} />
+            <AdminV2ClientDemandDetail key={`${inlineId}-${inlineTab ?? ""}-${inlineItemId ?? ""}`} inlineId={inlineId} initialTab={inlineTab} initialItemId={inlineItemId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
       );

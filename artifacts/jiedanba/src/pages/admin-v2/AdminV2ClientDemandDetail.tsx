@@ -197,7 +197,7 @@ function Section({
 
 type ActionPanel = "quote" | "deliverable" | "close" | null;
 
-export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: number } = {}) {
+export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initialItemId }: { inlineId?: number; initialTab?: string; initialItemId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
@@ -234,17 +234,15 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
   const [quoteNote, setQuoteNote] = useState("");
 
-  // Tab — read initial value from ?tab= URL param
+  // Tab — prefer prop (from inlineNav), fall back to URL search param
   const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">(() => {
-    const p = new URLSearchParams(window.location.search);
-    const t = p.get("tab");
+    const t = initialTab ?? new URLSearchParams(window.location.search).get("tab") ?? "";
     return (["needs", "contract", "delivery", "ticket"] as const).includes(t as any) ? (t as "needs" | "contract" | "delivery" | "ticket") : "needs";
   });
-  const initialId = useMemo(() => {
-    const p = new URLSearchParams(window.location.search);
-    const raw = p.get("id");
+  const initialId: number | null = initialItemId ?? (() => {
+    const raw = new URLSearchParams(window.location.search).get("id");
     return raw ? parseInt(raw, 10) : null;
-  }, []);
+  })();
   const didAutoExpand = useRef(false);
 
   // Deliverable form
@@ -339,12 +337,25 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
     if (didAutoExpand.current) return;
     if (activeTab === "delivery" && initialId && deliverables.length > 0) {
       const found = deliverables.find(d => d.id === initialId);
-      if (found) { setExpandedDelivId(initialId); didAutoExpand.current = true; }
+      if (found) {
+        didAutoExpand.current = true;
+        setExpandedDelivId(initialId);
+        setTimeout(() => {
+          document.querySelector(`[data-deliv-id="${initialId}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 150);
+      }
     } else if (activeTab === "ticket" && initialId && tickets.length > 0) {
       const found = tickets.find(t => t.id === initialId);
-      if (found) { handleExpandTicket(initialId); didAutoExpand.current = true; }
+      if (found) {
+        didAutoExpand.current = true;
+        handleExpandTicket(initialId).then(() => {
+          setTimeout(() => {
+            document.querySelector(`[data-ticket-id="${initialId}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 400);
+        });
+      }
     }
-  }, [activeTab, deliverables, tickets, initialId]);
+  }, [deliverables, tickets]);
 
   const handleExpandTicket = async (ticketId: number) => {
     setExpandedTicketId(prev => prev === ticketId ? null : ticketId);
