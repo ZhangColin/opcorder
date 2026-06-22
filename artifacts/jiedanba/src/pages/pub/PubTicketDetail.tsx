@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { Wrench, Loader2, AlertCircle, CheckCircle2, Clock, ExternalLink } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -11,6 +11,7 @@ interface Attachment { name: string; url: string; size?: string; type?: string; 
 interface Ticket {
   id: number;
   clientDemandId: number;
+  demandTitle: string | null;
   title: string;
   description: string | null;
   attachments: Attachment[];
@@ -24,6 +25,7 @@ interface Ticket {
 export default function PubTicketDetail() {
   const params = useParams<{ id: string }>();
   const ticketId = parseInt(params.id ?? "0", 10);
+  const [, navigate] = useLocation();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,12 @@ export default function PubTicketDetail() {
                     <CheckCircle2 size={11} /> 已关闭
                   </span>
                 )}
-                <span className="text-xs text-slate-400">需求 #{ticket.clientDemandId}</span>
+                <button
+                  onClick={() => navigate(`/pub/demands/${ticket.clientDemandId}`)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {ticket.demandTitle ?? `需求 #${ticket.clientDemandId}`}
+                </button>
               </div>
               <h2 className="text-lg font-extrabold text-slate-800">{ticket.title}</h2>
               <p className="text-xs text-slate-400 mt-1">

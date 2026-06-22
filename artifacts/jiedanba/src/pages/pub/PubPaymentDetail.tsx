@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import {
   CreditCard, Upload, Loader2, CheckCircle2, Clock, AlertCircle,
   ExternalLink, QrCode, X, RefreshCw,
@@ -44,6 +44,7 @@ export default function PubPaymentDetail() {
   const params = useParams<{ id: string }>();
   const planId = parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [plan, setPlan] = useState<PaymentPlan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -222,7 +223,12 @@ export default function PubPaymentDetail() {
             </div>
             <div>
               <p className="text-xs text-slate-400 mb-1">关联需求</p>
-              <p className="font-bold text-slate-800">{plan.demandTitle ?? `需求 #${plan.clientDemandId}`}</p>
+              <button
+                onClick={() => navigate(`/pub/demands/${plan.clientDemandId}`)}
+                className="font-bold text-primary hover:underline text-left"
+              >
+                {plan.demandTitle ?? `需求 #${plan.clientDemandId}`}
+              </button>
               {plan.demandNo && <p className="text-xs text-slate-400 mt-0.5">{plan.demandNo}</p>}
             </div>
           </div>

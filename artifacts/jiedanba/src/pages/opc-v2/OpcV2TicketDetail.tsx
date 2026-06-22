@@ -12,6 +12,9 @@ import { OpcV2Layout } from "./OpcV2Layout";
 interface TicketDetail {
   id: number;
   outsourceOrderId: number;
+  outsourceDemandId: number | null;
+  demandTitle: string | null;
+  orderNo: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -102,13 +105,16 @@ export default function OpcV2TicketDetail() {
               <p className="text-sm font-bold text-slate-700">{new Date(ticket.createdAt).toLocaleDateString("zh-CN")}</p>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">关联订单</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">关联需求</p>
               <button
                 onClick={() => navigate(`/opc/orders/${ticket.outsourceOrderId}`)}
-                className="text-sm font-bold text-emerald-700 hover:underline flex items-center gap-1"
+                className="text-sm font-bold text-emerald-700 hover:underline text-left leading-tight"
               >
-                <Package size={13} /> 订单 #{ticket.outsourceOrderId}
+                {ticket.demandTitle ?? `需求 #${ticket.outsourceDemandId ?? ticket.outsourceOrderId}`}
               </button>
+              {ticket.orderNo && (
+                <p className="text-[11px] text-slate-400 mt-0.5">{ticket.orderNo}</p>
+              )}
             </div>
             {ticket.closedAt && (
               <div>

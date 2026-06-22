@@ -76,8 +76,13 @@ router.get("/tickets-b/:id", requireAuth, async (req: Request, res: Response) =>
         closedAt: v2TicketsBTable.closedAt,
         closedNote: v2TicketsBTable.closedNote,
         createdAt: v2TicketsBTable.createdAt,
+        demandTitle: v2OutsourceDemandsTable.title,
+        outsourceDemandId: v2OutsourceOrdersTable.outsourceDemandId,
+        orderNo: v2OutsourceOrdersTable.orderNo,
       })
       .from(v2TicketsBTable)
+      .leftJoin(v2OutsourceOrdersTable, eq(v2TicketsBTable.outsourceOrderId, v2OutsourceOrdersTable.id))
+      .leftJoin(v2OutsourceDemandsTable, eq(v2OutsourceOrdersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
       .where(eq(v2TicketsBTable.id, id))
       .limit(1);
     if (!rows[0]) return res.status(404).json({ error: "工单不存在" });

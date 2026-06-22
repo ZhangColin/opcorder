@@ -118,9 +118,11 @@ router.get("/tickets-a/:id", requireAuth, async (req: Request, res: Response) =>
         closedAt: v2TicketsATable.closedAt,
         closedNote: v2TicketsATable.closedNote,
         createdAt: v2TicketsATable.createdAt,
+        demandTitle: v2ClientDemandsTable.title,
       })
       .from(v2TicketsATable)
       .leftJoin(usersTable, eq(v2TicketsATable.createdBy, usersTable.id))
+      .leftJoin(v2ClientDemandsTable, eq(v2TicketsATable.clientDemandId, v2ClientDemandsTable.id))
       .where(eq(v2TicketsATable.id, id))
       .limit(1);
     if (!row) return res.status(404).json({ error: "工单不存在" });

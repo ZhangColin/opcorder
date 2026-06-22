@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { Loader2, X, CheckCircle2, Clock, Package, AlertTriangle } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
@@ -10,6 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 interface TicketB {
   id: number;
   outsourceOrderId: number;
+  outsourceDemandId: number | null;
+  demandTitle: string | null;
+  orderNo: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -37,6 +41,8 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const { toast } = useToast();
+  const inlineNav = useAdminInlineNav();
+  const [, navigate] = useLocation();
 
   const [ticket, setTicket] = useState<TicketB | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +130,14 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
               <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
                 <Clock size={11} /> 创建于 {new Date(ticket.createdAt).toLocaleString("zh-CN")}
               </p>
+              {ticket.outsourceDemandId && (
+                <button
+                  onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`) : navigate(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`)}
+                  className="text-xs text-primary hover:underline mt-1"
+                >
+                  关联需求：{ticket.demandTitle ?? `#${ticket.outsourceDemandId}`}
+                </button>
+              )}
             </div>
           </div>
           {!isOpen && (
