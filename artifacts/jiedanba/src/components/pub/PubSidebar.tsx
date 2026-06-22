@@ -58,9 +58,8 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
   }, [mobileOpen]);
 
   const isActive = (path: string) => {
-    if (path === "/publisher" && location === "/publisher") return true;
-    if (path === "/pub" && location === "/pub") return true;
-    if (path !== "/publisher" && path !== "/pub" && (location.startsWith(path))) return true;
+    if (path === "/pub" && (location === "/pub" || location === "/")) return true;
+    if (path !== "/pub" && location.startsWith(path)) return true;
     return false;
   };
 
@@ -84,14 +83,14 @@ export function PubSidebar({ onLogout, mobileOpen = false, onMobileClose }: PubS
       </div>
 
       <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">
-        <SidebarLink icon={LayoutDashboard} label="工作台"    href="/publisher"           active={isActive("/publisher")}          onClick={close} />
-        <SidebarLink icon={FileText}        label="需求管理"   href="/pub/demands"          active={isActive("/pub/demands")}        onClick={close} />
-        <SidebarLink icon={FileSignature}   label="合同管理"   href="/pub/contracts"        active={isActive("/pub/contracts")}      onClick={close} />
-        <SidebarLink icon={CreditCard}      label="付款管理"   href="/pub/payments"         active={isActive("/pub/payments")}       onClick={close} />
-        <SidebarLink icon={PackageCheck}    label="交付确认"   href="/pub/deliveries"       active={isActive("/pub/deliveries")}     onClick={close}
+        <SidebarLink icon={LayoutDashboard} label="工作台"    href="/pub"              active={isActive("/pub")}              onClick={close} />
+        <SidebarLink icon={FileText}        label="需求管理"   href="/pub/demands"      active={isActive("/pub/demands")}      onClick={close} />
+        <SidebarLink icon={FileSignature}   label="合同管理"   href="/pub/contracts"    active={isActive("/pub/contracts")}    onClick={close} />
+        <SidebarLink icon={CreditCard}      label="付款管理"   href="/pub/payments"     active={isActive("/pub/payments")}     onClick={close} />
+        <SidebarLink icon={PackageCheck}    label="交付确认"   href="/pub/deliveries"   active={isActive("/pub/deliveries")}   onClick={close}
           dot={(badges?.pendingA ?? 0) > 0} />
-        <SidebarLink icon={Wrench}          label="质保工单"   href="/pub/tickets"          active={isActive("/pub/tickets")}        onClick={close} />
-        <SidebarLink icon={Bell}            label="消息中心"   href="/publisher/notifications" active={isActive("/publisher/notifications")} onClick={close} />
+        <SidebarLink icon={Wrench}          label="质保工单"   href="/pub/tickets"      active={isActive("/pub/tickets")}      onClick={close} />
+        <SidebarLink icon={Bell}            label="消息中心"   href="/pub/notifications" active={isActive("/pub/notifications")} onClick={close} />
       </nav>
 
       <Link href="/pub/demands/new" onClick={close}>

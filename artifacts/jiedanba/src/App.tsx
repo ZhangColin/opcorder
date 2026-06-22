@@ -21,18 +21,9 @@ import PubDeliveryList from "@/pages/pub/PubDeliveryList";
 import PubDeliveryDetail from "@/pages/pub/PubDeliveryDetail";
 import PubTicketList from "@/pages/pub/PubTicketList";
 import PubTicketDetail from "@/pages/pub/PubTicketDetail";
-import PublisherHome from "@/pages/PublisherHome";
-import PublisherDemandDetail from "@/pages/PublisherDemandDetail";
-import PublisherDemandList from "@/pages/PublisherDemandList";
-import PublisherCreateDemand from "@/pages/PublisherCreateDemand";
-import PublisherOrderList from "@/pages/PublisherOrderList";
-import PublisherOrderDetail from "@/pages/PublisherOrderDetail";
-import PublisherOpcLibrary from "@/pages/PublisherOpcLibrary";
-import PublisherNotifications from "@/pages/PublisherNotifications";
-import PublisherFinance from "@/pages/PublisherFinance";
-import PublisherProfile from "@/pages/PublisherProfile";
-import PublisherCockpit from "@/pages/PublisherCockpit";
-import PublisherDisputes from "@/pages/PublisherDisputes";
+import PubHome from "@/pages/pub/PubHome";
+import PubNotifications from "@/pages/pub/PubNotifications";
+import PubProfile from "@/pages/PublisherProfile";
 import Community from "@/pages/Community";
 import Auth from "@/pages/Auth";
 import DemandDetail from "@/pages/DemandDetail";
@@ -233,47 +224,6 @@ function Router() {
       </Route>
 
 
-      {/* 发单方专属路由 */}
-      <Route path="/publisher">
-        {() => <PublisherGate><PublisherHome /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/demands">
-        {() => <PublisherGate><PublisherDemandList /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/demands/new">
-        {() => <PublisherGate><PublisherCreateDemand /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/demands/:id/edit">
-        {() => <PublisherGate><PublisherCreateDemand /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/demand/:id">
-        {() => <PublisherGate><PublisherDemandDetail /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/orders">
-        {() => <PublisherGate><PublisherOrderList /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/orders/:id">
-        {() => <PublisherGate><PublisherOrderDetail /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/opc-library">
-        {() => <PublisherGate><PublisherOpcLibrary /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/notifications">
-        {() => <PublisherGate><PublisherNotifications /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/finance">
-        {() => <PublisherGate><PublisherFinance /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/profile">
-        {() => <PublisherGate><PublisherProfile /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/cockpit">
-        {() => <PublisherGate><PublisherCockpit /></PublisherGate>}
-      </Route>
-      <Route path="/publisher/disputes">
-        {() => <PublisherGate><PublisherDisputes /></PublisherGate>}
-      </Route>
-
       {/* V2 发单方前台路由 */}
       <Route path="/pub/demands/new">
         {() => <PublisherGate><PubCreateDemand /></PublisherGate>}
@@ -311,8 +261,14 @@ function Router() {
       <Route path="/pub/tickets">
         {() => <PublisherGate><PubTicketList /></PublisherGate>}
       </Route>
+      <Route path="/pub/notifications">
+        {() => <PublisherGate><PubNotifications /></PublisherGate>}
+      </Route>
+      <Route path="/pub/profile">
+        {() => <PublisherGate><PubProfile /></PublisherGate>}
+      </Route>
       <Route path="/pub">
-        {() => <PublisherGate><PubDemandList /></PublisherGate>}
+        {() => <PublisherGate><PubHome /></PublisherGate>}
       </Route>
 
       {/* 社区 & 学习资源：游客也可访问 */}

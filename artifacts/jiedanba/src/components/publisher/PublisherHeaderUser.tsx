@@ -52,7 +52,7 @@ export function PublisherHeaderUser({ onLogout }: Props) {
       {open && (
         <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50">
           <button
-            onClick={() => { setOpen(false); navigate("/publisher/profile"); }}
+            onClick={() => { setOpen(false); navigate("/pub/profile"); }}
             className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors"
           >
             <UserCircle size={16} className="text-primary" />

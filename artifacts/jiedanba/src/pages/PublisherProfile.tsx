@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { clearSession, getAccessToken, updateStoredUserField } from "@/lib/auth";
+import { getAccessToken, updateStoredUserField } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { formatBudget } from "@/lib/utils";
 import {
-  ArrowLeft, Building2, MapPin, Users, Calendar, Globe,
+  Building2, MapPin, Users, Calendar, Globe,
   Mail, Phone, Pencil, Save, X, CheckCircle, Briefcase,
   ChevronRight, PlusCircle, Upload, Loader2, Hash, ZoomIn, ZoomOut, Crop,
-  Menu,
 } from "lucide-react";
-import { PublisherSidebar } from "@/components/publisher/PublisherSidebar";
-import { PublisherHeaderUser } from "@/components/publisher/PublisherHeaderUser";
+import { PubLayout } from "@/components/pub/PubLayout";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useListDemands } from "@workspace/api-client-react";
 
@@ -249,13 +247,6 @@ export default function PublisherProfile() {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const logout = () => {
-    clearSession();
-    navigate("/login");
-  };
-
   /* ── Fetch profile ── */
   useEffect(() => {
     if (!userId) return;
@@ -377,7 +368,7 @@ export default function PublisherProfile() {
   const avatarChar = displayName.slice(0, 1).toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-[#f3f3f6] text-[#1a1c1e] overflow-x-hidden">
+    <PubLayout title="企业信息" backHref="/pub">
       {cropSrc && (
         <CropModal
           src={cropSrc}
@@ -385,32 +376,7 @@ export default function PublisherProfile() {
           onCancel={() => { setCropSrc(null); }}
         />
       )}
-      <PublisherSidebar onLogout={logout} mobileOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 lg:ml-64 min-h-screen min-w-0 overflow-x-hidden">
-        {/* Top bar */}
-        <header className="fixed top-0 right-0 lg:left-64 left-0 z-40 bg-white/80 backdrop-blur-md shadow-sm flex items-center px-4 lg:px-8 py-3 gap-2">
-          {/* Mobile hamburger */}
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden shrink-0 p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
-            <Menu size={20} />
-          </button>
-
-          <div className="flex items-center gap-2 text-sm">
-            <button onClick={() => navigate("/publisher")} className="text-slate-400 hover:text-primary transition-colors flex items-center gap-1">
-              <ArrowLeft size={14} />
-              工作台
-            </button>
-            <ChevronRight size={14} className="text-slate-300" />
-            <span className="text-blue-900 font-bold">企业信息</span>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <PublisherHeaderUser onLogout={logout} />
-          </div>
-        </header>
-
-        <div className="pt-24 px-8 pb-16 max-w-7xl mx-auto">
+      <div className="max-w-5xl">
 
           {/* Page Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
@@ -640,7 +606,7 @@ export default function PublisherProfile() {
                         return (
                           <div
                             key={d.id}
-                            onClick={() => navigate(`/publisher/demand/${d.id}`)}
+                            onClick={() => navigate(`/pub/demands/${d.id}`)}
                             className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-primary/20 group cursor-pointer"
                           >
                             <div className="flex justify-between items-start mb-3">
@@ -662,7 +628,7 @@ export default function PublisherProfile() {
 
                   {activeDemands.length > 4 && (
                     <button
-                      onClick={() => navigate("/publisher/demands")}
+                      onClick={() => navigate("/pub/demands")}
                       className="mt-4 w-full py-3 rounded-xl border border-dashed border-slate-300 text-sm font-semibold text-slate-500 hover:border-primary/40 hover:text-primary transition-colors"
                     >
                       查看全部 {activeDemands.length} 个进行中需求
@@ -678,7 +644,7 @@ export default function PublisherProfile() {
                       {completedDemands.slice(0, 5).map(d => (
                         <div
                           key={d.id}
-                          onClick={() => navigate(`/publisher/demand/${d.id}`)}
+                          onClick={() => navigate(`/pub/demands/${d.id}`)}
                           className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 hover:bg-[#f3f3f6] transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-4">
@@ -706,7 +672,6 @@ export default function PublisherProfile() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </PubLayout>
   );
 }
