@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
-  db, v2DeliverablesBTable, v2OutsourceOrdersTable, usersTable,
+  db, v2DeliverablesBTable, v2OutsourceOrdersTable, v2OutsourceDemandsTable, usersTable,
 } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -80,10 +80,13 @@ router.get("/deliverables-b/:id", requireAdmin, async (req: Request, res: Respon
         createdAt: v2DeliverablesBTable.createdAt,
         updatedAt: v2DeliverablesBTable.updatedAt,
         orderNo: v2OutsourceOrdersTable.orderNo,
+        outsourceDemandId: v2OutsourceOrdersTable.outsourceDemandId,
+        demandTitle: v2OutsourceDemandsTable.title,
       })
       .from(v2DeliverablesBTable)
       .leftJoin(usersTable, eq(v2DeliverablesBTable.submittedBy, usersTable.id))
       .leftJoin(v2OutsourceOrdersTable, eq(v2DeliverablesBTable.outsourceOrderId, v2OutsourceOrdersTable.id))
+      .leftJoin(v2OutsourceDemandsTable, eq(v2OutsourceOrdersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
       .where(eq(v2DeliverablesBTable.id, id))
       .limit(1);
     if (!row) return res.status(404).json({ error: "交付记录不存在" });

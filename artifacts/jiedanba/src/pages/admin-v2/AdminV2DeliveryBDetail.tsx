@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { Loader2, PackageCheck, Clock, CheckCircle2, XCircle, X } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
@@ -18,6 +18,8 @@ interface DeliveryB {
   rejectedAt: string | null;
   rejectedReason: string | null;
   orderNo: string | null;
+  outsourceDemandId: number | null;
+  demandTitle: string | null;
   createdAt: string;
 }
 
@@ -53,6 +55,7 @@ function RejectModal({ onClose, onConfirm, acting }: { onClose: () => void; onCo
 export default function AdminV2DeliveryBDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
+  const [, navigate] = useLocation();
   const { toast } = useToast();
 
   const [delivery, setDelivery] = useState<DeliveryB | null>(null);
@@ -103,14 +106,26 @@ export default function AdminV2DeliveryBDetail({ inlineId }: { inlineId?: number
               <PackageCheck size={18} className="text-violet-500" />
             </div>
             <div className="flex-1 min-w-0">
-              {delivery.orderNo && (
+              {delivery.demandTitle ? (
+                <p className="text-xs text-slate-500 mb-0.5">
+                  <button
+                    onClick={() => navigate(`/admin/v2/outsource-demands/${delivery.outsourceDemandId}`)}
+                    className="hover:underline text-primary"
+                  >
+                    {delivery.demandTitle}
+                  </button>
+                  {delivery.orderNo && ` · ${delivery.orderNo}`}
+                </p>
+              ) : delivery.orderNo ? (
                 <p className="text-xs text-slate-500 mb-0.5">订单 {delivery.orderNo}</p>
-              )}
+              ) : null}
               <div className="flex items-center gap-2 mb-1">
                 <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>
                   <StatusIcon size={11} /> {cfg.label}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">#{delivery.id}</span>
+                {!delivery.demandTitle && (
+                  <span className="text-xs text-slate-400 font-mono">#{delivery.id}</span>
+                )}
               </div>
               <h2 className="text-lg font-extrabold text-blue-900 mb-1">{delivery.title}</h2>
               {delivery.content && <p className="text-sm text-slate-600 whitespace-pre-wrap">{delivery.content}</p>}

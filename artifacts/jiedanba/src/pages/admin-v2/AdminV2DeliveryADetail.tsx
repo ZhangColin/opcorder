@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { Loader2, PackageCheck, Clock, CheckCircle2, XCircle, Link2, X, Pencil, Paperclip, Upload } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
@@ -149,6 +149,7 @@ function EditModal({
 export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
+  const [, navigate] = useLocation();
   const { toast } = useToast();
 
   const [delivery, setDelivery] = useState<DeliveryA | null>(null);
@@ -213,14 +214,22 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
               <div className="flex-1 min-w-0">
                 {delivery.demandTitle && (
                   <p className="text-xs text-slate-500 mb-0.5">
-                    {delivery.demandTitle}{delivery.demandNo && ` · ${delivery.demandNo}`}
+                    <button
+                      onClick={() => navigate(`/admin/v2/client-demands/${delivery.clientDemandId}`)}
+                      className="hover:underline text-primary"
+                    >
+                      {delivery.demandTitle}
+                    </button>
+                    {delivery.demandNo && ` · ${delivery.demandNo}`}
                   </p>
                 )}
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>
                     <StatusIcon size={11} /> {cfg.label}
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">#{delivery.id}</span>
+                  {!delivery.demandTitle && (
+                    <span className="text-xs text-slate-400 font-mono">#{delivery.id}</span>
+                  )}
                 </div>
                 <h2 className="text-lg font-extrabold text-blue-900 mb-1">{delivery.title}</h2>
                 {delivery.content && (
