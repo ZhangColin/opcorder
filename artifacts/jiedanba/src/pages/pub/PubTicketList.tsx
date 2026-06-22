@@ -103,7 +103,7 @@ export default function PubTicketList() {
               return (
                 <div
                   key={t.id}
-                  onClick={() => navigate(`/pub/demands/${t.clientDemandId}?tab=ticket`)}
+                  onClick={() => navigate(`/pub/demands/${t.clientDemandId}?tab=ticket&id=${t.id}`)}
                   className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center gap-4 hover:border-primary/30 hover:shadow-sm cursor-pointer transition-all group"
                 >
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">

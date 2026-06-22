@@ -119,7 +119,7 @@ export default function PubDeliveryList() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => navigate(`/pub/deliveries/${item.id}`)}
+                  onClick={() => navigate(`/pub/demands/${item.clientDemandId}?tab=delivery&id=${item.id}`)}
                   className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/20 transition-all p-5 group"
                 >
                   <div className="flex items-center gap-4">

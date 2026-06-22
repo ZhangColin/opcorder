@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, Zap, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp,
@@ -222,6 +222,15 @@ export default function PubDemandDetail() {
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
   const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
   const [ticketFull, setTicketFull] = useState<Record<number, TicketA>>({});
+  const [initialId] = useState<number | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    const v = p.get("id");
+    return v ? parseInt(v, 10) : null;
+  });
+  const [initialScroll] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get("scroll");
+  });
+  const didAutoAction = useRef(false);
 
   const load = useCallback(async () => {
     if (demandId <= 0) return;
@@ -249,6 +258,30 @@ export default function PubDemandDetail() {
   }, [demandId]);
 
   useEffect(() => { load(); }, [load]);
+
+  /* Auto-expand + scroll when navigated from a list page with ?id= or ?scroll= */
+  useEffect(() => {
+    if (didAutoAction.current) return;
+    if (activeTab === "delivery" && initialId && deliverables.length > 0) {
+      didAutoAction.current = true;
+      setExpandedDelivId(initialId);
+      setTimeout(() => {
+        document.querySelector(`[data-deliv-id="${initialId}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    } else if (activeTab === "ticket" && initialId && tickets.length > 0) {
+      didAutoAction.current = true;
+      handleExpandTicket(initialId).then(() => {
+        setTimeout(() => {
+          document.querySelector(`[data-ticket-id="${initialId}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 400);
+      });
+    } else if (activeTab === "contract" && initialScroll === "payments" && payments.length > 0) {
+      didAutoAction.current = true;
+      setTimeout(() => {
+        document.getElementById("section-payments")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+  }, [deliverables, tickets, payments]);
 
   const loadVersions = async () => {
     const data = await v2Get<VersionItem[]>(`/client-demands/${demandId}/versions`);
@@ -860,6 +893,7 @@ export default function PubDemandDetail() {
         )}
 
         {payments.length > 0 && (
+          <><div id="section-payments" className="scroll-mt-4" />
           <Section title="付款计划" icon={CreditCard}>
             <div className="mt-4 space-y-3">
               {payments.map(p => {
@@ -889,6 +923,7 @@ export default function PubDemandDetail() {
               })}
             </div>
           </Section>
+          </>
         )}
         </>}
 
@@ -911,7 +946,7 @@ export default function PubDemandDetail() {
                 const isExpanded = expandedTicketId === t.id;
                 const full = ticketFull[t.id];
                 return (
-                  <div key={t.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  <div key={t.id} data-ticket-id={t.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                     <button
                       className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                       onClick={() => handleExpandTicket(t.id)}
@@ -1000,7 +1035,7 @@ export default function PubDemandDetail() {
               const isExpanded = expandedDelivId === d.id;
               const cfg = DELIVERABLE_STATUS[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
               return (
-                <div key={d.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div key={d.id} data-deliv-id={d.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                   {/* Card header */}
                   <button
                     className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
