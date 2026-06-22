@@ -1,16 +1,56 @@
 import { useLocation } from "wouter";
-import {
-  FileText, FileSignature, CreditCard, PackageCheck,
-  Wrench, Bell, ArrowRight, PlusCircle, ChevronRight,
-  Clock, AlertCircle, CheckCircle2,
-} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useListDemands, useListNotifications } from "@workspace/api-client-react";
+import {
+  FileSignature, CreditCard, PackageCheck, Wrench,
+  Bell, ChevronRight, AlertCircle, ArrowRight,
+  CheckCircle2, Clock, TrendingUp,
+} from "lucide-react";
+import { useListNotifications } from "@workspace/api-client-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { usePublisherCompanyLogo } from "@/hooks/use-publisher-profile";
 import { v2Get } from "@/lib/v2api";
 import { PubLayout } from "@/components/pub/PubLayout";
 
-/* ─── helpers ─── */
+/* ── types ── */
+interface Contract {
+  id: number;
+  contractNo: string;
+  status: string;
+  demandTitle: string | null;
+  createdAt: string;
+}
+interface PaymentPlan {
+  id: number;
+  clientDemandId: number;
+  itemNo: number;
+  description: string | null;
+  amount: number;
+  dueDate: string;
+  status: string;
+  isOverdue: boolean;
+  demandTitle: string | null;
+}
+interface DeliveryItem {
+  id: number;
+  title: string;
+  status: string;
+  createdByNickname: string | null;
+  demandTitle: string | null;
+  createdAt: string;
+}
+interface Ticket {
+  id: number;
+  title: string;
+  status: string;
+  demandTitle: string | null;
+  createdAt: string;
+}
+
+function fmtAmount(n: number) {
+  if (n >= 10000) return `¥${(n / 10000).toFixed(1)}万`;
+  return `¥${n.toLocaleString()}`;
+}
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);
@@ -19,256 +59,391 @@ function timeAgo(dateStr: string) {
   if (m < 1) return "刚刚";
   if (m < 60) return `${m}分钟前`;
   if (h < 24) return `${h}小时前`;
-  if (d < 30) return `${d}天前`;
-  return new Date(dateStr).toLocaleDateString("zh-CN");
+  return `${d}天前`;
 }
 
-/* ─── stage map: demand status → current pipeline stage ─── */
-const STAGE_MAP: Record<string, { label: string; step: number; cls: string }> = {
-  pending_review:     { label: "待审核",   step: 0, cls: "bg-amber-50 text-amber-700" },
-  published:          { label: "待匹配",   step: 0, cls: "bg-amber-50 text-amber-700" },
-  open:               { label: "待匹配",   step: 0, cls: "bg-amber-50 text-amber-700" },
-  matched:            { label: "合同阶段", step: 1, cls: "bg-cyan-50 text-cyan-700" },
-  in_progress:        { label: "执行中",   step: 2, cls: "bg-blue-50 text-blue-700" },
-  pending_acceptance: { label: "待验收",   step: 3, cls: "bg-purple-50 text-purple-700" },
-  completed:          { label: "已完成",   step: 5, cls: "bg-green-50 text-green-700" },
-  closed:             { label: "已关闭",   step: -1, cls: "bg-slate-100 text-slate-500" },
-};
-
-/* ─── pipeline steps (visual only) ─── */
-const PIPELINE = [
-  { label: "需求",   href: "/pub/demands" },
-  { label: "合同",   href: "/pub/contracts" },
-  { label: "付款",   href: "/pub/payments" },
-  { label: "交付",   href: "/pub/deliveries" },
-  { label: "质保",   href: "/pub/tickets" },
-];
-
-/* ─── module shortcuts ─── */
-const SHORTCUTS = [
-  { icon: FileText,      label: "需求管理",  href: "/pub/demands" },
-  { icon: FileSignature, label: "合同管理",  href: "/pub/contracts" },
-  { icon: CreditCard,    label: "付款管理",  href: "/pub/payments" },
-  { icon: PackageCheck,  label: "交付确认",  href: "/pub/deliveries" },
-  { icon: Wrench,        label: "质保工单",  href: "/pub/tickets" },
-  { icon: Bell,          label: "消息中心",  href: "/pub/notifications" },
-];
-
-interface BadgeCounts { pendingA: number; pendingB: number; }
+/* ── small action row item ── */
+function ActionItem({ label, sub, urgent, href, navigate }: {
+  label: string; sub?: string; urgent?: boolean; href: string; navigate: (h: string) => void;
+}) {
+  return (
+    <div
+      onClick={() => navigate(href)}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all hover:translate-x-0.5 group ${
+        urgent ? "bg-red-50 hover:bg-red-100" : "bg-slate-50 hover:bg-slate-100"
+      }`}
+    >
+      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${urgent ? "bg-red-400 animate-pulse" : "bg-slate-300"}`} />
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold truncate ${urgent ? "text-red-800" : "text-slate-700"}`}>{label}</p>
+        {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+      </div>
+      <ArrowRight size={14} className={`shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${urgent ? "text-red-500" : "text-slate-400"}`} />
+    </div>
+  );
+}
 
 export default function PubHome() {
   const [, navigate] = useLocation();
   const { userId, nickname } = useCurrentUser();
+  const companyLogo = usePublisherCompanyLogo(userId);
 
-  const { data: demandsData } = useListDemands({
-    publisherId: userId || undefined,
-    limit: 20,
-  });
-  const { data: notifData } = useListNotifications({ page: 1, limit: 6 });
-  const { data: badges }    = useQuery<BadgeCounts>({
-    queryKey: ["delivery-badge-counts"],
-    queryFn:  () => v2Get("/delivery-badge-counts"),
-    staleTime: 20_000,
+  /* ── v2 data ── */
+  const { data: contracts = [] } = useQuery<Contract[]>({
+    queryKey: ["pub-home-contracts"],
+    queryFn: () => v2Get("/contracts?channel=a"),
+    staleTime: 30_000,
   });
 
-  const demands     = demandsData?.items ?? [];
-  const unreadCount = notifData?.unreadCount ?? 0;
-  const pendingDelivery = badges?.pendingA ?? 0;
-  const recentNotifs = notifData?.items?.slice(0, 5) ?? [];
+  const { data: payments = [] } = useQuery<PaymentPlan[]>({
+    queryKey: ["pub-home-payments"],
+    queryFn: () => v2Get("/payment-plans"),
+    staleTime: 30_000,
+  });
 
-  /* active = anything not completed/closed/draft */
-  const active = demands.filter(d =>
-    !["completed", "closed", "draft"].includes(d.status)
-  );
-  const pendingAcceptance = demands.filter(d => d.status === "pending_acceptance");
+  const { data: deliveries = [] } = useQuery<DeliveryItem[]>({
+    queryKey: ["pub-home-deliveries"],
+    queryFn: () => v2Get("/deliverables-a"),
+    staleTime: 30_000,
+  });
+
+  const { data: tickets = [] } = useQuery<Ticket[]>({
+    queryKey: ["pub-home-tickets"],
+    queryFn: () => v2Get("/tickets-a"),
+    staleTime: 30_000,
+  });
+
+  const { data: notifData } = useListNotifications({ page: 1, limit: 5 });
+
+  /* ── computed ── */
+  const contractsPending = contracts.filter(c => c.status === "pending_publisher_confirm");
+  const contractsSigning  = contracts.filter(c => c.status === "pending_sign");
+  const paymentsOverdue   = payments.filter(p => p.isOverdue);
+  const paymentsPending   = payments.filter(p => p.status === "pending");
+  const pendingAmount     = paymentsPending.reduce((s, p) => s + p.amount, 0);
+  const deliveriesPending = deliveries.filter(d => d.status === "pending");
+  const ticketsOpen       = tickets.filter(t => t.status === "open");
+  const unreadCount       = notifData?.unreadCount ?? 0;
+  const recentNotifs      = notifData?.items ?? [];
 
   const today = new Date().toLocaleDateString("zh-CN", {
-    month: "long", day: "numeric", weekday: "short",
+    year: "numeric", month: "long", day: "numeric", weekday: "long",
   });
+
+  const avatarChar = (nickname ?? "?").slice(0, 1).toUpperCase();
+
+  /* ── stat cards ── */
+  const STATS = [
+    {
+      icon: FileSignature,
+      label: "合同",
+      primary: contracts.length,
+      unit: "份",
+      alert: contractsPending.length > 0 ? `${contractsPending.length} 待确认` : null,
+      alertColor: "text-amber-600",
+      href: "/pub/contracts",
+      color: "from-cyan-500 to-cyan-600",
+    },
+    {
+      icon: CreditCard,
+      label: "付款",
+      primary: pendingAmount > 0 ? fmtAmount(pendingAmount) : "—",
+      unit: pendingAmount > 0 ? "待付" : "",
+      alert: paymentsOverdue.length > 0 ? `${paymentsOverdue.length} 项逾期` : null,
+      alertColor: "text-red-500",
+      href: "/pub/payments",
+      color: "from-emerald-500 to-emerald-600",
+    },
+    {
+      icon: PackageCheck,
+      label: "交付确认",
+      primary: deliveries.length,
+      unit: "件",
+      alert: deliveriesPending.length > 0 ? `${deliveriesPending.length} 待确认` : null,
+      alertColor: "text-purple-600",
+      href: "/pub/deliveries",
+      color: "from-violet-500 to-violet-600",
+    },
+    {
+      icon: Wrench,
+      label: "质保工单",
+      primary: tickets.length,
+      unit: "个",
+      alert: ticketsOpen.length > 0 ? `${ticketsOpen.length} 处理中` : null,
+      alertColor: "text-blue-600",
+      href: "/pub/tickets",
+      color: "from-blue-500 to-blue-600",
+    },
+  ];
+
+  const hasActions = contractsPending.length > 0 || paymentsOverdue.length > 0 ||
+    paymentsPending.length > 0 || deliveriesPending.length > 0 ||
+    ticketsOpen.length > 0 || unreadCount > 0;
 
   return (
     <PubLayout>
       <div className="max-w-5xl mx-auto space-y-6">
 
-        {/* ── Top bar ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-          <div>
-            <p className="text-xs text-slate-400 mb-0.5">{today}</p>
-            <h1 className="text-xl font-extrabold text-blue-900">
-              你好，{nickname || "发单方"}
-            </h1>
+        {/* ── Identity Banner ── */}
+        <div className="bg-gradient-to-br from-primary via-blue-700 to-blue-800 rounded-2xl p-6 text-white relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute bottom-0 right-20 w-32 h-32 bg-white/5 rounded-full translate-y-1/2" />
+
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div className="flex items-center gap-4">
+              {/* Avatar / Logo */}
+              <div className="w-16 h-16 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center text-2xl font-extrabold text-white shadow-lg overflow-hidden shrink-0">
+                {companyLogo
+                  ? <img src={companyLogo} alt={nickname ?? ""} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                  : avatarChar}
+              </div>
+              <div>
+                <p className="text-blue-200 text-xs font-medium uppercase tracking-widest mb-1">发单方 · 机构账户</p>
+                <h1 className="text-2xl font-extrabold tracking-tight">{nickname || "我的企业"}</h1>
+                <p className="text-blue-200 text-xs mt-1">{today}</p>
+              </div>
+            </div>
+
+            {/* Right: urgent badges */}
+            <div className="flex flex-wrap gap-2">
+              {contractsPending.length > 0 && (
+                <button
+                  onClick={() => navigate("/pub/contracts")}
+                  className="flex items-center gap-1.5 bg-amber-400/20 border border-amber-300/30 text-amber-100 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-amber-400/30 transition-colors"
+                >
+                  <AlertCircle size={12} /> {contractsPending.length} 合同待确认
+                </button>
+              )}
+              {paymentsOverdue.length > 0 && (
+                <button
+                  onClick={() => navigate("/pub/payments")}
+                  className="flex items-center gap-1.5 bg-red-400/20 border border-red-300/30 text-red-100 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-red-400/30 transition-colors"
+                >
+                  <AlertCircle size={12} /> {paymentsOverdue.length} 付款逾期
+                </button>
+              )}
+              {deliveriesPending.length > 0 && (
+                <button
+                  onClick={() => navigate("/pub/deliveries")}
+                  className="flex items-center gap-1.5 bg-white/15 border border-white/20 text-white/90 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-white/25 transition-colors"
+                >
+                  <PackageCheck size={12} /> {deliveriesPending.length} 交付待确认
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  onClick={() => navigate("/pub/notifications")}
+                  className="flex items-center gap-1.5 bg-white/15 border border-white/20 text-white/90 text-xs font-bold px-3 py-1.5 rounded-full hover:bg-white/25 transition-colors"
+                >
+                  <Bell size={12} /> {unreadCount} 条未读
+                </button>
+              )}
+            </div>
           </div>
-          <button
-            onClick={() => navigate("/pub/demands/new")}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:bg-primary/90 transition-all active:scale-95 shrink-0"
-          >
-            <PlusCircle size={15} /> 发布新需求
-          </button>
         </div>
 
-        {/* ── Attention banner (only when there are items) ── */}
-        {(pendingDelivery > 0 || unreadCount > 0 || pendingAcceptance.length > 0) && (
-          <div className="flex flex-wrap gap-2">
-            {pendingAcceptance.length > 0 && (
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {STATS.map(s => {
+            const Icon = s.icon;
+            return (
               <button
-                onClick={() => navigate("/pub/deliveries")}
-                className="flex items-center gap-2 bg-purple-50 border border-purple-200 text-purple-700 text-sm font-bold px-4 py-2 rounded-xl hover:bg-purple-100 transition-colors"
+                key={s.label}
+                onClick={() => navigate(s.href)}
+                className="group bg-white rounded-2xl border border-slate-100 shadow-sm p-5 text-left hover:shadow-md transition-all relative overflow-hidden"
               >
-                <AlertCircle size={14} />
-                {pendingAcceptance.length} 个交付待验收
-                <ArrowRight size={13} />
+                <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${s.color} rounded-l-2xl`} />
+                <div className="pl-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <Icon size={18} className="text-slate-400 group-hover:text-primary transition-colors" />
+                    <ChevronRight size={14} className="text-slate-200 group-hover:text-primary transition-colors" />
+                  </div>
+                  <p className="text-2xl font-extrabold text-blue-900 leading-none">
+                    {s.primary}
+                    {s.unit && <span className="text-sm font-bold text-slate-400 ml-1">{s.unit}</span>}
+                  </p>
+                  <p className="text-xs font-bold text-slate-500 mt-1">{s.label}</p>
+                  {s.alert && (
+                    <p className={`text-[11px] font-bold mt-1.5 flex items-center gap-1 ${s.alertColor}`}>
+                      <span className="w-1 h-1 rounded-full bg-current animate-pulse" />
+                      {s.alert}
+                    </p>
+                  )}
+                </div>
               </button>
-            )}
-            {pendingDelivery > 0 && (
-              <button
-                onClick={() => navigate("/pub/deliveries")}
-                className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold px-4 py-2 rounded-xl hover:bg-amber-100 transition-colors"
-              >
-                <PackageCheck size={14} />
-                {pendingDelivery} 份交付物待确认
-                <ArrowRight size={13} />
-              </button>
-            )}
-            {unreadCount > 0 && (
-              <button
-                onClick={() => navigate("/pub/notifications")}
-                className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm font-bold px-4 py-2 rounded-xl hover:bg-red-100 transition-colors"
-              >
-                <Bell size={14} />
-                {unreadCount} 条未读消息
-                <ArrowRight size={13} />
-              </button>
-            )}
-          </div>
-        )}
+            );
+          })}
+        </div>
 
-        {/* ── Main two-column ── */}
+        {/* ── Main body ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
-          {/* Left: Active Projects */}
-          <div className="lg:col-span-8 space-y-4">
+          {/* Left: Action items */}
+          <div className="lg:col-span-7 space-y-4">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
-                <h2 className="font-bold text-blue-900">进行中的项目</h2>
-                <button
-                  onClick={() => navigate("/pub/demands")}
-                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                >
-                  全部需求 <ChevronRight size={13} />
-                </button>
+              <div className="px-5 py-4 border-b border-slate-50 flex items-center gap-2">
+                <TrendingUp size={16} className="text-primary" />
+                <h2 className="font-bold text-blue-900 text-sm">待处理事务</h2>
               </div>
 
-              {active.length === 0 ? (
-                <div className="py-14 flex flex-col items-center gap-3 text-slate-400">
-                  <FileText size={32} className="text-slate-200" />
-                  <p className="text-sm">暂无进行中的项目</p>
-                  <button
-                    onClick={() => navigate("/pub/demands/new")}
-                    className="text-primary text-sm font-bold hover:underline"
-                  >
-                    立即发布第一个需求 →
-                  </button>
+              {!hasActions ? (
+                <div className="py-12 flex flex-col items-center gap-2 text-slate-400">
+                  <CheckCircle2 size={36} className="text-green-300" />
+                  <p className="text-sm font-medium">一切就绪，暂无待处理事务</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-50">
-                  {active.slice(0, 8).map(d => {
-                    const stage = STAGE_MAP[d.status] ?? { label: d.status, step: 0, cls: "bg-slate-100 text-slate-500" };
-                    return (
-                      <div
-                        key={d.id}
-                        className="px-5 py-4 hover:bg-slate-50/70 transition-colors cursor-pointer group"
-                        onClick={() => navigate(`/pub/demands/${d.id}`)}
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-blue-900 group-hover:text-primary transition-colors truncate leading-snug">
-                              {d.title}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              {(d as any).demandNo ?? `JDB-${String(d.id).padStart(4, "0")}`}
-                            </p>
-                          </div>
-                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0 ${stage.cls}`}>
-                            {stage.label}
-                          </span>
-                        </div>
+                <div className="p-4 space-y-3">
 
-                        {/* mini pipeline indicator */}
-                        <div className="flex items-center gap-1 mt-2">
-                          {PIPELINE.map((p, i) => (
-                            <div key={p.label} className="flex items-center gap-1">
-                              <div className={`h-1.5 rounded-full transition-all ${
-                                i < stage.step
-                                  ? "bg-primary w-8"
-                                  : i === stage.step
-                                    ? "bg-primary/50 w-6"
-                                    : "bg-slate-100 w-4"
-                              }`} />
-                              {i < PIPELINE.length - 1 && (
-                                <div className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
-                              )}
-                            </div>
-                          ))}
-                          <span className="text-[10px] text-slate-400 ml-2">{stage.label}</span>
-                        </div>
+                  {/* Contracts */}
+                  {(contractsPending.length > 0 || contractsSigning.length > 0) && (
+                    <div>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2 px-1">合同</p>
+                      <div className="space-y-1.5">
+                        {contractsPending.map(c => (
+                          <ActionItem
+                            key={c.id}
+                            label={`合同 ${c.contractNo} 待您确认`}
+                            sub={c.demandTitle ?? undefined}
+                            urgent
+                            href="/pub/contracts"
+                            navigate={navigate}
+                          />
+                        ))}
+                        {contractsSigning.map(c => (
+                          <ActionItem
+                            key={c.id}
+                            label={`合同 ${c.contractNo} 待签约`}
+                            sub={c.demandTitle ?? undefined}
+                            href="/pub/contracts"
+                            navigate={navigate}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                        {d.deadline && (
-                          <p className="flex items-center gap-1 text-[10px] text-slate-400 mt-1.5">
-                            <Clock size={9} /> 截止 {String(d.deadline).slice(0, 10)}
-                          </p>
+                  {/* Payments */}
+                  {(paymentsOverdue.length > 0 || paymentsPending.length > 0) && (
+                    <div>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2 px-1">付款</p>
+                      <div className="space-y-1.5">
+                        {paymentsOverdue.map(p => (
+                          <ActionItem
+                            key={p.id}
+                            label={`${fmtAmount(p.amount)} 付款已逾期`}
+                            sub={`${p.demandTitle ?? ""} · 截止 ${p.dueDate.slice(0, 10)}`}
+                            urgent
+                            href="/pub/payments"
+                            navigate={navigate}
+                          />
+                        ))}
+                        {paymentsPending.filter(p => !p.isOverdue).slice(0, 3).map(p => (
+                          <ActionItem
+                            key={p.id}
+                            label={`${fmtAmount(p.amount)} 待付款`}
+                            sub={`${p.demandTitle ?? ""} · 截止 ${p.dueDate.slice(0, 10)}`}
+                            href="/pub/payments"
+                            navigate={navigate}
+                          />
+                        ))}
+                        {paymentsPending.filter(p => !p.isOverdue).length > 3 && (
+                          <button
+                            onClick={() => navigate("/pub/payments")}
+                            className="w-full text-xs font-bold text-primary hover:underline text-center py-1"
+                          >
+                            查看全部 {paymentsPending.length} 项待付款 →
+                          </button>
                         )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
+                  {/* Deliveries */}
+                  {deliveriesPending.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2 px-1">交付确认</p>
+                      <div className="space-y-1.5">
+                        {deliveriesPending.slice(0, 3).map(d => (
+                          <ActionItem
+                            key={d.id}
+                            label={d.title || `交付物待确认`}
+                            sub={d.demandTitle ?? undefined}
+                            href="/pub/deliveries"
+                            navigate={navigate}
+                          />
+                        ))}
+                        {deliveriesPending.length > 3 && (
+                          <button
+                            onClick={() => navigate("/pub/deliveries")}
+                            className="w-full text-xs font-bold text-primary hover:underline text-center py-1"
+                          >
+                            查看全部 {deliveriesPending.length} 件待确认 →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tickets */}
+                  {ticketsOpen.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2 px-1">质保工单</p>
+                      <div className="space-y-1.5">
+                        {ticketsOpen.slice(0, 2).map(t => (
+                          <ActionItem
+                            key={t.id}
+                            label={t.title}
+                            sub={t.demandTitle ?? undefined}
+                            href="/pub/tickets"
+                            navigate={navigate}
+                          />
+                        ))}
+                        {ticketsOpen.length > 2 && (
+                          <button
+                            onClick={() => navigate("/pub/tickets")}
+                            className="w-full text-xs font-bold text-primary hover:underline text-center py-1"
+                          >
+                            查看全部 {ticketsOpen.length} 个处理中工单 →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Unread messages */}
+                  {unreadCount > 0 && (
+                    <div>
+                      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2 px-1">消息</p>
+                      <ActionItem
+                        label={`${unreadCount} 条未读消息`}
+                        href="/pub/notifications"
+                        navigate={navigate}
+                      />
+                    </div>
+                  )}
+
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right column */}
-          <div className="lg:col-span-4 flex flex-col gap-4">
+          {/* Right: Notifications + quick links */}
+          <div className="lg:col-span-5 flex flex-col gap-4">
 
-            {/* Module shortcuts */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-              <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-3">快捷入口</h2>
-              <div className="grid grid-cols-2 gap-2">
-                {SHORTCUTS.map(s => {
-                  const Icon = s.icon;
-                  const isDelivery = s.href === "/pub/deliveries";
-                  const isBell    = s.href === "/pub/notifications";
-                  const dot = (isDelivery && pendingDelivery > 0) || (isBell && unreadCount > 0);
-                  return (
-                    <button
-                      key={s.href}
-                      onClick={() => navigate(s.href)}
-                      className="relative flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-50 hover:bg-primary/5 hover:text-primary text-slate-600 text-xs font-bold transition-colors text-left"
-                    >
-                      <Icon size={14} className="shrink-0" />
-                      <span className="truncate">{s.label}</span>
-                      {dot && (
-                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-400" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Recent notifications */}
+            {/* Notifications */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex-1">
-              <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-50">
-                <h2 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
+                <h2 className="font-bold text-blue-900 text-sm flex items-center gap-2">
+                  <Bell size={14} className="text-slate-400" />
                   最近消息
                   {unreadCount > 0 && (
-                    <span className="text-[10px] bg-red-400 text-white font-bold px-1.5 py-0.5 rounded-full leading-none">
+                    <span className="bg-red-400 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                       {unreadCount}
                     </span>
                   )}
                 </h2>
-                <button
-                  onClick={() => navigate("/pub/notifications")}
-                  className="text-xs font-bold text-primary hover:underline"
-                >
+                <button onClick={() => navigate("/pub/notifications")} className="text-xs font-bold text-primary hover:underline">
                   全部
                 </button>
               </div>
@@ -276,34 +451,58 @@ export default function PubHome() {
               <div className="divide-y divide-slate-50">
                 {recentNotifs.length === 0 ? (
                   <div className="py-8 text-center text-slate-400 text-xs">
-                    <CheckCircle2 size={24} className="mx-auto mb-2 text-slate-200" />
+                    <CheckCircle2 size={22} className="mx-auto mb-2 text-slate-200" />
                     暂无消息
                   </div>
-                ) : (
-                  recentNotifs.map(n => (
-                    <div
-                      key={n.id}
-                      onClick={() => navigate("/pub/notifications")}
-                      className={`flex items-start gap-2.5 px-4 py-3 cursor-pointer transition-colors hover:bg-slate-50/80 ${
-                        !n.isRead ? "bg-blue-50/30" : ""
-                      }`}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${!n.isRead ? "bg-primary" : "bg-transparent"}`} />
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-xs font-semibold leading-snug truncate ${!n.isRead ? "text-blue-900" : "text-slate-600"}`}>
-                          {n.title}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{timeAgo(n.createdAt)}</p>
-                      </div>
+                ) : recentNotifs.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => navigate("/pub/notifications")}
+                    className={`flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-slate-50/80 transition-colors ${
+                      !n.isRead ? "bg-blue-50/30" : ""
+                    }`}
+                  >
+                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${!n.isRead ? "bg-primary" : "bg-transparent"}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold leading-snug truncate ${!n.isRead ? "text-blue-900" : "text-slate-600"}`}>
+                        {n.title}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                        <Clock size={9} /> {timeAgo(n.createdAt)}
+                      </p>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
               </div>
             </div>
 
+            {/* Quick links row */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { icon: FileSignature, label: "合同",   href: "/pub/contracts",   dot: contractsPending.length > 0 },
+                { icon: CreditCard,   label: "付款",   href: "/pub/payments",    dot: paymentsOverdue.length > 0 },
+                { icon: PackageCheck, label: "交付",   href: "/pub/deliveries",  dot: deliveriesPending.length > 0 },
+                { icon: Wrench,       label: "质保",   href: "/pub/tickets",     dot: ticketsOpen.length > 0 },
+                { icon: Bell,         label: "消息",   href: "/pub/notifications", dot: unreadCount > 0 },
+                { icon: AlertCircle,  label: "企业信息", href: "/pub/profile",    dot: false },
+              ].map(s => {
+                const Icon = s.icon;
+                return (
+                  <button
+                    key={s.href}
+                    onClick={() => navigate(s.href)}
+                    className="relative flex flex-col items-center gap-1.5 py-3 rounded-xl bg-slate-50 hover:bg-primary/5 hover:text-primary text-slate-500 transition-colors text-xs font-bold"
+                  >
+                    <Icon size={16} />
+                    <span>{s.label}</span>
+                    {s.dot && <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-red-400" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </PubLayout>
   );
