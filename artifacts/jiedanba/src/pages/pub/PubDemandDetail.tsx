@@ -140,6 +140,12 @@ const DELIVERABLE_STATUS: Record<string, { label: string; color: string }> = {
   rejected:  { label: "已驳回", color: "bg-red-100 text-red-600" },
 };
 
+const STAGE_KEYS = ["draft", "negotiating", "quoting", "pending_contract", "executing", "warranty", "completed"] as const;
+const STAGE_LABELS: Record<string, string> = {
+  draft: "草稿", negotiating: "沟通", quoting: "报价",
+  pending_contract: "签约", executing: "执行", warranty: "质保", completed: "完成",
+};
+
 /* ── Section wrapper ── */
 function Section({ title, icon: Icon, children, defaultOpen = true }: {
   title: string; icon: React.ElementType; children: React.ReactNode; defaultOpen?: boolean;
@@ -409,6 +415,8 @@ export default function PubDemandDetail() {
   const canVerify = demand.status === "executing" && deliverables.some(d => d.status === "confirmed");
   const canClose = ["draft", "negotiating", "quoting"].includes(demand.status);
   const isWarranty = demand.status === "warranty";
+  const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
+  const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
   const pendingDelivery = deliverables.find(d => d.status === "pending");
   const pendingPayment = payments.find(p => p.status === "pending");
   const pendingContractConfirm = aContract?.status === "pending_publisher_confirm";
@@ -488,6 +496,26 @@ export default function PubDemandDetail() {
           {demand.closedReason && (
             <div className="mt-4 pt-4 border-t border-slate-100">
               <p className="text-xs text-red-500 font-bold">关闭原因：{demand.closedReason}</p>
+            </div>
+          )}
+          {/* ── 阶段进度条 ── */}
+          {demand.status !== "closed" && stageIdx >= 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center">
+                {STAGE_KEYS.map((k, i) => (
+                  <div key={k} className="flex items-center flex-1 last:flex-none">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-2.5 h-2.5 rounded-full transition-all ${i < stageIdx ? "bg-primary" : i === stageIdx ? "bg-primary ring-4 ring-primary/15" : "bg-slate-200"}`} />
+                      <span className={`text-[9px] mt-1 leading-none font-medium ${i === stageIdx ? "text-primary font-bold" : i < stageIdx ? "text-slate-400" : "text-slate-300"}`}>
+                        {STAGE_LABELS[k]}
+                      </span>
+                    </div>
+                    {i < STAGE_KEYS.length - 1 && (
+                      <div className={`flex-1 h-px mx-1 mb-3 ${i < stageIdx ? "bg-primary/40" : "bg-slate-200"}`} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -610,58 +638,6 @@ export default function PubDemandDetail() {
           </div>
         )}
 
-        {/* ── Quotation card ── */}
-        {(demand.status === "quoting" || quotation) && (
-          <Section title="报价单" icon={CreditCard}>
-            <div className="mt-4">
-              {quotation ? (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
-                    <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
-                  </div>
-                  {quotation.breakdown?.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      {quotation.breakdown.map((b, i) => (
-                        <div key={i} className="flex justify-between text-sm">
-                          <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
-                          <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {quotation.note && (
-                    <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
-                  )}
-                  {canConfirmQuote && (
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleConfirmQuote}
-                        disabled={acting}
-                        className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                      >
-                        {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                        确认报价
-                      </button>
-                      <button
-                        onClick={() => setShowCommentModal(true)}
-                        disabled={acting}
-                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
-                      >
-                        提出意见
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-slate-400">
-                  <p className="text-sm">运营方正在核算报价，请耐心等待</p>
-                </div>
-              )}
-            </div>
-          </Section>
-        )}
-
         {/* ── Demand detail section ── */}
         <Section title="需求详情" icon={FileText}>
           <div className="mt-4">
@@ -766,8 +742,60 @@ export default function PubDemandDetail() {
           </div>
         </Section>
 
-        {/* ── Contract ── */}
-        {(demand.status !== "draft" && demand.status !== "negotiating") && aContract && (
+        {/* ── Quotation card（报价阶段及之后） ── */}
+        {isPast("quoting") && (
+          <Section title="报价单" icon={CreditCard}>
+            <div className="mt-4">
+              {quotation ? (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
+                    <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
+                  </div>
+                  {quotation.breakdown?.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {quotation.breakdown.map((b, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
+                          <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {quotation.note && (
+                    <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
+                  )}
+                  {canConfirmQuote && (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleConfirmQuote}
+                        disabled={acting}
+                        className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                        确认报价
+                      </button>
+                      <button
+                        onClick={() => setShowCommentModal(true)}
+                        disabled={acting}
+                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
+                      >
+                        提出意见
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <p className="text-sm">运营方正在核算报价，请耐心等待</p>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* ── Contract（待签约阶段及之后） ── */}
+        {isPast("pending_contract") && aContract && (
           <Section title="合同" icon={FileSignature}>
             <div className="mt-4">
               <div className="flex items-center justify-between">
@@ -797,8 +825,8 @@ export default function PubDemandDetail() {
           </Section>
         )}
 
-        {/* ── Payment plans（仅合同签订后才展示） ── */}
-        {payments.length > 0 && ["executing", "warranty", "completed"].includes(demand.status) && (
+        {/* ── Payment plans（执行阶段及之后） ── */}
+        {isPast("executing") && payments.length > 0 && (
           <Section title="付款计划" icon={CreditCard}>
             <div className="mt-4 space-y-3">
               {payments.map(p => {
@@ -830,44 +858,8 @@ export default function PubDemandDetail() {
           </Section>
         )}
 
-        {/* ── Deliverables ── */}
-        {deliverables.length > 0 && (
-          <Section title="交付记录" icon={FileText}>
-            <div className="mt-4 space-y-3">
-              {deliverables.map(d => {
-                const cfg = DELIVERABLE_STATUS[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
-                return (
-                  <div key={d.id} className="border border-slate-200 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                        <span className="text-sm font-bold text-slate-800">{d.title}</span>
-                      </div>
-                      <span className="text-xs text-slate-400">{new Date(d.createdAt).toLocaleDateString("zh-CN")}</span>
-                    </div>
-                    {d.content && <p className="text-xs text-slate-600 mb-2">{d.content}</p>}
-                    {d.attachments?.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {d.attachments.map((a, i) => (
-                          <a key={i} href={a.url} target="_blank" rel="noreferrer"
-                            className="text-xs flex items-center gap-1 text-primary underline">
-                            <ExternalLink size={10} /> {a.name}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                    {d.rejectedReason && (
-                      <p className="text-xs text-red-500">驳回原因：{d.rejectedReason}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Section>
-        )}
-
-        {/* ── Tickets ── */}
-        {(isWarranty || tickets.length > 0) && (
+        {/* ── Tickets（质保阶段及之后） ── */}
+        {(isPast("warranty") || tickets.length > 0) && (
           <Section title="质保工单" icon={Wrench}>
             <div className="mt-4 space-y-3">
               {isWarranty && (

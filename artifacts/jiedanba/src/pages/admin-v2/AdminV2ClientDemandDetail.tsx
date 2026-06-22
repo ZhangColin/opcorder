@@ -107,6 +107,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   closed:           { label: "已关闭",   color: "bg-red-100 text-red-500" },
 };
 
+const STAGE_KEYS = ["draft", "negotiating", "quoting", "pending_contract", "executing", "warranty", "completed"] as const;
+const STAGE_LABELS: Record<string, string> = {
+  draft: "草稿", negotiating: "沟通", quoting: "报价",
+  pending_contract: "签约", executing: "执行", warranty: "质保", completed: "完成",
+};
+
 const DEMAND_TYPE_LABEL: Record<string, string> = {
   website: "网站建设", app: "App开发", miniprogram: "小程序",
   ecommerce: "电商运营", design: "设计制作", marketing: "营销推广", other: "其他",
@@ -456,6 +462,8 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canEditDetail = ["draft", "negotiating", "quoting"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = ["draft", "negotiating", "quoting", "pending_contract"].includes(demand.status);
+  const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
+  const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
 
   const InlinePanel = ({
     title, color = "bg-slate-50 border-slate-200", children,
@@ -479,12 +487,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
 
         {/* ── 操作按钮栏（嵌入/独立模式均可见） ── */}
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => inlineNav ? inlineNav.push(`/admin/v2/overview?clientDemandId=${id}`) : navigate(`/admin/v2/overview?clientDemandId=${id}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <ExternalLink size={13} /> 关联总览
-          </button>
           {canStartNegotiating && (
             <button
               onClick={handleStartNegotiating}
@@ -608,36 +610,27 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
               </div>
             </div>
           )}
-        </div>
-
-        {/* ── 报价卡 ── */}
-        {(quotation || demand.status === "quoting") && (
-          <Section title="报价单" icon={DollarSign}>
-            {quotation ? (
-              <div className="pt-2">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-2xl font-black text-primary">¥{quotation.totalPrice.toLocaleString()}</p>
-                  <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
-                </div>
-                {quotation.breakdown?.length > 0 && (
-                  <div className="space-y-2 mb-4 border border-slate-100 rounded-xl p-3 bg-slate-50">
-                    {quotation.breakdown.map((b, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
-                        <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
+          {/* ── 阶段进度条 ── */}
+          {demand.status !== "closed" && stageIdx >= 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center">
+                {STAGE_KEYS.map((k, i) => (
+                  <div key={k} className="flex items-center flex-1 last:flex-none">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-2.5 h-2.5 rounded-full transition-all ${i < stageIdx ? "bg-primary" : i === stageIdx ? "bg-primary ring-4 ring-primary/15" : "bg-slate-200"}`} />
+                      <span className={`text-[9px] mt-1 leading-none font-medium ${i === stageIdx ? "text-primary font-bold" : i < stageIdx ? "text-slate-400" : "text-slate-300"}`}>
+                        {STAGE_LABELS[k]}
+                      </span>
+                    </div>
+                    {i < STAGE_KEYS.length - 1 && (
+                      <div className={`flex-1 h-px mx-1 mb-3 ${i < stageIdx ? "bg-primary/40" : "bg-slate-200"}`} />
+                    )}
                   </div>
-                )}
-                {quotation.note && (
-                  <p className="text-xs text-slate-500 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
-                )}
+                ))}
               </div>
-            ) : (
-              <p className="text-sm text-slate-400 py-4">报价单尚未生成，请点击右上角「发起报价」。</p>
-            )}
-          </Section>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* ── 操作面板 ── */}
         {activePanel === "close" && (
@@ -756,51 +749,78 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           )}
         </Section>
 
-        {/* ── 合同 ── */}
-        {(() => {
-          const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
-            draft:                     { label: "草稿",       color: "bg-slate-100 text-slate-500" },
+        {/* ── 沟通讨论 ── */}
+        <Section title="沟通讨论" icon={FileText}>
+          <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" onAfterPost={() => markRead("client", id)} />
+        </Section>
+
+        {/* ── 报价单（报价阶段及之后） ── */}
+        {isPast("quoting") && (
+          <Section title="报价单" icon={DollarSign}>
+            {quotation ? (
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-2xl font-black text-primary">¥{quotation.totalPrice.toLocaleString()}</p>
+                  <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
+                </div>
+                {quotation.breakdown?.length > 0 && (
+                  <div className="space-y-2 mb-4 border border-slate-100 rounded-xl p-3 bg-slate-50">
+                    {quotation.breakdown.map((b, i) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
+                        <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {quotation.note && (
+                  <p className="text-xs text-slate-500 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 py-4">报价单尚未生成，请点击右上角「发起报价」。</p>
+            )}
+          </Section>
+        )}
+
+        {/* ── 合同（待签约阶段及之后，有合同时） ── */}
+        {isPast("pending_contract") && contracts.length > 0 && (() => {
+          const CONTRACT_STATUS_MAP: Record<string, { label: string; color: string }> = {
+            draft:                     { label: "草稿",        color: "bg-slate-100 text-slate-500" },
             pending_publisher_confirm: { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
-            publisher_rejected:        { label: "已退回",      color: "bg-red-100 text-red-600" },
-            pending_sign:              { label: "待签约",      color: "bg-orange-100 text-orange-700" },
-            signed:                    { label: "已签约",      color: "bg-green-100 text-green-700" },
+            publisher_rejected:        { label: "已退回",       color: "bg-red-100 text-red-600" },
+            pending_sign:              { label: "待签约",       color: "bg-orange-100 text-orange-700" },
+            signed:                    { label: "已签约",       color: "bg-green-100 text-green-700" },
           };
           return (
-            <Section title={contracts.length > 0 ? `合同（${contracts.length} 份）` : "合同"} icon={FileText}>
-              {contracts.length > 0 ? (
-                <div className="space-y-2">
-                  {contracts.map(c => {
-                    const cs = CONTRACT_STATUS[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
-                    return (
-                      <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
-                          <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
-                          <button
-                            onClick={() => inlineNav?.push(`/admin/v2/contracts-a/${c.id}`)}
-                            className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
-                            查看详情
-                          </button>
-                        </div>
+            <Section title={`合同（${contracts.length} 份）`} icon={FileText}>
+              <div className="space-y-2">
+                {contracts.map(c => {
+                  const cs = CONTRACT_STATUS_MAP[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
+                  return (
+                    <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700 font-mono">{c.contractNo}</p>
+                        <p className="text-xs text-slate-400">更新：{new Date(c.updatedAt).toLocaleDateString("zh-CN")}</p>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-slate-400">
-                  <FileText size={22} className="mx-auto mb-2 text-slate-300" />
-                  <p className="text-sm">暂无合同</p>
-                </div>
-              )}
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cs.color}`}>{cs.label}</span>
+                        <button
+                          onClick={() => inlineNav?.push(`/admin/v2/contracts-a/${c.id}`)}
+                          className="text-xs text-primary border border-primary/20 px-2.5 py-1 rounded-xl hover:bg-primary/5 transition-colors">
+                          查看详情
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </Section>
           );
         })()}
 
-        {/* ── 收款计划 ── */}
-        {payments.length > 0 && (
+        {/* ── 收款计划（执行阶段及之后） ── */}
+        {isPast("executing") && payments.length > 0 && (
           <Section title={`收款计划（${payments.length} 项）`} icon={DollarSign}>
             <div className="space-y-2">
               {payments.map(p => (
@@ -818,10 +838,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </div>
           </Section>
         )}
-
-        <Section title="沟通讨论" icon={FileText}>
-          <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" onAfterPost={() => markRead("client", id)} />
-        </Section>
 
         </>}
 
