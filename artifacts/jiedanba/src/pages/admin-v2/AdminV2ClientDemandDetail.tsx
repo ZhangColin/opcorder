@@ -213,7 +213,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const [quoteNote, setQuoteNote] = useState("");
 
   // Tab
-  const [activeTab, setActiveTab] = useState<"detail" | "delivery">("detail");
+  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery">("needs");
 
   // Deliverable form
   const [delivTitle, setDelivTitle] = useState("");
@@ -464,6 +464,12 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
   const canClose = ["draft", "negotiating", "quoting", "pending_contract"].includes(demand.status);
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
+  const visibleTabs: Array<"needs" | "contract" | "delivery"> = [
+    "needs",
+    ...(isPast("quoting")   ? ["contract" as const] : []),
+    ...(isPast("executing") ? ["delivery" as const] : []),
+  ];
+  const TAB_LABELS: Record<string, string> = { needs: "需求详情", contract: "报价与合同", delivery: "交付" };
 
   const InlinePanel = ({
     title, color = "bg-slate-50 border-slate-200", children,
@@ -514,33 +520,33 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           )}
         </div>
 
-        {/* ── Tab 导航 ── */}
-        <div className="flex gap-1 bg-white rounded-2xl border border-slate-100 p-1">
-          {(["detail", "delivery"] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
-                activeTab === tab
-                  ? "bg-primary text-white"
-                  : "text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              {tab === "detail" ? "需求详情" : (
-                <>
-                  交付
-                  {deliverables.length > 0 && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === "delivery" ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
-                      {deliverables.length}
+        {/* ── Tab 导航（两个及以上 tab 才显示） ── */}
+        {visibleTabs.length > 1 && (
+          <div className="flex gap-1 bg-white rounded-2xl border border-slate-100 p-1">
+            {visibleTabs.map(tab => {
+              const badge = tab === "delivery" ? (deliverables.length > 0 ? deliverables.length : null) : null;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
+                    activeTab === tab ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  {TAB_LABELS[tab]}
+                  {badge != null && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
+                      {badge}
                     </span>
                   )}
-                </>
-              )}
-            </button>
-          ))}
-        </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {activeTab === "detail" && <>
+        {/* ── 需求详情 Tab ── */}
+        {activeTab === "needs" && <>
 
         {/* ── 基本信息卡 ── */}
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
@@ -753,38 +759,38 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
         <Section title="沟通讨论" icon={FileText}>
           <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" onAfterPost={() => markRead("client", id)} />
         </Section>
+        </>}
 
-        {/* ── 报价单（报价阶段及之后） ── */}
-        {isPast("quoting") && (
-          <Section title="报价单" icon={DollarSign}>
-            {quotation ? (
-              <div className="pt-2">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-2xl font-black text-primary">¥{quotation.totalPrice.toLocaleString()}</p>
-                  <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
-                </div>
-                {quotation.breakdown?.length > 0 && (
-                  <div className="space-y-2 mb-4 border border-slate-100 rounded-xl p-3 bg-slate-50">
-                    {quotation.breakdown.map((b, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
-                        <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {quotation.note && (
-                  <p className="text-xs text-slate-500 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
-                )}
+        {/* ── 报价与合同 Tab ── */}
+        {activeTab === "contract" && <>
+
+        <Section title="报价单" icon={DollarSign}>
+          {quotation ? (
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-2xl font-black text-primary">¥{quotation.totalPrice.toLocaleString()}</p>
+                <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
               </div>
-            ) : (
-              <p className="text-sm text-slate-400 py-4">报价单尚未生成，请点击右上角「发起报价」。</p>
-            )}
-          </Section>
-        )}
+              {quotation.breakdown?.length > 0 && (
+                <div className="space-y-2 mb-4 border border-slate-100 rounded-xl p-3 bg-slate-50">
+                  {quotation.breakdown.map((b, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
+                      <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {quotation.note && (
+                <p className="text-xs text-slate-500 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 py-4">报价单尚未生成，请点击右上角「发起报价」。</p>
+          )}
+        </Section>
 
-        {/* ── 合同（待签约阶段及之后，有合同时） ── */}
-        {isPast("pending_contract") && contracts.length > 0 && (() => {
+        {contracts.length > 0 && (() => {
           const CONTRACT_STATUS_MAP: Record<string, { label: string; color: string }> = {
             draft:                     { label: "草稿",        color: "bg-slate-100 text-slate-500" },
             pending_publisher_confirm: { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
@@ -819,8 +825,7 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
           );
         })()}
 
-        {/* ── 收款计划（执行阶段及之后） ── */}
-        {isPast("executing") && payments.length > 0 && (
+        {payments.length > 0 && (
           <Section title={`收款计划（${payments.length} 项）`} icon={DollarSign}>
             <div className="space-y-2">
               {payments.map(p => (
@@ -838,7 +843,6 @@ export default function AdminV2ClientDemandDetail({ inlineId }: { inlineId?: num
             </div>
           </Section>
         )}
-
         </>}
 
         {/* ── 交付 Tab ── */}

@@ -207,7 +207,7 @@ export default function PubDemandDetail() {
   const [rejectDelivReason, setRejectDelivReason] = useState("");
 
   /* Tab / deliverable expand */
-  const [activeTab, setActiveTab] = useState<"detail" | "delivery">("detail");
+  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">("needs");
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -417,6 +417,13 @@ export default function PubDemandDetail() {
   const isWarranty = demand.status === "warranty";
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
+  const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket"> = [
+    "needs",
+    ...(isPast("quoting")  ? ["contract" as const] : []),
+    ...(isPast("executing") ? ["delivery" as const] : []),
+    ...(isPast("warranty")  ? ["ticket"   as const] : []),
+  ];
+  const TAB_LABELS: Record<string, string> = { needs: "需求详情", contract: "报价与合同", delivery: "交付", ticket: "工单" };
   const pendingDelivery = deliverables.find(d => d.status === "pending");
   const pendingPayment = payments.find(p => p.status === "pending");
   const pendingContractConfirm = aContract?.status === "pending_publisher_confirm";
@@ -520,33 +527,7 @@ export default function PubDemandDetail() {
           )}
         </div>
 
-        {/* ── Tab 导航 ── */}
-        <div className="flex gap-1 bg-white rounded-2xl border border-slate-200 p-1">
-          {(["detail", "delivery"] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
-                activeTab === tab ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              {tab === "detail" ? "需求详情" : (
-                <>
-                  交付
-                  {deliverables.length > 0 && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === "delivery" ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
-                      {deliverables.length}
-                    </span>
-                  )}
-                </>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === "detail" && <>
-
-        {/* ── Pending contract confirm banner ── */}
+        {/* ── Action banners（始终显示，不受 tab 影响） ── */}
         {pendingContractConfirm && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -562,7 +543,6 @@ export default function PubDemandDetail() {
           </div>
         )}
 
-        {/* ── Pending payment banner（仅合同已签后才有效） ── */}
         {pendingPayment && ["executing", "warranty", "completed"].includes(demand.status) && (
           <div className={`border rounded-2xl p-4 flex items-center justify-between gap-3 ${pendingPayment.isOverdue ? "bg-red-50 border-red-200" : "bg-orange-50 border-orange-200"}`}>
             <div className="flex items-center gap-2">
@@ -581,7 +561,6 @@ export default function PubDemandDetail() {
           </div>
         )}
 
-        {/* ── Delivery pending confirmation ── */}
         {pendingDelivery && (
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
@@ -620,7 +599,6 @@ export default function PubDemandDetail() {
           </div>
         )}
 
-        {/* ── Verify acceptance (executing state) ── */}
         {canVerify && (
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between gap-3">
             <div>
@@ -637,6 +615,36 @@ export default function PubDemandDetail() {
             </button>
           </div>
         )}
+
+        {/* ── Tab 导航（两个及以上 tab 才显示） ── */}
+        {visibleTabs.length > 1 && (
+          <div className="flex gap-1 bg-white rounded-2xl border border-slate-200 p-1">
+            {visibleTabs.map(tab => {
+              const badge = tab === "delivery" ? (deliverables.length > 0 ? deliverables.length : null)
+                          : tab === "ticket"   ? (tickets.length > 0 ? tickets.length : null)
+                          : null;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-xl transition-colors ${
+                    activeTab === tab ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  {TAB_LABELS[tab]}
+                  {badge != null && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── 需求详情 Tab ── */}
+        {activeTab === "needs" && <>
 
         {/* ── Demand detail section ── */}
         <Section title="需求详情" icon={FileText}>
@@ -742,60 +750,61 @@ export default function PubDemandDetail() {
           </div>
         </Section>
 
-        {/* ── Quotation card（报价阶段及之后） ── */}
-        {isPast("quoting") && (
-          <Section title="报价单" icon={CreditCard}>
-            <div className="mt-4">
-              {quotation ? (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
-                    <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
-                  </div>
-                  {quotation.breakdown?.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      {quotation.breakdown.map((b, i) => (
-                        <div key={i} className="flex justify-between text-sm">
-                          <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
-                          <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {quotation.note && (
-                    <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
-                  )}
-                  {canConfirmQuote && (
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleConfirmQuote}
-                        disabled={acting}
-                        className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                      >
-                        {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                        确认报价
-                      </button>
-                      <button
-                        onClick={() => setShowCommentModal(true)}
-                        disabled={acting}
-                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
-                      >
-                        提出意见
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-slate-400">
-                  <p className="text-sm">运营方正在核算报价，请耐心等待</p>
-                </div>
-              )}
-            </div>
-          </Section>
-        )}
+        </>}
 
-        {/* ── Contract（待签约阶段及之后） ── */}
-        {isPast("pending_contract") && aContract && (
+        {/* ── 报价与合同 Tab ── */}
+        {activeTab === "contract" && <>
+
+        <Section title="报价单" icon={CreditCard}>
+          <div className="mt-4">
+            {quotation ? (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
+                  <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
+                </div>
+                {quotation.breakdown?.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {quotation.breakdown.map((b, i) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
+                        <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {quotation.note && (
+                  <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
+                )}
+                {canConfirmQuote && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleConfirmQuote}
+                      disabled={acting}
+                      className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                      确认报价
+                    </button>
+                    <button
+                      onClick={() => setShowCommentModal(true)}
+                      disabled={acting}
+                      className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
+                    >
+                      提出意见
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <p className="text-sm">运营方正在核算报价，请耐心等待</p>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {aContract && (
           <Section title="合同" icon={FileSignature}>
             <div className="mt-4">
               <div className="flex items-center justify-between">
@@ -825,8 +834,7 @@ export default function PubDemandDetail() {
           </Section>
         )}
 
-        {/* ── Payment plans（执行阶段及之后） ── */}
-        {isPast("executing") && payments.length > 0 && (
+        {payments.length > 0 && (
           <Section title="付款计划" icon={CreditCard}>
             <div className="mt-4 space-y-3">
               {payments.map(p => {
@@ -857,9 +865,10 @@ export default function PubDemandDetail() {
             </div>
           </Section>
         )}
+        </>}
 
-        {/* ── Tickets（质保阶段及之后） ── */}
-        {(isPast("warranty") || tickets.length > 0) && (
+        {/* ── 工单 Tab ── */}
+        {activeTab === "ticket" && (
           <Section title="质保工单" icon={Wrench}>
             <div className="mt-4 space-y-3">
               {isWarranty && (
@@ -891,7 +900,6 @@ export default function PubDemandDetail() {
             </div>
           </Section>
         )}
-        </>}
 
         {/* ── 交付 Tab ── */}
         {activeTab === "delivery" && (
