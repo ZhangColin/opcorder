@@ -1,27 +1,26 @@
 ---
 name: Replit proxy base path for jiedanba artifact
-description: Why vite base must be hardcoded to /jiedanba/ and how routing/API work together.
+description: History of base path change and why it was reverted back to "/"
 ---
 
-## Rule
-`vite.config.ts` must hardcode `const basePath = "/jiedanba/";` — do NOT use `process.env.BASE_PATH ?? "/"` or any other default that resolves to `"/"`.
+## Current state (correct)
+`vite.config.ts` uses `const basePath = process.env.BASE_PATH ?? "/"` — defaults to `/`.
+Vite proxy is the simple form: `proxy: { "/api": { target: "http://localhost:3000" } }`.
+The `Start application` workflow does NOT set `BASE_PATH`.
 
-## Why
-The Replit external proxy (user's browser) only routes `/jiedanba/*` requests to the artifact's vite port. With `base="/"`, asset paths are `/@vite/client`, `/src/main.tsx` etc. — these lack the `/jiedanba/` prefix so the proxy does NOT route them to the artifact → 404 → white screen.
+## History
+A previous session changed the default to `/jiedanba/` to fix a white-screen issue in the
+Replit dev preview iframe. This was a mistake — the user confirmed the app worked at `/`
+before that change and does not want the sub-path. The change was reverted.
 
-With `base="/jiedanba/"`, asset paths are `/jiedanba/@vite/client` etc. → proxy routes them ✓.
+## API calls
+All files use `import.meta.env.BASE_URL.replace(/\/$/, "")` as the API prefix.
+With `base="/"`, `BASE_URL="/"`, prefix becomes `""`, so requests are `/api/...` ✓
 
-## How it works end-to-end
-- `import.meta.env.BASE_URL = "/jiedanba/"` (from vite base)
-- `API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "")` = `"/jiedanba"`
-- `WouterRouter base="/jiedanba"` → navigate('/admin/v2/x') produces `/jiedanba/admin/v2/x` ✓
-- API calls: `fetch("/jiedanba/api/v2/...")` → vite proxy rule `"/jiedanba/api"` → rewrites to `/api/...` → port 3000 ✓
-- `artifacts/jiedanba: web` artifact workflow command has NO BASE_PATH — picks up the hardcoded default from vite.config.ts ✓
-
-## Proxy note
-The internal proxy at localhost:80 rewrites HTML responses (strips `/jiedanba/` from embedded paths), but does NOT strip from request paths. Don't be fooled by seeing `src="/@vite/client"` in curl output — that's the proxy rewriting the response, not vite running with base="/".
+## SiteLogo
+`SiteLogo.tsx` uses `resolveAssetUrl()` which prepends `BASE_URL` to `/api/` paths.
+With `base="/"`: `"".replace(/\/$/, "") + "/api/..."` = `"/api/..."` ✓ (still works)
 
 ## Do NOT
-- Set `base = process.env.BASE_PATH ?? "/"` (default "/" breaks asset routing)
-- Create `.env` with `VITE_ROUTER_BASE` (unnecessary indirection)
-- Use `BASE_PATH=/jiedanba/` env var in `Start application` workflow (vite.config.ts already hardcodes it)
+- Set `BASE_PATH=/jiedanba/` in any workflow
+- Hardcode `basePath = "/jiedanba/"` in vite.config.ts

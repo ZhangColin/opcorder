@@ -19,7 +19,7 @@ if (!isBuild && (Number.isNaN(port) || port <= 0)) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = "/jiedanba/";
+const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig({
   base: basePath,
@@ -61,18 +61,12 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    proxy: (() => {
-      const apiProxyBase = basePath.replace(/\/$/, "");
-      return {
-        [`${apiProxyBase}/api`]: {
-          target: process.env.API_PROXY_TARGET ?? "http://localhost:3000",
-          changeOrigin: true,
-          ...(apiProxyBase
-            ? { rewrite: (path: string) => path.slice(apiProxyBase.length) }
-            : {}),
-        },
-      };
-    })(),
+    proxy: {
+      "/api": {
+        target: process.env.API_PROXY_TARGET ?? "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
