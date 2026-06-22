@@ -6,7 +6,6 @@ import {
   Loader2, AlertCircle, Clock, CheckCircle2, Lock, Package,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
-import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { OpcV2Layout } from "./OpcV2Layout";
 
 interface TicketDetail {
@@ -141,24 +140,6 @@ export default function OpcV2TicketDetail() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">沟通记录</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {ticket.status === "open"
-                ? "请回复平台的工单，积极解决问题"
-                : "此工单已关闭"}
-            </p>
-          </div>
-          <div className="p-5">
-            <DiscussionThread
-              parentType="ticket_b"
-              parentId={ticketId}
-              readOnly={ticket.status === "closed"}
-              onAfterPost={() => markRead("ticket_b", ticketId)}
-            />
-          </div>
-        </div>
       </div>
     </OpcV2Layout>
   );

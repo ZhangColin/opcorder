@@ -4,7 +4,6 @@ import { Loader2, X, CheckCircle2, Clock, Wrench } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
-import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
 
 interface Ticket {
@@ -132,10 +131,6 @@ export default function AdminV2TicketADetail({ inlineId }: { inlineId?: number }
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
-          <h3 className="text-sm font-bold text-slate-700 mb-4">讨论与回复</h3>
-          <DiscussionThread parentType="ticket_a" parentId={id} placeholder="回复发单方…" readOnly={!isOpen} onAfterPost={() => markRead("ticket_a", id)} />
-        </div>
       </div>
 
       {showCloseModal && (

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { Wrench, Loader2, AlertCircle, CheckCircle2, Clock, ExternalLink } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
-import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { v2Get } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 
@@ -127,18 +126,6 @@ export default function PubTicketDetail() {
               )}
             </div>
           )}
-        </div>
-
-        {/* Discussion */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">工单讨论</h3>
-          <DiscussionThread
-            parentType="ticket_a"
-            parentId={ticketId}
-            placeholder="描述问题详情或回复运营方…"
-            readOnly={!isOpen}
-            onAfterPost={() => markRead("ticket_a", ticketId)}
-          />
         </div>
       </div>
     </PubLayout>
