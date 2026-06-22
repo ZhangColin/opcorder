@@ -100,7 +100,7 @@ export default function PubPaymentList() {
               return (
                 <div
                   key={plan.id}
-                  onClick={() => navigate(`/pub/demands/${plan.clientDemandId}?tab=contract&scroll=payments`)}
+                  onClick={() => navigate(`/pub/payments/${plan.id}`)}
                   className={`bg-white rounded-2xl border p-5 flex items-center gap-4 cursor-pointer transition-all group hover:shadow-sm ${
                     overdue ? "border-red-300 bg-red-50/30" : "border-slate-200 hover:border-primary/30"
                   }`}

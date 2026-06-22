@@ -1055,15 +1055,24 @@ export default function PubDemandDetail() {
                     <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
                       {/* URL */}
                       {d.url && (
-                        <div className="pt-4 flex items-center gap-2">
-                          <Link2 size={13} className="text-primary shrink-0" />
+                        <div className="pt-4">
+                          <p className="text-xs font-bold text-slate-500 mb-2">交付链接</p>
                           <a href={d.url} target="_blank" rel="noreferrer"
-                            className="text-sm text-primary hover:underline break-all">{d.url}</a>
+                            className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2.5 hover:bg-primary/10 transition-colors group">
+                            <Link2 size={13} className="text-primary shrink-0" />
+                            <span className="text-sm text-primary break-all flex-1 leading-snug">{d.url}</span>
+                            <ExternalLink size={12} className="text-primary/50 shrink-0 group-hover:text-primary transition-colors" />
+                          </a>
                         </div>
                       )}
                       {/* Content */}
                       {d.content && (
-                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{d.content}</p>
+                        <div className={d.url ? "" : "pt-4"}>
+                          <p className="text-xs font-bold text-slate-500 mb-2">交付说明</p>
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
+                            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{d.content}</p>
+                          </div>
+                        </div>
                       )}
                       {/* Attachments */}
                       {d.attachments?.length > 0 && (
