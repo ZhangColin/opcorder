@@ -96,33 +96,20 @@ export default function PubNotifications() {
     qc.invalidateQueries({ queryKey: ["/api/notifications"] });
   };
 
-  return (
-    <PubLayout title="消息中心">
-      <div className="max-w-[860px] mx-auto">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-primary font-display flex items-center gap-3">
-              <Bell size={26} /> 消息中心
-              {unreadCount > 0 && (
-                <span className="bg-destructive text-white text-sm font-bold px-2.5 py-0.5 rounded-full">
-                  {unreadCount}
-                </span>
-              )}
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">需求动态、交付验收、质保提醒等业务通知</p>
-          </div>
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              disabled={markAllRead.isPending}
-              className="flex items-center gap-2 text-sm text-primary font-bold hover:underline disabled:opacity-50"
-            >
-              <CheckCheck size={16} /> 全部标为已读
-            </button>
-          )}
-        </div>
+  const headerActions = unreadCount > 0 ? (
+    <button
+      onClick={handleMarkAllRead}
+      disabled={markAllRead.isPending}
+      className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline disabled:opacity-50"
+    >
+      <CheckCheck size={13} /> 全部标为已读
+    </button>
+  ) : undefined;
 
-        <div className="flex items-center gap-1 mb-6 bg-slate-100 rounded-xl p-1 w-fit flex-wrap">
+  return (
+    <PubLayout actions={headerActions}>
+      <div className="max-w-[860px] mx-auto space-y-5">
+        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 w-fit flex-wrap">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab.key}

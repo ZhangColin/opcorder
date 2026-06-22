@@ -361,10 +361,10 @@ export default function PubHome() {
                         </p>
                         <div className="space-y-1.5">
                           {contractsPending.map(c => (
-                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待您确认`} sub={c.demandTitle ?? undefined} urgent href="/pub/contracts" navigate={navigate} />
+                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待您确认`} sub={c.demandTitle ?? undefined} urgent href={`/pub/contracts/${c.id}`} navigate={navigate} />
                           ))}
                           {contractsSigning.map(c => (
-                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待签约`} sub={c.demandTitle ?? undefined} href="/pub/contracts" navigate={navigate} />
+                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待签约`} sub={c.demandTitle ?? undefined} href={`/pub/contracts/${c.id}`} navigate={navigate} />
                           ))}
                         </div>
                       </div>
@@ -378,10 +378,10 @@ export default function PubHome() {
                         </p>
                         <div className="space-y-1.5">
                           {paymentsOverdue.map(p => (
-                            <ActionRow key={`ov-${p.id}`} label={`${fmtAmount(p.amount)} 付款已逾期`} sub={`${p.demandTitle ?? ""} · 截止 ${p.dueDate.slice(0, 10)}`} urgent href="/pub/payments" navigate={navigate} />
+                            <ActionRow key={`ov-${p.id}`} label={`${fmtAmount(p.amount)} 付款已逾期`} sub={`${p.demandTitle ?? ""} · 截止 ${p.dueDate.slice(0, 10)}`} urgent href={`/pub/payments/${p.id}`} navigate={navigate} />
                           ))}
                           {paymentsPending.filter(p => !p.isOverdue).slice(0, 3).map(p => (
-                            <ActionRow key={p.id} label={`${fmtAmount(p.amount)} 待付款`} sub={`${p.demandTitle ?? ""} · 截止 ${p.dueDate.slice(0, 10)}`} href="/pub/payments" navigate={navigate} />
+                            <ActionRow key={p.id} label={`${fmtAmount(p.amount)} 待付款`} sub={`${p.demandTitle ?? ""} · 截止 ${p.dueDate.slice(0, 10)}`} href={`/pub/payments/${p.id}`} navigate={navigate} />
                           ))}
                           {paymentsPending.filter(p => !p.isOverdue).length > 3 && (
                             <button onClick={() => navigate("/pub/payments")} className="w-full text-xs font-bold text-primary text-center py-1 hover:underline">
@@ -400,7 +400,7 @@ export default function PubHome() {
                         </p>
                         <div className="space-y-1.5">
                           {deliveriesPending.slice(0, 3).map(d => (
-                            <ActionRow key={d.id} label={d.title || "交付物待确认"} sub={d.demandTitle ?? undefined} href="/pub/deliveries" navigate={navigate} />
+                            <ActionRow key={d.id} label={d.title || "交付物待确认"} sub={d.demandTitle ?? undefined} href={`/pub/deliveries/${d.id}`} navigate={navigate} />
                           ))}
                           {deliveriesPending.length > 3 && (
                             <button onClick={() => navigate("/pub/deliveries")} className="w-full text-xs font-bold text-primary text-center py-1 hover:underline">
@@ -419,7 +419,7 @@ export default function PubHome() {
                         </p>
                         <div className="space-y-1.5">
                           {ticketsOpen.slice(0, 2).map(t => (
-                            <ActionRow key={t.id} label={t.title} sub={t.demandTitle ?? undefined} href="/pub/tickets" navigate={navigate} />
+                            <ActionRow key={t.id} label={t.title} sub={t.demandTitle ?? undefined} href={`/pub/tickets/${t.id}`} navigate={navigate} />
                           ))}
                           {ticketsOpen.length > 2 && (
                             <button onClick={() => navigate("/pub/tickets")} className="w-full text-xs font-bold text-primary text-center py-1 hover:underline">

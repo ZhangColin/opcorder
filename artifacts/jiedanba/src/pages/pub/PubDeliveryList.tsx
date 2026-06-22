@@ -59,12 +59,7 @@ export default function PubDeliveryList() {
 
   return (
     <PubLayout>
-      <div className="py-6 space-y-6">
-        <div>
-          <h2 className="text-2xl font-black text-blue-900 mb-1">交付确认</h2>
-          <p className="text-sm text-slate-500">运营方提交的交付物，点击查看详情并沟通</p>
-        </div>
-
+      <div className="py-4 space-y-5">
         <div className="flex gap-2 flex-wrap">
           {FILTER_TABS.map(tab => (
             <button
