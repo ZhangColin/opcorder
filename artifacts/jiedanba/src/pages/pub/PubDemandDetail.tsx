@@ -979,8 +979,10 @@ export default function PubDemandDetail() {
                           <>
                             {full.description && (
                               <div className="pt-4">
-                                <p className="text-xs font-bold text-slate-500 mb-1">问题描述</p>
-                                <p className="text-sm text-slate-600 whitespace-pre-wrap">{full.description}</p>
+                                <p className="text-xs font-bold text-slate-500 mb-2">问题描述</p>
+                                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 prose prose-sm max-w-none">
+                                  <MarkdownContent content={full.description} />
+                                </div>
                               </div>
                             )}
                             {full.attachments?.length > 0 && (
@@ -1077,8 +1079,8 @@ export default function PubDemandDetail() {
                       {d.content && (
                         <div className={d.url ? "" : "pt-4"}>
                           <p className="text-xs font-bold text-slate-500 mb-2">交付说明</p>
-                          <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{d.content}</p>
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 prose prose-sm max-w-none">
+                            <MarkdownContent content={d.content} />
                           </div>
                         </div>
                       )}
