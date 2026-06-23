@@ -164,11 +164,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const [editSettleForm, setEditSettleForm] = useState({ description: "", amount: "", dueDate: "", isLastItem: false });
   const [settleActing, setSettleActing] = useState(false);
 
-  /* Mark paid inline panel */
-  const [markPaidId, setMarkPaidId] = useState<number | null>(null);
-  const [markPaidVoucher, setMarkPaidVoucher] = useState("");
-  const [markPaidNote, setMarkPaidNote] = useState("");
-
   /* Ticket modal */
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketTitle, setTicketTitle] = useState("");
@@ -209,6 +204,14 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
+
+  /* 静默刷新结算列表（不触发全局 loading 动画） */
+  const softReloadSettlements = async () => {
+    try {
+      const sp = await v2Get<SettlementPlan[]>(`/settlement-plans?outsourceOrderId=${id}`);
+      setSettlements(Array.isArray(sp) ? sp : []);
+    } catch { /* ignore */ }
+  };
 
   const act = async (fn: () => Promise<unknown>, msg: string) => {
     setActing(true);
@@ -324,7 +327,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       toast({ title: "结算付款项已创建" });
       setShowAddSettlement(false);
       setAddSettleForm({ description: "", amount: "", dueDate: "", isLastItem: false });
-      await load();
+      await softReloadSettlements();
     } catch (err: any) {
       toast({ title: "创建失败", description: err.message, variant: "destructive" });
     } finally {
@@ -346,28 +349,9 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       });
       toast({ title: "结算计划已更新" });
       setEditSettleId(null);
-      await load();
+      await softReloadSettlements();
     } catch (err: any) {
       toast({ title: "保存失败", description: err.message, variant: "destructive" });
-    } finally {
-      setSettleActing(false);
-    }
-  };
-
-  const handleMarkPaid = async (planId: number) => {
-    setSettleActing(true);
-    try {
-      await v2Post(`/settlement-plans/${planId}/mark-paid`, {
-        paymentVoucherUrl: markPaidVoucher.trim() || undefined,
-        paymentNote: markPaidNote.trim() || undefined,
-      });
-      toast({ title: "已标记打款，OPC已收到通知" });
-      setMarkPaidId(null);
-      setMarkPaidVoucher("");
-      setMarkPaidNote("");
-      await load();
-    } catch (err: any) {
-      toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally {
       setSettleActing(false);
     }
@@ -379,7 +363,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     try {
       await v2Delete(`/settlement-plans/${planId}`);
       toast({ title: "结算计划已删除" });
-      await load();
+      await softReloadSettlements();
     } catch (err: any) {
       toast({ title: "删除失败", description: err.message, variant: "destructive" });
     } finally {
@@ -746,7 +730,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
               <div className="mt-3 space-y-2">
                 {/* 内联添加表单 */}
                 {showAddSettlement && (
-                  <div className="border border-primary/30 rounded-xl p-3 bg-primary/5 space-y-2">
+                  <div className="border border-amber-300 rounded-xl p-3 bg-amber-50/50 space-y-2">
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -880,40 +864,21 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                                   className="text-xs text-red-500 hover:underline disabled:opacity-50"
                                 >删除</button>
                                 <button
-                                  onClick={() => { setMarkPaidId(s.id); setMarkPaidVoucher(""); setMarkPaidNote(""); }}
+                                  onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${s.id}`) : navigate(`/admin/v2/payments-b/${s.id}`)}
                                   className="text-xs text-green-600 hover:underline font-bold"
-                                >标记已付款</button>
+                                >打款详情</button>
+                              </div>
+                            )}
+                            {s.status === "paid" && (
+                              <div className="flex items-center justify-end mt-1">
+                                <button
+                                  onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${s.id}`) : navigate(`/admin/v2/payments-b/${s.id}`)}
+                                  className="text-xs text-slate-400 hover:underline"
+                                >查看详情</button>
                               </div>
                             )}
                           </div>
                         </div>
-                        {/* 标记已付款内联面板 */}
-                        {markPaidId === s.id && (
-                          <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                            <input
-                              type="text"
-                              placeholder="付款凭证链接（可选）"
-                              value={markPaidVoucher}
-                              onChange={e => setMarkPaidVoucher(e.target.value)}
-                              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-200"
-                            />
-                            <input
-                              type="text"
-                              placeholder="备注（可选）"
-                              value={markPaidNote}
-                              onChange={e => setMarkPaidNote(e.target.value)}
-                              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-200"
-                            />
-                            <div className="flex gap-2">
-                              <button onClick={() => handleMarkPaid(s.id)} disabled={settleActing}
-                                className="bg-green-600 text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50 hover:bg-green-700">
-                                {settleActing ? "处理中…" : "确认已打款"}
-                              </button>
-                              <button onClick={() => setMarkPaidId(null)}
-                                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>

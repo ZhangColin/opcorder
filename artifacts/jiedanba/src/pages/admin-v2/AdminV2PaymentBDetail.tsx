@@ -43,6 +43,13 @@ interface TicketB {
   isBlockingPayment: boolean | null;
 }
 
+interface OutsourceOrder {
+  id: number;
+  orderNo: string;
+  demandTitle: string | null;
+  status: string;
+}
+
 export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -51,6 +58,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
   const { toast } = useToast();
 
   const [item, setItem] = useState<SettlementPlan | null>(null);
+  const [order, setOrder] = useState<OutsourceOrder | null>(null);
   const [blockingTickets, setBlockingTickets] = useState<TicketB[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -63,7 +71,11 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
     try {
       const d = await v2Get<SettlementPlan>(`/settlement-plans/${id}`);
       setItem(d);
-      const tickets = await v2Get<TicketB[]>(`/tickets-b?outsourceOrderId=${d.outsourceOrderId}`);
+      const [ord, tickets] = await Promise.all([
+        v2Get<OutsourceOrder>(`/outsource-orders/${d.outsourceOrderId}`),
+        v2Get<TicketB[]>(`/tickets-b?outsourceOrderId=${d.outsourceOrderId}`),
+      ]);
+      setOrder(ord);
       setBlockingTickets(tickets.filter(t => t.status === "open" && t.isBlockingPayment));
     } catch {
       setItem(null);
@@ -97,10 +109,24 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
 
   const isOvd = item.status === "pending" && !!item.dueDate && new Date(item.dueDate) < new Date();
   const displayName = item.description ?? `第${item.itemNo ?? 1}期结算款`;
+  const contractNotSigned = order?.status === "pending_contract";
+  const hasBlockingTickets = item.isLastItem && blockingTickets.length > 0;
+  const cannotPay = contractNotSigned || hasBlockingTickets;
 
   return (
     <AdminV2Layout title={displayName} backHref="/admin/v2/payments-b" backLabel="结算付款 (B)">
       <div className="mt-6 space-y-4">
+        {/* 所属订单快捷跳转 */}
+        {order && (
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <span>所属外包订单：</span>
+            <button
+              onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${order.id}`) : navigate(`/admin/v2/outsource-orders/${order.id}`)}
+              className="text-primary hover:underline font-medium"
+            >{order.orderNo}{order.demandTitle ? ` · ${order.demandTitle}` : ""}</button>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -121,7 +147,11 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
             {item.status === "pending" && (
               <button
                 onClick={() => {
-                  if (item.isLastItem && blockingTickets.length > 0) {
+                  if (contractNotSigned) {
+                    toast({ title: "无法打款", description: "合同尚未签订完成，请等待双方签约后再操作", variant: "destructive" });
+                    return;
+                  }
+                  if (hasBlockingTickets) {
                     toast({ title: "无法打款", description: `存在 ${blockingTickets.length} 个阻断付款的未关闭工单，请先处理工单`, variant: "destructive" });
                     return;
                   }
@@ -129,7 +159,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
                 }}
                 disabled={acting}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
-                  item.isLastItem && blockingTickets.length > 0
+                  cannotPay
                     ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                     : "bg-violet-600 text-white hover:bg-violet-700"
                 }`}>
@@ -139,7 +169,20 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
           </div>
         </div>
 
-        {item.isLastItem && blockingTickets.length > 0 && item.status === "pending" && (
+        {/* 合同未签订警告 */}
+        {contractNotSigned && item.status === "pending" && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-700 mb-1">合同尚未签订</p>
+                <p className="text-xs text-amber-600">双方合同签订完成后方可标记打款。请先完成合同签约流程。</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hasBlockingTickets && item.status === "pending" && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
             <div className="flex items-start gap-3">
               <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
