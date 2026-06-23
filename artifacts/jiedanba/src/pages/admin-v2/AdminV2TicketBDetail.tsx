@@ -110,7 +110,7 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
               <Package size={18} className="text-violet-500" />
@@ -149,7 +149,7 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-sm font-bold text-slate-700 mb-4">与OPC的讨论</h3>
           <DiscussionThread parentType="ticket_b" parentId={id} placeholder="回复OPC…" readOnly={!isOpen} onAfterPost={() => markRead("ticket_b", id)} />
         </div>

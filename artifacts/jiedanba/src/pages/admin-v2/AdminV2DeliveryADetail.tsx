@@ -206,7 +206,7 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
         }
       >
         <div className="mt-6 space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-100 p-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                 <PackageCheck size={18} className="text-emerald-500" />
@@ -272,7 +272,7 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-100 p-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-700 mb-4">沟通记录</h3>
             <DiscussionThread parentType="deliverable_a" parentId={id} placeholder="回复发单方…" />
           </div>

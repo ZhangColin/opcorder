@@ -81,7 +81,7 @@ const ORDER_STATUS: Record<string, { label: string; color: string }> = {
 /* ─── Helpers ─────────────────────────────────────────────── */
 function StatCard({ label, value, sub, accent }: { label: string; value: number; sub?: string; accent?: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-4">
+    <div className="bg-white rounded-2xl border border-slate-200 p-4">
       <p className="text-xs text-slate-400 font-medium mb-1">{label}</p>
       <p className={`text-2xl font-extrabold ${accent ?? "text-blue-900"}`}>{value}</p>
       {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
@@ -362,7 +362,7 @@ export default function AdminV2Overview() {
                 { label: "结算待打款", val: statsData.settlementStats.pendingPay,  href: "/admin/v2/payments-b", icon: Wallet,     iconColor: "text-violet-500",bg: "bg-violet-50",accent: "text-violet-600" },
               ].map(({ label, val, href, icon: Icon, iconColor, bg, accent }) => (
                 <button key={label} onClick={() => go(href)}
-                  className="flex items-center gap-3 bg-white rounded-2xl border border-slate-100 p-4 text-left hover:border-primary/20 hover:shadow-sm transition-all group">
+                  className="flex items-center gap-3 bg-white rounded-2xl border border-slate-200 p-4 text-left hover:border-primary/20 hover:shadow-sm transition-all group">
                   <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                     <Icon size={18} className={iconColor} />
                   </div>
@@ -376,7 +376,7 @@ export default function AdminV2Overview() {
             </div>
 
             {statsData.recentDemands.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-100 p-5">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-slate-700">最近客户需求</h3>
                   <button onClick={() => go("/admin/v2/client-demands")}

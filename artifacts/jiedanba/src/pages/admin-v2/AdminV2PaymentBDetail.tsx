@@ -101,7 +101,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
   return (
     <AdminV2Layout title={displayName} backHref="/admin/v2/payments-b" backLabel="结算付款 (B)">
       <div className="mt-6 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-2">

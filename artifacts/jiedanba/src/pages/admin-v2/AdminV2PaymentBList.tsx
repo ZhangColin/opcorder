@@ -116,7 +116,7 @@ export default function AdminV2PaymentBList() {
             <Loader2 size={20} className="animate-spin mr-2" /> 加载中…
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-slate-100">
+          <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-slate-200">
             <Wallet size={36} className="text-slate-300 mb-3" />
             <p className="text-base font-semibold text-slate-500">暂无结算付款项</p>
             <p className="text-xs text-slate-400 mt-1">OPC 完成交付后将生成结算计划</p>

@@ -183,7 +183,7 @@ function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white rounded-2xl border border-slate-100">
+    <div className="bg-white rounded-2xl border border-slate-200">
       <div className="flex items-center w-full px-5 py-4 border-b border-slate-100">
         <button onClick={() => setOpen(v => !v)} className="flex items-center gap-2 flex-1 text-left">
           <Icon size={15} className="text-primary shrink-0" />
@@ -652,7 +652,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
       <div className="mt-6 space-y-4">
 
         {/* ── 基本信息卡（始终显示，Tab 上方）── */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
             {demand.isUrgent && (
@@ -788,7 +788,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
 
         {/* ── Tab 导航（两个及以上 tab 才显示） ── */}
         {visibleTabs.length > 1 && (
-          <div className="flex gap-1 bg-white rounded-2xl border border-slate-100 p-1">
+          <div className="flex gap-1 bg-white rounded-2xl border border-slate-200 p-1">
             {visibleTabs.map(tab => {
               const openTickets = tickets.filter(t => t.status === "open").length;
               const badge = tab === "delivery" ? (deliverables.length > 0 ? deliverables.length : null)
@@ -1237,7 +1237,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
 
             {/* 空态 */}
             {deliverables.length === 0 && (
-              <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center">
+              <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
                 <CheckCircle2 size={32} className="mx-auto mb-3 text-slate-200" />
                 <p className="text-sm text-slate-400">暂无交付记录</p>
                 {canCreateDeliverable && <p className="text-xs text-slate-300 mt-1">点击右上角「新建交付记录」开始提交</p>}
@@ -1256,7 +1256,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               };
               const sc = statusCfg[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };
               return (
-                <div key={d.id} className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                <div key={d.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                   {/* Card header */}
                   <button
                     className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"

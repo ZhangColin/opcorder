@@ -79,7 +79,7 @@ export default function AdminV2DeliveryBList() {
               const go = () => inlineNav ? inlineNav.push(`/admin/v2/deliveries-b/${item.id}`) : navigate(`/admin/v2/deliveries-b/${item.id}`);
               return (
                 <button key={item.id} onClick={go}
-                  className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
+                  className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="text-[15px] font-bold text-slate-800 truncate">{item.title}</span>
                     <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>

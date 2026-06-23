@@ -87,7 +87,7 @@ const PAY_STATUS: Record<string, { label: string; color: string }> = {
 
 function Section({ title, icon: Icon, children }: { title: string; icon?: React.ElementType; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5">
+    <div className="bg-white rounded-2xl border border-slate-200 p-6">
       <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-1.5">
         {Icon && <Icon size={14} className="text-slate-400" />}
         {title}
@@ -243,7 +243,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
       <div className="mt-6 space-y-4">
 
         {/* ── 头部信息卡 ── */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -433,7 +433,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
         {demand && (() => {
           const ds = DEMAND_STATUS[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
           return (
-            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                   <FileText size={14} className="text-slate-400" /> 关联需求

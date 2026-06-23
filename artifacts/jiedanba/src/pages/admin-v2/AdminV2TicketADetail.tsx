@@ -99,7 +99,7 @@ export default function AdminV2TicketADetail({ inlineId }: { inlineId?: number }
       }
     >
       <div className="mt-6 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
               <Wrench size={18} className="text-blue-500" />
@@ -145,7 +145,7 @@ export default function AdminV2TicketADetail({ inlineId }: { inlineId?: number }
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-sm font-bold text-slate-700 mb-4">讨论与回复</h3>
           <DiscussionThread parentType="ticket_a" parentId={id} placeholder="回复发单方…" readOnly={!isOpen} onAfterPost={() => markRead("ticket_a", id)} />
         </div>

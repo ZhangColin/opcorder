@@ -78,7 +78,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5">
+    <div className="bg-white rounded-2xl border border-slate-200 p-6">
       <h3 className="text-sm font-bold text-slate-700 mb-4">{title}</h3>
       {children}
     </div>
@@ -283,7 +283,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       }
     >
       <div className="mt-6 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-center gap-2 mb-2">
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
             <span className="text-xs text-slate-400 font-mono">{order.orderNo}</span>

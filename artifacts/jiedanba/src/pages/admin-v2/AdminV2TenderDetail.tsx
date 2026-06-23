@@ -109,7 +109,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
       backLabel="投标管理"
     >
       <div className="mt-6 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -175,7 +175,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-sm font-bold text-slate-700 mb-4">与 {tender.opcNickname ?? "OPC"} 的私密讨论</h3>
           <DiscussionThread parentType="v2_tender" parentId={id} placeholder="与OPC私密沟通…" />
         </div>

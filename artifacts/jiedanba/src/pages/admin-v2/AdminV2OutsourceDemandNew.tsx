@@ -235,7 +235,7 @@ export default function AdminV2OutsourceDemandNew() {
         <div className="space-y-5">
 
           {/* ── 基本信息 ── */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
             <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
               <span className="w-1 h-4 bg-primary rounded-full inline-block" />
               基本信息
@@ -404,7 +404,7 @@ export default function AdminV2OutsourceDemandNew() {
           </div>
 
           {/* ── 需求详情 ── */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-3">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-3">
             <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
               <span className="w-1 h-4 bg-primary rounded-full inline-block" />
               需求详情
@@ -417,7 +417,7 @@ export default function AdminV2OutsourceDemandNew() {
           </div>
 
           {/* ── 里程碑 ── */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-3">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                 <span className="w-1 h-4 bg-primary rounded-full inline-block" />

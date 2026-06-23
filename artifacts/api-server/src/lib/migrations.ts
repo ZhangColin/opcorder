@@ -2107,5 +2107,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 033a: added payment_order_no column to v2_payment_plans");
   });
 
+  // Migration 033b: add v2_tender to v2_discussion_parent_type enum
+  await once("033b", true, async () => {
+    await db.execute(sql`
+      ALTER TYPE v2_discussion_parent_type ADD VALUE IF NOT EXISTS 'v2_tender'
+    `);
+    logger.info("Migration 033b: added v2_tender to v2_discussion_parent_type enum");
+  });
+
   logger.info("Startup data migrations complete.");
 }

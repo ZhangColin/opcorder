@@ -7,7 +7,7 @@ import {
   UserPlus, Search, ChevronDown, ChevronUp, Plus, Trash2,
   DollarSign, MessageSquare,
 } from "lucide-react";
-import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
+import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -249,7 +249,7 @@ export default function AdminV2OutsourceDemandDetail({
       <div className="mt-6 space-y-4">
 
         {/* ── 基本信息卡 ── */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
             <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
@@ -336,15 +336,11 @@ export default function AdminV2OutsourceDemandDetail({
           <div className="space-y-4">
 
             {/* 需求详情内容 */}
-            <div className="bg-white rounded-2xl border border-slate-100">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <FileText size={15} className="text-primary" />
-                  <span className="text-sm font-bold text-slate-700">需求详情</span>
-                  {demand.latestVersion && (
-                    <span className="text-xs text-slate-400">v{demand.latestVersion.versionNo}</span>
-                  )}
-                </div>
+            <Section
+              title={`需求详情${demand.latestVersion ? ` · v${demand.latestVersion.versionNo}` : ""}`}
+              icon={FileText}
+              collapsible={false}
+              actions={
                 <div className="flex items-center gap-3">
                   {canEdit && !editMode && (
                     <button onClick={() => {
@@ -361,8 +357,9 @@ export default function AdminV2OutsourceDemandDetail({
                     </button>
                   )}
                 </div>
-              </div>
-              <div className="px-5 py-4">
+              }
+            >
+              <div className="pt-4">
                 {editMode ? (
                   <div className="space-y-3">
                     <MarkdownEditor key={`detail-edit-${id}`} value={editDetail} onChange={setEditDetail} placeholder="输入需求详情，支持 Markdown 富文本…" />
@@ -414,25 +411,21 @@ export default function AdminV2OutsourceDemandDetail({
                   </div>
                 )}
               </div>
-            </div>
+            </Section>
 
             {/* 里程碑 */}
-            <div className="bg-white rounded-2xl border border-slate-100">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <Calendar size={15} className="text-primary" />
-                  <span className="text-sm font-bold text-slate-700">
-                    里程碑{demand.milestones?.length > 0 ? `（${demand.milestones.length}）` : ""}
-                  </span>
-                </div>
-                {canEdit && !milestoneEditMode && (
-                  <button onClick={() => { setEditMilestones(demand.milestones?.length > 0 ? demand.milestones.map(m => ({ ...m })) : [{ name: "", deadline: "", description: "" }]); setMilestoneEditMode(true); }}
-                    className="flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Edit2 size={11} /> 编辑
-                  </button>
-                )}
-              </div>
-              <div className="px-5 py-4">
+            <Section
+              title={`里程碑${demand.milestones?.length > 0 ? `（${demand.milestones.length}）` : ""}`}
+              icon={Calendar}
+              collapsible={false}
+              actions={canEdit && !milestoneEditMode ? (
+                <button onClick={() => { setEditMilestones(demand.milestones?.length > 0 ? demand.milestones.map(m => ({ ...m })) : [{ name: "", deadline: "", description: "" }]); setMilestoneEditMode(true); }}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Edit2 size={11} /> 编辑
+                </button>
+              ) : undefined}
+            >
+              <div className="pt-4">
                 {milestoneEditMode ? (
                   <div className="space-y-3">
                     {editMilestones.map((m, i) => (
@@ -489,7 +482,7 @@ export default function AdminV2OutsourceDemandDetail({
                   <p className="text-sm text-slate-400">暂无里程碑{canEdit && <button onClick={() => { setEditMilestones([{ name: "", deadline: "", description: "" }]); setMilestoneEditMode(true); }} className="ml-2 text-primary hover:underline">添加</button>}</p>
                 )}
               </div>
-            </div>
+            </Section>
 
           </div>
         )}
@@ -554,7 +547,7 @@ export default function AdminV2OutsourceDemandDetail({
 
             {/* 投标人手风琴列表 */}
             {tenders.length === 0 ? (
-              <div className="text-center py-16 text-slate-400 text-sm bg-white rounded-2xl border border-slate-100">暂无投标</div>
+              <div className="text-center py-16 text-slate-400 text-sm bg-white rounded-2xl border border-slate-200">暂无投标</div>
             ) : (
               <div className="space-y-2">
                 {tenders.map(t => {
@@ -564,7 +557,7 @@ export default function AdminV2OutsourceDemandDetail({
                   const canCancel = ["quoted", "negotiating"].includes(t.status) && demand.status === "negotiating";
                   return (
                     <div key={t.id} ref={el => { tenderRefs.current[t.id] = el; }}
-                      className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
                       {/* 手风琴头部 */}
                       <button
                         onClick={() => setExpandedTenderId(isExpanded ? null : t.id)}

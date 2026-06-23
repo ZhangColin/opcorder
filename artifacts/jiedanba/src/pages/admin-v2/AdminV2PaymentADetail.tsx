@@ -101,7 +101,7 @@ export default function AdminV2PaymentADetail({ inlineId }: { inlineId?: number 
   return (
     <AdminV2Layout title={item.title} backHref="/admin/v2/payments-a" backLabel="收款管理 (A)">
       <div className="mt-6 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-100 p-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -131,7 +131,7 @@ export default function AdminV2PaymentADetail({ inlineId }: { inlineId?: number 
         </div>
 
         {item.voucherUrl && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-700 mb-3">发单方上传的支付凭证</h3>
             {item.voucherUploadedAt && (
               <p className="text-xs text-slate-400 mb-3">上传于 {new Date(item.voucherUploadedAt).toLocaleString("zh-CN")}</p>
