@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutGrid, Search, FileText, Package, Wallet, Wrench, LogOut, X, PackageCheck,
 } from "lucide-react";
-import { SiteLogo } from "@/components/SiteLogo";
 import { clearSession } from "@/lib/auth";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -62,17 +61,11 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
 
   const content = (
     <>
-      <div className="mb-4 px-2 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <SiteLogo size={30} />
-          <div>
-            <h2 className="text-base font-extrabold text-primary leading-tight font-display">OPC 工作台</h2>
-            <p className="text-[10px] text-slate-400 uppercase tracking-widest">接单吧</p>
-          </div>
-        </div>
+      <div className="mb-2 flex items-center justify-between shrink-0 lg:hidden">
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">OPC 工作台</p>
         <button
           onClick={close}
-          className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
         >
           <X size={18} />
         </button>
@@ -102,7 +95,7 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
 
   return (
     <>
-      <aside className="hidden lg:flex h-screen w-60 fixed left-0 top-0 z-50 bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1">
+      <aside className="hidden lg:flex w-60 fixed left-0 top-16 sm:top-20 z-40 bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1" style={{ height: "calc(100vh - 64px)" }}>
         {content}
       </aside>
       {mobileOpen && (
