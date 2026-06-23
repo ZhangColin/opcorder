@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "wouter";
-import { AlertCircle, Upload, X, Loader2, Zap, Bot } from "lucide-react";
+import { AlertCircle, Upload, X, Loader2, Zap, Bot, ChevronDown } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
@@ -93,6 +93,7 @@ export default function PubCreateDemand() {
     const e: Record<string, string> = {};
     if (!title.trim()) e.title = "请填写需求标题";
     else if (title.length > 80) e.title = "标题不超过80字";
+    if (!demandType) e.demandType = "请选择需求类型";
     if (budgetMin && isNaN(Number(budgetMin))) e.budget = "预算格式不正确";
     if (budgetMax && isNaN(Number(budgetMax))) e.budget = "预算格式不正确";
     if (budgetMin && budgetMax && Number(budgetMin) > Number(budgetMax)) e.budget = "最高预算不能低于最低预算";
@@ -225,15 +226,18 @@ export default function PubCreateDemand() {
           </FormField>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <FormField label="需求类型">
-              <select
-                value={demandType}
-                onChange={e => setDemandType(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-              >
-                <option value="">请选择（可选）</option>
-                {demandTypes.map(t => <option key={t.id} value={t.code}>{t.name}</option>)}
-              </select>
+            <FormField label="需求类型" required error={errors.demandType}>
+              <div className="relative">
+                <select
+                  value={demandType}
+                  onChange={e => setDemandType(e.target.value)}
+                  className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2.5 pr-9 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                >
+                  <option value="">请选择</option>
+                  {demandTypes.map(t => <option key={t.id} value={t.code}>{t.name}</option>)}
+                </select>
+                <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
             </FormField>
 
             <FormField label="希望交付日期">
@@ -242,7 +246,7 @@ export default function PubCreateDemand() {
                 value={hopeDeliveryDate}
                 onChange={e => setHopeDeliveryDate(e.target.value)}
                 min={today}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
               />
             </FormField>
           </div>
