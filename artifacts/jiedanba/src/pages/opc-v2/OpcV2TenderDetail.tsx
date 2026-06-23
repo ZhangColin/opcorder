@@ -552,7 +552,8 @@ export default function OpcV2TenderDetail() {
               {!showForm && (
                 <button
                   onClick={() => {
-                    if (hasQuoteCard) {
+                    const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
+                    if (category) {
                       setShowQuoteOverlay(true);
                     } else {
                       if (tender.totalPrice) {
