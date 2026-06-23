@@ -66,7 +66,7 @@ export default function AdminV2TenderList() {
             <p className="text-xs font-bold text-blue-700 mb-2">📋 有新报价（{highlighted.length} 件）</p>
             <div className="flex flex-wrap gap-2">
               {highlighted.slice(0, 6).map(t => (
-                <button key={t.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tenders/${t.id}`) : navigate(`/admin/v2/tenders/${t.id}`)}
+                <button key={t.id} onClick={() => { const target = `/admin/v2/outsource-demands/${t.outsourceDemandId}?tab=tenders&tenderId=${t.id}`; inlineNav ? inlineNav.push(target) : navigate(target); }}
                   className="text-xs bg-white border border-blue-200 rounded-xl px-3 py-1.5 text-blue-800 hover:bg-blue-100">
                   {t.opcNickname ?? "OPC"} — {t.demandTitle ?? "外包需求"}
                   {t.totalPrice != null && <span className="ml-1 font-bold">¥{t.totalPrice.toLocaleString()}</span>}
@@ -96,7 +96,10 @@ export default function AdminV2TenderList() {
             {items.map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               const highlight = t.status === "quoted";
-              const go = () => inlineNav ? inlineNav.push(`/admin/v2/tenders/${t.id}`) : navigate(`/admin/v2/tenders/${t.id}`);
+              const go = () => {
+                const target = `/admin/v2/outsource-demands/${t.outsourceDemandId}?tab=tenders&tenderId=${t.id}`;
+                inlineNav ? inlineNav.push(target) : navigate(target);
+              };
               return (
                 <button key={t.id} onClick={go}
                   className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${

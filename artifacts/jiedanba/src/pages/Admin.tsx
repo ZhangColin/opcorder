@@ -9944,6 +9944,11 @@ function ModuleContent({ module }: { module: Module }) {
     const outsourceMatch = inlineRoute.match(/\/admin\/v2\/outsource-demands\/(\d+)/);
     if (outsourceMatch) {
       const inlineId = parseInt(outsourceMatch[1], 10);
+      const qIdx = inlineRoute.indexOf("?");
+      const qp = qIdx >= 0 ? new URLSearchParams(inlineRoute.slice(qIdx + 1)) : new URLSearchParams();
+      const initialTab = qp.get("tab") === "tenders" ? "tenders" as const : "detail" as const;
+      const tIdStr = qp.get("tenderId");
+      const initialTenderId = tIdStr ? parseInt(tIdStr, 10) : undefined;
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
@@ -9951,7 +9956,7 @@ function ModuleContent({ module }: { module: Module }) {
               className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
               ← 返回 OPC 需求列表
             </button>
-            <AdminV2OutsourceDemandDetail inlineId={inlineId} />
+            <AdminV2OutsourceDemandDetail inlineId={inlineId} initialTab={initialTab} initialTenderId={initialTenderId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
       );
