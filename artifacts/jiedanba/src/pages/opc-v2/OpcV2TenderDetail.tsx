@@ -510,68 +510,64 @@ export default function OpcV2TenderDetail() {
           </div>
         )}
 
-        {/* My quote */}
-        {tender.priceBreakdown && tender.priceBreakdown.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
-              <DollarSign size={16} className="text-emerald-600" />
-              <h3 className="font-bold text-slate-800">我的报价明细</h3>
-              {tender.totalPrice && (
-                <span className="ml-auto text-base font-black text-emerald-700">总计 ¥{tender.totalPrice.toLocaleString()}</span>
-              )}
-            </div>
-            <div className="divide-y divide-slate-50">
-              {tender.priceBreakdown.map((row, i) => (
-                <div key={i} className="flex items-center justify-between px-5 py-3 text-sm">
-                  <div>
-                    <p className="font-medium text-slate-700">{row.item}</p>
-                    {row.note && <p className="text-xs text-slate-400 mt-0.5">{row.note}</p>}
-                  </div>
-                  <p className="font-bold text-slate-800">¥{row.amount.toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
-            {tender.quotedAt && (
-              <div className="px-5 py-3 bg-slate-50 text-xs text-slate-400">
-                提交于 {new Date(tender.quotedAt).toLocaleDateString("zh-CN")}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Quote form */}
-        {canSubmitQuote && (
+        {/* Quote block — breakdown + action merged */}
+        {(tender.priceBreakdown?.length > 0 || canSubmitQuote) && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Send size={16} className="text-emerald-600" />
-                <h3 className="font-bold text-slate-800">
-                  {tender.totalPrice ? "修改报价" : "提交报价"}
-                </h3>
+                <DollarSign size={16} className="text-emerald-600" />
+                <h3 className="font-bold text-slate-800">我的报价</h3>
               </div>
-              {!showForm && (
-                <button
-                  onClick={() => {
-                    const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
-                    if (category) {
-                      setShowQuoteOverlay(true);
-                    } else {
-                      if (tender.totalPrice) {
-                        setTotalPrice(String(tender.totalPrice));
-                        setBreakdown(tender.priceBreakdown?.length > 0 ? tender.priceBreakdown : [{ item: "", amount: 0, note: "" }]);
+              <div className="flex items-center gap-3">
+                {tender.totalPrice && (
+                  <span className="text-base font-black text-emerald-700">¥{tender.totalPrice.toLocaleString()}</span>
+                )}
+                {canSubmitQuote && !showForm && (
+                  <button
+                    onClick={() => {
+                      const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
+                      if (category) {
+                        setShowQuoteOverlay(true);
+                      } else {
+                        if (tender.totalPrice) {
+                          setTotalPrice(String(tender.totalPrice));
+                          setBreakdown(tender.priceBreakdown?.length > 0 ? tender.priceBreakdown : [{ item: "", amount: 0, note: "" }]);
+                        }
+                        setShowForm(true);
                       }
-                      setShowForm(true);
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-emerald-700 text-white text-xs font-bold rounded-lg hover:bg-emerald-800 transition-colors"
-                >
-                  {tender.totalPrice ? "修改报价" : "填写报价"}
-                </button>
-              )}
+                    }}
+                    className="px-3 py-1.5 bg-emerald-700 text-white text-xs font-bold rounded-lg hover:bg-emerald-800 transition-colors"
+                  >
+                    {tender.totalPrice ? "修改报价" : "填写报价"}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {!showForm && !tender.totalPrice && (
-              <div className="px-5 py-4 text-sm text-slate-500">
+            {tender.priceBreakdown && tender.priceBreakdown.length > 0 && (
+              <div className="divide-y divide-slate-50">
+                {tender.priceBreakdown.map((row, i) => (
+                  <div key={i} className="flex items-start justify-between px-5 py-3 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-700">{row.item}</p>
+                      {row.note && <p className="text-xs text-slate-400 mt-0.5">{row.note}</p>}
+                    </div>
+                    {row.amount !== 0 && (
+                      <p className="font-bold text-slate-800 ml-4 shrink-0">¥{row.amount.toLocaleString()}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tender.quotedAt && !showForm && (
+              <div className="px-5 py-3 bg-slate-50 text-xs text-slate-400 border-t border-slate-100">
+                提交于 {new Date(tender.quotedAt).toLocaleDateString("zh-CN")}
+              </div>
+            )}
+
+            {canSubmitQuote && !showForm && !tender.totalPrice && (
+              <div className="px-5 py-4 text-sm text-slate-500 border-t border-slate-50">
                 💡 在下方讨论区与平台确认方案后，提交报价才算正式投标。
               </div>
             )}
