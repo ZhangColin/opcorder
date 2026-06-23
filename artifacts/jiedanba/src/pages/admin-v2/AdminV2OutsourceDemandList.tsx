@@ -14,6 +14,8 @@ interface OutsourceDemand {
   isUrgent: boolean;
   mode: string;
   clientDemandId: number | null;
+  clientDemandTitle: string | null;
+  clientDemandNo: string | null;
   status: string;
   tenderCount?: number;
   createdAt: string;
@@ -138,10 +140,13 @@ export default function AdminV2OutsourceDemandList() {
                         <p className="text-[10px] text-slate-400 uppercase tracking-wider">模式</p>
                         <p className="text-sm text-slate-600">{d.mode === "public" ? "公开抢单" : "指定邀请"}</p>
                       </div>
-                      {d.clientDemandId && (
-                        <div>
+                      {d.clientDemandTitle && (
+                        <div className="min-w-0">
                           <p className="text-[10px] text-slate-400 uppercase tracking-wider">关联客需</p>
-                          <p className="text-sm text-slate-600">#{d.clientDemandId}</p>
+                          <p className="text-sm text-slate-600 truncate max-w-[12rem]">
+                            {d.clientDemandTitle}
+                            {d.clientDemandNo && <span className="text-slate-400"> · {d.clientDemandNo}</span>}
+                          </p>
                         </div>
                       )}
                       <div>

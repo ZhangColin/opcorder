@@ -51,6 +51,8 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
         id: v2OutsourceDemandsTable.id,
         demandNo: v2OutsourceDemandsTable.demandNo,
         clientDemandId: v2OutsourceDemandsTable.clientDemandId,
+        clientDemandTitle: v2ClientDemandsTable.title,
+        clientDemandNo: v2ClientDemandsTable.demandNo,
         title: v2OutsourceDemandsTable.title,
         demandType: v2OutsourceDemandsTable.demandType,
         isUrgent: v2OutsourceDemandsTable.isUrgent,
@@ -63,6 +65,7 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
         updatedAt: v2OutsourceDemandsTable.updatedAt,
       })
       .from(v2OutsourceDemandsTable)
+      .leftJoin(v2ClientDemandsTable, eq(v2OutsourceDemandsTable.clientDemandId, v2ClientDemandsTable.id))
       .where(whereClause)
       .orderBy(desc(v2OutsourceDemandsTable.createdAt))
       .limit(lim)
