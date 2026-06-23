@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { Loader2, X, Trash2, Scissors, ChevronDown, Check } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post } from "@/lib/v2api";
+import { v2Get, v2Post, STORAGE_BASE } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { AiSplitPanel, type SplitSuggestion } from "@/components/agent/AiSplitPanel";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -103,6 +103,8 @@ export default function AdminV2OutsourceDemandNew() {
 
   const [clientDemands, setClientDemands] = useState<ClientDemand[]>([]);
   const [loadingDemands, setLoadingDemands] = useState(true);
+  const [catCategories, setCatCategories] = useState<{ id: number; name: string }[]>([]);
+  const [loadingCats, setLoadingCats] = useState(true);
   const [splitPanelOpen, setSplitPanelOpen] = useState(false);
   const [splitClientDemand, setSplitClientDemand] = useState<{ id: number; title: string; detail?: string | null } | null>(null);
 
@@ -111,6 +113,11 @@ export default function AdminV2OutsourceDemandNew() {
       .then(d => setClientDemands(d.items ?? []))
       .catch(() => setClientDemands([]))
       .finally(() => setLoadingDemands(false));
+    fetch(`${STORAGE_BASE}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: { id: number; name: string }[]) => setCatCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCatCategories([]))
+      .finally(() => setLoadingCats(false));
   }, []);
 
   const handleImportDetail = async () => {
@@ -284,11 +291,12 @@ export default function AdminV2OutsourceDemandNew() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-wide">需求类型</label>
-                <input
+                <CustomSelect
                   value={demandType}
-                  onChange={e => setDemandType(e.target.value)}
-                  placeholder="如：营销策划、IT 开发"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                  onChange={setDemandType}
+                  options={catCategories.map(c => ({ value: c.name, label: c.name }))}
+                  placeholder="请选择需求分类"
+                  loading={loadingCats}
                 />
               </div>
               <div>
