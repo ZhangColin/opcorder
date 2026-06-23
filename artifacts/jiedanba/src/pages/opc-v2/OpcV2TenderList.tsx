@@ -152,18 +152,19 @@ export default function OpcV2TenderList() {
         ) : (
           <div className="space-y-2">
             {[...filtered].sort((a, b) =>
-              (hasUnread("outsource", b.outsourceDemandId, b.demandUpdatedAt) ? 1 : 0) -
-              (hasUnread("outsource", a.outsourceDemandId, a.demandUpdatedAt) ? 1 : 0)
+              (hasUnread("tender", b.id, b.updatedAt, false) ? 1 : 0) -
+              (hasUnread("tender", a.id, a.updatedAt, false) ? 1 : 0)
             ).map(tender => {
               const cfg = STATUS_CONFIG[tender.status] ?? { label: tender.status, color: "bg-slate-100 text-slate-500" };
               const isInvited = tender.demandMode === "invited";
+              const hasNew = hasUnread("tender", tender.id, tender.updatedAt, false);
               return (
                 <button key={tender.id} onClick={() => navigate(`/opc/tenders/${tender.id}`)}
                   className="w-full text-left bg-card rounded-2xl border border-border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="text-[15px] font-bold text-foreground truncate flex items-center gap-1.5">
                       {tender.demandTitle ?? `需求 #${tender.outsourceDemandId}`}
-                      {hasUnread("outsource", tender.outsourceDemandId, tender.demandUpdatedAt) && (
+                      {hasNew && (
                         <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                       )}
                     </span>

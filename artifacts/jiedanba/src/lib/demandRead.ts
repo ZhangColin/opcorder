@@ -12,9 +12,14 @@ export function markRead(type: DemandType, id: number): void {
   localStorage.setItem(readKey(type, id), new Date().toISOString());
 }
 
-export function hasUnread(type: DemandType, id: number, latestAt: string | null | undefined): boolean {
+export function hasUnread(
+  type: DemandType,
+  id: number,
+  latestAt: string | null | undefined,
+  defaultUnread = true,
+): boolean {
   if (!latestAt) return false;
   const raw = localStorage.getItem(readKey(type, id));
-  if (!raw) return true;
+  if (!raw) return defaultUnread;
   return new Date(latestAt) > new Date(raw);
 }
