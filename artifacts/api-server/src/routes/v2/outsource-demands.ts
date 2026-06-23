@@ -183,6 +183,7 @@ router.get("/outsource-demands/:id", requireAuth, async (req: Request, res: Resp
         opcNickname: usersTable.nickname,
         status: v2TendersTable.status,
         totalPrice: v2TendersTable.totalPrice,
+        priceBreakdown: v2TendersTable.priceBreakdown,
         quotedAt: v2TendersTable.quotedAt,
         createdAt: v2TendersTable.createdAt,
       })
