@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
-import { AlertCircle, Upload, X, Loader2, Zap, Bot, ChevronDown } from "lucide-react";
+import { AlertCircle, Upload, X, Loader2, Zap, Bot, ChevronDown, Check } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
@@ -23,6 +23,62 @@ function FormField({ label, required, hint, error, children }: {
       {hint && <p className="text-xs text-slate-400">{hint}</p>}
       {children}
       {error && <p className="flex items-center gap-1 text-xs text-destructive"><AlertCircle size={12} />{error}</p>}
+    </div>
+  );
+}
+
+function CustomSelect({ value, onChange, options, placeholder, error }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  error?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.value === value);
+
+  const close = useCallback((e: MouseEvent) => {
+    if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [close]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center justify-between gap-2 border rounded-xl px-3 py-2.5 text-sm bg-white outline-none transition-all
+          ${open ? "ring-2 ring-primary/20 border-primary" : error ? "border-red-400" : "border-slate-200 hover:border-slate-300"}
+        `}
+      >
+        <span className={selected ? "text-slate-800" : "text-slate-400"}>
+          {selected ? selected.label : (placeholder ?? "请选择")}
+        </span>
+        <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+          {options.map(o => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false); }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 text-sm text-left transition-colors
+                ${value === o.value ? "bg-primary/8 text-primary font-bold" : "text-slate-700 hover:bg-slate-50"}
+              `}
+            >
+              {o.label}
+              {value === o.value && <Check size={14} className="shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -227,17 +283,13 @@ export default function PubCreateDemand() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <FormField label="需求类型" required error={errors.demandType}>
-              <div className="relative">
-                <select
-                  value={demandType}
-                  onChange={e => setDemandType(e.target.value)}
-                  className="w-full appearance-none border border-slate-200 rounded-xl px-3 py-2.5 pr-9 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-                >
-                  <option value="">请选择</option>
-                  {demandTypes.map(t => <option key={t.id} value={t.code}>{t.name}</option>)}
-                </select>
-                <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              </div>
+              <CustomSelect
+                value={demandType}
+                onChange={setDemandType}
+                options={demandTypes.map(t => ({ value: t.code, label: t.name }))}
+                placeholder="请选择需求类型"
+                error={!!errors.demandType}
+              />
             </FormField>
 
             <FormField label="希望交付日期">

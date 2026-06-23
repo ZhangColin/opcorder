@@ -625,7 +625,6 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
           </button>
         </div>
-        <p className="text-[10px] text-slate-300 text-center mt-2">AI建议仅供参考，填入后请核对表单内容</p>
       </div>
     </>
   );
