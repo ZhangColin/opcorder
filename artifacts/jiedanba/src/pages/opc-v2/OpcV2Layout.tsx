@@ -23,7 +23,7 @@ export function OpcV2Layout({ children }: OpcV2LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f7f4]">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       <OpcV2Sidebar
