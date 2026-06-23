@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   BellOff, CheckCheck, ArrowRight, Clock,
   FileCheck, AlertCircle, MessageSquare, Info,
-  Bell, FileText, Banknote, ShieldCheck, Package,
+  FileText, Banknote, ShieldCheck, Package,
 } from "lucide-react";
 import {
   useListNotifications,
@@ -13,14 +13,19 @@ import {
 import type { Notification as NotificationItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PubLayout } from "@/components/pub/PubLayout";
+import { Pagination } from "@/components/pub/Pagination";
+
+const PAGE_SIZE = 20;
 
 const FILTER_TABS = [
-  { key: "all",      label: "全部" },
   { key: "unread",   label: "未读" },
   { key: "demand",   label: "需求动态" },
   { key: "delivery", label: "交付质保" },
   { key: "system",   label: "系统通知" },
-];
+  { key: "all",      label: "全部" },
+] as const;
+
+type TabKey = (typeof FILTER_TABS)[number]["key"];
 
 type NotifCfg = { icon: React.ElementType; color: string; category: string; label: string };
 
@@ -65,15 +70,26 @@ function resolveLink(n: NotificationItem): string | null {
 
 export default function PubNotifications() {
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState<TabKey>("unread");
+  const [page, setPage] = useState(1);
   const qc = useQueryClient();
 
-  const { data, isLoading } = useListNotifications({ page: 1, limit: 100 });
+  const { data, isLoading } = useListNotifications({ page: 1, limit: 200 });
   const markRead    = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
+  useEffect(() => { setPage(1); }, [activeTab]);
+
   const notifications: NotificationItem[] = data?.items ?? [];
   const unreadCount = data?.unreadCount ?? 0;
+
+  const counts: Record<TabKey, number> = {
+    all:      notifications.length,
+    unread:   notifications.filter(n => !n.isRead).length,
+    demand:   notifications.filter(n => (NOTIF_TYPE_MAP[n.type] ?? DEFAULT_CFG).category === "demand").length,
+    delivery: notifications.filter(n => (NOTIF_TYPE_MAP[n.type] ?? DEFAULT_CFG).category === "delivery").length,
+    system:   notifications.filter(n => (NOTIF_TYPE_MAP[n.type] ?? DEFAULT_CFG).category === "system").length,
+  };
 
   const filtered = notifications.filter((n) => {
     if (activeTab === "all")    return true;
@@ -81,6 +97,9 @@ export default function PubNotifications() {
     const cfg = NOTIF_TYPE_MAP[n.type] ?? DEFAULT_CFG;
     return cfg.category === activeTab;
   });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleClickNotif = async (n: NotificationItem) => {
     if (!n.isRead) {
@@ -109,79 +128,86 @@ export default function PubNotifications() {
   return (
     <PubLayout actions={headerActions}>
       <div className="max-w-[860px] mx-auto space-y-5">
-        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 w-fit flex-wrap">
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                activeTab === tab.key
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {tab.label}
-              {tab.key === "unread" && unreadCount > 0 && (
-                <span className="ml-1.5 text-xs bg-destructive text-white px-1.5 py-0.5 rounded-full">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 flex-wrap">
+          {FILTER_TABS.map((tab) => {
+            const cnt = counts[tab.key];
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${
+                  active ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {tab.label}
+                {cnt > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                    active
+                      ? (tab.key === "unread" ? "bg-destructive text-white" : "bg-primary/10 text-primary")
+                      : "bg-slate-200 text-slate-500"
+                  }`}>{cnt}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="w-8 h-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : paged.length === 0 ? (
           <div className="flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-100 h-64 text-slate-400">
             <BellOff size={44} className="mb-4 text-slate-200" />
             <p className="font-medium">暂无{activeTab !== "all" ? "此类" : ""}消息</p>
             <p className="text-xs mt-1">当有业务状态变更或重要提醒时，将在此显示</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
-            {filtered.map((n) => {
-              const cfg = NOTIF_TYPE_MAP[n.type] ?? DEFAULT_CFG;
-              const Icon = cfg.icon;
-              const link = resolveLink(n);
-              return (
-                <div
-                  key={n.id}
-                  onClick={() => handleClickNotif(n)}
-                  className={`flex items-start gap-4 px-6 py-5 transition-colors group ${
-                    !n.isRead ? "bg-blue-50/50 hover:bg-blue-50" : "hover:bg-slate-50"
-                  } ${link ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
-                    <Icon size={18} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm font-bold leading-snug ${!n.isRead ? "text-foreground" : "text-slate-600"}`}>
-                        {n.title}
-                      </p>
-                      {!n.isRead && (
-                        <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
-                      )}
+          <>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
+              {paged.map((n) => {
+                const cfg = NOTIF_TYPE_MAP[n.type] ?? DEFAULT_CFG;
+                const Icon = cfg.icon;
+                const link = resolveLink(n);
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => handleClickNotif(n)}
+                    className={`flex items-start gap-4 px-6 py-5 transition-colors group ${
+                      !n.isRead ? "bg-blue-50/50 hover:bg-blue-50" : "hover:bg-slate-50"
+                    } ${link ? "cursor-pointer" : "cursor-default"}`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
+                      <Icon size={18} />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">{n.content}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="flex items-center gap-1 text-xs text-slate-400">
-                        <Clock size={11} /> {timeAgo(n.createdAt)}
-                      </span>
-                      {link && (
-                        <span className="flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                          查看详情 <ArrowRight size={11} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={`text-sm font-bold leading-snug ${!n.isRead ? "text-foreground" : "text-slate-600"}`}>
+                          {n.title}
+                        </p>
+                        {!n.isRead && (
+                          <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{n.content}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="flex items-center gap-1 text-xs text-slate-400">
+                          <Clock size={11} /> {timeAgo(n.createdAt)}
                         </span>
-                      )}
+                        {link && (
+                          <span className="flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            查看详情 <ArrowRight size={11} />
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </>
         )}
       </div>
     </PubLayout>
