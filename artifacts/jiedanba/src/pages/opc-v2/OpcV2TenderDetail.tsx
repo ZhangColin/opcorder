@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, AlertCircle, CheckCircle2, XCircle, Clock,
+  Loader2, AlertCircle, CheckCircle2,
   DollarSign, Plus, Trash2, Send, FileText, History, X,
   ChevronDown, ChevronUp, Paperclip, ArrowRight,
+  Hash, Tag, CalendarDays, Globe, Mail,
 } from "lucide-react";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
@@ -54,14 +55,18 @@ const VERSION_ROLE_LABEL: Record<string, string> = {
 
 interface DemandInfo {
   id: number;
+  demandNo: string | null;
   title: string;
-  demandType: string;
+  demandType: string | null;
   isUrgent: boolean;
+  mode: "public" | "invited";
   expectedPriceMin: number | null;
   expectedPriceMax: number | null;
   status: string;
   detail: string | null;
   latestVersion: DemandVersion | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; guidance: string }> = {
@@ -237,68 +242,95 @@ export default function OpcV2TenderDetail() {
           </div>
         </div>
 
-        {/* Demand detail */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText size={16} className="text-emerald-600" />
-                <h3 className="font-bold text-slate-800">需求详情</h3>
-                {demand?.latestVersion && (
-                  <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                    v{demand.latestVersion.versionNo}
-                  </span>
-                )}
+        {/* ── Basic info block ── */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border flex items-center gap-2">
+            <Tag size={15} className="text-primary" />
+            <h3 className="font-bold text-foreground text-sm">需求基本信息</h3>
+          </div>
+          {demand ? (
+            <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              {demand.demandNo && (
+                <div className="col-span-2 flex items-center gap-2">
+                  <Hash size={13} className="text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground text-xs">编号</span>
+                  <span className="font-mono text-xs font-bold text-foreground">{demand.demandNo}</span>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">需求类型</p>
+                <p className="font-bold text-foreground text-sm">
+                  {demand.demandType ? (DEMAND_TYPE_LABELS[demand.demandType] ?? demand.demandType) : "—"}
+                  {demand.isUrgent && (
+                    <span className="ml-1.5 text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">紧急</span>
+                  )}
+                </p>
               </div>
-              {demand?.expectedPriceMin || demand?.expectedPriceMax ? (
-                <span className="text-sm font-bold text-emerald-700">
-                  参考价：{formatBudgetRange(demand?.expectedPriceMin ?? null, demand?.expectedPriceMax ?? null)}
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">来源</p>
+                <p className="flex items-center gap-1 font-bold text-sm">
+                  {demand.mode === "invited"
+                    ? <><Mail size={13} className="text-violet-500" /><span className="text-violet-700">邀请</span></>
+                    : <><Globe size={13} className="text-sky-500" /><span className="text-sky-700">大厅公开</span></>
+                  }
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">平台参考价</p>
+                <p className="font-black text-primary text-base">
+                  {formatBudgetRange(demand.expectedPriceMin, demand.expectedPriceMax)}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">报价应在此区间内</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">发布时间</p>
+                <p className="flex items-center gap-1 text-foreground text-sm">
+                  <CalendarDays size={12} className="text-muted-foreground" />
+                  {new Date(demand.createdAt).toLocaleDateString("zh-CN")}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="px-5 py-4 flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 size={14} className="animate-spin" /> 加载中…
+            </div>
+          )}
+        </div>
+
+        {/* ── Demand detail ── */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <FileText size={15} className="text-primary" />
+              <h3 className="font-bold text-foreground text-sm">需求详情</h3>
+              {demand?.latestVersion && (
+                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  v{demand.latestVersion.versionNo}
                 </span>
-              ) : null}
+              )}
             </div>
           </div>
 
           <div className="px-5 py-4 space-y-3">
             {demand ? (
               <>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
-                    {DEMAND_TYPE_LABELS[demand.demandType] ?? demand.demandType}
-                  </span>
-                  {demand.isUrgent && (
-                    <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-bold rounded-full">紧急</span>
-                  )}
-                </div>
-
-                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-1">平台预期价格区间（报价参考锚点）</p>
-                  <p className="text-xl font-black text-emerald-800">
-                    {formatBudgetRange(demand.expectedPriceMin, demand.expectedPriceMax)}
-                  </p>
-                  <p className="text-[11px] text-emerald-600 mt-1">
-                    您的报价应在此区间内，否则可能影响中标机会
-                  </p>
-                </div>
-
                 {(demand.latestVersion?.detail || demand.detail) ? (
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
-                      {demand.latestVersion?.detail ?? demand.detail}
-                    </p>
+                  <div className="bg-muted/40 rounded-xl p-4 border border-border">
+                    <MarkdownContent content={demand.latestVersion?.detail ?? demand.detail ?? ""} />
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-400 italic">需求详情待补充</p>
+                  <p className="text-sm text-muted-foreground italic">需求详情待补充</p>
                 )}
 
                 {demand.latestVersion?.attachments && demand.latestVersion.attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     {demand.latestVersion.attachments.map((att, i) => (
                       <a
                         key={i}
                         href={att.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-200 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-foreground text-xs font-medium rounded-lg hover:bg-muted/80 transition-colors"
                       >
                         <Paperclip size={11} /> {att.name}
                       </a>
@@ -307,7 +339,7 @@ export default function OpcV2TenderDetail() {
                 )}
               </>
             ) : (
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Loader2 size={14} className="animate-spin" /> 加载需求详情…
               </div>
             )}
@@ -316,13 +348,12 @@ export default function OpcV2TenderDetail() {
           <div className="px-5 pb-4">
             <button
               onClick={() => setShowVersions(v => !v)}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-emerald-700 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-primary transition-colors"
             >
               <History size={13} />
               {showVersions ? "收起历史版本" : "查看历史版本"}
               {showVersions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
-
           </div>
         </div>
 
