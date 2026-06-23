@@ -48,7 +48,9 @@ export function OpcV2Layout({ children }: OpcV2LayoutProps) {
         </div>
       </main>
 
-      <Footer />
+      <div className="lg:ml-60">
+        <Footer />
+      </div>
     </div>
   );
 }
