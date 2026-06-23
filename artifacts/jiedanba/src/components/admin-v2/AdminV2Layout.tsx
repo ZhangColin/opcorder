@@ -32,7 +32,7 @@ export function Section({
   defaultOpen = true,
   collapsible = true,
 }: {
-  title: string;
+  title: React.ReactNode;
   icon?: React.ElementType;
   actions?: React.ReactNode;
   children: React.ReactNode;

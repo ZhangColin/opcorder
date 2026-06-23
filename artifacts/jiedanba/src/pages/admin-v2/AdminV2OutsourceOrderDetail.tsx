@@ -560,10 +560,25 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
             {/* OPC 报价信息 */}
             {tender && tender.totalPrice != null && (() => {
               const hasBreakdown = Array.isArray(tender.priceBreakdown) && tender.priceBreakdown.length > 0;
-              const titleStr = `OPC 报价  ¥${tender.totalPrice.toLocaleString()}${tender.quotedAt ? "  ·  " + new Date(tender.quotedAt).toLocaleDateString("zh-CN") : ""}`;
+              const titleNode = (
+                <span className="flex items-center gap-3 flex-1 min-w-0">
+                  <span className="font-bold text-slate-800 text-sm">OPC 报价</span>
+                  <span className="text-base font-black text-primary">¥{tender.totalPrice.toLocaleString()}</span>
+                  {tender.quotedAt && (
+                    <span className="text-xs text-slate-400 hidden sm:inline">
+                      {new Date(tender.quotedAt).toLocaleDateString("zh-CN")} 报价
+                    </span>
+                  )}
+                  {hasBreakdown && (
+                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded hidden sm:inline">
+                      {tender.priceBreakdown!.length} 项明细
+                    </span>
+                  )}
+                </span>
+              );
               return (
                 <Section
-                  title={titleStr}
+                  title={titleNode}
                   icon={DollarSign}
                   collapsible={hasBreakdown}
                   defaultOpen={false}
