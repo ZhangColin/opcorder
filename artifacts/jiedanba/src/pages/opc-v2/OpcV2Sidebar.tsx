@@ -1,36 +1,18 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutGrid, FileText, Package, Wallet, Wrench, LogOut, X, PackageCheck,
+  LayoutGrid, FileText, Package, Wallet, Wrench, X, PackageCheck,
 } from "lucide-react";
-import { clearSession } from "@/lib/auth";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { v2Get } from "@/lib/v2api";
 
 interface BadgeCounts { pendingA: number; pendingB: number; }
 
-interface SidebarLinkProps {
+interface NavItem {
   icon: React.ElementType;
   label: string;
   href: string;
-  active?: boolean;
-  onClick?: () => void;
   dot?: boolean;
-}
-
-function SidebarLink({ icon: Icon, label, href, active, onClick, dot }: SidebarLinkProps) {
-  const cls = `w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:translate-x-0.5 cursor-pointer ${
-    active ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-primary"
-  }`;
-  return (
-    <Link href={href}>
-      <div className={cls} onClick={onClick}>
-        <Icon size={17} />
-        <span className="flex-1">{label}</span>
-        {dot && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />}
-      </div>
-    </Link>
-  );
 }
 
 interface OpcV2SidebarProps {
@@ -39,7 +21,7 @@ interface OpcV2SidebarProps {
   onMobileClose?: () => void;
 }
 
-export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: OpcV2SidebarProps) {
+export function OpcV2Sidebar({ onLogout: _onLogout, mobileOpen = false, onMobileClose }: OpcV2SidebarProps) {
   const [location] = useLocation();
 
   const { data: badges } = useQuery<BadgeCounts>({
@@ -55,53 +37,72 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
 
-  const isActive = (path: string) =>
-    path === "/opc" ? location === "/opc" : location === path || location.startsWith(path + "/");
   const close = () => onMobileClose?.();
 
-  const content = (
-    <>
-      <div className="mb-2 flex items-center justify-between shrink-0 lg:hidden">
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">OPC 工作台</p>
-        <button
-          onClick={close}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-colors"
-        >
-          <X size={18} />
-        </button>
-      </div>
+  const isActive = (path: string) =>
+    path === "/opc" ? location === "/opc" : location === path || location.startsWith(path + "/");
 
-      <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">
-        <SidebarLink icon={LayoutGrid}   label="待办总览"  href="/opc"              active={isActive("/opc")}             onClick={close} />
-        <SidebarLink icon={FileText}     label="我的投标"  href="/opc/tenders"      active={isActive("/opc/tenders")}     onClick={close} />
-        <SidebarLink icon={Package}      label="我的订单"  href="/opc/orders"       active={isActive("/opc/orders")}      onClick={close} />
-        <SidebarLink icon={Wallet}       label="我的收款"  href="/opc/income"       active={isActive("/opc/income")}      onClick={close} />
-        <SidebarLink icon={PackageCheck} label="交付管理"  href="/opc/deliveries"   active={isActive("/opc/deliveries")}  onClick={close}
-          dot={(badges?.pendingB ?? 0) > 0} />
-        <SidebarLink icon={Wrench}       label="工单"      href="/opc/tickets"      active={isActive("/opc/tickets")}     onClick={close} />
-      </nav>
+  const navItems: NavItem[] = [
+    { icon: LayoutGrid,   label: "待办总览",  href: "/opc" },
+    { icon: FileText,     label: "我的投标",  href: "/opc/tenders" },
+    { icon: Package,      label: "我的订单",  href: "/opc/orders" },
+    { icon: Wallet,       label: "我的收款",  href: "/opc/income" },
+    { icon: PackageCheck, label: "交付管理",  href: "/opc/deliveries", dot: (badges?.pendingB ?? 0) > 0 },
+    { icon: Wrench,       label: "工单",      href: "/opc/tickets" },
+  ];
 
-      <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5 shrink-0">
-        <button
-          onClick={() => { close(); onLogout(); }}
-          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
-        >
-          <LogOut size={18} /> 退出登录
-        </button>
-      </div>
-    </>
+  const navContent = (
+    <nav className="flex flex-col gap-0.5">
+      {navItems.map(({ icon: Icon, label, href, dot }) => {
+        const active = isActive(href);
+        return (
+          <Link key={href} href={href}>
+            <div
+              onClick={close}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all ${
+                active
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              <Icon size={16} className="shrink-0" />
+              <span className="flex-1">{label}</span>
+              {dot && <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />}
+            </div>
+          </Link>
+        );
+      })}
+    </nav>
   );
 
   return (
     <>
-      <aside className="hidden lg:flex w-60 shrink-0 sticky top-16 sm:top-20 self-start bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1 overflow-y-auto" style={{ height: "calc(100vh - 64px)" }}>
-        {content}
-      </aside>
+      {/* Desktop: card block, sticky */}
+      <div className="hidden lg:block w-56 xl:w-60 shrink-0 px-4 pt-6">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4 sticky top-24">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+            <LayoutGrid size={16} className="text-primary shrink-0" />
+            <span className="text-sm font-extrabold text-foreground">OPC 工作台</span>
+          </div>
+          {navContent}
+        </div>
+      </div>
+
+      {/* Mobile: slide-in overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-[60]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={close} />
-          <aside className="absolute left-0 top-0 h-full w-60 bg-slate-50 border-r border-slate-200 flex flex-col p-4 gap-1 animate-in slide-in-from-left duration-300 shadow-2xl">
-            {content}
+          <aside className="absolute left-0 top-0 h-full w-64 bg-background flex flex-col p-5 gap-4 animate-in slide-in-from-left duration-300 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-extrabold text-foreground">OPC 工作台</span>
+              <button
+                onClick={close}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {navContent}
           </aside>
         </div>
       )}
