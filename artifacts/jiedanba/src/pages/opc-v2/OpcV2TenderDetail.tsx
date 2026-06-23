@@ -93,11 +93,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; guidance: st
 };
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
-  education: "教育培训",
-  software: "软件开发",
-  marketing: "营销",
-  content: "内容设计",
-  other: "其他",
+  website:     "网站建设",
+  app:         "App 开发",
+  miniprogram: "小程序",
+  ecommerce:   "电商运营",
+  design:      "设计制作",
+  marketing:   "营销推广",
+  other:       "其他",
 };
 
 function formatBudgetRange(min: number | null, max: number | null) {
