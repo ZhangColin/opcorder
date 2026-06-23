@@ -24,7 +24,7 @@ export function OpcV2Layout({ children }: OpcV2LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
 
       <OpcV2Sidebar
@@ -33,7 +33,7 @@ export function OpcV2Layout({ children }: OpcV2LayoutProps) {
         onMobileClose={() => setSidebarOpen(false)}
       />
 
-      <main className="lg:ml-60 pt-16 sm:pt-20 min-h-screen min-w-0 overflow-x-hidden">
+      <main className="lg:ml-60 pt-16 sm:pt-20 flex-1 min-w-0 overflow-x-hidden">
         <div className="lg:hidden px-4 py-2">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -46,8 +46,9 @@ export function OpcV2Layout({ children }: OpcV2LayoutProps) {
         <div className="pb-12 px-4 lg:px-8 max-w-5xl mx-auto">
           {children}
         </div>
-        <Footer />
       </main>
+
+      <Footer />
     </div>
   );
 }
