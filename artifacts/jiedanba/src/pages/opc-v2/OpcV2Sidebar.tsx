@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutGrid, Search, FileText, Package, Wallet, Wrench, LogOut, X, PackageCheck,
+  LayoutGrid, FileText, Package, Wallet, Wrench, LogOut, X, PackageCheck,
 } from "lucide-react";
 import { clearSession } from "@/lib/auth";
 import { useEffect } from "react";
@@ -73,7 +73,6 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
 
       <nav className="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">
         <SidebarLink icon={LayoutGrid}   label="待办总览"  href="/opc"              active={isActive("/opc")}             onClick={close} />
-        <SidebarLink icon={Search}       label="需求大厅"  href="/opc/demand-hall"  active={isActive("/opc/demand-hall")} onClick={close} />
         <SidebarLink icon={FileText}     label="我的投标"  href="/opc/tenders"      active={isActive("/opc/tenders")}     onClick={close} />
         <SidebarLink icon={Package}      label="我的订单"  href="/opc/orders"       active={isActive("/opc/orders")}      onClick={close} />
         <SidebarLink icon={Wallet}       label="我的收款"  href="/opc/income"       active={isActive("/opc/income")}      onClick={close} />
