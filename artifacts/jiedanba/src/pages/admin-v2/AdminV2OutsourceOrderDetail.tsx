@@ -6,7 +6,7 @@ import {
   FileSignature, Package, Shield, XCircle, CreditCard, ChevronDown, ChevronUp,
   Lock, Paperclip,
 } from "lucide-react";
-import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
+import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -322,25 +322,8 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
 
   return (
     <AdminV2Layout
-      title={order.orderNo}
       backHref="/admin/v2/outsource-orders"
       backLabel="接单订单"
-      actions={
-        <div className="flex gap-2">
-          {canUploadContract && (
-            <button onClick={() => setShowUploadContract(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors">
-              <Upload size={13} /> 上传合同
-            </button>
-          )}
-          {canAdminVerify && (
-            <button onClick={() => setShowVerifyModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors">
-              <CheckCircle2 size={13} /> 运营验收
-            </button>
-          )}
-        </div>
-      }
     >
       <div className="mt-6 space-y-4">
 
@@ -436,131 +419,119 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
         {activeTab === "contract" && (
           <div className="space-y-4">
 
-            <CardSection title="合同" icon={FileSignature}>
-              {/* 待签约：上传操作区 */}
-              {order.status === "pending_contract" && (
-                order.signedFileUrl ? (
-                  <div className="mb-4 flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+            <Section title="合同" icon={FileSignature} collapsible={false}
+              actions={canUploadContract ? (
+                <button onClick={() => setShowUploadContract(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                  <Upload size={12} /> 上传合同
+                </button>
+              ) : undefined}
+            >
+              <div className="mt-4 space-y-4">
+                {/* 合同状态 + 编号 */}
+                {contract && (
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      contract.status === "signed" ? "bg-green-100 text-green-700" :
+                      contract.status === "pending" ? "bg-amber-100 text-amber-700" :
+                      "bg-slate-100 text-slate-500"
+                    }`}>
+                      {contract.status === "signed" ? "已签署" : contract.status === "pending" ? "待签署" : contract.status}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">{contract.contractNo}</span>
+                  </div>
+                )}
+
+                {/* 待签约状态提示 */}
+                {order.status === "pending_contract" && order.signedFileUrl && (
+                  <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
                     <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-bold text-amber-800">合同已上传，等待 OPC 确认签署</p>
-                      <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 mt-1 underline underline-offset-2">
-                        <ExternalLink size={11} /> 查看已上传合同
-                      </a>
-                    </div>
+                    <p className="text-sm font-bold text-amber-800">合同已上传，等待 OPC 确认签署</p>
                   </div>
-                ) : (
-                  <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <FileSignature size={15} className="text-slate-400 shrink-0" />
-                    <p className="text-sm text-slate-500 flex-1">尚未上传合同文件</p>
-                    <button onClick={() => setShowUploadContract(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shrink-0">
-                      <Upload size={12} /> 上传合同
-                    </button>
-                  </div>
-                )
-              )}
+                )}
 
-              {/* 已签约：合同文件下载 */}
-              {order.status !== "pending_contract" && order.signedFileUrl && (
-                <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 flex items-center justify-center shrink-0">
-                    <FileSignature size={14} className="text-green-700" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-green-700">已签约合同文件</p>
-                    <p className="text-xs text-green-600">点击下载</p>
-                  </div>
-                  <ExternalLink size={14} className="text-green-500 shrink-0" />
-                </a>
-              )}
-
-              {/* 合同正文 Markdown */}
-              {contract?.content ? (
-                <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">合同正文</p>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 prose prose-sm max-w-none">
+                {/* 合同正文 Markdown */}
+                {contract?.content && (
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
                     <MarkdownContent content={contract.content} />
                   </div>
-                  {contract.contractNo && (
-                    <p className="text-xs text-slate-400 mt-2">合同编号：{contract.contractNo}</p>
-                  )}
-                </div>
-              ) : (
-                !order.signedFileUrl && order.status === "pending_contract" && (
-                  <p className="text-sm text-slate-400">暂无合同正文</p>
-                )
-              )}
-            </CardSection>
+                )}
+
+                {/* 已签约合同文件下载 */}
+                {order.signedFileUrl && (
+                  <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors flex items-center justify-center shrink-0">
+                      <FileSignature size={15} className="text-green-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-green-700">已签约合同文件</p>
+                      <p className="text-xs text-green-600">点击下载</p>
+                    </div>
+                    <ExternalLink size={14} className="text-green-500 shrink-0" />
+                  </a>
+                )}
+
+                {!contract && !order.signedFileUrl && (
+                  <p className="text-sm text-slate-400">暂无合同内容</p>
+                )}
+              </div>
+            </Section>
 
             {/* 结算付款计划 */}
-            <CardSection
+            <Section
               title="结算付款计划"
               icon={CreditCard}
-              badge={
-                <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                  {settlements.length} 项
-                </span>
-              }
-              actions={
-                canCreateSettlement ? (
-                  <button onClick={() => setShowSettlementModal(true)}
-                    className="flex items-center gap-1 text-xs text-primary font-bold hover:text-primary/80 transition-colors">
-                    <PlusCircle size={13} /> 新增
-                  </button>
-                ) : undefined
-              }
+              collapsible={false}
+              actions={canCreateSettlement ? (
+                <button onClick={() => setShowSettlementModal(true)}
+                  className="flex items-center gap-1 text-xs text-primary font-bold hover:text-primary/80 transition-colors">
+                  <PlusCircle size={13} /> 新增
+                </button>
+              ) : undefined}
             >
-              {settlements.length === 0 ? (
-                <p className="text-sm text-slate-400">尚未创建结算计划</p>
-              ) : (
-                <div className="space-y-2 -mx-1">
-                  {settlements.map(s => {
-                    const isPaid = s.status === "paid";
-                    return (
-                      <div key={s.id} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
-                        s.isOverdue && !isPaid ? "border-red-200 bg-red-50/30" : "border-slate-100 bg-white"
-                      }`}>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              isPaid ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                            }`}>{isPaid ? "已付款" : "待付款"}</span>
-                            {s.isLastItem && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>}
-                            {s.isBlockingPayment && !isPaid && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
-                                <Lock size={9} /> 阻款
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm font-semibold text-slate-700">
-                            {s.description ?? `第${s.itemNo ?? 1}期结算款`}
-                          </p>
-                          {s.dueDate && (
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              应付 {new Date(s.dueDate).toLocaleDateString("zh-CN")}
-                            </p>
+              <div className="mt-4 space-y-3">
+                {settlements.length === 0 ? (
+                  <p className="text-sm text-slate-400">尚未创建结算计划</p>
+                ) : settlements.map(s => {
+                  const isPaid = s.status === "paid";
+                  return (
+                    <div key={s.id} className={`border rounded-xl p-4 flex items-center justify-between ${
+                      s.isOverdue && !isPaid ? "border-red-300 bg-red-50/30" : "border-slate-200 hover:border-primary/30"
+                    }`}>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                            isPaid ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                          }`}>{isPaid ? "已付款" : "待付款"}</span>
+                          {s.isOverdue && !isPaid && <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">逾期</span>}
+                          <span className="text-xs text-slate-400">第 {s.itemNo ?? 1} 期</span>
+                          {s.isLastItem && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>}
+                          {s.isBlockingPayment && !isPaid && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
+                              <Lock size={9} /> 阻款
+                            </span>
                           )}
                         </div>
-                        <div className="text-right flex items-center gap-2">
-                          <p className={`text-base font-black ${isPaid ? "text-green-700" : "text-slate-800"}`}>
-                            ¥{s.amount.toLocaleString()}
-                          </p>
-                          {s.status === "pending" && (
-                            <button onClick={() => openEditPlan(s)}
-                              className="text-xs px-2 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
-                              编辑
-                            </button>
-                          )}
-                        </div>
+                        {s.description && <p className="text-xs text-slate-500">{s.description}</p>}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardSection>
+                      <div className="text-right flex items-center gap-2">
+                        <div>
+                          <p className="font-black text-slate-800">¥{s.amount.toLocaleString()}</p>
+                          {s.dueDate && <p className="text-xs text-slate-400">{new Date(s.dueDate).toLocaleDateString("zh-CN")}</p>}
+                        </div>
+                        {s.status === "pending" && (
+                          <button onClick={() => openEditPlan(s)}
+                            className="text-xs px-2 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
+                            编辑
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
 
           </div>
         )}
