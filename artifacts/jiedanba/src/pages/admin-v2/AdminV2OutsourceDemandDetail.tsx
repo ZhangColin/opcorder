@@ -8,6 +8,7 @@ import {
   DollarSign, MessageSquare,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
+import { useDemandTypeLabel } from "@/lib/catCategories";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -55,10 +56,6 @@ const TENDER_STATUS: Record<string, { label: string; color: string }> = {
   won:         { label: "已中标", color: "bg-green-100 text-green-700" },
   lost:        { label: "已取消", color: "bg-red-100 text-red-500" },
 };
-const DEMAND_TYPE_LABEL: Record<string, string> = {
-  website: "网站建设", app: "App开发", miniprogram: "小程序",
-  ecommerce: "电商运营", design: "设计制作", marketing: "营销推广", other: "其他",
-};
 
 export default function AdminV2OutsourceDemandDetail({
   inlineId,
@@ -69,6 +66,7 @@ export default function AdminV2OutsourceDemandDetail({
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const inlineNav = useAdminInlineNav();
   const { toast } = useToast();
+  const { resolveDemandType } = useDemandTypeLabel();
 
   const [demand, setDemand] = useState<OutsourceDemand | null>(null);
   const [tenders, setTenders] = useState<Tender[]>([]);
@@ -262,7 +260,7 @@ export default function AdminV2OutsourceDemandDetail({
             )}
             {demand.demandType && (
               <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
+                {resolveDemandType(demand.demandType)}
               </span>
             )}
             <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>

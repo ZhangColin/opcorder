@@ -6,6 +6,7 @@ import {
   Zap, CheckCircle2, ChevronDown, ChevronUp, X, FileText,
 } from "lucide-react";
 import { v2Get, v2Post } from "@/lib/v2api";
+import { useDemandTypeLabel } from "@/lib/catCategories";
 import { useToast } from "@/hooks/use-toast";
 import { OpcV2Layout } from "./OpcV2Layout";
 
@@ -43,15 +44,6 @@ interface PagedResponse {
   items: DemandItem[];
 }
 
-const DEMAND_TYPE_LABELS: Record<string, string> = {
-  website:     "网站建设",
-  app:         "App 开发",
-  miniprogram: "小程序",
-  ecommerce:   "电商运营",
-  design:      "设计制作",
-  marketing:   "营销推广",
-  other:       "其他",
-};
 
 function formatBudgetRange(min: number | null, max: number | null) {
   if (!min && !max) return "面议";
@@ -75,6 +67,7 @@ function DemandPreviewPanel({ demandId, onApply, applying, applied, onClose }: D
     queryFn: () => v2Get(`/outsource-demands/${demandId}`),
     enabled: !!demandId,
   });
+  const { resolveDemandType } = useDemandTypeLabel();
 
   const myTender = data?.tenders?.[0];
   const alreadyApplied = applied.has(demandId) || (myTender && ["negotiating", "quoted", "won"].includes(myTender.status));
@@ -109,7 +102,7 @@ function DemandPreviewPanel({ demandId, onApply, applying, applied, onClose }: D
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
-                  {DEMAND_TYPE_LABELS[data.demandType] ?? data.demandType}
+                  {resolveDemandType(data.demandType)}
                 </span>
                 {data.isUrgent && (
                   <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-bold rounded-full flex items-center gap-0.5">
@@ -207,6 +200,7 @@ interface MyTender {
 }
 
 export default function OpcV2DemandHall() {
+  const { resolveDemandType } = useDemandTypeLabel();
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
@@ -340,7 +334,7 @@ export default function OpcV2DemandHall() {
                           )}
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
                             <Tag size={10} />
-                            {DEMAND_TYPE_LABELS[demand.demandType] ?? demand.demandType}
+                            {resolveDemandType(demand.demandType)}
                           </span>
                           <span className="text-[11px] text-slate-400 font-mono">{demand.demandNo}</span>
                         </div>

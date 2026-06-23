@@ -8,6 +8,7 @@ import {
   Hash, Tag, CalendarDays, Globe, Mail, Flag,
 } from "lucide-react";
 import { v2Get, v2Post } from "@/lib/v2api";
+import { useDemandTypeLabel } from "@/lib/catCategories";
 import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -99,15 +100,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; guidance: st
   },
 };
 
-const DEMAND_TYPE_LABELS: Record<string, string> = {
-  website:     "网站建设",
-  app:         "App 开发",
-  miniprogram: "小程序",
-  ecommerce:   "电商运营",
-  design:      "设计制作",
-  marketing:   "营销推广",
-  other:       "其他",
-};
 
 function formatBudgetRange(min: number | null, max: number | null) {
   if (!min && !max) return "面议";
@@ -122,6 +114,7 @@ export default function OpcV2TenderDetail() {
   const tenderId = parseInt(id ?? "0");
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { resolveDemandType } = useDemandTypeLabel();
   const [, navigate] = useLocation();
 
   const { data: tender, isLoading, isError, refetch, dataUpdatedAt: tenderDataUpdatedAt } = useQuery<TenderDetail>({
@@ -270,7 +263,7 @@ export default function OpcV2TenderDetail() {
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">需求类型</p>
                 <p className="font-bold text-foreground text-sm">
-                  {demand.demandType ? (DEMAND_TYPE_LABELS[demand.demandType] ?? demand.demandType) : "—"}
+                  {resolveDemandType(demand.demandType)}
                   {demand.isUrgent && (
                     <span className="ml-1.5 text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">紧急</span>
                   )}
