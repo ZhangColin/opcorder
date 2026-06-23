@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { OpcV2Sidebar } from "./OpcV2Sidebar";
 import { clearSession } from "@/lib/auth";
 import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
 
 interface OpcV2LayoutProps {
   children: React.ReactNode;
@@ -45,6 +46,7 @@ export function OpcV2Layout({ children }: OpcV2LayoutProps) {
         <div className="pb-12 px-4 lg:px-8 max-w-5xl mx-auto">
           {children}
         </div>
+        <Footer />
       </main>
     </div>
   );
