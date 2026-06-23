@@ -627,6 +627,7 @@ export default function AdminV2OutsourceDemandDetail({
                               parentId={t.id}
                               placeholder={`与 ${t.opcNickname ?? "OPC"} 私密沟通…`}
                               readOnly={!["negotiating", "quoted"].includes(t.status)}
+                              onAfterPost={() => markRead("tender", t.id)}
                             />
                           </div>
                         </div>

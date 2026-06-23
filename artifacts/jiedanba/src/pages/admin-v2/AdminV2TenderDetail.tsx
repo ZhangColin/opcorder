@@ -7,6 +7,7 @@ import { v2Get, v2Post } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { useToast } from "@/hooks/use-toast";
+import { markRead } from "@/lib/demandRead";
 
 interface Tender {
   id: number;
@@ -68,7 +69,12 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
     }
   };
 
-  useEffect(() => { if (id > 0) load(); }, [id]);
+  useEffect(() => {
+    if (id > 0) {
+      load();
+      markRead("tender", id);
+    }
+  }, [id]);
 
   const act = async (fn: () => Promise<unknown>, msg: string) => {
     setActing(true);
@@ -177,7 +183,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-sm font-bold text-slate-700 mb-4">与 {tender.opcNickname ?? "OPC"} 的私密讨论</h3>
-          <DiscussionThread parentType="v2_tender" parentId={id} placeholder="与OPC私密沟通…" />
+          <DiscussionThread parentType="v2_tender" parentId={id} placeholder="与OPC私密沟通…" onAfterPost={() => markRead("tender", id)} />
         </div>
       </div>
 

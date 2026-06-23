@@ -1,6 +1,6 @@
 import { getStoredUser } from "./auth";
 
-type DemandType = "client" | "outsource" | "ticket_a" | "ticket_b" | "contract" | "order";
+type DemandType = "client" | "outsource" | "ticket_a" | "ticket_b" | "contract" | "order" | "tender";
 
 function readKey(type: DemandType, id: number): string {
   const uid = getStoredUser()?.id ?? 0;

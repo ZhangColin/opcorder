@@ -4,6 +4,7 @@ import { Loader2, ChevronRight } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
+import { hasUnread, markRead } from "@/lib/demandRead";
 
 interface Tender {
   id: number;
@@ -16,6 +17,7 @@ interface Tender {
   quotedAt: string | null;
   selectedAt: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -96,17 +98,20 @@ export default function AdminV2TenderList() {
             {items.map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               const highlight = t.status === "quoted";
+              const unread = hasUnread("tender", t.id, t.updatedAt);
               const go = () => {
+                markRead("tender", t.id);
                 const target = `/admin/v2/outsource-demands/${t.outsourceDemandId}?tab=tenders&tenderId=${t.id}`;
                 inlineNav ? inlineNav.push(target) : navigate(target);
               };
               return (
                 <button key={t.id} onClick={go}
                   className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${
-                    highlight ? "bg-blue-50/40 border-blue-200" : "bg-white border-slate-100"
+                    unread ? "bg-amber-50/40 border-amber-200" : highlight ? "bg-blue-50/40 border-blue-200" : "bg-white border-slate-100"
                   }`}>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[15px] font-bold text-slate-800 truncate">
+                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
+                      {unread && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                       {t.demandTitle ?? `外包需求 #${t.outsourceDemandId}`}
                     </span>
                     <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>

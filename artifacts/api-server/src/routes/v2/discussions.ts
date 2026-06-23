@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, v2DiscussionPostsTable, usersTable, v2ClientDemandsTable, v2OutsourceDemandsTable } from "@workspace/db";
+import { db, v2DiscussionPostsTable, usersTable, v2ClientDemandsTable, v2OutsourceDemandsTable, v2TendersTable } from "@workspace/db";
 import { eq, and, desc, count } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { notify } from "./utils";
@@ -92,6 +92,15 @@ router.post("/discussions", requireAuth, async (req: Request, res: Response) => 
       await db.update(v2ClientDemandsTable).set({ updatedAt: new Date() }).where(eq(v2ClientDemandsTable.id, parentId));
     } else if (parentType === "outsource_demand") {
       await db.update(v2OutsourceDemandsTable).set({ updatedAt: new Date() }).where(eq(v2OutsourceDemandsTable.id, parentId));
+    } else if (parentType === "v2_tender") {
+      await db.update(v2TendersTable).set({ updatedAt: new Date() }).where(eq(v2TendersTable.id, parentId));
+      if (role === "opc") {
+        const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
+        for (const admin of admins) {
+          await notify(admin.id, "v2_discussion_replied", "OPC 在投标中发送了消息",
+            `OPC 在投标讨论区发送了新消息，请及时跟进。`, parentId, "v2_tender" as any);
+        }
+      }
     }
 
     if (replyToId) {
