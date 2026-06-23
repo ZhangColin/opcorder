@@ -317,13 +317,13 @@ export default function AdminV2OutsourceDemandDetail({
         )}
 
         {/* ── Tab 栏 ── */}
-        <div className="flex gap-1 bg-slate-100 rounded-2xl p-1">
+        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1">
           {(["detail", "tenders"] as const).map(tab => {
             const label = tab === "detail" ? "需求详情" : `投标（${tenders.length}）`;
             return (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-2 text-sm font-bold rounded-xl transition-colors ${
-                  activeTab === tab ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  activeTab === tab ? "bg-primary text-white" : "text-slate-500 hover:bg-slate-50"
                 }`}>
                 {label}
               </button>
