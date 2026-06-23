@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutGrid, Search, FileText, Package, Wallet, Wrench, LogOut, X, ChevronRight, PackageCheck,
+  LayoutGrid, Search, FileText, Package, Wallet, Wrench, LogOut, X, PackageCheck,
 } from "lucide-react";
 import { SiteLogo } from "@/components/SiteLogo";
 import { clearSession } from "@/lib/auth";
@@ -90,14 +90,9 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
       </nav>
 
       <div className="mt-4 border-t border-slate-200 pt-4 flex flex-col gap-0.5 shrink-0">
-        <Link href="/" onClick={close}>
-          <div className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
-            <ChevronRight size={14} className="rotate-180" /> 返回旧版工作台
-          </div>
-        </Link>
         <button
           onClick={() => { close(); onLogout(); }}
-          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors mt-1"
+          className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
         >
           <LogOut size={18} /> 退出登录
         </button>
