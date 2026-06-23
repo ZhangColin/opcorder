@@ -159,9 +159,9 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
 
   /* Settlement plan inline forms */
   const [showAddSettlement, setShowAddSettlement] = useState(false);
-  const [addSettleForm, setAddSettleForm] = useState({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+  const [addSettleForm, setAddSettleForm] = useState({ description: "", amount: "", dueDate: "", isLastItem: false });
   const [editSettleId, setEditSettleId] = useState<number | null>(null);
-  const [editSettleForm, setEditSettleForm] = useState({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+  const [editSettleForm, setEditSettleForm] = useState({ description: "", amount: "", dueDate: "", isLastItem: false });
   const [settleActing, setSettleActing] = useState(false);
 
   /* Mark paid inline panel */
@@ -319,12 +319,11 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
         description: addSettleForm.description.trim() || undefined,
         amount: parseFloat(addSettleForm.amount),
         dueDate: addSettleForm.dueDate,
-        itemNo: addSettleForm.itemNo ? parseInt(addSettleForm.itemNo) : settlements.length + 1,
         isLastItem: addSettleForm.isLastItem,
       });
       toast({ title: "结算付款项已创建" });
       setShowAddSettlement(false);
-      setAddSettleForm({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+      setAddSettleForm({ description: "", amount: "", dueDate: "", isLastItem: false });
       await load();
     } catch (err: any) {
       toast({ title: "创建失败", description: err.message, variant: "destructive" });
@@ -343,7 +342,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
         description: editSettleForm.description.trim() || undefined,
         amount: parseFloat(editSettleForm.amount),
         dueDate: editSettleForm.dueDate || undefined,
-        itemNo: editSettleForm.itemNo ? parseInt(editSettleForm.itemNo) : undefined,
         isLastItem: editSettleForm.isLastItem,
       });
       toast({ title: "结算计划已更新" });
@@ -560,40 +558,32 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
           <div className="space-y-4">
 
             {/* OPC 报价信息 */}
-            {tender && tender.totalPrice != null && (
-              <Section title="OPC 报价信息" icon={DollarSign} collapsible defaultOpen={false}>
-                <div className="mt-3 space-y-3">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">报价总额</p>
-                      <p className="text-xl font-black text-primary">¥{tender.totalPrice.toLocaleString()}</p>
-                    </div>
-                    {tender.quotedAt && (
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">报价时间</p>
-                        <p className="text-sm text-slate-600">{new Date(tender.quotedAt).toLocaleDateString("zh-CN")}</p>
-                      </div>
-                    )}
-                  </div>
-                  {Array.isArray(tender.priceBreakdown) && tender.priceBreakdown.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">报价明细</p>
-                      <div className="space-y-1">
-                        {tender.priceBreakdown.map((item, i) => (
-                          <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
-                            <div>
-                              <span className="text-sm text-slate-700 font-medium">{item.item}</span>
-                              {item.note && <span className="ml-2 text-xs text-slate-400">{item.note}</span>}
-                            </div>
-                            <span className="text-sm font-bold text-slate-800">¥{item.amount.toLocaleString()}</span>
+            {tender && tender.totalPrice != null && (() => {
+              const hasBreakdown = Array.isArray(tender.priceBreakdown) && tender.priceBreakdown.length > 0;
+              const titleStr = `OPC 报价  ¥${tender.totalPrice.toLocaleString()}${tender.quotedAt ? "  ·  " + new Date(tender.quotedAt).toLocaleDateString("zh-CN") : ""}`;
+              return (
+                <Section
+                  title={titleStr}
+                  icon={DollarSign}
+                  collapsible={hasBreakdown}
+                  defaultOpen={false}
+                >
+                  {hasBreakdown && (
+                    <div className="mt-3 space-y-1">
+                      {tender.priceBreakdown!.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                          <div>
+                            <span className="text-sm text-slate-700 font-medium">{item.item}</span>
+                            {item.note && <span className="ml-2 text-xs text-slate-400">{item.note}</span>}
                           </div>
-                        ))}
-                      </div>
+                          <span className="text-sm font-bold text-slate-800">¥{item.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </div>
-              </Section>
-            )}
+                </Section>
+              );
+            })()}
 
             {/* 合同区 */}
             {(() => {
@@ -744,13 +734,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                   <div className="border border-primary/30 rounded-xl p-3 bg-primary/5 space-y-2">
                     <div className="flex gap-2">
                       <input
-                        type="number"
-                        placeholder="期号（自动）"
-                        value={addSettleForm.itemNo}
-                        onChange={e => setAddSettleForm(f => ({ ...f, itemNo: e.target.value }))}
-                        className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                      <input
                         type="text"
                         placeholder="描述（可选）"
                         value={addSettleForm.description}
@@ -798,13 +781,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                       /* 内联编辑表单 */
                       <div className="border border-amber-300 rounded-xl p-3 bg-amber-50/50 space-y-2">
                         <div className="flex gap-2">
-                          <input
-                            type="number"
-                            placeholder="期号"
-                            value={editSettleForm.itemNo}
-                            onChange={e => setEditSettleForm(f => ({ ...f, itemNo: e.target.value }))}
-                            className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
                           <input
                             type="text"
                             placeholder="描述（可选）"
@@ -875,7 +851,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                                     setEditSettleId(s.id);
                                     setShowAddSettlement(false);
                                     setEditSettleForm({
-                                      itemNo: String(s.itemNo ?? ""),
                                       description: s.description ?? "",
                                       amount: String(s.amount),
                                       dueDate: s.dueDate ? s.dueDate.slice(0, 10) : "",

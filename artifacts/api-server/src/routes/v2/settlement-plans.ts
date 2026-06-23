@@ -108,11 +108,15 @@ router.post("/settlement-plans", requireAdmin, async (req: Request, res: Respons
       .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, outsourceOrderId)).limit(1);
     if (!order) return res.status(404).json({ error: "外包订单不存在" });
 
+    const existing = await db.select({ id: v2SettlementPlansTable.id })
+      .from(v2SettlementPlansTable).where(eq(v2SettlementPlansTable.outsourceOrderId, outsourceOrderId));
+    const autoItemNo = itemNo ?? (existing.length + 1);
+
     const [created] = await db.insert(v2SettlementPlansTable).values({
       outsourceOrderId,
       contractId,
       opcId: order.opcId,
-      itemNo: itemNo ?? 1,
+      itemNo: autoItemNo,
       description,
       amount,
       dueDate: new Date(dueDate),
