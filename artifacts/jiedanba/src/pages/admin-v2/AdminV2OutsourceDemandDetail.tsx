@@ -4,6 +4,7 @@ import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
   Loader2, X, ExternalLink, CheckCircle2,
   Edit2, History, Zap, AlertTriangle, Calendar, FileText, ChevronDown, ChevronUp,
+  UserPlus, Search,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
@@ -149,6 +150,13 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
   const [showSelectWinner, setShowSelectWinner] = useState(false);
   const [selectedWinners, setSelectedWinners] = useState<number[]>([]);
 
+  // Add invited OPC panel
+  const [showInvitePanel, setShowInvitePanel] = useState(false);
+  const [inviteSearch, setInviteSearch] = useState("");
+  const [inviteResults, setInviteResults] = useState<{ id: number; nickname: string; email: string }[]>([]);
+  const [inviteSearching, setInviteSearching] = useState(false);
+  const [inviting, setInviting] = useState<number | null>(null);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -240,6 +248,30 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
     setCloseReason("");
     setShowClose(false);
   }, "需求已关闭");
+
+  const handleInviteSearch = async () => {
+    if (!inviteSearch.trim()) return;
+    setInviteSearching(true);
+    try {
+      const rows = await v2Get<{ id: number; nickname: string; email: string }[]>(
+        `/outsource-demands/opc-search?q=${encodeURIComponent(inviteSearch.trim())}`
+      );
+      setInviteResults(rows);
+    } catch { setInviteResults([]); }
+    finally { setInviteSearching(false); }
+  };
+
+  const handleAddInvitedOpc = async (opcId: number) => {
+    setInviting(opcId);
+    try {
+      await v2Post(`/outsource-demands/${id}/add-invited-opc`, { opcId });
+      toast({ title: "已追加邀请，已发送通知" });
+      setInviteResults(prev => prev.filter(o => o.id !== opcId));
+      await load();
+    } catch (err: any) {
+      toast({ title: "邀请失败", description: err.message, variant: "destructive" });
+    } finally { setInviting(null); }
+  };
 
   if (loading) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="OPC 需求"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
   if (!demand) return <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="OPC 需求"><div className="text-center py-16 text-slate-400">需求不存在</div></AdminV2Layout>;
@@ -512,7 +544,75 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
         )}
 
         {/* ── 投标列表 ── */}
-        <Section title={`投标列表（${tenders.length} 个）`} icon={CheckCircle2}>
+        <Section
+          title={`投标列表（${tenders.length} 个）`}
+          icon={CheckCircle2}
+          headerRight={
+            demand.mode === "invited" && demand.status === "negotiating" ? (
+              <button
+                onClick={() => { setShowInvitePanel(v => !v); setInviteResults([]); setInviteSearch(""); }}
+                className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                  showInvitePanel
+                    ? "bg-primary text-white border-primary"
+                    : "border-primary/30 text-primary hover:bg-primary/5"
+                }`}
+              >
+                <UserPlus size={11} /> 追加邀请
+              </button>
+            ) : undefined
+          }
+        >
+          {/* 追加邀请面板 */}
+          {showInvitePanel && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+              <p className="text-xs text-slate-500 mb-3">搜索 OPC 用户昵称，追加到本需求的邀请列表。</p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  value={inviteSearch}
+                  onChange={e => setInviteSearch(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleInviteSearch()}
+                  placeholder="输入 OPC 昵称关键词"
+                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                />
+                <button
+                  onClick={handleInviteSearch}
+                  disabled={inviteSearching || !inviteSearch.trim()}
+                  className="flex items-center gap-1 px-3 py-2 text-xs font-bold bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {inviteSearching ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />} 搜索
+                </button>
+              </div>
+              {inviteResults.length > 0 && (
+                <div className="space-y-1.5">
+                  {inviteResults.map(opc => {
+                    const alreadyInvited = tenders.some(t => t.opcId === opc.id);
+                    return (
+                      <div key={opc.id} className="flex items-center justify-between bg-white border border-slate-100 rounded-xl px-3 py-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{opc.nickname}</p>
+                          <p className="text-xs text-slate-400">{opc.email}</p>
+                        </div>
+                        {alreadyInvited ? (
+                          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">已邀请</span>
+                        ) : (
+                          <button
+                            onClick={() => handleAddInvitedOpc(opc.id)}
+                            disabled={inviting === opc.id}
+                            className="flex items-center gap-1 text-xs font-bold text-primary border border-primary/30 px-2.5 py-1 rounded-lg hover:bg-primary/5 disabled:opacity-50"
+                          >
+                            {inviting === opc.id ? <Loader2 size={11} className="animate-spin" /> : <UserPlus size={11} />} 邀请
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {inviteResults.length === 0 && !inviteSearching && inviteSearch.trim() && (
+                <p className="text-xs text-slate-400 text-center py-2">未找到匹配的 OPC 用户</p>
+              )}
+            </div>
+          )}
           {tenders.length === 0 ? (
             <p className="text-sm text-slate-400">暂无投标</p>
           ) : (

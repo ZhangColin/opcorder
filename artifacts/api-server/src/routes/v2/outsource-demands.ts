@@ -270,6 +270,44 @@ router.post("/outsource-demands/:id/update-detail", requireAdmin, async (req: Re
   }
 });
 
+router.post("/outsource-demands/:id/add-invited-opc", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { opcId } = req.body as { opcId: number };
+    if (!opcId) return res.status(400).json({ error: "缺少 opcId" });
+
+    const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
+    if (!demand) return res.status(404).json({ error: "外包需求不存在" });
+    if (demand.mode !== "invited") return res.status(400).json({ error: "仅指定邀请模式可追加邀请人" });
+    if (demand.status !== "negotiating") return res.status(400).json({ error: "已选定中标或已签合同，无法再追加邀请人" });
+
+    const [existing] = await db
+      .select({ id: v2TendersTable.id })
+      .from(v2TendersTable)
+      .where(and(eq(v2TendersTable.outsourceDemandId, id), eq(v2TendersTable.opcId, opcId)))
+      .limit(1);
+    if (existing) return res.status(409).json({ error: "该 OPC 已在邀请列表中" });
+
+    const [opc] = await db.select({ id: usersTable.id, nickname: usersTable.nickname, role: usersTable.role })
+      .from(usersTable).where(eq(usersTable.id, opcId)).limit(1);
+    if (!opc || opc.role !== "opc") return res.status(404).json({ error: "OPC 用户不存在" });
+
+    const [tender] = await db.insert(v2TendersTable).values({
+      outsourceDemandId: id,
+      opcId,
+      status: "negotiating",
+    }).returning();
+
+    await notify(opcId, "v2_demand_invited", "您收到外包需求邀请",
+      `平台邀请您参与外包需求「${demand.title}」的报价，请登录查看详情。`, id, "v2_outsource_demand");
+
+    return res.status(201).json(tender);
+  } catch (err) {
+    logger.error({ err }, "POST /v2/outsource-demands/:id/add-invited-opc failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 router.post("/outsource-demands/:id/close", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
