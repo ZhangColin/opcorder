@@ -306,45 +306,6 @@ export default function OpcV2TenderDetail() {
           )}
         </div>
 
-        {/* ── Milestones ── */}
-        {demand && demand.milestones && demand.milestones.length > 0 && (
-          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-border flex items-center gap-2">
-              <Flag size={15} className="text-primary" />
-              <h3 className="font-bold text-foreground text-sm">里程碑计划</h3>
-              <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
-                {demand.milestones.length} 个节点
-              </span>
-            </div>
-            <div className="divide-y divide-border">
-              {demand.milestones.map((ms, i) => (
-                <div key={i} className="flex items-start gap-3 px-5 py-3">
-                  <div className="flex flex-col items-center shrink-0 mt-0.5">
-                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center">
-                      {i + 1}
-                    </span>
-                    {i < demand.milestones.length - 1 && (
-                      <div className="w-px flex-1 bg-border mt-1" style={{ minHeight: "12px" }} />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 pb-1">
-                    <p className="text-sm font-bold text-foreground">{ms.name}</p>
-                    {ms.deadline && (
-                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                        <CalendarDays size={11} />
-                        截止 {new Date(ms.deadline).toLocaleDateString("zh-CN")}
-                      </p>
-                    )}
-                    {ms.description && (
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{ms.description}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* ── Demand detail ── */}
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-border">
@@ -404,6 +365,45 @@ export default function OpcV2TenderDetail() {
             </button>
           </div>
         </div>
+
+        {/* ── Milestones ── */}
+        {demand && demand.milestones && demand.milestones.length > 0 && (
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-border flex items-center gap-2">
+              <Flag size={15} className="text-primary" />
+              <h3 className="font-bold text-foreground text-sm">里程碑计划</h3>
+              <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                {demand.milestones.length} 个节点
+              </span>
+            </div>
+            <div className="divide-y divide-border">
+              {demand.milestones.map((ms, i) => (
+                <div key={i} className="flex items-start gap-3 px-5 py-3">
+                  <div className="flex flex-col items-center shrink-0 mt-0.5">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                    {i < demand.milestones.length - 1 && (
+                      <div className="w-px flex-1 bg-border mt-1" style={{ minHeight: "12px" }} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 pb-1">
+                    <p className="text-sm font-bold text-foreground">{ms.name}</p>
+                    {ms.deadline && (
+                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                        <CalendarDays size={11} />
+                        截止 {new Date(ms.deadline).toLocaleDateString("zh-CN")}
+                      </p>
+                    )}
+                    {ms.description && (
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{ms.description}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* My quote */}
         {tender.priceBreakdown && tender.priceBreakdown.length > 0 && (
