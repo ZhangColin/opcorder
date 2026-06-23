@@ -2,14 +2,15 @@ import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
-  Loader2, X, Upload, CheckCircle2, Clock, ExternalLink, PlusCircle, Wrench,
+  Loader2, X, Upload, CheckCircle2, Clock, ExternalLink, Wrench,
   FileSignature, Package, Shield, XCircle, CreditCard, ChevronDown, ChevronUp,
-  Lock, Paperclip,
+  Lock, Paperclip, Plus, Edit2, Send, DollarSign, FileText,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
 
@@ -135,28 +136,35 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
   const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
 
-  /* Modals */
+  /* Upload contract PDF */
   const [showUploadContract, setShowUploadContract] = useState(false);
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [uploadingContract, setUploadingContract] = useState(false);
 
-  const [showSettlementModal, setShowSettlementModal] = useState(false);
-  const [settleTitle, setSettleTitle] = useState("");
-  const [settleAmount, setSettleAmount] = useState("");
-  const [settleDueDate, setSettleDueDate] = useState("");
-  const [settleIsLast, setSettleIsLast] = useState(false);
+  /* Contract inline editing */
+  const [editingContract, setEditingContract] = useState(false);
+  const [contractEditContent, setContractEditContent] = useState("");
+  const [contractActing, setContractActing] = useState(false);
 
-  const [editingPlan, setEditingPlan] = useState<SettlementPlan | null>(null);
-  const [editPlanDesc, setEditPlanDesc] = useState("");
-  const [editPlanAmount, setEditPlanAmount] = useState("");
-  const [editPlanDueDate, setEditPlanDueDate] = useState("");
-  const [editPlanIsLast, setEditPlanIsLast] = useState(false);
+  /* Settlement plan inline forms */
+  const [showAddSettlement, setShowAddSettlement] = useState(false);
+  const [addSettleForm, setAddSettleForm] = useState({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+  const [editSettleId, setEditSettleId] = useState<number | null>(null);
+  const [editSettleForm, setEditSettleForm] = useState({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+  const [settleActing, setSettleActing] = useState(false);
 
+  /* Mark paid inline panel */
+  const [markPaidId, setMarkPaidId] = useState<number | null>(null);
+  const [markPaidVoucher, setMarkPaidVoucher] = useState("");
+  const [markPaidNote, setMarkPaidNote] = useState("");
+
+  /* Ticket modal */
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketTitle, setTicketTitle] = useState("");
   const [ticketDesc, setTicketDesc] = useState("");
   const [ticketBlocking, setTicketBlocking] = useState(false);
 
+  /* Verify modal */
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyNote, setVerifyNote] = useState("");
 
@@ -232,49 +240,120 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     "交付已驳回"
   );
 
-  const handleCreateSettlement = async () => {
-    if (!settleAmount || parseFloat(settleAmount) <= 0) {
+  /* ── 合同操作 ── */
+  const handleCreateContract = async () => {
+    setContractActing(true);
+    try {
+      await v2Post("/contracts", { channel: "b", outsourceOrderId: id, content: "" });
+      toast({ title: "合同草稿已创建" });
+      await load();
+      setEditingContract(true);
+      setContractEditContent("");
+    } catch (err: any) {
+      toast({ title: "创建失败", description: err.message, variant: "destructive" });
+    } finally {
+      setContractActing(false);
+    }
+  };
+
+  const handleSaveContractContent = async () => {
+    if (!contract) return;
+    setContractActing(true);
+    try {
+      await v2Patch(`/contracts/${contract.id}/content`, { content: contractEditContent });
+      toast({ title: "合同内容已保存" });
+      setEditingContract(false);
+      await load();
+    } catch (err: any) {
+      toast({ title: "保存失败", description: err.message, variant: "destructive" });
+    } finally {
+      setContractActing(false);
+    }
+  };
+
+  const handleFinalizeContract = async () => {
+    if (!contract) return;
+    setContractActing(true);
+    try {
+      await v2Post(`/contracts/${contract.id}/finalize`, {});
+      toast({ title: "合同已定稿，已通知OPC确认" });
+      await load();
+    } catch (err: any) {
+      toast({ title: "定稿失败", description: err.message, variant: "destructive" });
+    } finally {
+      setContractActing(false);
+    }
+  };
+
+  /* ── 结算计划操作 ── */
+  const handleAddSettlement = async () => {
+    if (!addSettleForm.amount || parseFloat(addSettleForm.amount) <= 0) {
       toast({ title: "请填写有效金额", variant: "destructive" }); return;
     }
-    if (!settleDueDate) {
+    if (!addSettleForm.dueDate) {
       toast({ title: "请选择应付日期", variant: "destructive" }); return;
     }
-    await act(async () => {
+    setSettleActing(true);
+    try {
       await v2Post("/settlement-plans", {
         outsourceOrderId: id,
-        description: settleTitle.trim() || undefined,
-        amount: parseFloat(settleAmount),
-        dueDate: settleDueDate,
-        itemNo: settlements.length + 1,
-        isLastItem: settleIsLast,
+        description: addSettleForm.description.trim() || undefined,
+        amount: parseFloat(addSettleForm.amount),
+        dueDate: addSettleForm.dueDate,
+        itemNo: addSettleForm.itemNo ? parseInt(addSettleForm.itemNo) : settlements.length + 1,
+        isLastItem: addSettleForm.isLastItem,
       });
-      setShowSettlementModal(false);
-      setSettleTitle(""); setSettleAmount(""); setSettleDueDate(""); setSettleIsLast(false);
-    }, "结算付款项已创建");
+      toast({ title: "结算付款项已创建" });
+      setShowAddSettlement(false);
+      setAddSettleForm({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
+      await load();
+    } catch (err: any) {
+      toast({ title: "创建失败", description: err.message, variant: "destructive" });
+    } finally {
+      setSettleActing(false);
+    }
   };
 
-  const handleEditSettlement = async () => {
-    if (!editingPlan) return;
-    if (!editPlanAmount || parseFloat(editPlanAmount) <= 0) {
+  const handleSaveSettlement = async (planId: number) => {
+    if (!editSettleForm.amount || parseFloat(editSettleForm.amount) <= 0) {
       toast({ title: "请填写有效金额", variant: "destructive" }); return;
     }
-    await act(async () => {
-      await v2Patch(`/settlement-plans/${editingPlan.id}`, {
-        description: editPlanDesc.trim() || undefined,
-        amount: parseFloat(editPlanAmount),
-        dueDate: editPlanDueDate || undefined,
-        isLastItem: editPlanIsLast,
+    setSettleActing(true);
+    try {
+      await v2Patch(`/settlement-plans/${planId}`, {
+        description: editSettleForm.description.trim() || undefined,
+        amount: parseFloat(editSettleForm.amount),
+        dueDate: editSettleForm.dueDate || undefined,
+        itemNo: editSettleForm.itemNo ? parseInt(editSettleForm.itemNo) : undefined,
+        isLastItem: editSettleForm.isLastItem,
       });
-      setEditingPlan(null);
-    }, "结算计划已更新");
+      toast({ title: "结算计划已更新" });
+      setEditSettleId(null);
+      await load();
+    } catch (err: any) {
+      toast({ title: "保存失败", description: err.message, variant: "destructive" });
+    } finally {
+      setSettleActing(false);
+    }
   };
 
-  const openEditPlan = (s: SettlementPlan) => {
-    setEditingPlan(s);
-    setEditPlanDesc(s.description ?? "");
-    setEditPlanAmount(String(s.amount));
-    setEditPlanDueDate(s.dueDate ? s.dueDate.slice(0, 10) : "");
-    setEditPlanIsLast(s.isLastItem);
+  const handleMarkPaid = async (planId: number) => {
+    setSettleActing(true);
+    try {
+      await v2Post(`/settlement-plans/${planId}/mark-paid`, {
+        paymentVoucherUrl: markPaidVoucher.trim() || undefined,
+        paymentNote: markPaidNote.trim() || undefined,
+      });
+      toast({ title: "已标记打款，OPC已收到通知" });
+      setMarkPaidId(null);
+      setMarkPaidVoucher("");
+      setMarkPaidNote("");
+      await load();
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } finally {
+      setSettleActing(false);
+    }
   };
 
   const handleCreateTicket = async () => {
@@ -419,117 +498,334 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
         {activeTab === "contract" && (
           <div className="space-y-4">
 
-            <Section title="合同" icon={FileSignature} collapsible={false}
-              actions={canUploadContract ? (
-                <button onClick={() => setShowUploadContract(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                  <Upload size={12} /> 上传合同
-                </button>
-              ) : undefined}
-            >
-              <div className="mt-4 space-y-4">
-                {/* 合同状态 + 编号 */}
-                {contract && (
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                      contract.status === "signed" ? "bg-green-100 text-green-700" :
-                      contract.status === "pending" ? "bg-amber-100 text-amber-700" :
-                      "bg-slate-100 text-slate-500"
-                    }`}>
-                      {contract.status === "signed" ? "已签署" : contract.status === "pending" ? "待签署" : contract.status}
-                    </span>
-                    <span className="text-xs text-slate-400 font-mono">{contract.contractNo}</span>
-                  </div>
-                )}
-
-                {/* 待签约状态提示 */}
-                {order.status === "pending_contract" && order.signedFileUrl && (
-                  <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
-                    <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-sm font-bold text-amber-800">合同已上传，等待 OPC 确认签署</p>
-                  </div>
-                )}
-
-                {/* 合同正文 Markdown */}
-                {contract?.content && (
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
-                    <MarkdownContent content={contract.content} />
-                  </div>
-                )}
-
-                {/* 已签约合同文件下载 */}
-                {order.signedFileUrl && (
-                  <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group">
-                    <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors flex items-center justify-center shrink-0">
-                      <FileSignature size={15} className="text-green-700" />
+            {/* 合同区 */}
+            {(() => {
+              const CONTRACT_STATUS_MAP: Record<string, { label: string; color: string }> = {
+                draft:                    { label: "草稿",       color: "bg-slate-100 text-slate-500" },
+                pending_publisher_confirm:{ label: "待OPC确认",  color: "bg-amber-100 text-amber-700" },
+                publisher_rejected:       { label: "OPC已驳回",  color: "bg-red-100 text-red-600" },
+                pending_sign:             { label: "待签约",     color: "bg-orange-100 text-orange-700" },
+                signed:                   { label: "已签约",     color: "bg-green-100 text-green-700" },
+              };
+              const cs = contract ? (CONTRACT_STATUS_MAP[contract.status] ?? { label: contract.status, color: "bg-slate-100 text-slate-500" }) : null;
+              const canEditContent = contract && ["draft", "publisher_rejected"].includes(contract.status);
+              const canFinalize    = contract && ["draft", "publisher_rejected"].includes(contract.status) && !!contract.content;
+              return (
+                <Section
+                  title="合同"
+                  icon={FileSignature}
+                  collapsible={false}
+                  actions={
+                    <div className="flex items-center gap-2">
+                      {!contract && (
+                        <button onClick={handleCreateContract} disabled={contractActing}
+                          className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50">
+                          <Plus size={12} /> 创建合同
+                        </button>
+                      )}
+                      {canEditContent && !editingContract && (
+                        <button
+                          onClick={() => { setContractEditContent(contract.content ?? ""); setEditingContract(true); }}
+                          className="flex items-center gap-1 text-xs text-primary hover:underline">
+                          <Edit2 size={11} /> 编辑内容
+                        </button>
+                      )}
+                      {canFinalize && !editingContract && (
+                        <button onClick={handleFinalizeContract} disabled={contractActing}
+                          className="flex items-center gap-1 text-xs text-teal-600 hover:underline disabled:opacity-50">
+                          <Send size={11} /> 定稿发送
+                        </button>
+                      )}
+                      {canUploadContract && (
+                        <button onClick={() => setShowUploadContract(true)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                          <Upload size={11} /> 上传签约PDF
+                        </button>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-green-700">已签约合同文件</p>
-                      <p className="text-xs text-green-600">点击下载</p>
-                    </div>
-                    <ExternalLink size={14} className="text-green-500 shrink-0" />
-                  </a>
-                )}
+                  }
+                >
+                  <div className="mt-3 space-y-3">
+                    {/* 合同状态 + 编号 */}
+                    {contract && cs && (
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${cs.color}`}>{cs.label}</span>
+                        <span className="text-xs text-slate-400 font-mono">{contract.contractNo}</span>
+                      </div>
+                    )}
 
-                {!contract && !order.signedFileUrl && (
-                  <p className="text-sm text-slate-400">暂无合同内容</p>
-                )}
-              </div>
-            </Section>
+                    {/* 内联编辑器 */}
+                    {editingContract ? (
+                      <div className="space-y-3">
+                        <MarkdownEditor
+                          key={`contract-edit-${contract?.id}`}
+                          value={contractEditContent}
+                          onChange={setContractEditContent}
+                          placeholder="填写合同正文，支持 Markdown…"
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={handleSaveContractContent} disabled={contractActing}
+                            className="bg-primary text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
+                            {contractActing ? "保存中…" : "保存"}
+                          </button>
+                          <button onClick={() => setEditingContract(false)}
+                            className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
+                            取消
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* 待签约状态提示 */}
+                        {order.status === "pending_contract" && order.signedFileUrl && (
+                          <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+                            <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                            <p className="text-sm font-bold text-amber-800">合同已上传，等待 OPC 确认签署</p>
+                          </div>
+                        )}
+                        {contract?.status === "pending_publisher_confirm" && (
+                          <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+                            <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                            <p className="text-sm font-bold text-amber-800">合同已定稿，等待 OPC 确认</p>
+                          </div>
+                        )}
+                        {/* 合同正文 Markdown */}
+                        {contract?.content ? (
+                          <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
+                            <MarkdownContent content={contract.content} />
+                          </div>
+                        ) : contract ? (
+                          <p className="text-sm text-slate-400">合同正文尚未填写，点击「编辑内容」填写。</p>
+                        ) : (
+                          <div className="text-center py-8 text-slate-400">
+                            <FileText size={24} className="mx-auto mb-2 text-slate-300" />
+                            <p className="text-sm">暂无合同</p>
+                            <button onClick={handleCreateContract} disabled={contractActing}
+                              className="mt-2 text-xs text-primary hover:underline disabled:opacity-50">
+                              点击创建合同草稿
+                            </button>
+                          </div>
+                        )}
+                        {/* 已签约合同文件下载 */}
+                        {order.signedFileUrl && (
+                          <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group">
+                            <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors flex items-center justify-center shrink-0">
+                              <FileSignature size={15} className="text-green-700" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-green-700">已签约合同文件</p>
+                              <p className="text-xs text-green-600">点击下载</p>
+                            </div>
+                            <ExternalLink size={14} className="text-green-500 shrink-0" />
+                          </a>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </Section>
+              );
+            })()}
 
             {/* 结算付款计划 */}
             <Section
-              title="结算付款计划"
-              icon={CreditCard}
+              title={`结算付款计划（${settlements.length} 项）`}
+              icon={DollarSign}
               collapsible={false}
               actions={canCreateSettlement ? (
-                <button onClick={() => setShowSettlementModal(true)}
-                  className="flex items-center gap-1 text-xs text-primary font-bold hover:text-primary/80 transition-colors">
-                  <PlusCircle size={13} /> 新增
+                <button
+                  onClick={() => { setShowAddSettlement(v => !v); setEditSettleId(null); }}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <Plus size={12} /> 添加
                 </button>
               ) : undefined}
             >
-              <div className="mt-4 space-y-3">
-                {settlements.length === 0 ? (
-                  <p className="text-sm text-slate-400">尚未创建结算计划</p>
-                ) : settlements.map(s => {
-                  const isPaid = s.status === "paid";
-                  return (
-                    <div key={s.id} className={`border rounded-xl p-4 flex items-center justify-between ${
-                      s.isOverdue && !isPaid ? "border-red-300 bg-red-50/30" : "border-slate-200 hover:border-primary/30"
-                    }`}>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            isPaid ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                          }`}>{isPaid ? "已付款" : "待付款"}</span>
-                          {s.isOverdue && !isPaid && <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">逾期</span>}
-                          <span className="text-xs text-slate-400">第 {s.itemNo ?? 1} 期</span>
-                          {s.isLastItem && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>}
-                          {s.isBlockingPayment && !isPaid && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
-                              <Lock size={9} /> 阻款
-                            </span>
-                          )}
+              <div className="mt-3 space-y-2">
+                {/* 内联添加表单 */}
+                {showAddSettlement && (
+                  <div className="border border-primary/30 rounded-xl p-3 bg-primary/5 space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="期号（自动）"
+                        value={addSettleForm.itemNo}
+                        onChange={e => setAddSettleForm(f => ({ ...f, itemNo: e.target.value }))}
+                        className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      <input
+                        type="text"
+                        placeholder="描述（可选）"
+                        value={addSettleForm.description}
+                        onChange={e => setAddSettleForm(f => ({ ...f, description: e.target.value }))}
+                        className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="金额（元）*"
+                        value={addSettleForm.amount}
+                        onChange={e => setAddSettleForm(f => ({ ...f, amount: e.target.value }))}
+                        className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      <input
+                        type="date"
+                        value={addSettleForm.dueDate}
+                        onChange={e => setAddSettleForm(f => ({ ...f, dueDate: e.target.value }))}
+                        className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                      <input type="checkbox" checked={addSettleForm.isLastItem} onChange={e => setAddSettleForm(f => ({ ...f, isLastItem: e.target.checked }))} />
+                      尾款（触发阻断工单检查）
+                    </label>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={handleAddSettlement} disabled={settleActing}
+                        className="bg-primary text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+                        {settleActing ? "提交中…" : "确认添加"}
+                      </button>
+                      <button onClick={() => setShowAddSettlement(false)}
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
+                    </div>
+                  </div>
+                )}
+
+                {settlements.length === 0 && !showAddSettlement && (
+                  <p className="text-sm text-slate-400 py-2">尚未创建结算计划</p>
+                )}
+
+                {settlements.map(s => (
+                  <div key={s.id}>
+                    {editSettleId === s.id ? (
+                      /* 内联编辑表单 */
+                      <div className="border border-amber-300 rounded-xl p-3 bg-amber-50/50 space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            placeholder="期号"
+                            value={editSettleForm.itemNo}
+                            onChange={e => setEditSettleForm(f => ({ ...f, itemNo: e.target.value }))}
+                            className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                          <input
+                            type="text"
+                            placeholder="描述（可选）"
+                            value={editSettleForm.description}
+                            onChange={e => setEditSettleForm(f => ({ ...f, description: e.target.value }))}
+                            className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
                         </div>
-                        {s.description && <p className="text-xs text-slate-500">{s.description}</p>}
-                      </div>
-                      <div className="text-right flex items-center gap-2">
-                        <div>
-                          <p className="font-black text-slate-800">¥{s.amount.toLocaleString()}</p>
-                          {s.dueDate && <p className="text-xs text-slate-400">{new Date(s.dueDate).toLocaleDateString("zh-CN")}</p>}
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            placeholder="金额（元）*"
+                            value={editSettleForm.amount}
+                            onChange={e => setEditSettleForm(f => ({ ...f, amount: e.target.value }))}
+                            className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                          <input
+                            type="date"
+                            value={editSettleForm.dueDate}
+                            onChange={e => setEditSettleForm(f => ({ ...f, dueDate: e.target.value }))}
+                            className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
                         </div>
-                        {s.status === "pending" && (
-                          <button onClick={() => openEditPlan(s)}
-                            className="text-xs px-2 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
-                            编辑
+                        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                          <input type="checkbox" checked={editSettleForm.isLastItem} onChange={e => setEditSettleForm(f => ({ ...f, isLastItem: e.target.checked }))} />
+                          尾款（触发阻断工单检查）
+                        </label>
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={() => handleSaveSettlement(s.id)} disabled={settleActing}
+                            className="bg-primary text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+                            {settleActing ? "保存中…" : "保存"}
                           </button>
+                          <button onClick={() => setEditSettleId(null)}
+                            className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* 展示行 */
+                      <div className={`border rounded-xl p-3 ${
+                        s.isOverdue && s.status !== "paid" ? "border-red-300 bg-red-50/30" : "border-slate-200 hover:border-slate-300 transition-colors"
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                s.status === "paid" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                              }`}>{s.status === "paid" ? "已付款" : "待付款"}</span>
+                              {s.isOverdue && s.status !== "paid" && (
+                                <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">逾期</span>
+                              )}
+                              <span className="text-xs text-slate-400">第 {s.itemNo ?? 1} 期</span>
+                              {s.isLastItem && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>}
+                              {s.isBlockingPayment && s.status !== "paid" && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
+                                  <Lock size={9} /> 阻款
+                                </span>
+                              )}
+                            </div>
+                            {s.description && <p className="text-xs text-slate-500 mt-0.5">{s.description}</p>}
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-3">
+                            <p className="font-black text-slate-800">¥{s.amount.toLocaleString()}</p>
+                            {s.dueDate && <p className="text-xs text-slate-400">{new Date(s.dueDate).toLocaleDateString("zh-CN")}</p>}
+                            {s.status === "pending" && (
+                              <div className="flex items-center gap-2 justify-end mt-1">
+                                <button
+                                  onClick={() => {
+                                    setEditSettleId(s.id);
+                                    setShowAddSettlement(false);
+                                    setEditSettleForm({
+                                      itemNo: String(s.itemNo ?? ""),
+                                      description: s.description ?? "",
+                                      amount: String(s.amount),
+                                      dueDate: s.dueDate ? s.dueDate.slice(0, 10) : "",
+                                      isLastItem: s.isLastItem,
+                                    });
+                                  }}
+                                  className="text-xs text-primary hover:underline"
+                                >编辑</button>
+                                <button
+                                  onClick={() => { setMarkPaidId(s.id); setMarkPaidVoucher(""); setMarkPaidNote(""); }}
+                                  className="text-xs text-green-600 hover:underline font-bold"
+                                >标记已付款</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {/* 标记已付款内联面板 */}
+                        {markPaidId === s.id && (
+                          <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                            <input
+                              type="text"
+                              placeholder="付款凭证链接（可选）"
+                              value={markPaidVoucher}
+                              onChange={e => setMarkPaidVoucher(e.target.value)}
+                              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-200"
+                            />
+                            <input
+                              type="text"
+                              placeholder="备注（可选）"
+                              value={markPaidNote}
+                              onChange={e => setMarkPaidNote(e.target.value)}
+                              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-200"
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={() => handleMarkPaid(s.id)} disabled={settleActing}
+                                className="bg-green-600 text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50 hover:bg-green-700">
+                                {settleActing ? "处理中…" : "确认已打款"}
+                              </button>
+                              <button onClick={() => setMarkPaidId(null)}
+                                className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
+                            </div>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  );
-                })}
+                    )}
+                  </div>
+                ))}
               </div>
             </Section>
 
@@ -723,74 +1019,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
               <button onClick={handleAdminVerify} disabled={acting}
                 className="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50">
                 {acting ? "处理中…" : "确认验收"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── 新增结算付款项 Modal ── */}
-      {showSettlementModal && (
-        <Modal title="新增结算付款项" onClose={() => setShowSettlementModal(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">付款项名称</label>
-              <input value={settleTitle} onChange={e => setSettleTitle(e.target.value)} placeholder="如：首付款"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">金额 (¥)</label>
-              <input type="number" value={settleAmount} onChange={e => setSettleAmount(e.target.value)} placeholder="0"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">应付日期（可选）</label>
-              <input type="date" value={settleDueDate} onChange={e => setSettleDueDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
-              <input type="checkbox" checked={settleIsLast} onChange={e => setSettleIsLast(e.target.checked)} className="w-4 h-4 accent-violet-600" />
-              标记为尾款（触发阻断付款工单检查）
-            </label>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowSettlementModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
-              <button onClick={handleCreateSettlement} disabled={acting}
-                className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 disabled:opacity-50">
-                {acting ? "创建中…" : "创建"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── 编辑结算付款项 Modal ── */}
-      {editingPlan && (
-        <Modal title="编辑结算付款项" onClose={() => setEditingPlan(null)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">付款项名称</label>
-              <input value={editPlanDesc} onChange={e => setEditPlanDesc(e.target.value)} placeholder="如：首付款"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">金额 (¥)</label>
-              <input type="number" value={editPlanAmount} onChange={e => setEditPlanAmount(e.target.value)} placeholder="0"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">应付日期（可选）</label>
-              <input type="date" value={editPlanDueDate} onChange={e => setEditPlanDueDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
-              <input type="checkbox" checked={editPlanIsLast} onChange={e => setEditPlanIsLast(e.target.checked)} className="w-4 h-4 accent-violet-600" />
-              标记为尾款（触发阻断付款工单检查）
-            </label>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setEditingPlan(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
-              <button onClick={handleEditSettlement} disabled={acting}
-                className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 disabled:opacity-50">
-                {acting ? "保存中…" : "保存"}
               </button>
             </div>
           </div>
