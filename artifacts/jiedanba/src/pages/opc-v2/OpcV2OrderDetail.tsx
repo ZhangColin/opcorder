@@ -108,6 +108,10 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
   content: "内容设计", other: "其他",
   CG: "内容设计", SA: "软件开发", TK: "教育培训", BO: "营销推广", OTHER: "其他",
 };
+const ORDER_STAGE_KEYS = ["pending_contract", "executing", "warranty", "completed"] as const;
+const ORDER_STAGE_LABELS: Record<string, string> = {
+  pending_contract: "待签约", executing: "执行中", warranty: "质保期", completed: "已完成",
+};
 
 /* ── Card section component ── */
 function CardSection({
@@ -325,12 +329,18 @@ export default function OpcV2OrderDetail() {
   const canSubmitDeliverable = ["executing", "warranty"].includes(order.status);
   const openTickets = tickets.filter(t => t.status === "open");
   const blockingTickets = openTickets.filter(t => t.isBlockingPayment);
+  const stageIdx = ORDER_STAGE_KEYS.indexOf(order.status as typeof ORDER_STAGE_KEYS[number]);
 
-  const TAB_CONFIG = [
-    { key: "contract" as const, label: "合同", icon: FileSignature },
-    { key: "delivery" as const, label: "交付", icon: Package, badge: deliverables.length > 0 ? deliverables.length : null },
-    { key: "ticket"   as const, label: "工单", icon: Wrench,   badge: openTickets.length > 0 ? openTickets.length : null },
-  ];
+  const visibleTabs = [
+    { key: "contract" as const, label: "合同", icon: FileSignature, badge: null as number | null,
+      show: true },
+    { key: "delivery" as const, label: "交付", icon: Package,
+      badge: deliverables.length > 0 ? deliverables.length : null,
+      show: ["executing", "warranty", "completed"].includes(order.status) },
+    { key: "ticket"   as const, label: "工单", icon: Wrench,
+      badge: openTickets.length > 0 ? openTickets.length : null,
+      show: ["warranty", "completed"].includes(order.status) },
+  ].filter(t => t.show);
 
   return (
     <OpcV2Layout
@@ -389,6 +399,30 @@ export default function OpcV2OrderDetail() {
                 </div>
               )}
             </div>
+            {/* 状态轴 */}
+            {order.status !== "cancelled" && stageIdx >= 0 && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="flex items-center">
+                  {ORDER_STAGE_KEYS.map((k, i) => (
+                    <div key={k} className="flex items-center flex-1 last:flex-none">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-2.5 h-2.5 rounded-full transition-all ${
+                          i < stageIdx ? "bg-primary" : i === stageIdx ? "bg-primary ring-4 ring-primary/15" : "bg-border"
+                        }`} />
+                        <span className={`text-[9px] mt-1 leading-none font-medium whitespace-nowrap ${
+                          i === stageIdx ? "text-primary font-bold" : i < stageIdx ? "text-muted-foreground" : "text-muted-foreground/40"
+                        }`}>
+                          {ORDER_STAGE_LABELS[k]}
+                        </span>
+                      </div>
+                      {i < ORDER_STAGE_KEYS.length - 1 && (
+                        <div className={`flex-1 h-px mx-1 mb-3 ${i < stageIdx ? "bg-primary/40" : "bg-border"}`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {order.cancelledReason && (
               <div className="mt-3 px-4 py-3 bg-muted/50 rounded-xl border border-border">
                 <p className="text-xs font-bold text-muted-foreground">取消原因</p>
@@ -409,30 +443,32 @@ export default function OpcV2OrderDetail() {
           </div>
         )}
 
-        {/* ── Tab 栏 ── */}
-        <div className="flex gap-1 bg-card rounded-2xl border border-border shadow-sm p-1">
-          {TAB_CONFIG.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-colors ${
-                activeTab === tab.key
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted/60"
-              }`}
-            >
-              <tab.icon size={13} />
-              {tab.label}
-              {tab.badge != null && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  activeTab === tab.key ? "bg-white/20" : "bg-muted text-muted-foreground"
-                }`}>
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* ── Tab 栏（只有多个 tab 时才显示） ── */}
+        {visibleTabs.length > 1 && (
+          <div className="flex gap-1 bg-card rounded-2xl border border-border shadow-sm p-1">
+            {visibleTabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-colors ${
+                  activeTab === tab.key
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted/60"
+                }`}
+              >
+                <tab.icon size={13} />
+                {tab.label}
+                {tab.badge != null && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    activeTab === tab.key ? "bg-white/20" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════ */}
         {/* ── 合同 Tab ── */}

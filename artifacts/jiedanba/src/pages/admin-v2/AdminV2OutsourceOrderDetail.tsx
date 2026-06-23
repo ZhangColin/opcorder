@@ -77,6 +77,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   completed:        { label: "已完成", color: "bg-green-100 text-green-700",   icon: <CheckCircle2 size={13} /> },
   cancelled:        { label: "已取消", color: "bg-slate-100 text-slate-500",   icon: <XCircle size={13} /> },
 };
+const ORDER_STAGE_KEYS = ["pending_contract", "executing", "warranty", "completed"] as const;
+const ORDER_STAGE_LABELS: Record<string, string> = {
+  pending_contract: "待签约", executing: "执行中", warranty: "质保期", completed: "已完成",
+};
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -303,12 +307,18 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const canCreateSettlement = ["executing", "warranty", "completed"].includes(order.status);
   const canCreateTicket     = order.status === "warranty";
   const openTickets         = tickets.filter(t => t.status === "open");
+  const stageIdx = ORDER_STAGE_KEYS.indexOf(order.status as typeof ORDER_STAGE_KEYS[number]);
 
-  const TAB_CONFIG = [
-    { key: "contract" as const, label: "合同",  icon: FileSignature },
-    { key: "delivery" as const, label: "交付",  icon: Package,       badge: deliverables.length > 0 ? deliverables.length : null },
-    { key: "ticket"   as const, label: "工单",  icon: Wrench,        badge: openTickets.length > 0 ? openTickets.length : null },
-  ];
+  const visibleTabs = [
+    { key: "contract" as const, label: "合同", icon: FileSignature, badge: null as number | null,
+      show: true },
+    { key: "delivery" as const, label: "交付", icon: Package,
+      badge: deliverables.length > 0 ? deliverables.length : null,
+      show: ["executing", "warranty", "completed"].includes(order.status) },
+    { key: "ticket"   as const, label: "工单", icon: Wrench,
+      badge: openTickets.length > 0 ? openTickets.length : null,
+      show: ["warranty", "completed"].includes(order.status) },
+  ].filter(t => t.show);
 
   return (
     <AdminV2Layout
@@ -362,6 +372,30 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                 </div>
               )}
             </div>
+            {/* 状态轴 */}
+            {order.status !== "cancelled" && stageIdx >= 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center">
+                  {ORDER_STAGE_KEYS.map((k, i) => (
+                    <div key={k} className="flex items-center flex-1 last:flex-none">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-2.5 h-2.5 rounded-full transition-all ${
+                          i < stageIdx ? "bg-primary" : i === stageIdx ? "bg-primary ring-4 ring-primary/15" : "bg-slate-200"
+                        }`} />
+                        <span className={`text-[9px] mt-1 leading-none font-medium whitespace-nowrap ${
+                          i === stageIdx ? "text-primary font-bold" : i < stageIdx ? "text-slate-400" : "text-slate-300"
+                        }`}>
+                          {ORDER_STAGE_LABELS[k]}
+                        </span>
+                      </div>
+                      {i < ORDER_STAGE_KEYS.length - 1 && (
+                        <div className={`flex-1 h-px mx-1 mb-3 ${i < stageIdx ? "bg-primary/40" : "bg-slate-200"}`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {order.cancelledReason && (
               <div className="mt-3 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200">
                 <p className="text-xs font-bold text-slate-500">取消原因</p>
@@ -371,9 +405,10 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
           </div>
         </div>
 
-        {/* ── Tab 栏 ── */}
+        {/* ── Tab 栏（只有多个 tab 时才显示） ── */}
+        {visibleTabs.length > 1 && (
         <div className="flex gap-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-1">
-          {TAB_CONFIG.map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -395,6 +430,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
             </button>
           ))}
         </div>
+        )}
 
         {/* ══ 合同 Tab ══ */}
         {activeTab === "contract" && (
