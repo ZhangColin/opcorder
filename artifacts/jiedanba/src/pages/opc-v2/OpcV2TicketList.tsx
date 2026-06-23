@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Wrench, Loader2, AlertCircle, ChevronRight, Lock } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
-import { hasUnread } from "@/lib/demandRead";
+import { hasUnreadSinceCreation } from "@/lib/demandRead";
 import { OpcV2Layout } from "./OpcV2Layout";
+import { Pagination } from "@/components/pub/Pagination";
+
+const PAGE_SIZE = 10;
 
 interface TicketItem {
   id: number;
@@ -28,16 +31,19 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const FILTER_TABS = [
-  { key: "all",    label: "全部" },
   { key: "open",   label: "处理中" },
   { key: "closed", label: "已关闭" },
+  { key: "all",    label: "全部" },
 ] as const;
 
 type FilterKey = (typeof FILTER_TABS)[number]["key"];
 
 export default function OpcV2TicketList() {
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [filter, setFilter] = useState<FilterKey>("open");
+  const [page, setPage] = useState(1);
   const [, navigate] = useLocation();
+
+  useEffect(() => { setPage(1); }, [filter]);
 
   const { data = [], isLoading, isError, refetch } = useQuery<TicketItem[]>({
     queryKey: ["v2-opc-tickets"],
@@ -51,6 +57,14 @@ export default function OpcV2TicketList() {
   }, {} as Record<string, number>);
 
   const blockingCount = data.filter(t => t.status === "open" && t.isBlockingPayment).length;
+
+  const sorted = [...filtered].sort((a, b) =>
+    (hasUnreadSinceCreation("ticket_b", b.id, b.updatedAt, b.createdAt) ? 1 : 0) -
+    (hasUnreadSinceCreation("ticket_b", a.id, a.updatedAt, a.createdAt) ? 1 : 0)
+  );
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <OpcV2Layout title="工单">
@@ -68,14 +82,14 @@ export default function OpcV2TicketList() {
         <div className="flex gap-2 flex-wrap">
           {FILTER_TABS.map(tab => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
-              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-1.5 ${
                 filter === tab.key ? "bg-emerald-700 text-white shadow-sm" : "bg-white text-slate-500 border border-slate-200 hover:border-emerald-400"
               }`}>
               {tab.label}
               {counts[tab.key] > 0 && (
-                <span className={`ml-1.5 text-[11px] font-bold ${filter === tab.key ? "opacity-75" : "text-slate-400"}`}>
-                  {counts[tab.key]}
-                </span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                  filter === tab.key ? "bg-white/20" : "bg-slate-100 text-slate-400"
+                }`}>{counts[tab.key]}</span>
               )}
             </button>
           ))}
@@ -95,7 +109,7 @@ export default function OpcV2TicketList() {
             <p className="text-sm text-red-500 font-medium">加载失败</p>
             <button onClick={() => refetch()} className="mt-3 text-xs text-primary underline">重试</button>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : paged.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-slate-100">
             <Wrench size={32} className="mx-auto mb-3 text-slate-300" />
             <p className="text-sm text-slate-500 font-medium">
@@ -103,57 +117,63 @@ export default function OpcV2TicketList() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {[...filtered].sort((a, b) =>
-              (hasUnread("ticket_b", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("ticket_b", a.id, a.updatedAt) ? 1 : 0)
-            ).map(ticket => {
-              const cfg = STATUS_CONFIG[ticket.status] ?? { label: ticket.status, color: "bg-slate-100 text-slate-500" };
-              return (
-                <button key={ticket.id} onClick={() => navigate(`/opc/tickets/${ticket.id}`)}
-                  className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
-                      {ticket.title}
-                      {ticket.isBlockingPayment && ticket.status === "open" && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
-                          <Lock size={9} /> 阻款
-                        </span>
-                      )}
-                      {hasUnread("ticket_b", ticket.id, ticket.updatedAt) && (
-                        <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                      )}
-                    </span>
-                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                  </div>
-                  <div className="flex items-end gap-4">
-                    <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
-                      {(ticket.demandTitle || ticket.orderNo) && (
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">
-                            {ticket.demandTitle ? "关联需求" : "订单号"}
-                          </p>
-                          <p className="text-sm text-slate-600 truncate max-w-[12rem]">
-                            {ticket.demandTitle ?? ticket.orderNo}
-                          </p>
-                        </div>
-                      )}
-                      {ticket.createdByNickname && (
-                        <div>
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">发起方</p>
-                          <p className="text-sm text-slate-600">{ticket.createdByNickname}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">创建时间</p>
-                        <p className="text-sm text-slate-600">{new Date(ticket.createdAt).toLocaleDateString("zh-CN")}</p>
-                      </div>
+          <>
+            <div className="space-y-2">
+              {paged.map(ticket => {
+                const cfg = STATUS_CONFIG[ticket.status] ?? { label: ticket.status, color: "bg-slate-100 text-slate-500" };
+                const hasNew = hasUnreadSinceCreation("ticket_b", ticket.id, ticket.updatedAt, ticket.createdAt);
+                return (
+                  <button key={ticket.id} onClick={() => navigate(`/opc/tickets/${ticket.id}`)}
+                    className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
+                        {ticket.title}
+                        {ticket.isBlockingPayment && ticket.status === "open" && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
+                            <Lock size={9} /> 阻款
+                          </span>
+                        )}
+                        {hasNew && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+                      </span>
+                      <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                     </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 shrink-0" />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                    <div className="flex items-end gap-4">
+                      <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                        {(ticket.demandTitle || ticket.orderNo) && (
+                          <div className="min-w-0">
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">
+                              {ticket.demandTitle ? "关联需求" : "订单号"}
+                            </p>
+                            <p className="text-sm text-slate-600 truncate max-w-[12rem]">
+                              {ticket.demandTitle ?? ticket.orderNo}
+                            </p>
+                          </div>
+                        )}
+                        {ticket.createdByNickname && (
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">发起方</p>
+                            <p className="text-sm text-slate-600">{ticket.createdByNickname}</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">创建时间</p>
+                          <p className="text-sm text-slate-600">{new Date(ticket.createdAt).toLocaleDateString("zh-CN")}</p>
+                        </div>
+                        {ticket.status === "closed" && ticket.closedAt && (
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">关闭时间</p>
+                            <p className="text-sm text-slate-500">{new Date(ticket.closedAt).toLocaleDateString("zh-CN")}</p>
+                          </div>
+                        )}
+                      </div>
+                      <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 shrink-0" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          </>
         )}
       </div>
     </OpcV2Layout>

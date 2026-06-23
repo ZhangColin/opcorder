@@ -23,3 +23,15 @@ export function hasUnread(
   if (!raw) return defaultUnread;
   return new Date(latestAt) > new Date(raw);
 }
+
+export function hasUnreadSinceCreation(
+  type: DemandType,
+  id: number,
+  latestAt: string | null | undefined,
+  createdAt: string,
+): boolean {
+  if (!latestAt) return false;
+  const raw = localStorage.getItem(readKey(type, id));
+  const baseline = raw ?? createdAt;
+  return new Date(latestAt) > new Date(baseline);
+}
