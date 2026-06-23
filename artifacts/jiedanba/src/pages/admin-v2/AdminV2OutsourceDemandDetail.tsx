@@ -5,7 +5,7 @@ import {
   Loader2, X, ExternalLink, CheckCircle2,
   Edit2, History, Zap, AlertTriangle, Calendar, FileText,
   UserPlus, Search, ChevronDown, ChevronUp, Plus, Trash2,
-  DollarSign, MessageSquare,
+  DollarSign, MessageSquare, Users,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { useDemandTypeLabel } from "@/lib/catCategories";
@@ -100,6 +100,10 @@ export default function AdminV2OutsourceDemandDetail({
   const [inviteSearching, setInviteSearching] = useState(false);
   const [inviting, setInviting] = useState<number | null>(null);
 
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchSelected, setBatchSelected] = useState<Set<number>>(new Set());
+  const [batchActing, setBatchActing] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -174,6 +178,23 @@ export default function AdminV2OutsourceDemandDetail({
   const handleSelectWinnerSingle = (tenderId: number) => act(
     () => v2Post(`/tenders/${tenderId}/select-winner`, {}), "已选定中标，订单已生成，已通知OPC"
   );
+
+  const handleBatchSelectWinners = async () => {
+    const ids = [...batchSelected];
+    if (ids.length === 0) return;
+    setBatchActing(true);
+    try {
+      await v2Post("/tenders/batch-select-winners", { tenderIds: ids });
+      toast({ title: `已选定 ${ids.length} 位中标 OPC，订单与合同已生成` });
+      setShowBatchModal(false);
+      setBatchSelected(new Set());
+      await load();
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } finally {
+      setBatchActing(false);
+    }
+  };
 
   const handleClose = () => act(async () => {
     if (!closeReason.trim()) throw new Error("请填写关闭原因");
@@ -489,15 +510,25 @@ export default function AdminV2OutsourceDemandDetail({
         {activeTab === "tenders" && (
           <div className="space-y-3">
 
-            {/* 追加邀请 */}
-            {canInvite && (
-              <div className="flex justify-end">
-                <button onClick={() => { setShowInvitePanel(v => !v); setInviteResults([]); setInviteSearch(""); }}
-                  className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
-                    showInvitePanel ? "bg-primary text-white border-primary" : "border-primary/30 text-primary hover:bg-primary/5"
-                  }`}>
-                  <UserPlus size={12} /> 追加邀请
-                </button>
+            {/* 工具栏：追加邀请 + 批量选定中标 */}
+            {(canInvite || demand.status === "negotiating") && (
+              <div className="flex justify-end gap-2">
+                {demand.status === "negotiating" && tenders.some(t => t.status === "quoted") && (
+                  <button
+                    onClick={() => { setBatchSelected(new Set()); setShowBatchModal(true); }}
+                    className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
+                  >
+                    <Users size={12} /> 批量选定中标
+                  </button>
+                )}
+                {canInvite && (
+                  <button onClick={() => { setShowInvitePanel(v => !v); setInviteResults([]); setInviteSearch(""); }}
+                    className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
+                      showInvitePanel ? "bg-primary text-white border-primary" : "border-primary/30 text-primary hover:bg-primary/5"
+                    }`}>
+                    <UserPlus size={12} /> 追加邀请
+                  </button>
+                )}
               </div>
             )}
 
@@ -705,6 +736,74 @@ export default function AdminV2OutsourceDemandDetail({
                 })()}
               </>
             )}
+          </div>
+        </div>
+      )}
+      {showBatchModal && demand && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800">批量选定中标</h3>
+                <p className="text-xs text-slate-400 mt-0.5">勾选中标的 OPC，未勾选的已报价投标将自动标记为未中标</p>
+              </div>
+              <button onClick={() => setShowBatchModal(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-2 max-h-72 overflow-y-auto">
+              {tenders.filter(t => t.status === "quoted").length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">暂无已报价的投标</p>
+              ) : (
+                tenders.filter(t => t.status === "quoted").map(t => (
+                  <label key={t.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={batchSelected.has(t.id)}
+                      onChange={e => {
+                        setBatchSelected(prev => {
+                          const next = new Set(prev);
+                          e.target.checked ? next.add(t.id) : next.delete(t.id);
+                          return next;
+                        });
+                      }}
+                      className="w-4 h-4 accent-green-600 shrink-0"
+                    />
+                    <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-600 font-bold text-sm flex items-center justify-center shrink-0">
+                      {(t.opcNickname ?? "?")[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">{t.opcNickname ?? "OPC"}</p>
+                      {t.totalPrice != null && (
+                        <p className="text-xs font-bold text-primary">¥{t.totalPrice.toLocaleString()}</p>
+                      )}
+                    </div>
+                    {batchSelected.has(t.id) && (
+                      <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                    )}
+                  </label>
+                ))
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-400">
+                已选 {batchSelected.size} 位，其余 {tenders.filter(t => t.status === "quoted").length - batchSelected.size} 位将自动取消
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowBatchModal(false)}
+                  className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">
+                  取消
+                </button>
+                <button
+                  onClick={handleBatchSelectWinners}
+                  disabled={batchSelected.size === 0 || batchActing}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {batchActing ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                  确认选定
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

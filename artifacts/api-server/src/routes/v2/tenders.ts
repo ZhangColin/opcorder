@@ -35,6 +35,7 @@ router.get("/tenders", requireAuth, async (req: Request, res: Response) => {
         opcNickname: usersTable.nickname,
         status: v2TendersTable.status,
         totalPrice: v2TendersTable.totalPrice,
+        priceBreakdown: v2TendersTable.priceBreakdown,
         quotedAt: v2TendersTable.quotedAt,
         selectedAt: v2TendersTable.selectedAt,
         createdAt: v2TendersTable.createdAt,
