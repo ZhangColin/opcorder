@@ -177,7 +177,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
 
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <h3 className="text-sm font-bold text-slate-700 mb-4">与 {tender.opcNickname ?? "OPC"} 的私密讨论</h3>
-          <DiscussionThread parentType="tender" parentId={id} placeholder="与OPC私密沟通…" />
+          <DiscussionThread parentType="v2_tender" parentId={id} placeholder="与OPC私密沟通…" />
         </div>
       </div>
 

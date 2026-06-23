@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
-import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
@@ -651,10 +650,6 @@ export default function AdminV2OutsourceDemandDetail({ inlineId }: { inlineId?: 
               })}
             </div>
           )}
-        </Section>
-
-        <Section title="讨论" icon={FileText}>
-          <DiscussionThread parentType="outsource_demand" parentId={id} placeholder="发布公共公告或讨论…" onAfterPost={() => markRead("outsource", id)} />
         </Section>
 
       </div>
