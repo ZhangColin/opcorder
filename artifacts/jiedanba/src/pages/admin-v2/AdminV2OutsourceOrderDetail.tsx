@@ -7,7 +7,7 @@ import {
   Lock, Paperclip, Plus, Edit2, Send, DollarSign, FileText,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -19,6 +19,7 @@ interface OutsourceOrder {
   orderNo: string;
   outsourceDemandId: number;
   demandTitle: string | null;
+  tenderId: number | null;
   opcId: number;
   opcNickname: string | null;
   status: string;
@@ -28,6 +29,15 @@ interface OutsourceOrder {
   cancelledReason: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface TenderInfo {
+  id: number;
+  opcNickname: string | null;
+  status: string;
+  totalPrice: number | null;
+  priceBreakdown: Array<{ item: string; amount: number; note?: string }> | null;
+  quotedAt: string | null;
 }
 
 interface ContractDetail {
@@ -123,6 +133,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const { toast } = useToast();
 
   const [order, setOrder] = useState<OutsourceOrder | null>(null);
+  const [tender, setTender] = useState<TenderInfo | null>(null);
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [settlements, setSettlements] = useState<SettlementPlan[]>([]);
   const [deliverables, setDeliverables] = useState<DeliverableB[]>([]);
@@ -174,6 +185,14 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       const d = await v2Get<OutsourceOrder>(`/outsource-orders/${id}`);
       setOrder(d);
       markRead("order", id);
+      if (d.tenderId) {
+        try {
+          const t = await v2Get<TenderInfo>(`/tenders/${d.tenderId}`);
+          setTender(t);
+        } catch { setTender(null); }
+      } else {
+        setTender(null);
+      }
       const contractList = await v2Get<ContractDetail[]>(`/contracts?outsourceOrderId=${id}`);
       setContract(Array.isArray(contractList) && contractList.length > 0 ? contractList[0] : null);
       const sp = await v2Get<SettlementPlan[]>(`/settlement-plans?outsourceOrderId=${id}`);
@@ -356,6 +375,20 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     }
   };
 
+  const handleDeleteSettlement = async (planId: number) => {
+    if (!window.confirm("确定删除该结算付款项？")) return;
+    setSettleActing(true);
+    try {
+      await v2Delete(`/settlement-plans/${planId}`);
+      toast({ title: "结算计划已删除" });
+      await load();
+    } catch (err: any) {
+      toast({ title: "删除失败", description: err.message, variant: "destructive" });
+    } finally {
+      setSettleActing(false);
+    }
+  };
+
   const handleCreateTicket = async () => {
     if (!ticketTitle.trim()) { toast({ title: "请填写工单标题", variant: "destructive" }); return; }
     await act(async () => {
@@ -383,7 +416,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const canUploadContract   = order.status === "pending_contract";
   const canApproveDeliv     = order.status === "executing";
   const canAdminVerify      = order.status === "executing";
-  const canCreateSettlement = ["executing", "warranty", "completed"].includes(order.status);
+  const canCreateSettlement = order.status !== "cancelled";
   const canCreateTicket     = order.status === "warranty";
   const openTickets         = tickets.filter(t => t.status === "open");
   const stageIdx = ORDER_STAGE_KEYS.indexOf(order.status as typeof ORDER_STAGE_KEYS[number]);
@@ -418,19 +451,47 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
             <h2 className="text-base font-extrabold text-slate-800 mb-3">
               {order.demandTitle ?? `外包需求 #${order.outsourceDemandId}`}
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
               <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">服务商</p>
                 <p className="font-semibold text-slate-700">{order.opcNickname ?? "—"}</p>
               </div>
               <div>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">关联外包需求</p>
+                <p className="font-semibold text-slate-700 truncate">{order.demandTitle ?? `需求 #${order.outsourceDemandId}`}</p>
+              </div>
+              <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">创建时间</p>
                 <p className="font-semibold text-slate-700">{new Date(order.createdAt).toLocaleDateString("zh-CN")}</p>
               </div>
+              {tender?.totalPrice != null && (
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">OPC 报价</p>
+                  <p className="font-bold text-primary">¥{tender.totalPrice.toLocaleString()}</p>
+                </div>
+              )}
+              {settlements.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">结算进度</p>
+                  <p className="font-semibold text-slate-700">
+                    {settlements.filter(s => s.status === "paid").length}/{settlements.length} 期已付
+                    <span className="ml-1 text-slate-400">
+                      ¥{settlements.filter(s => s.status === "paid").reduce((acc, s) => acc + s.amount, 0).toLocaleString()}
+                      / ¥{settlements.reduce((acc, s) => acc + s.amount, 0).toLocaleString()}
+                    </span>
+                  </p>
+                </div>
+              )}
               {order.warrantyEndDate && (
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">质保截止</p>
                   <p className="font-semibold text-slate-700">{new Date(order.warrantyEndDate).toLocaleDateString("zh-CN")}</p>
+                </div>
+              )}
+              {order.cancelledReason && (
+                <div className="col-span-2 sm:col-span-3">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">取消原因</p>
+                  <p className="font-semibold text-red-600">{order.cancelledReason}</p>
                 </div>
               )}
             </div>
@@ -497,6 +558,42 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
         {/* ══ 合同 Tab ══ */}
         {activeTab === "contract" && (
           <div className="space-y-4">
+
+            {/* OPC 报价信息 */}
+            {tender && tender.totalPrice != null && (
+              <Section title="OPC 报价信息" icon={DollarSign} collapsible defaultOpen={false}>
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">报价总额</p>
+                      <p className="text-xl font-black text-primary">¥{tender.totalPrice.toLocaleString()}</p>
+                    </div>
+                    {tender.quotedAt && (
+                      <div>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">报价时间</p>
+                        <p className="text-sm text-slate-600">{new Date(tender.quotedAt).toLocaleDateString("zh-CN")}</p>
+                      </div>
+                    )}
+                  </div>
+                  {Array.isArray(tender.priceBreakdown) && tender.priceBreakdown.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">报价明细</p>
+                      <div className="space-y-1">
+                        {tender.priceBreakdown.map((item, i) => (
+                          <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                            <div>
+                              <span className="text-sm text-slate-700 font-medium">{item.item}</span>
+                              {item.note && <span className="ml-2 text-xs text-slate-400">{item.note}</span>}
+                            </div>
+                            <span className="text-sm font-bold text-slate-800">¥{item.amount.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
 
             {/* 合同区 */}
             {(() => {
@@ -787,6 +884,11 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                                   }}
                                   className="text-xs text-primary hover:underline"
                                 >编辑</button>
+                                <button
+                                  onClick={() => handleDeleteSettlement(s.id)}
+                                  disabled={settleActing}
+                                  className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                                >删除</button>
                                 <button
                                   onClick={() => { setMarkPaidId(s.id); setMarkPaidVoucher(""); setMarkPaidNote(""); }}
                                   className="text-xs text-green-600 hover:underline font-bold"

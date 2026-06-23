@@ -209,4 +209,18 @@ router.post("/settlement-plans/:id/mark-paid", requireAdmin, async (req: Request
   }
 });
 
+router.delete("/settlement-plans/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [plan] = await db.select().from(v2SettlementPlansTable).where(eq(v2SettlementPlansTable.id, id)).limit(1);
+    if (!plan) return res.status(404).json({ error: "结算计划不存在" });
+    if (plan.status === "paid") return res.status(400).json({ error: "已结算的计划不可删除" });
+    await db.delete(v2SettlementPlansTable).where(eq(v2SettlementPlansTable.id, id));
+    return res.status(204).send();
+  } catch (err) {
+    logger.error({ err }, "DELETE /v2/settlement-plans/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 export default router;
