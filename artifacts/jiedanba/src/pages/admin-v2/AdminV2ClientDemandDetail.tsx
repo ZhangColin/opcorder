@@ -183,16 +183,19 @@ function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white rounded-2xl border border-slate-200">
-      <div className="flex items-center w-full px-5 py-4 border-b border-slate-100">
-        <button onClick={() => setOpen(v => !v)} className="flex items-center gap-2 flex-1 text-left">
-          <Icon size={15} className="text-primary shrink-0" />
-          <span className="text-sm font-bold text-slate-700">{title}</span>
-          {open ? <ChevronUp size={14} className="text-slate-300 ml-1" /> : <ChevronDown size={14} className="text-slate-300 ml-1" />}
-        </button>
-        {headerRight && <div className="shrink-0">{headerRight}</div>}
-      </div>
-      {open && <div className="px-5 py-4">{children}</div>}
+    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+      >
+        <Icon size={16} className="text-primary shrink-0" />
+        <span className="font-bold text-slate-800 flex-1">{title}</span>
+        {headerRight && (
+          <div className="shrink-0" onClick={e => e.stopPropagation()}>{headerRight}</div>
+        )}
+        {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+      </button>
+      {open && <div className="px-6 pt-4 pb-6 border-t border-slate-100">{children}</div>}
     </div>
   );
 }
@@ -1273,13 +1276,17 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
 
                   {/* Expanded body */}
                   {isExpanded && (
-                    <div className="px-5 pb-5 space-y-4 border-t border-slate-50">
+                    <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
                       {/* URL */}
                       {d.url && (
-                        <div className="pt-4 flex items-center gap-2">
-                          <Link2 size={13} className="text-primary shrink-0" />
+                        <div className="pt-4">
+                          <p className="text-xs font-bold text-slate-500 mb-2">交付链接</p>
                           <a href={d.url} target="_blank" rel="noreferrer"
-                            className="text-sm text-primary hover:underline break-all">{d.url}</a>
+                            className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2.5 hover:bg-primary/10 transition-colors group">
+                            <Link2 size={13} className="text-primary shrink-0" />
+                            <span className="text-sm text-primary break-all flex-1 leading-snug">{d.url}</span>
+                            <ExternalLink size={12} className="text-primary/50 shrink-0 group-hover:text-primary transition-colors" />
+                          </a>
                         </div>
                       )}
                       {/* Content */}
@@ -1361,7 +1368,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                         </div>
                       )}
                       {/* Discussion thread */}
-                      <div className="border-t border-slate-50 pt-4">
+                      <div className="border-t border-slate-100 pt-4">
                         <p className="text-xs font-bold text-slate-500 mb-3">交付讨论</p>
                         <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或备注…" />
                       </div>
@@ -1388,17 +1395,15 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               const isOpen = t.status === "open";
               return (
                 <div key={t.id} data-ticket-id={t.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                  <div className="flex items-center gap-2 px-5 py-4">
-                    <button
-                      className="flex-1 flex items-center gap-3 hover:opacity-80 transition-opacity text-left min-w-0"
-                      onClick={() => handleExpandTicket(t.id)}
-                    >
-                      <Wrench size={16} className="text-blue-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 truncate">{t.title}</p>
-                        <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
-                      </div>
-                    </button>
+                  <div
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => handleExpandTicket(t.id)}
+                  >
+                    <Wrench size={16} className="text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{t.title}</p>
+                      <p className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleDateString("zh-CN")}</p>
+                    </div>
                     {isOpen && (
                       <button
                         onClick={e => { e.stopPropagation(); setClosingTicketId(t.id); setCloseTicketNote(""); }}
@@ -1410,9 +1415,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                       {isOpen ? "处理中" : "已关闭"}
                     </span>
-                    <button onClick={() => handleExpandTicket(t.id)} className="shrink-0 ml-1">
-                      {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
-                    </button>
+                    {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
                   </div>
                   {isExpanded && (
                     <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
