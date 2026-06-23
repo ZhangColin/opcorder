@@ -27,30 +27,31 @@ export function OpcV2Layout({ children }: OpcV2LayoutProps) {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
 
-      <OpcV2Sidebar
-        onLogout={logout}
-        mobileOpen={sidebarOpen}
-        onMobileClose={() => setSidebarOpen(false)}
-      />
+      {/* 内容区：Navbar 高度下方，侧栏 + 主体并排 */}
+      <div className="pt-16 sm:pt-20 flex flex-row flex-1">
+        <OpcV2Sidebar
+          onLogout={logout}
+          mobileOpen={sidebarOpen}
+          onMobileClose={() => setSidebarOpen(false)}
+        />
 
-      <main className="lg:ml-60 pt-16 sm:pt-20 flex-1 min-w-0 overflow-x-hidden">
-        <div className="lg:hidden px-4 py-2">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <Menu size={20} />
-          </button>
-        </div>
+        <main className="flex-1 min-w-0 overflow-x-hidden">
+          <div className="lg:hidden px-4 py-2">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
 
-        <div className="pb-12 px-4 lg:px-8 max-w-5xl mx-auto">
-          {children}
-        </div>
-      </main>
-
-      <div className="lg:ml-60">
-        <Footer />
+          <div className="pb-12 px-4 lg:px-8 max-w-5xl mx-auto">
+            {children}
+          </div>
+        </main>
       </div>
+
+      <Footer />
     </div>
   );
 }

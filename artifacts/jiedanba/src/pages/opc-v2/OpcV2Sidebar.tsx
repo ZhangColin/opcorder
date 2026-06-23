@@ -94,7 +94,7 @@ export function OpcV2Sidebar({ onLogout, mobileOpen = false, onMobileClose }: Op
 
   return (
     <>
-      <aside className="hidden lg:flex w-60 fixed left-0 top-16 sm:top-20 z-40 bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1" style={{ height: "calc(100vh - 64px)" }}>
+      <aside className="hidden lg:flex w-60 shrink-0 sticky top-16 sm:top-20 self-start bg-slate-50 border-r border-slate-200 flex-col p-4 gap-1 overflow-y-auto" style={{ height: "calc(100vh - 64px)" }}>
         {content}
       </aside>
       {mobileOpen && (
