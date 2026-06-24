@@ -287,7 +287,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
               {canUploadSigned && (
                 <button onClick={() => setShowUploadModal(true)} disabled={acting}
                   className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-colors">
-                  <Upload size={14} /> 上传已签合同
+                  <Upload size={14} /> 上传合同文件
                 </button>
               )}
               {contract.signedFileUrl && (

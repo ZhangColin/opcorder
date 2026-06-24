@@ -706,7 +706,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                       {canUploadContract && (
                         <button onClick={() => setShowUploadContract(true)}
                           className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                          <Upload size={11} /> 上传签约PDF
+                          <Upload size={11} /> 上传合同文件
                         </button>
                       )}
                     </div>
