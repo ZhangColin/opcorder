@@ -1037,25 +1037,25 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                     setContractUploadOpen(false);
                     setContractEditOpen(v => !v);
                   }}
-                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
                 >
-                  <Edit2 size={11} /> {contractEditOpen ? "取消编辑" : "编辑正文"}
+                  <Edit2 size={12} /> {contractEditOpen ? "取消编辑" : "编辑正文"}
                 </button>
               )}
               {canFinalize && !contractEditOpen && (
                 <button
                   onClick={() => { setContractEditOpen(false); setContractUploadOpen(false); setContractFinalizeOpen(v => !v); }}
-                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
                 >
-                  <Send size={11} /> 定稿通知
+                  <Send size={12} /> 定稿通知
                 </button>
               )}
               {canUpload && (
                 <button
                   onClick={() => { setContractEditOpen(false); setContractFinalizeOpen(false); setContractUploadOpen(v => !v); }}
-                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
                 >
-                  <Upload size={11} /> 上传签约文件
+                  <Upload size={12} /> 上传签约文件
                 </button>
               )}
             </div>
