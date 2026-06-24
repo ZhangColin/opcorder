@@ -227,6 +227,30 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
 
   useEffect(() => { if (id > 0) load(); }, [id]);
 
+  /* 静默刷新（不触发全局 loading 动画） */
+  const softLoad = async () => {
+    try {
+      const d = await v2Get<OutsourceOrder>(`/outsource-orders/${id}`);
+      setOrder(d);
+      if (d.tenderId) {
+        try { const t = await v2Get<TenderInfo>(`/tenders/${d.tenderId}`); setTender(t); } catch { setTender(null); }
+      } else { setTender(null); }
+      const contractList = await v2Get<ContractDetail[]>(`/contracts?outsourceOrderId=${id}`);
+      setContract(Array.isArray(contractList) && contractList.length > 0 ? contractList[0] : null);
+      if (d.outsourceDemandId) {
+        try { const dem = await v2Get<DemandInfo>(`/outsource-demands/${d.outsourceDemandId}`); setDemand(dem); } catch { setDemand(null); }
+      }
+      const [sp, db, tb] = await Promise.all([
+        v2Get<SettlementPlan[]>(`/settlement-plans?outsourceOrderId=${id}`),
+        v2Get<DeliverableB[]>(`/deliverables-b?outsourceOrderId=${id}`),
+        v2Get<TicketB[]>(`/tickets-b?outsourceOrderId=${id}`),
+      ]);
+      setSettlements(Array.isArray(sp) ? sp : []);
+      setDeliverables(Array.isArray(db) ? db : []);
+      setTickets(Array.isArray(tb) ? tb : []);
+    } catch { /* ignore */ }
+  };
+
   /* 静默刷新结算列表（不触发全局 loading 动画） */
   const softReloadSettlements = async () => {
     try {
@@ -240,7 +264,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     try {
       await fn();
       toast({ title: msg });
-      await load();
+      await softLoad();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally {
@@ -257,7 +281,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       toast({ title: "合同已上传，已通知OPC确认" });
       setShowUploadContract(false);
       setContractFile(null);
-      await load();
+      await softLoad();
     } catch (err: any) {
       toast({ title: "上传失败", description: err.message, variant: "destructive" });
     } finally {
@@ -1102,11 +1126,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                         {t.createdByNickname && ` · ${t.createdByNickname}`}
                       </p>
                     </div>
-                    {t.status === "open" && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5 shrink-0">
-                        <Lock size={9} /> 阻款
-                      </span>
-                    )}
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                       t.status === "open" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
                     }`}>

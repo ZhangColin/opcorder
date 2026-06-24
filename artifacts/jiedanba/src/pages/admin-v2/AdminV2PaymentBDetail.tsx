@@ -86,7 +86,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
         v2Get<TicketB[]>(`/tickets-b?outsourceOrderId=${d.outsourceOrderId}`),
       ]);
       setOrder(ord);
-      setBlockingTickets(tickets.filter(t => t.status === "open" && t.isBlockingPayment));
+      setBlockingTickets(tickets.filter(t => t.status === "open"));
     } catch {
       setItem(null);
     } finally {
@@ -124,7 +124,8 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
   const isOvd = item.status === "pending" && !!item.dueDate && new Date(item.dueDate) < new Date();
   const displayName = item.description ?? `第${item.itemNo ?? 1}期结算款`;
   const contractNotSigned = order?.status === "pending_contract";
-  const hasBlockingTickets = item.isLastItem && blockingTickets.length > 0;
+  const hasOpenTickets = blockingTickets.length > 0;
+  const hasBlockingTickets = item.isLastItem && hasOpenTickets;
   const cannotPay = contractNotSigned || hasBlockingTickets;
 
   return (
@@ -243,21 +244,25 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
           </div>
         )}
 
-        {hasBlockingTickets && item.status === "pending" && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+        {hasOpenTickets && item.status === "pending" && (
+          <div className={`rounded-2xl border p-4 ${hasBlockingTickets ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
             <div className="flex items-start gap-3">
-              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <AlertTriangle size={18} className={`shrink-0 mt-0.5 ${hasBlockingTickets ? "text-red-500" : "text-amber-500"}`} />
               <div>
-                <p className="text-sm font-bold text-red-700 mb-1">付款被质保工单阻断</p>
-                <p className="text-xs text-red-500 mb-2">以下工单关闭前无法打款：</p>
+                <p className={`text-sm font-bold mb-1 ${hasBlockingTickets ? "text-red-700" : "text-amber-700"}`}>
+                  {hasBlockingTickets ? "尾款被未关闭工单阻断，暂不可打款" : "提醒：该订单存在未关闭工单，请确认后再打款"}
+                </p>
+                <p className={`text-xs mb-2 ${hasBlockingTickets ? "text-red-500" : "text-amber-600"}`}>
+                  {hasBlockingTickets ? "以下工单关闭后方可打款尾款：" : "以下工单尚未处理完毕："}
+                </p>
                 <ul className="space-y-1">
                   {blockingTickets.map(t => (
-                    <li key={t.id} className="text-xs text-red-600 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block shrink-0" />
+                    <li key={t.id} className={`text-xs flex items-center gap-1 ${hasBlockingTickets ? "text-red-600" : "text-amber-700"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full inline-block shrink-0 ${hasBlockingTickets ? "bg-red-400" : "bg-amber-400"}`} />
                       {t.title}
                       <button
                         onClick={() => inlineNav ? inlineNav.push(`/admin/v2/tickets-b/${t.id}`) : navigate(`/admin/v2/tickets-b/${t.id}`)}
-                        className="ml-1 underline text-red-500 hover:text-red-700">
+                        className={`ml-1 underline hover:opacity-70 ${hasBlockingTickets ? "text-red-500" : "text-amber-600"}`}>
                         查看工单
                       </button>
                     </li>
