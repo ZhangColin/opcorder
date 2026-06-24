@@ -668,29 +668,26 @@ export default function OpcV2OrderDetail() {
               >
                 <div className="space-y-2 -mx-1">
                   {settlements.map(s => {
+                    const contractSigned = !!(contract?.signedAt);
                     const sc = SETTLEMENT_STATUS[s.status] ?? SETTLEMENT_STATUS.pending;
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => navigate(`/opc/income/${s.id}`)}
-                        className={`w-full flex items-center justify-between border rounded-xl px-4 py-3 hover:shadow-sm transition-all text-left ${
-                          s.isOverdue && s.status !== "paid"
-                            ? "border-red-200 bg-red-50/40"
-                            : "border-border hover:border-primary/30 bg-card"
-                        }`}
-                      >
+                    const inner = (
+                      <>
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sc.color}`}>{sc.label}</span>
+                            {contractSigned ? (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sc.color}`}>{sc.label}</span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">待签约</span>
+                            )}
                             {s.isLastItem && (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>
                             )}
-                            {s.isBlockingPayment && s.status !== "paid" && (
+                            {contractSigned && s.isBlockingPayment && s.status !== "paid" && (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
                                 <Lock size={9} /> 阻款
                               </span>
                             )}
-                            {s.isOverdue && s.status !== "paid" && (
+                            {contractSigned && s.isOverdue && s.status !== "paid" && (
                               <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">逾期</span>
                             )}
                           </div>
@@ -700,11 +697,34 @@ export default function OpcV2OrderDetail() {
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className={`text-base font-black ${s.status === "paid" ? "text-green-700" : "text-foreground"}`}>
+                          <p className={`text-base font-black ${contractSigned && s.status === "paid" ? "text-green-700" : "text-foreground"}`}>
                             ¥{s.amount.toLocaleString()}
                           </p>
                         </div>
-                      </button>
+                      </>
+                    );
+                    if (contractSigned) {
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => navigate(`/opc/income/${s.id}`)}
+                          className={`w-full flex items-center justify-between border rounded-xl px-4 py-3 hover:shadow-sm transition-all text-left ${
+                            s.isOverdue && s.status !== "paid"
+                              ? "border-red-200 bg-red-50/40"
+                              : "border-border hover:border-primary/30 bg-card"
+                          }`}
+                        >
+                          {inner}
+                        </button>
+                      );
+                    }
+                    return (
+                      <div
+                        key={s.id}
+                        className="w-full flex items-center justify-between border border-border rounded-xl px-4 py-3 bg-slate-50/60 text-left cursor-default"
+                      >
+                        {inner}
+                      </div>
                     );
                   })}
                 </div>
