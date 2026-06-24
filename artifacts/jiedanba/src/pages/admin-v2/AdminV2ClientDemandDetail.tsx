@@ -1168,8 +1168,8 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
           );
         })()}
 
-        {/* 收款计划 */}
-        {(payments.length > 0 || canEditPayments) && (
+        {/* 收款计划 — 报价阶段之后才显示 */}
+        {isPast("quoting") && (payments.length > 0 || canEditPayments) && (
           <Section
             title={`收款计划（${payments.length} 项）`}
             icon={DollarSign}
