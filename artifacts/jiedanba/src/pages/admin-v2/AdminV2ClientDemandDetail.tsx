@@ -200,7 +200,7 @@ function Section({
   );
 }
 
-type ActionPanel = "quote" | "deliverable" | "close" | null;
+type ActionPanel = "quote" | "deliverable" | "close" | "contract" | null;
 
 export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initialItemId }: { inlineId?: number; initialTab?: string; initialItemId?: number } = {}) {
   const params = useParams<{ id: string }>();
@@ -458,6 +458,11 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
     setQuoteSelections({}); setAdjustmentPercent(0); setMaintenancePackage("none"); setQuoteNote("");
   }, demand?.status === "quoting" ? "报价已更新" : "报价已发起，通知发单方");
 
+  const handleCreateContract = () => act(async () => {
+    await v2Post("/contracts", { channel: "a", clientDemandId: id });
+    await load();
+  }, "合同草稿已创建，请前往合同详情页编辑正文并定稿");
+
   const handleCreateDeliverable = () => act(async () => {
     if (!delivTitle.trim()) throw new Error("请填写交付标题");
     await v2Post("/deliverables-a", {
@@ -624,6 +629,8 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const canEditDetail = ["draft", "negotiating", "quoting"].includes(demand.status);
   const canCreateDeliverable = demand.status === "executing";
   const canClose = ["draft", "negotiating", "quoting", "pending_contract"].includes(demand.status);
+  const aContract = contracts[0] ?? null;
+  const canCreateContract = demand.status === "pending_contract" && !aContract;
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
   const canEditPayments = !isPast("pending_contract");
@@ -763,6 +770,14 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
             </button>
           )}
+          {canCreateContract && (
+            <button
+              onClick={() => setActivePanel(prev => prev === "contract" ? null : "contract")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "contract" ? "bg-blue-600 text-white border-blue-600" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
+            >
+              <FileText size={13} /> 创建合同
+            </button>
+          )}
           {canClose && (
             <button
               onClick={() => setActivePanel(prev => prev === "close" ? null : "close")}
@@ -774,6 +789,19 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
         </div>
 
         {/* ── 操作面板 ── */}
+        {activePanel === "contract" && (
+          <InlinePanel title="创建合同草稿" color="bg-blue-50 border-blue-200">
+            <p className="text-sm text-slate-500 mb-4">为该需求创建一份 A 通道合同草稿，创建后可在合同详情页编辑正文、定稿并通知发单方确认。</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleCreateContract} disabled={acting}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50">
+                {acting ? "创建中…" : "确认创建"}
+              </button>
+            </div>
+          </InlinePanel>
+        )}
+
         {activePanel === "close" && (
           <InlinePanel title="关闭需求" color="bg-red-50 border-red-200">
             <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
@@ -950,9 +978,15 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                   const cs = CONTRACT_STATUS_MAP[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
                   return (
                     <div key={c.id} className="space-y-3">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${cs.color}`}>{cs.label}</span>
                         <span className="text-xs text-slate-400 font-mono">{c.contractNo}</span>
+                        <button
+                          onClick={() => inlineNav ? inlineNav.push(`/admin/v2/contracts-a/${c.id}`) : navigate(`/admin/v2/contracts-a/${c.id}`)}
+                          className="ml-auto text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          编辑 / 定稿 / 签约 <ExternalLink size={11} />
+                        </button>
                       </div>
                       {c.content && (
                         <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
