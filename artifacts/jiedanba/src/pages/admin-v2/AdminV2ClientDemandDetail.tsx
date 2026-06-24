@@ -1202,10 +1202,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                       className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                    <input type="checkbox" checked={addPaymentForm.isLastItem} onChange={e => setAddPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} className="accent-primary" />
-                    最后一期
-                  </label>
                   <div className="flex gap-2">
                     <button onClick={handleAddPayment} disabled={paymentActing} className="bg-primary text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-50">
                       {paymentActing ? "提交中…" : "确认添加"}
@@ -1249,10 +1245,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                           className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </div>
-                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                        <input type="checkbox" checked={editPaymentForm.isLastItem} onChange={e => setEditPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} className="accent-primary" />
-                        最后一期
-                      </label>
                       <div className="flex gap-2">
                         <button onClick={() => handleSavePayment(p.id)} disabled={paymentActing} className="bg-primary text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-50">
                           {paymentActing ? "保存中…" : "保存"}
