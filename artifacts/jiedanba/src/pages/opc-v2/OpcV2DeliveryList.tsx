@@ -116,7 +116,7 @@ export default function OpcV2DeliveryList() {
               {paged.map(item => {
                 const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
                 return (
-                  <button key={item.id} onClick={() => { markRead("delivery_b", item.id); navigate(`/opc/deliveries/${item.id}`); }}
+                  <button key={item.id} onClick={() => { markRead("delivery_b", item.id); navigate(`/opc/orders/${item.outsourceOrderId}?tab=delivery&delivId=${item.id}`); }}
                     className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 min-w-0">

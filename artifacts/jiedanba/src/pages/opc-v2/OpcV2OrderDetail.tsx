@@ -176,8 +176,12 @@ export default function OpcV2OrderDetail() {
   const [resubmitUploading, setResubmitUploading] = useState(false);
   const [submittingResubmit, setSubmittingResubmit] = useState(false);
 
-  /* Accordion expand state */
-  const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
+  /* Accordion expand state — initialised from ?delivId= URL param */
+  const [expandedDelivId, setExpandedDelivId] = useState<number | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    const v = p.get("delivId");
+    return v ? parseInt(v, 10) : null;
+  });
   const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
 
   /* Tab */
@@ -231,6 +235,16 @@ export default function OpcV2OrderDetail() {
   });
 
   useEffect(() => { if (orderId > 0 && order) markRead("order", orderId); }, [orderId, dataUpdatedAt]);
+
+  /* 从交付列表跳转时：自动展开目标交付并滚动到该卡片 */
+  useEffect(() => {
+    if (!expandedDelivId || deliverables.length === 0) return;
+    markRead("delivery_b", expandedDelivId);
+    const el = document.getElementById(`delivery-${expandedDelivId}`);
+    if (el) {
+      setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    }
+  }, [deliverables.length, expandedDelivId]);
 
   /* ── Handlers ── */
   async function handleConfirmContract() {
@@ -894,7 +908,7 @@ export default function OpcV2OrderDetail() {
               const isExpanded = expandedDelivId === d.id;
               const canResubmit = d.status === "revision" && canSubmitDeliverable;
               return (
-                <div key={d.id} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+                <div key={d.id} id={`delivery-${d.id}`} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                   <button
                     className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
                     onClick={() => {
