@@ -61,7 +61,7 @@ export default function AdminV2TenderList() {
   const highlighted = items.filter(t => t.status === "quoted");
 
   return (
-    <AdminV2Layout title="投标管理">
+    <AdminV2Layout>
       <div className="mt-6 space-y-5">
         {highlighted.length > 0 && !statusFilter && (
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">

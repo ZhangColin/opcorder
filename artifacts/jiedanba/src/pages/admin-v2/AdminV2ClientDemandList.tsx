@@ -80,7 +80,7 @@ export default function AdminV2ClientDemandList() {
   const displayed = statusFilter === "" ? items : items.filter(d => d.status === statusFilter);
 
   return (
-    <AdminV2Layout title="客户需求">
+    <AdminV2Layout>
       <div className="mt-6 space-y-5">
         {highlighted.length > 0 && !statusFilter && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">

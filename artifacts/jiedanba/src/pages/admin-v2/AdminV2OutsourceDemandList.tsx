@@ -68,7 +68,6 @@ export default function AdminV2OutsourceDemandList() {
 
   return (
     <AdminV2Layout
-      title="OPC 需求"
       actions={
         <button onClick={() => inlineNav ? inlineNav.push("/admin/v2/outsource-demands/new") : navigate("/admin/v2/outsource-demands/new")}
           className="flex items-center gap-1.5 bg-primary text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">

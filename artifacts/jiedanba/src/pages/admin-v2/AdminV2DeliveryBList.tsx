@@ -65,7 +65,7 @@ export default function AdminV2DeliveryBList() {
   });
 
   return (
-    <AdminV2Layout title="交付管理">
+    <AdminV2Layout>
       <div className="mt-6 space-y-5">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (

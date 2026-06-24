@@ -69,7 +69,7 @@ export default function AdminV2OutsourceOrderList() {
   const displayed = statusFilter === "" ? items : items.filter(o => o.status === statusFilter);
 
   return (
-    <AdminV2Layout title="接单订单">
+    <AdminV2Layout>
       <div className="mt-6 space-y-5">
         {highlighted.length > 0 && statusFilter === "" && (
           <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
