@@ -274,7 +274,7 @@ export default function AdminV2DeliveryADetail({ inlineId }: { inlineId?: number
 
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-sm font-bold text-slate-700 mb-4">沟通记录</h3>
-            <DiscussionThread parentType="deliverable_a" parentId={id} placeholder="回复发单方…" />
+            <DiscussionThread parentType="deliverable_a" parentId={id} placeholder="回复发单方…" readOnly={delivery.status === "confirmed"} />
           </div>
         </div>
       </AdminV2Layout>

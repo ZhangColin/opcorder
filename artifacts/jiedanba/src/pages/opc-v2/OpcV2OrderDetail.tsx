@@ -977,6 +977,7 @@ export default function OpcV2OrderDetail() {
                           parentType="deliverable_b"
                           parentId={d.id}
                           placeholder="就此交付物与平台沟通…"
+                          readOnly={d.status === "approved"}
                         />
                       </div>
                     </div>

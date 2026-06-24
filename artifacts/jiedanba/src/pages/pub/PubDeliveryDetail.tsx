@@ -249,6 +249,7 @@ export default function PubDeliveryDetail() {
             parentType="deliverable_a"
             parentId={delivId}
             placeholder="对此交付物留言或提问…"
+            readOnly={item?.status === "confirmed"}
           />
         </Section>
       </div>

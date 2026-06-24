@@ -1125,7 +1125,7 @@ export default function PubDemandDetail() {
                       {/* Discussion thread */}
                       <div className="border-t border-slate-100 pt-4">
                         <p className="text-xs font-bold text-slate-500 mb-3">交付讨论</p>
-                        <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或留言…" />
+                        <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或留言…" readOnly={d.status === "confirmed"} />
                       </div>
                     </div>
                   )}

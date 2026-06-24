@@ -1370,7 +1370,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                       {/* Discussion thread */}
                       <div className="border-t border-slate-100 pt-4">
                         <p className="text-xs font-bold text-slate-500 mb-3">交付讨论</p>
-                        <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或备注…" />
+                        <DiscussionThread parentType="deliverable_a" parentId={d.id} placeholder="对此交付记录提问或备注…" readOnly={d.status === "confirmed"} />
                       </div>
                     </div>
                   )}
