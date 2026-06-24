@@ -1176,21 +1176,15 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
             <div className="mt-3 space-y-2">
               {/* 内联添加表单 */}
               {showAddPayment && (
-                <div className="border border-primary/30 rounded-xl p-3 bg-primary/5 space-y-2">
+                <div className="border border-primary/40 rounded-xl p-4 bg-white shadow-sm space-y-3">
+                  <p className="text-xs font-bold text-primary">新增收款项</p>
                   <div className="flex gap-2">
                     <input
-                      type="number"
-                      placeholder="期号（自动）"
-                      value={addPaymentForm.itemNo}
-                      onChange={e => setAddPaymentForm(f => ({ ...f, itemNo: e.target.value }))}
-                      className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                    <input
                       type="text"
-                      placeholder="描述（可选）"
+                      placeholder="描述（如：首付款、尾款…）"
                       value={addPaymentForm.description}
                       onChange={e => setAddPaymentForm(f => ({ ...f, description: e.target.value }))}
-                      className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -1199,25 +1193,24 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                       placeholder="金额（元）*"
                       value={addPaymentForm.amount}
                       onChange={e => setAddPaymentForm(f => ({ ...f, amount: e.target.value }))}
-                      className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                     />
                     <input
                       type="date"
-                      placeholder="到期日 *"
                       value={addPaymentForm.dueDate}
                       onChange={e => setAddPaymentForm(f => ({ ...f, dueDate: e.target.value }))}
-                      className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   </div>
-                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-                    <input type="checkbox" checked={addPaymentForm.isLastItem} onChange={e => setAddPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} />
+                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="checkbox" checked={addPaymentForm.isLastItem} onChange={e => setAddPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} className="accent-primary" />
                     最后一期
                   </label>
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={handleAddPayment} disabled={paymentActing} className="bg-primary text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+                  <div className="flex gap-2">
+                    <button onClick={handleAddPayment} disabled={paymentActing} className="bg-primary text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-50">
                       {paymentActing ? "提交中…" : "确认添加"}
                     </button>
-                    <button onClick={() => setShowAddPayment(false)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
+                    <button onClick={() => setShowAddPayment(false)} className="border border-slate-200 rounded-lg px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50">取消</button>
                   </div>
                 </div>
               )}
@@ -1230,21 +1223,15 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                 <div key={p.id}>
                   {editPaymentId === p.id ? (
                     /* 内联编辑表单 */
-                    <div className="border border-amber-300 rounded-xl p-3 bg-amber-50/50 space-y-2">
+                    <div className="border border-primary/40 rounded-xl p-4 bg-white shadow-sm space-y-3">
+                      <p className="text-xs font-bold text-primary">编辑收款项</p>
                       <div className="flex gap-2">
                         <input
-                          type="number"
-                          placeholder="期号"
-                          value={editPaymentForm.itemNo}
-                          onChange={e => setEditPaymentForm(f => ({ ...f, itemNo: e.target.value }))}
-                          className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                        <input
                           type="text"
-                          placeholder="描述（可选）"
+                          placeholder="描述（如：首付款、尾款…）"
                           value={editPaymentForm.description}
                           onChange={e => setEditPaymentForm(f => ({ ...f, description: e.target.value }))}
-                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -1253,24 +1240,24 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                           placeholder="金额（元）*"
                           value={editPaymentForm.amount}
                           onChange={e => setEditPaymentForm(f => ({ ...f, amount: e.target.value }))}
-                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                         <input
                           type="date"
                           value={editPaymentForm.dueDate}
                           onChange={e => setEditPaymentForm(f => ({ ...f, dueDate: e.target.value }))}
-                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </div>
-                      <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-                        <input type="checkbox" checked={editPaymentForm.isLastItem} onChange={e => setEditPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} />
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input type="checkbox" checked={editPaymentForm.isLastItem} onChange={e => setEditPaymentForm(f => ({ ...f, isLastItem: e.target.checked }))} className="accent-primary" />
                         最后一期
                       </label>
-                      <div className="flex gap-2 pt-1">
-                        <button onClick={() => handleSavePayment(p.id)} disabled={paymentActing} className="bg-primary text-white rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50">
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSavePayment(p.id)} disabled={paymentActing} className="bg-primary text-white rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-50">
                           {paymentActing ? "保存中…" : "保存"}
                         </button>
-                        <button onClick={() => setEditPaymentId(null)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">取消</button>
+                        <button onClick={() => setEditPaymentId(null)} className="border border-slate-200 rounded-lg px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50">取消</button>
                       </div>
                     </div>
                   ) : (
