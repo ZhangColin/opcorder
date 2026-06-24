@@ -56,7 +56,7 @@ export default function OpcV2TicketList() {
     return acc;
   }, {} as Record<string, number>);
 
-  const blockingCount = data.filter(t => t.status === "open" && t.isBlockingPayment).length;
+  const blockingCount = data.filter(t => t.status === "open").length;
 
   const sorted = [...filtered].sort((a, b) =>
     (hasUnreadSinceCreation("ticket_b", b.id, b.updatedAt, b.createdAt) ? 1 : 0) -
@@ -128,7 +128,7 @@ export default function OpcV2TicketList() {
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
                         {ticket.title}
-                        {ticket.isBlockingPayment && ticket.status === "open" && (
+                        {ticket.status === "open" && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
                             <Lock size={9} /> 阻款
                           </span>

@@ -174,9 +174,9 @@ export default function OpcV2IncomeList() {
                           {s.isLastItem && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded shrink-0">尾款</span>
                           )}
-                          {s.isBlockingPayment && (
+                          {s.status === "pending" && s.isLastItem && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5 shrink-0">
-                              <Lock size={9} /> 阻款
+                              <Lock size={9} /> 待解锁
                             </span>
                           )}
                         </div>

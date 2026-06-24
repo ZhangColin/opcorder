@@ -135,7 +135,7 @@ export default function OpcV2Home() {
   const executingOrders = orders.filter(o => o.status === "executing");
   const warrantyOrders = orders.filter(o => o.status === "warranty");
   const openTickets = tickets.filter(t => t.status === "open");
-  const blockingTickets = tickets.filter(t => t.status === "open" && t.isBlockingPayment);
+  const blockingTickets = tickets.filter(t => t.status === "open");
   const pendingSettlements = settlements.filter(s => s.status === "pending");
   const overdueSettlements = settlements.filter(s => s.status === "pending" && s.isOverdue);
   const rejectedDelivs = deliverables.filter(d => d.status === "revision");
@@ -173,7 +173,7 @@ export default function OpcV2Home() {
       href: `/opc/orders/${d.outsourceOrderId}`,
       priority: 1 as const,
     })),
-    ...openTickets.filter(t => !t.isBlockingPayment).map(t => ({
+    ...openTickets.map(t => ({
       id: `ticket-${t.id}`,
       label: `【工单】${t.title} — 待回复`,
       href: `/opc/tickets/${t.id}`,

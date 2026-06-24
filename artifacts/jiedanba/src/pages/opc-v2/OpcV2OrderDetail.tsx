@@ -357,7 +357,7 @@ export default function OpcV2OrderDetail() {
   const canConfirmContract = order.status === "pending_contract" && !!contract && !contract.opcConfirmedAt;
   const canSubmitDeliverable = ["executing", "warranty"].includes(order.status);
   const openTickets = tickets.filter(t => t.status === "open");
-  const blockingTickets = openTickets.filter(t => t.isBlockingPayment);
+  const blockingTickets = openTickets;
   const stageIdx = ORDER_STAGE_KEYS.indexOf(order.status as typeof ORDER_STAGE_KEYS[number]);
 
   const visibleTabs = [
@@ -1023,7 +1023,7 @@ export default function OpcV2OrderDetail() {
                         {t.createdByNickname && ` · ${t.createdByNickname}`}
                       </p>
                     </div>
-                    {t.isBlockingPayment && t.status === "open" && (
+                    {t.status === "open" && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5 shrink-0">
                         <Lock size={9} /> 阻款
                       </span>

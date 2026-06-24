@@ -192,7 +192,7 @@ router.get("/overview/admin/tree", requireAuth, async (req: Request, res: Respon
     const enrichedOrders = new Map(orderRows.map(o => [o.id, {
       ...o,
       openTicketBCount: ticketsB.filter(t => t.outsourceOrderId === o.id && t.status === "open").length,
-      hasBlockingTicket: ticketsB.some(t => t.outsourceOrderId === o.id && t.status === "open" && t.isBlockingPayment),
+      hasBlockingTicket: ticketsB.some(t => t.outsourceOrderId === o.id && t.status === "open"),
       pendingSettlements: settlements.filter(s => s.outsourceOrderId === o.id && s.status === "pending").length,
       paidSettlements: settlements.filter(s => s.outsourceOrderId === o.id && s.status === "paid").length,
       totalSettlementAmount: settlements.filter(s => s.outsourceOrderId === o.id).reduce((a, s) => a + Number(s.amount), 0),

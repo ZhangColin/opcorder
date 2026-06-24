@@ -80,7 +80,7 @@ export default function OpcV2TicketDetail() {
                 {ticket.status === "open" ? <Clock size={14} /> : <CheckCircle2 size={14} />}
                 {cfg.label}
               </span>
-              {ticket.isBlockingPayment && ticket.status === "open" && (
+              {ticket.status === "open" && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-bold bg-red-100 text-red-600">
                   <Lock size={12} /> 阻款工单
                 </span>
@@ -124,7 +124,7 @@ export default function OpcV2TicketDetail() {
             )}
           </div>
 
-          {ticket.isBlockingPayment && ticket.status === "open" && (
+          {ticket.status === "open" && (
             <div className="flex items-start gap-3 px-4 py-3 bg-red-50 rounded-xl border border-red-200">
               <Lock size={16} className="text-red-500 mt-0.5 shrink-0" />
               <div>
