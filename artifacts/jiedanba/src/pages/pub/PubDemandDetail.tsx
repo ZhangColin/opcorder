@@ -873,8 +873,8 @@ export default function PubDemandDetail() {
           </Section>
         )}
 
-        {/* 付款计划 — 仅合同签约后显示 */}
-        {payments.length > 0 && aContract?.status === "signed" && (
+        {/* 付款计划 — 定稿通知后（非草稿）显示 */}
+        {payments.length > 0 && aContract && aContract.status !== "draft" && (
           <><div id="section-payments" className="scroll-mt-4" />
           <Section title="付款计划" icon={CreditCard}>
             <div className="mt-4 space-y-3">
