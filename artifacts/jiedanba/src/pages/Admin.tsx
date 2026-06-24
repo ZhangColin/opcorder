@@ -48,7 +48,7 @@ import {
   SlidersHorizontal, Upload, ImageIcon, Save,
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Tablet, Video,
-  Pin, Paperclip, ScrollText, Layers, PackageCheck,
+  Pin, Paperclip, ScrollText, Layers, PackageCheck, ChevronLeft,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -9912,8 +9912,7 @@ function UserData() {
   );
 }
 
-function ModuleContent({ module }: { module: Module }) {
-  const [inlineRoute, setInlineRoute] = useState<string | null>(null);
+function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module; inlineRoute: string | null; setInlineRoute: (r: string | null) => void }) {
   const inlineNav = useMemo(() => ({
     push: (path: string) => setInlineRoute(path),
     back: () => setInlineRoute(null),
@@ -9929,10 +9928,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回客户需求列表
-            </button>
             <AdminV2ClientDemandDetail key={`${inlineId}-${inlineTab ?? ""}-${inlineItemId ?? ""}`} inlineId={inlineId} initialTab={inlineTab} initialItemId={inlineItemId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -9942,10 +9937,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回 OPC 需求列表
-            </button>
             <AdminV2OutsourceDemandNew />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -9962,10 +9953,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回 OPC 需求列表
-            </button>
             <AdminV2OutsourceDemandDetail inlineId={inlineId} initialTab={initialTab} initialTenderId={initialTenderId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -9977,10 +9964,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回合同列表
-            </button>
             <AdminV2ContractADetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -9992,10 +9975,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回收款列表
-            </button>
             <AdminV2PaymentADetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10007,10 +9986,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回工单列表
-            </button>
             <AdminV2TicketADetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10022,10 +9997,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回投标列表
-            </button>
             <AdminV2TenderDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10037,10 +10008,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回订单列表
-            </button>
             <AdminV2OutsourceOrderDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10052,10 +10019,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回结算列表
-            </button>
             <AdminV2PaymentBDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10067,10 +10030,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回工单列表
-            </button>
             <AdminV2TicketBDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10082,10 +10041,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回交付列表
-            </button>
             <AdminV2DeliveryADetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10097,10 +10052,6 @@ function ModuleContent({ module }: { module: Module }) {
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <button onClick={() => setInlineRoute(null)}
-              className="mb-4 flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors">
-              ← 返回交付列表
-            </button>
             <AdminV2DeliveryBDetail inlineId={inlineId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
@@ -10182,8 +10133,11 @@ function AdminSidebarLogo() {
 export default function Admin({ initialModule }: { initialModule?: Module } = {}) {
   const [active, setActive] = useState<Module>(initialModule ?? "dashboard");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [inlineRoute, setInlineRoute] = useState<string | null>(null);
   const [, navigate] = useLocation();
   const { toast } = useToast();
+
+  useEffect(() => { setInlineRoute(null); }, [active]);
 
   const role = getStoredUser()?.role;
   const adminNickname = getStoredUser()?.nickname ?? "管理员";
@@ -10346,6 +10300,15 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
               {NAV.find(n => n.key === active)?.label
                 ?? NAV.flatMap(n => n.children ?? []).find(c => c.moduleKey === active)?.label}
             </span>
+            {inlineRoute && (
+              <button
+                onClick={() => setInlineRoute(null)}
+                className="ml-4 flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 text-slate-500 hover:text-blue-700 text-xs font-semibold transition-all group"
+              >
+                <ChevronLeft size={13} className="transition-transform group-hover:-translate-x-0.5" />
+                返回
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <div className="h-8 w-px bg-slate-200" />
@@ -10367,7 +10330,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
         </header>
 
         <div className="flex-1 px-8 py-8">
-          <ModuleContent key={active} module={active} />
+          <ModuleContent key={active} module={active} inlineRoute={inlineRoute} setInlineRoute={setInlineRoute} />
         </div>
       </main>
     </div>
