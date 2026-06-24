@@ -772,27 +772,30 @@ export default function OpcV2OrderDetail() {
                       className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-bold text-muted-foreground">附件</label>
+                    <label className="text-xs font-bold text-muted-foreground mb-2 block">附件</label>
+                    <div className="border-2 border-dashed border-primary/20 rounded-xl p-3 space-y-2">
                       <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
-                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-bold">
-                        {uploading ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />}
-                        上传文件
+                        className="w-full flex items-center justify-center gap-2 text-xs text-primary hover:text-primary/80 font-bold py-1">
+                        {uploading ? <Loader2 size={13} className="animate-spin" /> : <Paperclip size={13} />}
+                        {uploading ? "上传中…" : "点击添加附件"}
                       </button>
-                      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                      <p className="text-center text-[10px] text-muted-foreground">支持 PDF、Word、Excel、图片、Markdown</p>
+                      <input ref={fileInputRef} type="file" className="hidden"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.jpg,.jpeg,.png"
+                        onChange={handleFileUpload} />
+                      {delivAttachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1 border-t border-border/50">
+                          {delivAttachments.map((att, i) => (
+                            <div key={i} className="flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1">
+                              <Paperclip size={11} className="text-muted-foreground" />
+                              <span className="text-foreground truncate max-w-[120px]">{att.name}</span>
+                              <button type="button" onClick={() => setDelivAttachments(prev => prev.filter((_, j) => j !== i))}
+                                className="text-muted-foreground hover:text-red-500 ml-0.5">×</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {delivAttachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {delivAttachments.map((att, i) => (
-                          <div key={i} className="flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1">
-                            <Paperclip size={11} className="text-muted-foreground" />
-                            <span className="text-foreground truncate max-w-[120px]">{att.name}</span>
-                            <button type="button" onClick={() => setDelivAttachments(prev => prev.filter((_, j) => j !== i))}
-                              className="text-muted-foreground hover:text-red-500 ml-0.5">×</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   <div className="flex gap-2">
                     <button type="submit" disabled={submittingDeliv}
@@ -834,27 +837,30 @@ export default function OpcV2OrderDetail() {
                     rows={2} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none resize-none" />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-bold text-muted-foreground">附件</label>
+                  <label className="text-xs font-bold text-muted-foreground mb-2 block">附件</label>
+                  <div className="border-2 border-dashed border-amber-300/60 rounded-xl p-3 space-y-2">
                     <button type="button" onClick={() => resubmitFileRef.current?.click()} disabled={resubmitUploading}
-                      className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 font-bold">
-                      {resubmitUploading ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />}
-                      上传文件
+                      className="w-full flex items-center justify-center gap-2 text-xs text-amber-700 hover:text-amber-900 font-bold py-1">
+                      {resubmitUploading ? <Loader2 size={13} className="animate-spin" /> : <Paperclip size={13} />}
+                      {resubmitUploading ? "上传中…" : "点击添加附件"}
                     </button>
-                    <input ref={resubmitFileRef} type="file" className="hidden" onChange={handleResubmitFileUpload} />
+                    <p className="text-center text-[10px] text-muted-foreground">支持 PDF、Word、Excel、图片、Markdown</p>
+                    <input ref={resubmitFileRef} type="file" className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.jpg,.jpeg,.png"
+                      onChange={handleResubmitFileUpload} />
+                    {resubmitAttachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1 border-t border-border/50">
+                        {resubmitAttachments.map((att, i) => (
+                          <div key={i} className="flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1">
+                            <Paperclip size={11} className="text-muted-foreground" />
+                            <span className="truncate max-w-[120px]">{att.name}</span>
+                            <button type="button" onClick={() => setResubmitAttachments(prev => prev.filter((_, j) => j !== i))}
+                              className="text-muted-foreground hover:text-red-500 ml-0.5">×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {resubmitAttachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {resubmitAttachments.map((att, i) => (
-                        <div key={i} className="flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1">
-                          <Paperclip size={11} className="text-muted-foreground" />
-                          <span className="truncate max-w-[120px]">{att.name}</span>
-                          <button type="button" onClick={() => setResubmitAttachments(prev => prev.filter((_, j) => j !== i))}
-                            className="text-muted-foreground hover:text-red-500 ml-0.5">×</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" disabled={submittingResubmit}
