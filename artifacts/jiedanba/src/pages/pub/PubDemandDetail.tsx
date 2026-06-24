@@ -834,8 +834,8 @@ export default function PubDemandDetail() {
         {/* ── 报价与合同 Tab ── */}
         {activeTab === "contract" && <>
 
-        {/* 合同 */}
-        {aContract ? (
+        {/* 合同 — 草稿阶段不对发单方显示 */}
+        {aContract && aContract.status !== "draft" && (
           <Section title="合同" icon={FileSignature}>
             <div className="mt-4 space-y-4">
               <div className="flex items-center gap-3">
@@ -845,12 +845,10 @@ export default function PubDemandDetail() {
                 })()}
                 <span className="text-xs text-slate-400 font-mono">{aContract.contractNo}</span>
               </div>
-              {aContract.content ? (
+              {aContract.content && (
                 <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
                   <MarkdownContent content={aContract.content} />
                 </div>
-              ) : (
-                <p className="text-sm text-slate-400 italic">合同内容正在起草中，运营方完成后将通知您审阅。</p>
               )}
               {aContract.signedFileUrl && (
                 <a href={aContract.signedFileUrl} target="_blank" rel="noreferrer"
@@ -872,10 +870,6 @@ export default function PubDemandDetail() {
                 </div>
               )}
             </div>
-          </Section>
-        ) : isPast("pending_contract") && (
-          <Section title="合同" icon={FileSignature}>
-            <p className="mt-4 text-sm text-slate-400 italic">合同正在准备中，完成后运营方将通知您。</p>
           </Section>
         )}
 
