@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
-import { Loader2, X, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, X, CheckCircle2, Clock, AlertTriangle, Upload } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
-import { v2Get, v2Post } from "@/lib/v2api";
+import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 
 interface SettlementPlan {
@@ -63,7 +63,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
-  const [payRef, setPayRef] = useState("");
+  const [voucherFile, setVoucherFile] = useState<File | null>(null);
   const [payNote, setPayNote] = useState("");
 
   const load = async () => {
@@ -89,13 +89,17 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
   const handleMarkPaid = async () => {
     setActing(true);
     try {
+      let voucherUrl: string | undefined;
+      if (voucherFile) {
+        voucherUrl = await uploadFile(voucherFile);
+      }
       await v2Post(`/settlement-plans/${id}/mark-paid`, {
-        paymentVoucherUrl: payRef.trim() || undefined,
+        paymentVoucherUrl: voucherUrl,
         paymentNote: payNote.trim() || undefined,
       });
-      toast({ title: "已标记为已打款" });
+      toast({ title: "打款凭证已上传，已标记为已打款" });
       setShowPayModal(false);
-      setPayRef(""); setPayNote("");
+      setVoucherFile(null); setPayNote("");
       await load();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
@@ -163,7 +167,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
                     ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                     : "bg-violet-600 text-white hover:bg-violet-700"
                 }`}>
-                <CheckCircle2 size={14} /> 标记已打款
+                <Upload size={14} /> 上传打款凭证
               </button>
             )}
           </div>
@@ -217,13 +221,17 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
       </div>
 
       {showPayModal && (
-        <Modal title="标记已打款" onClose={() => setShowPayModal(false)}>
+        <Modal title="上传打款凭证" onClose={() => setShowPayModal(false)}>
           <div className="space-y-3">
-            <p className="text-xs text-slate-500">填写支付凭证 URL 并确认，该结算项将标记为已打款。</p>
+            <p className="text-xs text-slate-500">上传打款凭证文件后，该结算项将自动标记为已打款。</p>
             <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">支付凭证 URL（可选）</label>
-              <input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="凭证文件链接"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <label className="text-xs font-bold text-slate-600 mb-1 block">打款凭证文件（必填）</label>
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center">
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.md"
+                  onChange={e => setVoucherFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-sm text-slate-600" />
+                {voucherFile && <p className="mt-2 text-xs text-slate-500">已选：{voucherFile.name}</p>}
+              </div>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-600 mb-1 block">备注（可选）</label>
@@ -232,9 +240,9 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowPayModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
-              <button onClick={handleMarkPaid} disabled={acting}
+              <button onClick={handleMarkPaid} disabled={acting || !voucherFile}
                 className="px-4 py-2 text-sm bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 disabled:opacity-50">
-                {acting ? "处理中…" : "确认打款"}
+                {acting ? "上传中…" : "确认打款"}
               </button>
             </div>
           </div>
