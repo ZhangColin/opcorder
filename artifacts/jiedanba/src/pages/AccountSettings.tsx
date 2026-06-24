@@ -445,6 +445,7 @@ export default function AccountSettings() {
         if (!sf.legalRepIdFrontUrl?.trim()) missingFields.push("法人身份证正面");
         if (!sf.legalRepIdBackUrl?.trim()) missingFields.push("法人身份证背面");
         if (!sf.bankName?.trim()) missingFields.push("银行");
+        if (!sf.bankBranch?.trim()) missingFields.push("开户行");
         if (!sf.bankAccount?.trim()) missingFields.push("银行账号");
         if (!sf.accountName?.trim()) missingFields.push("户名");
 
@@ -747,7 +748,7 @@ export default function AccountSettings() {
                     {BANK_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
-                <Field label="开户行（支行名称）" value={settlementForm.bankBranch} onChange={v => setS("bankBranch", v)} placeholder="例：工商银行北京朝阳支行" />
+                <Field label="开户行（支行名称）" value={settlementForm.bankBranch} onChange={v => setS("bankBranch", v)} placeholder="例：工商银行北京朝阳支行" required />
                 <Field label="银行账号" value={settlementForm.bankAccount} onChange={v => setS("bankAccount", v)} placeholder="请输入银行卡号" required />
                 <Field label="户名" value={settlementForm.accountName} onChange={v => setS("accountName", v)} placeholder="请输入开户名（与营业执照一致）" required />
               </div>
