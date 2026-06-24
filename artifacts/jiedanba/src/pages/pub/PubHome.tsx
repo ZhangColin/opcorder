@@ -387,10 +387,10 @@ export default function PubHome() {
                         </p>
                         <div className="space-y-1.5">
                           {contractsPending.map(c => (
-                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待您确认`} sub={c.demandTitle ?? undefined} urgent href={`/pub/contracts/${c.id}`} navigate={navigate} />
+                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待您确认`} sub={c.demandTitle ?? undefined} urgent href={`/pub/demands/${c.clientDemandId}?tab=contract`} navigate={navigate} />
                           ))}
                           {contractsSigning.map(c => (
-                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待签约`} sub={c.demandTitle ?? undefined} href={`/pub/contracts/${c.id}`} navigate={navigate} />
+                            <ActionRow key={c.id} label={`合同 ${c.contractNo} 待签约`} sub={c.demandTitle ?? undefined} href={`/pub/demands/${c.clientDemandId}?tab=contract`} navigate={navigate} />
                           ))}
                         </div>
                       </div>
