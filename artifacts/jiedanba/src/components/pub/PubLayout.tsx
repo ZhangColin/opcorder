@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import {
   Menu, Bell, LayoutDashboard, FileText, FileSignature,
-  CreditCard, PackageCheck, Wrench, Building2,
+  CreditCard, PackageCheck, Wrench, Building2, ChevronLeft,
 } from "lucide-react";
 import { PubSidebar } from "./PubSidebar";
 import { clearSession } from "@/lib/auth";
@@ -23,12 +23,13 @@ const ROUTE_MAP: { path: string; icon: React.ElementType; label: string }[] = [
 interface PubLayoutProps {
   children: React.ReactNode;
   title?: string;
+  hideTitle?: boolean;
   backHref?: string;
   backLabel?: string;
   actions?: React.ReactNode;
 }
 
-export function PubLayout({ children, title, backHref, backLabel, actions }: PubLayoutProps) {
+export function PubLayout({ children, title, hideTitle, backHref, backLabel, actions }: PubLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [location, navigate] = useLocation();
 
@@ -61,15 +62,15 @@ export function PubLayout({ children, title, backHref, backLabel, actions }: Pub
           {backHref && (
             <button
               onClick={() => navigate(backHref)}
-              className="flex items-center gap-1.5 text-slate-500 hover:text-primary text-sm font-medium transition-colors shrink-0"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-primary/8 text-slate-500 hover:text-primary text-xs font-semibold transition-all group shrink-0"
             >
-              <span className="text-lg leading-none">←</span>
-              {backLabel ?? "返回"}
+              <ChevronLeft size={13} className="transition-transform group-hover:-translate-x-0.5" />
+              {backLabel || "返回"}
             </button>
           )}
 
           {/* Page icon + name */}
-          {pageLabel && (
+          {!hideTitle && pageLabel && (
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
                 <PageIcon size={14} className="text-primary" />

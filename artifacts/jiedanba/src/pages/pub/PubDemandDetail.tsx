@@ -488,32 +488,31 @@ export default function PubDemandDetail() {
 
   return (
     <PubLayout
-      title={demand.title}
       backHref="/pub/demands"
-      backLabel="需求列表"
-      actions={
-        canClose ? (
-          <button
-            onClick={handleClose}
-            disabled={acting}
-            className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5 font-bold transition-colors"
-          >
-            关闭需求
-          </button>
-        ) : undefined
-      }
+      hideTitle
     >
       <div className="mt-6 space-y-5">
         {/* ── Header ── */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <div className="flex items-start gap-3 mb-3">
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${statusCfg.color}`}>{statusCfg.label}</span>
-            {demand.isUrgent && (
-              <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full shrink-0">
-                <Zap size={10} /> 紧急
-              </span>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${statusCfg.color}`}>{statusCfg.label}</span>
+              {demand.isUrgent && (
+                <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full shrink-0">
+                  <Zap size={10} /> 紧急
+                </span>
+              )}
+              <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
+            </div>
+            {canClose && (
+              <button
+                onClick={handleClose}
+                disabled={acting}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 shrink-0"
+              >
+                关闭需求
+              </button>
             )}
-            <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
           </div>
           <h1 className="text-xl font-extrabold text-slate-800 mb-3">{demand.title}</h1>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
