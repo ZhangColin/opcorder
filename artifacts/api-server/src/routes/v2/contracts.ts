@@ -44,6 +44,7 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
         status: v2ContractsTable.status,
         content: v2ContractsTable.content,
         signedFileUrl: v2ContractsTable.signedFileUrl,
+        opcConfirmedAt: v2ContractsTable.opcConfirmedAt,
         publisherConfirmedAt: v2ContractsTable.publisherConfirmedAt,
         publisherRejectedAt: v2ContractsTable.publisherRejectedAt,
         signedAt: v2ContractsTable.signedAt,
