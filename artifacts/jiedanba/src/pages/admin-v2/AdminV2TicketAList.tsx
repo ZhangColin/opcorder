@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Loader2, ChevronRight } from "lucide-react";
+import { Loader2, ChevronRight, Headphones } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
@@ -79,7 +79,11 @@ export default function AdminV2TicketAList() {
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
         ) : displayed.length === 0 ? (
-          <div className="text-center py-16 text-slate-400 text-sm">暂无工单</div>
+          <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-slate-200">
+            <Headphones size={36} className="text-slate-300 mb-3" />
+            <p className="text-base font-semibold text-slate-500">暂无工单</p>
+            <p className="text-xs text-slate-400 mt-1">发单方发起工单后将在此显示</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {[...displayed].sort((a, b) =>

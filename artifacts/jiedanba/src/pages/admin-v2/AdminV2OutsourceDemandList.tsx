@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Plus, Search, Loader2, ChevronRight, Zap } from "lucide-react";
+import { Plus, Search, Loader2, ChevronRight, Zap, Package } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -104,11 +104,13 @@ export default function AdminV2OutsourceDemandList() {
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
         ) : items.length === 0 ? (
-          <div className="text-center py-16 text-slate-400 text-sm">
-            <p>暂无 OPC 需求</p>
+          <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-slate-200">
+            <Package size={36} className="text-slate-300 mb-3" />
+            <p className="text-base font-semibold text-slate-500">暂无 OPC 需求</p>
+            <p className="text-xs text-slate-400 mt-1 mb-5">点击右上角「新建」发布外包需求</p>
             <button onClick={() => inlineNav ? inlineNav.push("/admin/v2/outsource-demands/new") : navigate("/admin/v2/outsource-demands/new")}
-              className="mt-4 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
-              新建 OPC 需求
+              className="flex items-center gap-1.5 px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
+              <Plus size={14} /> 新建 OPC 需求
             </button>
           </div>
         ) : (
