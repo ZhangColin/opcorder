@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2SettlementPlansTable, v2OutsourceOrdersTable, v2OutsourceDemandsTable,
-  v2TicketsBTable, usersTable,
+  v2TicketsBTable, usersTable, settlementAccountsTable,
 } from "@workspace/db";
 import { eq, and, desc, inArray, ne } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -111,7 +111,33 @@ router.get("/settlement-plans/:id", requireAuth, async (req: Request, res: Respo
       if (!order || order.opcId !== userId) return res.status(403).json({ error: "无权访问" });
     }
     const now = new Date();
-    return res.json({ ...plan, isOverdue: plan.status === "pending" && plan.dueDate < now });
+
+    // 如果已打款，bankAccountSnapshot 已保存；否则实时取 OPC 已审核账户供展示
+    let currentBankAccount: object | null = null;
+    if (plan.status !== "paid") {
+      const [acct] = await db
+        .select({
+          accountName: settlementAccountsTable.accountName,
+          bankName: settlementAccountsTable.bankName,
+          bankAccount: settlementAccountsTable.bankAccount,
+          bankBranch: settlementAccountsTable.bankBranch,
+          companyName: settlementAccountsTable.companyName,
+          status: settlementAccountsTable.status,
+        })
+        .from(settlementAccountsTable)
+        .where(and(
+          eq(settlementAccountsTable.userId, plan.opcId),
+          eq(settlementAccountsTable.status, "verified"),
+        ))
+        .limit(1);
+      currentBankAccount = acct ?? null;
+    }
+
+    return res.json({
+      ...plan,
+      isOverdue: plan.status === "pending" && plan.dueDate < now,
+      currentBankAccount,
+    });
   } catch (err) {
     logger.error({ err }, "GET /v2/settlement-plans/:id failed");
     return res.status(500).json({ error: "服务器错误" });
@@ -204,6 +230,22 @@ router.post("/settlement-plans/:id/mark-paid", requireAdmin, async (req: Request
 
     const { paymentVoucherUrl, paymentNote } = req.body as { paymentVoucherUrl?: string; paymentNote?: string };
 
+    // 打款前快照 OPC 已审核的银行账户，固化到记录中
+    const [acct] = await db
+      .select({
+        accountName: settlementAccountsTable.accountName,
+        bankName: settlementAccountsTable.bankName,
+        bankAccount: settlementAccountsTable.bankAccount,
+        bankBranch: settlementAccountsTable.bankBranch,
+        companyName: settlementAccountsTable.companyName,
+      })
+      .from(settlementAccountsTable)
+      .where(and(
+        eq(settlementAccountsTable.userId, plan.opcId),
+        eq(settlementAccountsTable.status, "verified"),
+      ))
+      .limit(1);
+
     const [updated] = await db.update(v2SettlementPlansTable)
       .set({
         status: "paid",
@@ -211,6 +253,7 @@ router.post("/settlement-plans/:id/mark-paid", requireAdmin, async (req: Request
         paidAt: new Date(),
         paymentVoucherUrl,
         paymentNote,
+        bankAccountSnapshot: acct ? JSON.stringify(acct) : null,
         updatedAt: new Date(),
       })
       .where(eq(v2SettlementPlansTable.id, id))

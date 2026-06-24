@@ -1,10 +1,18 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
-import { Loader2, X, CheckCircle2, Clock, AlertTriangle, Upload } from "lucide-react";
+import { Loader2, X, CheckCircle2, Clock, AlertTriangle, Upload, Building2 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
+
+interface BankAccountInfo {
+  accountName: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
+  bankBranch: string | null;
+  companyName: string | null;
+}
 
 interface SettlementPlan {
   id: number;
@@ -20,6 +28,8 @@ interface SettlementPlan {
   isLastItem: boolean;
   isOverdue?: boolean;
   createdAt: string;
+  bankAccountSnapshot: string | null;
+  currentBankAccount: BankAccountInfo | null;
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -172,6 +182,53 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
             )}
           </div>
         </div>
+
+        {/* 收款账户信息 */}
+        {(() => {
+          const bankInfo: BankAccountInfo | null =
+            item.status === "paid" && item.bankAccountSnapshot
+              ? (() => { try { return JSON.parse(item.bankAccountSnapshot); } catch { return null; } })()
+              : item.currentBankAccount;
+          if (!bankInfo) return item.status !== "paid" ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+              <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 font-medium">OPC 尚未提交或审核通过收款账户，请提醒其补充。</p>
+            </div>
+          ) : null;
+          return (
+            <div className={`rounded-2xl border p-5 ${item.status === "paid" ? "bg-slate-50 border-slate-200" : "bg-white border-slate-200"}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 size={15} className="text-violet-500" />
+                <h3 className="text-sm font-extrabold text-slate-700">
+                  {item.status === "paid" ? "收款账户（打款时快照）" : "收款账户（当前已审核）"}
+                </h3>
+                {item.status === "paid" && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-slate-200 text-slate-500 rounded">已固化</span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                {bankInfo.companyName && (
+                  <div><span className="text-slate-400">企业名称</span><p className="font-bold text-slate-700 mt-0.5">{bankInfo.companyName}</p></div>
+                )}
+                {bankInfo.accountName && (
+                  <div><span className="text-slate-400">账户名称</span><p className="font-bold text-slate-700 mt-0.5">{bankInfo.accountName}</p></div>
+                )}
+                {bankInfo.bankName && (
+                  <div><span className="text-slate-400">开户银行</span><p className="font-bold text-slate-700 mt-0.5">{bankInfo.bankName}</p></div>
+                )}
+                {bankInfo.bankBranch && (
+                  <div><span className="text-slate-400">开户支行</span><p className="font-bold text-slate-700 mt-0.5">{bankInfo.bankBranch}</p></div>
+                )}
+                {bankInfo.bankAccount && (
+                  <div className="col-span-2">
+                    <span className="text-slate-400">银行账号</span>
+                    <p className="font-mono font-bold text-slate-800 mt-0.5 text-sm tracking-widest">{bankInfo.bankAccount}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 合同未签订警告 */}
         {contractNotSigned && item.status === "pending" && (
