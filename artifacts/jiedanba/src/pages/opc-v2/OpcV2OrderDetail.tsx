@@ -1023,11 +1023,6 @@ export default function OpcV2OrderDetail() {
                         {t.createdByNickname && ` · ${t.createdByNickname}`}
                       </p>
                     </div>
-                    {t.status === "open" && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5 shrink-0">
-                        <Lock size={9} /> 阻款
-                      </span>
-                    )}
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${tc.color}`}>
                       {tc.label}
                     </span>

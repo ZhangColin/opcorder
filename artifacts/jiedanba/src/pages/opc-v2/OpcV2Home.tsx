@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import {
   LayoutGrid, Search, FileText, Package, Wallet, Wrench,
   ChevronRight, Loader2, CheckCircle2, Clock, AlertCircle,
-  RefreshCw, Lock,
+  RefreshCw,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
@@ -135,7 +135,7 @@ export default function OpcV2Home() {
   const executingOrders = orders.filter(o => o.status === "executing");
   const warrantyOrders = orders.filter(o => o.status === "warranty");
   const openTickets = tickets.filter(t => t.status === "open");
-  const blockingTickets = tickets.filter(t => t.status === "open");
+
   const pendingSettlements = settlements.filter(s => s.status === "pending");
   const overdueSettlements = settlements.filter(s => s.status === "pending" && s.isOverdue);
   const rejectedDelivs = deliverables.filter(d => d.status === "revision");
@@ -147,12 +147,6 @@ export default function OpcV2Home() {
       id: `contract-${o.id}`,
       label: `【🔴 待签约】${o.demandTitle ?? o.orderNo} — 合同待确认`,
       href: `/opc/orders/${o.id}`,
-      priority: 0 as const,
-    })),
-    ...blockingTickets.map(t => ({
-      id: `block-ticket-${t.id}`,
-      label: `【🔴 阻款工单】${t.title} — 关闭工单以解锁尾款`,
-      href: `/opc/tickets/${t.id}`,
       priority: 0 as const,
     })),
     ...overdueSettlements.map(s => ({
@@ -204,7 +198,7 @@ export default function OpcV2Home() {
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <StatCard icon={AlertCircle} label="待签约订单" value={pendingContractOrders.length} href="/opc/orders" color="text-red-600" bgColor="bg-red-50" highlight />
-              <StatCard icon={Lock} label="阻款工单" value={blockingTickets.length} href="/opc/tickets" color="text-red-500" bgColor="bg-red-50" highlight />
+              <StatCard icon={Wrench} label="进行中工单" value={openTickets.length} href="/opc/tickets" color="text-amber-600" bgColor="bg-amber-50" highlight={openTickets.length > 0} />
               <StatCard icon={RefreshCw} label="被退回交付" value={rejectedDelivs.length} href="/opc/orders" color="text-amber-600" bgColor="bg-amber-50" highlight />
               <StatCard icon={FileText} label="进行中投标" value={activeTenders.length} href="/opc/tenders" color="text-blue-600" bgColor="bg-blue-50" />
               <StatCard icon={Package} label="执行中订单" value={executingOrders.length + warrantyOrders.length} href="/opc/orders" color="text-emerald-600" bgColor="bg-emerald-50" />

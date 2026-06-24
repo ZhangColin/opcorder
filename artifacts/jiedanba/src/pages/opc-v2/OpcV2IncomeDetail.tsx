@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, AlertCircle, CheckCircle2, Clock, Lock, Package,
+  Loader2, AlertCircle, CheckCircle2, Clock, Package,
   Building2, User, CreditCard, Phone, ChevronDown, ChevronUp,
-  ExternalLink,
+  ExternalLink, Wrench,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { getAccessToken } from "@/lib/auth";
@@ -43,7 +43,7 @@ interface SettlementAccount {
   status: string | null;
 }
 
-function WhyNotPaid({ plan }: { plan: SettlementDetail }) {
+function WhyNotPaid({ plan, openTicketsCount }: { plan: SettlementDetail; openTicketsCount: number }) {
   if (plan.status === "paid") {
     return (
       <div className="flex items-start gap-3 px-4 py-3 bg-green-50 rounded-xl border border-green-200">
@@ -64,43 +64,40 @@ function WhyNotPaid({ plan }: { plan: SettlementDetail }) {
   const now = new Date();
   const due = new Date(plan.dueDate);
 
-  if (plan.isBlockingPayment) {
-    return (
-      <div className="flex items-start gap-3 px-4 py-3 bg-red-50 rounded-xl border border-red-200">
-        <Lock size={18} className="text-red-500 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-bold text-red-700">尾款暂缓：有未关闭工单</p>
-          <p className="text-xs text-red-500 mt-0.5">
-            订单有未关闭工单，请前往「工单」模块积极配合处理。工单关闭后，平台将尽快打款。
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (now < due) {
-    return (
-      <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 rounded-xl border border-blue-200">
-        <Clock size={18} className="text-blue-500 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-bold text-blue-700">尚未到打款日期</p>
-          <p className="text-xs text-blue-600 mt-0.5">
-            将于 {due.toLocaleDateString("zh-CN")} 可支付，请届时留意到账。
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
-      <Clock size={18} className="text-amber-500 shrink-0 mt-0.5" />
-      <div>
-        <p className="text-sm font-bold text-amber-700">已到打款日期，等待平台处理</p>
-        <p className="text-xs text-amber-600 mt-0.5">
-          如超过 3 个工作日仍未到账，请在工单模块发起工单联系平台。
-        </p>
-      </div>
+    <div className="space-y-3">
+      {openTicketsCount > 0 && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+          <Wrench size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-amber-700">订单有 {openTicketsCount} 个未关闭工单，请及时处理</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              请前往「工单」模块积极配合平台处理，以免影响款项到账。
+            </p>
+          </div>
+        </div>
+      )}
+      {now < due ? (
+        <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 rounded-xl border border-blue-200">
+          <Clock size={18} className="text-blue-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-blue-700">尚未到打款日期</p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              将于 {due.toLocaleDateString("zh-CN")} 可支付，请届时留意到账。
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+          <Clock size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-amber-700">已到打款日期，等待平台处理</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              如超过 3 个工作日仍未到账，请在工单模块发起工单联系平台。
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -125,6 +122,13 @@ export default function OpcV2IncomeDetail() {
     queryFn: () => v2Get("/outsource-orders?limit=100"),
     enabled: !!plan,
   });
+
+  const { data: ticketsData } = useQuery<Array<{ id: number; status: string }>>({
+    queryKey: ["v2-opc-income-tickets", plan?.outsourceOrderId],
+    queryFn: () => v2Get(`/tickets-b?outsourceOrderId=${plan!.outsourceOrderId}`),
+    enabled: !!plan,
+  });
+  const openTicketsCount = (ticketsData ?? []).filter(t => t.status === "open").length;
 
   const { data: accountRaw } = useQuery<{ data: SettlementAccount | null }>({
     queryKey: ["opc-settlement-account"],
@@ -185,11 +189,6 @@ export default function OpcV2IncomeDetail() {
               {plan.isLastItem && (
                 <span className="px-2 py-1 rounded-full text-xs font-bold bg-violet-100 text-violet-700">尾款</span>
               )}
-              {plan.isBlockingPayment && plan.status !== "paid" && (
-                <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 flex items-center gap-1">
-                  <Lock size={10} /> 阻款中
-                </span>
-              )}
               {plan.isOverdue && plan.status !== "paid" && (
                 <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700">已逾期</span>
               )}
@@ -229,7 +228,7 @@ export default function OpcV2IncomeDetail() {
           )}
         </div>
 
-        <WhyNotPaid plan={plan} />
+        <WhyNotPaid plan={plan} openTicketsCount={openTicketsCount} />
 
         {plan.paymentVoucherUrl && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">

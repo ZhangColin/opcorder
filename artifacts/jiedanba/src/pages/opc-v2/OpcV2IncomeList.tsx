@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   Wallet, Loader2, AlertCircle, Clock, CheckCircle2,
-  ChevronRight, TrendingUp, Lock,
+  ChevronRight, TrendingUp,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
@@ -173,11 +173,6 @@ export default function OpcV2IncomeList() {
                           <p className="text-[15px] font-bold text-slate-800 truncate">{s.title}</p>
                           {s.isLastItem && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded shrink-0">尾款</span>
-                          )}
-                          {s.status === "pending" && s.isLastItem && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5 shrink-0">
-                              <Lock size={9} /> 待解锁
-                            </span>
                           )}
                         </div>
                         {ord && (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Wrench, Loader2, AlertCircle, ChevronRight, Lock } from "lucide-react";
+import { Wrench, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { hasUnreadSinceCreation } from "@/lib/demandRead";
 import { OpcV2Layout } from "./OpcV2Layout";
@@ -56,8 +56,6 @@ export default function OpcV2TicketList() {
     return acc;
   }, {} as Record<string, number>);
 
-  const blockingCount = data.filter(t => t.status === "open").length;
-
   const sorted = [...filtered].sort((a, b) =>
     (hasUnreadSinceCreation("ticket_b", b.id, b.updatedAt, b.createdAt) ? 1 : 0) -
     (hasUnreadSinceCreation("ticket_b", a.id, a.updatedAt, a.createdAt) ? 1 : 0)
@@ -71,12 +69,7 @@ export default function OpcV2TicketList() {
       <div className="py-6 space-y-6">
         <div>
           <h2 className="text-2xl font-black text-emerald-900 mb-1">工单</h2>
-          <p className="text-sm text-slate-500">
-            与平台的问题工单
-            {blockingCount > 0 && (
-              <span className="ml-2 font-bold text-red-600">· {blockingCount} 个阻款工单待回复</span>
-            )}
-          </p>
+          <p className="text-sm text-slate-500">与平台的问题工单</p>
         </div>
 
         <div className="flex gap-2 flex-wrap">
@@ -128,11 +121,6 @@ export default function OpcV2TicketList() {
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
                         {ticket.title}
-                        {ticket.status === "open" && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 shrink-0">
-                            <Lock size={9} /> 阻款
-                          </span>
-                        )}
                         {hasNew && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                       </span>
                       <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>

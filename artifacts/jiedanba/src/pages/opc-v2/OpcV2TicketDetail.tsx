@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { markRead } from "@/lib/demandRead";
 import { useParams, useLocation } from "wouter";
 import {
-  Loader2, AlertCircle, Clock, CheckCircle2, Lock, Package,
+  Loader2, AlertCircle, Clock, CheckCircle2, Package,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -80,11 +80,6 @@ export default function OpcV2TicketDetail() {
                 {ticket.status === "open" ? <Clock size={14} /> : <CheckCircle2 size={14} />}
                 {cfg.label}
               </span>
-              {ticket.status === "open" && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-bold bg-red-100 text-red-600">
-                  <Lock size={12} /> 阻款工单
-                </span>
-              )}
             </div>
             <h2 className="text-xl font-black text-slate-800">{ticket.title}</h2>
           </div>
@@ -124,9 +119,8 @@ export default function OpcV2TicketDetail() {
             )}
           </div>
 
-          {ticket.status === "open" && (
+          {false && (
             <div className="flex items-start gap-3 px-4 py-3 bg-red-50 rounded-xl border border-red-200">
-              <Lock size={16} className="text-red-500 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-bold text-red-700">此工单正在阻止付款释放</p>
                 <p className="text-xs text-red-500 mt-0.5">
