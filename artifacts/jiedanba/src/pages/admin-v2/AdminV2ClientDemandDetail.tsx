@@ -492,7 +492,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
       await v2Patch(`/contracts/${contractId}/content`, { content: contractEditContent });
       toast({ title: "合同内容已保存" });
       setContractEditOpen(false);
-      await load();
+      setContracts(prev => prev.map(c => c.id === contractId ? { ...c, content: contractEditContent } : c));
     } catch (err: any) {
       toast({ title: "保存失败", description: err.message, variant: "destructive" });
     } finally { setContractActingInline(false); }
