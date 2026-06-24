@@ -23,20 +23,30 @@ router.get("/settlement-plans", requireAuth, async (req: Request, res: Response)
     if (status) conditions.push(eq(v2SettlementPlansTable.status, status as any));
 
     if (role === "opc") {
-      // OPC 只能看签约后（executing/warranty/completed）的订单的收款项
-      const signedStatuses = ["executing", "warranty", "completed"] as const;
-      const myOrders = await db
-        .select({ id: v2OutsourceOrdersTable.id })
-        .from(v2OutsourceOrdersTable)
-        .where(
-          and(
-            eq(v2OutsourceOrdersTable.opcId, userId),
-            inArray(v2OutsourceOrdersTable.status, signedStatuses as unknown as string[]),
-          )
-        );
-      const ids = myOrders.map(o => o.id);
-      if (ids.length === 0) return res.json([]);
-      conditions.push(inArray(v2SettlementPlansTable.outsourceOrderId, ids));
+      if (outsourceOrderId) {
+        // 查具体订单的收款计划（合同详情用），只要是自己的订单即可
+        const [ord] = await db
+          .select({ id: v2OutsourceOrdersTable.id })
+          .from(v2OutsourceOrdersTable)
+          .where(and(eq(v2OutsourceOrdersTable.id, parseInt(outsourceOrderId)), eq(v2OutsourceOrdersTable.opcId, userId)))
+          .limit(1);
+        if (!ord) return res.json([]);
+      } else {
+        // 全局收款列表：只显示已签约后的订单收款项
+        const signedStatuses = ["executing", "warranty", "completed"] as const;
+        const myOrders = await db
+          .select({ id: v2OutsourceOrdersTable.id })
+          .from(v2OutsourceOrdersTable)
+          .where(
+            and(
+              eq(v2OutsourceOrdersTable.opcId, userId),
+              inArray(v2OutsourceOrdersTable.status, signedStatuses as unknown as string[]),
+            )
+          );
+        const ids = myOrders.map(o => o.id);
+        if (ids.length === 0) return res.json([]);
+        conditions.push(inArray(v2SettlementPlansTable.outsourceOrderId, ids));
+      }
     }
 
     const rows = await db
