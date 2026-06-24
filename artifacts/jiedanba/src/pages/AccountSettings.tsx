@@ -213,10 +213,21 @@ interface SettlementForm {
   businessLicenseUrl: string;
   legalRepIdFrontUrl: string;
   legalRepIdBackUrl: string;
-  ccbMerchantNo: string;
+  bankName: string;
+  bankBranch: string;
+  bankAccount: string;
+  accountName: string;
   contactName: string;
   contactPhone: string;
 }
+
+const BANK_OPTIONS = [
+  "中国工商银行", "中国农业银行", "中国银行", "中国建设银行",
+  "交通银行", "招商银行", "中国邮政储蓄银行", "浦发银行",
+  "中信银行", "光大银行", "华夏银行", "民生银行",
+  "广发银行", "平安银行", "兴业银行", "北京银行",
+  "上海银行", "其他",
+];
 
 const EMPTY_PROFILE: ProfileForm = {
   nickname: "", title: "", bio: "", avatar: "", skills: [],
@@ -226,7 +237,7 @@ const EMPTY_PROFILE: ProfileForm = {
 const EMPTY_SETTLEMENT: SettlementForm = {
   companyName: "", creditCode: "", businessLicenseUrl: "",
   legalRepIdFrontUrl: "", legalRepIdBackUrl: "",
-  ccbMerchantNo: "",
+  bankName: "", bankBranch: "", bankAccount: "", accountName: "",
   contactName: "", contactPhone: "",
 };
 
@@ -301,7 +312,10 @@ export default function AccountSettings() {
             businessLicenseUrl: data.businessLicenseUrl ?? "",
             legalRepIdFrontUrl: data.legalRepIdFrontUrl ?? "",
             legalRepIdBackUrl: data.legalRepIdBackUrl ?? "",
-            ccbMerchantNo: data.ccbMerchantNo ?? "",
+            bankName: data.bankName ?? "",
+            bankBranch: data.bankBranch ?? "",
+            bankAccount: data.bankAccount ?? "",
+            accountName: data.accountName ?? "",
             contactName: data.contactName ?? "",
             contactPhone: data.contactPhone ?? "",
           };
@@ -430,6 +444,9 @@ export default function AccountSettings() {
         if (!sf.businessLicenseUrl?.trim()) missingFields.push("营业执照");
         if (!sf.legalRepIdFrontUrl?.trim()) missingFields.push("法人身份证正面");
         if (!sf.legalRepIdBackUrl?.trim()) missingFields.push("法人身份证背面");
+        if (!sf.bankName?.trim()) missingFields.push("银行");
+        if (!sf.bankAccount?.trim()) missingFields.push("银行账号");
+        if (!sf.accountName?.trim()) missingFields.push("户名");
 
         if (missingFields.length > 0) {
           toast({ title: "请填写完整结算信息", description: `缺少：${missingFields.join("、")}`, variant: "destructive" });
@@ -711,12 +728,28 @@ export default function AccountSettings() {
                 </div>
               </div>
 
-              {/* CCB Merchant No */}
+              {/* Bank Account */}
               <div className="space-y-4">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  <CreditCard size={12} />建行商家编号
+                  <CreditCard size={12} />收款账号
                 </div>
-                <Field label="建行商家编号" value={settlementForm.ccbMerchantNo} onChange={v => setS("ccbMerchantNo", v)} placeholder="请输入建设银行商家编号" />
+                {/* Bank select */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5">
+                    银行<span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <select
+                    value={settlementForm.bankName}
+                    onChange={e => setS("bankName", e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
+                  >
+                    <option value="">请选择银行</option>
+                    {BANK_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <Field label="开户行（支行名称）" value={settlementForm.bankBranch} onChange={v => setS("bankBranch", v)} placeholder="例：工商银行北京朝阳支行" />
+                <Field label="银行账号" value={settlementForm.bankAccount} onChange={v => setS("bankAccount", v)} placeholder="请输入银行卡号" required />
+                <Field label="户名" value={settlementForm.accountName} onChange={v => setS("accountName", v)} placeholder="请输入开户名（与营业执照一致）" required />
               </div>
 
               {/* Contact info */}
@@ -736,8 +769,8 @@ export default function AccountSettings() {
                 <ul className="space-y-0.5 list-disc list-inside text-blue-600">
                   <li>企业名称、统一社会信用代码须与营业执照保持一致</li>
                   <li>请上传法人代表身份证正面和背面的清晰照片</li>
-                  <li>建行商家编号用于平台分账，请确保与建设银行预留信息一致</li>
-                  <li>提交后平台将在 1-3 个工作日内完成审核</li>
+                  <li>银行账号、户名须与开户银行预留信息完全一致，用于平台打款</li>
+                  <li>提交后平台将在 1-3 个工作日内完成审核，审核通过后方可接单结款</li>
                 </ul>
               </div>
             </div>
