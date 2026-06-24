@@ -396,7 +396,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   );
 
   const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500", icon: null };
-  const canUploadContract   = order.status === "pending_contract";
+  const canUploadContract   = order.status === "pending_contract" && !!contract?.opcConfirmedAt;
   const canApproveDeliv     = order.status === "executing";
   const canAdminVerify      = order.status === "executing";
   const canCreateSettlement = order.status !== "cancelled";
@@ -595,8 +595,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                 signed:                   { label: "已签约",     color: "bg-green-100 text-green-700" },
               };
               const cs = contract ? (CONTRACT_STATUS_MAP[contract.status] ?? { label: contract.status, color: "bg-slate-100 text-slate-500" }) : null;
-              const canEditContent = contract && ["draft", "publisher_rejected"].includes(contract.status);
-              const canFinalize    = contract && ["draft", "publisher_rejected"].includes(contract.status) && !!contract.content;
+              const canEditContent = !!contract && order.status === "pending_contract";
               return (
                 <Section
                   title="合同"
@@ -615,12 +614,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                           onClick={() => { setContractEditContent(contract.content ?? ""); setEditingContract(true); }}
                           className="flex items-center gap-1 text-xs text-primary hover:underline">
                           <Edit2 size={11} /> 编辑内容
-                        </button>
-                      )}
-                      {canFinalize && !editingContract && (
-                        <button onClick={handleFinalizeContract} disabled={contractActing}
-                          className="flex items-center gap-1 text-xs text-teal-600 hover:underline disabled:opacity-50">
-                          <Send size={11} /> 定稿发送
                         </button>
                       )}
                       {canUploadContract && (
