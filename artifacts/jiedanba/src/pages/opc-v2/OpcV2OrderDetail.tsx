@@ -173,10 +173,10 @@ export default function OpcV2OrderDetail() {
   const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
 
   /* Tab */
-  const [activeTab, setActiveTab] = useState<"contract" | "delivery" | "ticket">(() => {
+  const [activeTab, setActiveTab] = useState<"demand" | "contract" | "delivery" | "ticket">(() => {
     const p = new URLSearchParams(window.location.search);
     const t = p.get("tab");
-    if (t === "delivery" || t === "ticket") return t;
+    if (t === "demand" || t === "delivery" || t === "ticket") return t;
     return "contract";
   });
 
@@ -333,6 +333,8 @@ export default function OpcV2OrderDetail() {
   const stageIdx = ORDER_STAGE_KEYS.indexOf(order.status as typeof ORDER_STAGE_KEYS[number]);
 
   const visibleTabs = [
+    { key: "demand"   as const, label: "需求详情", icon: FileText, badge: null as number | null,
+      show: true },
     { key: "contract" as const, label: "合同", icon: FileSignature, badge: null as number | null,
       show: true },
     { key: "delivery" as const, label: "交付", icon: Package,
@@ -472,6 +474,79 @@ export default function OpcV2OrderDetail() {
         )}
 
         {/* ══════════════════════════════════════════ */}
+        {/* ── 需求详情 Tab ── */}
+        {activeTab === "demand" && (
+          <div className="space-y-4">
+            {!demand ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 size={16} className="animate-spin mr-2" /> 加载中…
+              </div>
+            ) : (
+              <>
+                {/* 需求描述 */}
+                <CardSection title="需求说明" icon={FileText}>
+                  {demand.latestVersion?.detail ? (
+                    <div className="prose prose-sm max-w-none">
+                      <MarkdownContent content={demand.latestVersion.detail} />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">暂无需求描述</p>
+                  )}
+                </CardSection>
+
+                {/* 里程碑 */}
+                <CardSection
+                  title={`里程碑${demand.milestones?.length ? `（${demand.milestones.length}）` : ""}`}
+                  icon={Flag}
+                >
+                  {demand.milestones && demand.milestones.length > 0 ? (
+                    <div className="space-y-1">
+                      {demand.milestones.map((m, i) => (
+                        <div key={i} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground">{m.name}</p>
+                            {m.deadline && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Calendar size={10} />
+                                截止 {new Date(m.deadline).toLocaleDateString("zh-CN")}
+                              </p>
+                            )}
+                            {m.description && (
+                              <p className="text-xs text-muted-foreground mt-1">{m.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">暂无里程碑</p>
+                  )}
+                </CardSection>
+
+                {/* 附件 */}
+                {demand.latestVersion?.attachments && demand.latestVersion.attachments.length > 0 && (
+                  <CardSection title="附件" icon={Paperclip}>
+                    <div className="space-y-2">
+                      {demand.latestVersion.attachments.map((att, i) => (
+                        <a key={i} href={att.url} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/40 transition-colors group">
+                          <Paperclip size={13} className="text-muted-foreground shrink-0 group-hover:text-primary" />
+                          <span className="text-sm text-foreground truncate flex-1">{att.name}</span>
+                          <ExternalLink size={12} className="text-muted-foreground shrink-0" />
+                        </a>
+                      ))}
+                    </div>
+                  </CardSection>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════ */}
         {/* ── 合同 Tab ── */}
         {activeTab === "contract" && (
           <div className="space-y-4">
@@ -545,40 +620,6 @@ export default function OpcV2OrderDetail() {
                 )
               )}
             </CardSection>
-
-            {/* 里程碑 */}
-            {demand && (
-              <CardSection
-                title={`里程碑${demand.milestones?.length ? `（${demand.milestones.length}）` : ""}`}
-                icon={Flag}
-              >
-                {demand.milestones && demand.milestones.length > 0 ? (
-                  <div className="space-y-2">
-                    {demand.milestones.map((m, i) => (
-                      <div key={i} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                          {i + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground">{m.name}</p>
-                          {m.deadline && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Calendar size={10} />
-                              截止 {new Date(m.deadline).toLocaleDateString("zh-CN")}
-                            </p>
-                          )}
-                          {m.description && (
-                            <p className="text-xs text-muted-foreground mt-1">{m.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">暂无里程碑</p>
-                )}
-              </CardSection>
-            )}
 
             {/* 收款计划 */}
             {settlements.length > 0 && (
