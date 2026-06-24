@@ -14,6 +14,20 @@ import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
 
+function InlinePanel({
+  title, color = "bg-slate-50 border-slate-200", onClose, children,
+}: { title: string; color?: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className={`rounded-2xl border p-5 ${color}`}>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-sm font-bold text-slate-800">{title}</h4>
+        <button onClick={onClose}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 interface LatestVersion {
   id: number;
   versionNo: number;
@@ -690,17 +704,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   ];
   const TAB_LABELS: Record<string, string> = { needs: "需求详情", contract: "报价与合同", delivery: "交付", ticket: "工单" };
 
-  const InlinePanel = ({
-    title, color = "bg-slate-50 border-slate-200", children,
-  }: { title: string; color?: string; children: React.ReactNode }) => (
-    <div className={`rounded-2xl border p-5 ${color}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold text-slate-800">{title}</h4>
-        <button onClick={() => setActivePanel(null)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
-      </div>
-      {children}
-    </div>
-  );
 
   return (
     <AdminV2Layout
@@ -839,7 +842,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
 
         {/* ── 操作面板 ── */}
         {activePanel === "contract" && (
-          <InlinePanel title="创建合同草稿" color="bg-blue-50 border-blue-200">
+          <InlinePanel title="创建合同草稿" color="bg-blue-50 border-blue-200" onClose={() => setActivePanel(null)}>
             <p className="text-sm text-slate-500 mb-4">为该需求创建一份 A 通道合同草稿，创建后可在合同详情页编辑正文、定稿并通知发单方确认。</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setActivePanel(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
@@ -852,7 +855,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
         )}
 
         {activePanel === "close" && (
-          <InlinePanel title="关闭需求" color="bg-red-50 border-red-200">
+          <InlinePanel title="关闭需求" color="bg-red-50 border-red-200" onClose={() => setActivePanel(null)}>
             <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
             <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3} placeholder="关闭原因"
               className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 resize-none bg-white mb-3" />
