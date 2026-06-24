@@ -145,7 +145,7 @@ export default function AdminV2DeliveryBDetail({ inlineId }: { inlineId?: number
                 <Clock size={11} /> {new Date(delivery.createdAt).toLocaleString("zh-CN")}
                 {delivery.submittedByNickname && <span>· 提交人：{delivery.submittedByNickname}</span>}
               </p>
-              {delivery.rejectedReason && (
+              {delivery.status === "revision" && delivery.rejectedReason && (
                 <div className="mt-3 bg-red-50 rounded-xl p-3">
                   <p className="text-xs font-bold text-red-600 mb-0.5">驳回原因</p>
                   <p className="text-sm text-red-700">{delivery.rejectedReason}</p>
