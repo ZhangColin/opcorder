@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
-  Link2, Paperclip, Plus, RotateCcw, Wrench,
+  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -282,6 +282,15 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const [editPaymentForm, setEditPaymentForm] = useState({ itemNo: "", description: "", amount: "", dueDate: "", isLastItem: false });
   const [paymentActing, setPaymentActing] = useState(false);
 
+  // Contract inline edit / finalize / upload state
+  const [contractEditOpen, setContractEditOpen] = useState(false);
+  const [contractEditContent, setContractEditContent] = useState("");
+  const [contractFinalizeOpen, setContractFinalizeOpen] = useState(false);
+  const [contractUploadOpen, setContractUploadOpen] = useState(false);
+  const [contractUploadFile, setContractUploadFile] = useState<File | null>(null);
+  const [contractActingInline, setContractActingInline] = useState(false);
+  const [contractUploading, setContractUploading] = useState(false);
+
   const baseDims = quoteConfig?.base ?? [];
   const adjustDims = quoteConfig?.adjustment ?? [];
   const hasQuoteCard = baseDims.length > 0 || adjustDims.length > 0;
@@ -461,7 +470,46 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const handleCreateContract = () => act(async () => {
     await v2Post("/contracts", { channel: "a", clientDemandId: id });
     await load();
-  }, "合同草稿已创建，请前往合同详情页编辑正文并定稿");
+  }, "合同草稿已创建");
+
+  const handleSaveContractContent = async (contractId: number) => {
+    setContractActingInline(true);
+    try {
+      await v2Patch(`/contracts/${contractId}/content`, { content: contractEditContent });
+      toast({ title: "合同内容已保存" });
+      setContractEditOpen(false);
+      await load();
+    } catch (err: any) {
+      toast({ title: "保存失败", description: err.message, variant: "destructive" });
+    } finally { setContractActingInline(false); }
+  };
+
+  const handleFinalizeContract = async (contractId: number) => {
+    setContractActingInline(true);
+    try {
+      await v2Post(`/contracts/${contractId}/finalize`, {});
+      toast({ title: "合同已定稿，通知发单方确认" });
+      setContractFinalizeOpen(false);
+      await load();
+    } catch (err: any) {
+      toast({ title: "定稿失败", description: err.message, variant: "destructive" });
+    } finally { setContractActingInline(false); }
+  };
+
+  const handleUploadSignedContract = async (contractId: number) => {
+    if (!contractUploadFile) { toast({ title: "请选择文件", variant: "destructive" }); return; }
+    setContractUploading(true);
+    try {
+      const url = await uploadFile(contractUploadFile);
+      await v2Post(`/contracts/${contractId}/upload-signed`, { signedFileUrl: url });
+      toast({ title: "已签合同已上传，需求进入执行中" });
+      setContractUploadOpen(false);
+      setContractUploadFile(null);
+      await load();
+    } catch (err: any) {
+      toast({ title: "上传失败", description: err.message, variant: "destructive" });
+    } finally { setContractUploading(false); }
+  };
 
   const handleCreateDeliverable = () => act(async () => {
     if (!delivTitle.trim()) throw new Error("请填写交付标题");
@@ -976,23 +1024,117 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               <div className="space-y-3">
                 {contracts.map(c => {
                   const cs = CONTRACT_STATUS_MAP[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
+                  const canEdit   = c.status === "draft" || c.status === "publisher_rejected";
+                  const canFinalize = canEdit && !!c.content?.trim();
+                  const canUpload = c.status === "pending_sign";
                   return (
                     <div key={c.id} className="space-y-3">
-                      <div className="flex items-center gap-3 flex-wrap">
+
+                      {/* 状态行 + 操作按钮 */}
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${cs.color}`}>{cs.label}</span>
                         <span className="text-xs text-slate-400 font-mono">{c.contractNo}</span>
-                        <button
-                          onClick={() => inlineNav ? inlineNav.push(`/admin/v2/contracts-a/${c.id}`) : navigate(`/admin/v2/contracts-a/${c.id}`)}
-                          className="ml-auto text-xs text-primary hover:underline flex items-center gap-1"
-                        >
-                          编辑 / 定稿 / 签约 <ExternalLink size={11} />
-                        </button>
+                        <div className="ml-auto flex items-center gap-2">
+                          {canEdit && (
+                            <button
+                              onClick={() => {
+                                setContractEditContent(c.content ?? "");
+                                setContractFinalizeOpen(false);
+                                setContractUploadOpen(false);
+                                setContractEditOpen(v => !v);
+                              }}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50"
+                            >
+                              <Edit2 size={11} /> 编辑正文
+                            </button>
+                          )}
+                          {canFinalize && !contractEditOpen && (
+                            <button
+                              onClick={() => { setContractEditOpen(false); setContractUploadOpen(false); setContractFinalizeOpen(v => !v); }}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600"
+                            >
+                              <Send size={11} /> 定稿通知
+                            </button>
+                          )}
+                          {canUpload && (
+                            <button
+                              onClick={() => { setContractEditOpen(false); setContractFinalizeOpen(false); setContractUploadOpen(v => !v); }}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                            >
+                              <Upload size={11} /> 上传签约文件
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      {c.content && (
+
+                      {/* 内联编辑面板 */}
+                      {contractEditOpen && (
+                        <div className="border border-primary/30 rounded-xl p-3 bg-primary/5 space-y-2">
+                          <p className="text-xs font-bold text-slate-600">编辑合同正文（Markdown）</p>
+                          <MarkdownEditor value={contractEditContent} onChange={setContractEditContent} minHeight={180} />
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => setContractEditOpen(false)} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">取消</button>
+                            <button
+                              onClick={() => handleSaveContractContent(c.id)}
+                              disabled={contractActingInline}
+                              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              {contractActingInline ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} 保存
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 定稿确认面板 */}
+                      {contractFinalizeOpen && (
+                        <div className="border border-amber-200 rounded-xl p-3 bg-amber-50 space-y-2">
+                          <p className="text-xs font-bold text-amber-700">确认定稿并通知发单方？</p>
+                          <p className="text-xs text-amber-600">定稿后发单方将收到合同确认通知，你可继续修改直到对方确认。</p>
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => setContractFinalizeOpen(false)} className="text-xs px-3 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-100">取消</button>
+                            <button
+                              onClick={() => handleFinalizeContract(c.id)}
+                              disabled={contractActingInline}
+                              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                            >
+                              {contractActingInline ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />} 确认定稿
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 上传签约文件面板 */}
+                      {contractUploadOpen && (
+                        <div className="border border-green-200 rounded-xl p-3 bg-green-50 space-y-2">
+                          <p className="text-xs font-bold text-green-700">上传已签约合同文件</p>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.png,.jpg"
+                            onChange={e => setContractUploadFile(e.target.files?.[0] ?? null)}
+                            className="text-xs text-slate-600"
+                          />
+                          {contractUploadFile && <p className="text-xs text-green-600">已选：{contractUploadFile.name}</p>}
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => { setContractUploadOpen(false); setContractUploadFile(null); }} className="text-xs px-3 py-1.5 rounded-lg border border-green-200 hover:bg-green-100">取消</button>
+                            <button
+                              onClick={() => handleUploadSignedContract(c.id)}
+                              disabled={contractUploading || !contractUploadFile}
+                              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {contractUploading ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />} 上传并完成签约
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 合同正文预览（非编辑模式） */}
+                      {!contractEditOpen && c.content && (
                         <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
                           <MarkdownContent content={c.content} />
                         </div>
                       )}
+
+                      {/* 已签约文件 */}
                       {c.signedFileUrl && (
                         <a href={c.signedFileUrl} target="_blank" rel="noreferrer"
                           className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group">
@@ -1006,6 +1148,8 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                           <ExternalLink size={14} className="text-green-500 shrink-0" />
                         </a>
                       )}
+
+                      {/* 驳回原因 */}
                       {c.publisherRejectedReason && (
                         <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
                           <p className="text-xs font-bold text-red-600 mb-1">发单方驳回原因</p>
