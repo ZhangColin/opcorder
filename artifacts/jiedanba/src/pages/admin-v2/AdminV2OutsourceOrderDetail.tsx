@@ -4,7 +4,7 @@ import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
   Loader2, X, Upload, CheckCircle2, Clock, ExternalLink, Wrench,
   FileSignature, Package, Shield, XCircle, CreditCard, ChevronDown, ChevronUp,
-  Lock, Paperclip, Plus, Edit2, Send, DollarSign, FileText, Flag, Calendar,
+  Paperclip, Plus, Edit2, Send, DollarSign, FileText, Flag, Calendar,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
@@ -972,11 +972,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                                   )}
                                   <span className="text-xs text-slate-400">第 {s.itemNo ?? 1} 期</span>
                                   {s.isLastItem && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>}
-                                  {contractSigned && s.isBlockingPayment && s.status !== "paid" && (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
-                                      <Lock size={9} /> 阻款
-                                    </span>
-                                  )}
+
                                 </div>
                                 {s.description && <p className="text-xs text-slate-500 mt-0.5">{s.description}</p>}
                               </div>

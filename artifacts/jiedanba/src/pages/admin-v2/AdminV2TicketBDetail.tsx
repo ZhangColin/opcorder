@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
-import { Loader2, X, CheckCircle2, Clock, Package, AlertTriangle } from "lucide-react";
+import { Loader2, X, CheckCircle2, Clock, Package } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
@@ -69,7 +69,7 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
     setActing(true);
     try {
       await v2Post(`/tickets-b/${id}/close`, { note: closeNote.trim() || undefined });
-      toast({ title: "工单已关闭" + (ticket?.isBlockingPayment ? "，尾款阻断已解除" : "") });
+      toast({ title: "工单已关闭" });
       setShowCloseModal(false);
       setCloseNote("");
       await load();
@@ -100,16 +100,6 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
       }
     >
       <div className="mt-6 space-y-4">
-        {ticket.isBlockingPayment && isOpen && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-            <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-red-700">此工单正在阻断尾款支付</p>
-              <p className="text-xs text-red-500 mt-0.5">关闭工单后，尾款将解除阻断，可正常支付。</p>
-            </div>
-          </div>
-        )}
-
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
@@ -120,9 +110,6 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isOpen ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                   {isOpen ? "开放中" : "已关闭"}
                 </span>
-                {ticket.isBlockingPayment && (
-                  <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">阻断付款</span>
-                )}
                 {ticket.outsourceDemandId ? (
                   <button
                     onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`) : navigate(`/admin/v2/outsource-demands/${ticket.outsourceDemandId}`)}
@@ -160,7 +147,6 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
           <div className="space-y-3">
             <p className="text-sm text-slate-500">
               确认工单问题已处理完毕？
-              {ticket.isBlockingPayment && <span className="text-red-500 font-bold"> 关闭后将解除对尾款的阻断。</span>}
             </p>
             <textarea value={closeNote} onChange={e => setCloseNote(e.target.value)} rows={3} placeholder="关闭说明（可选）"
               className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
