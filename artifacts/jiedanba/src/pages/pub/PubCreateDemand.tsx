@@ -7,6 +7,7 @@ import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { AgentChatPanel, type FormSuggestion } from "@/components/agent/AgentChatPanel";
 import { getValidAccessToken } from "@/lib/auth";
+import { DatePickerInput } from "@/components/DatePickerInput";
 
 interface DemandType { id: number; code: string; name: string; }
 
@@ -293,12 +294,11 @@ export default function PubCreateDemand() {
             </FormField>
 
             <FormField label="希望交付日期">
-              <input
-                type="date"
+              <DatePickerInput
                 value={hopeDeliveryDate}
-                onChange={e => setHopeDeliveryDate(e.target.value)}
+                onChange={setHopeDeliveryDate}
                 min={today}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white text-slate-800 [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [color-scheme:light]"
+                placeholder="请选择希望交付日期"
               />
             </FormField>
           </div>
