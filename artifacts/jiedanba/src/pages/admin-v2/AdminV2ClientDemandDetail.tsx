@@ -1045,7 +1045,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               {canFinalize && !contractEditOpen && (
                 <button
                   onClick={() => { setContractEditOpen(false); setContractUploadOpen(false); setContractFinalizeOpen(v => !v); }}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
                 >
                   <Send size={12} /> 定稿通知
                 </button>
