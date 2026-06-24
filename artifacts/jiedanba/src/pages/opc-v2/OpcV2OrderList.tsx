@@ -22,6 +22,7 @@ interface OrderItem {
   opcNickname: string | null;
   status: string;
   warrantyEndDate: string | null;
+  contractOpcConfirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -193,7 +194,9 @@ export default function OpcV2OrderList() {
                       <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 shrink-0" />
                     </div>
                     {order.status === "pending_contract" && (
-                      <p className="mt-2 text-xs font-bold text-amber-700">⚠️ 请查阅合同内容并确认签约</p>
+                      order.contractOpcConfirmedAt
+                        ? <p className="mt-2 text-xs font-bold text-blue-600">✓ 已确认合同，等待运营上传已签文件</p>
+                        : <p className="mt-2 text-xs font-bold text-amber-700">⚠️ 请查阅合同内容并确认签约</p>
                     )}
                   </button>
                 );

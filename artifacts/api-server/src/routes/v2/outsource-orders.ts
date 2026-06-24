@@ -3,7 +3,7 @@ import {
   db, v2OutsourceOrdersTable, v2OutsourceDemandsTable, v2TendersTable,
   v2ContractsTable, usersTable,
 } from "@workspace/db";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify } from "./utils";
@@ -51,7 +51,26 @@ router.get("/outsource-orders", requireAuth, async (req: Request, res: Response)
       .limit(lim)
       .offset(offset);
 
-    return res.json({ total: Number(totalRow.count), page: pg, limit: lim, items: rows });
+    // 批量附带合同 OPC 确认时间（仅 pending_contract 订单有意义）
+    const pendingIds = rows.filter(r => r.status === "pending_contract").map(r => r.id);
+    const contractOpcMap: Record<number, string | null> = {};
+    if (pendingIds.length > 0) {
+      const contracts = await db
+        .select({ outsourceOrderId: v2ContractsTable.outsourceOrderId, opcConfirmedAt: v2ContractsTable.opcConfirmedAt })
+        .from(v2ContractsTable)
+        .where(inArray(v2ContractsTable.outsourceOrderId, pendingIds));
+      for (const c of contracts) {
+        if (c.outsourceOrderId != null && contractOpcMap[c.outsourceOrderId] === undefined) {
+          contractOpcMap[c.outsourceOrderId] = c.opcConfirmedAt ? c.opcConfirmedAt.toISOString() : null;
+        }
+      }
+    }
+    const items = rows.map(r => ({
+      ...r,
+      contractOpcConfirmedAt: contractOpcMap[r.id] ?? null,
+    }));
+
+    return res.json({ total: Number(totalRow.count), page: pg, limit: lim, items });
   } catch (err) {
     logger.error({ err }, "GET /v2/outsource-orders failed");
     return res.status(500).json({ error: "服务器错误" });
