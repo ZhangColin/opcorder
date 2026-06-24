@@ -4,6 +4,7 @@ import { Loader2, ChevronRight } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
+import { hasUnread } from "@/lib/demandRead";
 
 interface DeliveryB {
   id: number;
@@ -52,7 +53,12 @@ export default function AdminV2DeliveryBList() {
 
   useEffect(() => { load(); }, [load]);
 
-  const displayed = statusFilter === "" ? items : items.filter(d => d.status === statusFilter);
+  const displayed = (statusFilter === "" ? items : items.filter(d => d.status === statusFilter))
+    .slice()
+    .sort((a, b) =>
+      (hasUnread("delivery_b", b.id, b.updatedAt) ? 1 : 0) -
+      (hasUnread("delivery_b", a.id, a.updatedAt) ? 1 : 0)
+    );
   const counts: Record<string, number> = {};
   STATUS_TABS.forEach(tab => {
     counts[tab.value] = tab.value === "" ? items.length : items.filter(d => d.status === tab.value).length;
@@ -90,7 +96,12 @@ export default function AdminV2DeliveryBList() {
                 <button key={item.id} onClick={go}
                   className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[15px] font-bold text-slate-800 truncate">{item.title}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {hasUnread("delivery_b", item.id, item.updatedAt) && (
+                        <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" />
+                      )}
+                      <span className="text-[15px] font-bold text-slate-800 truncate">{item.title}</span>
+                    </div>
                     <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                   </div>
                   <div className="flex items-end gap-4">

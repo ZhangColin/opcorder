@@ -8,7 +8,7 @@ import {
   ExternalLink, Send, DollarSign, Tag, CreditCard, Calendar, Flag,
 } from "lucide-react";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
-import { markRead } from "@/lib/demandRead";
+import { markRead, hasUnreadSinceCreation } from "@/lib/demandRead";
 import { useToast } from "@/hooks/use-toast";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -66,6 +66,7 @@ interface DeliverableItem {
   attachments: Array<{ name: string; url: string }>;
   status: string;
   createdAt: string;
+  updatedAt: string;
 }
 interface SettlementItem {
   id: number;
@@ -87,6 +88,7 @@ interface TicketItem {
   isBlockingPayment: boolean;
   createdByNickname: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 /* ── Config ── */
@@ -895,11 +897,19 @@ export default function OpcV2OrderDetail() {
                 <div key={d.id} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                   <button
                     className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
-                    onClick={() => setExpandedDelivId(isExpanded ? null : d.id)}
+                    onClick={() => {
+                      setExpandedDelivId(isExpanded ? null : d.id);
+                      if (!isExpanded) markRead("delivery_b", d.id);
+                    }}
                   >
                     <CheckCircle2 size={16} className="text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground truncate">{d.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        {hasUnreadSinceCreation("delivery_b", d.id, d.updatedAt, d.createdAt) && (
+                          <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" />
+                        )}
+                        <p className="text-sm font-bold text-foreground truncate">{d.title}</p>
+                      </div>
                       <p className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleDateString("zh-CN")} 提交</p>
                     </div>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${ds.color}`}>{ds.label}</span>
@@ -980,11 +990,19 @@ export default function OpcV2OrderDetail() {
                 <div key={t.id} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                   <div
                     className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors cursor-pointer"
-                    onClick={() => setExpandedTicketId(isExpanded ? null : t.id)}
+                    onClick={() => {
+                      setExpandedTicketId(isExpanded ? null : t.id);
+                      if (!isExpanded) markRead("ticket_b", t.id);
+                    }}
                   >
                     <Wrench size={16} className="text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground truncate">{t.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        {hasUnreadSinceCreation("ticket_b", t.id, t.updatedAt, t.createdAt) && (
+                          <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" />
+                        )}
+                        <p className="text-sm font-bold text-foreground truncate">{t.title}</p>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {new Date(t.createdAt).toLocaleDateString("zh-CN")}
                         {t.createdByNickname && ` · ${t.createdByNickname}`}

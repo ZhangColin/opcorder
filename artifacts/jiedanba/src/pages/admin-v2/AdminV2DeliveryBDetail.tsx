@@ -5,6 +5,7 @@ import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { useToast } from "@/hooks/use-toast";
+import { markRead } from "@/lib/demandRead";
 
 interface DeliveryB {
   id: number;
@@ -76,6 +77,7 @@ export default function AdminV2DeliveryBDetail({ inlineId }: { inlineId?: number
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
+  useEffect(() => { if (id > 0 && delivery) markRead("delivery_b", id); }, [id, delivery]);
 
   const act = async (endpoint: string, body?: Record<string, string>, successMsg?: string) => {
     setActing(true);
