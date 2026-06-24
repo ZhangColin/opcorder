@@ -1117,7 +1117,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                       <p className="text-xs font-bold text-green-700">上传已签约合同文件</p>
                       <input
                         type="file"
-                        accept=".pdf,.doc,.docx,.png,.jpg"
+                        accept=".pdf,.doc,.docx,.docm,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.zip,.rar,.7z"
                         onChange={e => setContractUploadFile(e.target.files?.[0] ?? null)}
                         className="text-xs text-slate-600"
                       />
