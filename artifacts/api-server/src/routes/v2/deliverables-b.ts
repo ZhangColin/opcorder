@@ -120,7 +120,7 @@ router.post("/deliverables-b", requireAuth, async (req: Request, res: Response) 
       content,
       attachments: attachments ?? [],
       status: "pending",
-      createdBy: userId,
+      submittedBy: userId,
     }).returning();
 
     const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
