@@ -118,17 +118,22 @@ router.post("/outsource-orders/:id/upload-signed-contract", requireAdmin, async 
     if (!linkedContract) return res.status(400).json({ error: "订单尚无关联合同" });
 
     const [contract] = await db.update(v2ContractsTable)
-      .set({ signedFileUrl, signedBy: userId, signedAt: new Date(), updatedAt: new Date() })
+      .set({ signedFileUrl, signedBy: userId, signedAt: new Date(), status: "signed", updatedAt: new Date() })
       .where(eq(v2ContractsTable.id, linkedContract.id))
+      .returning();
+
+    const [updatedOrder] = await db.update(v2OutsourceOrdersTable)
+      .set({ status: "executing", updatedAt: new Date() })
+      .where(eq(v2OutsourceOrdersTable.id, id))
       .returning();
 
     const [demand] = await db.select({ title: v2OutsourceDemandsTable.title })
       .from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, order.outsourceDemandId)).limit(1);
 
-    await notify(order.opcId, "v2_contract_signed", "合同已上传，请确认签署",
-      `外包订单 ${order.orderNo} 合同已由运营方上传（「${demand?.title}」），请登录确认签署以开始项目执行。`, id, "v2_outsource_order");
+    await notify(order.opcId, "v2_contract_officially_signed", "合同正式签约完成，项目进入执行阶段",
+      `外包订单 ${order.orderNo}（「${demand?.title}」）已签约，运营方已上传合同文件，项目正式进入执行阶段。`, id, "v2_outsource_order");
 
-    return res.json({ order, contract });
+    return res.json({ order: updatedOrder, contract });
   } catch (err) {
     logger.error({ err }, "POST /v2/outsource-orders/:id/upload-signed-contract failed");
     return res.status(500).json({ error: "服务器错误" });
@@ -157,7 +162,6 @@ router.post("/outsource-orders/:id/opc-confirm-contract", requireAuth, async (re
 
     const [contract] = await db.update(v2ContractsTable)
       .set({
-        status: "signed",
         opcConfirmedAt: new Date(),
         ...(opcSignedFileUrl ? { opcSignedFileUrl } : {}),
         updatedAt: new Date(),
@@ -165,21 +169,16 @@ router.post("/outsource-orders/:id/opc-confirm-contract", requireAuth, async (re
       .where(eq(v2ContractsTable.id, linkedContract.id))
       .returning();
 
-    const [updatedOrder] = await db.update(v2OutsourceOrdersTable)
-      .set({ status: "executing", updatedAt: new Date() })
-      .where(eq(v2OutsourceOrdersTable.id, id))
-      .returning();
-
     const [demand] = await db.select({ title: v2OutsourceDemandsTable.title })
       .from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, order.outsourceDemandId)).limit(1);
 
     const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
     for (const admin of admins) {
-      await notify(admin.id, "v2_contract_signed", "OPC已确认合同，项目启动",
-        `OPC 已确认外包订单 ${order.orderNo}（「${demand?.title}」）合同，项目进入执行阶段。`, id, "v2_outsource_order");
+      await notify(admin.id, "v2_opc_confirmed_contract", "OPC 已确认合同内容",
+        `OPC 已确认外包订单 ${order.orderNo}（「${demand?.title}」）合同内容，请安排线下 / 电子签约后上传已签合同文件。`, id, "v2_outsource_order");
     }
 
-    return res.json({ order: updatedOrder, contract });
+    return res.json({ order, contract });
   } catch (err) {
     logger.error({ err }, "POST /v2/outsource-orders/:id/opc-confirm-contract failed");
     return res.status(500).json({ error: "服务器错误" });

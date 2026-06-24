@@ -5,7 +5,7 @@ import {
   Loader2, AlertCircle, FileSignature, CheckCircle2, Paperclip,
   Package, Clock, Shield, XCircle, Plus, Wrench,
   RefreshCw, Lock, ChevronDown, ChevronUp, FileText,
-  ExternalLink, Send, DollarSign, Tag, CreditCard,
+  ExternalLink, Send, DollarSign, Tag, CreditCard, Calendar, Flag,
 } from "lucide-react";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
@@ -39,6 +39,7 @@ interface DemandInfo {
   expectedPriceMin: number | null;
   expectedPriceMax: number | null;
   status: string;
+  milestones?: Array<{ name: string; deadline?: string | null; description?: string | null }>;
   latestVersion: { id: number; versionNo: number; detail: string | null; attachments: Array<{ name: string; url: string }> } | null;
 }
 interface ContractDetail {
@@ -222,7 +223,7 @@ export default function OpcV2OrderDetail() {
     setConfirmingContract(true);
     try {
       await v2Post(`/outsource-orders/${orderId}/opc-confirm-contract`, {});
-      toast({ title: "合同已确认", description: "订单已进入执行阶段" });
+      toast({ title: "合同内容已确认", description: "等待运营上传已签合同文件，完成后项目将正式进入执行阶段" });
       qc.invalidateQueries({ queryKey: ["v2-opc-order", orderId] });
       qc.invalidateQueries({ queryKey: ["v2-opc-orders"] });
       qc.invalidateQueries({ queryKey: ["v2-opc-order-contract", orderId] });
@@ -325,7 +326,7 @@ export default function OpcV2OrderDetail() {
   );
 
   const cfg = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-slate-100 text-slate-500", icon: null };
-  const canConfirmContract = order.status === "pending_contract" && !!contract;
+  const canConfirmContract = order.status === "pending_contract" && !!contract && !contract.opcConfirmedAt;
   const canSubmitDeliverable = ["executing", "warranty"].includes(order.status);
   const openTickets = tickets.filter(t => t.status === "open");
   const blockingTickets = openTickets.filter(t => t.isBlockingPayment);
@@ -480,20 +481,30 @@ export default function OpcV2OrderDetail() {
               {/* 签约操作区 */}
               {order.status === "pending_contract" && (
                 contract ? (
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
-                      <FileSignature size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                      <p className="text-sm font-bold text-amber-800">请查阅下方合同内容，确认无误后点击签约，项目即进入执行阶段</p>
+                  contract.opcConfirmedAt ? (
+                    <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 rounded-xl border border-blue-200">
+                      <CheckCircle2 size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold text-blue-800">您已确认合同内容</p>
+                        <p className="text-xs text-blue-600 mt-0.5">等待运营上传已签合同文件，完成后项目将正式进入执行阶段</p>
+                      </div>
                     </div>
-                    <button
-                      onClick={handleConfirmContract}
-                      disabled={confirmingContract}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60"
-                    >
-                      {confirmingContract ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                      确认签约（开始执行）
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+                        <FileSignature size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-sm font-bold text-amber-800">请仔细查阅下方合同内容、里程碑及收款计划，确认无误后点击确认，运营上传已签合同文件后项目正式进入执行阶段</p>
+                      </div>
+                      <button
+                        onClick={handleConfirmContract}
+                        disabled={confirmingContract}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60"
+                      >
+                        {confirmingContract ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                        确认合同内容
+                      </button>
+                    </div>
+                  )
                 ) : (
                   <div className="flex items-center gap-3 px-4 py-3 bg-muted/50 rounded-xl border border-border">
                     <Clock size={16} className="text-muted-foreground shrink-0" />
@@ -534,6 +545,40 @@ export default function OpcV2OrderDetail() {
                 )
               )}
             </CardSection>
+
+            {/* 里程碑 */}
+            {demand && (
+              <CardSection
+                title={`里程碑${demand.milestones?.length ? `（${demand.milestones.length}）` : ""}`}
+                icon={Flag}
+              >
+                {demand.milestones && demand.milestones.length > 0 ? (
+                  <div className="space-y-2">
+                    {demand.milestones.map((m, i) => (
+                      <div key={i} className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground">{m.name}</p>
+                          {m.deadline && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Calendar size={10} />
+                              截止 {new Date(m.deadline).toLocaleDateString("zh-CN")}
+                            </p>
+                          )}
+                          {m.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{m.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">暂无里程碑</p>
+                )}
+              </CardSection>
+            )}
 
             {/* 收款计划 */}
             {settlements.length > 0 && (
