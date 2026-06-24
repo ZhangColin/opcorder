@@ -711,19 +711,56 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
 
         {/* ── 基本信息卡（始终显示，Tab 上方）── */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-            {demand.isUrgent && (
-              <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
-                <Zap size={10} />紧急
-              </span>
-            )}
-            {demand.demandType && (
-              <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
-              </span>
-            )}
-            <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+              {demand.isUrgent && (
+                <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
+                  <Zap size={10} />紧急
+                </span>
+              )}
+              {demand.demandType && (
+                <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                  {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
+                </span>
+              )}
+              <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {canStartNegotiating && (
+                <button
+                  onClick={handleStartNegotiating}
+                  disabled={acting}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-blue-300 text-blue-700 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50"
+                >
+                  <PlayCircle size={12} /> 启动沟通
+                </button>
+              )}
+              {(canInitiateQuote || canReQuote) && (
+                <button
+                  onClick={() => setShowQuoteOverlay(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
+                >
+                  <DollarSign size={12} /> {canReQuote ? "更新报价" : "发起报价"}
+                </button>
+              )}
+              {canCreateContract && (
+                <button
+                  onClick={() => setActivePanel(prev => prev === "contract" ? null : "contract")}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "contract" ? "bg-blue-600 text-white border-blue-600" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
+                >
+                  <FileText size={12} /> 创建合同
+                </button>
+              )}
+              {canClose && (
+                <button
+                  onClick={() => setActivePanel(prev => prev === "close" ? null : "close")}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}
+                >
+                  关闭需求
+                </button>
+              )}
+            </div>
           </div>
           <h2 className="text-lg font-extrabold text-blue-900 mb-3">{demand.title}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
@@ -799,42 +836,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
           )}
         </div>
 
-        {/* ── 操作按钮栏 ── */}
-        <div className="flex flex-wrap gap-2">
-          {canStartNegotiating && (
-            <button
-              onClick={handleStartNegotiating}
-              disabled={acting}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-blue-300 text-blue-700 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50"
-            >
-              <PlayCircle size={13} /> 启动沟通
-            </button>
-          )}
-          {(canInitiateQuote || canReQuote) && (
-            <button
-              onClick={() => setShowQuoteOverlay(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
-            >
-              <DollarSign size={13} /> {canReQuote ? "更新报价" : "发起报价"}
-            </button>
-          )}
-          {canCreateContract && (
-            <button
-              onClick={() => setActivePanel(prev => prev === "contract" ? null : "contract")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "contract" ? "bg-blue-600 text-white border-blue-600" : "border-blue-300 text-blue-700 hover:bg-blue-50"}`}
-            >
-              <FileText size={13} /> 创建合同
-            </button>
-          )}
-          {canClose && (
-            <button
-              onClick={() => setActivePanel(prev => prev === "close" ? null : "close")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${activePanel === "close" ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}
-            >
-              关闭需求
-            </button>
-          )}
-        </div>
 
         {/* ── 操作面板 ── */}
         {activePanel === "contract" && (
