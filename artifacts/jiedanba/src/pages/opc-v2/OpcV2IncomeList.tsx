@@ -162,7 +162,7 @@ export default function OpcV2IncomeList() {
                 const ord = orderMap[s.outsourceOrderId];
                 return (
                   <button key={s.id}
-                    onClick={() => { markRead("settlement", s.id); navigate(`/opc/orders/${s.outsourceOrderId}`); }}
+                    onClick={() => { markRead("settlement", s.id); navigate(`/opc/income/${s.id}`); }}
                     className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
