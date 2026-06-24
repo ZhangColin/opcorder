@@ -2123,5 +2123,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 033c: added draft to v2_outsource_order_status enum");
   });
 
+  // Migration 034a: add attachments column to v2_tickets_b
+  await once("034a", true, async () => {
+    await db.execute(sql`ALTER TABLE v2_tickets_b ADD COLUMN IF NOT EXISTS attachments jsonb NOT NULL DEFAULT '[]'`);
+    logger.info("Migration 034a: added attachments to v2_tickets_b");
+  });
+
   logger.info("Startup data migrations complete.");
 }

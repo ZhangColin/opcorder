@@ -76,6 +76,7 @@ interface TicketB {
   id: number;
   title: string;
   description: string | null;
+  attachments: Array<{ name: string; url: string }> | null;
   status: string;
   isBlockingPayment: boolean | null;
   createdByNickname: string | null;
@@ -183,7 +184,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketTitle, setTicketTitle] = useState("");
   const [ticketDesc, setTicketDesc] = useState("");
-  const [ticketBlocking, setTicketBlocking] = useState(false);
+  const [ticketFiles, setTicketFiles] = useState<File[]>([]);
 
   /* Verify modal */
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -395,12 +396,18 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const handleCreateTicket = async () => {
     if (!ticketTitle.trim()) { toast({ title: "请填写工单标题", variant: "destructive" }); return; }
     await act(async () => {
+      const uploadedAttachments: Array<{ name: string; url: string }> = [];
+      for (const f of ticketFiles) {
+        const url = await uploadFile(f);
+        uploadedAttachments.push({ name: f.name, url });
+      }
       await v2Post("/tickets-b", {
         outsourceOrderId: id, title: ticketTitle.trim(),
-        description: ticketDesc.trim() || null, isBlockingPayment: ticketBlocking,
+        description: ticketDesc.trim() || null,
+        attachments: uploadedAttachments,
       });
       setShowTicketModal(false);
-      setTicketTitle(""); setTicketDesc(""); setTicketBlocking(false);
+      setTicketTitle(""); setTicketDesc(""); setTicketFiles([]);
     }, "工单已创建，已通知OPC");
   };
 
@@ -1095,7 +1102,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                         {t.createdByNickname && ` · ${t.createdByNickname}`}
                       </p>
                     </div>
-                    {t.isBlockingPayment && t.status === "open" && (
+                    {t.status === "open" && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5 shrink-0">
                         <Lock size={9} /> 阻款
                       </span>
@@ -1121,6 +1128,21 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                           <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 prose prose-sm max-w-none">
                             <MarkdownContent content={t.description} />
                           </div>
+                        </div>
+                      )}
+                      {t.attachments && t.attachments.length > 0 && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-500 mb-2">附件</p>
+                          <ul className="space-y-1.5">
+                            {t.attachments.map((att, i) => (
+                              <li key={i}>
+                                <a href={att.url} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+                                  📎 {att.name}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
                       <div className="border-t border-slate-100 pt-4">
@@ -1193,11 +1215,23 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
               <textarea value={ticketDesc} onChange={e => setTicketDesc(e.target.value)} rows={3}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-              <input type="checkbox" checked={ticketBlocking} onChange={e => setTicketBlocking(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20" />
-              阻断尾款支付（直到工单关闭）
-            </label>
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">附件（可选，支持图片/文档）</label>
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center">
+                <input type="file" multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.zip,.txt,.md"
+                  onChange={e => setTicketFiles(Array.from(e.target.files ?? []))}
+                  className="w-full text-sm text-slate-600" />
+                {ticketFiles.length > 0 && (
+                  <ul className="mt-2 text-left space-y-1">
+                    {ticketFiles.map((f, i) => (
+                      <li key={i} className="text-xs text-slate-500 truncate">📎 {f.name}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p className="text-[11px] text-amber-600 mt-1">⚠ 此工单创建后将自动阻断尾款支付，直至关闭</p>
+            </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowTicketModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
               <button onClick={handleCreateTicket} disabled={acting}

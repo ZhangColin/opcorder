@@ -221,10 +221,9 @@ router.post("/settlement-plans/:id/mark-paid", requireAdmin, async (req: Request
         .where(and(
           eq(v2TicketsBTable.outsourceOrderId, plan.outsourceOrderId),
           eq(v2TicketsBTable.status, "open"),
-          eq(v2TicketsBTable.isBlockingPayment, true)
         ));
       if (blockingTickets.length > 0) {
-        return res.status(400).json({ error: `存在 ${blockingTickets.length} 个阻断工单未关闭，尾款无法打款` });
+        return res.status(400).json({ error: `存在 ${blockingTickets.length} 个未关闭工单，尾款无法打款` });
       }
     }
 
