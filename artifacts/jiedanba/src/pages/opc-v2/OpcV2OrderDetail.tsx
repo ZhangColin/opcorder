@@ -616,20 +616,10 @@ export default function OpcV2OrderDetail() {
               )}
 
               {/* 合同正文（Markdown） */}
-              {contract?.content ? (
-                <div className="mt-4">
-                  <p className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">合同正文</p>
-                  <div className="bg-muted/40 border border-border rounded-xl px-5 py-4 prose prose-sm max-w-none">
-                    <MarkdownContent content={contract.content} />
-                  </div>
-                  {contract.contractNo && (
-                    <p className="text-xs text-muted-foreground mt-2">合同编号：{contract.contractNo}</p>
-                  )}
+              {contract?.content && (
+                <div className="mt-4 bg-muted/40 border border-border rounded-xl px-5 py-4 prose prose-sm max-w-none">
+                  <MarkdownContent content={contract.content} />
                 </div>
-              ) : (
-                order.status !== "pending_contract" && (
-                  <p className="text-sm text-muted-foreground mt-2">合同正文暂未录入</p>
-                )
               )}
             </CardSection>
 
