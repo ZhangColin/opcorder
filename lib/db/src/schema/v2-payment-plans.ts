@@ -10,6 +10,7 @@ export const v2PaymentPlanStatusEnum = pgEnum("v2_payment_plan_status", [
   "pending",
   "awaiting_review",
   "paid",
+  "cancelled",
 ]);
 
 export const v2PaymentPlansTable = pgTable("v2_payment_plans", {

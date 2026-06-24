@@ -2129,5 +2129,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 034a: added attachments to v2_tickets_b");
   });
 
+  // Migration 034b: add 'cancelled' to v2_payment_plan_status enum
+  await once("034b", true, async () => {
+    await db.execute(sql`ALTER TYPE v2_payment_plan_status ADD VALUE IF NOT EXISTS 'cancelled'`);
+    logger.info("Migration 034b: added cancelled to v2_payment_plan_status enum");
+  });
+
   logger.info("Startup data migrations complete.");
 }

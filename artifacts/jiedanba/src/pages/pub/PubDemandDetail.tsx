@@ -189,6 +189,7 @@ export default function PubDemandDetail() {
 
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
   const [editMode, setEditMode] = useState(false);
@@ -505,13 +506,32 @@ export default function PubDemandDetail() {
               <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
             </div>
             {canClose && (
-              <button
-                onClick={handleClose}
-                disabled={acting}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 shrink-0"
-              >
-                关闭需求
-              </button>
+              confirmClose ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs text-slate-500 font-medium">确认关闭？</span>
+                  <button
+                    onClick={() => { handleClose(); setConfirmClose(false); }}
+                    disabled={acting}
+                    className="px-2.5 py-1 text-xs font-bold bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                  >
+                    确认
+                  </button>
+                  <button
+                    onClick={() => setConfirmClose(false)}
+                    className="px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmClose(true)}
+                  disabled={acting}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 shrink-0"
+                >
+                  关闭需求
+                </button>
+              )
             )}
           </div>
           <h1 className="text-xl font-extrabold text-slate-800 mb-3">{demand.title}</h1>
