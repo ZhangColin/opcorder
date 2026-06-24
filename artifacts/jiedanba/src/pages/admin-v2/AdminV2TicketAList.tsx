@@ -24,9 +24,9 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const STATUS_TABS = [
-  { value: "", label: "全部" },
-  { value: "open", label: "开放中" },
+  { value: "open",   label: "开放中" },
   { value: "closed", label: "已关闭" },
+  { value: "",       label: "全部" },
 ];
 
 export default function AdminV2TicketAList() {
@@ -39,8 +39,7 @@ export default function AdminV2TicketAList() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (statusFilter) params.set("status", statusFilter);
+      const params = new URLSearchParams({ limit: "200" });
       const data = await v2Get<Ticket[]>(`/tickets-a?${params}`);
       setItems(Array.isArray(data) ? data : []);
     } catch {
@@ -48,9 +47,15 @@ export default function AdminV2TicketAList() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const counts = STATUS_TABS.reduce((acc, tab) => {
+    acc[tab.value] = tab.value === "" ? items.length : items.filter(t => t.status === tab.value).length;
+    return acc;
+  }, {} as Record<string, number>);
+  const displayed = statusFilter === "" ? items : items.filter(t => t.status === statusFilter);
 
   return (
     <AdminV2Layout title="工单管理 (A)">
@@ -58,21 +63,26 @@ export default function AdminV2TicketAList() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1.5 ${
                 statusFilter === tab.value ? "bg-primary text-white" : "bg-white border border-slate-200 text-slate-500 hover:border-primary/30"
               }`}>
               {tab.label}
+              {counts[tab.value] > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                  statusFilter === tab.value ? "bg-white/20" : "bg-slate-100 text-slate-500"
+                }`}>{counts[tab.value]}</span>
+              )}
             </button>
           ))}
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
-        ) : items.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">暂无工单</div>
         ) : (
           <div className="space-y-2">
-            {[...items].sort((a, b) =>
+            {[...displayed].sort((a, b) =>
               (hasUnread("ticket_a", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("ticket_a", a.id, a.updatedAt) ? 1 : 0)
             ).map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };

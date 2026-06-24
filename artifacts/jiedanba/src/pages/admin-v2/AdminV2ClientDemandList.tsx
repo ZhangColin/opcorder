@@ -33,14 +33,14 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const STATUS_TABS = [
-  { value: "", label: "全部" },
-  { value: "negotiating", label: "沟通中" },
-  { value: "quoting", label: "报价中" },
+  { value: "negotiating",      label: "沟通中" },
+  { value: "quoting",          label: "报价中" },
   { value: "pending_contract", label: "待签约" },
-  { value: "executing", label: "执行中" },
-  { value: "warranty", label: "质保中" },
-  { value: "completed", label: "已完成" },
-  { value: "closed", label: "已关闭" },
+  { value: "executing",        label: "执行中" },
+  { value: "warranty",         label: "质保中" },
+  { value: "completed",        label: "已完成" },
+  { value: "closed",           label: "已关闭" },
+  { value: "",                 label: "全部" },
 ];
 
 const HIGHLIGHT_STATUSES = ["negotiating", "quoting"];
@@ -51,15 +51,14 @@ export default function AdminV2ClientDemandList() {
   const [items, setItems] = useState<ClientDemand[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("negotiating");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (statusFilter) params.set("status", statusFilter);
+      const params = new URLSearchParams({ limit: "200" });
       if (search) params.set("search", search);
       const data = await v2Get<{ items: ClientDemand[]; total: number }>(`/client-demands?${params}`);
       setItems(data.items);
@@ -69,11 +68,16 @@ export default function AdminV2ClientDemandList() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search]);
+  }, [search]);
 
   useEffect(() => { load(); }, [load]);
 
   const highlighted = items.filter(d => HIGHLIGHT_STATUSES.includes(d.status));
+  const counts = STATUS_TABS.reduce((acc, tab) => {
+    acc[tab.value] = tab.value === "" ? items.length : items.filter(d => d.status === tab.value).length;
+    return acc;
+  }, {} as Record<string, number>);
+  const displayed = statusFilter === "" ? items : items.filter(d => d.status === statusFilter);
 
   return (
     <AdminV2Layout title="客户需求">
@@ -112,21 +116,26 @@ export default function AdminV2ClientDemandList() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1.5 ${
                 statusFilter === tab.value ? "bg-primary text-white" : "bg-white border border-slate-200 text-slate-500 hover:border-primary/30"
               }`}>
               {tab.label}
+              {counts[tab.value] > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                  statusFilter === tab.value ? "bg-white/20" : "bg-slate-100 text-slate-500"
+                }`}>{counts[tab.value]}</span>
+              )}
             </button>
           ))}
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
-        ) : items.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">暂无需求</div>
         ) : (
           <div className="space-y-2">
-            {[...items].sort((a, b) =>
+            {[...displayed].sort((a, b) =>
               (hasUnread("client", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("client", a.id, a.updatedAt) ? 1 : 0)
             ).map(d => {
               const cfg = STATUS_CONFIG[d.status] ?? { label: d.status, color: "bg-slate-100 text-slate-500" };

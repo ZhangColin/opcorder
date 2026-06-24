@@ -32,11 +32,11 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
 };
 
 const STATUS_TABS = [
-  { value: "", label: "全部" },
   { value: "awaiting_review", label: "审核中" },
-  { value: "pending", label: "待付款" },
-  { value: "overdue", label: "已逾期" },
-  { value: "paid", label: "已收款" },
+  { value: "pending",         label: "待付款" },
+  { value: "overdue",         label: "已逾期" },
+  { value: "paid",            label: "已收款" },
+  { value: "",                label: "全部" },
 ];
 
 function isOverdue(item: PaymentPlan) {
@@ -64,13 +64,12 @@ export default function AdminV2PaymentAList() {
   const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<PaymentPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("awaiting_review");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "50", channel: "a" });
-      if (statusFilter) params.set("status", statusFilter);
+      const params = new URLSearchParams({ limit: "200", channel: "a" });
       const data = await v2Get<PaymentPlan[]>(`/payment-plans?${params}`);
       setItems(Array.isArray(data) ? data : []);
     } catch {
@@ -78,12 +77,23 @@ export default function AdminV2PaymentAList() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const overdueItems = items.filter(i => isOverdue(i));
   const pendingTotal = items.filter(p => p.status === "pending" || p.status === "awaiting_review").reduce((s, p) => s + p.amount, 0);
+  const counts = STATUS_TABS.reduce((acc, tab) => {
+    if (tab.value === "") acc[tab.value] = items.length;
+    else if (tab.value === "overdue") acc[tab.value] = overdueItems.length;
+    else acc[tab.value] = items.filter(p => p.status === tab.value).length;
+    return acc;
+  }, {} as Record<string, number>);
+  const displayed = statusFilter === ""
+    ? items
+    : statusFilter === "overdue"
+      ? overdueItems
+      : items.filter(p => p.status === statusFilter);
 
   return (
     <AdminV2Layout title="收款管理 (A)">
@@ -101,12 +111,17 @@ export default function AdminV2PaymentAList() {
           <div className="flex gap-1.5 flex-wrap">
             {STATUS_TABS.map(tab => (
               <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
                   statusFilter === tab.value
                     ? "bg-primary text-white"
                     : "bg-white border border-slate-200 text-slate-500 hover:border-primary/30 hover:text-primary"
                 }`}>
                 {tab.label}
+                {counts[tab.value] > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                    statusFilter === tab.value ? "bg-white/20" : "bg-slate-100 text-slate-500"
+                  }`}>{counts[tab.value]}</span>
+                )}
               </button>
             ))}
           </div>
@@ -121,7 +136,7 @@ export default function AdminV2PaymentAList() {
           <div className="flex items-center justify-center py-16 text-slate-400">
             <Loader2 size={20} className="animate-spin mr-2" /> 加载中…
           </div>
-        ) : items.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="flex flex-col items-center py-20 bg-white rounded-2xl border border-slate-200">
             <CreditCard size={36} className="text-slate-300 mb-3" />
             <p className="text-base font-semibold text-slate-500">暂无收款记录</p>
@@ -129,7 +144,7 @@ export default function AdminV2PaymentAList() {
           </div>
         ) : (
           <div className="space-y-2">
-            {items.map(item => {
+            {displayed.map(item => {
               const overdue = isOverdue(item);
               const soon = isDueSoon(item);
               const isPaid = item.status === "paid";

@@ -27,12 +27,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const STATUS_TABS = [
-  { value: "", label: "全部" },
-  { value: "draft", label: "草稿" },
+  { value: "draft",                     label: "草稿" },
   { value: "pending_publisher_confirm", label: "待确认" },
-  { value: "publisher_rejected", label: "已退回" },
-  { value: "pending_sign", label: "待签约" },
-  { value: "signed", label: "已签约" },
+  { value: "publisher_rejected",        label: "已退回" },
+  { value: "pending_sign",              label: "待签约" },
+  { value: "signed",                    label: "已签约" },
+  { value: "",                          label: "全部" },
 ];
 
 const HIGHLIGHT = ["pending_publisher_confirm", "publisher_rejected"];
@@ -42,13 +42,12 @@ export default function AdminV2ContractAList() {
   const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("draft");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "50", channel: "a" });
-      if (statusFilter) params.set("status", statusFilter);
+      const params = new URLSearchParams({ limit: "200", channel: "a" });
       const data = await v2Get<Contract[]>(`/contracts?${params}`);
       setItems(Array.isArray(data) ? data : []);
     } catch {
@@ -56,11 +55,16 @@ export default function AdminV2ContractAList() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const highlighted = items.filter(c => HIGHLIGHT.includes(c.status));
+  const counts = STATUS_TABS.reduce((acc, tab) => {
+    acc[tab.value] = tab.value === "" ? items.length : items.filter(c => c.status === tab.value).length;
+    return acc;
+  }, {} as Record<string, number>);
+  const displayed = statusFilter === "" ? items : items.filter(c => c.status === statusFilter);
 
   return (
     <AdminV2Layout title="合同 (A)">
@@ -85,21 +89,26 @@ export default function AdminV2ContractAList() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1.5 ${
                 statusFilter === tab.value ? "bg-primary text-white" : "bg-white border border-slate-200 text-slate-500 hover:border-primary/30"
               }`}>
               {tab.label}
+              {counts[tab.value] > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                  statusFilter === tab.value ? "bg-white/20" : "bg-slate-100 text-slate-500"
+                }`}>{counts[tab.value]}</span>
+              )}
             </button>
           ))}
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
-        ) : items.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">暂无合同</div>
         ) : (
           <div className="space-y-2">
-            {[...items].sort((a, b) =>
+            {[...displayed].sort((a, b) =>
               (hasUnread("contract", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("contract", a.id, a.updatedAt) ? 1 : 0)
             ).map(c => {
               const cfg = STATUS_CONFIG[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
