@@ -1778,7 +1778,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
         <div className="fixed inset-0 z-[100] bg-[#f3f4f6] flex flex-col animate-in fade-in duration-200">
           <header className="shrink-0 bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <span className="text-xs font-black text-white bg-primary px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">OPC</span>
               <div className="min-w-0">
                 <h2 className="text-sm font-black text-slate-900 leading-none">报价卡</h2>
                 <p className="text-xs text-slate-500 mt-0.5 truncate">需求：{demand?.title}</p>
