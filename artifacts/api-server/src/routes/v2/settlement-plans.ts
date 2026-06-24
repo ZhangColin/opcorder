@@ -23,10 +23,17 @@ router.get("/settlement-plans", requireAuth, async (req: Request, res: Response)
     if (status) conditions.push(eq(v2SettlementPlansTable.status, status as any));
 
     if (role === "opc") {
+      // OPC 只能看签约后（executing/warranty/completed）的订单的收款项
+      const signedStatuses = ["executing", "warranty", "completed"] as const;
       const myOrders = await db
         .select({ id: v2OutsourceOrdersTable.id })
         .from(v2OutsourceOrdersTable)
-        .where(eq(v2OutsourceOrdersTable.opcId, userId));
+        .where(
+          and(
+            eq(v2OutsourceOrdersTable.opcId, userId),
+            inArray(v2OutsourceOrdersTable.status, signedStatuses as unknown as string[]),
+          )
+        );
       const ids = myOrders.map(o => o.id);
       if (ids.length === 0) return res.json([]);
       conditions.push(inArray(v2SettlementPlansTable.outsourceOrderId, ids));
@@ -48,6 +55,7 @@ router.get("/settlement-plans", requireAuth, async (req: Request, res: Response)
         createdAt: v2SettlementPlansTable.createdAt,
         updatedAt: v2SettlementPlansTable.updatedAt,
         orderNo: v2OutsourceOrdersTable.orderNo,
+        orderStatus: v2OutsourceOrdersTable.status,
         demandTitle: v2OutsourceDemandsTable.title,
       })
       .from(v2SettlementPlansTable)
@@ -59,6 +67,8 @@ router.get("/settlement-plans", requireAuth, async (req: Request, res: Response)
     const now = new Date();
     const enriched = rows.map(r => ({
       ...r,
+      title: r.description ?? `第 ${r.itemNo} 期`,
+      isBlockingPayment: false,
       isOverdue: r.status === "pending" && r.dueDate < now,
     }));
 
