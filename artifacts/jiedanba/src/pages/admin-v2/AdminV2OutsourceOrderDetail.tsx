@@ -451,6 +451,15 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                 {cfg.icon} {cfg.label}
               </span>
               <span className="text-xs font-mono text-slate-400">{order.orderNo}</span>
+              {canAdminVerify && (
+                <button
+                  onClick={() => setShowVerifyModal(true)}
+                  disabled={acting}
+                  className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 bg-green-600 text-white text-xs font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  <CheckCircle2 size={13} /> 验收通过
+                </button>
+              )}
             </div>
             <h2 className="text-base font-extrabold text-slate-800 mb-3">
               {order.demandTitle ?? `外包需求 #${order.outsourceDemandId}`}
@@ -527,17 +536,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
               <div className="mt-3 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200">
                 <p className="text-xs font-bold text-slate-500">取消原因</p>
                 <p className="text-sm text-slate-600 mt-0.5">{order.cancelledReason}</p>
-              </div>
-            )}
-            {canAdminVerify && (
-              <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
-                <button
-                  onClick={() => setShowVerifyModal(true)}
-                  disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
-                >
-                  <CheckCircle2 size={15} /> 验收通过
-                </button>
               </div>
             )}
           </div>
