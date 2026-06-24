@@ -61,7 +61,7 @@ export default function AdminV2DeliveryAList() {
   const displayed = statusFilter === "" ? items : items.filter(d => d.status === statusFilter);
 
   return (
-    <AdminV2Layout title="交付管理 (A)">
+    <AdminV2Layout title="交付管理">
       <div className="mt-6 space-y-5">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (

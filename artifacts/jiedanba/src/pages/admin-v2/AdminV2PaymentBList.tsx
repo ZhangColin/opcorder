@@ -100,7 +100,7 @@ export default function AdminV2PaymentBList() {
   const pendingTotal = items.filter(p => p.status === "pending").reduce((s, p) => s + p.amount, 0);
 
   return (
-    <AdminV2Layout title="结算付款 (B)">
+    <AdminV2Layout title="结算付款">
       <div className="mt-5 space-y-4">
         {overdueItems.length > 0 && statusFilter !== "paid" && (
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl p-4">

@@ -108,8 +108,8 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
     }
   };
 
-  if (loading) return <AdminV2Layout backHref="/admin/v2/payments-b" backLabel="结算付款 (B)"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
-  if (!item) return <AdminV2Layout backHref="/admin/v2/payments-b" backLabel="结算付款 (B)"><div className="text-center py-16 text-slate-400">付款项不存在</div></AdminV2Layout>;
+  if (loading) return <AdminV2Layout backHref="/admin/v2/payments-b" backLabel="结算付款"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
+  if (!item) return <AdminV2Layout backHref="/admin/v2/payments-b" backLabel="结算付款"><div className="text-center py-16 text-slate-400">付款项不存在</div></AdminV2Layout>;
 
   const isOvd = item.status === "pending" && !!item.dueDate && new Date(item.dueDate) < new Date();
   const displayName = item.description ?? `第${item.itemNo ?? 1}期结算款`;
@@ -118,7 +118,7 @@ export default function AdminV2PaymentBDetail({ inlineId }: { inlineId?: number 
   const cannotPay = contractNotSigned || hasBlockingTickets;
 
   return (
-    <AdminV2Layout title={displayName} backHref="/admin/v2/payments-b" backLabel="结算付款 (B)">
+    <AdminV2Layout title={displayName} backHref="/admin/v2/payments-b" backLabel="结算付款">
       <div className="mt-6 space-y-4">
         {/* 所属订单快捷跳转 */}
         {order && (

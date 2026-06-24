@@ -93,13 +93,13 @@ export default function AdminV2PaymentADetail({ inlineId }: { inlineId?: number 
     setRejectNote("");
   };
 
-  if (loading) return <AdminV2Layout backHref="/admin/v2/payments-a" backLabel="收款管理 (A)"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
-  if (!item) return <AdminV2Layout backHref="/admin/v2/payments-a" backLabel="收款管理 (A)"><div className="text-center py-16 text-slate-400">收款项不存在</div></AdminV2Layout>;
+  if (loading) return <AdminV2Layout backHref="/admin/v2/payments-a" backLabel="收款管理"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
+  if (!item) return <AdminV2Layout backHref="/admin/v2/payments-a" backLabel="收款管理"><div className="text-center py-16 text-slate-400">收款项不存在</div></AdminV2Layout>;
 
   const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
 
   return (
-    <AdminV2Layout title={item.title} backHref="/admin/v2/payments-a" backLabel="收款管理 (A)">
+    <AdminV2Layout title={item.title} backHref="/admin/v2/payments-a" backLabel="收款管理">
       <div className="mt-6 space-y-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">

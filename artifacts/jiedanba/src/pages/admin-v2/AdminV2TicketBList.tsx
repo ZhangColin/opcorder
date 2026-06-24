@@ -57,7 +57,7 @@ export default function AdminV2TicketBList() {
   });
 
   return (
-    <AdminV2Layout title="工单管理 (B)">
+    <AdminV2Layout title="工单管理">
       <div className="mt-6 space-y-5">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (

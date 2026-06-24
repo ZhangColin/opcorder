@@ -80,8 +80,8 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
     }
   };
 
-  if (loading) return <AdminV2Layout backHref="/admin/v2/tickets-b" backLabel="工单 (B)"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
-  if (!ticket) return <AdminV2Layout backHref="/admin/v2/tickets-b" backLabel="工单 (B)"><div className="text-center py-16 text-slate-400">工单不存在</div></AdminV2Layout>;
+  if (loading) return <AdminV2Layout backHref="/admin/v2/tickets-b" backLabel="工单"><div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div></AdminV2Layout>;
+  if (!ticket) return <AdminV2Layout backHref="/admin/v2/tickets-b" backLabel="工单"><div className="text-center py-16 text-slate-400">工单不存在</div></AdminV2Layout>;
 
   const isOpen = ticket.status === "open";
 
@@ -89,7 +89,7 @@ export default function AdminV2TicketBDetail({ inlineId }: { inlineId?: number }
     <AdminV2Layout
       title={ticket.title}
       backHref="/admin/v2/tickets-b"
-      backLabel="工单 (B)"
+      backLabel="工单"
       actions={
         isOpen ? (
           <button onClick={() => setShowCloseModal(true)}

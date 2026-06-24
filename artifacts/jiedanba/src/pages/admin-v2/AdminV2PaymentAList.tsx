@@ -96,7 +96,7 @@ export default function AdminV2PaymentAList() {
       : items.filter(p => p.status === statusFilter);
 
   return (
-    <AdminV2Layout title="收款管理 (A)">
+    <AdminV2Layout title="收款管理">
       <div className="mt-5 space-y-4">
         {overdueItems.length > 0 && !statusFilter && (
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl p-4">

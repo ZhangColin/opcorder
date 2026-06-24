@@ -223,12 +223,12 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   };
 
   if (loading) return (
-    <AdminV2Layout backHref="/admin/v2/contracts-a" backLabel="合同 (A)">
+    <AdminV2Layout backHref="/admin/v2/contracts-a" backLabel="合同">
       <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div>
     </AdminV2Layout>
   );
   if (!contract) return (
-    <AdminV2Layout backHref="/admin/v2/contracts-a" backLabel="合同 (A)">
+    <AdminV2Layout backHref="/admin/v2/contracts-a" backLabel="合同">
       <div className="text-center py-16 text-slate-400">合同不存在</div>
     </AdminV2Layout>
   );
@@ -239,7 +239,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   const canUploadSigned = contract.status === "pending_sign";
 
   return (
-    <AdminV2Layout title={contract.demandTitle ?? `合同 ${contract.contractNo}`} backHref="/admin/v2/contracts-a" backLabel="合同 (A)">
+    <AdminV2Layout title={contract.demandTitle ?? `合同 ${contract.contractNo}`} backHref="/admin/v2/contracts-a" backLabel="合同">
       <div className="mt-6 space-y-4">
 
         {/* ── 头部信息卡 ── */}

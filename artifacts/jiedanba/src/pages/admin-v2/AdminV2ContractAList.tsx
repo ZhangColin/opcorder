@@ -67,7 +67,7 @@ export default function AdminV2ContractAList() {
   const displayed = statusFilter === "" ? items : items.filter(c => c.status === statusFilter);
 
   return (
-    <AdminV2Layout title="合同 (A)">
+    <AdminV2Layout title="合同">
       <div className="mt-6 space-y-5">
         {highlighted.length > 0 && !statusFilter && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
