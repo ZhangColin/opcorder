@@ -7,6 +7,7 @@ import { v2OutsourceDemandsTable } from "./v2-outsource-demands";
 import { v2TendersTable } from "./v2-tenders";
 
 export const v2OutsourceOrderStatusEnum = pgEnum("v2_outsource_order_status", [
+  "draft",
   "pending_contract",
   "executing",
   "warranty",
@@ -20,7 +21,7 @@ export const v2OutsourceOrdersTable = pgTable("v2_outsource_orders", {
   outsourceDemandId: integer("outsource_demand_id").notNull().references(() => v2OutsourceDemandsTable.id),
   tenderId: integer("tender_id").notNull().references(() => v2TendersTable.id),
   opcId: integer("opc_id").notNull().references(() => usersTable.id),
-  status: v2OutsourceOrderStatusEnum("status").notNull().default("pending_contract"),
+  status: v2OutsourceOrderStatusEnum("status").notNull().default("draft"),
   warrantyStartDate: timestamp("warranty_start_date"),
   warrantyEndDate: timestamp("warranty_end_date"),
   verifiedBy: integer("verified_by").references(() => usersTable.id),

@@ -2115,5 +2115,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 033b: added v2_tender to v2_discussion_parent_type enum");
   });
 
+  // Migration 033c: add 'draft' to v2_outsource_order_status enum
+  await once("033c", true, async () => {
+    await db.execute(sql`
+      ALTER TYPE v2_outsource_order_status ADD VALUE IF NOT EXISTS 'draft' BEFORE 'pending_contract'
+    `);
+    logger.info("Migration 033c: added draft to v2_outsource_order_status enum");
+  });
+
   logger.info("Startup data migrations complete.");
 }

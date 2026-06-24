@@ -21,63 +21,70 @@ interface OutsourceOrder {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  draft:             { label: "草稿",   color: "bg-slate-100 text-slate-600" },
   pending_contract:  { label: "待签约", color: "bg-orange-100 text-orange-700" },
-  executing:     { label: "执行中", color: "bg-green-100 text-green-700" },
-  warranty:      { label: "质保中", color: "bg-teal-100 text-teal-700" },
-  completed:     { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
-  cancelled:     { label: "已取消", color: "bg-red-100 text-red-500" },
+  executing:         { label: "执行中", color: "bg-green-100 text-green-700" },
+  warranty:          { label: "质保中", color: "bg-teal-100 text-teal-700" },
+  completed:         { label: "已完成", color: "bg-emerald-100 text-emerald-700" },
+  cancelled:         { label: "已取消", color: "bg-red-100 text-red-500" },
 };
 
 const STATUS_TABS = [
-  { value: "", label: "全部" },
+  { value: "draft", label: "草稿" },
   { value: "pending_contract", label: "待签约" },
   { value: "executing", label: "执行中" },
   { value: "warranty", label: "质保中" },
   { value: "completed", label: "已完成" },
+  { value: "", label: "全部" },
 ];
 
-const HIGHLIGHT = ["pending_contract"];
+const HIGHLIGHT = ["draft", "pending_contract"];
 
 export default function AdminV2OutsourceOrderList() {
   const [, navigate] = useLocation();
   const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<OutsourceOrder[]>([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("draft");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (statusFilter) params.set("status", statusFilter);
-      const data = await v2Get<{ items: OutsourceOrder[]; total: number }>(`/outsource-orders?${params}`);
+      const data = await v2Get<{ items: OutsourceOrder[]; total: number }>(`/outsource-orders?limit=200`);
       setItems(data.items ?? []);
-      setTotal(data.total ?? 0);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const highlighted = items.filter(o => HIGHLIGHT.includes(o.status));
+  const counts = STATUS_TABS.reduce((acc, tab) => {
+    acc[tab.value] = tab.value === "" ? items.length : items.filter(o => o.status === tab.value).length;
+    return acc;
+  }, {} as Record<string, number>);
+  const displayed = statusFilter === "" ? items : items.filter(o => o.status === statusFilter);
 
   return (
     <AdminV2Layout title="接单订单">
       <div className="mt-6 space-y-5">
-        {highlighted.length > 0 && !statusFilter && (
+        {highlighted.length > 0 && statusFilter === "" && (
           <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
-            <p className="text-xs font-bold text-orange-700 mb-2">⚡ 待签约（{highlighted.length} 件）</p>
+            <p className="text-xs font-bold text-orange-700 mb-2">⚡ 需处理（草稿/待签约，共 {highlighted.length} 件）</p>
             <div className="flex flex-wrap gap-2">
-              {highlighted.map(o => (
-                <button key={o.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${o.id}`) : navigate(`/admin/v2/outsource-orders/${o.id}`)}
-                  className="text-xs bg-white border border-orange-200 rounded-xl px-3 py-1.5 text-orange-800 hover:bg-orange-100">
-                  {o.orderNo} — {o.opcNickname ?? "OPC"}
-                </button>
-              ))}
+              {highlighted.map(o => {
+                const cfg = STATUS_CONFIG[o.status] ?? { label: o.status, color: "" };
+                return (
+                  <button key={o.id} onClick={() => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${o.id}`) : navigate(`/admin/v2/outsource-orders/${o.id}`)}
+                    className="text-xs bg-white border border-orange-200 rounded-xl px-3 py-1.5 text-orange-800 hover:bg-orange-100 flex items-center gap-1.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+                    {o.orderNo} — {o.opcNickname ?? "OPC"}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -85,21 +92,26 @@ export default function AdminV2OutsourceOrderList() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1.5 ${
                 statusFilter === tab.value ? "bg-primary text-white" : "bg-white border border-slate-200 text-slate-500 hover:border-primary/30"
               }`}>
               {tab.label}
+              {counts[tab.value] > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                  statusFilter === tab.value ? "bg-white/20" : "bg-slate-100 text-slate-500"
+                }`}>{counts[tab.value]}</span>
+              )}
             </button>
           ))}
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
-        ) : items.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">暂无订单</div>
         ) : (
           <div className="space-y-2">
-            {[...items].sort((a, b) =>
+            {[...displayed].sort((a, b) =>
               (hasUnread("order", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("order", a.id, a.updatedAt) ? 1 : 0)
             ).map(o => {
               const cfg = STATUS_CONFIG[o.status] ?? { label: o.status, color: "bg-slate-100 text-slate-500" };

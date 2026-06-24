@@ -3,7 +3,7 @@ import {
   db, v2OutsourceOrdersTable, v2OutsourceDemandsTable, v2TendersTable,
   v2ContractsTable, usersTable,
 } from "@workspace/db";
-import { eq, and, desc, count, inArray } from "drizzle-orm";
+import { eq, and, desc, count, inArray, ne } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify } from "./utils";
@@ -23,8 +23,10 @@ router.get("/outsource-orders", requireAuth, async (req: Request, res: Response)
     const conditions: any[] = [];
     if (status) conditions.push(eq(v2OutsourceOrdersTable.status, status as any));
     if (outsourceDemandId) conditions.push(eq(v2OutsourceOrdersTable.outsourceDemandId, parseInt(outsourceDemandId)));
-    if (role === "opc") conditions.push(eq(v2OutsourceOrdersTable.opcId, userId));
-    else if (role === "publisher") return res.status(403).json({ error: "发单方无权查看外包订单" });
+    if (role === "opc") {
+      conditions.push(eq(v2OutsourceOrdersTable.opcId, userId));
+      if (!status) conditions.push(ne(v2OutsourceOrdersTable.status, "draft" as any));
+    } else if (role === "publisher") return res.status(403).json({ error: "发单方无权查看外包订单" });
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const [totalRow] = await db.select({ count: count() }).from(v2OutsourceOrdersTable).where(whereClause);

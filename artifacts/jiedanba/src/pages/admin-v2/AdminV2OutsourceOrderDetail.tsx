@@ -95,15 +95,16 @@ interface DemandInfo {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  draft:            { label: "草稿",   color: "bg-slate-100 text-slate-600",   icon: <FileText size={13} /> },
   pending_contract: { label: "待签约", color: "bg-amber-100 text-amber-700",   icon: <FileSignature size={13} /> },
   executing:        { label: "执行中", color: "bg-blue-100 text-blue-700",     icon: <Package size={13} /> },
   warranty:         { label: "质保中", color: "bg-violet-100 text-violet-700", icon: <Shield size={13} /> },
   completed:        { label: "已完成", color: "bg-green-100 text-green-700",   icon: <CheckCircle2 size={13} /> },
   cancelled:        { label: "已取消", color: "bg-slate-100 text-slate-500",   icon: <XCircle size={13} /> },
 };
-const ORDER_STAGE_KEYS = ["pending_contract", "executing", "warranty", "completed"] as const;
+const ORDER_STAGE_KEYS = ["draft", "pending_contract", "executing", "warranty", "completed"] as const;
 const ORDER_STAGE_LABELS: Record<string, string> = {
-  pending_contract: "待签约", executing: "执行中", warranty: "质保期", completed: "已完成",
+  draft: "草稿", pending_contract: "待签约", executing: "执行中", warranty: "质保期", completed: "已完成",
 };
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {

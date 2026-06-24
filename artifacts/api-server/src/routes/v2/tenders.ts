@@ -209,7 +209,7 @@ router.post("/tenders/:id/select-winner", requireAdmin, async (req: Request, res
       outsourceDemandId: tender.outsourceDemandId,
       tenderId: id,
       opcId: tender.opcId,
-      status: "pending_contract",
+      status: "draft",
     }).returning();
 
     await db.update(v2TendersTable)
@@ -325,7 +325,7 @@ router.post("/tenders/batch-select-winners", requireAdmin, async (req: Request, 
         outsourceDemandId: tender.outsourceDemandId,
         tenderId: tender.id,
         opcId: tender.opcId,
-        status: "pending_contract",
+        status: "draft",
       }).returning();
       orders.push(order);
 

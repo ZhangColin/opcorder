@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2ContractsTable, v2ClientDemandsTable, v2OutsourceOrdersTable, usersTable,
+  v2OutsourceDemandsTable,
 } from "@workspace/db";
 import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -195,6 +196,30 @@ router.post("/contracts/:id/finalize", requireAdmin, async (req: Request, res: R
       if (demand) {
         await notify(demand.publisherId, "v2_contract_finalized", "合同待您确认",
           `运营方已完成合同「${contract.contractNo}」定稿，请查阅并确认合同内容。`, id, "v2_contract");
+      }
+    }
+
+    if (contract.channel === "b" && contract.outsourceOrderId) {
+      const [order] = await db.select({
+        id: v2OutsourceOrdersTable.id,
+        opcId: v2OutsourceOrdersTable.opcId,
+        orderNo: v2OutsourceOrdersTable.orderNo,
+        outsourceDemandId: v2OutsourceOrdersTable.outsourceDemandId,
+        status: v2OutsourceOrdersTable.status,
+      }).from(v2OutsourceOrdersTable)
+        .where(eq(v2OutsourceOrdersTable.id, contract.outsourceOrderId))
+        .limit(1);
+      if (order && order.status === "draft") {
+        await db.update(v2OutsourceOrdersTable)
+          .set({ status: "pending_contract", updatedAt: new Date() })
+          .where(eq(v2OutsourceOrdersTable.id, order.id));
+        const [demand] = await db.select({ title: v2OutsourceDemandsTable.title })
+          .from(v2OutsourceDemandsTable)
+          .where(eq(v2OutsourceDemandsTable.id, order.outsourceDemandId))
+          .limit(1);
+        await notify(order.opcId, "v2_contract_finalized", "合同已定稿，请查阅并确认",
+          `外包订单 ${order.orderNo}（「${demand?.title ?? ""}」）合同已运营定稿，请查阅合同内容并确认签约意向。`,
+          contract.outsourceOrderId, "v2_outsource_order");
       }
     }
 
