@@ -4,7 +4,7 @@ import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
   Loader2, X, Upload, CheckCircle2, Clock, ExternalLink, Wrench,
   FileSignature, Package, Shield, XCircle, CreditCard, ChevronDown, ChevronUp,
-  Lock, Paperclip, Plus, Edit2, Send, DollarSign, FileText,
+  Lock, Paperclip, Plus, Edit2, Send, DollarSign, FileText, Flag, Calendar,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
@@ -82,6 +82,18 @@ interface TicketB {
   createdAt: string;
 }
 
+interface DemandInfo {
+  id: number;
+  title: string;
+  demandType: string | null;
+  isUrgent: boolean;
+  expectedPriceMin: number | null;
+  expectedPriceMax: number | null;
+  status: string;
+  milestones?: Array<{ name: string; deadline?: string | null; description?: string | null }>;
+  latestVersion: { id: number; versionNo: number; detail: string | null; attachments: Array<{ name: string; url: string }> } | null;
+}
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending_contract: { label: "待签约", color: "bg-amber-100 text-amber-700",   icon: <FileSignature size={13} /> },
   executing:        { label: "执行中", color: "bg-blue-100 text-blue-700",     icon: <Package size={13} /> },
@@ -136,13 +148,14 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const [order, setOrder] = useState<OutsourceOrder | null>(null);
   const [tender, setTender] = useState<TenderInfo | null>(null);
   const [contract, setContract] = useState<ContractDetail | null>(null);
+  const [demand, setDemand] = useState<DemandInfo | null>(null);
   const [settlements, setSettlements] = useState<SettlementPlan[]>([]);
   const [deliverables, setDeliverables] = useState<DeliverableB[]>([]);
   const [tickets, setTickets] = useState<TicketB[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"contract" | "delivery" | "ticket">("contract");
+  const [activeTab, setActiveTab] = useState<"demand" | "contract" | "delivery" | "ticket">("demand");
 
   /* Accordion */
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
@@ -191,6 +204,12 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       }
       const contractList = await v2Get<ContractDetail[]>(`/contracts?outsourceOrderId=${id}`);
       setContract(Array.isArray(contractList) && contractList.length > 0 ? contractList[0] : null);
+      if (d.outsourceDemandId) {
+        try {
+          const dem = await v2Get<DemandInfo>(`/outsource-demands/${d.outsourceDemandId}`);
+          setDemand(dem);
+        } catch { setDemand(null); }
+      }
       const sp = await v2Get<SettlementPlan[]>(`/settlement-plans?outsourceOrderId=${id}`);
       setSettlements(Array.isArray(sp) ? sp : []);
       const db = await v2Get<DeliverableB[]>(`/deliverables-b?outsourceOrderId=${id}`);
@@ -406,12 +425,12 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const stageIdx = ORDER_STAGE_KEYS.indexOf(order.status as typeof ORDER_STAGE_KEYS[number]);
 
   const visibleTabs = [
-    { key: "contract" as const, label: "合同", icon: FileSignature, badge: null as number | null,
-      show: true },
-    { key: "delivery" as const, label: "交付", icon: Package,
+    { key: "demand"   as const, label: "需求详情", icon: FileText,  badge: null as number | null, show: true },
+    { key: "contract" as const, label: "合同",     icon: FileSignature, badge: null, show: true },
+    { key: "delivery" as const, label: "交付",     icon: Package,
       badge: deliverables.length > 0 ? deliverables.length : null,
       show: ["executing", "warranty", "completed"].includes(order.status) },
-    { key: "ticket"   as const, label: "工单", icon: Wrench,
+    { key: "ticket"   as const, label: "工单",     icon: Wrench,
       badge: openTickets.length > 0 ? openTickets.length : null,
       show: ["warranty", "completed"].includes(order.status) },
   ].filter(t => t.show);
@@ -537,6 +556,72 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
             </button>
           ))}
         </div>
+        )}
+
+        {/* ══ 需求详情 Tab ══ */}
+        {activeTab === "demand" && (
+          <div className="space-y-4">
+            {!demand ? (
+              <div className="flex items-center justify-center py-12 text-slate-400">
+                <Loader2 size={16} className="animate-spin mr-2" /> 加载中…
+              </div>
+            ) : (
+              <>
+                <Section title="需求说明" icon={FileText}>
+                  {demand.latestVersion?.detail ? (
+                    <div className="prose prose-sm max-w-none">
+                      <MarkdownContent content={demand.latestVersion.detail} />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">暂无需求描述</p>
+                  )}
+                </Section>
+
+                <Section title={`里程碑${demand.milestones?.length ? `（${demand.milestones.length}）` : ""}`} icon={Flag}>
+                  {demand.milestones && demand.milestones.length > 0 ? (
+                    <div className="space-y-1">
+                      {demand.milestones.map((m, i) => (
+                        <div key={i} className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
+                          <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-700">{m.name}</p>
+                            {m.deadline && (
+                              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                                <Calendar size={10} />
+                                截止 {new Date(m.deadline).toLocaleDateString("zh-CN")}
+                              </p>
+                            )}
+                            {m.description && (
+                              <p className="text-xs text-slate-500 mt-1">{m.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">暂无里程碑</p>
+                  )}
+                </Section>
+
+                {demand.latestVersion?.attachments && demand.latestVersion.attachments.length > 0 && (
+                  <Section title="附件" icon={Paperclip}>
+                    <div className="space-y-2">
+                      {demand.latestVersion.attachments.map((att, i) => (
+                        <a key={i} href={att.url} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-colors group">
+                          <Paperclip size={13} className="text-slate-400 shrink-0 group-hover:text-blue-500" />
+                          <span className="text-sm text-slate-700 truncate flex-1">{att.name}</span>
+                          <ExternalLink size={12} className="text-slate-400 shrink-0" />
+                        </a>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {/* ══ 合同 Tab ══ */}
