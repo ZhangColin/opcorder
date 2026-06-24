@@ -51,6 +51,12 @@ interface ContractDetail {
   signedAt: string | null;
   opcConfirmedAt?: string | null;
 }
+interface TenderInfo {
+  id: number;
+  totalPrice: number | null;
+  priceBreakdown: Array<{ item: string; amount: number; note?: string }>;
+  quotedAt: string | null;
+}
 interface DeliverableItem {
   id: number;
   outsourceOrderId: number;
@@ -199,6 +205,12 @@ export default function OpcV2OrderDetail() {
     enabled: !!orderId,
   });
   const contract = contractList[0] ?? null;
+
+  const { data: tender } = useQuery<TenderInfo>({
+    queryKey: ["v2-opc-tender", order?.tenderId],
+    queryFn: () => v2Get(`/tenders/${order!.tenderId}`),
+    enabled: !!order?.tenderId,
+  });
 
   const { data: deliverables = [], refetch: refetchDelivs } = useQuery<DeliverableItem[]>({
     queryKey: ["v2-opc-deliverables", orderId],
@@ -620,6 +632,38 @@ export default function OpcV2OrderDetail() {
                 )
               )}
             </CardSection>
+
+            {/* 我的报价 */}
+            {tender && (
+              <CardSection title="我的报价" icon={DollarSign}>
+                <div className="space-y-2">
+                  {tender.priceBreakdown && tender.priceBreakdown.length > 0 ? (
+                    <>
+                      <div className="space-y-1">
+                        {tender.priceBreakdown.map((row, i) => (
+                          <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-border last:border-0">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground">{row.item}</p>
+                              {row.note && <p className="text-xs text-muted-foreground mt-0.5">{row.note}</p>}
+                            </div>
+                            <p className="text-sm font-bold text-foreground shrink-0">¥{row.amount.toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">报价总额</span>
+                        <span className="text-lg font-black text-primary">¥{tender.totalPrice?.toLocaleString() ?? "-"}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">报价总额</span>
+                      <span className="text-lg font-black text-primary">¥{tender.totalPrice?.toLocaleString() ?? "-"}</span>
+                    </div>
+                  )}
+                </div>
+              </CardSection>
+            )}
 
             {/* 收款计划 */}
             {settlements.length > 0 && (
