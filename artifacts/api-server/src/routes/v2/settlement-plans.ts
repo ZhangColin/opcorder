@@ -3,7 +3,7 @@ import {
   db, v2SettlementPlansTable, v2OutsourceOrdersTable, v2OutsourceDemandsTable,
   v2TicketsBTable, usersTable,
 } from "@workspace/db";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, ne } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify } from "./utils";
@@ -47,6 +47,11 @@ router.get("/settlement-plans", requireAuth, async (req: Request, res: Response)
         if (ids.length === 0) return res.json([]);
         conditions.push(inArray(v2SettlementPlansTable.outsourceOrderId, ids));
       }
+    }
+
+    // admin 全局列表（非按订单查询）：排除未签约订单的付款项
+    if (role === "admin" && !outsourceOrderId) {
+      conditions.push(ne(v2OutsourceOrdersTable.status, "pending_contract"));
     }
 
     const rows = await db

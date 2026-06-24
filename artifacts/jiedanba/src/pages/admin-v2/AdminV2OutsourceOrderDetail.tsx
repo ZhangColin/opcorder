@@ -819,70 +819,71 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                       </div>
                     ) : (
                       /* 展示行 */
-                      <div className={`border rounded-xl p-3 ${
-                        s.isOverdue && s.status !== "paid" ? "border-red-300 bg-red-50/30" : "border-slate-200 hover:border-slate-300 transition-colors"
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                                s.status === "paid" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                              }`}>{s.status === "paid" ? "已付款" : "待付款"}</span>
-                              {s.isOverdue && s.status !== "paid" && (
-                                <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">逾期</span>
-                              )}
-                              <span className="text-xs text-slate-400">第 {s.itemNo ?? 1} 期</span>
-                              {s.isLastItem && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>}
-                              {s.isBlockingPayment && s.status !== "paid" && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
-                                  <Lock size={9} /> 阻款
-                                </span>
-                              )}
+                      (() => {
+                        const contractSigned = !!(contract?.signedAt);
+                        const goPayment = () => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${s.id}`) : navigate(`/admin/v2/payments-b/${s.id}`);
+                        return (
+                          <div
+                            onClick={contractSigned ? goPayment : undefined}
+                            className={`border rounded-xl p-3 transition-colors ${
+                              contractSigned ? "cursor-pointer hover:border-primary/40 hover:shadow-sm" : "cursor-default"
+                            } ${
+                              s.isOverdue && s.status !== "paid" && contractSigned ? "border-red-300 bg-red-50/30" : "border-slate-200"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                  {contractSigned ? (
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                      s.status === "paid" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                                    }`}>{s.status === "paid" ? "已付款" : "待付款"}</span>
+                                  ) : (
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">待签约</span>
+                                  )}
+                                  {contractSigned && s.isOverdue && s.status !== "paid" && (
+                                    <span className="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">逾期</span>
+                                  )}
+                                  <span className="text-xs text-slate-400">第 {s.itemNo ?? 1} 期</span>
+                                  {s.isLastItem && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">尾款</span>}
+                                  {contractSigned && s.isBlockingPayment && s.status !== "paid" && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded flex items-center gap-0.5">
+                                      <Lock size={9} /> 阻款
+                                    </span>
+                                  )}
+                                </div>
+                                {s.description && <p className="text-xs text-slate-500 mt-0.5">{s.description}</p>}
+                              </div>
+                              <div className="text-right flex-shrink-0 ml-3">
+                                <p className="font-black text-slate-800">¥{s.amount.toLocaleString()}</p>
+                                {s.dueDate && <p className="text-xs text-slate-400">{new Date(s.dueDate).toLocaleDateString("zh-CN")}</p>}
+                                {s.status === "pending" && !opcConfirmed && (
+                                  <div className="flex items-center gap-2 justify-end mt-1" onClick={e => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => {
+                                        setEditSettleId(s.id);
+                                        setShowAddSettlement(false);
+                                        setEditSettleForm({
+                                          description: s.description ?? "",
+                                          amount: String(s.amount),
+                                          dueDate: s.dueDate ? s.dueDate.slice(0, 10) : "",
+                                          isLastItem: s.isLastItem,
+                                        });
+                                      }}
+                                      className="text-xs text-primary hover:underline"
+                                    >编辑</button>
+                                    <button
+                                      onClick={() => handleDeleteSettlement(s.id)}
+                                      disabled={settleActing}
+                                      className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                                    >删除</button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            {s.description && <p className="text-xs text-slate-500 mt-0.5">{s.description}</p>}
                           </div>
-                          <div className="text-right flex-shrink-0 ml-3">
-                            <p className="font-black text-slate-800">¥{s.amount.toLocaleString()}</p>
-                            {s.dueDate && <p className="text-xs text-slate-400">{new Date(s.dueDate).toLocaleDateString("zh-CN")}</p>}
-                            {s.status === "pending" && (
-                              <div className="flex items-center gap-2 justify-end mt-1">
-                                {!opcConfirmed && (<>
-                                <button
-                                  onClick={() => {
-                                    setEditSettleId(s.id);
-                                    setShowAddSettlement(false);
-                                    setEditSettleForm({
-                                      description: s.description ?? "",
-                                      amount: String(s.amount),
-                                      dueDate: s.dueDate ? s.dueDate.slice(0, 10) : "",
-                                      isLastItem: s.isLastItem,
-                                    });
-                                  }}
-                                  className="text-xs text-primary hover:underline"
-                                >编辑</button>
-                                <button
-                                  onClick={() => handleDeleteSettlement(s.id)}
-                                  disabled={settleActing}
-                                  className="text-xs text-red-500 hover:underline disabled:opacity-50"
-                                >删除</button>
-                                </>)}
-                                <button
-                                  onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${s.id}`) : navigate(`/admin/v2/payments-b/${s.id}`)}
-                                  className="text-xs text-green-600 hover:underline font-bold"
-                                >打款详情</button>
-                              </div>
-                            )}
-                            {s.status === "paid" && (
-                              <div className="flex items-center justify-end mt-1">
-                                <button
-                                  onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${s.id}`) : navigate(`/admin/v2/payments-b/${s.id}`)}
-                                  className="text-xs text-slate-400 hover:underline"
-                                >查看详情</button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })()
                     )}
                   </div>
                 ))}
