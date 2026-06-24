@@ -25,10 +25,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const STATUS_TABS = [
-  { value: "",         label: "全部" },
   { value: "pending",  label: "待审核" },
   { value: "approved", label: "已通过" },
   { value: "rejected", label: "已驳回" },
+  { value: "",         label: "全部" },
 ];
 
 export default function AdminV2DeliveryBList() {
@@ -41,18 +41,22 @@ export default function AdminV2DeliveryBList() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (statusFilter) params.set("status", statusFilter);
-      const data = await v2Get<DeliveryB[]>(`/deliverables-b?${params}`);
+      const data = await v2Get<DeliveryB[]>(`/deliverables-b?limit=200`);
       setItems(Array.isArray(data) ? data : []);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const displayed = statusFilter === "" ? items : items.filter(d => d.status === statusFilter);
+  const counts: Record<string, number> = {};
+  STATUS_TABS.forEach(tab => {
+    counts[tab.value] = tab.value === "" ? items.length : items.filter(d => d.status === tab.value).length;
+  });
 
   return (
     <AdminV2Layout title="交付管理 (B)">
@@ -60,21 +64,26 @@ export default function AdminV2DeliveryBList() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_TABS.map(tab => (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors flex items-center gap-1.5 ${
                 statusFilter === tab.value ? "bg-primary text-white" : "bg-white border border-slate-200 text-slate-500 hover:border-primary/30"
               }`}>
               {tab.label}
+              {counts[tab.value] > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                  statusFilter === tab.value ? "bg-white/20" : "bg-slate-100 text-slate-500"
+                }`}>{counts[tab.value]}</span>
+              )}
             </button>
           ))}
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 size={28} className="animate-spin text-primary" /></div>
-        ) : items.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">暂无交付记录</div>
         ) : (
           <div className="space-y-2">
-            {items.map(item => {
+            {displayed.map(item => {
               const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
               const go = () => inlineNav ? inlineNav.push(`/admin/v2/deliveries-b/${item.id}`) : navigate(`/admin/v2/deliveries-b/${item.id}`);
               return (
