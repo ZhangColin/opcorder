@@ -193,7 +193,7 @@ export default function OpcV2OrderList() {
                       <ChevronRight size={16} className="text-slate-300 group-hover:text-emerald-600 shrink-0" />
                     </div>
                     {order.status === "pending_contract" && (
-                      <p className="mt-2 text-xs font-bold text-amber-700">⚠️ 请尽快查阅合同并上传已签 PDF 确认</p>
+                      <p className="mt-2 text-xs font-bold text-amber-700">⚠️ 合同签约进行中，等待运营完成</p>
                     )}
                   </button>
                 );

@@ -614,7 +614,7 @@ export default function OpcV2OrderDetail() {
             {!canSubmitDeliverable && order.status === "pending_contract" && (
               <div className="flex items-center gap-3 px-5 py-4 bg-muted/50 rounded-2xl border border-border">
                 <Clock size={16} className="text-muted-foreground shrink-0" />
-                <p className="text-sm text-muted-foreground">合同确认后才能提交交付物</p>
+                <p className="text-sm text-muted-foreground">合同签约完成后才能提交交付物</p>
               </div>
             )}
 
