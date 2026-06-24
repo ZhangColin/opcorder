@@ -550,7 +550,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
             <div className="space-y-3">
               <p className="text-xs text-slate-500">上传双方签署后的合同文件，上传后需求状态将进入执行中。</p>
               <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar" onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.jpg,.jpeg,.png" onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
                   className="w-full text-sm text-slate-600" />
                 {selectedFile && <p className="mt-2 text-xs text-slate-500">已选：{selectedFile.name}</p>}
               </div>
