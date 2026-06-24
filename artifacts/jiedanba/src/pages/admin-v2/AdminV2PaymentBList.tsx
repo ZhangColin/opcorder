@@ -29,10 +29,21 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
 };
 
 const STATUS_TABS = [
+  { value: "today",   label: "今日付款" },
   { value: "pending", label: "待付款" },
-  { value: "paid", label: "已支付" },
-  { value: "", label: "全部" },
+  { value: "paid",    label: "已支付" },
+  { value: "",        label: "全部" },
 ];
+
+function endOfToday() {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function isDueToday(item: SettlementPlan) {
+  return item.status === "pending" && !!item.dueDate && new Date(item.dueDate) <= endOfToday();
+}
 
 function isOverdue(item: SettlementPlan) {
   return item.status === "pending" && !!item.dueDate && new Date(item.dueDate) < new Date();
@@ -58,7 +69,7 @@ export default function AdminV2PaymentBList() {
   const inlineNav = useAdminInlineNav();
   const [items, setItems] = useState<SettlementPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("today");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,10 +85,16 @@ export default function AdminV2PaymentBList() {
 
   useEffect(() => { load(); }, [load]);
 
-  const displayed = statusFilter === "" ? items : items.filter(p => p.status === statusFilter);
+  const displayed = statusFilter === "today"
+    ? items.filter(isDueToday)
+    : statusFilter === ""
+      ? items
+      : items.filter(p => p.status === statusFilter);
   const counts: Record<string, number> = {};
   STATUS_TABS.forEach(tab => {
-    counts[tab.value] = tab.value === "" ? items.length : items.filter(p => p.status === tab.value).length;
+    if (tab.value === "today") counts[tab.value] = items.filter(isDueToday).length;
+    else if (tab.value === "") counts[tab.value] = items.length;
+    else counts[tab.value] = items.filter(p => p.status === tab.value).length;
   });
   const overdueItems = items.filter(i => isOverdue(i));
   const pendingTotal = items.filter(p => p.status === "pending").reduce((s, p) => s + p.amount, 0);
