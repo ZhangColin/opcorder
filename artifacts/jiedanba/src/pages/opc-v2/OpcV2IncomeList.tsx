@@ -8,6 +8,7 @@ import {
 import { v2Get } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
 import { Pagination } from "@/components/pub/Pagination";
+import { hasUnreadSinceCreation, markRead } from "@/lib/demandRead";
 
 const PAGE_SIZE = 10;
 
@@ -23,6 +24,8 @@ interface SettlementItem {
   isLastItem: boolean;
   isBlockingPayment: boolean;
   isOverdue: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface OrderItem {
@@ -74,7 +77,12 @@ export default function OpcV2IncomeList() {
     return acc;
   }, {} as Record<string, number>);
 
-  const filtered = filter === "all" ? settlements : settlements.filter(s => s.status === filter);
+  const filtered = (filter === "all" ? settlements : settlements.filter(s => s.status === filter))
+    .slice()
+    .sort((a, b) =>
+      (hasUnreadSinceCreation("settlement", b.id, b.updatedAt, b.createdAt) ? 1 : 0) -
+      (hasUnreadSinceCreation("settlement", a.id, a.updatedAt, a.createdAt) ? 1 : 0)
+    );
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -154,11 +162,14 @@ export default function OpcV2IncomeList() {
                 const ord = orderMap[s.outsourceOrderId];
                 return (
                   <button key={s.id}
-                    onClick={() => navigate(`/opc/orders/${s.outsourceOrderId}`)}
+                    onClick={() => { markRead("settlement", s.id); navigate(`/opc/orders/${s.outsourceOrderId}`); }}
                     className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
+                          {hasUnreadSinceCreation("settlement", s.id, s.updatedAt, s.createdAt) && (
+                            <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" />
+                          )}
                           <p className="text-[15px] font-bold text-slate-800 truncate">{s.title}</p>
                           {s.isLastItem && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded shrink-0">尾款</span>
