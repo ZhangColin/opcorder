@@ -399,7 +399,8 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const canUploadContract   = order.status === "pending_contract" && !!contract?.opcConfirmedAt;
   const canApproveDeliv     = order.status === "executing";
   const canAdminVerify      = order.status === "executing";
-  const canCreateSettlement = order.status !== "cancelled";
+  const opcConfirmed        = !!contract?.opcConfirmedAt;
+  const canCreateSettlement = order.status !== "cancelled" && !opcConfirmed;
   const canCreateTicket     = order.status === "warranty";
   const openTickets         = tickets.filter(t => t.status === "open");
   const stageIdx = ORDER_STAGE_KEYS.indexOf(order.status as typeof ORDER_STAGE_KEYS[number]);
@@ -595,7 +596,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                 signed:                   { label: "已签约",     color: "bg-green-100 text-green-700" },
               };
               const cs = contract ? (CONTRACT_STATUS_MAP[contract.status] ?? { label: contract.status, color: "bg-slate-100 text-slate-500" }) : null;
-              const canEditContent = !!contract && order.status === "pending_contract";
+              const canEditContent = !!contract && order.status === "pending_contract" && !opcConfirmed;
               return (
                 <Section
                   title="合同"
@@ -845,6 +846,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                             {s.dueDate && <p className="text-xs text-slate-400">{new Date(s.dueDate).toLocaleDateString("zh-CN")}</p>}
                             {s.status === "pending" && (
                               <div className="flex items-center gap-2 justify-end mt-1">
+                                {!opcConfirmed && (<>
                                 <button
                                   onClick={() => {
                                     setEditSettleId(s.id);
@@ -863,6 +865,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                                   disabled={settleActing}
                                   className="text-xs text-red-500 hover:underline disabled:opacity-50"
                                 >删除</button>
+                                </>)}
                                 <button
                                   onClick={() => inlineNav ? inlineNav.push(`/admin/v2/payments-b/${s.id}`) : navigate(`/admin/v2/payments-b/${s.id}`)}
                                   className="text-xs text-green-600 hover:underline font-bold"
