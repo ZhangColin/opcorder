@@ -695,7 +695,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const canCreateContract = demand.status === "pending_contract" && !aContract;
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
-  const canEditPayments = !isPast("executing");
+  const canEditPayments = aContract?.status === "draft" || aContract?.status === "publisher_rejected";
   const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket"> = [
     "needs",
     ...(isPast("quoting")   ? ["contract" as const] : []),
