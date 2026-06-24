@@ -151,8 +151,7 @@ router.post("/outsource-orders/:id/opc-confirm-contract", requireAuth, async (re
       .from(v2ContractsTable)
       .where(and(eq(v2ContractsTable.outsourceOrderId, id), eq(v2ContractsTable.channel, "b")))
       .limit(1);
-    if (!linkedContract) return res.status(400).json({ error: "订单尚无关联合同" });
-    if (!linkedContract.signedFileUrl) return res.status(400).json({ error: "运营方尚未上传合同文件，请等待" });
+    if (!linkedContract) return res.status(400).json({ error: "订单尚无关联合同，请联系运营" });
 
     const { opcSignedFileUrl } = req.body as { opcSignedFileUrl?: string };
 

@@ -663,10 +663,10 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                     ) : (
                       <>
                         {/* 待签约状态提示 */}
-                        {order.status === "pending_contract" && order.signedFileUrl && (
+                        {order.status === "pending_contract" && contract && (
                           <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
                             <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
-                            <p className="text-sm font-bold text-amber-800">合同已上传，等待 OPC 确认签署</p>
+                            <p className="text-sm font-bold text-amber-800">等待 OPC 查阅合同并确认签约</p>
                           </div>
                         )}
                         {contract?.status === "pending_publisher_confirm" && (
