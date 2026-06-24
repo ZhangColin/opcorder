@@ -1135,11 +1135,11 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
 
       {/* ── 上传合同 Modal ── */}
       {showUploadContract && (
-        <Modal title="上传合同 PDF" onClose={() => setShowUploadContract(false)}>
+        <Modal title="上传合同文件" onClose={() => setShowUploadContract(false)}>
           <div className="space-y-3">
             <p className="text-xs text-slate-500">上传后将通知OPC确认签署。</p>
             <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-              <input type="file" accept=".pdf,.jpg,.png" onChange={e => setContractFile(e.target.files?.[0] ?? null)}
+              <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar" onChange={e => setContractFile(e.target.files?.[0] ?? null)}
                 className="w-full text-sm text-slate-600" />
               {contractFile && <p className="mt-2 text-xs text-slate-500">已选：{contractFile.name}</p>}
             </div>

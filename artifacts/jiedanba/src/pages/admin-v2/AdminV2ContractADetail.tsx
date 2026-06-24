@@ -544,13 +544,13 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-blue-900">上传已签合同 PDF</h3>
+              <h3 className="text-base font-extrabold text-blue-900">上传已签合同文件</h3>
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
             </div>
             <div className="space-y-3">
-              <p className="text-xs text-slate-500">上传双方签署后的合同 PDF，上传后需求状态将进入执行中。</p>
+              <p className="text-xs text-slate-500">上传双方签署后的合同文件，上传后需求状态将进入执行中。</p>
               <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-                <input type="file" accept=".pdf,.jpg,.png" onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar" onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
                   className="w-full text-sm text-slate-600" />
                 {selectedFile && <p className="mt-2 text-xs text-slate-500">已选：{selectedFile.name}</p>}
               </div>
