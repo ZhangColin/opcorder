@@ -153,8 +153,8 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 /* ── Section wrapper ── */
-function Section({ title, icon: Icon, children, defaultOpen = true }: {
-  title: string; icon: React.ElementType; children: React.ReactNode; defaultOpen?: boolean;
+function Section({ title, icon: Icon, children, defaultOpen = true, headerRight }: {
+  title: string; icon: React.ElementType; children: React.ReactNode; defaultOpen?: boolean; headerRight?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -165,6 +165,7 @@ function Section({ title, icon: Icon, children, defaultOpen = true }: {
       >
         <Icon size={16} className="text-primary shrink-0" />
         <span className="font-bold text-slate-800 flex-1">{title}</span>
+        {headerRight && <div className="shrink-0" onClick={e => e.stopPropagation()}>{headerRight}</div>}
         {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
       </button>
       {open && <div className="px-6 pb-6 border-t border-slate-100">{children}</div>}
@@ -212,6 +213,11 @@ export default function PubDemandDetail() {
   /* Deliverable reject */
   const [rejectDelivId, setRejectDelivId] = useState<number | null>(null);
   const [rejectDelivReason, setRejectDelivReason] = useState("");
+
+  /* Contract confirm / reject */
+  const [contractActing, setContractActing] = useState(false);
+  const [showContractReject, setShowContractReject] = useState(false);
+  const [contractRejectReason, setContractRejectReason] = useState("");
 
   /* Tab / deliverable expand */
   const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">(() => {
@@ -300,6 +306,32 @@ export default function PubDemandDetail() {
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally { setActing(false); }
+  };
+
+  const handleContractConfirm = async () => {
+    if (!aContract) return;
+    setContractActing(true);
+    try {
+      await v2Post(`/contracts/${aContract.id}/publisher-confirm`);
+      toast({ title: "已确认合同" });
+      setContracts(prev => prev.map(c => c.id === aContract.id ? { ...c, status: "pending_sign" } : c));
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } finally { setContractActing(false); }
+  };
+
+  const handleContractReject = async () => {
+    if (!aContract) return;
+    setContractActing(true);
+    try {
+      await v2Post(`/contracts/${aContract.id}/publisher-reject`, { reason: contractRejectReason });
+      toast({ title: "已退回合同" });
+      setContracts(prev => prev.map(c => c.id === aContract.id ? { ...c, status: "publisher_rejected", publisherRejectedReason: contractRejectReason } : c));
+      setShowContractReject(false);
+      setContractRejectReason("");
+    } catch (err: any) {
+      toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } finally { setContractActing(false); }
   };
 
   const handleCommentQuote = async () => {
@@ -469,6 +501,24 @@ export default function PubDemandDetail() {
 
   const statusCfg = DEMAND_STATUS[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const aContract = contracts[0] ?? null;
+  const canActOnContract = aContract?.status === "pending_publisher_confirm";
+  const contractHeaderRight = canActOnContract ? (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => { setShowContractReject(v => !v); }}
+        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+      >
+        退回
+      </button>
+      <button
+        onClick={handleContractConfirm}
+        disabled={contractActing}
+        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+      >
+        {contractActing && !showContractReject ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} 确认合同
+      </button>
+    </div>
+  ) : null;
   const canEditDetail = demand.status === "negotiating";
   const canConfirmQuote = demand.status === "quoting";
   const canVerify = demand.status === "executing" && deliverables.some(d => d.status === "confirmed");
@@ -606,17 +656,9 @@ export default function PubDemandDetail() {
 
         {/* ── Action banners（始终显示，不受 tab 影响） ── */}
         {pendingContractConfirm && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <FileSignature size={16} className="text-amber-600" />
-              <span className="text-sm font-bold text-amber-800">合同待您确认</span>
-            </div>
-            <button
-              onClick={() => navigate(`/pub/contracts/${aContract?.id}`)}
-              className="text-xs bg-amber-600 text-white rounded-lg px-3 py-1.5 font-bold hover:bg-amber-700 transition-colors"
-            >
-              查看合同
-            </button>
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-2">
+            <FileSignature size={16} className="text-amber-600" />
+            <span className="text-sm font-bold text-amber-800">合同待您确认，请在下方"报价与合同"中查阅并操作</span>
           </div>
         )}
 
@@ -836,18 +878,33 @@ export default function PubDemandDetail() {
 
         {/* 合同 — 草稿阶段不对发单方显示 */}
         {aContract && aContract.status !== "draft" && (
-          <Section title="合同" icon={FileSignature}>
+          <Section title="合同" icon={FileSignature} headerRight={contractHeaderRight}>
             <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const cfg = CONTRACT_STATUS[aContract.status] ?? { label: aContract.status, color: "bg-slate-100 text-slate-500" };
-                  return <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${cfg.color}`}>{cfg.label}</span>;
-                })()}
-                <span className="text-xs text-slate-400 font-mono">{aContract.contractNo}</span>
-              </div>
               {aContract.content && (
-                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-4 max-h-72 overflow-y-auto prose prose-sm max-w-none">
+                <div className="prose prose-sm max-w-none">
                   <MarkdownContent content={aContract.content} />
+                </div>
+              )}
+              {canActOnContract && showContractReject && (
+                <div className="border border-red-200 rounded-xl p-3 bg-red-50 space-y-2">
+                  <p className="text-xs font-bold text-red-700">退回原因（选填）</p>
+                  <textarea
+                    value={contractRejectReason}
+                    onChange={e => setContractRejectReason(e.target.value)}
+                    rows={3}
+                    placeholder="请说明退回原因，运营方将收到通知..."
+                    className="w-full text-sm border border-red-200 rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-1 focus:ring-red-300"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => { setShowContractReject(false); setContractRejectReason(""); }} className="text-xs px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-100">取消</button>
+                    <button
+                      onClick={handleContractReject}
+                      disabled={contractActing}
+                      className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {contractActing ? <Loader2 size={11} className="animate-spin" /> : null} 确认退回
+                    </button>
+                  </div>
                 </div>
               )}
               {aContract.signedFileUrl && (
