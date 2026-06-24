@@ -529,6 +529,17 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                 <p className="text-sm text-slate-600 mt-0.5">{order.cancelledReason}</p>
               </div>
             )}
+            {canAdminVerify && (
+              <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={() => setShowVerifyModal(true)}
+                  disabled={acting}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  <CheckCircle2 size={15} /> 验收通过
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
