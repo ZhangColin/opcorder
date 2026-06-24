@@ -8934,15 +8934,25 @@ function SettlementManagement() {
               </div>
 
               <div className="px-6 py-5 space-y-5">
-                {/* Company & bank info */}
+                {/* Company info */}
                 <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">企业 & 结算信息</p>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">企业信息</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
                     <div><p className="text-xs text-slate-400 mb-0.5">企业名称</p><p className="font-medium text-slate-700">{r.companyName || "—"}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">统一社会信用代码</p><p className="font-mono text-slate-700 text-xs">{r.creditCode || "—"}</p></div>
-                    <div><p className="text-xs text-slate-400 mb-0.5">建行商家编号</p><p className="font-mono text-slate-700 text-xs">{r.ccbMerchantNo || "—"}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">联系人</p><p className="font-medium text-slate-700">{r.contactName || "—"}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">联系电话</p><p className="font-medium text-slate-700">{r.contactPhone || "—"}</p></div>
+                  </div>
+                </div>
+
+                {/* Bank account info */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">收款账号</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-3 text-sm">
+                    <div><p className="text-xs text-slate-400 mb-0.5">银行</p><p className="font-medium text-slate-700">{r.bankName || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">开户行</p><p className="font-medium text-slate-700">{r.bankBranch || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">银行账号</p><p className="font-mono text-slate-700 text-xs tracking-wider">{r.bankAccount || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">户名</p><p className="font-medium text-slate-700">{r.accountName || "—"}</p></div>
                   </div>
                 </div>
 
