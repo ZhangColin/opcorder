@@ -148,8 +148,10 @@ router.patch("/contracts/:id/content", requireAdmin, async (req: Request, res: R
     const id = parseInt(req.params.id);
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
-    if (!["draft", "publisher_rejected"].includes(contract.status)) {
-      return res.status(400).json({ error: "当前状态不可编辑内容" });
+    if (contract.outsourceOrderId) {
+      const [ord] = await db.select({ status: v2OutsourceOrdersTable.status })
+        .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, contract.outsourceOrderId)).limit(1);
+      if (ord && ord.status !== "pending_contract") return res.status(400).json({ error: "订单已进入执行阶段，合同不可再编辑" });
     }
     const { content } = req.body as { content: string };
     if (content === undefined) return res.status(400).json({ error: "content 必填" });
