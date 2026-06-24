@@ -1166,14 +1166,12 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       {/* ── 运营验收 Modal ── */}
       {showVerifyModal && (
         <Modal title="运营验收确认" onClose={() => setShowVerifyModal(false)}>
-          <div className="space-y-3">
-            <p className="text-sm text-slate-500">确认运营验收后，订单将进入质保期。</p>
-            <textarea value={verifyNote} onChange={e => setVerifyNote(e.target.value)} rows={3} placeholder="验收说明（可选）"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500">确认运营验收后，订单将进入质保期，并通知 OPC。</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowVerifyModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
               <button onClick={handleAdminVerify} disabled={acting}
-                className="px-4 py-2 text-sm bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 disabled:opacity-50">
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50">
                 {acting ? "处理中…" : "确认验收"}
               </button>
             </div>
