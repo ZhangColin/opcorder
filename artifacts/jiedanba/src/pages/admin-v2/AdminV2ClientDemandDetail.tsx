@@ -695,7 +695,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const canCreateContract = demand.status === "pending_contract" && !aContract;
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
-  const canEditPayments = !isPast("pending_contract");
+  const canEditPayments = !isPast("executing");
   const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket"> = [
     "needs",
     ...(isPast("quoting")   ? ["contract" as const] : []),
@@ -1025,7 +1025,8 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
         {contracts.length > 0 && (() => {
           const c = contracts[0];
           const canEdit     = c.status === "draft" || c.status === "publisher_rejected";
-          const canFinalize = canEdit && !!c.content?.trim();
+          const canFinalize = canEdit && !!c.content?.trim() && payments.length > 0;
+          const finalizeBlocked = canEdit && !!c.content?.trim() && payments.length === 0;
           const canUpload   = c.status === "pending_sign";
           const headerRight = (
             <div className="flex items-center gap-2">
@@ -1049,6 +1050,16 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                 >
                   <Send size={12} /> 定稿通知
                 </button>
+              )}
+              {finalizeBlocked && !contractEditOpen && (
+                <div title="请先添加收款计划，再发送定稿通知" className="cursor-not-allowed">
+                  <button
+                    disabled
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-200 text-slate-400 cursor-not-allowed"
+                  >
+                    <Send size={12} /> 定稿通知
+                  </button>
+                </div>
               )}
               {canUpload && (
                 <button
@@ -1148,10 +1159,10 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
           );
         })()}
 
-        {/* 收款计划 — 待签约阶段之后才显示 */}
-        {isPast("pending_contract") && payments.length > 0 && (
+        {/* 收款计划 — 合同草拟阶段起显示 */}
+        {isPast("pending_contract") && (
           <Section
-            title={`收款计划（${payments.length} 项）`}
+            title={payments.length > 0 ? `收款计划（${payments.length} 项）` : "收款计划"}
             icon={DollarSign}
             headerRight={canEditPayments ? (
               <button
