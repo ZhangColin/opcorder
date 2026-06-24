@@ -478,7 +478,7 @@ export default function PubDemandDetail() {
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
   const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket"> = [
     "needs",
-    ...(aContract && aContract.status !== "draft" ? ["contract" as const] : []),
+    ...((quotation || (aContract && aContract.status !== "draft")) ? ["contract" as const] : []),
     ...(isPast("executing") ? ["delivery" as const] : []),
     ...(isPast("warranty")  ? ["ticket"   as const] : []),
   ];
