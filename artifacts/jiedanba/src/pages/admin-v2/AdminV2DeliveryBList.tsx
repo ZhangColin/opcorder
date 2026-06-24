@@ -22,13 +22,13 @@ interface DeliveryB {
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending:  { label: "待审核", color: "bg-orange-100 text-orange-700" },
   approved: { label: "已通过", color: "bg-green-100 text-green-700" },
-  rejected: { label: "已驳回", color: "bg-red-100 text-red-700" },
+  revision: { label: "已驳回", color: "bg-red-100 text-red-700" },
 };
 
 const STATUS_TABS = [
   { value: "pending",  label: "待审核" },
   { value: "approved", label: "已通过" },
-  { value: "rejected", label: "已驳回" },
+  { value: "revision", label: "已驳回" },
   { value: "",         label: "全部" },
 ];
 

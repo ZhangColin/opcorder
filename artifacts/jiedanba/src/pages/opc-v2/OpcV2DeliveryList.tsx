@@ -5,6 +5,7 @@ import { PackageCheck, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
 import { Pagination } from "@/components/pub/Pagination";
+import { hasUnreadSinceCreation, markRead } from "@/lib/demandRead";
 
 const PAGE_SIZE = 10;
 
@@ -26,13 +27,13 @@ interface DeliveryItem {
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending:  { label: "待审核", color: "bg-orange-100 text-orange-700" },
   approved: { label: "已通过", color: "bg-green-100 text-green-700" },
-  rejected: { label: "已驳回", color: "bg-red-100 text-red-700" },
+  revision: { label: "已驳回", color: "bg-red-100 text-red-700" },
 };
 
 const FILTER_TABS = [
   { key: "pending",  label: "待审核" },
   { key: "approved", label: "已通过" },
-  { key: "rejected", label: "已驳回" },
+  { key: "revision", label: "已驳回" },
   { key: "all",      label: "全部" },
 ] as const;
 
@@ -50,7 +51,12 @@ export default function OpcV2DeliveryList() {
     queryFn: () => v2Get("/deliverables-b"),
   });
 
-  const filtered = filter === "all" ? data : data.filter(d => d.status === filter);
+  const filtered = (filter === "all" ? data : data.filter(d => d.status === filter))
+    .slice()
+    .sort((a, b) =>
+      (hasUnreadSinceCreation("delivery_b", b.id, b.updatedAt, b.createdAt) ? 1 : 0) -
+      (hasUnreadSinceCreation("delivery_b", a.id, a.updatedAt, a.createdAt) ? 1 : 0)
+    );
   const counts = FILTER_TABS.reduce((acc, tab) => {
     acc[tab.key] = tab.key === "all" ? data.length : data.filter(d => d.status === tab.key).length;
     return acc;
@@ -110,10 +116,15 @@ export default function OpcV2DeliveryList() {
               {paged.map(item => {
                 const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
                 return (
-                  <button key={item.id} onClick={() => navigate(`/opc/deliveries/${item.id}`)}
+                  <button key={item.id} onClick={() => { markRead("delivery_b", item.id); navigate(`/opc/deliveries/${item.id}`); }}
                     className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-[15px] font-bold text-slate-800 truncate">{item.title}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {hasUnreadSinceCreation("delivery_b", item.id, item.updatedAt, item.createdAt) && (
+                          <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" />
+                        )}
+                        <span className="text-[15px] font-bold text-slate-800 truncate">{item.title}</span>
+                      </div>
                       <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
                     </div>
                     <div className="flex items-end gap-4">

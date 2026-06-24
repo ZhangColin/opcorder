@@ -27,7 +27,7 @@ interface DeliveryB {
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   pending:  { label: "待审核", color: "bg-orange-100 text-orange-700", icon: Clock },
   approved: { label: "已通过", color: "bg-green-100 text-green-700",  icon: CheckCircle2 },
-  rejected: { label: "已驳回", color: "bg-red-100 text-red-700",      icon: XCircle },
+  revision: { label: "已驳回", color: "bg-red-100 text-red-700",      icon: XCircle },
 };
 
 function RejectModal({ onClose, onConfirm, acting }: { onClose: () => void; onConfirm: (reason: string) => void; acting: boolean }) {
