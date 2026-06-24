@@ -156,7 +156,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"demand" | "contract" | "delivery" | "ticket">("demand");
+  const [activeTab, setActiveTab] = useState<"demand" | "contract" | "delivery" | "ticket">("contract");
 
   /* Accordion */
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
