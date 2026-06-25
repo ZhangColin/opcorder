@@ -681,7 +681,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                 signed:                   { label: "已签约",     color: "bg-green-100 text-green-700" },
               };
               const cs = contract ? (CONTRACT_STATUS_MAP[contract.status] ?? { label: contract.status, color: "bg-slate-100 text-slate-500" }) : null;
-              const canEditContent = !!contract && order.status === "pending_contract" && !opcConfirmed;
+              const canEditContent = !!contract && ["draft", "pending_contract"].includes(order.status) && !opcConfirmed;
               return (
                 <Section
                   title="合同"
