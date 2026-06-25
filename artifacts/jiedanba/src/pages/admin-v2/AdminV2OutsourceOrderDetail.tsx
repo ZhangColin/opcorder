@@ -348,6 +348,10 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
 
   const handleFinalizeContract = async () => {
     if (!contract) return;
+    if (settlements.length === 0) {
+      toast({ title: "请先添加付款计划", description: "发送合同前须至少设置一条结算付款项", variant: "destructive" });
+      return;
+    }
     setContractActing(true);
     try {
       const updated = await v2Post<ContractDetail>(`/contracts/${contract.id}/finalize`, {});
@@ -705,6 +709,14 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                           onClick={() => { setContractEditContent(contract.content ?? ""); setEditingContract(true); }}
                           className="flex items-center gap-1 text-xs text-primary hover:underline">
                           <Edit2 size={11} /> 编辑内容
+                        </button>
+                      )}
+                      {contract && ["draft", "publisher_rejected"].includes(contract.status) && !editingContract && (
+                        <button
+                          onClick={handleFinalizeContract}
+                          disabled={contractActing}
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
+                          <Send size={11} /> 发送给OPC确认
                         </button>
                       )}
                       {canUploadContract && (
