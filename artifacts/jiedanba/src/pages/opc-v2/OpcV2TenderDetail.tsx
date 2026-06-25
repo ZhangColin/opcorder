@@ -305,6 +305,10 @@ export default function OpcV2TenderDetail() {
       const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
       if (tier) bd.push({ item: `${dim.label}（${tier.tierLabel}）`, amount: tier.basePrice });
     });
+    adjustDims.filter(d => quoteSelections[d.code]).forEach(dim => {
+      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+      if (tier) bd.push({ item: `${dim.label}（${tier.tierLabel}）`, amount: 0 });
+    });
     if (quoteTotals.clampedAdj !== 0) {
       const delta = quoteTotals.calibratedBase - quoteTotals.rawBase;
       bd.push({ item: `综合调整（${quoteTotals.clampedAdj > 0 ? "+" : ""}${quoteTotals.clampedAdj}%）`, amount: delta });

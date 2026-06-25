@@ -490,6 +490,11 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
       const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
       if (tier) breakdown.push({ item: `${dim.label}（${tier.tierLabel}）`, amount: tier.basePrice });
     });
+    // 1b. 调整层各项（系数选项，amount 记为 0，供回填还原用）
+    adjustDims.filter(d => quoteSelections[d.code]).forEach(dim => {
+      const tier = dim.tiers.find(t => t.tier === quoteSelections[dim.code]);
+      if (tier) breakdown.push({ item: `${dim.label}（${tier.tierLabel}）`, amount: 0 });
+    });
     // 2. ±% 综合调整（若非零）
     if (quoteTotals.clampedAdj !== 0) {
       const delta = quoteTotals.calibratedBase - quoteTotals.rawBase;
@@ -787,6 +792,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                         pendingRestoreRef.current = quotation.breakdown;
                       }
                     }
+                    if (canReQuote && quotation?.note) setQuoteNote(quotation.note);
                     setShowQuoteOverlay(true);
                   }}
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
