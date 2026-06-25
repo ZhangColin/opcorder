@@ -167,17 +167,17 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
 
   /* 从交付列表跳转时：自动展开目标交付并滚动到该卡片 */
   useEffect(() => {
-    if (!initialDelivId || deliverables.length === 0) return;
+    if (!initialDelivId || deliverables.length === 0 || activeTab !== "delivery") return;
     const el = document.getElementById(`admin-delivery-${initialDelivId}`);
     if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
-  }, [deliverables.length, initialDelivId]);
+  }, [deliverables.length, initialDelivId, activeTab]);
 
   /* 从工单列表跳转时：自动展开目标工单并滚动到该卡片 */
   useEffect(() => {
-    if (!initialTicketId || tickets.length === 0) return;
+    if (!initialTicketId || tickets.length === 0 || activeTab !== "ticket") return;
     const el = document.getElementById(`admin-ticket-${initialTicketId}`);
     if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
-  }, [tickets.length, initialTicketId]);
+  }, [tickets.length, initialTicketId, activeTab]);
 
   /* Upload contract PDF */
   const [showUploadContract, setShowUploadContract] = useState(false);
