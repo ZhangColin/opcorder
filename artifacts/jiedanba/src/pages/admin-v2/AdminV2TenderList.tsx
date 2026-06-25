@@ -16,6 +16,8 @@ interface Tender {
   totalPrice: number | null;
   quotedAt: string | null;
   selectedAt: string | null;
+  lastOpcActivityAt: string | null;
+  lastAdminActivityAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,7 +104,7 @@ export default function AdminV2TenderList() {
             {items.map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               const highlight = t.status === "quoted";
-              const unread = hasUnreadSinceCreation("tender", t.id, t.updatedAt, t.createdAt);
+              const unread = hasUnreadSinceCreation("tender", t.id, t.lastOpcActivityAt, t.createdAt);
               const go = () => {
                 markRead("tender", t.id);
                 const target = `/admin/v2/outsource-demands/${t.outsourceDemandId}?tab=tenders&tenderId=${t.id}`;

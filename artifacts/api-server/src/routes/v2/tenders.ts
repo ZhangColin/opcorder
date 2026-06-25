@@ -44,6 +44,8 @@ router.get("/tenders", requireAuth, async (req: Request, res: Response) => {
         priceBreakdown: v2TendersTable.priceBreakdown,
         quotedAt: v2TendersTable.quotedAt,
         selectedAt: v2TendersTable.selectedAt,
+        lastOpcActivityAt: v2TendersTable.lastOpcActivityAt,
+        lastAdminActivityAt: v2TendersTable.lastAdminActivityAt,
         createdAt: v2TendersTable.createdAt,
         updatedAt: v2TendersTable.updatedAt,
       })
@@ -159,6 +161,7 @@ router.post("/tenders/:id/submit-quote", requireAuth, async (req: Request, res: 
         totalPrice,
         priceBreakdown: priceBreakdown ?? [],
         quotedAt: new Date(),
+        lastOpcActivityAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(v2TendersTable.id, id))

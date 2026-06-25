@@ -2150,5 +2150,12 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 035b: added missing v2 notification types to notification_type enum");
   });
 
+  // Migration 035c: add last_opc_activity_at and last_admin_activity_at to v2_tenders
+  await once("035c", true, async () => {
+    await db.execute(sql`ALTER TABLE v2_tenders ADD COLUMN IF NOT EXISTS last_opc_activity_at TIMESTAMP`);
+    await db.execute(sql`ALTER TABLE v2_tenders ADD COLUMN IF NOT EXISTS last_admin_activity_at TIMESTAMP`);
+    logger.info("Migration 035c: added last_opc_activity_at and last_admin_activity_at to v2_tenders");
+  });
+
   logger.info("Startup data migrations complete.");
 }

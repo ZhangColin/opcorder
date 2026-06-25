@@ -25,6 +25,8 @@ interface TenderItem {
   selectedAt: string | null;
   cancelledReason: string | null;
   demandUpdatedAt: string | null;
+  lastOpcActivityAt: string | null;
+  lastAdminActivityAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,8 +85,8 @@ export default function OpcV2TenderList() {
   const filtered = statusFilter === "all" ? sourceFiltered : sourceFiltered.filter(t => t.status === statusFilter);
 
   const sorted = [...filtered].sort((a, b) =>
-    (hasUnreadSinceCreation("tender", b.id, b.updatedAt, b.createdAt) ? 1 : 0) -
-    (hasUnreadSinceCreation("tender", a.id, a.updatedAt, a.createdAt) ? 1 : 0)
+    (hasUnreadSinceCreation("tender", b.id, b.lastAdminActivityAt, b.createdAt) ? 1 : 0) -
+    (hasUnreadSinceCreation("tender", a.id, a.lastAdminActivityAt, a.createdAt) ? 1 : 0)
   );
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
@@ -165,7 +167,7 @@ export default function OpcV2TenderList() {
               {paged.map(tender => {
                 const cfg = STATUS_CONFIG[tender.status] ?? { label: tender.status, color: "bg-slate-100 text-slate-500" };
                 const isInvited = tender.demandMode === "invited";
-                const hasNew = hasUnreadSinceCreation("tender", tender.id, tender.updatedAt, tender.createdAt);
+                const hasNew = hasUnreadSinceCreation("tender", tender.id, tender.lastAdminActivityAt, tender.createdAt);
                 return (
                   <button key={tender.id} onClick={() => navigate(`/opc/tenders/${tender.id}`)}
                     className="w-full text-left bg-card rounded-2xl border border-border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">

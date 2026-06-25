@@ -93,7 +93,10 @@ router.post("/discussions", requireAuth, async (req: Request, res: Response) => 
     } else if (parentType === "outsource_demand") {
       await db.update(v2OutsourceDemandsTable).set({ updatedAt: new Date() }).where(eq(v2OutsourceDemandsTable.id, parentId));
     } else if (parentType === "v2_tender") {
-      await db.update(v2TendersTable).set({ updatedAt: new Date() }).where(eq(v2TendersTable.id, parentId));
+      const activityField = role === "opc"
+        ? { lastOpcActivityAt: new Date() }
+        : { lastAdminActivityAt: new Date() };
+      await db.update(v2TendersTable).set(activityField).where(eq(v2TendersTable.id, parentId));
       if (role === "opc") {
         const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
         for (const admin of admins) {

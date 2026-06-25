@@ -23,6 +23,8 @@ export const v2TendersTable = pgTable("v2_tenders", {
   selectedBy: integer("selected_by").references(() => usersTable.id),
   selectedAt: timestamp("selected_at"),
   cancelledReason: text("cancelled_reason"),
+  lastOpcActivityAt: timestamp("last_opc_activity_at"),
+  lastAdminActivityAt: timestamp("last_admin_activity_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
