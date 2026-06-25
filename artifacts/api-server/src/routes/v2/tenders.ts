@@ -24,6 +24,9 @@ router.get("/tenders", requireAuth, async (req: Request, res: Response) => {
     if (role === "opc") conditions.push(eq(v2TendersTable.opcId, userId));
     else if (role === "publisher") return res.status(403).json({ error: "发单方无权查看投标" });
 
+    // OPC 不应看到草稿状态需求的投标记录
+    if (role === "opc") conditions.push(ne(v2OutsourceDemandsTable.status, "draft"));
+
     const rows = await db
       .select({
         id: v2TendersTable.id,
@@ -42,7 +45,7 @@ router.get("/tenders", requireAuth, async (req: Request, res: Response) => {
         updatedAt: v2TendersTable.updatedAt,
       })
       .from(v2TendersTable)
-      .leftJoin(v2OutsourceDemandsTable, eq(v2TendersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
+      .innerJoin(v2OutsourceDemandsTable, eq(v2TendersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
       .leftJoin(usersTable, eq(v2TendersTable.opcId, usersTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(v2TendersTable.createdAt));

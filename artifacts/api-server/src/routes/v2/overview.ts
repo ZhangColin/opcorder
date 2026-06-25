@@ -4,7 +4,7 @@ import {
   v2ContractsTable, v2TendersTable, v2PaymentPlansTable, v2SettlementPlansTable,
   v2TicketsATable, v2TicketsBTable, usersTable,
 } from "@workspace/db";
-import { eq, and, count, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, count, desc, sql, inArray, ne } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { logger } from "../../lib/logger";
 
@@ -277,10 +277,12 @@ router.get("/overview/opc", requireAuth, async (req: Request, res: Response) => 
 
     const [tenderStats] = await db.select({
       total: count(),
-      won: sql<number>`count(*) filter (where status = 'won')`.mapWith(Number),
-      lost: sql<number>`count(*) filter (where status = 'lost')`.mapWith(Number),
-      active: sql<number>`count(*) filter (where status in ('negotiating', 'quoted'))`.mapWith(Number),
-    }).from(v2TendersTable).where(eq(v2TendersTable.opcId, opcId));
+      won: sql<number>`count(*) filter (where ${v2TendersTable.status} = 'won')`.mapWith(Number),
+      lost: sql<number>`count(*) filter (where ${v2TendersTable.status} = 'lost')`.mapWith(Number),
+      active: sql<number>`count(*) filter (where ${v2TendersTable.status} in ('negotiating', 'quoted'))`.mapWith(Number),
+    }).from(v2TendersTable)
+      .innerJoin(v2OutsourceDemandsTable, eq(v2TendersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
+      .where(and(eq(v2TendersTable.opcId, opcId), ne(v2OutsourceDemandsTable.status, "draft")));
 
     const [orderStats] = await db.select({
       total: count(),
