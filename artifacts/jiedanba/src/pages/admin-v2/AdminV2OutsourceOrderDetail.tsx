@@ -329,6 +329,12 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
     (updated) => setDeliverables(prev => prev.map(d => d.id === delivId ? { ...d, ...updated } : d))
   );
 
+  const handleCloseTicket = (ticketId: number) => act(
+    () => v2Post<TicketB>(`/tickets-b/${ticketId}/close`, {}),
+    "工单已关闭",
+    (updated) => setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, ...updated } : t))
+  );
+
   /* ── 合同操作 ── */
   const handleCreateContract = async () => {
     setContractActing(true);
@@ -1122,12 +1128,15 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                     }`}>
                       {t.status === "open" ? "开放中" : "已关闭"}
                     </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); inlineNav ? inlineNav.push(`/admin/v2/tickets-b/${t.id}`) : navigate(`/admin/v2/tickets-b/${t.id}`); }}
-                      className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:border-primary hover:text-primary transition-colors shrink-0"
-                    >
-                      详情
-                    </button>
+                    {t.status === "open" && (
+                      <button
+                        onClick={e => { e.stopPropagation(); handleCloseTicket(t.id); }}
+                        disabled={acting}
+                        className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-50"
+                      >
+                        关闭工单
+                      </button>
+                    )}
                     {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
                   </div>
                   {isExpanded && (
