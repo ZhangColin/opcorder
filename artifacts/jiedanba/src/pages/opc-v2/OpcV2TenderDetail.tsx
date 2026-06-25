@@ -179,6 +179,7 @@ export default function OpcV2TenderDetail() {
   const [quoteConfig, setQuoteConfig] = useState<QuoteCategoryConfig | null>(null);
   const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
   const [quoteNote, setQuoteNote] = useState("");
+  const [restoreFromBreakdown, setRestoreFromBreakdown] = useState(false);
 
   const baseDims = quoteConfig?.base ?? [];
   const adjustDims = quoteConfig?.adjustment ?? [];
@@ -215,6 +216,45 @@ export default function OpcV2TenderDetail() {
       .catch(() => setQuoteConfig(null))
       .finally(() => setQuoteConfigLoading(false));
   }, [showQuoteOverlay, demand?.demandType]);
+
+  /* 更新报价时，从已有 breakdown 反推选项回填报价卡 */
+  useEffect(() => {
+    if (!restoreFromBreakdown || !quoteConfig || !tender?.priceBreakdown?.length) return;
+    setRestoreFromBreakdown(false);
+    const bd = tender.priceBreakdown;
+
+    /* quoteNote */
+    const noteItem = bd.find(b => b.item === "备注");
+    if (noteItem?.note) setQuoteNote(noteItem.note);
+
+    /* adjustmentPercent */
+    const adjItem = bd.find(b => b.item.startsWith("综合调整"));
+    if (adjItem) {
+      const m = adjItem.item.match(/([+-]?\d+)%/);
+      if (m) setAdjustmentPercent(parseInt(m[1], 10));
+    }
+
+    /* maintenancePackage */
+    const maintDimTiers = (quoteConfig.optional ?? []).find(d => d.code === "MAINT")?.tiers ?? [];
+    const maintItem = bd.find(b => b.item.startsWith("维护包"));
+    if (maintItem) {
+      const matched = maintDimTiers.find(t => maintItem.item.includes(t.tierLabel));
+      if (matched) setMaintenancePackage(matched.tier);
+    }
+
+    /* quoteSelections — 用 label（tierLabel）匹配 */
+    const allDims = [...(quoteConfig.base ?? []), ...(quoteConfig.adjustment ?? [])];
+    const selections: Record<string, string> = {};
+    for (const dim of allDims) {
+      for (const tier of dim.tiers) {
+        if (bd.some(b => b.item === `${dim.label}（${tier.tierLabel}）`)) {
+          selections[dim.code] = tier.tier;
+          break;
+        }
+      }
+    }
+    setQuoteSelections(selections);
+  }, [restoreFromBreakdown, quoteConfig, tender?.priceBreakdown]);
 
   function addBreakdownItem() {
     setBreakdown(prev => [...prev, { item: "", amount: 0, note: "" }]);
@@ -524,6 +564,7 @@ export default function OpcV2TenderDetail() {
                   onClick={() => {
                     const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
                     if (category) {
+                      if (tender.totalPrice) setRestoreFromBreakdown(true);
                       setShowQuoteOverlay(true);
                     } else {
                       if (tender.totalPrice) {
