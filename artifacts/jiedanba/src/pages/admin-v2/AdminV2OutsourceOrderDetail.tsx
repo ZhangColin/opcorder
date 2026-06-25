@@ -7,6 +7,7 @@ import {
   Paperclip, Plus, Edit2, Send, DollarSign, FileText, Flag, Calendar,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -696,16 +697,8 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                   defaultOpen={false}
                 >
                   {hasBreakdown && (
-                    <div className="mt-3 space-y-1">
-                      {tender.priceBreakdown!.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
-                          <div>
-                            <span className="text-sm text-slate-700 font-medium">{item.item}</span>
-                            {item.note && <span className="ml-2 text-xs text-slate-400">{item.note}</span>}
-                          </div>
-                          <span className="text-sm font-bold text-slate-800">¥{item.amount.toLocaleString()}</span>
-                        </div>
-                      ))}
+                    <div className="mt-2">
+                      <BreakdownDisplay bd={tender.priceBreakdown!} totalPrice={tender.totalPrice} />
                     </div>
                   )}
                 </Section>

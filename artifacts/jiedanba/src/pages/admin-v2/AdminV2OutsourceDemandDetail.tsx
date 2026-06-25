@@ -8,6 +8,7 @@ import {
   DollarSign, MessageSquare, Users,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { useDemandTypeLabel } from "@/lib/catCategories";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -617,14 +618,7 @@ export default function AdminV2OutsourceDemandDetail({
                           {t.priceBreakdown && t.priceBreakdown.length > 0 && (
                             <div className="px-4 py-3 border-b border-slate-50">
                               <p className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1"><DollarSign size={11} />报价明细</p>
-                              <div className="space-y-1">
-                                {t.priceBreakdown.map((item, i) => (
-                                  <div key={i} className="flex items-center justify-between text-sm">
-                                    <span className="text-slate-600">{item.item}</span>
-                                    <span className="font-semibold text-slate-800">¥{item.amount.toLocaleString()}</span>
-                                  </div>
-                                ))}
-                              </div>
+                              <BreakdownDisplay bd={t.priceBreakdown} totalPrice={t.totalPrice} />
                             </div>
                           )}
 

@@ -9,6 +9,7 @@ import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
@@ -968,19 +969,7 @@ export default function PubDemandDetail() {
                 <p className="text-2xl font-black text-green-600">¥{quotation.totalPrice.toLocaleString()}</p>
                 <span className="text-xs text-slate-400">由 {quotation.createdByNickname ?? "运营方"} 出具</span>
               </div>
-              {quotation.breakdown?.length > 0 && (
-                <div className="space-y-2 mb-4">
-                  {quotation.breakdown.map((b, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-slate-600">{b.item}{b.note && <span className="text-slate-400 text-xs"> · {b.note}</span>}</span>
-                      <span className="font-bold text-slate-800">¥{b.amount.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {quotation.note && (
-                <p className="text-xs text-slate-500 mb-4 p-3 bg-slate-50 rounded-xl">{quotation.note}</p>
-              )}
+              <BreakdownDisplay bd={quotation.breakdown ?? []} note={quotation.note} totalPrice={quotation.totalPrice} />
               {canConfirmQuote && (
                 <div className="flex gap-3">
                   <button

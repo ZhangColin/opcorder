@@ -3,6 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { Loader2, X, CheckCircle2, DollarSign, Clock } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -169,14 +170,7 @@ export default function AdminV2TenderDetail({ inlineId }: { inlineId?: number } 
           {tender.priceBreakdown && tender.priceBreakdown.length > 0 && (
             <div className="mt-4 border-t border-slate-100 pt-4">
               <h4 className="text-xs font-bold text-slate-500 mb-2">报价明细</h4>
-              <div className="space-y-1">
-                {tender.priceBreakdown.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">{item.item}</span>
-                    <span className="font-semibold text-slate-800">¥{item.amount.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
+              <BreakdownDisplay bd={tender.priceBreakdown} totalPrice={tender.totalPrice} />
             </div>
           )}
         </div>

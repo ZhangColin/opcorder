@@ -5,6 +5,7 @@ import {
   Clock, DollarSign, ChevronDown, ChevronUp, Zap, Calendar, Receipt,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { useToast } from "@/hooks/use-toast";
@@ -260,21 +261,7 @@ export default function PubContractDetail() {
             <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
               <Receipt size={14} className="text-slate-400" /> 报价
             </h3>
-            <div className="space-y-1.5 mb-3">
-              {quote.breakdown.map((b, i) => (
-                <div key={i} className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">{b.item}</span>
-                  <span className="font-semibold text-slate-700">¥{Number(b.amount).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
-              <span className="text-sm font-bold text-slate-700">合计</span>
-              <span className="text-lg font-extrabold text-primary">¥{Number(quote.totalPrice).toLocaleString()}</span>
-            </div>
-            {quote.note && (
-              <p className="text-xs text-slate-400 mt-2">{quote.note}</p>
-            )}
+            <BreakdownDisplay bd={quote.breakdown} note={quote.note} totalPrice={Number(quote.totalPrice)} />
           </div>
         )}
 

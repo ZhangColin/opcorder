@@ -14,6 +14,7 @@ import { markRead } from "@/lib/demandRead";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { OpcV2Layout } from "./OpcV2Layout";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 
 interface PriceBreakdownItem {
   item: string;
@@ -592,20 +593,10 @@ export default function OpcV2TenderDetail() {
             </div>
 
             {tender.priceBreakdown && tender.priceBreakdown.length > 0 ? (
-              <div className="px-5 py-4 space-y-2">
-                {tender.priceBreakdown.map((row, i) => (
-                  <div key={i} className="flex items-start justify-between text-sm">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-foreground">{row.item}</span>
-                      {row.note && <p className="text-xs text-muted-foreground mt-0.5">{row.note}</p>}
-                    </div>
-                    {row.amount !== 0 && (
-                      <span className="font-semibold text-foreground ml-4 shrink-0">¥{row.amount.toLocaleString()}</span>
-                    )}
-                  </div>
-                ))}
+              <div className="px-5 py-4">
+                <BreakdownDisplay bd={tender.priceBreakdown} totalPrice={tender.totalPrice ?? undefined} quoteConfig={quoteConfig} />
                 {tender.quotedAt && (
-                  <p className="text-xs text-muted-foreground pt-1">提交于 {new Date(tender.quotedAt).toLocaleDateString("zh-CN")}</p>
+                  <p className="text-xs text-muted-foreground">提交于 {new Date(tender.quotedAt).toLocaleDateString("zh-CN")}</p>
                 )}
               </div>
             ) : canSubmitQuote && !showForm ? (

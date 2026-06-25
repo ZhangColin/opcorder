@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { OpcV2Layout } from "./OpcV2Layout";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 
 /* ── Types ── */
 interface OrderDetail {
@@ -644,23 +645,7 @@ export default function OpcV2OrderDetail() {
               <CardSection title="我的报价" icon={DollarSign}>
                 <div className="space-y-2">
                   {tender.priceBreakdown && tender.priceBreakdown.length > 0 ? (
-                    <>
-                      <div className="space-y-1">
-                        {tender.priceBreakdown.map((row, i) => (
-                          <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-border last:border-0">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-foreground">{row.item}</p>
-                              {row.note && <p className="text-xs text-muted-foreground mt-0.5">{row.note}</p>}
-                            </div>
-                            <p className="text-sm font-bold text-foreground shrink-0">¥{row.amount.toLocaleString()}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">报价总额</span>
-                        <span className="text-lg font-black text-primary">¥{tender.totalPrice?.toLocaleString() ?? "-"}</span>
-                      </div>
-                    </>
+                    <BreakdownDisplay bd={tender.priceBreakdown} totalPrice={tender.totalPrice ?? undefined} />
                   ) : (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">报价总额</span>

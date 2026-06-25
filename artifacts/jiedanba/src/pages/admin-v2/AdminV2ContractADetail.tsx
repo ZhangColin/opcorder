@@ -5,6 +5,7 @@ import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
 
@@ -339,21 +340,7 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
               </div>
 
               {latest.breakdown.length > 0 && (
-                <div className="space-y-1.5 mb-3">
-                  {latest.breakdown.map((b, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm border-b border-slate-50 pb-1.5 last:border-0">
-                      <div>
-                        <span className="text-slate-700">{b.item}</span>
-                        {b.note && <span className="text-xs text-slate-400 ml-2">{b.note}</span>}
-                      </div>
-                      <span className="font-semibold text-slate-800">¥{Number(b.amount).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {latest.note && (
-                <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2">{latest.note}</p>
+                <BreakdownDisplay bd={latest.breakdown} note={latest.note} totalPrice={Number(latest.totalPrice)} />
               )}
 
               {quotes.length > 1 && (
