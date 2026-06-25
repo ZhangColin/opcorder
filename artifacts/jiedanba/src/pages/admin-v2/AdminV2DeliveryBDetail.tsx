@@ -170,7 +170,7 @@ export default function AdminV2DeliveryBDetail({ inlineId }: { inlineId?: number
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-sm font-bold text-slate-700 mb-4">沟通记录</h3>
-          <DiscussionThread parentType="deliverable_b" parentId={id} placeholder="回复 OPC…" readOnly={delivery.status === "approved"} />
+          <DiscussionThread parentType="deliverable_b" parentId={id} placeholder="回复 OPC…" readOnly={delivery.status === "approved" || delivery.status === "revision"} />
         </div>
       </div>
 

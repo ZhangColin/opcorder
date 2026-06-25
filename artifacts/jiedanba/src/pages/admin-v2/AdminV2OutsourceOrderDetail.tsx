@@ -1071,6 +1071,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                           parentType="deliverable_b"
                           parentId={d.id}
                           placeholder="与OPC沟通此交付物…"
+                          readOnly={d.status === "approved" || d.status === "revision"}
                         />
                       </div>
                     </div>
