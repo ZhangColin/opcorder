@@ -505,7 +505,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
       setLoading(false);
       abortRef.current = null;
     }
-  }, [loading, sessionKey, conversationId, demandId]);
+  }, [loading, sessionKey, conversationId, demandId, agentMode, existingDemandData]);
 
   const sendMessage = useCallback(() => {
     const text = input.trim();
@@ -519,7 +519,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
 
   const handleClear = () => {
     if (loading) { abortRef.current?.abort(); setLoading(false); }
-    setMessages([WELCOME_MESSAGE]);
+    setMessages([welcomeMessage]);
     setConversationId(null);
   };
 
@@ -635,8 +635,8 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
                   </div>
                 )}
 
-                {/* Option choices — only on last assistant message, when not loading */}
-                {isLastAssistant && msg.optionChoices && !loading && (
+                {/* Option choices — only on last assistant message, when not streaming */}
+                {isLastAssistant && msg.optionChoices && !msg.isStreaming && (
                   <OptionChoicesCard
                     choices={msg.optionChoices}
                     onSelect={(text) => sendMessageText(text)}
