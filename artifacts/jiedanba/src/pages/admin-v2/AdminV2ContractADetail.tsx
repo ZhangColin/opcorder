@@ -6,6 +6,7 @@ import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
+import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
 
@@ -536,11 +537,14 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
             </div>
             <div className="space-y-3">
               <p className="text-xs text-slate-500">上传双方签署后的合同文件，上传后需求状态将进入执行中。</p>
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.jpg,.jpeg,.png" onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-slate-600" />
-                {selectedFile && <p className="mt-2 text-xs text-slate-500">已选：{selectedFile.name}</p>}
-              </div>
+              <FilePickerZone
+                variant="zone"
+                file={selectedFile}
+                onChange={setSelectedFile}
+                onClear={() => setSelectedFile(null)}
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.jpg,.jpeg,.png"
+                hint="支持 PDF、Word、Excel、图片、Markdown"
+              />
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowUploadModal(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
                 <button onClick={handleUploadSigned} disabled={uploadingFile || !selectedFile}

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
+import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { useDemandTypeLabel } from "@/lib/catCategories";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -384,16 +385,13 @@ export default function AdminV2OutsourceDemandDetail({
                   <div className="space-y-3">
                     <MarkdownEditor key={`detail-edit-${id}`} value={editDetail} onChange={setEditDetail} placeholder="输入需求详情，支持 Markdown 富文本…" />
                     <div className="flex items-center gap-3 flex-wrap">
-                      <label className="flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:underline">
-                        {editUploading ? <Loader2 size={12} className="animate-spin" /> : "+ 添加附件"}
-                        <input type="file" className="hidden" onChange={handleEditFileUpload} disabled={editUploading} />
-                      </label>
-                      {editAttachments.map((a, i) => (
-                        <div key={i} className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
-                          {a.name}
-                          <button onClick={() => setEditAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500 ml-1">✕</button>
-                        </div>
-                      ))}
+                      <FilePickerZone
+                        variant="inline"
+                        uploading={editUploading}
+                        onChange={f => handleEditFileUpload({ target: { files: [f] } } as any)}
+                        files={editAttachments}
+                        onRemove={i => setEditAttachments(prev => prev.filter((_, j) => j !== i))}
+                      />
                     </div>
                     <input value={editComment} onChange={e => setEditComment(e.target.value)} placeholder="更新说明（可选，将通知相关OPC）"
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />

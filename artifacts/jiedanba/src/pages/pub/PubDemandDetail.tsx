@@ -10,6 +10,7 @@ import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
+import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
@@ -797,16 +798,13 @@ export default function PubDemandDetail() {
               <div className="space-y-3">
                 <MarkdownEditor value={editDetail} onChange={setEditDetail} placeholder="更新您的需求详情…" />
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:underline">
-                    {editUploading ? <Loader2 size={12} className="animate-spin" /> : "+ 添加附件"}
-                    <input type="file" className="hidden" onChange={handleEditFileUpload} disabled={editUploading} />
-                  </label>
-                  {editAttachments.map((a, i) => (
-                    <div key={i} className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 rounded px-2 py-1">
-                      {a.name}
-                      <button onClick={() => setEditAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500">✕</button>
-                    </div>
-                  ))}
+                  <FilePickerZone
+                    variant="inline"
+                    uploading={editUploading}
+                    onChange={f => handleEditFileUpload({ target: { files: [f] } } as any)}
+                    files={editAttachments}
+                    onRemove={i => setEditAttachments(prev => prev.filter((_, j) => j !== i))}
+                  />
                 </div>
                 <input
                   value={editComment}
@@ -1320,10 +1318,14 @@ export default function PubDemandDetail() {
               />
               {/* Attachment upload */}
               <div>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-primary w-fit">
-                  <input type="file" multiple className="hidden" onChange={handleTicketFileUpload} disabled={ticketUploading} />
-                  <Plus size={12} /> {ticketUploading ? "上传中…" : "添加附件"}
-                </label>
+                <FilePickerZone
+                  variant="inline"
+                  uploading={ticketUploading}
+                  multiple
+                  onChange={f => handleTicketFileUpload({ target: { files: [f] } } as any)}
+                  files={ticketAttachments}
+                  onRemove={i => setTicketAttachments(prev => prev.filter((_, j) => j !== i))}
+                />
                 {ticketAttachments.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {ticketAttachments.map((a, i) => (

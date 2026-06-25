@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
+import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -1177,11 +1178,14 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
         <Modal title="上传合同文件" onClose={() => setShowUploadContract(false)}>
           <div className="space-y-3">
             <p className="text-xs text-slate-500">上传后将通知OPC确认签署。</p>
-            <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center">
-              <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.jpg,.jpeg,.png" onChange={e => setContractFile(e.target.files?.[0] ?? null)}
-                className="w-full text-sm text-slate-600" />
-              {contractFile && <p className="mt-2 text-xs text-slate-500">已选：{contractFile.name}</p>}
-            </div>
+            <FilePickerZone
+              variant="zone"
+              file={contractFile}
+              onChange={setContractFile}
+              onClear={() => setContractFile(null)}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.md,.jpg,.jpeg,.png"
+              hint="支持 PDF、Word、Excel、图片、Markdown"
+            />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowUploadContract(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600">取消</button>
               <button onClick={handleUploadContract} disabled={uploadingContract || !contractFile}

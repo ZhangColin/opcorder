@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
+import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -995,16 +996,13 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                 placeholder="编辑需求详情，支持 Markdown 富文本…"
               />
               <div className="flex items-center gap-3 flex-wrap">
-                <label className="flex items-center gap-1.5 text-xs text-primary cursor-pointer hover:underline">
-                  {editUploading ? <Loader2 size={12} className="animate-spin" /> : "+ 添加附件"}
-                  <input type="file" className="hidden" onChange={handleEditFileUpload} disabled={editUploading} />
-                </label>
-                {editAttachments.map((a, i) => (
-                  <div key={i} className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
-                    {a.name}
-                    <button onClick={() => setEditAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500 ml-1">✕</button>
-                  </div>
-                ))}
+                <FilePickerZone
+                  variant="inline"
+                  uploading={editUploading}
+                  onChange={f => handleEditFileUpload({ target: { files: [f] } } as any)}
+                  files={editAttachments}
+                  onRemove={i => setEditAttachments(prev => prev.filter((_, j) => j !== i))}
+                />
               </div>
               <div>
                 <input
@@ -1169,13 +1167,13 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                   {contractUploadOpen && (
                     <div className="border border-green-200 rounded-xl p-3 bg-green-50 space-y-2">
                       <p className="text-xs font-bold text-green-700">上传已签约合同文件</p>
-                      <input
-                        type="file"
+                      <FilePickerZone
+                        variant="button"
+                        file={contractUploadFile}
+                        onChange={setContractUploadFile}
+                        onClear={() => setContractUploadFile(null)}
                         accept=".pdf,.doc,.docx,.docm,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.md,.markdown"
-                        onChange={e => setContractUploadFile(e.target.files?.[0] ?? null)}
-                        className="text-xs text-slate-600"
                       />
-                      {contractUploadFile && <p className="text-xs text-green-600">已选：{contractUploadFile.name}</p>}
                       <div className="flex gap-2 justify-end">
                         <button onClick={() => { setContractUploadOpen(false); setContractUploadFile(null); }} className="text-xs px-3 py-1.5 rounded-lg border border-green-200 hover:bg-green-100">取消</button>
                         <button
@@ -1400,16 +1398,13 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                   <div>
                     <label className="text-xs font-bold text-slate-600 mb-1 block">附件</label>
                     <div className="flex flex-wrap gap-2 items-center">
-                      <label className="flex items-center gap-1 text-xs text-teal-700 cursor-pointer hover:underline">
-                        {delivAttachUploading ? <Loader2 size={12} className="animate-spin" /> : <><Paperclip size={12} /> 上传附件</>}
-                        <input type="file" className="hidden" onChange={handleDelivAttachUpload} disabled={delivAttachUploading} />
-                      </label>
-                      {delivAttachments.map((a, i) => (
-                        <div key={i} className="flex items-center gap-1 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                          {a.name}
-                          <button onClick={() => setDelivAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500 ml-1">✕</button>
-                        </div>
-                      ))}
+                      <FilePickerZone
+                        variant="inline"
+                        uploading={delivAttachUploading}
+                        onChange={f => handleDelivAttachUpload({ target: { files: [f] } } as any)}
+                        files={delivAttachments}
+                        onRemove={i => setDelivAttachments(prev => prev.filter((_, j) => j !== i))}
+                      />
                     </div>
                   </div>
                   <div className="flex gap-2 justify-end">
@@ -1540,16 +1535,13 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                           <div>
                             <label className="text-xs font-bold text-slate-600 mb-1 block">附件</label>
                             <div className="flex flex-wrap gap-2 items-center">
-                              <label className="flex items-center gap-1 text-xs text-amber-700 cursor-pointer hover:underline">
-                                {resubmitAttachUploading ? <Loader2 size={12} className="animate-spin" /> : <><Paperclip size={12} /> 上传附件</>}
-                                <input type="file" className="hidden" onChange={handleResubmitAttachUpload} disabled={resubmitAttachUploading} />
-                              </label>
-                              {resubmitAttachments.map((a, i) => (
-                                <div key={i} className="flex items-center gap-1 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                                  {a.name}
-                                  <button onClick={() => setResubmitAttachments(prev => prev.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500 ml-1">✕</button>
-                                </div>
-                              ))}
+                              <FilePickerZone
+                                variant="inline"
+                                uploading={resubmitAttachUploading}
+                                onChange={f => handleResubmitAttachUpload({ target: { files: [f] } } as any)}
+                                files={resubmitAttachments}
+                                onRemove={i => setResubmitAttachments(prev => prev.filter((_, j) => j !== i))}
+                              />
                             </div>
                           </div>
                           <div className="flex gap-2 justify-end">
