@@ -469,7 +469,12 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 重点了解：背景与目标、具体内容/功能、目标受众、期望效果
 - 参考模板的各章节框架逐步引导，但以自然对话方式提问
 - 答案够用了就推进，不要反复追问同一件事
-- 提供选项时在消息末尾用 option_choices_json 格式
+- **【强制要求】每次提问，消息末尾必须输出 option_choices_json，给出 3-5 个可选答案（最后一项始终为"其他，我来说明"），让用户点选而非手动输入**
+
+例：
+> 这个培训主要面向哪类人群？
+>
+> option_choices_json:{"q":"目标人群","opts":["企业全员","管理层/中层","销售/市场团队","技术/研发团队","其他，我来说明"],"multi":false}
 
 ### 第三阶段：整理需求文档
 把对话内容整理成一份 Markdown 格式的需求文档，按照模板的章节结构组织：
@@ -479,8 +484,8 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 向用户简要确认需求文档要点（不要把Markdown原文输出给用户）。
 
 ### 第四阶段：确认预算和交付时间
-1. 调用 \`estimate_budget\` 给出参考预算区间，询问用户预算
-2. 询问希望什么时候完成交付（大概日期即可）
+1. 调用 \`estimate_budget\` 给出参考预算区间，询问用户预算（**必须附 option_choices_json 预算选项**）
+2. 询问希望什么时候完成交付（**必须附 option_choices_json 时间选项**）
 3. 输出 form_suggestion_json
 
 ---
@@ -524,7 +529,7 @@ doc_update_json:{"description":"完整的Markdown需求文档正文（已根据�
 - 正文中绝对不出现任何 JSON 或代码块
 - 所有 JSON 标记只在消息最末尾以标记格式输出
 
-<!-- prompt-version: 2.0 -->`;
+<!-- prompt-version: 2.1 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -535,12 +540,12 @@ doc_update_json:{"description":"完整的Markdown需求文档正文（已根据�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.0")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.1")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.0");
+      logger.info("Updated v2_demand_analysis agent config to v2.1");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
