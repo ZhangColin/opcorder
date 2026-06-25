@@ -109,8 +109,8 @@ export default function AdminV2OutsourceDemandNew() {
   const [splitClientDemand, setSplitClientDemand] = useState<{ id: number; title: string; detail?: string | null } | null>(null);
 
   useEffect(() => {
-    v2Get<{ items: ClientDemand[] }>("/client-demands?limit=100&status=executing")
-      .then(d => setClientDemands(d.items ?? []))
+    v2Get<{ items: ClientDemand[] }>("/client-demands?limit=200")
+      .then(d => setClientDemands((d.items ?? []).filter(c => c.status !== "completed" && c.status !== "closed")))
       .catch(() => setClientDemands([]))
       .finally(() => setLoadingDemands(false));
     fetch(`${STORAGE_BASE}/api/cat-categories`)
