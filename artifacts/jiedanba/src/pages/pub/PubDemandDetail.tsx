@@ -766,35 +766,30 @@ export default function PubDemandDetail() {
         {activeTab === "needs" && <>
 
         {/* ── Demand detail section ── */}
-        <Section title="需求详情" icon={FileText}>
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                {demand.latestVersion && (
-                  <span className="text-xs text-slate-400">版本 v{demand.latestVersion.versionNo}</span>
-                )}
-                {canEditDetail && !editMode && (
-                  <button
-                    onClick={() => {
-                      setEditDetail(demand.latestVersion?.detail ?? "");
-                      setEditAttachments(demand.latestVersion?.attachments ?? []);
-                      setEditMode(true);
-                    }}
-                    className="flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
-                    <Edit2 size={11} /> 编辑
-                  </button>
-                )}
-              </div>
-              {demand.latestVersion && (
+        <Section title="需求详情" icon={FileText} headerRight={demand.latestVersion ? (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-400">版本 v{demand.latestVersion.versionNo}</span>
+              {canEditDetail && !editMode && (
                 <button
-                  onClick={loadVersions}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
+                  onClick={() => {
+                    setEditDetail(demand.latestVersion?.detail ?? "");
+                    setEditAttachments(demand.latestVersion?.attachments ?? []);
+                    setEditMode(true);
+                  }}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline"
                 >
-                  <History size={11} /> 历史版本
+                  <Edit2 size={11} /> 编辑
                 </button>
               )}
+              <button
+                onClick={loadVersions}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
+              >
+                <History size={11} /> 历史版本
+              </button>
             </div>
+          ) : undefined}>
+          <div className="mt-4">
 
             {editMode ? (
               <div className="space-y-3">
