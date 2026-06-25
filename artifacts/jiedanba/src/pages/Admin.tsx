@@ -53,6 +53,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 /* ─── API helpers ────────────────────────────────── */
 
@@ -9448,13 +9449,11 @@ function CatCategoryManagement() {
 
   const [tmplCat, setTmplCat] = useState<CatCategory | null>(null);
   const [tmplText, setTmplText] = useState("");
-  const [tmplPreview, setTmplPreview] = useState(false);
   const [tmplSaving, setTmplSaving] = useState(false);
 
   const openTmpl = (cat: CatCategory) => {
     setTmplCat(cat);
     setTmplText(cat.docTemplate ?? "");
-    setTmplPreview(false);
   };
   const closeTmpl = () => { setTmplCat(null); setTmplText(""); };
   const saveTmpl = async () => {
@@ -9532,35 +9531,23 @@ function CatCategoryManagement() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs font-bold">
-                <button onClick={() => setTmplPreview(false)} className={`px-4 py-2 transition-colors ${!tmplPreview ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>编辑</button>
-                <button onClick={() => setTmplPreview(true)} className={`px-4 py-2 transition-colors ${tmplPreview ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>预览</button>
-              </div>
               <button onClick={saveTmpl} disabled={tmplSaving}
                 className="px-5 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-60 transition-colors">
                 {tmplSaving ? "保存中…" : "保存模板"}
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-hidden flex">
-            {!tmplPreview ? (
-              <textarea
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-4xl mx-auto">
+              <MarkdownEditor
                 value={tmplText}
-                onChange={e => setTmplText(e.target.value)}
-                className="w-full h-full resize-none p-6 font-mono text-sm text-slate-800 outline-none leading-relaxed"
-                placeholder="在这里编写 Markdown 格式的需求文档模板…"
-                spellCheck={false}
+                onChange={setTmplText}
+                placeholder="在这里编写需求文档模板…"
               />
-            ) : (
-              <div className="w-full h-full overflow-y-auto p-8">
-                <div className="max-w-3xl mx-auto prose prose-slate prose-sm">
-                  <MarkdownContent content={tmplText} />
-                </div>
-              </div>
-            )}
+            </div>
           </div>
           <div className="flex-shrink-0 px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-            <p className="text-xs text-slate-400">支持 Markdown 语法 · 共 {tmplText.length} 个字符</p>
+            <p className="text-xs text-slate-400">共 {tmplText.length} 个字符</p>
             <p className="text-xs text-slate-400">发单方在提交需求时将看到此模板作为参考</p>
           </div>
         </div>
