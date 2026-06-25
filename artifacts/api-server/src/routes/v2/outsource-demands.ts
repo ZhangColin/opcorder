@@ -282,7 +282,7 @@ router.post("/outsource-demands/:id/add-invited-opc", requireAdmin, async (req: 
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
     if (demand.mode !== "invited") return res.status(400).json({ error: "仅指定邀请模式可追加邀请人" });
-    if (demand.status !== "negotiating") return res.status(400).json({ error: "已选定中标或已签合同，无法再追加邀请人" });
+    if (!["draft", "negotiating"].includes(demand.status)) return res.status(400).json({ error: "已选定中标或已签合同，无法再追加邀请人" });
 
     const [existing] = await db
       .select({ id: v2TendersTable.id })

@@ -236,10 +236,11 @@ export default function AdminV2OutsourceDemandDetail({
   const handleAddInvitedOpc = async (opcId: number) => {
     setInviting(opcId);
     try {
-      await v2Post(`/outsource-demands/${id}/add-invited-opc`, { opcId });
+      const opc = inviteResults.find(o => o.id === opcId);
+      const tender = await v2Post<Tender>(`/outsource-demands/${id}/add-invited-opc`, { opcId });
       toast({ title: "已追加邀请，已发送通知" });
       setInviteResults(prev => prev.filter(o => o.id !== opcId));
-      await load();
+      setTenders(prev => [...prev, { ...tender, opcNickname: opc?.nickname ?? null }]);
     } catch (err: any) { toast({ title: "邀请失败", description: err.message, variant: "destructive" }); }
     finally { setInviting(null); }
   };
