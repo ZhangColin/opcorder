@@ -269,7 +269,7 @@ export default function AdminV2OutsourceDemandDetail({
   const currentDetail = demand.detail ?? demand.latestVersion?.detail ?? null;
   const currentAttachments = demand.latestVersion?.attachments ?? [];
   const quotedTenders = tenders.filter(t => t.status === "quoted");
-  const canInvite = demand.mode === "invited" && demand.status === "negotiating";
+  const canInvite = demand.mode === "invited" && ["draft", "negotiating"].includes(demand.status);
 
   return (
     <AdminV2Layout
