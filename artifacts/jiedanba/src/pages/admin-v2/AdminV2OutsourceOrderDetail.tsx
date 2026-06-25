@@ -164,6 +164,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
   /* Accordion */
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(initialDelivId ?? null);
   const [expandedTicketId, setExpandedTicketId] = useState<number | null>(initialTicketId ?? null);
+  const [confirmCloseTicketId, setConfirmCloseTicketId] = useState<number | null>(null);
 
   /* 从交付列表跳转时：自动展开目标交付并滚动到该卡片 */
   useEffect(() => {
@@ -1129,13 +1130,27 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                       {t.status === "open" ? "开放中" : "已关闭"}
                     </span>
                     {t.status === "open" && (
-                      <button
-                        onClick={e => { e.stopPropagation(); handleCloseTicket(t.id); }}
-                        disabled={acting}
-                        className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-50"
-                      >
-                        关闭工单
-                      </button>
+                      confirmCloseTicketId === t.id ? (
+                        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                          <span className="text-[11px] text-slate-500">确认关闭?</span>
+                          <button
+                            onClick={() => { setConfirmCloseTicketId(null); handleCloseTicket(t.id); }}
+                            disabled={acting}
+                            className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                          >确认</button>
+                          <button
+                            onClick={() => setConfirmCloseTicketId(null)}
+                            className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+                          >取消</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={e => { e.stopPropagation(); setConfirmCloseTicketId(t.id); }}
+                          className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                        >
+                          关闭工单
+                        </button>
+                      )
                     )}
                     {isExpanded ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
                   </div>
