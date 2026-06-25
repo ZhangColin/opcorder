@@ -65,9 +65,9 @@ router.get("/admin/cat-categories", requireAdmin, async (_req: Request, res: Res
 
 router.post("/admin/cat-categories", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { name, description, colorHex, icon, sortOrder, isActive } = req.body as {
+    const { name, description, colorHex, icon, sortOrder, isActive, docTemplate } = req.body as {
       name: string; description?: string; colorHex?: string;
-      icon?: string; sortOrder?: number; isActive?: boolean;
+      icon?: string; sortOrder?: number; isActive?: boolean; docTemplate?: string;
     };
     if (!name?.trim()) {
       return res.status(400).json({ error: "分类名称不能为空" });
@@ -80,6 +80,7 @@ router.post("/admin/cat-categories", requireAdmin, async (req: Request, res: Res
       icon: icon?.trim(),
       sortOrder: sortOrder ?? 0,
       isActive: isActive ?? true,
+      docTemplate: docTemplate?.trim() || null,
     }).returning();
     return res.status(201).json(created);
   } catch (error: any) {
@@ -91,9 +92,9 @@ router.post("/admin/cat-categories", requireAdmin, async (req: Request, res: Res
 router.put("/admin/cat-categories/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, description, colorHex, icon, sortOrder, isActive } = req.body as {
+    const { name, description, colorHex, icon, sortOrder, isActive, docTemplate } = req.body as {
       name?: string; description?: string; colorHex?: string;
-      icon?: string; sortOrder?: number; isActive?: boolean;
+      icon?: string; sortOrder?: number; isActive?: boolean; docTemplate?: string | null;
     };
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name.trim();
@@ -102,6 +103,7 @@ router.put("/admin/cat-categories/:id", requireAdmin, async (req: Request, res: 
     if (icon !== undefined) updateData.icon = icon.trim();
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (docTemplate !== undefined) updateData.docTemplate = docTemplate === null ? null : docTemplate;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: "没有可更新的字段" });

@@ -11,6 +11,7 @@ export const catCategoriesTable = pgTable("cat_categories", {
   icon: varchar("icon", { length: 50 }),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  docTemplate: text("doc_template"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

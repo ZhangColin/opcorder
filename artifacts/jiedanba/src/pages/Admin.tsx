@@ -9420,6 +9420,7 @@ function ScreenVideosModule() {
 interface CatCategory {
   id: number; code: string; name: string; description: string | null;
   colorHex: string | null; icon: string | null; sortOrder: number; isActive: boolean;
+  docTemplate: string | null;
   tags?: CatTag[];
 }
 
@@ -9444,6 +9445,29 @@ function CatCategoryManagement() {
   const [form, setForm] = useState({ ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+
+  const [tmplCat, setTmplCat] = useState<CatCategory | null>(null);
+  const [tmplText, setTmplText] = useState("");
+  const [tmplPreview, setTmplPreview] = useState(false);
+  const [tmplSaving, setTmplSaving] = useState(false);
+
+  const openTmpl = (cat: CatCategory) => {
+    setTmplCat(cat);
+    setTmplText(cat.docTemplate ?? "");
+    setTmplPreview(false);
+  };
+  const closeTmpl = () => { setTmplCat(null); setTmplText(""); };
+  const saveTmpl = async () => {
+    if (!tmplCat || tmplSaving) return;
+    setTmplSaving(true);
+    try {
+      await adminPut(`/api/admin/cat-categories/${tmplCat.id}`, { docTemplate: tmplText });
+      await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      toast({ title: "模板已保存" });
+      closeTmpl();
+    } catch (err: any) { toast({ title: "保存失败", description: err.message, variant: "destructive" }); }
+    finally { setTmplSaving(false); }
+  };
 
   const startAdd = () => { setForm({ ...emptyForm }); setEditingId(null); setAddingNew(true); };
   const startEdit = (c: CatCategory) => {
@@ -9495,6 +9519,53 @@ function CatCategoryManagement() {
 
   return (
     <div className="space-y-6">
+      {tmplCat && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-white">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <button onClick={closeTmpl} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors">
+                <X size={18} />
+              </button>
+              <div>
+                <p className="text-sm font-bold text-slate-800">编辑需求文档模板</p>
+                <p className="text-xs text-slate-400">分类：{tmplCat.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs font-bold">
+                <button onClick={() => setTmplPreview(false)} className={`px-4 py-2 transition-colors ${!tmplPreview ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>编辑</button>
+                <button onClick={() => setTmplPreview(true)} className={`px-4 py-2 transition-colors ${tmplPreview ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>预览</button>
+              </div>
+              <button onClick={saveTmpl} disabled={tmplSaving}
+                className="px-5 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                {tmplSaving ? "保存中…" : "保存模板"}
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden flex">
+            {!tmplPreview ? (
+              <textarea
+                value={tmplText}
+                onChange={e => setTmplText(e.target.value)}
+                className="w-full h-full resize-none p-6 font-mono text-sm text-slate-800 outline-none leading-relaxed"
+                placeholder="在这里编写 Markdown 格式的需求文档模板…"
+                spellCheck={false}
+              />
+            ) : (
+              <div className="w-full h-full overflow-y-auto p-8">
+                <div className="max-w-3xl mx-auto prose prose-slate prose-sm">
+                  <MarkdownContent content={tmplText} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex-shrink-0 px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+            <p className="text-xs text-slate-400">支持 Markdown 语法 · 共 {tmplText.length} 个字符</p>
+            <p className="text-xs text-slate-400">发单方在提交需求时将看到此模板作为参考</p>
+          </div>
+        </div>
+      )}
+
       <SectionHeader
         title="需求分类管理"
         sub="管理平台需求大类（赛道），支持增删改查、启用/禁用和排序"
@@ -9581,6 +9652,9 @@ function CatCategoryManagement() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
+                      <button onClick={() => openTmpl(cat)} className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" title="编辑需求文档模板">
+                        <FileText size={14} />
+                      </button>
                       <button onClick={() => startEdit(cat)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="编辑"><Edit2 size={14} /></button>
                       <button onClick={() => del(cat.id)} disabled={busyId === cat.id} className="p-1.5 text-slate-400 hover:text-destructive hover:bg-destructive/10 rounded-lg disabled:opacity-40 transition-colors" title="删除"><Trash2 size={14} /></button>
                     </div>
