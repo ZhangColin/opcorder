@@ -30,6 +30,7 @@ type TabKey = (typeof FILTER_TABS)[number]["key"];
 type NotifCfg = { icon: React.ElementType; color: string; category: string; label: string };
 
 const NOTIF_TYPE_MAP: Record<string, NotifCfg> = {
+  /* ── legacy types ── */
   bid_received:       { icon: MessageSquare, color: "bg-blue-100 text-blue-600",       category: "demand",   label: "收到接单申请" },
   bid_accepted:       { icon: CheckCheck,    color: "bg-green-100 text-green-600",     category: "demand",   label: "申请已通过" },
   bid_rejected:       { icon: AlertCircle,   color: "bg-red-100 text-red-500",         category: "demand",   label: "申请未通过" },
@@ -43,6 +44,13 @@ const NOTIF_TYPE_MAP: Record<string, NotifCfg> = {
   warranty_alert:     { icon: ShieldCheck,   color: "bg-violet-100 text-violet-600",   category: "delivery", label: "质保提醒" },
   warranty_expired:   { icon: ShieldCheck,   color: "bg-slate-100 text-slate-500",     category: "delivery", label: "质保已到期" },
   system:             { icon: Info,          color: "bg-slate-100 text-slate-500",     category: "system",   label: "系统通知" },
+  /* ── v2 types ── */
+  v2_contract_finalized: { icon: FileText,   color: "bg-amber-100 text-amber-600",     category: "demand",   label: "合同待确认" },
+  v2_contract_confirmed: { icon: CheckCheck, color: "bg-green-100 text-green-600",     category: "demand",   label: "合同已确认" },
+  v2_contract_rejected:  { icon: AlertCircle,color: "bg-red-100 text-red-500",         category: "demand",   label: "合同已退回" },
+  v2_contract_signed:    { icon: FileCheck,  color: "bg-emerald-100 text-emerald-600", category: "demand",   label: "合同已签署" },
+  v2_ticket_a_created:   { icon: ShieldCheck,color: "bg-violet-100 text-violet-600",   category: "delivery", label: "质保工单" },
+  v2_ticket_a_closed:    { icon: ShieldCheck,color: "bg-slate-100 text-slate-500",     category: "delivery", label: "质保工单已关闭" },
 };
 
 const DEFAULT_CFG: NotifCfg = { icon: Info, color: "bg-slate-100 text-slate-500", category: "system", label: "通知" };
@@ -61,11 +69,23 @@ function timeAgo(dateStr: string): string {
 
 function resolveLink(n: NotificationItem): string | null {
   if (!n.relatedId) return null;
-  if (n.relatedType === "demand")   return `/pub/demands/${n.relatedId}`;
-  if (n.relatedType === "contract") return `/pub/demands/${n.relatedId}`;
-  if (n.relatedType === "delivery") return `/pub/demands/${n.relatedId}`;
-  if (n.relatedType === "order")    return `/pub/demands/${n.relatedId}`;
+  /* v2 relatedType values */
+  if (n.relatedType === "v2_client_demand")  return `/pub/demands/${n.relatedId}`;
+  if (n.relatedType === "v2_contract")       return `/pub/contracts/${n.relatedId}`;
+  if (n.relatedType === "v2_ticket_a")       return `/pub/tickets/${n.relatedId}`;
+  /* legacy relatedType values */
+  if (n.relatedType === "demand")            return `/pub/demands/${n.relatedId}`;
+  if (n.relatedType === "contract")          return `/pub/contracts/${n.relatedId}`;
+  if (n.relatedType === "delivery")          return `/pub/deliveries/${n.relatedId}`;
+  if (n.relatedType === "order")             return `/pub/demands/${n.relatedId}`;
   return null;
+}
+
+function resolveLinkLabel(n: NotificationItem): string {
+  if (n.relatedType === "v2_contract" || n.relatedType === "contract") return "查看合同";
+  if (n.relatedType === "v2_ticket_a") return "查看工单";
+  if (n.relatedType === "delivery")    return "查看交付物";
+  return "查看详情";
 }
 
 export default function PubNotifications() {
@@ -197,7 +217,7 @@ export default function PubNotifications() {
                         </span>
                         {link && (
                           <span className="flex items-center gap-1 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                            查看详情 <ArrowRight size={11} />
+                            {resolveLinkLabel(n)} <ArrowRight size={11} />
                           </span>
                         )}
                       </div>

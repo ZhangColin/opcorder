@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { getAccessToken } from "@/lib/auth";
 import {
   Bell, Check, CheckCheck, Package, Zap, FileCheck, AlertCircle,
-  MessageSquare, Info, ArrowRight, Clock,
+  MessageSquare, Info, ArrowRight, Clock, FileText, Banknote, ShieldCheck, Trophy,
 } from "lucide-react";
 import {
   useListNotifications,
@@ -21,6 +21,7 @@ const NOTIF_TYPE_CFG: Record<
   string,
   { label: string; category: string; icon: React.ComponentType<{ size?: number; className?: string }> }
 > = {
+  /* ── legacy types ── */
   directed_invite:    { label: "定向邀约",   category: "invite",  icon: Zap },
   bid_accepted:       { label: "抢单已确认", category: "bid",     icon: CheckCheck },
   bid_rejected:       { label: "抢单未通过", category: "bid",     icon: AlertCircle },
@@ -30,6 +31,22 @@ const NOTIF_TYPE_CFG: Record<
   delivery_accepted:  { label: "交付已通过", category: "order",   icon: CheckCheck },
   delivery_rejected:  { label: "交付被打回", category: "order",   icon: AlertCircle },
   system:             { label: "系统通知",   category: "system",  icon: Info },
+  /* ── v2 types ── */
+  v2_tender_won:                  { label: "恭喜中标",       category: "order",  icon: Trophy },
+  v2_tender_lost:                 { label: "未入选",         category: "order",  icon: AlertCircle },
+  v2_tender_cancelled:            { label: "投标已取消",     category: "order",  icon: AlertCircle },
+  v2_contract_finalized:          { label: "合同待确认",     category: "order",  icon: FileText },
+  v2_contract_officially_signed:  { label: "合同正式签约",   category: "order",  icon: FileCheck },
+  v2_opc_confirmed_contract:      { label: "OPC已确认合同",  category: "order",  icon: CheckCheck },
+  v2_warranty_started:            { label: "进入质保期",     category: "order",  icon: ShieldCheck },
+  v2_warranty_started_b:          { label: "外包进入质保期", category: "order",  icon: ShieldCheck },
+  v2_delivery_b_approved:         { label: "交付物已通过",   category: "order",  icon: CheckCheck },
+  v2_delivery_b_rejected:         { label: "交付物被驳回",   category: "order",  icon: AlertCircle },
+  v2_ticket_b_created:            { label: "质保工单",       category: "order",  icon: ShieldCheck },
+  v2_ticket_b_closed:             { label: "工单已关闭",     category: "order",  icon: ShieldCheck },
+  v2_settlement_paid:             { label: "结算款已打款",   category: "order",  icon: Banknote },
+  v2_demand_invited:              { label: "外包需求邀请",   category: "invite", icon: Zap },
+  v2_outsource_detail_updated:    { label: "需求详情已更新", category: "order",  icon: Info },
 };
 
 const TABS = [
@@ -156,7 +173,10 @@ function NotifCard({ n, onRead, onNavigate, onAcceptInvite, onRejectInvite, isAc
               onClick={() => onNavigate(n)}
               className="mt-2 flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
             >
-              {n.relatedType === "order" ? "查看订单" : n.relatedType === "portfolio" ? "前往修改作品" : "查看需求"}
+              {(n.relatedType === "order" || n.relatedType === "v2_outsource_order") ? "查看订单"
+                : n.relatedType === "portfolio" ? "前往修改作品"
+                : n.relatedType === "v2_outsource_demand" ? "查看外包需求"
+                : "查看详情"}
               <ArrowRight size={12} />
             </button>
           )}
@@ -206,9 +226,13 @@ export default function Notifications() {
 
   const handleNavigate = (n: NotificationItem) => {
     if (!n.isRead) handleRead(n.id);
-    if (n.relatedType === "order" && n.relatedId) navigate(`/orders/${n.relatedId}`);
-    else if (n.relatedType === "demand" && n.relatedId) navigate(`/order-hall`);
-    else if (n.relatedType === "bid" && n.relatedId) navigate(`/order-hall`);
+    /* v2 relatedType values */
+    if (n.relatedType === "v2_outsource_order" && n.relatedId) navigate(`/opc/orders/${n.relatedId}`);
+    else if (n.relatedType === "v2_outsource_demand" && n.relatedId) navigate(`/opc/demand-hall`);
+    /* legacy relatedType values */
+    else if (n.relatedType === "order" && n.relatedId)     navigate(`/orders/${n.relatedId}`);
+    else if (n.relatedType === "demand" && n.relatedId)    navigate(`/order-hall`);
+    else if (n.relatedType === "bid" && n.relatedId)       navigate(`/order-hall`);
     else if (n.relatedType === "portfolio" && n.relatedId) navigate(`/profile?portfolio=${n.relatedId}`);
   };
 
