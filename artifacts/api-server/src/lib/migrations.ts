@@ -2141,5 +2141,14 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 035a: added draft to v2_outsource_demand_status enum");
   });
 
+  // Migration 035b: add missing v2 notification types to notification_type enum
+  await once("035b", true, async () => {
+    await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'v2_demand_invited'`);
+    await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'v2_payment_online_paid'`);
+    await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'v2_contract_officially_signed'`);
+    await db.execute(sql`ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'v2_opc_confirmed_contract'`);
+    logger.info("Migration 035b: added missing v2 notification types to notification_type enum");
+  });
+
   logger.info("Startup data migrations complete.");
 }

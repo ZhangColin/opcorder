@@ -102,7 +102,7 @@ export default function AdminV2TenderList() {
             {items.map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               const highlight = t.status === "quoted";
-              const unread = hasUnread("tender", t.id, t.updatedAt);
+              const unread = hasUnread("tender", t.id, t.quotedAt, false);
               const go = () => {
                 markRead("tender", t.id);
                 const target = `/admin/v2/outsource-demands/${t.outsourceDemandId}?tab=tenders&tenderId=${t.id}`;

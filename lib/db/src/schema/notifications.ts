@@ -27,6 +27,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "v2_ticket_a_created",
   "v2_ticket_a_closed",
   // V2 Channel B (Platform ↔ OPC)
+  "v2_demand_invited",
   "v2_outsource_detail_updated",
   "v2_tender_won",
   "v2_tender_lost",
@@ -37,6 +38,10 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "v2_settlement_paid",
   "v2_ticket_b_created",
   "v2_ticket_b_closed",
+  "v2_opc_confirmed_contract",
+  "v2_contract_officially_signed",
+  // Channel A extra
+  "v2_payment_online_paid",
   // Shared
   "v2_discussion_replied",
 ]);
