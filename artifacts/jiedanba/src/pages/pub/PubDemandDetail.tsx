@@ -201,6 +201,7 @@ export default function PubDemandDetail() {
   const [editUploading, setEditUploading] = useState(false);
 
   /* Quote actions */
+  const [showConfirmQuoteModal, setShowConfirmQuoteModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentText, setCommentText] = useState("");
 
@@ -973,11 +974,11 @@ export default function PubDemandDetail() {
               {canConfirmQuote && (
                 <div className="flex gap-3">
                   <button
-                    onClick={handleConfirmQuote}
+                    onClick={() => setShowConfirmQuoteModal(true)}
                     disabled={acting}
                     className="flex items-center gap-2 bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
-                    {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                    <CheckCircle2 size={14} />
                     确认报价
                   </button>
                   <button
@@ -1196,6 +1197,60 @@ export default function PubDemandDetail() {
         )}
 
       </div>
+
+      {/* ── Confirm quote modal ── */}
+      {showConfirmQuoteModal && quotation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                <CheckCircle2 size={20} className="text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800">确认接受报价</h3>
+                <p className="text-xs text-slate-500 mt-0.5">确认后将通知运营方起草合同</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl px-4 py-3 mb-5 space-y-1.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">需求名称</span>
+                <span className="font-semibold text-slate-800 text-right max-w-[220px] truncate">{demand?.title}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">报价金额</span>
+                <span className="font-extrabold text-green-600 text-base">¥{quotation.totalPrice.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">出具方</span>
+                <span className="text-slate-700">{quotation.createdByNickname ?? "运营方"}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400 mb-5">
+              接受报价即表示您认可上述报价内容，运营方将据此起草合同。合同确认后方可正式签约启动项目。
+            </p>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowConfirmQuoteModal(false)}
+                disabled={acting}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                再想想
+              </button>
+              <button
+                onClick={async () => { setShowConfirmQuoteModal(false); await handleConfirmQuote(); }}
+                disabled={acting}
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {acting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                确认接受报价
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Comment quote modal ── */}
       {showCommentModal && (
