@@ -267,6 +267,7 @@ export default function AdminV2OutsourceDemandDetail({
       const opc = inviteResults.find(o => o.id === opcId);
       const tender = await v2Post<Tender>(`/outsource-demands/${id}/add-invited-opc`, { opcId });
       toast({ title: "已追加邀请，已发送通知" });
+      markRead("tender", tender.id);
       setInviteResults(prev => prev.filter(o => o.id !== opcId));
       setTenders(prev => [...prev, { ...tender, opcNickname: opc?.nickname ?? null }]);
     } catch (err: any) { toast({ title: "邀请失败", description: err.message, variant: "destructive" }); }
