@@ -712,13 +712,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                   }
                 >
                   <div className="mt-3 space-y-3">
-                    {/* 合同状态 + 编号 */}
-                    {contract && cs && (
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${cs.color}`}>{cs.label}</span>
-                        <span className="text-xs text-slate-400 font-mono">{contract.contractNo}</span>
-                      </div>
-                    )}
 
                     {/* 内联编辑器 */}
                     {editingContract ? (
