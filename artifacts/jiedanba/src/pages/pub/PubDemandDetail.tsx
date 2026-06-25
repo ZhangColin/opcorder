@@ -213,6 +213,10 @@ export default function PubDemandDetail() {
   const [ticketAttachments, setTicketAttachments] = useState<Array<{ name: string; url: string; size?: string; type?: string }>>([]);
   const [ticketUploading, setTicketUploading] = useState(false);
 
+  /* Ticket close (pub) */
+  const [closingTicketId, setClosingTicketId] = useState<number | null>(null);
+  const [closeTicketNote, setCloseTicketNote] = useState("");
+
   /* Deliverable reject */
   const [rejectDelivId, setRejectDelivId] = useState<number | null>(null);
   const [rejectDelivReason, setRejectDelivReason] = useState("");
@@ -450,6 +454,24 @@ export default function PubDemandDetail() {
       await load();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
+    } finally { setActing(false); }
+  };
+
+  const handlePubCloseTicket = async (ticketId: number) => {
+    setActing(true);
+    try {
+      await v2Post(`/tickets-a/${ticketId}/close`, { note: closeTicketNote.trim() || undefined });
+      toast({ title: "工单已关闭" });
+      setClosingTicketId(null);
+      setCloseTicketNote("");
+      setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: "closed" } : t));
+      setTicketFull(prev => {
+        const existing = prev[ticketId];
+        if (!existing) return prev;
+        return { ...prev, [ticketId]: { ...existing, status: "closed", closedAt: new Date().toISOString(), closedNote: closeTicketNote.trim() || null } };
+      });
+    } catch (err: any) {
+      toast({ title: "关闭失败", description: err.message, variant: "destructive" });
     } finally { setActing(false); }
   };
 
@@ -1076,6 +1098,46 @@ export default function PubDemandDetail() {
                                 onAfterPost={() => markRead("ticket_a", t.id)}
                               />
                             </div>
+
+                            {/* 发单方关闭工单 */}
+                            {full.status === "open" && (
+                              <div className="border-t border-slate-100 pt-4">
+                                {closingTicketId === t.id ? (
+                                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                                    <p className="text-xs font-bold text-amber-800">确认关闭此工单？</p>
+                                    <p className="text-xs text-amber-600">关闭后工单将不可再讨论。如问题已解决，可填写备注后确认。</p>
+                                    <textarea
+                                      value={closeTicketNote}
+                                      onChange={e => setCloseTicketNote(e.target.value)}
+                                      placeholder="关闭备注（可选，如：问题已解决）"
+                                      rows={2}
+                                      className="w-full border border-amber-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none bg-white"
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                      <button
+                                        onClick={() => { setClosingTicketId(null); setCloseTicketNote(""); }}
+                                        className="text-xs px-3 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-100 text-amber-700"
+                                      >取消</button>
+                                      <button
+                                        onClick={() => handlePubCloseTicket(t.id)}
+                                        disabled={acting}
+                                        className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 font-bold"
+                                      >
+                                        {acting ? <Loader2 size={11} className="animate-spin" /> : null}
+                                        确认关闭工单
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => { setClosingTicketId(t.id); setCloseTicketNote(""); }}
+                                    className="text-xs text-slate-500 hover:text-amber-700 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
+                                  >
+                                    问题已解决，关闭工单
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
