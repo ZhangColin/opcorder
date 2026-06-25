@@ -5,7 +5,7 @@ import { PubLayout } from "@/components/pub/PubLayout";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
-import { AgentChatPanel, type FormSuggestion } from "@/components/agent/AgentChatPanel";
+import { AgentChatPanel, type FormSuggestion, type DocUpdate } from "@/components/agent/AgentChatPanel";
 import { getValidAccessToken } from "@/lib/auth";
 
 interface DemandType { id: number; code: string; name: string; }
@@ -119,6 +119,11 @@ export default function PubCreateDemand() {
     if (suggestion.budgetMax != null) setBudgetMax(String(suggestion.budgetMax));
     if (suggestion.deadline) setHopeDeliveryDate(suggestion.deadline);
     toast({ title: "AI建议已填入", description: "请检查并完善表单内容" });
+  };
+
+  const handleAgentDocUpdate = (update: DocUpdate) => {
+    setDetail(update.description);
+    toast({ title: "需求文档已更新", description: "AI优化的内容已写入需求详情" });
   };
 
   useEffect(() => {
@@ -266,8 +271,18 @@ export default function PubCreateDemand() {
           onClose={() => setAgentOpen(false)}
           sessionKey={sessionKey}
           sceneKey="v2_demand_analysis"
-          onFillForm={handleAgentFill}
-          onConversationId={id => { agentConversationId.current = id; }}
+          onFillForm={isEdit ? undefined : handleAgentFill}
+          onDocUpdate={isEdit ? handleAgentDocUpdate : undefined}
+          agentMode={isEdit ? "edit" : "new"}
+          existingDemandData={isEdit ? {
+            title,
+            type: demandType,
+            description: detail,
+            budgetMin: budgetMin ? Number(budgetMin) : null,
+            budgetMax: budgetMax ? Number(budgetMax) : null,
+            hopeDeliveryDate: hopeDeliveryDate || null,
+          } : undefined}
+          onConversationId={cid => { agentConversationId.current = cid; }}
         />
 
         {/* Form card */}

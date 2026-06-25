@@ -11,6 +11,17 @@ export const DEMAND_TYPES = [
 export interface ToolExecutionContext {
   categories?: Array<{ id: number; code: string; name: string; description: string | null }>;
   tags?: string[];
+  /** DB-sourced doc templates per category code (e.g. "CG" → markdown text) */
+  docTemplates?: Record<string, string>;
+  /** Existing demand data injected for edit mode */
+  existingDemand?: {
+    title?: string;
+    type?: string;
+    description?: string;
+    budgetMin?: number | null;
+    budgetMax?: number | null;
+    hopeDeliveryDate?: string | null;
+  };
 }
 
 export const SKILL_TAGS = [
@@ -310,6 +321,21 @@ export function executeTool(name: string, args: Record<string, unknown>, context
       const rawType = (args.demandType as string) || "other";
       // Accept both new category codes (CG/SA/TK/BO/OTHER) and legacy keys
       const demandType = CAT_CODE_TO_TEMPLATE[rawType.toUpperCase()] ?? rawType;
+
+      // Prefer DB-sourced template (from cat_categories.doc_template)
+      if (context?.docTemplates) {
+        const upperCode = rawType.toUpperCase();
+        const dbTemplate = context.docTemplates[upperCode] ?? context.docTemplates[rawType] ?? context.docTemplates[demandType];
+        if (dbTemplate) {
+          return {
+            demandType,
+            templateSource: "db",
+            template: dbTemplate,
+            usage: "以上模板即为该需求类型的完整文档框架，按照模板各章节引导用户逐步回答，最终生成完整的需求文档",
+          };
+        }
+      }
+
       const template = REQUIREMENT_TEMPLATES[demandType] ?? REQUIREMENT_TEMPLATES.other;
       return {
         demandType,

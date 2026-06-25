@@ -22,6 +22,11 @@ export interface FormSuggestion {
   milestones?: Array<{ name: string; deadline: string; deliverableDesc: string }>;
 }
 
+/** Output from agent in edit mode — only the description field is updated */
+export interface DocUpdate {
+  description: string;
+}
+
 interface OptionChoices {
   q: string;
   opts: string[];
@@ -35,6 +40,7 @@ interface ChatMessage {
   isStreaming?: boolean;
   formSuggestion?: FormSuggestion;
   optionChoices?: OptionChoices;
+  docUpdate?: DocUpdate;
 }
 
 interface AgentChatPanelProps {
@@ -43,12 +49,25 @@ interface AgentChatPanelProps {
   sessionKey: string;
   demandId?: number;
   onFillForm?: (suggestion: FormSuggestion) => void;
+  /** Called whenever a doc_update_json is received (edit mode) */
+  onDocUpdate?: (update: DocUpdate) => void;
   /** Called whenever the conversationId is established or updated */
   onConversationId?: (conversationId: number) => void;
   /** inline: embedded in layout (no fixed positioning); drawer: slide-in from right on desktop, bottom sheet on mobile (default) */
   mode?: "inline" | "drawer";
   /** Agent scene key — defaults to demand_analysis */
   sceneKey?: string;
+  /** "new" (default) or "edit" — controls system prompt context and output format */
+  agentMode?: "new" | "edit";
+  /** Existing demand data passed to agent when agentMode="edit" */
+  existingDemandData?: {
+    title?: string;
+    type?: string;
+    description?: string;
+    budgetMin?: number | null;
+    budgetMax?: number | null;
+    hopeDeliveryDate?: string | null;
+  };
 }
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
@@ -167,10 +186,31 @@ function parseMessage(content: string): {
   text: string;
   suggestion: FormSuggestion | null;
   optionChoices: OptionChoices | null;
+  docUpdate: DocUpdate | null;
 } {
   let workingContent = content;
   let suggestion: FormSuggestion | null = null;
   let optionChoices: OptionChoices | null = null;
+  let docUpdate: DocUpdate | null = null;
+
+  // Extract doc_update_json: (edit mode output)
+  const docUpdateMarker = "doc_update_json:";
+  const docUpdateIdx = workingContent.indexOf(docUpdateMarker);
+  if (docUpdateIdx !== -1) {
+    const afterMarker = workingContent.slice(docUpdateIdx + docUpdateMarker.length);
+    const extracted = extractJsonObject(afterMarker);
+    if (extracted) {
+      try {
+        const parsed = JSON.parse(extracted.json) as { description?: string };
+        if (parsed.description) {
+          docUpdate = { description: parsed.description };
+          const before = workingContent.slice(0, docUpdateIdx).trim();
+          const after = afterMarker.slice(extracted.end).trim();
+          workingContent = after ? `${before}\n\n${after}` : before;
+        }
+      } catch { /* ignore */ }
+    }
+  }
 
   // Extract form_suggestion_json:
   const formMarker = "form_suggestion_json:";
@@ -243,7 +283,7 @@ function parseMessage(content: string): {
 
   const displayText = stripStructuralContent(stripCodeBlocks(workingContent)).trim();
 
-  return { text: displayText || workingContent, suggestion, optionChoices };
+  return { text: displayText || workingContent, suggestion, optionChoices, docUpdate };
 }
 
 /** @deprecated Use parseMessage */
@@ -252,13 +292,21 @@ function parseFormSuggestion(content: string): { text: string; suggestion: FormS
   return { text, suggestion };
 }
 
-const WELCOME_MESSAGE: ChatMessage = {
+const NEW_WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
   content: `你好！我是需求分析助手\n\n跟我说说您想发布什么需求，我会帮您：\n- 梳理清楚需求内容，让 OPC 一看就懂\n- 生成一份专业的需求文档\n- 推荐合适的预算范围和里程碑拆分\n\n**请先告诉我：您大概想做什么？** 一句话就行，例如：我要给公司员工做一次AI工具应用培训。`,
   timestamp: new Date().toISOString(),
 };
 
-export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onConversationId, mode = "drawer", sceneKey }: AgentChatPanelProps) {
+const EDIT_WELCOME_MESSAGE: ChatMessage = {
+  role: "assistant",
+  content: `你好！我是需求分析助手\n\n我已读取了当前的需求文档内容。您可以告诉我：\n- 哪里描述不够清楚，需要调整\n- 有什么信息需要补充或删除\n- 想换一种表达方式\n\n我会帮您修改需求文档，并输出更新后的版本，您确认后一键更新。\n\n**请说说您想调整什么？**`,
+  timestamp: new Date().toISOString(),
+};
+
+const WELCOME_MESSAGE = NEW_WELCOME_MESSAGE;
+
+export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onDocUpdate, onConversationId, mode = "drawer", sceneKey, agentMode = "new", existingDemandData }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -292,6 +340,8 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     setDragOffset(0);
   }, [open]);
 
+  const welcomeMessage = agentMode === "edit" ? EDIT_WELCOME_MESSAGE : NEW_WELCOME_MESSAGE;
+
   const loadHistory = useCallback(async () => {
     if (historyLoaded) return;
     try {
@@ -302,33 +352,34 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
       const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       if (!res.ok) {
         setHistoryLoaded(true);
-        setMessages([WELCOME_MESSAGE]);
+        setMessages([welcomeMessage]);
         return;
       }
       const data = await res.json();
       if (data.messages && data.messages.length > 0) {
         setMessages(
           data.messages.map((m: { role: string; content: string; timestamp: string }) => {
-            const { text, suggestion, optionChoices } = parseMessage(m.content ?? "");
+            const { text, suggestion, optionChoices, docUpdate } = parseMessage(m.content ?? "");
             return {
               role: m.role as "user" | "assistant",
               content: text,
               timestamp: m.timestamp,
               formSuggestion: suggestion ?? undefined,
               optionChoices: optionChoices ?? undefined,
+              docUpdate: docUpdate ?? undefined,
             };
           })
         );
       } else {
-        setMessages([WELCOME_MESSAGE]);
+        setMessages([welcomeMessage]);
       }
       if (data.conversationId) setConversationId(data.conversationId);
       setHistoryLoaded(true);
     } catch {
       setHistoryLoaded(true);
-      setMessages([WELCOME_MESSAGE]);
+      setMessages([welcomeMessage]);
     }
-  }, [sessionKey, demandId, historyLoaded]);
+  }, [sessionKey, demandId, historyLoaded, welcomeMessage]);
 
   useEffect(() => {
     if (open) {
@@ -355,7 +406,15 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text.trim(), sessionKey, conversationId: conversationId ?? undefined, demandId: demandId ?? undefined, ...(sceneKey ? { sceneKey } : {}) }),
+        body: JSON.stringify({
+          message: text.trim(),
+          sessionKey,
+          conversationId: conversationId ?? undefined,
+          demandId: demandId ?? undefined,
+          ...(sceneKey ? { sceneKey } : {}),
+          ...(agentMode === "edit" ? { mode: "edit" } : {}),
+          ...(agentMode === "edit" && existingDemandData ? { existingDemandData } : {}),
+        }),
         signal: abortRef.current.signal,
       });
 
@@ -394,12 +453,13 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
             setConversationId(event.conversationId);
           } else if (event.type === "token" && typeof event.content === "string") {
             rawContent += event.content;
-            const { text: displayText, suggestion, optionChoices } = parseMessage(rawContent);
+            const { text: displayText, suggestion, optionChoices, docUpdate } = parseMessage(rawContent);
             updateLastMsg({
               content: displayText,
               isStreaming: true,
               formSuggestion: suggestion ?? undefined,
               optionChoices: optionChoices ?? undefined,
+              docUpdate: docUpdate ?? undefined,
             });
           } else if (event.type === "tool_call" && typeof event.tool === "string") {
             const label = TOOL_LABEL_MAP[event.tool as string] ?? event.tool as string;
@@ -416,11 +476,12 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
               return next;
             });
           } else if (event.type === "done") {
-            const { text: finalText, suggestion: finalSuggestion, optionChoices: finalChoices } = parseMessage(rawContent);
+            const { text: finalText, suggestion: finalSuggestion, optionChoices: finalChoices, docUpdate: finalDocUpdate } = parseMessage(rawContent);
             updateLastMsg({
               content: finalText,
               formSuggestion: finalSuggestion ?? undefined,
               optionChoices: finalChoices ?? undefined,
+              docUpdate: finalDocUpdate ?? undefined,
               isStreaming: false,
             });
           } else if (event.type === "error") {
@@ -582,6 +643,17 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
                     onCustom={(prefill) => {
                       setInput(prefill);
                       setTimeout(() => textareaRef.current?.focus(), 50);
+                    }}
+                  />
+                )}
+
+                {/* Doc update card (edit mode) */}
+                {msg.docUpdate && !msg.isStreaming && (
+                  <DocUpdateCard
+                    update={msg.docUpdate}
+                    onApply={() => {
+                      onDocUpdate?.(msg.docUpdate!);
+                      onClose();
                     }}
                   />
                 )}
@@ -821,6 +893,48 @@ function OptionChoicesCard({
         <CheckCircle2 size={13} />
         {selected.size > 0 ? `确认选择（已选 ${selected.size} 项）` : "请先选择选项"}
       </button>
+    </div>
+  );
+}
+
+/* ─── Doc Update Card (edit mode) ────────────────────────────────── */
+
+function DocUpdateCard({ update, onApply }: { update: DocUpdate; onApply: () => void }) {
+  const [applied, setApplied] = useState(false);
+  const preview = update.description.slice(0, 120) + (update.description.length > 120 ? "…" : "");
+
+  const handleApply = () => {
+    onApply();
+    setApplied(true);
+  };
+
+  return (
+    <div className="border border-emerald-200 bg-emerald-50/60 rounded-2xl overflow-hidden shadow-sm">
+      <div className="flex items-center gap-2 px-4 py-3 bg-emerald-100/80 border-b border-emerald-200">
+        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+        <p className="text-xs font-extrabold text-emerald-800">需求文档已更新</p>
+        <span className="ml-auto text-[10px] text-slate-400">确认后一键写入</span>
+      </div>
+      <div className="px-4 py-3">
+        <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">{preview}</p>
+      </div>
+      <div className="px-4 pb-3">
+        <button
+          onClick={handleApply}
+          disabled={applied}
+          className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            applied
+              ? "bg-green-50 text-green-600 border border-green-200"
+              : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+          }`}
+        >
+          {applied ? (
+            <><CheckCircle2 size={13} /> 已更新到表单</>
+          ) : (
+            <><ClipboardList size={13} /> 一键更新需求文档</>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

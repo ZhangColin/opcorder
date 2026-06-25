@@ -5,9 +5,10 @@ import {
   Loader2, X, ExternalLink, CheckCircle2,
   Edit2, History, Zap, AlertTriangle, Calendar, FileText,
   UserPlus, Search, ChevronDown, ChevronUp, Plus, Trash2,
-  DollarSign, MessageSquare, Users,
+  DollarSign, MessageSquare, Users, Bot,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
+import { AgentChatPanel, type DocUpdate } from "@/components/agent/AgentChatPanel";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { useDemandTypeLabel } from "@/lib/catCategories";
@@ -86,6 +87,8 @@ export default function AdminV2OutsourceDemandDetail({
 
   const [editMode, setEditMode] = useState(false);
   const [editDetail, setEditDetail] = useState("");
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentSessionKey] = useState(() => `v2_outsource_detail_${id ?? Date.now()}`);
   const [editAttachments, setEditAttachments] = useState<Array<{ name: string; url: string }>>([]);
   const [editComment, setEditComment] = useState("");
   const [editUploading, setEditUploading] = useState(false);
@@ -442,6 +445,14 @@ export default function AdminV2OutsourceDemandDetail({
               collapsible={false}
               actions={
                 <div className="flex items-center gap-3">
+                  {canEdit && (
+                    <button onClick={() => {
+                      setEditDetail(currentDetail ?? "");
+                      setAgentOpen(true);
+                    }} className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-semibold">
+                      <Bot size={11} /> AI助手
+                    </button>
+                  )}
                   {canEdit && !editMode && (
                     <button onClick={() => {
                       setEditDetail(currentDetail ?? "");
@@ -878,6 +889,30 @@ export default function AdminV2OutsourceDemandDetail({
           </div>
         </div>
       )}
+
+      {/* Agent chat panel — edit mode */}
+      <AgentChatPanel
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        sessionKey={agentSessionKey}
+        sceneKey="v2_demand_analysis"
+        agentMode="edit"
+        existingDemandData={{
+          title: demand?.title,
+          type: demand?.demandType ?? undefined,
+          description: editDetail || currentDetail || undefined,
+          budgetMin: demand?.expectedPriceMin,
+          budgetMax: demand?.expectedPriceMax,
+        }}
+        onDocUpdate={(update) => {
+          setEditDetail(update.description);
+          if (!editMode) {
+            setEditAttachments(currentAttachments.map(a => ({ name: a.name, url: a.url })));
+            setEditMode(true);
+          }
+          setAgentOpen(false);
+        }}
+      />
     </AdminV2Layout>
   );
 }

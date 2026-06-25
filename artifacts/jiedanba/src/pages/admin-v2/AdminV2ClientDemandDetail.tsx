@@ -3,9 +3,10 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
-  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload,
+  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload, Bot,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
+import { AgentChatPanel, type DocUpdate } from "@/components/agent/AgentChatPanel";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -240,6 +241,10 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const [editAttachments, setEditAttachments] = useState<Array<{ name: string; url: string }>>([]);
   const [editComment, setEditComment] = useState("");
   const [editUploading, setEditUploading] = useState(false);
+
+  // Agent panel (edit mode)
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentSessionKey] = useState(() => `v2_client_detail_${id ?? Date.now()}`);
 
   // Version history
   const [versions, setVersions] = useState<VersionItem[]>([]);
@@ -963,6 +968,17 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
             <div className="flex items-center gap-3">
               {demand.latestVersion && (
                 <span className="text-xs text-slate-400">v{demand.latestVersion.versionNo}</span>
+              )}
+              {canEditDetail && (
+                <button
+                  onClick={() => {
+                    setEditDetail(demand.latestVersion?.detail ?? "");
+                    setAgentOpen(true);
+                  }}
+                  className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-semibold"
+                >
+                  <Bot size={11} /> AI助手
+                </button>
               )}
               {canEditDetail && !editMode && (
                 <button
@@ -2017,6 +2033,33 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
             )}
           </main>
         </div>
+      )}
+
+      {/* Agent chat panel — edit mode */}
+      {demand && (
+        <AgentChatPanel
+          open={agentOpen}
+          onClose={() => setAgentOpen(false)}
+          sessionKey={agentSessionKey}
+          sceneKey="v2_demand_analysis"
+          agentMode="edit"
+          existingDemandData={{
+            title: demand.title,
+            type: demand.demandType ?? undefined,
+            description: editDetail || demand.latestVersion?.detail || undefined,
+            budgetMin: demand.budgetMin,
+            budgetMax: demand.budgetMax,
+            hopeDeliveryDate: demand.hopeDeliveryDate ?? null,
+          }}
+          onDocUpdate={(update) => {
+            setEditDetail(update.description);
+            if (!editMode) {
+              setEditAttachments(demand.latestVersion?.attachments?.map((a: { name: string; url: string }) => ({ name: a.name, url: a.url })) ?? []);
+              setEditMode(true);
+            }
+            setAgentOpen(false);
+          }}
+        />
       )}
     </AdminV2Layout>
   );

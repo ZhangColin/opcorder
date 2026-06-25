@@ -157,12 +157,23 @@ router.get("/agent/demand-analysis/status", requireAuth, async (_req: Request, r
 });
 
 router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res: Response) => {
-  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey } = req.body as {
+  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey, mode, existingDemandData } = req.body as {
     message: string;
     demandId?: number;
     sessionKey?: string;
     conversationId?: number;
     sceneKey?: string;
+    /** "new" (default) or "edit" — changes system prompt context and expected output */
+    mode?: "new" | "edit";
+    /** Passed by frontend when mode="edit"; injected as system context block */
+    existingDemandData?: {
+      title?: string;
+      type?: string;
+      description?: string;
+      budgetMin?: number | null;
+      budgetMax?: number | null;
+      hopeDeliveryDate?: string | null;
+    };
   };
 
   const resolvedSceneKey = reqSceneKey || DEMAND_ANALYSIS_SCENE_KEY;
@@ -214,12 +225,12 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 
   sendEvent({ type: "conversation_id", conversationId: conversation.id });
 
-  // Fetch active categories and tags to provide dynamic context to tools
+  // Fetch active categories (with doc templates) and tags to provide dynamic context to tools
   let toolContext: ToolExecutionContext = {};
   try {
     const [cats, tagRows] = await Promise.all([
       db
-        .select({ id: catCategoriesTable.id, code: catCategoriesTable.code, name: catCategoriesTable.name, description: catCategoriesTable.description })
+        .select({ id: catCategoriesTable.id, code: catCategoriesTable.code, name: catCategoriesTable.name, description: catCategoriesTable.description, docTemplate: catCategoriesTable.docTemplate })
         .from(catCategoriesTable)
         .where(eq(catCategoriesTable.isActive, true))
         .orderBy(asc(catCategoriesTable.sortOrder)),
@@ -229,10 +240,42 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
         .where(eq(catTagsTable.isActive, true))
         .orderBy(asc(catTagsTable.sortOrder)),
     ]);
-    if (cats.length > 0) toolContext.categories = cats;
+    if (cats.length > 0) {
+      toolContext.categories = cats.map(c => ({ id: c.id, code: c.code, name: c.name, description: c.description }));
+      // Build docTemplates map: upper-case code → template text
+      const docTemplates: Record<string, string> = {};
+      for (const c of cats) {
+        if (c.docTemplate) {
+          docTemplates[c.code.toUpperCase()] = c.docTemplate;
+          docTemplates[c.code] = c.docTemplate;
+        }
+      }
+      if (Object.keys(docTemplates).length > 0) toolContext.docTemplates = docTemplates;
+    }
     if (tagRows.length > 0) toolContext.tags = tagRows.map(t => t.name);
   } catch (catErr) {
     logger.warn({ catErr }, "Could not fetch categories/tags for tool context, falling back to static list");
+  }
+
+  // Build effective system prompt — for edit mode, inject existing demand data as context block
+  let effectiveSystemPrompt = config.systemPrompt;
+  if (mode === "edit" && existingDemandData) {
+    const d = existingDemandData;
+    const budgetStr = (d.budgetMin != null && d.budgetMax != null)
+      ? `¥${d.budgetMin} ~ ¥${d.budgetMax}`
+      : d.budgetMin != null ? `¥${d.budgetMin}` : "(未填写)";
+    effectiveSystemPrompt = config.systemPrompt + `
+
+---
+【当前需求数据（编辑模式）】
+标题：${d.title ?? "(未填写)"}
+类型：${d.type ?? "(未填写)"}
+预算区间：${budgetStr}
+希望交付日期：${d.hopeDeliveryDate ?? "(未填写)"}
+
+需求文档（当前版本）：
+${d.description ?? "(暂无内容)"}
+---`;
   }
 
   // ── Tool-result accumulator ─────────────────────────────────────────────────
@@ -324,7 +367,7 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
   const MAX_TOOL_ITERATIONS = 10;
   let iteration = 0;
   const intermediateMessages: PersistedMessage[] = [];
-  const llmMessages = buildLLMMessages(config.systemPrompt, historyMessages, userMessageTrimmed);
+  const llmMessages = buildLLMMessages(effectiveSystemPrompt, historyMessages, userMessageTrimmed);
 
   const saveAndEnd = async (assistantMsg: PersistedMessage) => {
     const updated: PersistedMessage[] = [
