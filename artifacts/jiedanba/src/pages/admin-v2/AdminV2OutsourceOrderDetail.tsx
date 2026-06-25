@@ -261,12 +261,13 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     } catch { /* ignore */ }
   };
 
-  const act = async (fn: () => Promise<unknown>, msg: string) => {
+  const act = async <T = unknown>(fn: () => Promise<T>, msg: string, onSuccess?: (result: T) => void) => {
     setActing(true);
     try {
-      await fn();
+      const result = await fn();
       toast({ title: msg });
-      await softLoad();
+      if (onSuccess) onSuccess(result);
+      else await softLoad();
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally {
@@ -279,11 +280,12 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     setUploadingContract(true);
     try {
       const url = await uploadFile(contractFile);
-      await v2Post(`/outsource-orders/${id}/upload-signed-contract`, { signedFileUrl: url });
+      const result = await v2Post<{ order: OutsourceOrder; contract: ContractDetail }>(`/outsource-orders/${id}/upload-signed-contract`, { signedFileUrl: url });
       toast({ title: "合同已上传，已通知OPC确认" });
       setShowUploadContract(false);
       setContractFile(null);
-      await softLoad();
+      setOrder(result.order);
+      setContract(result.contract);
     } catch (err: any) {
       toast({ title: "上传失败", description: err.message, variant: "destructive" });
     } finally {
@@ -293,30 +295,33 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
 
   const handleAdminVerify = async () => {
     await act(
-      () => v2Post(`/outsource-orders/${id}/admin-verify`, { note: verifyNote.trim() || undefined }),
-      "运营验收完成，订单进入质保中"
+      () => v2Post<OutsourceOrder>(`/outsource-orders/${id}/admin-verify`, { note: verifyNote.trim() || undefined }),
+      "运营验收完成，订单进入质保中",
+      (updated) => { setOrder(updated); }
     );
     setShowVerifyModal(false);
     setVerifyNote("");
   };
 
   const handleApproveDeliverable = (delivId: number) => act(
-    () => v2Post(`/deliverables-b/${delivId}/approve`, {}),
-    "交付已确认"
+    () => v2Post<DeliverableB>(`/deliverables-b/${delivId}/approve`, {}),
+    "交付已确认",
+    (updated) => setDeliverables(prev => prev.map(d => d.id === delivId ? { ...d, ...updated } : d))
   );
 
   const handleRejectDeliverable = (delivId: number) => act(
-    () => v2Post(`/deliverables-b/${delivId}/reject`, { reason: "运营驳回，请重新提交" }),
-    "交付已驳回"
+    () => v2Post<DeliverableB>(`/deliverables-b/${delivId}/reject`, { reason: "运营驳回，请重新提交" }),
+    "交付已驳回",
+    (updated) => setDeliverables(prev => prev.map(d => d.id === delivId ? { ...d, ...updated } : d))
   );
 
   /* ── 合同操作 ── */
   const handleCreateContract = async () => {
     setContractActing(true);
     try {
-      await v2Post("/contracts", { channel: "b", outsourceOrderId: id, content: "" });
+      const created = await v2Post<ContractDetail>("/contracts", { channel: "b", outsourceOrderId: id, content: "" });
       toast({ title: "合同草稿已创建" });
-      await load();
+      setContract(created);
       setEditingContract(true);
       setContractEditContent("");
     } catch (err: any) {
@@ -330,10 +335,10 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     if (!contract) return;
     setContractActing(true);
     try {
-      await v2Patch(`/contracts/${contract.id}/content`, { content: contractEditContent });
+      const updated = await v2Patch<ContractDetail>(`/contracts/${contract.id}/content`, { content: contractEditContent });
       toast({ title: "合同内容已保存" });
+      setContract(updated);
       setEditingContract(false);
-      await load();
     } catch (err: any) {
       toast({ title: "保存失败", description: err.message, variant: "destructive" });
     } finally {
@@ -345,9 +350,9 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     if (!contract) return;
     setContractActing(true);
     try {
-      await v2Post(`/contracts/${contract.id}/finalize`, {});
+      const updated = await v2Post<ContractDetail>(`/contracts/${contract.id}/finalize`, {});
       toast({ title: "合同已定稿，已通知OPC确认" });
-      await load();
+      setContract(updated);
     } catch (err: any) {
       toast({ title: "定稿失败", description: err.message, variant: "destructive" });
     } finally {
@@ -389,7 +394,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     }
     setSettleActing(true);
     try {
-      await v2Patch(`/settlement-plans/${planId}`, {
+      const updated = await v2Patch<SettlementPlan>(`/settlement-plans/${planId}`, {
         description: editSettleForm.description.trim() || undefined,
         amount: parseFloat(editSettleForm.amount),
         dueDate: editSettleForm.dueDate || undefined,
@@ -397,7 +402,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
       });
       toast({ title: "结算计划已更新" });
       setEditSettleId(null);
-      await softReloadSettlements();
+      setSettlements(prev => prev.map(s => s.id === planId ? { ...s, ...updated } : s));
     } catch (err: any) {
       toast({ title: "保存失败", description: err.message, variant: "destructive" });
     } finally {
@@ -411,7 +416,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
     try {
       await v2Delete(`/settlement-plans/${planId}`);
       toast({ title: "结算计划已删除" });
-      await softReloadSettlements();
+      setSettlements(prev => prev.filter(s => s.id !== planId));
     } catch (err: any) {
       toast({ title: "删除失败", description: err.message, variant: "destructive" });
     } finally {
