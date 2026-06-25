@@ -95,7 +95,7 @@ export default function AdminV2DeliveryBList() {
           <div className="space-y-2">
             {displayed.map(item => {
               const cfg = STATUS_CONFIG[item.status] ?? { label: item.status, color: "bg-slate-100 text-slate-500" };
-              const go = () => inlineNav ? inlineNav.push(`/admin/v2/deliveries-b/${item.id}`) : navigate(`/admin/v2/deliveries-b/${item.id}`);
+              const go = () => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${item.outsourceOrderId}?tab=delivery&delivId=${item.id}`) : navigate(`/admin/v2/outsource-orders/${item.outsourceOrderId}?tab=delivery&delivId=${item.id}`);
               return (
                 <button key={item.id} onClick={go}
                   className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">

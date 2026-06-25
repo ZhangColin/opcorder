@@ -142,7 +142,7 @@ function CardSection({
   );
 }
 
-export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: number } = {}) {
+export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, initialDelivId }: { inlineId?: number; initialTab?: "demand" | "contract" | "delivery" | "ticket"; initialDelivId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
@@ -159,11 +159,18 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"demand" | "contract" | "delivery" | "ticket">("contract");
+  const [activeTab, setActiveTab] = useState<"demand" | "contract" | "delivery" | "ticket">(initialTab ?? "contract");
 
   /* Accordion */
-  const [expandedDelivId, setExpandedDelivId] = useState<number | null>(null);
+  const [expandedDelivId, setExpandedDelivId] = useState<number | null>(initialDelivId ?? null);
   const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
+
+  /* 从交付列表跳转时：自动展开目标交付并滚动到该卡片 */
+  useEffect(() => {
+    if (!initialDelivId || deliverables.length === 0) return;
+    const el = document.getElementById(`admin-delivery-${initialDelivId}`);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+  }, [deliverables.length, initialDelivId]);
 
   /* Upload contract PDF */
   const [showUploadContract, setShowUploadContract] = useState(false);
@@ -1007,7 +1014,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
               const ds = { pending: ["待审核", "bg-amber-100 text-amber-700"], approved: ["已通过", "bg-green-100 text-green-700"], revision: ["需修改", "bg-red-100 text-red-600"] }[d.status] ?? [d.status, "bg-slate-100 text-slate-500"];
               const isExpanded = expandedDelivId === d.id;
               return (
-                <div key={d.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div key={d.id} id={`admin-delivery-${d.id}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                   <button
                     className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                     onClick={() => setExpandedDelivId(isExpanded ? null : d.id)}
