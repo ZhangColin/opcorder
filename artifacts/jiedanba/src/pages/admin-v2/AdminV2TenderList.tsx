@@ -4,7 +4,7 @@ import { Loader2, ChevronRight, Gavel } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
-import { hasUnread, markRead } from "@/lib/demandRead";
+import { hasUnreadSinceCreation, markRead } from "@/lib/demandRead";
 
 interface Tender {
   id: number;
@@ -102,7 +102,7 @@ export default function AdminV2TenderList() {
             {items.map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
               const highlight = t.status === "quoted";
-              const unread = hasUnread("tender", t.id, t.updatedAt);
+              const unread = hasUnreadSinceCreation("tender", t.id, t.updatedAt, t.createdAt);
               const go = () => {
                 markRead("tender", t.id);
                 const target = `/admin/v2/outsource-demands/${t.outsourceDemandId}?tab=tenders&tenderId=${t.id}`;
