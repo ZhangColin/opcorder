@@ -247,7 +247,7 @@ export default function AdminV2OutsourceDemandDetail({
 
   const cfg = STATUS_CFG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const canEdit = !["completed", "closed"].includes(demand.status);
-  const canClose = !["completed", "closed"].includes(demand.status);
+  const canClose = demand.status === "negotiating";
   const currentDetail = demand.detail ?? demand.latestVersion?.detail ?? null;
   const currentAttachments = demand.latestVersion?.attachments ?? [];
   const quotedTenders = tenders.filter(t => t.status === "quoted");
@@ -316,22 +316,25 @@ export default function AdminV2OutsourceDemandDetail({
           )}
         </div>
 
-        {/* ── 关闭需求面板 ── */}
+        {/* ── 关闭需求弹窗 ── */}
         {showClose && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold text-slate-800">关闭 OPC 需求</h4>
-              <button onClick={() => setShowClose(false)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
-            </div>
-            <p className="text-sm text-slate-500 mb-3">关闭后需求将不可再操作，请填写关闭原因。</p>
-            <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3} placeholder="关闭原因"
-              className="w-full border border-red-200 rounded-xl px-3 py-2 text-sm focus:outline-none bg-white mb-3 resize-none" />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowClose(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleClose} disabled={acting}
-                className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
-                {acting ? "关闭中…" : "确认关闭"}
-              </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowClose(false)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-base font-extrabold text-slate-800">关闭 OPC 需求</h4>
+                <button onClick={() => setShowClose(false)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
+              </div>
+              <p className="text-sm text-slate-500 mb-4">关闭后需求将不可再操作，OPC 将无法继续投标。</p>
+              <textarea value={closeReason} onChange={e => setCloseReason(e.target.value)} rows={3}
+                placeholder="关闭原因（选填）"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 mb-4 resize-none" />
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setShowClose(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleClose} disabled={acting}
+                  className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 disabled:opacity-50">
+                  {acting ? "关闭中…" : "确认关闭"}
+                </button>
+              </div>
             </div>
           </div>
         )}
