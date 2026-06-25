@@ -581,7 +581,16 @@ export default function OpcV2OrderDetail() {
           <div className="space-y-4">
 
             {/* 合同区块 */}
-            <CardSection title="合同" icon={FileSignature}>
+            <CardSection
+              title="合同"
+              icon={FileSignature}
+              actions={order.signedFileUrl ? (
+                <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline">
+                  <ExternalLink size={11} /> 已签合同
+                </a>
+              ) : undefined}
+            >
               {/* 签约操作区 */}
               {order.status === "pending_contract" && (
                 contract ? (
@@ -617,20 +626,6 @@ export default function OpcV2OrderDetail() {
                 )
               )}
 
-              {/* 已签约状态 */}
-              {order.status !== "pending_contract" && order.signedFileUrl && (
-                <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 flex items-center justify-center shrink-0">
-                    <FileSignature size={14} className="text-green-700" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-green-700">已签约合同文件</p>
-                    <p className="text-xs text-green-600">点击下载</p>
-                  </div>
-                  <ExternalLink size={14} className="text-green-500 shrink-0" />
-                </a>
-              )}
 
               {/* 合同正文（Markdown） */}
               {contract?.content && (
