@@ -24,8 +24,11 @@ router.get("/tenders", requireAuth, async (req: Request, res: Response) => {
     if (role === "opc") conditions.push(eq(v2TendersTable.opcId, userId));
     else if (role === "publisher") return res.status(403).json({ error: "发单方无权查看投标" });
 
-    // OPC 不应看到草稿状态需求的投标记录
-    if (role === "opc") conditions.push(ne(v2OutsourceDemandsTable.status, "draft"));
+    // OPC 不应看到草稿或已关闭需求的投标记录
+    if (role === "opc") {
+      conditions.push(ne(v2OutsourceDemandsTable.status, "draft"));
+      conditions.push(ne(v2OutsourceDemandsTable.status, "closed"));
+    }
 
     const rows = await db
       .select({

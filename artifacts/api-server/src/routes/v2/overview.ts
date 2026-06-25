@@ -282,7 +282,7 @@ router.get("/overview/opc", requireAuth, async (req: Request, res: Response) => 
       active: sql<number>`count(*) filter (where ${v2TendersTable.status} in ('negotiating', 'quoted'))`.mapWith(Number),
     }).from(v2TendersTable)
       .innerJoin(v2OutsourceDemandsTable, eq(v2TendersTable.outsourceDemandId, v2OutsourceDemandsTable.id))
-      .where(and(eq(v2TendersTable.opcId, opcId), ne(v2OutsourceDemandsTable.status, "draft")));
+      .where(and(eq(v2TendersTable.opcId, opcId), ne(v2OutsourceDemandsTable.status, "draft"), ne(v2OutsourceDemandsTable.status, "closed")));
 
     const [orderStats] = await db.select({
       total: count(),
