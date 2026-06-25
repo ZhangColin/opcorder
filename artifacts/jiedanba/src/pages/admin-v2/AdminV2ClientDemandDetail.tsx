@@ -1121,6 +1121,12 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                   <Upload size={12} /> 上传签约文件
                 </button>
               )}
+              {c.signedFileUrl && (
+                <a href={c.signedFileUrl} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline">
+                  <ExternalLink size={11} /> 已签合同
+                </a>
+              )}
             </div>
           );
           return (
@@ -1185,19 +1191,6 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                         </button>
                       </div>
                     </div>
-                  )}
-                  {c.signedFileUrl && (
-                    <a href={c.signedFileUrl} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors group">
-                      <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors flex items-center justify-center shrink-0">
-                        <FileText size={15} className="text-green-700" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-green-700">已签约合同文件</p>
-                        <p className="text-xs text-green-600">点击下载</p>
-                      </div>
-                      <ExternalLink size={14} className="text-green-500 shrink-0" />
-                    </a>
                   )}
                   {c.publisherRejectedReason && (
                     <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
