@@ -152,7 +152,7 @@ router.patch("/contracts/:id/content", requireAdmin, async (req: Request, res: R
     if (contract.outsourceOrderId) {
       const [ord] = await db.select({ status: v2OutsourceOrdersTable.status })
         .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, contract.outsourceOrderId)).limit(1);
-      if (ord && ord.status !== "pending_contract") return res.status(400).json({ error: "订单已进入执行阶段，合同不可再编辑" });
+      if (ord && !["draft", "pending_contract"].includes(ord.status)) return res.status(400).json({ error: "订单已进入执行阶段，合同不可再编辑" });
     }
     const { content } = req.body as { content: string };
     if (content === undefined) return res.status(400).json({ error: "content 必填" });
