@@ -255,22 +255,21 @@ export default function AdminV2OutsourceDemandDetail({
 
   return (
     <AdminV2Layout
-      title={demand.title}
       backHref="/admin/v2/outsource-demands"
       backLabel="OPC 需求"
-      actions={
-        canClose ? (
-          <button onClick={() => setShowClose(v => !v)}
-            className={`px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${showClose ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
-            关闭需求
-          </button>
-        ) : undefined
-      }
     >
       <div className="mt-6 space-y-4">
 
         {/* ── 基本信息卡 ── */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <h2 className="text-base font-extrabold text-slate-800 leading-snug">{demand.title}</h2>
+            {canClose && (
+              <button onClick={() => setShowClose(v => !v)} className={`shrink-0 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${showClose ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
+                关闭需求
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
             <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
