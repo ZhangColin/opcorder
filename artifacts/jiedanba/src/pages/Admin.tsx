@@ -10008,10 +10008,11 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
       const oqp = new URLSearchParams(inlineRoute.includes("?") ? inlineRoute.split("?")[1] : "");
       const oTab = oqp.get("tab") as "demand" | "contract" | "delivery" | "ticket" | null;
       const oDelivId = oqp.get("delivId") ? parseInt(oqp.get("delivId")!, 10) : undefined;
+      const oTicketId = oqp.get("ticketId") ? parseInt(oqp.get("ticketId")!, 10) : undefined;
       return (
         <AdminInlineNavContext.Provider value={inlineNav}>
           <AdminEmbeddedContext.Provider value={true}>
-            <AdminV2OutsourceOrderDetail inlineId={inlineId} initialTab={oTab ?? undefined} initialDelivId={oDelivId} />
+            <AdminV2OutsourceOrderDetail inlineId={inlineId} initialTab={oTab ?? undefined} initialDelivId={oDelivId} initialTicketId={oTicketId} />
           </AdminEmbeddedContext.Provider>
         </AdminInlineNavContext.Provider>
       );

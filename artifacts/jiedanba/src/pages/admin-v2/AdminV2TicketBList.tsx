@@ -89,7 +89,7 @@ export default function AdminV2TicketBList() {
               (hasUnread("ticket_b", b.id, b.updatedAt) ? 1 : 0) - (hasUnread("ticket_b", a.id, a.updatedAt) ? 1 : 0)
             ).map(t => {
               const cfg = STATUS_CONFIG[t.status] ?? { label: t.status, color: "bg-slate-100 text-slate-500" };
-              const go = () => inlineNav ? inlineNav.push(`/admin/v2/tickets-b/${t.id}`) : navigate(`/admin/v2/tickets-b/${t.id}`);
+              const go = () => inlineNav ? inlineNav.push(`/admin/v2/outsource-orders/${t.outsourceOrderId}?tab=ticket&ticketId=${t.id}`) : navigate(`/admin/v2/outsource-orders/${t.outsourceOrderId}?tab=ticket&ticketId=${t.id}`);
               return (
                 <button key={t.id} onClick={go}
                   className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group">

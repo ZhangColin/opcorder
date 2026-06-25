@@ -142,7 +142,7 @@ function CardSection({
   );
 }
 
-export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, initialDelivId }: { inlineId?: number; initialTab?: "demand" | "contract" | "delivery" | "ticket"; initialDelivId?: number } = {}) {
+export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, initialDelivId, initialTicketId }: { inlineId?: number; initialTab?: "demand" | "contract" | "delivery" | "ticket"; initialDelivId?: number; initialTicketId?: number } = {}) {
   const params = useParams<{ id: string }>();
   const id = inlineId ?? parseInt(params.id ?? "0", 10);
   const [, navigate] = useLocation();
@@ -163,7 +163,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
 
   /* Accordion */
   const [expandedDelivId, setExpandedDelivId] = useState<number | null>(initialDelivId ?? null);
-  const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
+  const [expandedTicketId, setExpandedTicketId] = useState<number | null>(initialTicketId ?? null);
 
   /* 从交付列表跳转时：自动展开目标交付并滚动到该卡片 */
   useEffect(() => {
@@ -171,6 +171,13 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
     const el = document.getElementById(`admin-delivery-${initialDelivId}`);
     if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
   }, [deliverables.length, initialDelivId]);
+
+  /* 从工单列表跳转时：自动展开目标工单并滚动到该卡片 */
+  useEffect(() => {
+    if (!initialTicketId || tickets.length === 0) return;
+    const el = document.getElementById(`admin-ticket-${initialTicketId}`);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+  }, [tickets.length, initialTicketId]);
 
   /* Upload contract PDF */
   const [showUploadContract, setShowUploadContract] = useState(false);
@@ -1099,7 +1106,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
             ) : tickets.map(t => {
               const isExpanded = expandedTicketId === t.id;
               return (
-                <div key={t.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div key={t.id} id={`admin-ticket-${t.id}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                   <div className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer"
                     onClick={() => setExpandedTicketId(isExpanded ? null : t.id)}>
                     <Wrench size={15} className="text-primary shrink-0" />
