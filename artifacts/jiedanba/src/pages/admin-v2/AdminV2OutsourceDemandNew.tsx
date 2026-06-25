@@ -294,7 +294,7 @@ export default function AdminV2OutsourceDemandNew() {
                 <CustomSelect
                   value={demandType}
                   onChange={setDemandType}
-                  options={catCategories.map(c => ({ value: c.name, label: c.name }))}
+                  options={catCategories.map(c => ({ value: c.code, label: c.name }))}
                   placeholder="请选择需求分类"
                   loading={loadingCats}
                 />
