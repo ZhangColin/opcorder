@@ -142,25 +142,35 @@ router.get("/tickets-a/:id", requireAuth, async (req: Request, res: Response) =>
   }
 });
 
-router.post("/tickets-a/:id/close", requireAdmin, async (req: Request, res: Response) => {
+router.post("/tickets-a/:id/close", requireAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const userId = req.user!.id;
+    const user = req.user!;
     const [ticket] = await db.select().from(v2TicketsATable).where(eq(v2TicketsATable.id, id)).limit(1);
     if (!ticket) return res.status(404).json({ error: "工单不存在" });
     if (ticket.status === "closed") return res.status(400).json({ error: "工单已关闭" });
 
+    // 允许管理员或该需求的发单方操作
+    const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId, title: v2ClientDemandsTable.title })
+      .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, ticket.clientDemandId)).limit(1);
+    const isAdmin = user.role === "admin";
+    const isPublisher = demand && demand.publisherId === user.id;
+    if (!isAdmin && !isPublisher) return res.status(403).json({ error: "无操作权限" });
+
     const { note } = req.body as { note?: string };
     const [updated] = await db.update(v2TicketsATable)
-      .set({ status: "closed", closedBy: userId, closedAt: new Date(), closedNote: note, updatedAt: new Date() })
+      .set({ status: "closed", closedBy: user.id, closedAt: new Date(), closedNote: note, updatedAt: new Date() })
       .where(eq(v2TicketsATable.id, id))
       .returning();
 
-    const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId, title: v2ClientDemandsTable.title })
-      .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, ticket.clientDemandId)).limit(1);
+    // 如果是发单方关闭，通知运营；如果是运营关闭，通知发单方
     if (demand) {
-      await notify(demand.publisherId, "v2_ticket_a_closed", "质保工单已关闭",
-        `您的工单「${ticket.title}」已由运营方关闭${note ? `：${note}` : ""}。`, ticket.clientDemandId, "v2_client_demand");
+      if (isPublisher && !isAdmin) {
+        // 发单方关闭：不需要额外通知（发单方自己操作，无需通知自己）
+      } else {
+        await notify(demand.publisherId, "v2_ticket_a_closed", "质保工单已关闭",
+          `您的工单「${ticket.title}」已由运营方关闭${note ? `：${note}` : ""}。`, ticket.clientDemandId, "v2_client_demand");
+      }
     }
 
     return res.json(updated);
