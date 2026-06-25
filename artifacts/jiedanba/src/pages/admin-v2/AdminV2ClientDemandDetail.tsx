@@ -1377,7 +1377,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                   if (!quoteConfig) return null;
                   for (const dim of quoteConfig.adjustment ?? []) {
                     for (const tier of dim.tiers) {
-                      if (`${dim.label}（${tier.tierLabel}）` === itemLabel) return tier.factor;
+                      if (`${dim.label}（${tier.tierLabel}）` === itemLabel) return tier.coefficient ?? null;
                     }
                   }
                   return null;
