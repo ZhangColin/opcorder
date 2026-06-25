@@ -137,10 +137,10 @@ export default function AdminV2OutsourceDemandDetail({
     }
   }, [expandedTenderId, tenders.length]);
 
-  const act = async (fn: () => Promise<unknown>, msg: string) => {
+  const act = async (fn: () => Promise<any>, msg: string) => {
     setActing(true);
-    try { await fn(); toast({ title: msg }); await load(); }
-    catch (err: any) { toast({ title: "操作失败", description: err.message, variant: "destructive" }); }
+    try { const r = await fn(); toast({ title: msg }); return r; }
+    catch (err: any) { toast({ title: "操作失败", description: err.message, variant: "destructive" }); return null; }
     finally { setActing(false); }
   };
 
@@ -148,12 +148,13 @@ export default function AdminV2OutsourceDemandDetail({
     if (!editDetail.trim()) { toast({ title: "请填写需求详情", variant: "destructive" }); return; }
     setActing(true);
     try {
-      await v2Post(`/outsource-demands/${id}/update-detail`, {
+      const newVer = await v2Post<LatestVersion>(`/outsource-demands/${id}/update-detail`, {
         detail: editDetail.trim(), attachments: editAttachments,
         editComment: editComment.trim() || undefined,
       });
       toast({ title: "需求详情已更新，已通知相关OPC" });
-      setEditMode(false); setEditComment(""); await load();
+      setEditMode(false); setEditComment("");
+      setDemand(prev => prev ? { ...prev, detail: newVer.detail, latestVersion: newVer } : prev);
     } catch (err: any) { toast({ title: "操作失败", description: err.message, variant: "destructive" }); }
     finally { setActing(false); }
   };
@@ -168,20 +169,32 @@ export default function AdminV2OutsourceDemandDetail({
 
   const handleSaveMilestones = async () => {
     setSavingMilestones(true);
+    const saved = editMilestones.filter(m => m.name.trim());
     try {
-      await v2Patch(`/outsource-demands/${id}`, { milestones: editMilestones.filter(m => m.name.trim()) });
-      toast({ title: "里程碑已保存" }); setMilestoneEditMode(false); await load();
+      await v2Patch(`/outsource-demands/${id}`, { milestones: saved });
+      toast({ title: "里程碑已保存" });
+      setMilestoneEditMode(false);
+      setDemand(prev => prev ? { ...prev, milestones: saved } : prev);
     } catch (err: any) { toast({ title: "保存失败", description: err.message, variant: "destructive" }); }
     finally { setSavingMilestones(false); }
   };
 
-  const handleCancelTender = (tenderId: number) => act(
-    () => v2Post(`/tenders/${tenderId}/cancel`, {}), "投标已取消，已通知OPC"
-  );
+  const handleCancelTender = async (tenderId: number) => {
+    const updated = await act(() => v2Post<Tender>(`/tenders/${tenderId}/cancel`, {}), "投标已取消，已通知OPC");
+    if (updated) setTenders(prev => prev.map(t => t.id === tenderId ? { ...t, status: "lost" as const } : t));
+  };
 
-  const handleSelectWinnerSingle = (tenderId: number) => act(
-    () => v2Post(`/tenders/${tenderId}/select-winner`, {}), "已选定中标，订单已生成，已通知OPC"
-  );
+  const handleSelectWinnerSingle = async (tenderId: number) => {
+    const result = await act(() => v2Post(`/tenders/${tenderId}/select-winner`, {}), "已选定中标，订单已生成，已通知OPC");
+    if (result) {
+      setDemand(prev => prev ? { ...prev, status: "executing" } : prev);
+      setTenders(prev => prev.map(t => {
+        if (t.id === tenderId) return { ...t, status: "won" as const };
+        if (["negotiating", "quoted"].includes(t.status)) return { ...t, status: "lost" as const };
+        return t;
+      }));
+    }
+  };
 
   const handleBatchSelectWinners = async () => {
     const ids = [...batchSelected];
@@ -192,7 +205,13 @@ export default function AdminV2OutsourceDemandDetail({
       toast({ title: `已选定 ${ids.length} 位中标 OPC，订单与合同已生成` });
       setShowBatchModal(false);
       setBatchSelected(new Set());
-      await load();
+      const idSet = new Set(ids);
+      setDemand(prev => prev ? { ...prev, status: "executing" } : prev);
+      setTenders(prev => prev.map(t => {
+        if (idSet.has(t.id)) return { ...t, status: "won" as const };
+        if (["negotiating", "quoted"].includes(t.status)) return { ...t, status: "lost" as const };
+        return t;
+      }));
     } catch (err: any) {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally {
@@ -200,15 +219,24 @@ export default function AdminV2OutsourceDemandDetail({
     }
   };
 
-  const handleClose = () => act(async () => {
-    await v2Post(`/outsource-demands/${id}/close`, { reason: closeReason.trim() || null });
-    setCloseReason(""); setShowClose(false);
-  }, "需求已关闭");
+  const handleClose = async () => {
+    const result = await act(
+      () => v2Post(`/outsource-demands/${id}/close`, { reason: closeReason.trim() || null }),
+      "需求已关闭"
+    );
+    if (result) {
+      setCloseReason(""); setShowClose(false);
+      setDemand(prev => prev ? { ...prev, status: "closed" } : prev);
+    }
+  };
 
-  const handlePublish = () => act(async () => {
-    await v2Patch(`/outsource-demands/${id}`, { status: "negotiating" });
-    toast({ title: "OPC 需求已发布，OPC 可开始投标" });
-  });
+  const handlePublish = async () => {
+    const result = await act(
+      () => v2Patch<OutsourceDemand>(`/outsource-demands/${id}`, { status: "negotiating" }),
+      "OPC 需求已发布，OPC 可开始投标"
+    );
+    if (result) setDemand(prev => prev ? { ...prev, status: "negotiating" } : prev);
+  };
 
   const handleDelete = async () => {
     try {
