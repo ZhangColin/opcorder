@@ -16,8 +16,8 @@ interface ClientDemand {
   demandType?: string | null;
   budgetMin?: number | null;
   budgetMax?: number | null;
-  detail?: string | null;
   isUrgent?: boolean;
+  latestVersion?: { detail?: string | null; attachments?: Array<{ name: string; url: string }> } | null;
 }
 
 function CustomSelect({
@@ -128,7 +128,7 @@ export default function AdminV2OutsourceDemandNew() {
       if (cd.demandType) setDemandType(cd.demandType);
       if (cd.budgetMin != null) setExpectedPriceMin(String(cd.budgetMin));
       if (cd.budgetMax != null) setExpectedPriceMax(String(cd.budgetMax));
-      if (cd.detail) setDetail(cd.detail);
+      if (cd.latestVersion?.detail) setDetail(cd.latestVersion.detail);
       if (cd.isUrgent) setIsUrgent(true);
       toast({ title: "已带入关联需求内容", description: "已同步标题、类型、预算和详情" });
     } catch {
