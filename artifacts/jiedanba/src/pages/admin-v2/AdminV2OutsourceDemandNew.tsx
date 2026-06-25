@@ -93,7 +93,7 @@ export default function AdminV2OutsourceDemandNew() {
   const [expectedPriceMin, setExpectedPriceMin] = useState("");
   const [expectedPriceMax, setExpectedPriceMax] = useState("");
   const [detail, setDetail] = useState("");
-  const [milestones, setMilestones] = useState<Array<{ title: string; dueDate: string }>>([]);
+  const [milestones, setMilestones] = useState<Array<{ title: string; dueDate: string; description: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const [opcSearch, setOpcSearch] = useState("");
@@ -189,9 +189,9 @@ export default function AdminV2OutsourceDemandNew() {
 
   const removeInvitedOpc = (id: number) => setInvitedOpcs(prev => prev.filter(o => o.id !== id));
 
-  const addMilestone = () => setMilestones([...milestones, { title: "", dueDate: "" }]);
+  const addMilestone = () => setMilestones([...milestones, { title: "", dueDate: "", description: "" }]);
   const removeMilestone = (i: number) => setMilestones(milestones.filter((_, j) => j !== i));
-  const updateMilestone = (i: number, field: "title" | "dueDate", value: string) => {
+  const updateMilestone = (i: number, field: "title" | "dueDate" | "description", value: string) => {
     const arr = [...milestones];
     arr[i][field] = value;
     setMilestones(arr);
@@ -210,7 +210,7 @@ export default function AdminV2OutsourceDemandNew() {
         expectedPriceMin: expectedPriceMin ? parseFloat(expectedPriceMin) : null,
         expectedPriceMax: expectedPriceMax ? parseFloat(expectedPriceMax) : null,
         detail: detail.trim() || null,
-        milestones: milestones.filter(m => m.title).map(m => ({ title: m.title, dueDate: m.dueDate || null })),
+        milestones: milestones.filter(m => m.title).map(m => ({ name: m.title, deadline: m.dueDate || null, description: m.description || null })),
         invitedOpcIds: mode === "invited" && invitedOpcs.length > 0 ? invitedOpcs.map(o => o.id) : undefined,
       };
       const result = await v2Post<{ id: number }>("/outsource-demands", payload);
@@ -441,27 +441,37 @@ export default function AdminV2OutsourceDemandNew() {
             {milestones.length === 0 ? (
               <p className="text-xs text-slate-400 py-2">尚未添加里程碑，可点击右上角按钮添加</p>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {milestones.map((m, i) => (
-                  <div key={i} className="flex gap-3 items-center">
-                    <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                      {i + 1}
-                    </div>
-                    <input
-                      value={m.title}
-                      onChange={e => updateMilestone(i, "title", e.target.value)}
-                      placeholder={`里程碑 ${i + 1} 名称`}
-                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                    />
-                    <input
-                      type="date"
-                      value={m.dueDate}
-                      onChange={e => updateMilestone(i, "dueDate", e.target.value)}
-                      className="w-38 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                    />
-                    <button onClick={() => removeMilestone(i)} className="text-slate-300 hover:text-red-500 transition-colors shrink-0">
-                      <Trash2 size={15} />
+                  <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 relative">
+                    <button onClick={() => removeMilestone(i)} className="absolute top-2 right-2 text-slate-300 hover:text-red-500 transition-colors">
+                      <Trash2 size={13} />
                     </button>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</div>
+                      里程碑 {i + 1}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={m.title}
+                        onChange={e => updateMilestone(i, "title", e.target.value)}
+                        placeholder="名称（必填）"
+                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                      />
+                      <input
+                        type="date"
+                        value={m.dueDate}
+                        onChange={e => updateMilestone(i, "dueDate", e.target.value)}
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-slate-600"
+                      />
+                    </div>
+                    <textarea
+                      value={m.description}
+                      onChange={e => updateMilestone(i, "description", e.target.value)}
+                      placeholder="说明（可选）：描述该里程碑的任务、目标、验收标准等"
+                      rows={2}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors resize-none"
+                    />
                   </div>
                 ))}
               </div>
