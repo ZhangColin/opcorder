@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
@@ -179,7 +179,7 @@ export default function OpcV2TenderDetail() {
   const [quoteConfig, setQuoteConfig] = useState<QuoteCategoryConfig | null>(null);
   const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
   const [quoteNote, setQuoteNote] = useState("");
-  const [restoreFromBreakdown, setRestoreFromBreakdown] = useState(false);
+  const pendingRestoreRef = useRef<PriceBreakdownItem[] | null>(null);
 
   const baseDims = quoteConfig?.base ?? [];
   const adjustDims = quoteConfig?.adjustment ?? [];
@@ -205,45 +205,25 @@ export default function OpcV2TenderDetail() {
     return { rawBase, clampedAdj, calibratedBase, factorProduct, adjustedPrice, maintenanceFee, finalPrice };
   }, [quoteSelections, quoteConfig, adjustmentPercent, maintenancePackage, baseDims, adjustDims, selectedMaintTier]);
 
-  useEffect(() => {
-    if (!showQuoteOverlay) return;
-    const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
-    if (!category) { setQuoteConfig(null); return; }
-    setQuoteConfigLoading(true);
-    fetch(`${API_BASE}/api/quote-card/config?category=${category}`)
-      .then(r => r.json())
-      .then((cfg: QuoteCategoryConfig) => setQuoteConfig(cfg))
-      .catch(() => setQuoteConfig(null))
-      .finally(() => setQuoteConfigLoading(false));
-  }, [showQuoteOverlay, demand?.demandType]);
-
-  /* 更新报价时，从已有 breakdown 反推选项回填报价卡 */
-  useEffect(() => {
-    if (!restoreFromBreakdown || !quoteConfig || !tender?.priceBreakdown?.length) return;
-    setRestoreFromBreakdown(false);
-    const bd = tender.priceBreakdown;
-
-    /* quoteNote */
+  /* 从 breakdown 反推并回填报价卡选项（定义在 useEffect 之前，避免 undefined 引用） */
+  const applyBreakdownRestore = useCallback((cfg: QuoteCategoryConfig, bd: PriceBreakdownItem[]) => {
     const noteItem = bd.find(b => b.item === "备注");
     if (noteItem?.note) setQuoteNote(noteItem.note);
 
-    /* adjustmentPercent */
     const adjItem = bd.find(b => b.item.startsWith("综合调整"));
     if (adjItem) {
       const m = adjItem.item.match(/([+-]?\d+)%/);
       if (m) setAdjustmentPercent(parseInt(m[1], 10));
     }
 
-    /* maintenancePackage */
-    const maintDimTiers = (quoteConfig.optional ?? []).find(d => d.code === "MAINT")?.tiers ?? [];
+    const maintTiers = (cfg.optional ?? []).find(d => d.code === "MAINT")?.tiers ?? [];
     const maintItem = bd.find(b => b.item.startsWith("维护包"));
     if (maintItem) {
-      const matched = maintDimTiers.find(t => maintItem.item.includes(t.tierLabel));
+      const matched = maintTiers.find(t => maintItem.item.includes(t.tierLabel));
       if (matched) setMaintenancePackage(matched.tier);
     }
 
-    /* quoteSelections — 用 label（tierLabel）匹配 */
-    const allDims = [...(quoteConfig.base ?? []), ...(quoteConfig.adjustment ?? [])];
+    const allDims = [...(cfg.base ?? []), ...(cfg.adjustment ?? [])];
     const selections: Record<string, string> = {};
     for (const dim of allDims) {
       for (const tier of dim.tiers) {
@@ -254,7 +234,26 @@ export default function OpcV2TenderDetail() {
       }
     }
     setQuoteSelections(selections);
-  }, [restoreFromBreakdown, quoteConfig, tender?.priceBreakdown]);
+  }, []);
+
+  useEffect(() => {
+    if (!showQuoteOverlay) return;
+    const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
+    if (!category) { setQuoteConfig(null); return; }
+    setQuoteConfigLoading(true);
+    fetch(`${API_BASE}/api/quote-card/config?category=${category}`)
+      .then(r => r.json())
+      .then((cfg: QuoteCategoryConfig) => {
+        setQuoteConfig(cfg);
+        const bd = pendingRestoreRef.current;
+        if (bd?.length) {
+          pendingRestoreRef.current = null;
+          applyBreakdownRestore(cfg, bd);
+        }
+      })
+      .catch(() => setQuoteConfig(null))
+      .finally(() => setQuoteConfigLoading(false));
+  }, [showQuoteOverlay, demand?.demandType, applyBreakdownRestore]);
 
   function addBreakdownItem() {
     setBreakdown(prev => [...prev, { item: "", amount: 0, note: "" }]);
@@ -564,7 +563,9 @@ export default function OpcV2TenderDetail() {
                   onClick={() => {
                     const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
                     if (category) {
-                      if (tender.totalPrice) setRestoreFromBreakdown(true);
+                      if (tender.totalPrice && tender.priceBreakdown?.length) {
+                        pendingRestoreRef.current = tender.priceBreakdown;
+                      }
                       setShowQuoteOverlay(true);
                     } else {
                       if (tender.totalPrice) {
