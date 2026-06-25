@@ -563,8 +563,13 @@ export default function OpcV2TenderDetail() {
                   onClick={() => {
                     const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
                     if (category) {
-                      if (tender.totalPrice && tender.priceBreakdown?.length) {
-                        pendingRestoreRef.current = tender.priceBreakdown;
+                      const bd = tender.priceBreakdown;
+                      if (tender.totalPrice && bd?.length) {
+                        if (quoteConfig) {
+                          applyBreakdownRestore(quoteConfig, bd);
+                        } else {
+                          pendingRestoreRef.current = bd;
+                        }
                       }
                       setShowQuoteOverlay(true);
                     } else {
