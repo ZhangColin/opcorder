@@ -640,22 +640,6 @@ export default function OpcV2OrderDetail() {
               )}
             </CardSection>
 
-            {/* 我的报价 */}
-            {tender && (
-              <CardSection title="我的报价" icon={DollarSign}>
-                <div className="space-y-2">
-                  {tender.priceBreakdown && tender.priceBreakdown.length > 0 ? (
-                    <BreakdownDisplay bd={tender.priceBreakdown} totalPrice={tender.totalPrice ?? undefined} />
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">报价总额</span>
-                      <span className="text-lg font-black text-primary">¥{tender.totalPrice?.toLocaleString() ?? "-"}</span>
-                    </div>
-                  )}
-                </div>
-              </CardSection>
-            )}
-
             {/* 收款计划 */}
             {settlements.length > 0 && (
               <CardSection
@@ -728,6 +712,22 @@ export default function OpcV2OrderDetail() {
                       </div>
                     );
                   })}
+                </div>
+              </CardSection>
+            )}
+
+            {/* 我的报价 */}
+            {tender && (
+              <CardSection title="我的报价" icon={DollarSign}>
+                <div className="space-y-2">
+                  {tender.priceBreakdown && tender.priceBreakdown.length > 0 ? (
+                    <BreakdownDisplay bd={tender.priceBreakdown} totalPrice={tender.totalPrice ?? undefined} />
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">报价总额</span>
+                      <span className="text-lg font-black text-primary">¥{tender.totalPrice?.toLocaleString() ?? "-"}</span>
+                    </div>
+                  )}
                 </div>
               </CardSection>
             )}
