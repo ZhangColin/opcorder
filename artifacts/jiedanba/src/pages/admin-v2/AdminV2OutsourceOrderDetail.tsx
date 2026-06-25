@@ -671,41 +671,6 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
         {activeTab === "contract" && (
           <div className="space-y-4">
 
-            {/* OPC 报价信息 */}
-            {tender && tender.totalPrice != null && (() => {
-              const hasBreakdown = Array.isArray(tender.priceBreakdown) && tender.priceBreakdown.length > 0;
-              const titleNode = (
-                <span className="flex items-center gap-3 flex-1 min-w-0">
-                  <span className="font-bold text-slate-800 text-sm">OPC 报价</span>
-                  <span className="text-base font-black text-primary">¥{tender.totalPrice.toLocaleString()}</span>
-                  {tender.quotedAt && (
-                    <span className="text-xs text-slate-400 hidden sm:inline">
-                      {new Date(tender.quotedAt).toLocaleDateString("zh-CN")} 报价
-                    </span>
-                  )}
-                  {hasBreakdown && (
-                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded hidden sm:inline">
-                      {tender.priceBreakdown!.length} 项明细
-                    </span>
-                  )}
-                </span>
-              );
-              return (
-                <Section
-                  title={titleNode}
-                  icon={DollarSign}
-                  collapsible={hasBreakdown}
-                  defaultOpen={false}
-                >
-                  {hasBreakdown && (
-                    <div className="mt-2">
-                      <BreakdownDisplay bd={tender.priceBreakdown!} totalPrice={tender.totalPrice} />
-                    </div>
-                  )}
-                </Section>
-              );
-            })()}
-
             {/* 合同区 */}
             {(() => {
               const CONTRACT_STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -1005,6 +970,25 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                 ))}
               </div>
             </Section>
+
+            {/* OPC 报价信息 */}
+            {tender && tender.totalPrice != null && (
+              <Section title="OPC 报价" icon={DollarSign} collapsible={false}>
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl font-black text-primary">¥{tender.totalPrice.toLocaleString()}</span>
+                    {tender.quotedAt && (
+                      <span className="text-xs text-slate-400">
+                        {new Date(tender.quotedAt).toLocaleDateString("zh-CN")} 报价
+                      </span>
+                    )}
+                  </div>
+                  {Array.isArray(tender.priceBreakdown) && tender.priceBreakdown.length > 0 && (
+                    <BreakdownDisplay bd={tender.priceBreakdown} totalPrice={tender.totalPrice} />
+                  )}
+                </div>
+              </Section>
+            )}
 
           </div>
         )}
