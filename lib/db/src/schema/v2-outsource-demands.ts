@@ -6,6 +6,7 @@ import { usersTable } from "./users";
 import { v2ClientDemandsTable } from "./v2-client-demands";
 
 export const v2OutsourceDemandStatusEnum = pgEnum("v2_outsource_demand_status", [
+  "draft",
   "negotiating",
   "executing",
   "warranty",

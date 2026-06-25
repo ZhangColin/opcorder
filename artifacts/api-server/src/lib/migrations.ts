@@ -2135,5 +2135,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 034b: added cancelled to v2_payment_plan_status enum");
   });
 
+  // Migration 035a: add 'draft' to v2_outsource_demand_status enum
+  await once("035a", true, async () => {
+    await db.execute(sql`ALTER TYPE v2_outsource_demand_status ADD VALUE IF NOT EXISTS 'draft' BEFORE 'negotiating'`);
+    logger.info("Migration 035a: added draft to v2_outsource_demand_status enum");
+  });
+
   logger.info("Startup data migrations complete.");
 }

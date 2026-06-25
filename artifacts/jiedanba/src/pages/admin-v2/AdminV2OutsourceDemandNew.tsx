@@ -212,6 +212,7 @@ export default function AdminV2OutsourceDemandNew() {
         detail: detail.trim() || null,
         milestones: milestones.filter(m => m.title).map(m => ({ name: m.title, deadline: m.dueDate || null, description: m.description || null })),
         invitedOpcIds: mode === "invited" && invitedOpcs.length > 0 ? invitedOpcs.map(o => o.id) : undefined,
+        status: asDraft ? "draft" : "negotiating",
       };
       const result = await v2Post<{ id: number }>("/outsource-demands", payload);
       toast({ title: asDraft ? "已保存草稿" : "OPC 需求已发布" });

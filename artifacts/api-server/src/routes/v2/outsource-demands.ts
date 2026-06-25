@@ -81,11 +81,12 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
 router.post("/outsource-demands", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { clientDemandId, title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds, detail, attachments } = req.body as {
+    const { clientDemandId, title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds, detail, attachments, status } = req.body as {
       clientDemandId?: number; title: string; demandType?: string; isUrgent?: boolean;
       mode?: "public" | "invited"; expectedPriceMin?: number; expectedPriceMax?: number;
       milestones?: any[]; invitedOpcIds?: number[];
       detail?: string; attachments?: Array<{ name: string; url: string; size?: number }>;
+      status?: "draft" | "negotiating";
     };
     if (!title?.trim()) return res.status(400).json({ error: "标题不能为空" });
 
@@ -101,7 +102,7 @@ router.post("/outsource-demands", requireAdmin, async (req: Request, res: Respon
       expectedPriceMin,
       expectedPriceMax,
       milestones: milestones ?? [],
-      status: "negotiating",
+      status: status === "draft" ? "draft" : "negotiating",
     }).returning();
 
     await db.insert(v2OutsourceDemandVersionsTable).values({
@@ -204,7 +205,7 @@ router.patch("/outsource-demands/:id", requireAdmin, async (req: Request, res: R
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
 
-    const { title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones } = req.body as any;
+    const { title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, status } = req.body as any;
     const updates: any = { updatedAt: new Date() };
     if (title !== undefined) updates.title = title;
     if (demandType !== undefined) updates.demandType = demandType;
@@ -213,6 +214,7 @@ router.patch("/outsource-demands/:id", requireAdmin, async (req: Request, res: R
     if (expectedPriceMin !== undefined) updates.expectedPriceMin = expectedPriceMin;
     if (expectedPriceMax !== undefined) updates.expectedPriceMax = expectedPriceMax;
     if (milestones !== undefined) updates.milestones = milestones;
+    if (status !== undefined) updates.status = status;
 
     const [updated] = await db.update(v2OutsourceDemandsTable).set(updates)
       .where(eq(v2OutsourceDemandsTable.id, id)).returning();

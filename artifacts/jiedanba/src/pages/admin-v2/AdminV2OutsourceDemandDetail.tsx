@@ -46,6 +46,7 @@ interface VersionItem {
 
 const VERSION_ROLE_LABEL: Record<string, string> = { publisher: "发单方", opc: "OPC", admin: "运营方" };
 const STATUS_CFG: Record<string, { label: string; color: string }> = {
+  draft:       { label: "草稿", color: "bg-slate-100 text-slate-500" },
   negotiating: { label: "招标中", color: "bg-blue-100 text-blue-700" },
   executing:   { label: "执行中", color: "bg-green-100 text-green-700" },
   warranty:    { label: "质保中", color: "bg-teal-100 text-teal-700" },
@@ -204,6 +205,11 @@ export default function AdminV2OutsourceDemandDetail({
     setCloseReason(""); setShowClose(false);
   }, "需求已关闭");
 
+  const handlePublish = () => act(async () => {
+    await v2Patch(`/outsource-demands/${id}`, { status: "negotiating" });
+    toast({ title: "OPC 需求已发布，OPC 可开始投标" });
+  });
+
   const handleInviteSearch = async () => {
     if (!inviteSearch.trim()) return;
     setInviteSearching(true);
@@ -247,6 +253,7 @@ export default function AdminV2OutsourceDemandDetail({
 
   const cfg = STATUS_CFG[demand.status] ?? { label: demand.status, color: "bg-slate-100 text-slate-500" };
   const canEdit = !["completed", "closed"].includes(demand.status);
+  const canPublish = demand.status === "draft";
   const canClose = demand.status === "negotiating";
   const currentDetail = demand.detail ?? demand.latestVersion?.detail ?? null;
   const currentAttachments = demand.latestVersion?.attachments ?? [];
@@ -264,11 +271,20 @@ export default function AdminV2OutsourceDemandDetail({
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <div className="flex items-start justify-between gap-3 mb-3">
             <h2 className="text-base font-extrabold text-slate-800 leading-snug">{demand.title}</h2>
-            {canClose && (
-              <button onClick={() => setShowClose(v => !v)} className={`shrink-0 px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${showClose ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
-                关闭需求
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {canPublish && (
+                <button onClick={handlePublish} disabled={acting}
+                  className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                  {acting ? "发布中…" : "发布需求"}
+                </button>
+              )}
+              {canClose && (
+                <button onClick={() => setShowClose(v => !v)}
+                  className={`px-3 py-1.5 text-xs font-bold border rounded-xl transition-colors ${showClose ? "bg-red-500 text-white border-red-500" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
+                  关闭需求
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
