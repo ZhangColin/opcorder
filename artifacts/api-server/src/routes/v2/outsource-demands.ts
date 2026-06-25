@@ -400,4 +400,19 @@ router.get("/outsource-demands/:id/versions", requireAuth, async (req: Request, 
   }
 });
 
+router.delete("/outsource-demands/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [demand] = await db.select({ status: v2OutsourceDemandsTable.status })
+      .from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
+    if (!demand) return res.status(404).json({ error: "外包需求不存在" });
+    if (demand.status !== "draft") return res.status(400).json({ error: "只有草稿状态的需求可以删除" });
+    await db.delete(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "DELETE /v2/outsource-demands/:id failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
 export default router;

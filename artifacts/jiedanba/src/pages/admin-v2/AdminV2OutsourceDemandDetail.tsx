@@ -11,7 +11,7 @@ import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { useDemandTypeLabel } from "@/lib/catCategories";
-import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -96,6 +96,7 @@ export default function AdminV2OutsourceDemandDetail({
 
   const [showClose, setShowClose] = useState(false);
   const [closeReason, setCloseReason] = useState("");
+  const [showDelete, setShowDelete] = useState(false);
 
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [inviteSearch, setInviteSearch] = useState("");
@@ -210,6 +211,17 @@ export default function AdminV2OutsourceDemandDetail({
     toast({ title: "OPC 需求已发布，OPC 可开始投标" });
   });
 
+  const handleDelete = async () => {
+    try {
+      await v2Delete(`/outsource-demands/${id}`);
+      toast({ title: "草稿已删除" });
+      setShowDelete(false);
+      if (inlineNav) inlineNav.back();
+    } catch (err: any) {
+      toast({ title: "删除失败", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleInviteSearch = async () => {
     if (!inviteSearch.trim()) return;
     setInviteSearching(true);
@@ -273,10 +285,16 @@ export default function AdminV2OutsourceDemandDetail({
             <h2 className="text-base font-extrabold text-slate-800 leading-snug">{demand.title}</h2>
             <div className="flex items-center gap-2 shrink-0">
               {canPublish && (
-                <button onClick={handlePublish} disabled={acting}
-                  className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                  {acting ? "发布中…" : "发布需求"}
-                </button>
+                <>
+                  <button onClick={() => setShowDelete(true)}
+                    className="px-3 py-1.5 text-xs font-bold border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors">
+                    删除草稿
+                  </button>
+                  <button onClick={handlePublish} disabled={acting}
+                    className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                    {acting ? "发布中…" : "发布需求"}
+                  </button>
+                </>
               )}
               {canClose && (
                 <button onClick={() => setShowClose(v => !v)}
@@ -331,6 +349,26 @@ export default function AdminV2OutsourceDemandDetail({
             </div>
           )}
         </div>
+
+        {/* ── 删除草稿弹窗 ── */}
+        {showDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDelete(false)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-base font-extrabold text-slate-800">删除草稿</h4>
+                <button onClick={() => setShowDelete(false)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
+              </div>
+              <p className="text-sm text-slate-500 mb-6">确定要删除这份草稿吗？删除后无法恢复。</p>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setShowDelete(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleDelete}
+                  className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl font-bold hover:bg-red-600">
+                  确认删除
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── 关闭需求弹窗 ── */}
         {showClose && (
