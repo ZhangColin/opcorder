@@ -67,7 +67,7 @@ export function OpcV2Sidebar({ onLogout: _onLogout, mobileOpen = false, onMobile
             >
               <Icon size={16} className="shrink-0" />
               <span className="flex-1">{label}</span>
-              {dot && <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />}
+              {dot && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />}
             </div>
           </Link>
         );

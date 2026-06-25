@@ -132,7 +132,7 @@ export default function PubTicketList() {
                         {t.title}
                       </p>
                       <div className="flex items-center gap-2 shrink-0">
-                        {unread && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                        {unread && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
                       </div>
                     </div>

@@ -173,7 +173,7 @@ export default function PubDemandList() {
                         {d.title}
                       </p>
                       <div className="flex items-center gap-2 shrink-0">
-                        {unread && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                        {unread && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                         {d.isUrgent && (
                           <span className="flex items-center gap-0.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded-full">
                             <Zap size={9} fill="currentColor" /> 紧急
