@@ -167,6 +167,9 @@ export default function PubHome() {
   /* computed */
   const demandsActive     = demands.filter(d => !["completed", "closed"].includes(d.status));
   const demandsPending    = demands.filter(d => d.status === "pending_review");
+  const demandsQuoting    = demands.filter(d => d.status === "quoting");
+  const demandsInProgress = demands.filter(d => d.status === "in_progress");
+  const demandsCompleted  = demands.filter(d => d.status === "completed");
   const contractsPending  = contracts.filter(c => c.status === "pending_publisher_confirm");
   const contractsSigning  = contracts.filter(c => c.status === "pending_sign");
   const contractsSigned   = contracts.filter(c => c.status === "signed");
@@ -473,6 +476,21 @@ export default function PubHome() {
 
           {/* Right: module status overview */}
           <div className="lg:col-span-5 flex flex-col gap-3">
+            <ModuleCard
+              icon={FileText}
+              title="需求管理"
+              href="/pub/demands?filter=all"
+              navigate={navigate}
+              segments={[
+                { label: "待审核", count: demandsPending.length, color: "bg-amber-400" },
+                { label: "报价中", count: demandsQuoting.length, color: "bg-blue-400" },
+                { label: "进行中", count: demandsInProgress.length, color: "bg-violet-400" },
+                { label: "已完成", count: demandsCompleted.length, color: "bg-green-400" },
+              ]}
+              cta={demandsPending.length > 0 ? `${demandsPending.length} 个需求待审核` : undefined}
+              ctaUrgent={demandsPending.length > 0}
+            />
+
             <ModuleCard
               icon={FileSignature}
               title="合同管理"
