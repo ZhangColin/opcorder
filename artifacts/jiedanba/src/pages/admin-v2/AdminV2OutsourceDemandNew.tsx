@@ -238,7 +238,7 @@ export default function AdminV2OutsourceDemandNew() {
         onApply={handleSplitApply}
         onCreateDraft={handleCreateDraft}
       />
-      <AdminV2Layout title="新建 OPC 需求" backHref="/admin/v2/outsource-demands" backLabel="OPC 需求">
+      <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="OPC 需求">
         <div className="space-y-5">
 
           {/* ── 基本信息 ── */}
