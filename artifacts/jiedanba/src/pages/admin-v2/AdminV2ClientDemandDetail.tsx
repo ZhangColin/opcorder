@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
@@ -252,6 +252,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const [quoteConfig, setQuoteConfig] = useState<QuoteCategoryConfig | null>(null);
   const [quoteConfigLoading, setQuoteConfigLoading] = useState(false);
   const [quoteNote, setQuoteNote] = useState("");
+  const pendingRestoreRef = useRef<Array<{ item: string; amount: number; note?: string }> | null>(null);
 
   // Tab — prefer prop (from inlineNav), fall back to URL search param
   const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">(() => {
@@ -329,6 +330,36 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
     return { rawBase, clampedAdj, calibratedBase, factorProduct, adjustedPrice, maintenanceFee, finalPrice };
   }, [quoteSelections, quoteConfig, adjustmentPercent, maintenancePackage, baseDims, adjustDims, selectedMaintTier]);
 
+  const applyBreakdownRestore = useCallback((cfg: QuoteCategoryConfig, bd: Array<{ item: string; amount: number; note?: string }>) => {
+    const noteItem = bd.find(b => b.item === "备注");
+    if (noteItem?.note) setQuoteNote(noteItem.note);
+
+    const adjItem = bd.find(b => b.item.startsWith("综合调整"));
+    if (adjItem) {
+      const m = adjItem.item.match(/([+-]?\d+)%/);
+      if (m) setAdjustmentPercent(parseInt(m[1], 10));
+    }
+
+    const maintTiersLocal = (cfg.optional ?? []).find(d => d.code === "MAINT")?.tiers ?? [];
+    const maintItem = bd.find(b => b.item.startsWith("维护包"));
+    if (maintItem) {
+      const matched = maintTiersLocal.find(t => maintItem.item.includes(t.tierLabel));
+      if (matched) setMaintenancePackage(matched.tier);
+    }
+
+    const allDims = [...(cfg.base ?? []), ...(cfg.adjustment ?? [])];
+    const selections: Record<string, string> = {};
+    for (const dim of allDims) {
+      for (const tier of dim.tiers) {
+        if (bd.some(b => b.item === `${dim.label}（${tier.tierLabel}）`)) {
+          selections[dim.code] = tier.tier;
+          break;
+        }
+      }
+    }
+    setQuoteSelections(selections);
+  }, []);
+
   useEffect(() => {
     if (!showQuoteOverlay) return;
     const category = V2_DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] ?? null;
@@ -336,10 +367,17 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
     setQuoteConfigLoading(true);
     fetch(`${API_BASE}/api/quote-card/config?category=${category}`)
       .then(r => r.json())
-      .then((cfg: QuoteCategoryConfig) => setQuoteConfig(cfg))
+      .then((cfg: QuoteCategoryConfig) => {
+        setQuoteConfig(cfg);
+        const bd = pendingRestoreRef.current;
+        if (bd?.length) {
+          pendingRestoreRef.current = null;
+          applyBreakdownRestore(cfg, bd);
+        }
+      })
       .catch(() => setQuoteConfig(null))
       .finally(() => setQuoteConfigLoading(false));
-  }, [showQuoteOverlay, demand?.demandType]);
+  }, [showQuoteOverlay, demand?.demandType, applyBreakdownRestore]);
 
   const load = async () => {
     setLoading(true);
@@ -741,7 +779,16 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               )}
               {(canInitiateQuote || canReQuote) && (
                 <button
-                  onClick={() => setShowQuoteOverlay(true)}
+                  onClick={() => {
+                    if (canReQuote && quotation?.breakdown?.length) {
+                      if (quoteConfig) {
+                        applyBreakdownRestore(quoteConfig, quotation.breakdown);
+                      } else {
+                        pendingRestoreRef.current = quotation.breakdown;
+                      }
+                    }
+                    setShowQuoteOverlay(true);
+                  }}
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border rounded-xl transition-colors border-primary/30 text-primary hover:bg-primary/5"
                 >
                   <DollarSign size={12} /> {canReQuote ? "更新报价" : "发起报价"}
