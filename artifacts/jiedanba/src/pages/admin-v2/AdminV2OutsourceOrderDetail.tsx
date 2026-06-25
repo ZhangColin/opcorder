@@ -759,7 +759,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId }: { inlineId?: n
                             <p className="text-sm font-bold text-amber-800">等待 OPC 查阅合同内容并确认</p>
                           </div>
                         )}
-                        {order.status === "pending_contract" && contract?.opcConfirmedAt && !contract.signedFileUrl && (
+                        {order.status === "pending_contract" && contract?.opcConfirmedAt && !contract.signedFileUrl && contract?.status !== "pending_publisher_confirm" && (
                           <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 rounded-xl border border-blue-200">
                             <CheckCircle2 size={15} className="text-blue-600 shrink-0 mt-0.5" />
                             <p className="text-sm font-bold text-blue-800">OPC 已确认合同内容，请安排线下 / 电子签约后上传已签合同文件</p>
