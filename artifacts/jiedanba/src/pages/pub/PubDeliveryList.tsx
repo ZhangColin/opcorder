@@ -46,7 +46,9 @@ type FilterKey = (typeof FILTER_TABS)[number]["key"];
 const PAGE_SIZE = 10;
 
 export default function PubDeliveryList() {
-  const [filter, setFilter] = useState<FilterKey>("pending");
+  const [filter, setFilter] = useState<FilterKey>(() =>
+    new URLSearchParams(window.location.search).get("filter") === "all" ? "all" : "pending"
+  );
   const [page, setPage] = useState(1);
   const [, navigate] = useLocation();
 

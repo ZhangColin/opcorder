@@ -476,7 +476,7 @@ export default function PubHome() {
             <ModuleCard
               icon={FileSignature}
               title="合同管理"
-              href="/pub/contracts"
+              href="/pub/contracts?filter=all"
               navigate={navigate}
               segments={[
                 { label: "待确认", count: contractsPending.length, color: "bg-amber-400" },
@@ -490,7 +490,7 @@ export default function PubHome() {
             <ModuleCard
               icon={CreditCard}
               title="付款管理"
-              href="/pub/payments"
+              href="/pub/payments?filter=all"
               navigate={navigate}
               segments={[
                 { label: "逾期", count: paymentsOverdue.length, color: "bg-red-400" },
@@ -505,7 +505,7 @@ export default function PubHome() {
             <ModuleCard
               icon={PackageCheck}
               title="交付确认"
-              href="/pub/deliveries"
+              href="/pub/deliveries?filter=all"
               navigate={navigate}
               segments={[
                 { label: "待确认", count: deliveriesPending.length, color: "bg-violet-400" },
@@ -518,7 +518,7 @@ export default function PubHome() {
             <ModuleCard
               icon={Wrench}
               title="质保工单"
-              href="/pub/tickets"
+              href="/pub/tickets?filter=all"
               navigate={navigate}
               segments={[
                 { label: "处理中", count: ticketsOpen.length, color: "bg-blue-400" },

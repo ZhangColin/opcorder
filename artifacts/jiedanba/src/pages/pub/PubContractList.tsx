@@ -43,7 +43,9 @@ export default function PubContractList() {
   const [, navigate] = useLocation();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("pending_publisher_confirm");
+  const [statusFilter, setStatusFilter] = useState(() =>
+    new URLSearchParams(window.location.search).get("filter") === "all" ? "" : "pending_publisher_confirm"
+  );
   const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {

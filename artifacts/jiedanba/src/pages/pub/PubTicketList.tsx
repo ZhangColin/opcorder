@@ -38,7 +38,9 @@ export default function PubTicketList() {
   const [, navigate] = useLocation();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("open");
+  const [statusFilter, setStatusFilter] = useState(() =>
+    new URLSearchParams(window.location.search).get("filter") === "all" ? "" : "open"
+  );
   const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {

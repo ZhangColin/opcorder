@@ -7,6 +7,7 @@ import {
 import { PubSidebar } from "./PubSidebar";
 import { clearSession } from "@/lib/auth";
 import { PublisherHeaderUser } from "@/components/publisher/PublisherHeaderUser";
+import { useListNotifications } from "@workspace/api-client-react";
 
 /* route → { icon, label } */
 const ROUTE_MAP: { path: string; icon: React.ElementType; label: string }[] = [
@@ -32,6 +33,8 @@ interface PubLayoutProps {
 export function PubLayout({ children, title, hideTitle, backHref, backLabel, actions }: PubLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [location, navigate] = useLocation();
+  const { data: notifData } = useListNotifications({ page: 1, limit: 1 });
+  const unreadCount = notifData?.unreadCount ?? 0;
 
   const logout = () => {
     clearSession();
@@ -88,6 +91,9 @@ export function PubLayout({ children, title, hideTitle, backHref, backLabel, act
               onClick={() => navigate("/pub/notifications")}
             >
               <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 border border-white" />
+              )}
             </button>
             <PublisherHeaderUser onLogout={logout} />
           </div>
