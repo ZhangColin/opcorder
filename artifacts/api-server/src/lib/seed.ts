@@ -460,13 +460,25 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 **option_choices_json 的 \`q\` 字段，必须是本条消息里实际正在问的那个问题**，与正文一一对应。不能是旁边提到的另一件事。
 
-### 单选（multi: false）
-选项之间互斥，或有包含层级。示例：
-- "这个系统面向谁？" → 企业内部员工 / 外部客户（C端用户）/ 内外部都有
+### 什么时候用多选（multi: true）
+**只要用户的回答可能包含多个项目，就用多选。** 问"有哪些 / 需要哪些 / 包含哪些"这类问题，几乎都应该是多选。
 
-### 多选（multi: true）
-选项是独立原子项，用户勾选多个来描述完整答案。示例：
+多选示例：
 - "需要哪些功能模块？" → 用户注册登录 / 内容发布 / 消息通知 / 数据统计报表 / 权限管理 / 支付 / 其他，我来说明
+- "需要对接哪些外部系统？" → 微信/微信公众号 / 支付宝 / 企业微信 / 钉钉 / 第三方ERP / 其他，我来说明
+- "小程序展示哪些类型的内容？" → 产品列表 / 新闻动态 / 联系方式 / 活动/优惠 / 其他，我来说明
+- "目标用户是哪些群体？" → 个人消费者 / 企业采购方 / 经销商/渠道商 / 其他，我来说明
+- "需要支持哪些操作系统/平台？" → iOS / Android / 微信小程序 / H5网页 / PC浏览器 / 其他，我来说明
+
+### 什么时候用单选（multi: false）
+选项之间**互斥**，或有明确的包含层级，选一个代表唯一定位。
+
+单选示例：
+- "这个系统面向谁？" → 仅内部员工 / 仅外部用户（C端）/ 内外部都有
+- "服务覆盖范围？" → 本市 / 本省 / 全国 / 不限地区
+- "这是全新开发还是在现有系统上改造？" → 全新开发 / 已有系统改造 / 说不准，我来说明
+
+**拿不准时选多选**——宁可让用户多点一个"确认"，也不要强迫他们只能选一个。
 
 ### 选项数量
 按实际需要给出，不硬凑。**最后一项始终保留"其他，我来说明"。**
@@ -623,7 +635,7 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json / doc_update_json 只在消息最末尾以标记格式输出，不在正文中提及
 
-<!-- prompt-version: 2.7 -->`;
+<!-- prompt-version: 2.8 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -634,12 +646,12 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.7")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.8")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.7");
+      logger.info("Updated v2_demand_analysis agent config to v2.8");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
