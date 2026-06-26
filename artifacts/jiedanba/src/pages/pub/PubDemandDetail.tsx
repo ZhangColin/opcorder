@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, Zap, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp,
   FileText, FileSignature, CreditCard, Wrench, ExternalLink, Plus, History, Edit2, X,
-  Link2, Paperclip,
+  Link2, Paperclip, Bot,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -11,9 +11,11 @@ import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { FilePickerZone } from "@/components/shared/FilePickerZone";
-import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
+import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
+import type { FormSuggestion } from "@/components/agent/AgentChatPanel";
 
 /* ── Constants ── */
 const DEMAND_TYPE_LABEL: Record<string, string> = {
@@ -23,6 +25,18 @@ const DEMAND_TYPE_LABEL: Record<string, string> = {
   CG: "内容设计", SA: "软件开发", TK: "教育培训", BO: "营销推广", OTHER: "其他",
   cg: "内容设计", sa: "软件开发", tk: "教育培训", bo: "营销推广",
 };
+const DEMAND_TYPE_OPTIONS = [
+  { value: "SA", label: "软件开发" },
+  { value: "CG", label: "内容设计" },
+  { value: "TK", label: "教育培训" },
+  { value: "BO", label: "营销推广" },
+  { value: "website", label: "网站建设" },
+  { value: "app", label: "App 开发" },
+  { value: "miniprogram", label: "小程序" },
+  { value: "ecommerce", label: "电商运营" },
+  { value: "design", label: "设计制作" },
+  { value: "OTHER", label: "其他" },
+];
 
 /* ── Types ── */
 interface Demand {
@@ -200,6 +214,14 @@ export default function PubDemandDetail() {
   const [editAttachments, setEditAttachments] = useState<Array<{ name: string; url: string }>>([]);
   const [editComment, setEditComment] = useState("");
   const [editUploading, setEditUploading] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editType, setEditType] = useState("");
+  const [editBudgetMin, setEditBudgetMin] = useState("");
+  const [editBudgetMax, setEditBudgetMax] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
+  const [editIsUrgent, setEditIsUrgent] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentSessionKey] = useState(() => `v2_pub_detail_${demandId}`);
 
   /* Quote actions */
   const [showConfirmQuoteModal, setShowConfirmQuoteModal] = useState(false);
@@ -381,8 +403,22 @@ export default function PubDemandDetail() {
     if (!editDetail.trim()) { toast({ title: "请填写需求详情", variant: "destructive" }); return; }
     setActing(true);
     try {
-      await v2Post(`/client-demands/${demandId}/update-detail`, { detail: editDetail.trim(), attachments: editAttachments, editComment: editComment.trim() || undefined });
-      toast({ title: "需求详情已更新" });
+      await Promise.all([
+        v2Patch(`/client-demands/${demandId}`, {
+          title: editTitle.trim() || undefined,
+          demandType: editType || undefined,
+          budgetMin: editBudgetMin ? parseInt(editBudgetMin) : undefined,
+          budgetMax: editBudgetMax ? parseInt(editBudgetMax) : undefined,
+          hopeDeliveryDate: editDeadline || undefined,
+          isUrgent: editIsUrgent,
+        }),
+        v2Post(`/client-demands/${demandId}/update-detail`, {
+          detail: editDetail.trim(),
+          attachments: editAttachments,
+          editComment: editComment.trim() || undefined,
+        }),
+      ]);
+      toast({ title: "需求已更新" });
       setEditMode(false);
       setEditComment("");
       await load();
@@ -390,6 +426,8 @@ export default function PubDemandDetail() {
       toast({ title: "操作失败", description: err.message, variant: "destructive" });
     } finally { setActing(false); }
   };
+
+  const cancelEdit = () => { setEditMode(false); setEditComment(""); };
 
   const handleConfirmDelivery = async (delivId: number) => {
     setActing(true);
@@ -580,34 +618,47 @@ export default function PubDemandDetail() {
               )}
               <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
             </div>
-            {canClose && (
-              confirmClose ? (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs text-slate-500 font-medium">确认关闭？</span>
-                  <button
-                    onClick={() => { handleClose(); setConfirmClose(false); }}
-                    disabled={acting}
-                    className="px-2.5 py-1 text-xs font-bold bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                  >
-                    确认
-                  </button>
-                  <button
-                    onClick={() => setConfirmClose(false)}
-                    className="px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-                  >
-                    取消
-                  </button>
-                </div>
-              ) : (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {canEditDetail && !editMode && (
                 <button
-                  onClick={() => setConfirmClose(true)}
-                  disabled={acting}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 shrink-0"
+                  onClick={() => {
+                    setEditTitle(demand.title);
+                    setEditType(demand.demandType ?? "");
+                    setEditBudgetMin(demand.budgetMin?.toString() ?? "");
+                    setEditBudgetMax(demand.budgetMax?.toString() ?? "");
+                    setEditDeadline(demand.hopeDeliveryDate ? demand.hopeDeliveryDate.split("T")[0] : "");
+                    setEditIsUrgent(demand.isUrgent);
+                    setEditDetail(demand.latestVersion?.detail ?? "");
+                    setEditAttachments(demand.latestVersion?.attachments ?? []);
+                    setActiveTab("needs");
+                    setEditMode(true);
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  关闭需求
+                  <Edit2 size={12} /> 编辑
                 </button>
-              )
-            )}
+              )}
+              {canClose && (
+                confirmClose ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-500 font-medium">确认关闭？</span>
+                    <button onClick={() => { handleClose(); setConfirmClose(false); }} disabled={acting}
+                      className="px-2.5 py-1 text-xs font-bold bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50">
+                      确认
+                    </button>
+                    <button onClick={() => setConfirmClose(false)}
+                      className="px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+                      取消
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmClose(true)} disabled={acting}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50">
+                    关闭需求
+                  </button>
+                )
+              )}
+            </div>
           </div>
           <h1 className="text-xl font-extrabold text-slate-800 mb-3">{demand.title}</h1>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
@@ -791,21 +842,9 @@ export default function PubDemandDetail() {
         {activeTab === "needs" && <>
 
         {/* ── Demand detail section ── */}
-        <Section title="需求详情" icon={FileText} headerRight={demand.latestVersion ? (
+        <Section title="需求详情" icon={FileText} headerRight={!editMode && demand.latestVersion ? (
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-400">版本 v{demand.latestVersion.versionNo}</span>
-              {canEditDetail && !editMode && (
-                <button
-                  onClick={() => {
-                    setEditDetail(demand.latestVersion?.detail ?? "");
-                    setEditAttachments(demand.latestVersion?.attachments ?? []);
-                    setEditMode(true);
-                  }}
-                  className="flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  <Edit2 size={11} /> 编辑
-                </button>
-              )}
               <button
                 onClick={loadVersions}
                 className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
@@ -817,17 +856,64 @@ export default function PubDemandDetail() {
           <div className="mt-4">
 
             {editMode ? (
-              <div className="space-y-3">
-                <MarkdownEditor value={editDetail} onChange={setEditDetail} placeholder="更新您的需求详情…" />
-                <div className="flex items-center gap-3">
-                  <FilePickerZone
-                    variant="inline"
-                    uploading={editUploading}
-                    onChange={f => handleEditFileUpload({ target: { files: [f] } } as any)}
-                    files={editAttachments}
-                    onRemove={i => setEditAttachments(prev => prev.filter((_, j) => j !== i))}
-                  />
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setAgentOpen(true)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 transition-colors"
+                  >
+                    <Bot size={12} /> 需求分析助手
+                  </button>
                 </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">需求标题</label>
+                  <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">需求类型</label>
+                    <select value={editType} onChange={e => setEditType(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                      <option value="">请选择</option>
+                      {DEMAND_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center mt-5">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editIsUrgent} onChange={e => setEditIsUrgent(e.target.checked)} className="w-4 h-4" />
+                      <span className="text-sm text-slate-700">紧急需求</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">最低预算（元）</label>
+                    <input type="number" value={editBudgetMin} onChange={e => setEditBudgetMin(e.target.value)}
+                      placeholder="如 5000" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">最高预算（元）</label>
+                    <input type="number" value={editBudgetMax} onChange={e => setEditBudgetMax(e.target.value)}
+                      placeholder="如 10000" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">期望交付日期</label>
+                  <input type="date" value={editDeadline} onChange={e => setEditDeadline(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                </div>
+                <div className="border-t border-slate-100 pt-3">
+                  <label className="text-xs text-slate-500 mb-2 block">需求详情</label>
+                  <MarkdownEditor value={editDetail} onChange={setEditDetail} placeholder="更新您的需求详情…" />
+                </div>
+                <FilePickerZone
+                  variant="inline"
+                  uploading={editUploading}
+                  onChange={f => handleEditFileUpload({ target: { files: [f] } } as any)}
+                  files={editAttachments}
+                  onRemove={i => setEditAttachments(prev => prev.filter((_, j) => j !== i))}
+                />
                 <input
                   value={editComment}
                   onChange={e => setEditComment(e.target.value)}
@@ -835,10 +921,10 @@ export default function PubDemandDetail() {
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 <div className="flex gap-2">
-                  <button onClick={handleSubmitEdit} disabled={acting} className="bg-primary text-white rounded-lg px-4 py-1.5 text-xs font-bold disabled:opacity-50">
+                  <button onClick={handleSubmitEdit} disabled={acting} className="bg-primary text-white rounded-lg px-4 py-1.5 text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
                     {acting ? "提交中…" : "提交更新"}
                   </button>
-                  <button onClick={() => { setEditMode(false); setEditComment(""); }} className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">取消</button>
+                  <button onClick={cancelEdit} className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-600 hover:bg-slate-50">取消</button>
                 </div>
               </div>
             ) : demand.latestVersion ? (
@@ -1485,6 +1571,32 @@ export default function PubDemandDetail() {
             )}
           </div>
         </div>
+      )}
+      {demand && (
+        <AgentChatPanel
+          open={agentOpen}
+          onClose={() => setAgentOpen(false)}
+          sessionKey={agentSessionKey}
+          sceneKey="v2_demand_analysis"
+          agentMode="edit"
+          existingDemandData={{
+            title: demand.title,
+            type: demand.demandType ?? undefined,
+            description: editDetail || demand.latestVersion?.detail || undefined,
+            budgetMin: demand.budgetMin,
+            budgetMax: demand.budgetMax,
+            hopeDeliveryDate: demand.hopeDeliveryDate ?? null,
+          }}
+          onFillForm={(suggestion: FormSuggestion) => {
+            if (suggestion.title) setEditTitle(suggestion.title);
+            if (suggestion.type) setEditType(suggestion.type);
+            if (suggestion.description) setEditDetail(suggestion.description);
+            if (suggestion.budgetMin != null) setEditBudgetMin(suggestion.budgetMin.toString());
+            if (suggestion.budgetMax != null) setEditBudgetMax(suggestion.budgetMax.toString());
+            if (suggestion.deadline) setEditDeadline(suggestion.deadline);
+            setAgentOpen(false);
+          }}
+        />
       )}
     </PubLayout>
   );

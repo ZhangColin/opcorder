@@ -638,7 +638,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 1. 阅读"当前需求数据"，了解现有内容
 2. 告知用户你已了解现有需求，问他想调整哪部分（**附 option_choices_json 列出可能的调整方向**）
 3. 根据说明修改或补充需求文档
-4. 修改完成后输出 doc_update_json
+4. 修改完成后输出 form_suggestion_json（包含 title、type、description、budgetMin、budgetMax、deadline）
 
 ### 注意事项
 - 每次输出都是**完整文档**（含未改动部分），不能只输出改动段落
@@ -660,18 +660,18 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 > budgetMin 严格小于 budgetMax；**deadline 必须填入**：第四阶段已与用户确认了交付时间，直接将确认后的日期填入此字段，不可省略、不可留空。若有分期，填最后一期的交付日期。
 
 ### 编辑模式输出
-doc_update_json:{"description":"完整Markdown需求文档正文（已修改的完整版本）"}
+form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type":"需求类型代码","description":"完整Markdown需求文档正文","budgetMin":最低预算数字,"budgetMax":最高预算数字,"deadline":"YYYY-MM-DD（若无变化保持原值）"}
 
-> 必须是完整文档，不能只输出改动段落
+> description 必须是完整文档，不能只输出改动段落；无变化的字段直接保持原值
 
 ---
 
 ## 通用注意事项
 - 全程中文，语气友好自然，像在帮用户理清思路，不像在填调查问卷
 - 正文中绝对不出现任何 JSON 或代码块
-- option_choices_json / form_suggestion_json / doc_update_json 只在消息最末尾以标记格式输出，不在正文中提及
+- option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出，不在正文中提及
 
-<!-- prompt-version: 2.12 -->`;
+<!-- prompt-version: 2.13 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -682,12 +682,12 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.12")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.13")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.12");
+      logger.info("Updated v2_demand_analysis agent config to v2.13");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
