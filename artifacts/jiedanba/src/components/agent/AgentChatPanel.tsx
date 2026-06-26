@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X, Send, Bot, Loader2, Sparkles, RotateCcw, Wrench, CheckCircle2, ClipboardList, ChevronRight } from "lucide-react";
 import { getValidAccessToken } from "@/lib/auth";
 
@@ -711,7 +712,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
 
   // Mobile: bottom sheet drawer
   if (isMobile) {
-    return (
+    return createPortal(
       <>
         <div
           className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
@@ -737,12 +738,13 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           </div>
           {panelContent}
         </div>
-      </>
+      </>,
+      document.body
     );
   }
 
   // Desktop: wide right-side panel
-  return (
+  return createPortal(
     <>
       <div
         className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
@@ -758,7 +760,8 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
       >
         {panelContent}
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -1094,6 +1097,3 @@ const TOOL_LABEL_MAP: Record<string, string> = {
   estimate_budget: "预算参考",
   validate_timeline: "时间合理性验证",
 };
-
-// Keep backward compat export
-export { parseFormSuggestion };
