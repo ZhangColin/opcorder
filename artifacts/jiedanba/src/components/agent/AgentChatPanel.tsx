@@ -294,7 +294,7 @@ function parseFormSuggestion(content: string): { text: string; suggestion: FormS
 
 const NEW_WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
-  content: `你好！我是需求分析助手\n\n跟我说说您想发布什么需求，我会帮您：\n- 梳理清楚需求内容，让 OPC 一看就懂\n- 生成一份专业的需求文档\n- 推荐合适的预算范围和里程碑拆分\n\n**请先告诉我：您大概想做什么？** 一句话就行，例如：我要给公司员工做一次AI工具应用培训。`,
+  content: `你好！我是需求分析助手\n\n一起把您的想法梳理成一份清晰、专业的需求文档，让执行方拿到就能动手。\n\n**请先说说：您大概想做什么？** 一句话就行，例如：我要给公司员工做一次AI工具应用培训。`,
   timestamp: new Date().toISOString(),
 };
 
