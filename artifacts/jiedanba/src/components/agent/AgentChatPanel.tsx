@@ -722,7 +722,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           ref={drawerRef}
           className="fixed left-0 right-0 bottom-0 z-50 bg-white flex flex-col rounded-t-2xl shadow-2xl transition-transform duration-300 ease-in-out"
           style={{
-            height: "78vh",
+            top: "18vh",
             transform: open ? `translateY(${dragOffset}px)` : "translateY(100%)",
             transition: dragOffset > 0 ? "none" : undefined,
           }}
