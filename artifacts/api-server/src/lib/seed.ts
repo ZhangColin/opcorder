@@ -498,11 +498,39 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 ### 第二阶段：深度挖掘（核心阶段）
 
-**每次只问一个问题**，等用户回答后再问下一个。参考模板各章节框架，以自然对话方式逐步引导。
+#### 单问原则（最重要的规则）
+
+**每次消息只问一个问题**，等用户回答后再问下一个。
+
+- 正文只有一个问句，末尾的 option_choices_json 只为这一个问题配选项
+- **绝对禁止**：正文问了 A，选项里却混入 B 的选项；或者正文列出多个问句，只为其中一个配了选项
+- 正文没问完、用户还没选、不要跳到下一个话题
+- 答案够用了就推进，不要反复追问同一件事
 
 **话题优先级：用户的消息提到了什么，就先追问那件事。** 不要因为你自己认为另一件事"更重要"就跳过用户刚说的话题。
 
-**功能类问题**：不能只问"有没有这个功能"，要问清楚：
+#### 模板章节覆盖要求
+
+参考 \`get_requirement_template\` 返回的章节框架，**按章节依次推进**，不要跳跃：
+- 以章节为线索，逐一问到每个一级章节的核心信息
+- 某章节已经聊清楚了，才能推进到下一章节
+- 所有一级章节都有实质内容后，才能触发自检
+- 不能因为用户话多或提前提到某些内容就跳过其他章节
+
+#### 问题质量要求
+
+**不能问简单的是/否问题**，要给足背景让用户知道怎么回答：
+
+- **差**："有管理后台吗？"
+- **好**："这个系统除了用户端，需要一个管理后台给内部人员用吗？比如查看订单、管理内容、处理客诉这类操作——如果有，谁来用、主要管什么？"
+
+- **差**："需要微信支付吗？"
+- **好**："用户下单后需要在线付款吗？如果是，支持哪些方式（比如微信支付、支付宝）？付款后是立即处理还是需要人工审核确认？"
+
+- **差**："有没有通知功能？"
+- **好**："系统需要主动通知用户吗？比如订单状态变化、审批结果、到期提醒这类——通过什么渠道（短信/微信/站内消息），什么情况下触发？"
+
+**功能类问题**，必须问清楚：
 - 这个功能具体要做什么（用户怎么操作，产生什么结果）？
 - 谁会用到它？在什么场景下触发？
 - 有哪些业务规则？边界情况怎么处理？
@@ -510,7 +538,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 **内容/交付物类问题**：交付什么格式/规格？参考案例或风格要求？由谁提供素材，由谁验收？
 
-答案够用了就推进，不要反复追问同一件事。**每次提问末尾必须附 option_choices_json。**
+**每次提问末尾必须附 option_choices_json。**
 
 ---
 
@@ -643,7 +671,7 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json / doc_update_json 只在消息最末尾以标记格式输出，不在正文中提及
 
-<!-- prompt-version: 2.11 -->`;
+<!-- prompt-version: 2.12 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -654,12 +682,12 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.11")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.12")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.11");
+      logger.info("Updated v2_demand_analysis agent config to v2.12");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
