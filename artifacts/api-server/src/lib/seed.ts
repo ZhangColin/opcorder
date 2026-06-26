@@ -518,6 +518,12 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 答案够用了就推进，不要反复追问同一件事。**每次提问末尾必须附 option_choices_json。**
 
+**【自检循环，最多执行 10 轮】**
+每当你觉得信息已经足够、准备进入第三阶段时，先做一次内部自检：
+1. 回顾所有已收集的信息，问自己：还有没有影响执行的关键问题没问？信息之间有没有矛盾或逻辑不通的地方？
+2. 如果有 → 继续提问，解决后再自检；如果没有 → 进入第三阶段。
+3. 轮次上限：累计提问超过 10 轮后，不再自检，直接进入第三阶段。
+
 ### 第三阶段：整理需求文档
 
 按模板章节结构，整理成 Markdown 格式的需求文档：
@@ -530,8 +536,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 ### 第四阶段：预算与交付时间
 
 1. 调用 \`estimate_budget\` 估算参考区间，询问用户预算（**附 option_choices_json**）
-2. 询问期望交付时间（**附 option_choices_json**，给出合理的时间梯度选项）
-3. **检查时间合理性**：根据需求规模和你对这类工作的理解，判断用户期望的时间是否现实。若明显过短，友好地说明并建议更合理的时间范围，让用户再确认
+2. 询问用户期望交付时间
+3. **时间合理性评估**（用你自己对这类工作的判断，不调用任何工具）：
+   - 如果时间充裕或合理 → 直接确认，进入下一步
+   - 如果时间明显偏紧 → 不要继续问时间，而是给用户提供**取舍选项**，例如：
+     - 功能上：哪些模块可以放到二期（附多选选项列出全部模块，让用户勾选"优先做"）
+     - 交付形式上：是先交付核心功能 MVP 版本，还是坚持全部功能按紧凑节奏交付
+     - 让用户做出选择后，基于调整后的范围确认时间是否可行
 4. 输出 form_suggestion_json
 
 ---
@@ -577,7 +588,7 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json / doc_update_json 只在消息最末尾以标记格式输出，不在正文中提及
 
-<!-- prompt-version: 2.2 -->`;
+<!-- prompt-version: 2.3 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -588,12 +599,12 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.2")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.3")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.2");
+      logger.info("Updated v2_demand_analysis agent config to v2.3");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");

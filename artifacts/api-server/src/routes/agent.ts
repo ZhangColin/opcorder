@@ -14,6 +14,11 @@ const DEMAND_ANALYSIS_SCENE_KEY = "demand_analysis";
 const TOOL_FREE_SCENE_KEYS = new Set(["v2_outsource_split"]);
 const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split"]);
 
+/** For scenes that only need a subset of tools, list the allowed tool names here. */
+const SCENE_ALLOWED_TOOLS = new Map<string, Set<string>>([
+  ["v2_demand_analysis", new Set(["get_demand_types", "get_requirement_template", "estimate_budget"])],
+]);
+
 type PersistedMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content: string | null;
@@ -410,7 +415,11 @@ ${d.description ?? "(暂无内容)"}
     while (iteration < MAX_TOOL_ITERATIONS) {
       iteration++;
 
-      const agentTools = TOOL_FREE_SCENE_KEYS.has(resolvedSceneKey) ? [] : buildAgentTools(toolContext);
+      const allBuiltTools = TOOL_FREE_SCENE_KEYS.has(resolvedSceneKey) ? [] : buildAgentTools(toolContext);
+      const allowedToolNames = SCENE_ALLOWED_TOOLS.get(resolvedSceneKey);
+      const agentTools = allowedToolNames
+        ? allBuiltTools.filter((t) => allowedToolNames.has(t.function.name))
+        : allBuiltTools;
       const response = await callLLM(llmMessages, agentTools);
 
       if (response.toolCalls && response.toolCalls.length > 0) {
