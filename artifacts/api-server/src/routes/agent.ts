@@ -16,7 +16,7 @@ const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split"]);
 
 /** For scenes that only need a subset of tools, list the allowed tool names here. */
 const SCENE_ALLOWED_TOOLS = new Map<string, Set<string>>([
-  ["v2_demand_analysis", new Set(["get_demand_types", "get_requirement_template", "estimate_budget"])],
+  ["v2_demand_analysis", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check"])],
 ]);
 
 type PersistedMessage = {
@@ -450,7 +450,29 @@ ${d.description ?? "(暂无内容)"}
 
           sendEvent({ type: "tool_call", tool: toolName });
 
-          const result = executeTool(toolName, toolArgs, toolContext);
+          // ── perform_self_check: server counts how many times it has been called ──
+          let result: unknown;
+          if (toolName === "perform_self_check") {
+            const MAX_SELF_CHECKS = 10;
+            const selfCheckCount = [...historyMessages, ...intermediateMessages]
+              .filter(m => m.role === "tool" && m.toolName === "perform_self_check")
+              .length;
+            if (selfCheckCount >= MAX_SELF_CHECKS) {
+              result = {
+                action: "proceed_to_doc_stage",
+                message: `已完成 ${MAX_SELF_CHECKS} 次自检，已达上限。请直接进入第三阶段整理需求文档，不再追问。`,
+              };
+            } else {
+              result = {
+                action: "continue",
+                checkNumber: selfCheckCount + 1,
+                remainingChecks: MAX_SELF_CHECKS - selfCheckCount - 1,
+                message: "请执行自检：检查已有答案是否有矛盾、组合后是否产生新疑问、模板章节是否有缺口。有则继续追问；无则进入第三阶段。",
+              };
+            }
+          } else {
+            result = executeTool(toolName, toolArgs, toolContext);
+          }
           const resultStr = JSON.stringify(result);
 
           // ── Accumulate authoritative values from key tool calls ────────────

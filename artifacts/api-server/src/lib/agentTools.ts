@@ -271,6 +271,18 @@ export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
   {
     type: "function",
     function: {
+      name: "perform_self_check",
+      description: "在完成一轮追问后，调用此工具触发自检。系统会检查本次是第几次自检，并告诉你是继续检查（若还有余量）还是直接进入第三阶段整理需求文档（若已达上限）。每次完成一轮追问后调用，不要跳过。",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "estimate_budget",
       description: "根据需求类型、复杂度和工期，估算参考预算区间（元）。在第四阶段给用户预算参考时使用。",
       parameters: {

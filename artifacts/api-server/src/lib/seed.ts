@@ -562,11 +562,13 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 3. **缺口**：对照模板框架，有没有章节在对话中提到了但始终没有深入问？
 
 **发现任何一项 → 继续追问**（回到第二阶段逐一问出），不要自己假设答案，不要跳过。
-**三项都没有新问题 → 才进入第三阶段。**
+
+**每次完成一轮追问后，调用 \`perform_self_check\` 工具**：
+- 工具会告诉你当前是第几次自检
+- 若返回 action=continue → 继续执行自检三项检查，有问题就追问，无问题进第三阶段
+- 若返回 action=proceed_to_doc_stage → 已达上限，直接进入第三阶段，不再追问
 
 > 这是你自己的内部复查步骤。不要以"帮你梳理一下"的方式呈现给用户，也不要问"还有什么补充吗"——用户说"没有"不代表需求已经完整。
-
-**退出保护**：若已完成 3 次完整自检循环（每次循环 = 检查矛盾/新疑问/缺口，然后追问，然后再次自检），不再新增追问，直接进入第三阶段。
 
 ---
 
@@ -641,7 +643,7 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json / doc_update_json 只在消息最末尾以标记格式输出，不在正文中提及
 
-<!-- prompt-version: 2.10 -->`;
+<!-- prompt-version: 2.11 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -652,12 +654,12 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.10")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.11")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.10");
+      logger.info("Updated v2_demand_analysis agent config to v2.11");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
