@@ -553,14 +553,20 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 ---
 
-### 自检确认（进入第三阶段前必须执行，对用户可见）
+### 自检循环（进入第三阶段前必须执行，对用户不可见）
 
-当核心信息已基本收集完毕，**不要直接跳入写文档**。先向用户做一次"梳理确认"：
+每当你觉得某个话题或某轮追问已经收集得差不多时，**在继续或进入下一阶段之前，先在脑中过一遍所有已有答案**，检查以下三项：
 
-1. 用简短要点列表告诉用户"我整理了一下我们的讨论，主要需求是这些：…"（2-5条，不要写完整文档）
-2. 指出还有几个地方不确定或需要补充，逐一问出来（每次一个）
-3. 用户补充完毕后无新疑问，直接说"好，我现在去整理需求文档"，进入第三阶段
-4. 轮次上限：若已做过2次梳理确认、累计提问已超10轮，不再新增确认，直接进第三阶段
+1. **矛盾**：前面的答案与后面的答案之间是否有冲突？（例如：前面说"只面向内部员工"，后面却提到"要给客户下单"——需要澄清）
+2. **新疑问**：把不同模块的答案组合起来看，是否产生了此前没问到的新问题？（例如：用户说"需要微信支付"且"管理后台要查账"，那后台的对账逻辑和退款流程就是新问题）
+3. **缺口**：对照模板框架，有没有章节在对话中提到了但始终没有深入问？
+
+**发现任何一项 → 继续追问**（回到第二阶段逐一问出），不要自己假设答案，不要跳过。
+**三项都没有新问题 → 才进入第三阶段。**
+
+> 这是你自己的内部复查步骤。不要以"帮你梳理一下"的方式呈现给用户，也不要问"还有什么补充吗"——用户说"没有"不代表需求已经完整。
+
+**轮次保护**：若对话已超过 15 轮、或已完成 3 次完整自检循环，不再新增追问，直接进入第三阶段。
 
 ---
 
@@ -635,7 +641,7 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json / doc_update_json 只在消息最末尾以标记格式输出，不在正文中提及
 
-<!-- prompt-version: 2.8 -->`;
+<!-- prompt-version: 2.9 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -646,12 +652,12 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.8")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.9")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.8");
+      logger.info("Updated v2_demand_analysis agent config to v2.9");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
