@@ -90,7 +90,7 @@ const DEMAND_TYPE_LABELS: Record<string, string> = {
 };
 
 /** Normalize AI-returned type value (including new category codes CG/SA/TK/BO/OTHER) to one of the 5 legacy form values */
-export function normalizeType(raw: string): string {
+function normalizeType(raw: string): string {
   const upper = raw.toUpperCase().trim();
   if (upper === "CG") return "content";
   if (upper === "SA") return "software";
