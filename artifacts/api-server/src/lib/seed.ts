@@ -520,9 +520,16 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 ---
 
-### 复合模块识别规则（第二阶段强制执行）
+### 模板章节驱动的深度挖掘（第二阶段强制执行，适用所有需求类型）
 
-以下模块类型一旦被用户确认，**必须逐一追问对应的标准子项**，不可只记录模块名称就跳过：
+第一阶段调用 \`get_requirement_template\` 后，你拿到了该需求类型的文档模板框架。**模板的每个章节就是你的挖掘清单**：
+
+- 用户确认某个功能/模块/章节"有"或"需要"后，必须按对应章节的子项逐一追问，不能只记录"有这个"就跳过
+- 每个已确认的章节，都要达到"执行者拿到文档能直接开工"的信息密度
+
+这个原则对所有需求类型一致——无论是软件开发、内容制作、培训咨询、视频拍摄，模板章节就是你的追问提纲。
+
+**针对软件类需求的常见复合模块，额外注意以下标准子项：**
 
 **管理后台**（含"后台管理""运营后台""CMS"等说法）：
 - 账号管理：管理员账号怎么创建？有几种角色/职能？各自能操作什么范围？
@@ -551,7 +558,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 有没有退款、分账、对账需求？
 - 发票怎么处理？
 
-追问完所有已确认的复合模块子项后，再进入自检。
+追问完所有已确认章节/模块的子项后，再进入自检。
 
 ---
 
@@ -570,8 +577,16 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 按模板章节结构，整理成 Markdown 格式的需求文档：
 - 每个功能模块写清楚目的、使用者、操作流程、业务规则、边界情况
-- 集成需求写清楚对接系统、数据内容、约束条件
 - 管理后台等复合模块，**必须展开到子功能级别**，不接受"管理后台：支持内容管理和权限管理"这种一行描述
+
+**集成/对接需求的文档写法（每个已确认的集成项，必须包含以下全部要素）：**
+- **对接目的**：为什么要和这个系统对接？解决什么问题？
+- **数据交换**：具体交换哪些数据字段？方向是什么（读/写/双向）？触发时机是什么（实时/定时/事件驱动）？
+- **认证与授权**：需要哪种认证方式（API Key / OAuth / 证书）？对方有没有接口文档或联系人？
+- **异常处理**：对方接口超时或不可用时，这边怎么处理（重试/降级/提示用户）？
+- **约束与限制**：调用频率限制？数据量限制？有没有合规要求？
+
+对话中问到的集成细节，必须**完整落入文档**，不能因为信息量大就压缩成一句话。
 
 **分期场景下的文档要求（重要）：**
 - 如果第四阶段决定了分期交付，回来补充文档时，必须完整记录**所有期**的需求
@@ -622,9 +637,9 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 option_choices_json:{"q":"问题简述","opts":["选项A","选项B","其他，我来说明"],"multi":false}
 
 ### 新建模式最终输出
-form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型代码（来自 get_demand_types 的 value 字段）","description":"完整Markdown需求文档正文","budgetMin":最低预算数字,"budgetMax":最高预算数字,"deadline":"YYYY-MM-DD（用户期望交付日期，可不填）"}
+form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型代码（来自 get_demand_types 的 value 字段）","description":"完整Markdown需求文档正文","budgetMin":最低预算数字,"budgetMax":最高预算数字,"deadline":"YYYY-MM-DD（第四阶段用户确认的最终交付日期，必填）"}
 
-> budgetMin 严格小于 budgetMax；deadline 填用户确认后的期望交付日期
+> budgetMin 严格小于 budgetMax；**deadline 必须填入**：第四阶段已与用户确认了交付时间，直接将确认后的日期填入此字段，不可省略、不可留空。若有分期，填最后一期的交付日期。
 
 ### 编辑模式输出
 doc_update_json:{"description":"完整Markdown需求文档正文（已修改的完整版本）"}
@@ -638,7 +653,7 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json / doc_update_json 只在消息最末尾以标记格式输出，不在正文中提及
 
-<!-- prompt-version: 2.4 -->`;
+<!-- prompt-version: 2.5 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -649,12 +664,12 @@ doc_update_json:{"description":"完整Markdown需求文档正文（已修改的�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.4")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.5")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.4");
+      logger.info("Updated v2_demand_analysis agent config to v2.5");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
