@@ -856,11 +856,19 @@ ${msStr}
               title={`里程碑${demand.milestones?.length > 0 ? `（${demand.milestones.length}）` : ""}`}
               icon={Calendar}
               collapsible={false}
-              actions={canEdit && !milestoneEditMode ? (
-                <button onClick={() => { setEditMilestones(demand.milestones?.length > 0 ? demand.milestones.map(m => ({ ...m })) : [{ name: "", deadline: "", description: "" }]); setMilestoneEditMode(true); }}
-                  className="flex items-center gap-1 text-xs text-primary hover:underline">
-                  <Edit2 size={11} /> 编辑
-                </button>
+              actions={canEdit ? (
+                milestoneEditMode ? (
+                  <button
+                    onClick={() => setMilestoneAgentOpen(true)}
+                    className="flex items-center gap-1 text-xs font-semibold text-violet-600 border border-violet-200 rounded-lg px-2 py-0.5 hover:bg-violet-50 transition-colors">
+                    <Bot size={11} /> 里程碑助手
+                  </button>
+                ) : (
+                  <button onClick={() => { setEditMilestones(demand.milestones?.length > 0 ? demand.milestones.map(m => ({ ...m })) : [{ name: "", deadline: "", description: "" }]); setMilestoneEditMode(true); }}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline">
+                    <Edit2 size={11} /> 编辑
+                  </button>
+                )
               ) : undefined}
             >
               <div className="pt-4">
@@ -890,18 +898,13 @@ ${msStr}
                       className="flex items-center gap-1 text-xs text-primary hover:underline">
                       <Plus size={12} /> 添加里程碑
                     </button>
-                    <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="flex gap-2 pt-1">
                       <button onClick={handleSaveMilestones} disabled={savingMilestones}
                         className="bg-primary text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
                         {savingMilestones ? "保存中…" : "保存里程碑"}
                       </button>
                       <button onClick={() => setMilestoneEditMode(false)}
                         className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">取消</button>
-                      <button
-                        onClick={() => setMilestoneAgentOpen(true)}
-                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold border border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 transition-colors ml-auto">
-                        <Bot size={13} /> 里程碑助手
-                      </button>
                     </div>
                   </div>
                 ) : demand.milestones?.length > 0 ? (
