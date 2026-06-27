@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, Zap, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp,
   FileText, FileSignature, CreditCard, Wrench, ExternalLink, Plus, History, Edit2, X,
-  Link2, Paperclip, Bot,
+  Link2, Paperclip, Bot, Check,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -25,18 +25,49 @@ const DEMAND_TYPE_LABEL: Record<string, string> = {
   CG: "内容设计", SA: "软件开发", TK: "教育培训", BO: "营销推广", OTHER: "其他",
   cg: "内容设计", sa: "软件开发", tk: "教育培训", bo: "营销推广",
 };
-const DEMAND_TYPE_OPTIONS = [
-  { value: "SA", label: "软件开发" },
-  { value: "CG", label: "内容设计" },
-  { value: "TK", label: "教育培训" },
-  { value: "BO", label: "营销推广" },
-  { value: "website", label: "网站建设" },
-  { value: "app", label: "App 开发" },
-  { value: "miniprogram", label: "小程序" },
-  { value: "ecommerce", label: "电商运营" },
-  { value: "design", label: "设计制作" },
-  { value: "OTHER", label: "其他" },
-];
+interface DemandType { id: number; code: string; name: string; }
+
+function CustomSelect({ value, onChange, options, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.value === value);
+  const close = useCallback((e: MouseEvent) => {
+    if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+  }, []);
+  useEffect(() => {
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [close]);
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center justify-between gap-2 border rounded-xl px-3 py-2.5 text-sm bg-white outline-none transition-all
+          ${open ? "ring-2 ring-primary/20 border-primary" : "border-slate-200 hover:border-slate-300"}`}>
+        <span className={selected ? "text-slate-800" : "text-slate-400"}>
+          {selected ? selected.label : (placeholder ?? "请选择")}
+        </span>
+        <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+          {options.map(o => (
+            <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false); }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 text-sm text-left transition-colors
+                ${value === o.value ? "bg-primary/8 text-primary font-bold" : "text-slate-700 hover:bg-slate-50"}`}>
+              {o.label}
+              {value === o.value && <Check size={14} className="shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ── Types ── */
 interface Demand {
@@ -222,6 +253,7 @@ export default function PubDemandDetail() {
   const [editIsUrgent, setEditIsUrgent] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentSessionKey] = useState(() => `v2_pub_detail_${demandId}`);
+  const [demandTypes, setDemandTypes] = useState<DemandType[]>([]);
 
   /* Quote actions */
   const [showConfirmQuoteModal, setShowConfirmQuoteModal] = useState(false);
@@ -294,6 +326,13 @@ export default function PubDemandDetail() {
   }, [demandId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${base}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: DemandType[]) => setDemandTypes(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   /* Auto-expand + scroll when navigated from a list page with ?id= or ?scroll= */
   useEffect(() => {
@@ -873,11 +912,12 @@ export default function PubDemandDetail() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">需求类型</label>
-                    <select value={editType} onChange={e => setEditType(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="">请选择</option>
-                      {DEMAND_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    <CustomSelect
+                      value={editType}
+                      onChange={setEditType}
+                      options={demandTypes.map(t => ({ value: t.code, label: t.name }))}
+                      placeholder="请选择需求类型"
+                    />
                   </div>
                   <div className="flex items-center mt-5">
                     <label className="flex items-center gap-2 cursor-pointer">

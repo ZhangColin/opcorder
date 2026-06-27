@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
-  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload, Bot,
+  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload, Bot, Check,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
@@ -18,18 +18,49 @@ import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
 
-const DEMAND_TYPE_OPTIONS = [
-  { value: "SA", label: "软件开发" },
-  { value: "CG", label: "内容设计" },
-  { value: "TK", label: "教育培训" },
-  { value: "BO", label: "营销推广" },
-  { value: "website", label: "网站建设" },
-  { value: "app", label: "App 开发" },
-  { value: "miniprogram", label: "小程序" },
-  { value: "ecommerce", label: "电商运营" },
-  { value: "design", label: "设计制作" },
-  { value: "OTHER", label: "其他" },
-];
+interface DemandType { id: number; code: string; name: string; }
+
+function CustomSelect({ value, onChange, options, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.value === value);
+  const close = useCallback((e: MouseEvent) => {
+    if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+  }, []);
+  useEffect(() => {
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [close]);
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center justify-between gap-2 border rounded-xl px-3 py-2.5 text-sm bg-white outline-none transition-all
+          ${open ? "ring-2 ring-primary/20 border-primary" : "border-slate-200 hover:border-slate-300"}`}>
+        <span className={selected ? "text-slate-800" : "text-slate-400"}>
+          {selected ? selected.label : (placeholder ?? "请选择")}
+        </span>
+        <ChevronDown size={15} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+          {options.map(o => (
+            <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false); }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 text-sm text-left transition-colors
+                ${value === o.value ? "bg-primary/8 text-primary font-bold" : "text-slate-700 hover:bg-slate-50"}`}>
+              {o.label}
+              {value === o.value && <Check size={14} className="shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function InlinePanel({
   title, color = "bg-slate-50 border-slate-200", onClose, children,
@@ -261,6 +292,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const [editBudgetMax, setEditBudgetMax] = useState("");
   const [editDeadline, setEditDeadline] = useState("");
   const [editIsUrgent, setEditIsUrgent] = useState(false);
+  const [demandTypes, setDemandTypes] = useState<DemandType[]>([]);
 
   // Agent panel (edit mode)
   const [agentOpen, setAgentOpen] = useState(false);
@@ -432,6 +464,13 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
+  useEffect(() => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${base}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: DemandType[]) => setDemandTypes(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (didAutoExpand.current) return;
@@ -1047,11 +1086,12 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">需求类型</label>
-                  <select value={editType} onChange={e => setEditType(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                    <option value="">请选择</option>
-                    {DEMAND_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={editType}
+                    onChange={setEditType}
+                    options={demandTypes.map(t => ({ value: t.code, label: t.name }))}
+                    placeholder="请选择需求类型"
+                  />
                 </div>
                 <div className="flex items-center mt-5">
                   <label className="flex items-center gap-2 cursor-pointer">
