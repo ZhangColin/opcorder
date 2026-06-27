@@ -361,6 +361,7 @@ export default function AdminV2OutsourceDemandDetail({
     if (suggestion.description) setEditDetail(suggestion.description);
     if (suggestion.budgetMin != null) setEditBudgetMin(String(suggestion.budgetMin));
     if (suggestion.budgetMax != null) setEditBudgetMax(String(suggestion.budgetMax));
+    if (suggestion.deadline) setEditDeadline(suggestion.deadline);
     if (suggestion.milestones?.length) {
       setEditMilestones(suggestion.milestones.map(m => ({ name: m.name, deadline: m.deadline ?? "", description: m.deliverableDesc ?? "" })));
     }
