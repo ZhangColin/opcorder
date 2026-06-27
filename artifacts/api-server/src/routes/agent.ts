@@ -468,7 +468,9 @@ ${d.description ?? "(暂无内容)"}
           // ── perform_self_check: server counts how many times it has been called ──
           let result: unknown;
           if (toolName === "get_linked_demand_details") {
-            if (!linkedClientDemandId) {
+            // Prefer the ID passed explicitly by the agent (read from system prompt), fall back to request body
+            const resolvedDemandId = (toolArgs.clientDemandId as number | undefined) || linkedClientDemandId;
+            if (!resolvedDemandId) {
               result = { error: "当前没有关联客户需求" };
             } else {
               try {
@@ -480,7 +482,7 @@ ${d.description ?? "(暂无内容)"}
                   budgetMax: v2ClientDemandsTable.budgetMax,
                   hopeDeliveryDate: v2ClientDemandsTable.hopeDeliveryDate,
                 }).from(v2ClientDemandsTable)
-                  .where(eq(v2ClientDemandsTable.id, linkedClientDemandId))
+                  .where(eq(v2ClientDemandsTable.id, resolvedDemandId))
                   .limit(1);
 
                 if (!demand) {
@@ -489,7 +491,7 @@ ${d.description ?? "(暂无内容)"}
                   const [version] = await db.select({
                     detail: v2ClientDemandVersionsTable.detail,
                   }).from(v2ClientDemandVersionsTable)
-                    .where(eq(v2ClientDemandVersionsTable.demandId, linkedClientDemandId))
+                    .where(eq(v2ClientDemandVersionsTable.demandId, resolvedDemandId))
                     .orderBy(desc(v2ClientDemandVersionsTable.versionNo))
                     .limit(1);
 

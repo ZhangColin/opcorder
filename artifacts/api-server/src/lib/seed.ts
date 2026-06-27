@@ -794,7 +794,7 @@ split_suggestion_json:[{"title":"子需求标题（30字内）","detail":"完整
 
 ### 工作步骤
 
-1. **首先调用 \`get_linked_demand_details\` 工具**，获取关联客户需求的完整内容（这是强制的第一步，不得跳过）
+1. **首先调用 \`get_linked_demand_details\` 工具**，从系统提示中读取"ID = xxx"，将该数字作为 \`clientDemandId\` 参数传入（这是强制的第一步，不得跳过）
 2. 仔细阅读工具返回的需求内容，理解完整需求背景
 3. 询问运营方希望如何处理：整体发布？还是只发其中某一部分？（附 option_choices_json）
 4. 根据回答，确认 OPC 需求的范围和内容
@@ -914,7 +914,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出
 
-<!-- prompt-version: 1.1 -->`;
+<!-- prompt-version: 1.2 -->`;
 
     if (!existingOpcDemand) {
       await db.insert(agentConfigsTable).values({
@@ -925,7 +925,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
-    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.1")) {
+    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.2")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: opcDemandPrompt })

@@ -284,11 +284,16 @@ export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
     type: "function",
     function: {
       name: "get_linked_demand_details",
-      description: "获取本次对话关联的客户需求的完整详情，包括需求标题、类型、预算、交付要求和完整文档内容。当系统提示中有【关联客户需求（背景参考）】区块时，必须优先调用此工具，获取内容后再开始与用户互动。",
+      description: "获取本次对话关联的客户需求的完整详情，包括需求标题、类型、预算、交付要求和完整文档内容。当系统提示中有【关联客户需求（背景参考）】区块时，必须优先调用此工具，从系统提示中读取 ID 后传入参数。",
       parameters: {
         type: "object",
-        properties: {},
-        required: [],
+        properties: {
+          clientDemandId: {
+            type: "integer",
+            description: "关联客户需求的 ID，从系统提示中【关联客户需求（背景参考）】区块的 'ID = xxx' 处读取",
+          },
+        },
+        required: ["clientDemandId"],
       },
     },
   },
