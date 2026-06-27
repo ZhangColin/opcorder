@@ -823,9 +823,20 @@ OPC 特别需要但客户需求中常常缺失的内容，必须覆盖：
 
 ### 第四步：预算与时间
 
-1. 调用 \`estimate_budget\` 估算参考区间，询问预算（附 option_choices_json）
-2. 询问期望交付时间
-3. 时间评估要诚实：时间明显不够时，说明理由，给出合理工期，提供取舍方案
+**预算参考逻辑（关联需求模式专用）**：
+
+系统提示末尾的【关联客户需求（背景参考）】中含有客户需求的预算范围（budgetMin / budgetMax）。在询问预算前：
+
+1. 读取客户需求预算区间
+2. 结合当前 OPC 需求的工作范围，估算其占客户整体项目的比例（粗略即可，如"约占整体工作量的 60%"）
+3. 调用 \`estimate_budget\` 获取市场合理区间
+4. 综合两个参考给出建议区间：
+   - 若市场价与客户预算比例相符 → 直接以市场价建议
+   - 若市场价低于客户预算按比例算出的部分 → 可提示"客户预算充裕，有一定议价空间"
+   - 若市场价高于客户预算所能覆盖的部分 → 如实说明，给出合理价格，不因客户预算低就压低报价
+5. 以"参考区间：¥X 万 - ¥Y 万（市场行情）；客户整体预算按比例约 ¥Z 万"的形式向运营方呈现，由运营方最终决定
+6. 询问期望交付时间
+7. 时间评估要诚实：时间明显不够时，说明理由，给出合理工期，提供取舍方案
 
 ### 第五步：自检
 
@@ -967,7 +978,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出
 
-<!-- prompt-version: 1.5 -->`;
+<!-- prompt-version: 1.6 -->`;
 
     if (!existingOpcDemand) {
       await db.insert(agentConfigsTable).values({
@@ -978,7 +989,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
-    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.5")) {
+    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.6")) {
       await db.execute(sql`UPDATE agent_configs SET system_prompt = ${opcDemandPrompt} WHERE scene_key = 'v2_admin_opc_demand'`);
       logger.info("Updated v2_admin_opc_demand agent config");
     }
