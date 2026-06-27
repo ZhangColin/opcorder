@@ -437,6 +437,7 @@ ${msStr}
         sessionKey={fullEditAgentSessionKey}
         sceneKey="v2_admin_opc_demand"
         agentMode="edit"
+        linkedClientDemandId={demand?.clientDemandId ?? undefined}
         existingDemandData={{
           title: editTitle,
           type: editType,
