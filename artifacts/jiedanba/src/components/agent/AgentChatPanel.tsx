@@ -69,12 +69,8 @@ interface AgentChatPanelProps {
     budgetMax?: number | null;
     hopeDeliveryDate?: string | null;
   };
-  /** Linked client demand context — passed to OPC demand agent to provide background */
-  linkedClientDemand?: {
-    id?: number;
-    title?: string;
-    detail?: string | null;
-  } | null;
+  /** Linked client demand ID — agent fetches details itself via get_linked_demand_details tool call */
+  linkedClientDemandId?: number | null;
   /** Override the welcome message shown when the panel first opens */
   welcomeOverride?: ChatMessage;
 }
@@ -315,7 +311,7 @@ const EDIT_WELCOME_MESSAGE: ChatMessage = {
 
 const WELCOME_MESSAGE = NEW_WELCOME_MESSAGE;
 
-export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onDocUpdate, onConversationId, mode = "drawer", sceneKey, agentMode = "new", existingDemandData, linkedClientDemand, welcomeOverride }: AgentChatPanelProps) {
+export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onDocUpdate, onConversationId, mode = "drawer", sceneKey, agentMode = "new", existingDemandData, linkedClientDemandId, welcomeOverride }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -423,7 +419,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           ...(sceneKey ? { sceneKey } : {}),
           ...(agentMode === "edit" ? { mode: "edit" } : {}),
           ...(agentMode === "edit" && existingDemandData ? { existingDemandData } : {}),
-          ...(linkedClientDemand ? { linkedClientDemandData: linkedClientDemand } : {}),
+          ...(linkedClientDemandId != null ? { linkedClientDemandId } : {}),
         }),
         signal: abortRef.current.signal,
       });

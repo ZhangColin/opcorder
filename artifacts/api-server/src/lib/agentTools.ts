@@ -283,6 +283,18 @@ export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
   {
     type: "function",
     function: {
+      name: "get_linked_demand_details",
+      description: "获取本次对话关联的客户需求的完整详情，包括需求标题、类型、预算、交付要求和完整文档内容。当系统提示中有【关联客户需求（背景参考）】区块时，必须优先调用此工具，获取内容后再开始与用户互动。",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "estimate_budget",
       description: "根据需求类型、复杂度和工期，估算参考预算区间（元）。在第四阶段给用户预算参考时使用。",
       parameters: {

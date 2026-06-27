@@ -107,7 +107,7 @@ export default function AdminV2OutsourceDemandNew() {
   const [loadingCats, setLoadingCats] = useState(true);
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentSessionKey] = useState(() => `v2_opc_new_${Date.now()}`);
-  const [linkedClientDemand, setLinkedClientDemand] = useState<{ id: number; title: string; detail?: string | null } | null>(null);
+  const [linkedClientDemandId, setLinkedClientDemandId] = useState<number | null>(null);
 
   useEffect(() => {
     v2Get<{ items: ClientDemand[] }>("/client-demands?limit=200")
@@ -137,17 +137,8 @@ export default function AdminV2OutsourceDemandNew() {
     }
   };
 
-  const handleOpenAgent = async () => {
-    if (clientDemandId) {
-      try {
-        const cd = await v2Get<ClientDemand>(`/client-demands/${clientDemandId}`);
-        setLinkedClientDemand({ id: cd.id, title: cd.title, detail: cd.latestVersion?.detail ?? null });
-      } catch {
-        setLinkedClientDemand(null);
-      }
-    } else {
-      setLinkedClientDemand(null);
-    }
+  const handleOpenAgent = () => {
+    setLinkedClientDemandId(clientDemandId ? parseInt(clientDemandId) : null);
     setAgentOpen(true);
   };
 
@@ -236,11 +227,11 @@ export default function AdminV2OutsourceDemandNew() {
         sessionKey={agentSessionKey}
         sceneKey="v2_admin_opc_demand"
         agentMode="new"
-        linkedClientDemand={linkedClientDemand}
+        linkedClientDemandId={linkedClientDemandId}
         onFillForm={handleAgentFillForm}
-        welcomeOverride={linkedClientDemand ? {
+        welcomeOverride={linkedClientDemandId != null ? {
           role: "assistant",
-          content: `你好！我已读取了关联的客户需求内容。\n\n请告诉我您想如何处理：\n- 把整个需求作为 OPC 需求整体发布\n- 只发其中某个部分（例如只发开发部分、只发测试部分等）\n\n请说说您的想法？`,
+          content: `你好！我注意到本次对话关联了一个客户需求，我将先查询该需求的详细内容，然后协助您决定如何发布 OPC 需求。请问您想整体发布，还是只发其中某个部分？`,
           timestamp: new Date().toISOString(),
         } : undefined}
       />

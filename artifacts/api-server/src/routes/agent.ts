@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable, catCategoriesTable, catTagsTable } from "@workspace/db";
-import { eq, and, asc } from "drizzle-orm";
+import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable, catCategoriesTable, catTagsTable, v2ClientDemandsTable, v2ClientDemandVersionsTable } from "@workspace/db";
+import { eq, and, asc, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
 import { callLLM, streamLLM, type LLMMessage, type ToolCall } from "../lib/llm";
@@ -17,7 +17,7 @@ const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split", "v2_admin_opc_deman
 /** For scenes that only need a subset of tools, list the allowed tool names here. */
 const SCENE_ALLOWED_TOOLS = new Map<string, Set<string>>([
   ["v2_demand_analysis", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check"])],
-  ["v2_admin_opc_demand", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check"])],
+  ["v2_admin_opc_demand", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check", "get_linked_demand_details"])],
 ]);
 
 type PersistedMessage = {
@@ -163,7 +163,7 @@ router.get("/agent/demand-analysis/status", requireAuth, async (_req: Request, r
 });
 
 router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res: Response) => {
-  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey, mode, existingDemandData, linkedClientDemandData } = req.body as {
+  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey, mode, existingDemandData, linkedClientDemandId } = req.body as {
     message: string;
     demandId?: number;
     sessionKey?: string;
@@ -180,12 +180,8 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
       budgetMax?: number | null;
       hopeDeliveryDate?: string | null;
     };
-    /** Passed by frontend when creating/editing OPC demand with a linked client demand */
-    linkedClientDemandData?: {
-      id?: number;
-      title?: string;
-      detail?: string | null;
-    };
+    /** Passed by frontend when creating OPC demand linked to a client demand — agent fetches details via tool call */
+    linkedClientDemandId?: number;
   };
 
   const resolvedSceneKey = reqSceneKey || DEMAND_ANALYSIS_SCENE_KEY;
@@ -292,17 +288,13 @@ ${d.description ?? "(暂无内容)"}
 ---`;
   }
 
-  // Linked client demand: inject as background context (for OPC demand creation/editing)
-  if (linkedClientDemandData && (linkedClientDemandData.title || linkedClientDemandData.detail)) {
-    const lcd = linkedClientDemandData;
+  // Linked client demand: inject a minimal hint — agent fetches details via get_linked_demand_details tool call
+  if (linkedClientDemandId) {
     effectiveSystemPrompt = effectiveSystemPrompt + `
 
 ---
 【关联客户需求（背景参考）】
-标题：${lcd.title ?? "(未填写)"}
-
-需求详情：
-${lcd.detail?.trim() ? lcd.detail.trim() : "(暂无详情)"}
+说明：本次对话关联了一个客户需求（ID = ${linkedClientDemandId}）。你的第一步必须调用 get_linked_demand_details 工具获取该需求的完整内容，获取后再开始与用户互动。
 ---`;
   }
 
@@ -475,7 +467,49 @@ ${lcd.detail?.trim() ? lcd.detail.trim() : "(暂无详情)"}
 
           // ── perform_self_check: server counts how many times it has been called ──
           let result: unknown;
-          if (toolName === "perform_self_check") {
+          if (toolName === "get_linked_demand_details") {
+            if (!linkedClientDemandId) {
+              result = { error: "当前没有关联客户需求" };
+            } else {
+              try {
+                const [demand] = await db.select({
+                  id: v2ClientDemandsTable.id,
+                  title: v2ClientDemandsTable.title,
+                  demandType: v2ClientDemandsTable.demandType,
+                  budgetMin: v2ClientDemandsTable.budgetMin,
+                  budgetMax: v2ClientDemandsTable.budgetMax,
+                  hopeDeliveryDate: v2ClientDemandsTable.hopeDeliveryDate,
+                }).from(v2ClientDemandsTable)
+                  .where(eq(v2ClientDemandsTable.id, linkedClientDemandId))
+                  .limit(1);
+
+                if (!demand) {
+                  result = { error: "关联需求不存在" };
+                } else {
+                  const [version] = await db.select({
+                    detail: v2ClientDemandVersionsTable.detail,
+                  }).from(v2ClientDemandVersionsTable)
+                    .where(eq(v2ClientDemandVersionsTable.demandId, linkedClientDemandId))
+                    .orderBy(desc(v2ClientDemandVersionsTable.versionNo))
+                    .limit(1);
+
+                  result = {
+                    title: demand.title,
+                    demandType: demand.demandType ?? null,
+                    budgetMin: demand.budgetMin ?? null,
+                    budgetMax: demand.budgetMax ?? null,
+                    hopeDeliveryDate: demand.hopeDeliveryDate
+                      ? demand.hopeDeliveryDate.toISOString().split("T")[0]
+                      : null,
+                    detail: version?.detail?.trim() || "(暂无需求详情)",
+                    instruction: "以上为关联客户需求的完整内容，仅作为背景参考。新 OPC 需求文档中不得出现原客户需求的名称、客户信息、原需求编号等任何标识。",
+                  };
+                }
+              } catch (fetchErr) {
+                result = { error: `查询失败: ${(fetchErr as Error).message}` };
+              }
+            }
+          } else if (toolName === "perform_self_check") {
             const MAX_SELF_CHECKS = 10;
             const selfCheckCount = [...historyMessages, ...intermediateMessages]
               .filter(m => m.role === "tool" && m.toolName === "perform_self_check")
