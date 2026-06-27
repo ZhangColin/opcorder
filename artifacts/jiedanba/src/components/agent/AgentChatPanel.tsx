@@ -73,6 +73,8 @@ interface AgentChatPanelProps {
   linkedClientDemandId?: number | null;
   /** Override the welcome message shown when the panel first opens */
   welcomeOverride?: ChatMessage;
+  /** Free-form context string appended to the agent's system prompt (used by milestone agent) */
+  agentContext?: string;
 }
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
@@ -311,7 +313,7 @@ const EDIT_WELCOME_MESSAGE: ChatMessage = {
 
 const WELCOME_MESSAGE = NEW_WELCOME_MESSAGE;
 
-export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onDocUpdate, onConversationId, mode = "drawer", sceneKey, agentMode = "new", existingDemandData, linkedClientDemandId, welcomeOverride }: AgentChatPanelProps) {
+export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onDocUpdate, onConversationId, mode = "drawer", sceneKey, agentMode = "new", existingDemandData, linkedClientDemandId, welcomeOverride, agentContext }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -420,6 +422,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           ...(agentMode === "edit" ? { mode: "edit" } : {}),
           ...(agentMode === "edit" && existingDemandData ? { existingDemandData } : {}),
           ...(linkedClientDemandId != null ? { linkedClientDemandId } : {}),
+          ...(agentContext ? { agentContext } : {}),
         }),
         signal: abortRef.current.signal,
       });

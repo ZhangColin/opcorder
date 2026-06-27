@@ -11,8 +11,8 @@ const router: IRouter = Router();
 
 const DEMAND_ANALYSIS_SCENE_KEY = "demand_analysis";
 
-const TOOL_FREE_SCENE_KEYS = new Set(["v2_outsource_split"]);
-const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split", "v2_admin_opc_demand"]);
+const TOOL_FREE_SCENE_KEYS = new Set(["v2_outsource_split", "v2_admin_opc_milestone"]);
+const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split", "v2_admin_opc_demand", "v2_admin_opc_milestone"]);
 
 /** For scenes that only need a subset of tools, list the allowed tool names here. */
 const SCENE_ALLOWED_TOOLS = new Map<string, Set<string>>([
@@ -190,7 +190,7 @@ router.get("/agent/demand-analysis/status", requireAuth, async (_req: Request, r
 });
 
 router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res: Response) => {
-  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey, mode, existingDemandData, linkedClientDemandId } = req.body as {
+  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey, mode, existingDemandData, linkedClientDemandId, agentContext } = req.body as {
     message: string;
     demandId?: number;
     sessionKey?: string;
@@ -209,6 +209,8 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
     };
     /** Passed by frontend when creating OPC demand linked to a client demand — agent fetches details via tool call */
     linkedClientDemandId?: number;
+    /** Free-form context block to append to the system prompt (used by milestone agent etc.) */
+    agentContext?: string;
   };
 
   const resolvedSceneKey = reqSceneKey || DEMAND_ANALYSIS_SCENE_KEY;
@@ -314,6 +316,11 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 需求文档（当前版本）：
 ${d.description ?? "(暂无内容)"}
 ---`;
+  }
+
+  // Free-form context block (e.g. milestone agent injects demand info from frontend)
+  if (agentContext && typeof agentContext === "string" && agentContext.trim()) {
+    effectiveSystemPrompt = effectiveSystemPrompt + "\n\n" + agentContext.trim();
   }
 
   // Linked client demand: pre-fetch details from DB and inject directly into system prompt.

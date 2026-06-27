@@ -29,6 +29,7 @@ interface OutsourceDemand {
   isUrgent: boolean; mode: string; clientDemandId: number | null;
   detail: string | null; status: string;
   expectedPriceMin: number | null; expectedPriceMax: number | null;
+  deadline: string | null;
   milestones: Milestone[]; closedReason: string | null;
   createdBy: number; createdAt: string; updatedAt: string;
   latestVersion: LatestVersion | null; tenders?: Tender[];
@@ -96,6 +97,9 @@ export default function AdminV2OutsourceDemandDetail({
   const [milestoneEditMode, setMilestoneEditMode] = useState(false);
   const [editMilestones, setEditMilestones] = useState<Milestone[]>([]);
   const [savingMilestones, setSavingMilestones] = useState(false);
+  const [milestoneAgentOpen, setMilestoneAgentOpen] = useState(false);
+  const [milestoneAgentSessionKey] = useState(() => `v2_opc_milestone_${id ?? Date.now()}`);
+  const [pendingAiMilestones, setPendingAiMilestones] = useState<Milestone[] | null>(null);
 
   const [showClose, setShowClose] = useState(false);
   const [closeReason, setCloseReason] = useState("");
@@ -116,6 +120,7 @@ export default function AdminV2OutsourceDemandDetail({
   const [editType, setEditType] = useState("");
   const [editBudgetMin, setEditBudgetMin] = useState("");
   const [editBudgetMax, setEditBudgetMax] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
   const [editIsUrgent, setEditIsUrgent] = useState(false);
   const [catCategories, setCatCategories] = useState<{ id: number; code: string; name: string }[]>([]);
   const [fullEditAgentOpen, setFullEditAgentOpen] = useState(false);
@@ -307,6 +312,7 @@ export default function AdminV2OutsourceDemandDetail({
     setEditType(demand.demandType ?? "");
     setEditBudgetMin(demand.expectedPriceMin != null ? String(demand.expectedPriceMin) : "");
     setEditBudgetMax(demand.expectedPriceMax != null ? String(demand.expectedPriceMax) : "");
+    setEditDeadline(demand.deadline ?? "");
     setEditIsUrgent(demand.isUrgent);
     const cur = demand.latestVersion?.detail ?? demand.detail ?? "";
     setEditDetail(cur);
@@ -327,6 +333,7 @@ export default function AdminV2OutsourceDemandDetail({
       if (editType) patchBody.demandType = editType;
       patchBody.expectedPriceMin = editBudgetMin ? parseFloat(editBudgetMin) : null;
       patchBody.expectedPriceMax = editBudgetMax ? parseFloat(editBudgetMax) : null;
+      patchBody.deadline = editDeadline || null;
       await v2Patch(`/outsource-demands/${id}`, patchBody);
 
       const originalDetail = demand?.latestVersion?.detail ?? demand?.detail ?? "";
@@ -357,6 +364,45 @@ export default function AdminV2OutsourceDemandDetail({
     if (suggestion.milestones?.length) {
       setEditMilestones(suggestion.milestones.map(m => ({ name: m.name, deadline: m.deadline ?? "", description: m.deliverableDesc ?? "" })));
     }
+  };
+
+  const handleMilestoneAgentFill = (suggestion: FormSuggestion) => {
+    if (suggestion.milestones?.length) {
+      const mapped: Milestone[] = suggestion.milestones.map(m => ({
+        name: m.name,
+        deadline: m.deadline ?? "",
+        description: m.deliverableDesc ?? "",
+      }));
+      setPendingAiMilestones(mapped);
+    }
+  };
+
+  const buildMilestoneAgentContext = () => {
+    if (!demand) return "";
+    const detail = demand.latestVersion?.detail ?? demand.detail ?? "";
+    const deadlineStr = demand.deadline ?? "（未填写）";
+    const typeStr = demand.demandType ? resolveDemandType(demand.demandType) : "（未分类）";
+    const budgetStr = demand.expectedPriceMin != null
+      ? `¥${demand.expectedPriceMin.toLocaleString()}${demand.expectedPriceMax ? ` ~ ¥${demand.expectedPriceMax.toLocaleString()}` : "+"}`
+      : "面议";
+    const msStr = editMilestones.filter(m => m.name.trim()).length > 0
+      ? editMilestones.filter(m => m.name.trim()).map((m, i) =>
+          `${i + 1}. ${m.name}${m.deadline ? `（截止 ${m.deadline}）` : ""}${m.description ? `\n   说明：${m.description}` : ""}`
+        ).join("\n")
+      : "（暂无里程碑）";
+    return `---
+【OPC需求信息】
+标题：${demand.title}
+类型：${typeStr}
+预算：${budgetStr}
+希望交付日期：${deadlineStr}
+
+需求详情：
+${detail || "（暂无详情）"}
+
+当前已有里程碑：
+${msStr}
+---`;
   };
 
   if (loading) return (
@@ -400,6 +446,65 @@ export default function AdminV2OutsourceDemandDetail({
         }}
         onFillForm={handleFullEditAgentFill}
       />
+
+      {/* ── 里程碑助手 AgentChatPanel ── */}
+      <AgentChatPanel
+        open={milestoneAgentOpen}
+        onClose={() => setMilestoneAgentOpen(false)}
+        sessionKey={milestoneAgentSessionKey}
+        sceneKey="v2_admin_opc_milestone"
+        agentContext={milestoneAgentOpen ? buildMilestoneAgentContext() : undefined}
+        onFillForm={handleMilestoneAgentFill}
+        welcomeOverride={{
+          role: "assistant",
+          content: "你好！我是里程碑规划助手。我已读取了当前需求的详情和现有里程碑，正在为您分析合理的拆分方案，请稍候…\n\n请先描述一下您对里程碑拆分有什么特别要求（例如阶段数量偏好、重点阶段、时间节点等），或者直接发送「开始」让我给出建议。",
+          timestamp: new Date().toISOString(),
+        }}
+      />
+
+      {/* ── AI 里程碑确认弹窗 ── */}
+      {pendingAiMilestones && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPendingAiMilestones(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h4 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                  <Bot size={16} className="text-violet-500" /> AI 里程碑建议
+                </h4>
+                <button onClick={() => setPendingAiMilestones(null)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">以下是助手建议的里程碑方案，确认后将覆盖当前编辑中的里程碑</p>
+            </div>
+            <div className="p-5 space-y-3">
+              {pendingAiMilestones.map((m, i) => (
+                <div key={i} className="border border-slate-100 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-5 h-5 rounded-full bg-violet-100 text-violet-600 text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</div>
+                    <span className="text-sm font-semibold text-slate-800">{m.name}</span>
+                    {m.deadline && <span className="text-xs text-slate-400 ml-auto shrink-0">截止 {m.deadline}</span>}
+                  </div>
+                  {m.description && <p className="text-xs text-slate-500 pl-7">{m.description}</p>}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 p-5 pt-0">
+              <button
+                onClick={() => {
+                  setEditMilestones(pendingAiMilestones);
+                  setPendingAiMilestones(null);
+                  setMilestoneAgentOpen(false);
+                }}
+                className="flex-1 bg-violet-600 text-white rounded-xl py-2.5 text-sm font-bold hover:bg-violet-700 transition-colors">
+                确认应用
+              </button>
+              <button onClick={() => setPendingAiMilestones(null)}
+                className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold">
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 space-y-4">
 
@@ -458,6 +563,12 @@ export default function AdminV2OutsourceDemandDetail({
                 {demand.expectedPriceMin != null
                   ? `¥${demand.expectedPriceMin.toLocaleString()}${demand.expectedPriceMax ? ` ～ ¥${demand.expectedPriceMax.toLocaleString()}` : "+"}`
                   : "面议"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-0.5 flex items-center gap-1"><Calendar size={10} />希望交付时间</p>
+              <p className="font-semibold text-slate-700">
+                {demand.deadline ? new Date(demand.deadline).toLocaleDateString("zh-CN") : "—"}
               </p>
             </div>
             <div>
@@ -563,7 +674,7 @@ export default function AdminV2OutsourceDemandDetail({
               </div>
             </div>
 
-            {/* 预算 */}
+            {/* 预算 + 希望交付时间 */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">预算下限（元）</label>
@@ -577,6 +688,11 @@ export default function AdminV2OutsourceDemandDetail({
                   placeholder="留空表示不限"
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">希望交付时间</label>
+              <input type="date" value={editDeadline} onChange={e => setEditDeadline(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-700" />
             </div>
 
             {/* 需求详情 */}
@@ -774,13 +890,18 @@ export default function AdminV2OutsourceDemandDetail({
                       className="flex items-center gap-1 text-xs text-primary hover:underline">
                       <Plus size={12} /> 添加里程碑
                     </button>
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex flex-wrap gap-2 pt-1">
                       <button onClick={handleSaveMilestones} disabled={savingMilestones}
                         className="bg-primary text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
                         {savingMilestones ? "保存中…" : "保存里程碑"}
                       </button>
                       <button onClick={() => setMilestoneEditMode(false)}
                         className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">取消</button>
+                      <button
+                        onClick={() => setMilestoneAgentOpen(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold border border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 transition-colors ml-auto">
+                        <Bot size={13} /> 里程碑助手
+                      </button>
                     </div>
                   </div>
                 ) : demand.milestones?.length > 0 ? (

@@ -998,6 +998,66 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
   }
 
   try {
+    const [existingMilestone] = await db
+      .select({ sceneKey: agentConfigsTable.sceneKey, systemPrompt: agentConfigsTable.systemPrompt })
+      .from(agentConfigsTable)
+      .where(eq(agentConfigsTable.sceneKey, "v2_admin_opc_milestone"))
+      .limit(1);
+
+    const milestonePrompt = `你是「里程碑规划助手」，专门帮助运营团队为 OPC 外包需求合理拆分交付里程碑。
+
+## 你将收到的上下文（系统已注入在本提示末尾）
+- 需求标题、类型、预算
+- 希望交付日期（最终截止日期）
+- 当前需求详情文档
+- 已有里程碑列表（可能为空）
+
+## 工作流程
+1. **主动分析**：读取注入的需求信息，提出初步里程碑拆分建议（不要等用户开口）
+2. **说明方案**：自然语言描述每个里程碑的名称、大约截止日期、主要交付内容
+3. **征询意见**：问用户是否有调整（数量、节点、描述等）
+4. **确认输出**：用户明确确认后，在消息末尾输出最终 JSON
+
+## 里程碑拆分原则
+- **数量适中**：通常 3～6 个，根据项目规模和复杂度决定
+- **时间合理**：最后一个里程碑截止日期 ≤ 希望交付日期；各阶段工时均衡
+- **交付物明确**：每个里程碑都有具体的、可验收的交付物描述
+- **阶段逻辑清晰**：按照项目推进顺序（如调研→方案→开发→测试→交付）
+- **描述面向执行者**：让 OPC 清楚每阶段做什么、交付什么、以什么为验收标准
+
+## 交付物描述格式（deliverableDesc）
+"本阶段完成 XX 工作，交付 XX 成果，验收标准为 XX"
+
+## 注意事项
+- 正文中绝对不出现任何 JSON 或代码块
+- 如果希望交付日期未填写，告知用户无法生成精确日期，请用户先填写交付日期
+- 如果已有里程碑，分析现有方案并指出优化点，再提建议
+
+## 输出格式（用户明确确认后在消息末尾输出，仅此一处）
+form_suggestion_json:{"milestones":[{"name":"阶段名称","deadline":"YYYY-MM-DD","deliverableDesc":"详细交付说明：本阶段完成XX，交付XX，验收标准为XX"}]}
+
+> 严格要求：日期格式 YYYY-MM-DD；不输出 title/type 等其他字段；只在用户确认后输出一次
+
+<!-- prompt-version: 1.0 -->`;
+
+    if (!existingMilestone) {
+      await db.insert(agentConfigsTable).values({
+        name: "里程碑规划助手",
+        sceneKey: "v2_admin_opc_milestone",
+        systemPrompt: milestonePrompt,
+        isEnabled: true,
+        model: "deepseek-chat",
+      });
+      logger.info("Seeded v2_admin_opc_milestone agent config");
+    } else if (!existingMilestone.systemPrompt.includes("prompt-version: 1.0")) {
+      await db.execute(sql`UPDATE agent_configs SET system_prompt = ${milestonePrompt} WHERE scene_key = 'v2_admin_opc_milestone'`);
+      logger.info("Updated v2_admin_opc_milestone agent config");
+    }
+  } catch (err) {
+    logger.warn({ err }, "v2_admin_opc_milestone agent config seed skipped");
+  }
+
+  try {
     await db
       .insert(siteSettingsTable)
       .values({ key: "icp_number", value: "京ICP备2025138186号-5" })

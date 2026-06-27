@@ -205,7 +205,7 @@ router.patch("/outsource-demands/:id", requireAdmin, async (req: Request, res: R
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
 
-    const { title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, status } = req.body as any;
+    const { title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, deadline, milestones, status } = req.body as any;
     const updates: any = { updatedAt: new Date() };
     if (title !== undefined) updates.title = title;
     if (demandType !== undefined) updates.demandType = demandType;
@@ -213,6 +213,7 @@ router.patch("/outsource-demands/:id", requireAdmin, async (req: Request, res: R
     if (mode !== undefined) updates.mode = mode;
     if (expectedPriceMin !== undefined) updates.expectedPriceMin = expectedPriceMin;
     if (expectedPriceMax !== undefined) updates.expectedPriceMax = expectedPriceMax;
+    if (deadline !== undefined) updates.deadline = deadline || null;
     if (milestones !== undefined) updates.milestones = milestones;
     if (status !== undefined) updates.status = status;
 

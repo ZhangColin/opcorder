@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, serial, integer, text, varchar, boolean,
-  timestamp, jsonb, real, index,
+  timestamp, jsonb, real, index, date,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { v2ClientDemandsTable } from "./v2-client-demands";
@@ -30,6 +30,7 @@ export const v2OutsourceDemandsTable = pgTable("v2_outsource_demands", {
   mode: v2OutsourceDemandModeEnum("mode").notNull().default("public"),
   expectedPriceMin: real("expected_price_min"),
   expectedPriceMax: real("expected_price_max"),
+  deadline: date("deadline"),
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline?: string; description?: string }>>().notNull().default([]),
   status: v2OutsourceDemandStatusEnum("status").notNull().default("negotiating"),
   closedReason: text("closed_reason"),

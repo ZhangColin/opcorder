@@ -2719,5 +2719,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 037a: added linked_client_demand_id to agent_conversations");
   });
 
+  await once("038a", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_outsource_demands
+      ADD COLUMN IF NOT EXISTS deadline DATE
+    `);
+    logger.info("Migration 038a: added deadline to v2_outsource_demands");
+  });
+
   logger.info("Startup data migrations complete.");
 }
