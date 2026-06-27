@@ -99,7 +99,6 @@ export default function AdminV2OutsourceDemandDetail({
   const [savingMilestones, setSavingMilestones] = useState(false);
   const [milestoneAgentOpen, setMilestoneAgentOpen] = useState(false);
   const [milestoneAgentSessionKey] = useState(() => `v2_opc_milestone_${id ?? Date.now()}`);
-  const [pendingAiMilestones, setPendingAiMilestones] = useState<Milestone[] | null>(null);
 
   const [showClose, setShowClose] = useState(false);
   const [closeReason, setCloseReason] = useState("");
@@ -374,7 +373,8 @@ export default function AdminV2OutsourceDemandDetail({
         deadline: m.deadline ?? "",
         description: m.deliverableDesc ?? "",
       }));
-      setPendingAiMilestones(mapped);
+      setEditMilestones(mapped);
+      setMilestoneAgentOpen(false);
     }
   };
 
@@ -464,49 +464,6 @@ ${msStr}
         }}
       />
 
-      {/* ── AI 里程碑确认弹窗 ── */}
-      {pendingAiMilestones && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPendingAiMilestones(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-slate-100">
-              <div className="flex items-center justify-between">
-                <h4 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-                  <Bot size={16} className="text-violet-500" /> AI 里程碑建议
-                </h4>
-                <button onClick={() => setPendingAiMilestones(null)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">以下是助手建议的里程碑方案，确认后将覆盖当前编辑中的里程碑</p>
-            </div>
-            <div className="p-5 space-y-3">
-              {pendingAiMilestones.map((m, i) => (
-                <div key={i} className="border border-slate-100 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-5 h-5 rounded-full bg-violet-100 text-violet-600 text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</div>
-                    <span className="text-sm font-semibold text-slate-800">{m.name}</span>
-                    {m.deadline && <span className="text-xs text-slate-400 ml-auto shrink-0">截止 {m.deadline}</span>}
-                  </div>
-                  {m.description && <p className="text-xs text-slate-500 pl-7">{m.description}</p>}
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2 p-5 pt-0">
-              <button
-                onClick={() => {
-                  setEditMilestones(pendingAiMilestones);
-                  setPendingAiMilestones(null);
-                  setMilestoneAgentOpen(false);
-                }}
-                className="flex-1 bg-violet-600 text-white rounded-xl py-2.5 text-sm font-bold hover:bg-violet-700 transition-colors">
-                确认应用
-              </button>
-              <button onClick={() => setPendingAiMilestones(null)}
-                className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 font-bold">
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="mt-6 space-y-4">
 
