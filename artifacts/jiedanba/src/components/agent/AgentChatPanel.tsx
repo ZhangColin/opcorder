@@ -511,7 +511,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
       setLoading(false);
       abortRef.current = null;
     }
-  }, [loading, sessionKey, conversationId, demandId, agentMode, existingDemandData]);
+  }, [loading, sessionKey, conversationId, demandId, sceneKey, agentMode, existingDemandData, linkedClientDemandId]);
 
   const sendMessage = useCallback(() => {
     const text = input.trim();
