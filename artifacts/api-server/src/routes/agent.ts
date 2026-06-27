@@ -213,6 +213,9 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 
   const resolvedSceneKey = reqSceneKey || DEMAND_ANALYSIS_SCENE_KEY;
 
+  // DEBUG: log incoming request context to diagnose linkedClientDemandId issues
+  logger.info({ sceneKey: resolvedSceneKey, sessionKey, conversationId, linkedClientDemandId, demandId }, "[agent-debug] incoming request");
+
   if (!message || typeof message !== "string" || message.trim() === "") {
     return res.status(400).json({ error: "消息内容不能为空" });
   }
