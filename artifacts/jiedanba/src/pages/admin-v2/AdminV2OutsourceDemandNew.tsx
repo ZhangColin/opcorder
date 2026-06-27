@@ -231,7 +231,7 @@ export default function AdminV2OutsourceDemandNew() {
         onFillForm={handleAgentFillForm}
         welcomeOverride={linkedClientDemandId != null ? {
           role: "assistant",
-          content: `你好！我注意到本次对话关联了一个客户需求，我将先查询该需求的详细内容，然后协助您决定如何发布 OPC 需求。请问您想整体发布，还是只发其中某个部分？`,
+          content: `你好！我已关联到一个客户需求。请直接告诉我您想发布什么样的 OPC 需求，我会先读取关联需求的详情，再协助您整理发布内容。`,
           timestamp: new Date().toISOString(),
         } : undefined}
       />

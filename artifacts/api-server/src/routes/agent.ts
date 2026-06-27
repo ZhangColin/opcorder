@@ -316,13 +316,21 @@ ${d.description ?? "(暂无内容)"}
 ---`;
   }
 
-  // Linked client demand: inject a minimal hint — agent fetches details via get_linked_demand_details tool call
-  if (linkedClientDemandId) {
+  // Linked client demand: inject a mandatory hint every turn — uses DB-persisted ID as primary source
+  const effectiveLinkedClientDemandId = conversation.linkedClientDemandId || linkedClientDemandId;
+  if (effectiveLinkedClientDemandId) {
     effectiveSystemPrompt = effectiveSystemPrompt + `
 
 ---
 【关联客户需求（背景参考）】
-说明：本次对话关联了一个客户需求（ID = ${linkedClientDemandId}）。你的第一步必须调用 get_linked_demand_details 工具获取该需求的完整内容，获取后再开始与用户互动。
+本次对话关联了一个客户需求（ID = ${effectiveLinkedClientDemandId}）。
+
+⚠️ 强制规则：在 get_linked_demand_details 工具调用成功返回结果之前，你必须：
+- 立即调用该工具（clientDemandId = ${effectiveLinkedClientDemandId}），不得延迟
+- 禁止调用任何其他工具（包括 get_demand_types）
+- 禁止向用户提问或作出任何回复
+
+工具调用成功后，再向用户汇报需求摘要并引导后续对话。
 ---`;
   }
 
