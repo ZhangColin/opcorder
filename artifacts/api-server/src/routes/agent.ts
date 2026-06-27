@@ -348,6 +348,15 @@ ${d.description ?? "(暂无内容)"}
           : "（未填写）";
         const detailStr = linkedVersion?.detail?.trim() || "（暂无需求详情）";
 
+        // Resolve demandType code to human-readable name using already-loaded categories
+        const demandTypeCode = linkedDemand.demandType;
+        const demandTypeName = demandTypeCode
+          ? (toolContext.categories?.find(c => c.code === demandTypeCode)?.name ?? demandTypeCode)
+          : "（未填写）";
+        const demandTypeStr = demandTypeCode
+          ? `${demandTypeName}（${demandTypeCode}）`
+          : "（未填写）";
+
         effectiveSystemPrompt = effectiveSystemPrompt + `
 
 ---
@@ -355,7 +364,7 @@ ${d.description ?? "(暂无内容)"}
 以下是本次关联的客户需求完整内容，已由系统预先获取，直接使用即可，无需调用 get_linked_demand_details 工具。
 
 标题：${linkedDemand.title}
-类型：${linkedDemand.demandType ?? "（未填写）"}
+需求类型：${demandTypeStr}
 预算区间：${budgetStr}
 希望交付日期：${deliveryStr}
 
