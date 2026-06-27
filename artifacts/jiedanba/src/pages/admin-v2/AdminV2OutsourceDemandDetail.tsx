@@ -676,23 +676,6 @@ export default function AdminV2OutsourceDemandDetail({
               collapsible={false}
               actions={
                 <div className="flex items-center gap-3">
-                  {canEdit && (
-                    <button onClick={() => {
-                      setEditDetail(currentDetail ?? "");
-                      setAgentOpen(true);
-                    }} className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-semibold">
-                      <Bot size={11} /> AI助手
-                    </button>
-                  )}
-                  {canEdit && !editMode && (
-                    <button onClick={() => {
-                      setEditDetail(currentDetail ?? "");
-                      setEditAttachments(currentAttachments.map(a => ({ name: a.name, url: a.url })));
-                      setEditMode(true);
-                    }} className="flex items-center gap-1 text-xs text-primary hover:underline">
-                      <Edit2 size={11} /> 编辑
-                    </button>
-                  )}
                   {demand.latestVersion && (
                     <button onClick={loadVersions} className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors">
                       <History size={11} /> 历史版本
