@@ -316,22 +316,58 @@ ${d.description ?? "(暂无内容)"}
 ---`;
   }
 
-  // Linked client demand: inject a mandatory hint every turn — uses DB-persisted ID as primary source
+  // Linked client demand: pre-fetch details from DB and inject directly into system prompt.
+  // This is more reliable than asking the agent to call a tool — the data is always present.
   const effectiveLinkedClientDemandId = conversation.linkedClientDemandId || linkedClientDemandId;
   if (effectiveLinkedClientDemandId) {
-    effectiveSystemPrompt = effectiveSystemPrompt + `
+    try {
+      const [linkedDemand] = await db.select({
+        id: v2ClientDemandsTable.id,
+        title: v2ClientDemandsTable.title,
+        demandType: v2ClientDemandsTable.demandType,
+        budgetMin: v2ClientDemandsTable.budgetMin,
+        budgetMax: v2ClientDemandsTable.budgetMax,
+        hopeDeliveryDate: v2ClientDemandsTable.hopeDeliveryDate,
+      }).from(v2ClientDemandsTable)
+        .where(eq(v2ClientDemandsTable.id, effectiveLinkedClientDemandId))
+        .limit(1);
+
+      if (linkedDemand) {
+        const [linkedVersion] = await db.select({
+          detail: v2ClientDemandVersionsTable.detail,
+        }).from(v2ClientDemandVersionsTable)
+          .where(eq(v2ClientDemandVersionsTable.demandId, effectiveLinkedClientDemandId))
+          .orderBy(desc(v2ClientDemandVersionsTable.versionNo))
+          .limit(1);
+
+        const budgetStr = (linkedDemand.budgetMin != null && linkedDemand.budgetMax != null)
+          ? `¥${linkedDemand.budgetMin} ~ ¥${linkedDemand.budgetMax}`
+          : linkedDemand.budgetMin != null ? `¥${linkedDemand.budgetMin}（上限未填）` : "（未填写）";
+        const deliveryStr = linkedDemand.hopeDeliveryDate
+          ? linkedDemand.hopeDeliveryDate.toISOString().split("T")[0]
+          : "（未填写）";
+        const detailStr = linkedVersion?.detail?.trim() || "（暂无需求详情）";
+
+        effectiveSystemPrompt = effectiveSystemPrompt + `
 
 ---
 【关联客户需求（背景参考）】
-本次对话关联了一个客户需求（ID = ${effectiveLinkedClientDemandId}）。
+以下是本次关联的客户需求完整内容，已由系统预先获取，直接使用即可，无需调用 get_linked_demand_details 工具。
 
-⚠️ 强制规则：在 get_linked_demand_details 工具调用成功返回结果之前，你必须：
-- 立即调用该工具（clientDemandId = ${effectiveLinkedClientDemandId}），不得延迟
-- 禁止调用任何其他工具（包括 get_demand_types）
-- 禁止向用户提问或作出任何回复
+标题：${linkedDemand.title}
+类型：${linkedDemand.demandType ?? "（未填写）"}
+预算区间：${budgetStr}
+希望交付日期：${deliveryStr}
 
-工具调用成功后，再向用户汇报需求摘要并引导后续对话。
+需求详情：
+${detailStr}
+
+重要提示：新 OPC 需求文档中不得出现原客户需求的名称、客户信息等任何标识。
 ---`;
+      }
+    } catch (linkedDemandErr) {
+      logger.warn({ linkedDemandErr, effectiveLinkedClientDemandId }, "Failed to pre-fetch linked client demand for system prompt");
+    }
   }
 
   // ── Tool-result accumulator ─────────────────────────────────────────────────

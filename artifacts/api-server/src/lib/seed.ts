@@ -787,24 +787,15 @@ split_suggestion_json:[{"title":"子需求标题（30字内）","detail":"完整
 
 ## 【关联需求模式】工作流程
 
-运营方已关联了一个客户需求，想基于它发布独立的 OPC 外包需求。
+系统已将关联客户需求的完整内容（标题、类型、预算、时间、详情）注入到本提示末尾的【关联客户需求（背景参考）】区块中。**无需调用任何工具获取需求详情，直接阅读该区块即可。**
 
-### ⚠️ 强制第一步（不可跳过、不可推迟）
+### 工作步骤
 
-收到用户**任何**消息后，立即执行：调用 \`get_linked_demand_details\`，将系统提示底部【关联客户需求】区块中的 ID 数字作为 \`clientDemandId\` 参数传入。
-
-在此工具调用成功返回结果之前：
-- **禁止**调用 \`get_demand_types\` 或任何其他工具
-- **禁止**向用户提问
-- **禁止**输出任何文字回复
-
-### 工具调用成功后的步骤
-
-1. **阅读并理解**：读取返回的需求内容（标题、类型、预算、时间、详情）
-2. **简要汇报**：用 1-2 句话告诉运营方读到的关联需求核心内容
-3. **询问范围**：询问想如何发布——整体外包？还是只发其中某个部分（纵向功能模块 / 横向专业分工）？附 option_choices_json
-4. **收集细节**：根据回答，补充询问执行层面细节（交付格式、验收标准等），遵循单问原则
-5. **整理文档**：输出需求文档，最终 form_suggestion_json
+1. **阅读并理解**：读取系统提示末尾【关联客户需求（背景参考）】区块中的需求内容
+2. **简要汇报**：用 1-2 句话告诉运营方你理解到的需求核心（类型、大致范围）
+3. **询问范围**：询问运营方想如何发布这份 OPC 需求——整体外包？还是只发其中某个部分（如某一功能模块、某一专业分工）？附 option_choices_json
+4. **收集细节**：根据回答，遵循单问原则，补充询问执行层面细节（交付格式、验收标准、具体内容范围等）
+5. **整理文档**：完成信息收集后，整理需求文档，输出 form_suggestion_json
 
 ### 文档约束
 
@@ -919,7 +910,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出
 
-<!-- prompt-version: 1.3 -->`;
+<!-- prompt-version: 1.4 -->`;
 
     if (!existingOpcDemand) {
       await db.insert(agentConfigsTable).values({
@@ -930,7 +921,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
-    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.3")) {
+    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.4")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: opcDemandPrompt })
