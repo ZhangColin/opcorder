@@ -8,11 +8,11 @@ import {
   DollarSign, MessageSquare, Users, Bot,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
-import { AgentChatPanel, type DocUpdate } from "@/components/agent/AgentChatPanel";
+import { AgentChatPanel, type DocUpdate, type FormSuggestion } from "@/components/agent/AgentChatPanel";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { FilePickerZone } from "@/components/shared/FilePickerZone";
 import { useDemandTypeLabel } from "@/lib/catCategories";
-import { v2Get, v2Post, v2Patch, v2Delete, uploadFile } from "@/lib/v2api";
+import { v2Get, v2Post, v2Patch, v2Delete, uploadFile, STORAGE_BASE } from "@/lib/v2api";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -111,6 +111,16 @@ export default function AdminV2OutsourceDemandDetail({
   const [batchSelected, setBatchSelected] = useState<Set<number>>(new Set());
   const [batchActing, setBatchActing] = useState(false);
 
+  const [fullEditMode, setFullEditMode] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editType, setEditType] = useState("");
+  const [editBudgetMin, setEditBudgetMin] = useState("");
+  const [editBudgetMax, setEditBudgetMax] = useState("");
+  const [editIsUrgent, setEditIsUrgent] = useState(false);
+  const [catCategories, setCatCategories] = useState<{ id: number; code: string; name: string }[]>([]);
+  const [fullEditAgentOpen, setFullEditAgentOpen] = useState(false);
+  const [fullEditAgentSessionKey] = useState(() => `v2_opc_edit_${id ?? Date.now()}`);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -127,6 +137,13 @@ export default function AdminV2OutsourceDemandDetail({
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
+
+  useEffect(() => {
+    fetch(`${STORAGE_BASE}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: { id: number; code: string; name: string }[]) => setCatCategories(data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (initialTab) setActiveTab(initialTab);
@@ -284,6 +301,64 @@ export default function AdminV2OutsourceDemandDetail({
     } catch { setVersions([]); setShowVersions(true); }
   };
 
+  const enterFullEditMode = () => {
+    if (!demand) return;
+    setEditTitle(demand.title);
+    setEditType(demand.demandType ?? "");
+    setEditBudgetMin(demand.expectedPriceMin != null ? String(demand.expectedPriceMin) : "");
+    setEditBudgetMax(demand.expectedPriceMax != null ? String(demand.expectedPriceMax) : "");
+    setEditIsUrgent(demand.isUrgent);
+    const cur = demand.latestVersion?.detail ?? demand.detail ?? "";
+    setEditDetail(cur);
+    setEditAttachments(demand.latestVersion?.attachments?.map(a => ({ name: a.name, url: a.url })) ?? []);
+    setEditComment("");
+    setEditMilestones(demand.milestones?.length > 0 ? demand.milestones.map(m => ({ ...m })) : []);
+    setFullEditMode(true);
+  };
+
+  const handleFullEditSave = async () => {
+    setActing(true);
+    try {
+      const patchBody: Record<string, any> = {
+        isUrgent: editIsUrgent,
+        milestones: editMilestones.filter(m => m.name.trim()),
+      };
+      if (editTitle.trim()) patchBody.title = editTitle.trim();
+      if (editType) patchBody.demandType = editType;
+      patchBody.expectedPriceMin = editBudgetMin ? parseFloat(editBudgetMin) : null;
+      patchBody.expectedPriceMax = editBudgetMax ? parseFloat(editBudgetMax) : null;
+      await v2Patch(`/outsource-demands/${id}`, patchBody);
+
+      const originalDetail = demand?.latestVersion?.detail ?? demand?.detail ?? "";
+      if (editDetail.trim() !== originalDetail.trim()) {
+        await v2Post(`/outsource-demands/${id}/update-detail`, {
+          detail: editDetail.trim(),
+          attachments: editAttachments,
+          editComment: editComment.trim() || undefined,
+        });
+      }
+
+      toast({ title: "需求已更新" });
+      setFullEditMode(false);
+      await load();
+    } catch (err: any) {
+      toast({ title: "保存失败", description: err.message, variant: "destructive" });
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleFullEditAgentFill = (suggestion: FormSuggestion) => {
+    if (suggestion.title) setEditTitle(suggestion.title);
+    if (suggestion.type) setEditType(suggestion.type);
+    if (suggestion.description) setEditDetail(suggestion.description);
+    if (suggestion.budgetMin != null) setEditBudgetMin(String(suggestion.budgetMin));
+    if (suggestion.budgetMax != null) setEditBudgetMax(String(suggestion.budgetMax));
+    if (suggestion.milestones?.length) {
+      setEditMilestones(suggestion.milestones.map(m => ({ name: m.name, deadline: m.deadline ?? "", description: m.deliverableDesc ?? "" })));
+    }
+  };
+
   if (loading) return (
     <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="OPC 需求">
       <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-primary" /></div>
@@ -309,6 +384,23 @@ export default function AdminV2OutsourceDemandDetail({
       backHref="/admin/v2/outsource-demands"
       backLabel="OPC 需求"
     >
+      {/* ── Full-edit 模式下的 AgentChatPanel ── */}
+      <AgentChatPanel
+        open={fullEditAgentOpen}
+        onClose={() => setFullEditAgentOpen(false)}
+        sessionKey={fullEditAgentSessionKey}
+        sceneKey="v2_admin_opc_demand"
+        agentMode="edit"
+        existingDemandData={{
+          title: editTitle,
+          type: editType,
+          description: editDetail,
+          budgetMin: editBudgetMin ? parseFloat(editBudgetMin) : null,
+          budgetMax: editBudgetMax ? parseFloat(editBudgetMax) : null,
+        }}
+        onFillForm={handleFullEditAgentFill}
+      />
+
       <div className="mt-6 space-y-4">
 
         {/* ── 基本信息卡 ── */}
@@ -316,6 +408,12 @@ export default function AdminV2OutsourceDemandDetail({
           <div className="flex items-start justify-between gap-3 mb-3">
             <h2 className="text-base font-extrabold text-slate-800 leading-snug">{demand.title}</h2>
             <div className="flex items-center gap-2 shrink-0">
+              {canEdit && !fullEditMode && (
+                <button onClick={enterFullEditMode}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border border-slate-300 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors">
+                  <Edit2 size={11} /> 编辑
+                </button>
+              )}
               {canPublish && (
                 <>
                   <button onClick={() => setShowDelete(true)}
@@ -419,8 +517,141 @@ export default function AdminV2OutsourceDemandDetail({
           </div>
         )}
 
+        {/* ── 全量编辑表单 ── */}
+        {fullEditMode && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <Edit2 size={13} className="text-primary" /> 编辑 OPC 需求
+              </h3>
+              <button onClick={() => setFullEditAgentOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold border border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 transition-colors">
+                <Bot size={12} /> 需求分析助手
+              </button>
+            </div>
+
+            {/* 标题 */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">需求标题</label>
+              <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-800" />
+            </div>
+
+            {/* 类型 + 紧急 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">需求类型</label>
+                <select value={editType} onChange={e => setEditType(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 bg-white">
+                  <option value="">未分类</option>
+                  {catCategories.map(c => (
+                    <option key={c.id} value={c.code}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">紧急需求</label>
+                <button type="button" onClick={() => setEditIsUrgent(v => !v)}
+                  className={`flex items-center gap-2 px-3 py-2.5 text-sm font-bold rounded-xl border transition-colors w-full ${
+                    editIsUrgent
+                      ? "bg-red-50 border-red-300 text-red-600"
+                      : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                  }`}>
+                  <Zap size={13} className={editIsUrgent ? "text-red-500" : "text-slate-400"} />
+                  {editIsUrgent ? "是，紧急需求" : "否，正常需求"}
+                </button>
+              </div>
+            </div>
+
+            {/* 预算 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">预算下限（元）</label>
+                <input type="number" value={editBudgetMin} onChange={e => setEditBudgetMin(e.target.value)}
+                  placeholder="留空表示面议"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">预算上限（元）</label>
+                <input type="number" value={editBudgetMax} onChange={e => setEditBudgetMax(e.target.value)}
+                  placeholder="留空表示不限"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            </div>
+
+            {/* 需求详情 */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">需求详情</label>
+              <MarkdownEditor key={`full-edit-detail-${id}`} value={editDetail} onChange={setEditDetail} placeholder="输入需求详情，支持 Markdown 富文本…" />
+              <div className="mt-2">
+                <FilePickerZone
+                  variant="inline"
+                  uploading={editUploading}
+                  onChange={f => handleEditFileUpload({ target: { files: [f] } } as any)}
+                  files={editAttachments}
+                  onRemove={i => setEditAttachments(prev => prev.filter((_, j) => j !== i))}
+                />
+              </div>
+            </div>
+
+            {/* 更新说明 */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">更新说明（可选）</label>
+              <input value={editComment} onChange={e => setEditComment(e.target.value)}
+                placeholder="如有变更，填写说明后将通知相关 OPC"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+
+            {/* 里程碑 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">里程碑（可选）</label>
+                <button type="button" onClick={() => setEditMilestones(prev => [...prev, { name: "", deadline: "", description: "" }])}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Plus size={11} /> 添加
+                </button>
+              </div>
+              <div className="space-y-3">
+                {editMilestones.map((m, i) => (
+                  <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 relative">
+                    <button type="button" onClick={() => setEditMilestones(prev => prev.filter((_, j) => j !== i))}
+                      className="absolute top-2 right-2 text-slate-300 hover:text-red-400">
+                      <Trash2 size={13} />
+                    </button>
+                    <div className="flex items-center gap-1 text-xs font-bold text-slate-500 mb-1">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">{i + 1}</div>
+                      里程碑 {i + 1}
+                    </div>
+                    <input value={m.name} onChange={e => setEditMilestones(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                      placeholder="名称（必填）"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="date" value={m.deadline ?? ""} onChange={e => setEditMilestones(prev => prev.map((x, j) => j === i ? { ...x, deadline: e.target.value } : x))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-600" />
+                    <textarea value={m.description ?? ""} onChange={e => setEditMilestones(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))}
+                      rows={2} placeholder="说明（可选）"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                  </div>
+                ))}
+                {editMilestones.length === 0 && (
+                  <p className="text-xs text-slate-400 py-2">暂无里程碑</p>
+                )}
+              </div>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-2 pt-1 border-t border-slate-100">
+              <button onClick={handleFullEditSave} disabled={acting}
+                className="bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-50 hover:bg-primary/90 transition-colors">
+                {acting ? "保存中…" : "保存更新"}
+              </button>
+              <button onClick={() => setFullEditMode(false)}
+                className="border border-slate-200 rounded-xl px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">取消</button>
+            </div>
+          </div>
+        )}
+
         {/* ── Tab 栏 ── */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1">
+        {!fullEditMode && <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1">
           {(["detail", "tenders"] as const).map(tab => {
             const label = tab === "detail" ? "需求详情" : `投标（${tenders.length}）`;
             return (
@@ -432,10 +663,10 @@ export default function AdminV2OutsourceDemandDetail({
               </button>
             );
           })}
-        </div>
+        </div>}
 
         {/* ══════════════ TAB 1: 需求详情 ══════════════ */}
-        {activeTab === "detail" && (
+        {!fullEditMode && activeTab === "detail" && (
           <div className="space-y-4">
 
             {/* 需求详情内容 */}
@@ -596,7 +827,7 @@ export default function AdminV2OutsourceDemandDetail({
         )}
 
         {/* ══════════════ TAB 2: 投标 ══════════════ */}
-        {activeTab === "tenders" && (
+        {!fullEditMode && activeTab === "tenders" && (
           <div className="space-y-3">
 
             {/* 工具栏：追加邀请 + 批量选定中标 */}

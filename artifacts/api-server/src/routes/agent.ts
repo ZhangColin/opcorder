@@ -12,11 +12,12 @@ const router: IRouter = Router();
 const DEMAND_ANALYSIS_SCENE_KEY = "demand_analysis";
 
 const TOOL_FREE_SCENE_KEYS = new Set(["v2_outsource_split"]);
-const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split"]);
+const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split", "v2_admin_opc_demand"]);
 
 /** For scenes that only need a subset of tools, list the allowed tool names here. */
 const SCENE_ALLOWED_TOOLS = new Map<string, Set<string>>([
   ["v2_demand_analysis", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check"])],
+  ["v2_admin_opc_demand", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check"])],
 ]);
 
 type PersistedMessage = {
@@ -162,7 +163,7 @@ router.get("/agent/demand-analysis/status", requireAuth, async (_req: Request, r
 });
 
 router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res: Response) => {
-  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey, mode, existingDemandData } = req.body as {
+  const { message, demandId, sessionKey, conversationId, sceneKey: reqSceneKey, mode, existingDemandData, linkedClientDemandData } = req.body as {
     message: string;
     demandId?: number;
     sessionKey?: string;
@@ -178,6 +179,12 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
       budgetMin?: number | null;
       budgetMax?: number | null;
       hopeDeliveryDate?: string | null;
+    };
+    /** Passed by frontend when creating/editing OPC demand with a linked client demand */
+    linkedClientDemandData?: {
+      id?: number;
+      title?: string;
+      detail?: string | null;
     };
   };
 
@@ -262,14 +269,16 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
     logger.warn({ catErr }, "Could not fetch categories/tags for tool context, falling back to static list");
   }
 
-  // Build effective system prompt — for edit mode, inject existing demand data as context block
+  // Build effective system prompt — inject context blocks as needed
   let effectiveSystemPrompt = config.systemPrompt;
+
+  // Edit mode: inject existing demand data
   if (mode === "edit" && existingDemandData) {
     const d = existingDemandData;
     const budgetStr = (d.budgetMin != null && d.budgetMax != null)
       ? `¥${d.budgetMin} ~ ¥${d.budgetMax}`
       : d.budgetMin != null ? `¥${d.budgetMin}` : "(未填写)";
-    effectiveSystemPrompt = config.systemPrompt + `
+    effectiveSystemPrompt = effectiveSystemPrompt + `
 
 ---
 【当前需求数据（编辑模式）】
@@ -280,6 +289,20 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
 
 需求文档（当前版本）：
 ${d.description ?? "(暂无内容)"}
+---`;
+  }
+
+  // Linked client demand: inject as background context (for OPC demand creation/editing)
+  if (linkedClientDemandData && (linkedClientDemandData.title || linkedClientDemandData.detail)) {
+    const lcd = linkedClientDemandData;
+    effectiveSystemPrompt = effectiveSystemPrompt + `
+
+---
+【关联客户需求（背景参考）】
+标题：${lcd.title ?? "(未填写)"}
+
+需求详情：
+${lcd.detail?.trim() ? lcd.detail.trim() : "(暂无详情)"}
 ---`;
   }
 

@@ -69,6 +69,14 @@ interface AgentChatPanelProps {
     budgetMax?: number | null;
     hopeDeliveryDate?: string | null;
   };
+  /** Linked client demand context — passed to OPC demand agent to provide background */
+  linkedClientDemand?: {
+    id?: number;
+    title?: string;
+    detail?: string | null;
+  } | null;
+  /** Override the welcome message shown when the panel first opens */
+  welcomeOverride?: ChatMessage;
 }
 
 const DEMAND_TYPE_LABELS: Record<string, string> = {
@@ -307,7 +315,7 @@ const EDIT_WELCOME_MESSAGE: ChatMessage = {
 
 const WELCOME_MESSAGE = NEW_WELCOME_MESSAGE;
 
-export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onDocUpdate, onConversationId, mode = "drawer", sceneKey, agentMode = "new", existingDemandData }: AgentChatPanelProps) {
+export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm, onDocUpdate, onConversationId, mode = "drawer", sceneKey, agentMode = "new", existingDemandData, linkedClientDemand, welcomeOverride }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -341,7 +349,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     setDragOffset(0);
   }, [open]);
 
-  const welcomeMessage = agentMode === "edit" ? EDIT_WELCOME_MESSAGE : NEW_WELCOME_MESSAGE;
+  const welcomeMessage = welcomeOverride ?? (agentMode === "edit" ? EDIT_WELCOME_MESSAGE : NEW_WELCOME_MESSAGE);
 
   const loadHistory = useCallback(async () => {
     if (historyLoaded) return;
@@ -415,6 +423,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           ...(sceneKey ? { sceneKey } : {}),
           ...(agentMode === "edit" ? { mode: "edit" } : {}),
           ...(agentMode === "edit" && existingDemandData ? { existingDemandData } : {}),
+          ...(linkedClientDemand ? { linkedClientDemandData: linkedClientDemand } : {}),
         }),
         signal: abortRef.current.signal,
       });

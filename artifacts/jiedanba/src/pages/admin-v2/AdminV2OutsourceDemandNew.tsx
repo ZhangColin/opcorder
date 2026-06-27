@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
-import { Loader2, X, Trash2, Scissors, ChevronDown, Check } from "lucide-react";
+import { Loader2, X, Trash2, Bot, ChevronDown, Check } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, STORAGE_BASE } from "@/lib/v2api";
 import { useToast } from "@/hooks/use-toast";
-import { AiSplitPanel, type SplitSuggestion } from "@/components/agent/AiSplitPanel";
+import { AgentChatPanel, type FormSuggestion } from "@/components/agent/AgentChatPanel";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 
 interface ClientDemand {
@@ -105,8 +105,9 @@ export default function AdminV2OutsourceDemandNew() {
   const [loadingDemands, setLoadingDemands] = useState(true);
   const [catCategories, setCatCategories] = useState<{ id: number; name: string }[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
-  const [splitPanelOpen, setSplitPanelOpen] = useState(false);
-  const [splitClientDemand, setSplitClientDemand] = useState<{ id: number; title: string; detail?: string | null } | null>(null);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentSessionKey] = useState(() => `v2_opc_new_${Date.now()}`);
+  const [linkedClientDemand, setLinkedClientDemand] = useState<{ id: number; title: string; detail?: string | null } | null>(null);
 
   useEffect(() => {
     v2Get<{ items: ClientDemand[] }>("/client-demands?limit=200")
@@ -136,33 +137,30 @@ export default function AdminV2OutsourceDemandNew() {
     }
   };
 
-  const handleOpenSplitPanel = async () => {
-    if (!clientDemandId) { toast({ title: "请先选择关联需求", variant: "destructive" }); return; }
-    try {
-      const cd = await v2Get<ClientDemand>(`/client-demands/${clientDemandId}`);
-      setSplitClientDemand({ id: cd.id, title: cd.title, detail: cd.detail });
-      setSplitPanelOpen(true);
-    } catch {
-      toast({ title: "读取需求失败", variant: "destructive" });
+  const handleOpenAgent = async () => {
+    if (clientDemandId) {
+      try {
+        const cd = await v2Get<ClientDemand>(`/client-demands/${clientDemandId}`);
+        setLinkedClientDemand({ id: cd.id, title: cd.title, detail: cd.latestVersion?.detail ?? null });
+      } catch {
+        setLinkedClientDemand(null);
+      }
+    } else {
+      setLinkedClientDemand(null);
     }
+    setAgentOpen(true);
   };
 
-  const handleSplitApply = (suggestion: SplitSuggestion) => {
-    setTitle(suggestion.title);
-    if (suggestion.detail) setDetail(suggestion.detail);
-    toast({ title: "拆分方案已应用", description: "已填入标题和详情，请继续完善其他字段" });
-  };
-
-  const handleCreateDraft = async (suggestion: SplitSuggestion) => {
-    const payload = {
-      title: suggestion.title,
-      detail: suggestion.detail || null,
-      clientDemandId: splitClientDemand?.id ? splitClientDemand.id : null,
-      mode: "public",
-      isUrgent: false,
-    };
-    await v2Post<{ id: number }>("/outsource-demands", payload);
-    toast({ title: "OPC 需求已创建", description: `「${suggestion.title}」已创建并进入竞价阶段` });
+  const handleAgentFillForm = (suggestion: FormSuggestion) => {
+    if (suggestion.title) setTitle(suggestion.title);
+    if (suggestion.type) setDemandType(suggestion.type);
+    if (suggestion.description) setDetail(suggestion.description);
+    if (suggestion.budgetMin != null) setExpectedPriceMin(String(suggestion.budgetMin));
+    if (suggestion.budgetMax != null) setExpectedPriceMax(String(suggestion.budgetMax));
+    if (suggestion.isUrgent != null) setIsUrgent(suggestion.isUrgent);
+    if (suggestion.milestones?.length) {
+      setMilestones(suggestion.milestones.map(m => ({ title: m.name, dueDate: m.deadline ?? "", description: m.deliverableDesc ?? "" })));
+    }
   };
 
   const handleOpcSearch = async () => {
@@ -232,12 +230,19 @@ export default function AdminV2OutsourceDemandNew() {
 
   return (
     <>
-      <AiSplitPanel
-        open={splitPanelOpen}
-        onClose={() => setSplitPanelOpen(false)}
-        clientDemand={splitClientDemand}
-        onApply={handleSplitApply}
-        onCreateDraft={handleCreateDraft}
+      <AgentChatPanel
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        sessionKey={agentSessionKey}
+        sceneKey="v2_admin_opc_demand"
+        agentMode="new"
+        linkedClientDemand={linkedClientDemand}
+        onFillForm={handleAgentFillForm}
+        welcomeOverride={linkedClientDemand ? {
+          role: "assistant",
+          content: `你好！我已读取了关联的客户需求内容。\n\n请告诉我您想如何处理：\n- 把整个需求作为 OPC 需求整体发布\n- 只发其中某个部分（例如只发开发部分、只发测试部分等）\n\n请说说您的想法？`,
+          timestamp: new Date().toISOString(),
+        } : undefined}
       />
       <AdminV2Layout backHref="/admin/v2/outsource-demands" backLabel="OPC 需求">
         <div className="space-y-5">
@@ -262,18 +267,18 @@ export default function AdminV2OutsourceDemandNew() {
                     loading={loadingDemands}
                   />
                 </div>
-                {clientDemandId && (
-                  <div className="flex gap-2 shrink-0">
+                <div className="flex gap-2 shrink-0">
+                  {clientDemandId && (
                     <button onClick={handleImportDetail}
                       className="px-3 py-2 text-xs font-bold border border-primary/30 text-primary rounded-xl hover:bg-primary/5 whitespace-nowrap transition-colors">
                       带入内容
                     </button>
-                    <button onClick={handleOpenSplitPanel}
-                      className="flex items-center gap-1 px-3 py-2 text-xs font-bold border border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 whitespace-nowrap transition-colors">
-                      <Scissors size={12} />AI 拆分
-                    </button>
-                  </div>
-                )}
+                  )}
+                  <button onClick={handleOpenAgent}
+                    className="flex items-center gap-1 px-3 py-2 text-xs font-bold border border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 whitespace-nowrap transition-colors">
+                    <Bot size={12} />需求分析助手
+                  </button>
+                </div>
               </div>
             </div>
 
