@@ -2711,5 +2711,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 036b: seeded doc templates for built-in cat_categories");
   });
 
+  await once("037a", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE agent_conversations
+      ADD COLUMN IF NOT EXISTS linked_client_demand_id INTEGER
+    `);
+    logger.info("Migration 037a: added linked_client_demand_id to agent_conversations");
+  });
+
   logger.info("Startup data migrations complete.");
 }

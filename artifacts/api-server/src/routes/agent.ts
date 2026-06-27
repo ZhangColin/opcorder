@@ -47,7 +47,8 @@ async function getOrCreateConversation(
   userId: number,
   demandId: number | null,
   sessionKey: string | null,
-  conversationId?: number
+  conversationId?: number,
+  linkedClientDemandId?: number
 ) {
   if (conversationId) {
     const [existing] = await db
@@ -60,7 +61,16 @@ async function getOrCreateConversation(
         )
       )
       .limit(1);
-    if (existing) return existing;
+    if (existing) {
+      // Persist linkedClientDemandId on an existing conversation if not already set
+      if (linkedClientDemandId && !existing.linkedClientDemandId) {
+        await db.update(agentConversationsTable)
+          .set({ linkedClientDemandId })
+          .where(eq(agentConversationsTable.id, existing.id));
+        existing.linkedClientDemandId = linkedClientDemandId;
+      }
+      return existing;
+    }
   }
 
   if (demandId) {
@@ -74,7 +84,15 @@ async function getOrCreateConversation(
         )
       )
       .limit(1);
-    if (existing) return existing;
+    if (existing) {
+      if (linkedClientDemandId && !existing.linkedClientDemandId) {
+        await db.update(agentConversationsTable)
+          .set({ linkedClientDemandId })
+          .where(eq(agentConversationsTable.id, existing.id));
+        existing.linkedClientDemandId = linkedClientDemandId;
+      }
+      return existing;
+    }
   }
 
   if (sessionKey) {
@@ -88,7 +106,15 @@ async function getOrCreateConversation(
         )
       )
       .limit(1);
-    if (existing) return existing;
+    if (existing) {
+      if (linkedClientDemandId && !existing.linkedClientDemandId) {
+        await db.update(agentConversationsTable)
+          .set({ linkedClientDemandId })
+          .where(eq(agentConversationsTable.id, existing.id));
+        existing.linkedClientDemandId = linkedClientDemandId;
+      }
+      return existing;
+    }
   }
 
   const [created] = await db
@@ -97,6 +123,7 @@ async function getOrCreateConversation(
       userId,
       demandId,
       sessionKey,
+      linkedClientDemandId: linkedClientDemandId ?? null,
       messages: [],
     })
     .returning();
@@ -207,7 +234,8 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
       userId,
       demandId ?? null,
       sessionKey ?? null,
-      conversationId
+      conversationId,
+      linkedClientDemandId
     );
   } catch (setupErr) {
     logger.error({ error: setupErr }, "Agent chat setup error");
@@ -468,8 +496,10 @@ ${d.description ?? "(暂无内容)"}
           // ── perform_self_check: server counts how many times it has been called ──
           let result: unknown;
           if (toolName === "get_linked_demand_details") {
-            // Prefer the ID passed explicitly by the agent (read from system prompt), fall back to request body
-            const resolvedDemandId = (toolArgs.clientDemandId as number | undefined) || linkedClientDemandId;
+            // Priority: agent-passed arg → conversation DB record → request body (fallback)
+            const resolvedDemandId = (toolArgs.clientDemandId as number | undefined)
+              || conversation.linkedClientDemandId
+              || linkedClientDemandId;
             if (!resolvedDemandId) {
               result = { error: "当前没有关联客户需求" };
             } else {

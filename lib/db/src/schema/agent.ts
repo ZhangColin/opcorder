@@ -34,6 +34,7 @@ export const agentConversationsTable = pgTable("agent_conversations", {
   demandId: integer("demand_id").references(() => demandsTable.id, { onDelete: "set null" }),
   sessionKey: varchar("session_key", { length: 100 }),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  linkedClientDemandId: integer("linked_client_demand_id"),
   messages: jsonb("messages").$type<Array<{
     role: "system" | "user" | "assistant" | "tool";
     content: string | null;
