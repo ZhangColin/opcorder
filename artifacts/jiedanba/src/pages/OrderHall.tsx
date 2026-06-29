@@ -8,6 +8,17 @@ import {
 import { v2Get } from "@/lib/v2api";
 import { useDemandTypeLabel } from "@/lib/catCategories";
 
+const STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  draft:            { label: "草稿",   color: "bg-gray-100 text-gray-500" },
+  pending_review:   { label: "审核中", color: "bg-orange-100 text-orange-600" },
+  negotiating:      { label: "招标中", color: "bg-emerald-100 text-emerald-700" },
+  contracting:      { label: "签约中", color: "bg-blue-100 text-blue-700" },
+  in_progress:      { label: "执行中", color: "bg-primary/10 text-primary" },
+  pending_review_b: { label: "待验收", color: "bg-purple-100 text-purple-700" },
+  completed:        { label: "已完成", color: "bg-secondary/10 text-secondary" },
+  closed:           { label: "已关闭", color: "bg-gray-100 text-gray-400" },
+};
+
 const DEMAND_TYPE_OPTIONS = [
   { key: "", label: "全部类型" },
   { key: "SA", label: "软件开发" },
@@ -49,6 +60,8 @@ function formatBudgetRange(min: number | null, max: number | null) {
 function DemandCard({ demand, onClick }: { demand: DemandItem; onClick: () => void }) {
   const { resolveDemandType } = useDemandTypeLabel();
   const isNew = (Date.now() - new Date(demand.createdAt).getTime()) / 86400000 <= 2;
+  const statusInfo = STATUS_LABEL[demand.status] ?? { label: demand.status, color: "bg-gray-100 text-gray-500" };
+  const canBid = demand.status === "negotiating";
 
   return (
     <button
@@ -75,6 +88,9 @@ function DemandCard({ demand, onClick }: { demand: DemandItem; onClick: () => vo
             )}
             <span className="bg-secondary/15 text-secondary text-[10px] font-extrabold uppercase px-2 py-1 rounded-md tracking-wider flex items-center gap-0.5">
               <Tag size={9} /> {resolveDemandType(demand.demandType)}
+            </span>
+            <span className={`text-[10px] font-extrabold px-2 py-1 rounded-md tracking-wider ${statusInfo.color}`}>
+              {statusInfo.label}
             </span>
           </div>
           <div className="text-right shrink-0 ml-2">
@@ -104,9 +120,11 @@ function DemandCard({ demand, onClick }: { demand: DemandItem; onClick: () => vo
         <span className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 active:scale-95 ${
           demand.mode === "invited"
             ? "bg-amber-50 text-amber-700 border border-amber-200 group-hover:bg-amber-100"
-            : "bg-primary text-white shadow-sm group-hover:shadow-md group-hover:shadow-primary/20"
+            : canBid
+            ? "bg-primary text-white shadow-sm group-hover:shadow-md group-hover:shadow-primary/20"
+            : "bg-muted text-muted-foreground"
         }`}>
-          {demand.mode === "invited" ? "查看详情" : "立即报价"}
+          {demand.mode === "invited" ? "查看详情" : canBid ? "立即报价" : "查看详情"}
         </span>
       </div>
     </button>
@@ -115,13 +133,15 @@ function DemandCard({ demand, onClick }: { demand: DemandItem; onClick: () => vo
 
 function DemandListRow({ demand, onClick }: { demand: DemandItem; onClick: () => void }) {
   const { resolveDemandType } = useDemandTypeLabel();
+  const statusInfo = STATUS_LABEL[demand.status] ?? { label: demand.status, color: "bg-gray-100 text-gray-500" };
+  const canBid = demand.status === "negotiating";
 
   return (
     <button
       onClick={onClick}
-      className="group bg-white rounded-xl px-6 py-4 flex items-center gap-6 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 w-full text-left"
+      className="group bg-white rounded-xl px-6 py-4 flex items-center gap-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200 w-full text-left"
     >
-      <div className="flex gap-1.5 shrink-0">
+      <div className="flex gap-1.5 shrink-0 flex-wrap">
         {demand.isUrgent && (
           <span className="bg-destructive text-white text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide">紧急</span>
         )}
@@ -130,6 +150,9 @@ function DemandListRow({ demand, onClick }: { demand: DemandItem; onClick: () =>
         )}
         <span className="bg-secondary/15 text-secondary text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide">
           {resolveDemandType(demand.demandType)}
+        </span>
+        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide ${statusInfo.color}`}>
+          {statusInfo.label}
         </span>
       </div>
       <h3 className="flex-1 font-bold text-foreground group-hover:text-primary transition-colors truncate">
@@ -146,9 +169,11 @@ function DemandListRow({ demand, onClick }: { demand: DemandItem; onClick: () =>
       <span className={`px-4 py-1.5 rounded-lg text-xs font-bold shrink-0 ${
         demand.mode === "invited"
           ? "bg-amber-50 text-amber-700 border border-amber-200"
-          : "bg-primary text-white"
+          : canBid
+          ? "bg-primary text-white"
+          : "bg-muted text-muted-foreground"
       }`}>
-        {demand.mode === "invited" ? "查看" : "报价"}
+        {demand.mode === "invited" ? "查看" : canBid ? "报价" : "查看"}
       </span>
     </button>
   );
@@ -163,13 +188,13 @@ export default function OrderHall() {
   const { data, isLoading, isError, refetch } = useQuery<PagedResponse>({
     queryKey: ["v2-opc-demand-hall-main", selectedType, page],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), limit: "12", status: "negotiating" });
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (selectedType) params.set("demandType", selectedType);
       return v2Get(`/outsource-demands?${params}`);
     },
   });
 
-  const totalPages = data ? Math.ceil((data.total || 0) / 12) : 1;
+  const totalPages = data ? Math.ceil((data.total || 0) / 20) : 1;
 
   const goToPage = (p: number) => {
     setPage(p);

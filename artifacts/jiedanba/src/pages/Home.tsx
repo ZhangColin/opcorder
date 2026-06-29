@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Link } from "wouter";
-import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy, BellRing, ClipboardList } from "lucide-react";
-import { useGetOverviewStats, useListDemands, useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile, useListNotifications, useListOrders } from "@workspace/api-client-react";
-import { DemandCard } from "@/components/DemandCard";
+import { Link, useLocation } from "wouter";
+import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy, BellRing, ClipboardList, Tag, Lock, Globe, Clock } from "lucide-react";
+import { useGetOverviewStats, useGetOpcLeaderboard, useGetCurrentUser, useListNotifications, useListOrders } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { OPC_LEVELS } from "@/lib/constants";
+import { v2Get } from "@/lib/v2api";
+import { useDemandTypeLabel } from "@/lib/catCategories";
 
 const RANK_STYLES = [
   { bg: "bg-amber-400",  text: "text-amber-950", border: "border-amber-300",  ring: "ring-amber-300"  },
@@ -115,32 +117,88 @@ function LeaderboardModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+interface V2DemandItem {
+  id: number;
+  title: string;
+  demandType: string;
+  isUrgent: boolean;
+  mode: "public" | "invited";
+  expectedPriceMin: number | null;
+  expectedPriceMax: number | null;
+  status: string;
+  tenderCount: number;
+  createdAt: string;
+}
+
+function V2DemandMiniCard({ demand, onClick }: { demand: V2DemandItem; onClick: () => void }) {
+  const { resolveDemandType } = useDemandTypeLabel();
+  const canBid = demand.status === "negotiating";
+  const statusColor = canBid ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500";
+  const statusLabel = canBid ? "招标中" : demand.status === "in_progress" ? "执行中" : demand.status === "completed" ? "已完成" : demand.status;
+
+  return (
+    <button
+      onClick={onClick}
+      className="group bg-white rounded-2xl p-5 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 transition-all duration-200 text-left w-full flex flex-col gap-3"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {demand.isUrgent && (
+            <span className="inline-flex items-center gap-0.5 bg-destructive text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded">
+              <Zap size={8} /> 紧急
+            </span>
+          )}
+          {demand.mode === "invited" && (
+            <span className="inline-flex items-center gap-0.5 bg-amber-100 text-amber-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded">
+              <Lock size={8} /> 邀请
+            </span>
+          )}
+          {demand.mode === "public" && (
+            <span className="inline-flex items-center gap-0.5 bg-sky-100 text-sky-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded">
+              <Globe size={8} /> 公开
+            </span>
+          )}
+          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${statusColor}`}>
+            {statusLabel}
+          </span>
+        </div>
+        <span className="shrink-0 text-sm font-extrabold text-primary whitespace-nowrap">
+          {!demand.expectedPriceMin && !demand.expectedPriceMax
+            ? "面议"
+            : demand.expectedPriceMin && demand.expectedPriceMax
+            ? `¥${demand.expectedPriceMin.toLocaleString()}起`
+            : demand.expectedPriceMin
+            ? `¥${demand.expectedPriceMin.toLocaleString()}起`
+            : `¥${demand.expectedPriceMax?.toLocaleString()}`}
+        </span>
+      </div>
+      <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-sm leading-snug line-clamp-2">
+        {demand.title}
+      </h4>
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1 font-medium">
+          <Tag size={10} /> {resolveDemandType(demand.demandType)}
+        </span>
+        <span className="flex items-center gap-1">
+          <Clock size={10} />
+          {new Date(demand.createdAt).toLocaleDateString("zh-CN")}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [, navigate] = useLocation();
   const { data: stats, isLoading: statsLoading } = useGetOverviewStats();
   const { data: currentUser } = useGetCurrentUser();
-  const { data: opcProfile } = useGetOpcProfile(currentUser?.id ?? 0, {
-    query: { enabled: !!currentUser?.id },
+  const { data: v2DemandsData, isLoading: demandsLoading } = useQuery<{ items: V2DemandItem[]; total: number }>({
+    queryKey: ["v2-home-recommended-demands"],
+    queryFn: () => v2Get("/outsource-demands?page=1&limit=10"),
   });
-  const { data: demandsResponse, isLoading: demandsLoading } = useListDemands({
-    limit: 16,
-  });
-
-  // 按用户等级软排序：能接的需求优先展示，不强制过滤，保证不空
-  const eligibleOpcLevels: Record<string, string[]> = {
-    A: ["A", "B", "C", "any"],
-    B: ["B", "C", "any"],
-    C: ["C", "any"],
-    newbie: ["any"],
-  };
-  const userLevel = opcProfile?.level ?? "";
-  const eligible = eligibleOpcLevels[userLevel] ?? [];
-  const sortedDemands = [...(demandsResponse?.items ?? [])].sort((a, b) => {
-    const aMatch = eligible.includes(a.opcLevel) ? 0 : 1;
-    const bMatch = eligible.includes(b.opcLevel) ? 0 : 1;
-    return aMatch - bMatch;
-  }).slice(0, 8);
+  const topDemands = v2DemandsData?.items ?? [];
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
   const { data: notifData } = useListNotifications({ limit: 1 }, { query: { enabled: !!currentUser?.id } });
   const { data: activeOrdersData } = useListOrders({ status: "in_progress", limit: 1 }, { query: { enabled: !!currentUser?.id } });
@@ -283,11 +341,15 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {sortedDemands.map(demand => (
-                <DemandCard key={demand.id} demand={demand} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {topDemands.map(demand => (
+                <V2DemandMiniCard
+                  key={demand.id}
+                  demand={demand}
+                  onClick={() => navigate(`/order-hall/${demand.id}`)}
+                />
               ))}
-              {sortedDemands.length === 0 && (
+              {topDemands.length === 0 && (
                 <div className="col-span-2 py-20 text-center bg-muted/30 rounded-2xl border border-dashed border-border">
                   <p className="text-muted-foreground font-medium">暂无推荐需求</p>
                 </div>
