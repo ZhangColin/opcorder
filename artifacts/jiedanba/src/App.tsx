@@ -30,6 +30,7 @@ import DemandDetail from "@/pages/DemandDetail";
 import MyOrders from "@/pages/MyOrders";
 import OrderDetail from "@/pages/OrderDetail";
 import OrderHall from "@/pages/OrderHall";
+import OpcDemandDetail from "@/pages/OpcDemandDetail";
 import Profile from "@/pages/Profile";
 import Portfolios from "@/pages/Portfolios";
 import Academy from "@/pages/Academy";
@@ -319,6 +320,7 @@ function Router() {
               <Switch>
                 <Route path="/" component={Home} />
                 <Route path="/demands/:id" component={DemandDetail} />
+                <Route path="/order-hall/:id" component={OpcDemandDetail} />
                 <Route path="/order-hall" component={OrderHall} />
                 <Route path="/orders" component={MyOrders} />
                 <Route path="/orders/:id" component={OrderDetail} />
