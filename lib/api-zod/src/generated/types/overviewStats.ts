@@ -11,5 +11,6 @@ export interface OverviewStats {
   payoutGrowth: number;
   activeOpcs: number;
   monthlyOrders: number;
+  monthlyDemands: number;
   completionRate: number;
 }

@@ -303,11 +303,11 @@ export default function Home() {
         
         <div className="relative z-10 flex flex-col justify-center pl-0 md:pl-4">
           <div className="flex items-center gap-1.5 text-primary-foreground/70 text-[10px] md:text-sm font-bold uppercase tracking-widest mb-2 md:mb-3">
-            <Activity size={13} className="shrink-0" /> <span className="truncate">本月订单</span>
+            <Activity size={13} className="shrink-0" /> <span className="truncate">本月需求</span>
           </div>
           <div className="flex items-baseline gap-1.5 md:gap-3 flex-wrap">
             <span className="text-xl md:text-4xl lg:text-5xl font-black tracking-tighter font-display">
-              {statsLoading ? "..." : (stats?.monthlyOrders ?? 0)}
+              {statsLoading ? "..." : (stats?.monthlyDemands ?? stats?.monthlyOrders ?? 0)}
             </span>
             <span className="bg-accent text-accent-foreground text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 md:py-1 rounded font-bold">
               高频

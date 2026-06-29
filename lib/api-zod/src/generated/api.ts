@@ -22,6 +22,7 @@ export const GetOverviewStatsResponse = zod.object({
   payoutGrowth: zod.number(),
   activeOpcs: zod.number(),
   monthlyOrders: zod.number(),
+  monthlyDemands: zod.number(),
   completionRate: zod.number(),
 });
 
