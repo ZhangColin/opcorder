@@ -119,6 +119,7 @@ export default function AdminV2OutsourceDemandDetail({
   const [editTitle, setEditTitle] = useState("");
   const [editType, setEditType] = useState("");
   const [editOpcLevel, setEditOpcLevel] = useState("any");
+  const [editPublishMode, setEditPublishMode] = useState<"public" | "invited">("public");
   const [editBudgetMin, setEditBudgetMin] = useState("");
   const [editBudgetMax, setEditBudgetMax] = useState("");
   const [editDeadline, setEditDeadline] = useState("");
@@ -312,6 +313,7 @@ export default function AdminV2OutsourceDemandDetail({
     setEditTitle(demand.title);
     setEditType(demand.demandType ?? "");
     setEditOpcLevel(demand.opcLevel ?? "any");
+    setEditPublishMode((demand.mode === "invited" ? "invited" : "public") as "public" | "invited");
     setEditBudgetMin(demand.expectedPriceMin != null ? String(demand.expectedPriceMin) : "");
     setEditBudgetMax(demand.expectedPriceMax != null ? String(demand.expectedPriceMax) : "");
     setEditDeadline(demand.deadline ?? "");
@@ -330,6 +332,7 @@ export default function AdminV2OutsourceDemandDetail({
       const patchBody: Record<string, any> = {
         isUrgent: editIsUrgent,
         opcLevel: editOpcLevel,
+        mode: editPublishMode,
       };
       if (editTitle.trim()) patchBody.title = editTitle.trim();
       if (editType) patchBody.demandType = editType;
@@ -650,6 +653,26 @@ ${msStr}
                   {editIsUrgent ? "是，紧急需求" : "否，正常需求"}
                 </button>
               </div>
+            </div>
+
+            {/* 发布模式 */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">发布模式</label>
+              <div className="flex gap-2">
+                {(["public", "invited"] as const).map(val => (
+                  <button key={val} type="button" onClick={() => setEditPublishMode(val)}
+                    className={`flex-1 py-2.5 text-sm font-bold rounded-xl border transition-colors ${
+                      editPublishMode === val
+                        ? "bg-primary text-white border-primary"
+                        : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                    }`}>
+                    {val === "public" ? "公开抢单" : "邀请发布"}
+                  </button>
+                ))}
+              </div>
+              {editPublishMode === "invited" && (
+                <p className="text-xs text-slate-400 mt-1.5">保存后可在需求详情页「邀请 OPC」面板中管理受邀人员。</p>
+              )}
             </div>
 
             {/* 预算 + 希望交付时间 */}
