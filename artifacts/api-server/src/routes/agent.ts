@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable, catCategoriesTable, catTagsTable, v2ClientDemandsTable, v2ClientDemandVersionsTable } from "@workspace/db";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable, catCategoriesTable, catTagsTable, v2ClientDemandsTable, v2ClientDemandVersionsTable, opcProfilesTable, usersTable } from "@workspace/db";
+import { eq, and, asc, desc, or, ilike } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
 import { callLLM, streamLLM, type LLMMessage, type ToolCall } from "../lib/llm";
@@ -17,7 +17,7 @@ const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split", "v2_admin_opc_deman
 /** For scenes that only need a subset of tools, list the allowed tool names here. */
 const SCENE_ALLOWED_TOOLS = new Map<string, Set<string>>([
   ["v2_demand_analysis", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check"])],
-  ["v2_admin_opc_demand", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check", "get_linked_demand_details"])],
+  ["v2_admin_opc_demand", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check", "get_linked_demand_details", "get_opc_levels", "validate_timeline", "suggest_milestones", "search_opc_candidates"])],
 ]);
 
 type PersistedMessage = {
@@ -600,6 +600,50 @@ ${detailStr}
               } catch (fetchErr) {
                 result = { error: `查询失败: ${(fetchErr as Error).message}` };
               }
+            }
+          } else if (toolName === "search_opc_candidates") {
+            const level = (toolArgs.level as string) || "any";
+            const keyword = (toolArgs.keyword as string) || "";
+            try {
+              const conditions = [eq(usersTable.role, "opc")];
+              if (level && level !== "any") {
+                conditions.push(eq(opcProfilesTable.level, level as "C" | "B" | "A"));
+              }
+              const rows = await db
+                .select({
+                  profileId: opcProfilesTable.id,
+                  userId: usersTable.id,
+                  nickname: usersTable.nickname,
+                  level: opcProfilesTable.level,
+                  title: opcProfilesTable.title,
+                  totalOrders: opcProfilesTable.totalOrders,
+                  avgRating: opcProfilesTable.avgRating,
+                  bio: opcProfilesTable.bio,
+                })
+                .from(opcProfilesTable)
+                .innerJoin(usersTable, eq(opcProfilesTable.userId, usersTable.id))
+                .where(
+                  keyword
+                    ? and(...conditions, or(ilike(usersTable.nickname, `%${keyword}%`), ilike(opcProfilesTable.bio, `%${keyword}%`)))
+                    : and(...conditions)
+                )
+                .orderBy(desc(opcProfilesTable.avgRating), desc(opcProfilesTable.totalOrders))
+                .limit(20);
+              result = {
+                count: rows.length,
+                candidates: rows.map(r => ({
+                  id: r.profileId,
+                  userId: r.userId,
+                  nickname: r.nickname,
+                  level: r.level,
+                  title: r.title ?? "",
+                  totalOrders: r.totalOrders,
+                  avgRating: r.avgRating,
+                })),
+                instruction: "请将以上 OPC 候选人以 option_choices_json（multi:true）的形式呈现给运营选择。选项格式：'昵称（等级·订单数·评分）'，id 用括号标注在末尾，例如：'张三（A级·15单·4.8）[id:5]'。运营选完后，将所选的 OPC 以 invitedOpcs 数组（含 id 和 nickname）写入 form_suggestion_json。",
+              };
+            } catch (err) {
+              result = { error: `OPC搜索失败: ${(err as Error).message}`, candidates: [] };
             }
           } else if (toolName === "perform_self_check") {
             const MAX_SELF_CHECKS = 10;

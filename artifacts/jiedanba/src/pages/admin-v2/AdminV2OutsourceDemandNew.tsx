@@ -95,6 +95,10 @@ export default function AdminV2OutsourceDemandNew() {
     if (suggestion.milestones?.length) {
       setMilestones(suggestion.milestones.map(m => ({ title: m.name, dueDate: m.deadline ?? "", description: m.deliverableDesc ?? "" })));
     }
+    if (suggestion.mode) setMode(suggestion.mode);
+    if (suggestion.invitedOpcs?.length) {
+      setInvitedOpcs(suggestion.invitedOpcs.map(o => ({ id: o.id, nickname: o.nickname })));
+    }
   };
 
   const handleOpcSearch = async () => {

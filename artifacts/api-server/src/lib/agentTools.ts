@@ -205,10 +205,32 @@ export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
     type: "function",
     function: {
       name: "get_opc_levels",
-      description: "获取OPC等级说明、适用范围和预算上限。在第四阶段根据需求复杂度和规模推荐合适的OPC等级时使用。",
+      description: "获取OPC等级说明、适用范围和预算上限。在确定OPC等级要求时必须先调用此工具，基于工具返回结果向运营推荐合适的等级。",
       parameters: {
         type: "object",
         properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_opc_candidates",
+      description: "按OPC等级搜索符合条件的OPC人员列表，供运营在邀请模式下选择指定邀请对象。运营选择邀请发布时必须调用此工具。",
+      parameters: {
+        type: "object",
+        properties: {
+          level: {
+            type: "string",
+            enum: ["C", "B", "A", "any"],
+            description: "筛选的OPC等级，传 any 返回所有等级，若需求有等级要求则传对应等级",
+          },
+          keyword: {
+            type: "string",
+            description: "按昵称或简介关键词模糊筛选（可选，留空返回全部）",
+          },
+        },
         required: [],
       },
     },
