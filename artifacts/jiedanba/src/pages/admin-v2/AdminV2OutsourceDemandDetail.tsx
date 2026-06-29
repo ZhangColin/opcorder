@@ -8,6 +8,7 @@ import {
   DollarSign, MessageSquare, Users, Bot,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
+import { CustomSelect } from "@/components/admin-v2/CustomSelect";
 import { AgentChatPanel, type DocUpdate, type FormSuggestion } from "@/components/agent/AgentChatPanel";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
 import { FilePickerZone } from "@/components/shared/FilePickerZone";
@@ -620,23 +621,26 @@ ${msStr}
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">需求类型</label>
-                <select value={editType} onChange={e => setEditType(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 bg-white">
-                  <option value="">未分类</option>
-                  {catCategories.map(c => (
-                    <option key={c.id} value={c.code}>{c.name}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={editType}
+                  onChange={setEditType}
+                  options={[{ value: "", label: "未分类" }, ...catCategories.map(c => ({ value: c.code, label: c.name }))]}
+                  placeholder="请选择需求分类"
+                />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">OPC 等级要求</label>
-                <select value={editOpcLevel} onChange={e => setEditOpcLevel(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 bg-white">
-                  <option value="any">不限</option>
-                  <option value="C">C 级及以上</option>
-                  <option value="B">B 级及以上</option>
-                  <option value="A">A 级</option>
-                </select>
+                <CustomSelect
+                  value={editOpcLevel}
+                  onChange={setEditOpcLevel}
+                  options={[
+                    { value: "any", label: "不限" },
+                    { value: "C", label: "C 级及以上" },
+                    { value: "B", label: "B 级及以上" },
+                    { value: "A", label: "A 级" },
+                  ]}
+                  placeholder="请选择等级"
+                />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">紧急需求</label>
