@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
-import { Loader2, X, Trash2, Bot } from "lucide-react";
+import { Loader2, X, Bot } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { CustomSelect } from "@/components/admin-v2/CustomSelect";
 import { v2Get, v2Post, STORAGE_BASE } from "@/lib/v2api";
@@ -35,7 +35,6 @@ export default function AdminV2OutsourceDemandNew() {
   const [expectedPriceMin, setExpectedPriceMin] = useState("");
   const [expectedPriceMax, setExpectedPriceMax] = useState("");
   const [detail, setDetail] = useState("");
-  const [milestones, setMilestones] = useState<Array<{ title: string; dueDate: string; description: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const [opcSearch, setOpcSearch] = useState("");
@@ -92,9 +91,6 @@ export default function AdminV2OutsourceDemandNew() {
     if (suggestion.budgetMin != null) setExpectedPriceMin(String(suggestion.budgetMin));
     if (suggestion.budgetMax != null) setExpectedPriceMax(String(suggestion.budgetMax));
     if (suggestion.isUrgent != null) setIsUrgent(suggestion.isUrgent);
-    if (suggestion.milestones?.length) {
-      setMilestones(suggestion.milestones.map(m => ({ title: m.name, dueDate: m.deadline ?? "", description: m.deliverableDesc ?? "" })));
-    }
     if (suggestion.mode) setMode(suggestion.mode);
     if (suggestion.invitedOpcs?.length) {
       setInvitedOpcs(suggestion.invitedOpcs.map(o => ({ id: o.id, nickname: o.nickname })));
@@ -125,14 +121,6 @@ export default function AdminV2OutsourceDemandNew() {
 
   const removeInvitedOpc = (id: number) => setInvitedOpcs(prev => prev.filter(o => o.id !== id));
 
-  const addMilestone = () => setMilestones([...milestones, { title: "", dueDate: "", description: "" }]);
-  const removeMilestone = (i: number) => setMilestones(milestones.filter((_, j) => j !== i));
-  const updateMilestone = (i: number, field: "title" | "dueDate" | "description", value: string) => {
-    const arr = [...milestones];
-    arr[i][field] = value;
-    setMilestones(arr);
-  };
-
   const handleSubmit = async (asDraft = false) => {
     if (!title.trim()) { toast({ title: "请填写需求标题", variant: "destructive" }); return; }
     setSubmitting(true);
@@ -147,7 +135,6 @@ export default function AdminV2OutsourceDemandNew() {
         expectedPriceMin: expectedPriceMin ? parseFloat(expectedPriceMin) : null,
         expectedPriceMax: expectedPriceMax ? parseFloat(expectedPriceMax) : null,
         detail: detail.trim() || null,
-        milestones: milestones.filter(m => m.title).map(m => ({ name: m.title, deadline: m.dueDate || null, description: m.description || null })),
         invitedOpcIds: mode === "invited" && invitedOpcs.length > 0 ? invitedOpcs.map(o => o.id) : undefined,
         status: asDraft ? "draft" : "negotiating",
       };
@@ -381,60 +368,6 @@ export default function AdminV2OutsourceDemandNew() {
               onChange={setDetail}
               placeholder="请详细描述 OPC 需求内容、工作范围、交付物规格、验收标准等…"
             />
-          </div>
-
-          {/* ── 里程碑 ── */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-1 h-4 bg-primary rounded-full inline-block" />
-                里程碑（可选）
-              </h3>
-              <button
-                onClick={addMilestone}
-                className="text-xs text-primary font-bold hover:text-primary/80 transition-colors px-3 py-1.5 rounded-lg hover:bg-primary/5"
-              >
-                + 添加里程碑
-              </button>
-            </div>
-            {milestones.length === 0 ? (
-              <p className="text-xs text-slate-400 py-2">尚未添加里程碑，可点击右上角按钮添加</p>
-            ) : (
-              <div className="space-y-3">
-                {milestones.map((m, i) => (
-                  <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 relative">
-                    <button onClick={() => removeMilestone(i)} className="absolute top-2 right-2 text-slate-300 hover:text-red-500 transition-colors">
-                      <Trash2 size={13} />
-                    </button>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</div>
-                      里程碑 {i + 1}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        value={m.title}
-                        onChange={e => updateMilestone(i, "title", e.target.value)}
-                        placeholder="名称（必填）"
-                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                      />
-                      <input
-                        type="date"
-                        value={m.dueDate}
-                        onChange={e => updateMilestone(i, "dueDate", e.target.value)}
-                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-slate-600"
-                      />
-                    </div>
-                    <textarea
-                      value={m.description}
-                      onChange={e => updateMilestone(i, "description", e.target.value)}
-                      placeholder="说明（可选）：描述该里程碑的任务、目标、验收标准等"
-                      rows={2}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors resize-none"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* ── 操作按钮 ── */}

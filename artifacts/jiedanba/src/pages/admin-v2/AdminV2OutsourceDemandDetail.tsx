@@ -330,7 +330,6 @@ export default function AdminV2OutsourceDemandDetail({
       const patchBody: Record<string, any> = {
         isUrgent: editIsUrgent,
         opcLevel: editOpcLevel,
-        milestones: editMilestones.filter(m => m.name.trim()),
       };
       if (editTitle.trim()) patchBody.title = editTitle.trim();
       if (editType) patchBody.demandType = editType;
@@ -366,9 +365,6 @@ export default function AdminV2OutsourceDemandDetail({
     if (suggestion.budgetMin != null) setEditBudgetMin(String(suggestion.budgetMin));
     if (suggestion.budgetMax != null) setEditBudgetMax(String(suggestion.budgetMax));
     if (suggestion.deadline) setEditDeadline(suggestion.deadline);
-    if (suggestion.milestones?.length) {
-      setEditMilestones(suggestion.milestones.map(m => ({ name: m.name, deadline: m.deadline ?? "", description: m.deliverableDesc ?? "" })));
-    }
   };
 
   const handleMilestoneAgentFill = (suggestion: FormSuggestion) => {
@@ -698,42 +694,6 @@ ${msStr}
               <input value={editComment} onChange={e => setEditComment(e.target.value)}
                 placeholder="如有变更，填写说明后将通知相关 OPC"
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
-
-            {/* 里程碑 */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">里程碑（可选）</label>
-                <button type="button" onClick={() => setEditMilestones(prev => [...prev, { name: "", deadline: "", description: "" }])}
-                  className="flex items-center gap-1 text-xs text-primary hover:underline">
-                  <Plus size={11} /> 添加
-                </button>
-              </div>
-              <div className="space-y-3">
-                {editMilestones.map((m, i) => (
-                  <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2 relative">
-                    <button type="button" onClick={() => setEditMilestones(prev => prev.filter((_, j) => j !== i))}
-                      className="absolute top-2 right-2 text-slate-300 hover:text-red-400">
-                      <Trash2 size={13} />
-                    </button>
-                    <div className="flex items-center gap-1 text-xs font-bold text-slate-500 mb-1">
-                      <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">{i + 1}</div>
-                      里程碑 {i + 1}
-                    </div>
-                    <input value={m.name} onChange={e => setEditMilestones(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                      placeholder="名称（必填）"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                    <input type="date" value={m.deadline ?? ""} onChange={e => setEditMilestones(prev => prev.map((x, j) => j === i ? { ...x, deadline: e.target.value } : x))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-600" />
-                    <textarea value={m.description ?? ""} onChange={e => setEditMilestones(prev => prev.map((x, j) => j === i ? { ...x, description: e.target.value } : x))}
-                      rows={2} placeholder="说明（可选）"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
-                  </div>
-                ))}
-                {editMilestones.length === 0 && (
-                  <p className="text-xs text-slate-400 py-2">暂无里程碑</p>
-                )}
-              </div>
             </div>
 
             {/* 操作按钮 */}
