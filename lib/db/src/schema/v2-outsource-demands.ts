@@ -32,6 +32,7 @@ export const v2OutsourceDemandsTable = pgTable("v2_outsource_demands", {
   expectedPriceMax: real("expected_price_max"),
   deadline: date("deadline"),
   milestones: jsonb("milestones").$type<Array<{ name: string; deadline?: string; description?: string }>>().notNull().default([]),
+  opcLevel: varchar("opc_level", { length: 10 }).notNull().default("any"),
   status: v2OutsourceDemandStatusEnum("status").notNull().default("negotiating"),
   closedReason: text("closed_reason"),
   closedBy: integer("closed_by").references(() => usersTable.id),

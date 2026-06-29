@@ -2727,5 +2727,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 038a: added deadline to v2_outsource_demands");
   });
 
+  await once("039a", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_outsource_demands
+      ADD COLUMN IF NOT EXISTS opc_level VARCHAR(10) NOT NULL DEFAULT 'any'
+    `);
+    logger.info("Migration 039a: added opc_level to v2_outsource_demands");
+  });
+
   logger.info("Startup data migrations complete.");
 }

@@ -81,9 +81,9 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
 router.post("/outsource-demands", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { clientDemandId, title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds, detail, attachments, status } = req.body as {
+    const { clientDemandId, title, demandType, isUrgent, mode, opcLevel, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds, detail, attachments, status } = req.body as {
       clientDemandId?: number; title: string; demandType?: string; isUrgent?: boolean;
-      mode?: "public" | "invited"; expectedPriceMin?: number; expectedPriceMax?: number;
+      mode?: "public" | "invited"; opcLevel?: string; expectedPriceMin?: number; expectedPriceMax?: number;
       milestones?: any[]; invitedOpcIds?: number[];
       detail?: string; attachments?: Array<{ name: string; url: string; size?: number }>;
       status?: "draft" | "negotiating";
@@ -99,6 +99,7 @@ router.post("/outsource-demands", requireAdmin, async (req: Request, res: Respon
       demandType,
       isUrgent: !!isUrgent,
       mode: mode ?? "public",
+      opcLevel: opcLevel ?? "any",
       expectedPriceMin,
       expectedPriceMax,
       milestones: milestones ?? [],
@@ -205,12 +206,13 @@ router.patch("/outsource-demands/:id", requireAdmin, async (req: Request, res: R
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
 
-    const { title, demandType, isUrgent, mode, expectedPriceMin, expectedPriceMax, deadline, milestones, status } = req.body as any;
+    const { title, demandType, isUrgent, mode, opcLevel, expectedPriceMin, expectedPriceMax, deadline, milestones, status } = req.body as any;
     const updates: any = { updatedAt: new Date() };
     if (title !== undefined) updates.title = title;
     if (demandType !== undefined) updates.demandType = demandType;
     if (isUrgent !== undefined) updates.isUrgent = !!isUrgent;
     if (mode !== undefined) updates.mode = mode;
+    if (opcLevel !== undefined) updates.opcLevel = opcLevel;
     if (expectedPriceMin !== undefined) updates.expectedPriceMin = expectedPriceMin;
     if (expectedPriceMax !== undefined) updates.expectedPriceMax = expectedPriceMax;
     if (deadline !== undefined) updates.deadline = deadline || null;

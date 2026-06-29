@@ -26,7 +26,7 @@ interface LatestVersion {
 interface Milestone { name: string; deadline?: string; description?: string }
 interface OutsourceDemand {
   id: number; demandNo: string; title: string; demandType: string | null;
-  isUrgent: boolean; mode: string; clientDemandId: number | null;
+  isUrgent: boolean; mode: string; opcLevel: string; clientDemandId: number | null;
   detail: string | null; status: string;
   expectedPriceMin: number | null; expectedPriceMax: number | null;
   deadline: string | null;
@@ -117,6 +117,7 @@ export default function AdminV2OutsourceDemandDetail({
   const [fullEditMode, setFullEditMode] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editType, setEditType] = useState("");
+  const [editOpcLevel, setEditOpcLevel] = useState("any");
   const [editBudgetMin, setEditBudgetMin] = useState("");
   const [editBudgetMax, setEditBudgetMax] = useState("");
   const [editDeadline, setEditDeadline] = useState("");
@@ -309,6 +310,7 @@ export default function AdminV2OutsourceDemandDetail({
     if (!demand) return;
     setEditTitle(demand.title);
     setEditType(demand.demandType ?? "");
+    setEditOpcLevel(demand.opcLevel ?? "any");
     setEditBudgetMin(demand.expectedPriceMin != null ? String(demand.expectedPriceMin) : "");
     setEditBudgetMax(demand.expectedPriceMax != null ? String(demand.expectedPriceMax) : "");
     setEditDeadline(demand.deadline ?? "");
@@ -326,6 +328,7 @@ export default function AdminV2OutsourceDemandDetail({
     try {
       const patchBody: Record<string, any> = {
         isUrgent: editIsUrgent,
+        opcLevel: editOpcLevel,
         milestones: editMilestones.filter(m => m.name.trim()),
       };
       if (editTitle.trim()) patchBody.title = editTitle.trim();
@@ -357,6 +360,7 @@ export default function AdminV2OutsourceDemandDetail({
   const handleFullEditAgentFill = (suggestion: FormSuggestion) => {
     if (suggestion.title) setEditTitle(suggestion.title);
     if (suggestion.type) setEditType(suggestion.type);
+    if (suggestion.opcLevel) setEditOpcLevel(suggestion.opcLevel);
     if (suggestion.description) setEditDetail(suggestion.description);
     if (suggestion.budgetMin != null) setEditBudgetMin(String(suggestion.budgetMin));
     if (suggestion.budgetMax != null) setEditBudgetMax(String(suggestion.budgetMax));
@@ -503,6 +507,11 @@ ${msStr}
             <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
               {demand.mode === "public" ? "公开抢单" : "指定邀请"}
             </span>
+            {demand.opcLevel && demand.opcLevel !== "any" && (
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                OPC {demand.opcLevel === "A" ? "A 级" : demand.opcLevel === "B" ? "B 级及以上" : "C 级及以上"}
+              </span>
+            )}
             {demand.isUrgent && (
               <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
                 <Zap size={10} />紧急
@@ -607,8 +616,8 @@ ${msStr}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-800" />
             </div>
 
-            {/* 类型 + 紧急 */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* 类型 + OPC等级 + 紧急 */}
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">需求类型</label>
                 <select value={editType} onChange={e => setEditType(e.target.value)}
@@ -617,6 +626,16 @@ ${msStr}
                   {catCategories.map(c => (
                     <option key={c.id} value={c.code}>{c.name}</option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">OPC 等级要求</label>
+                <select value={editOpcLevel} onChange={e => setEditOpcLevel(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 bg-white">
+                  <option value="any">不限</option>
+                  <option value="C">C 级及以上</option>
+                  <option value="B">B 级及以上</option>
+                  <option value="A">A 级</option>
                 </select>
               </div>
               <div>

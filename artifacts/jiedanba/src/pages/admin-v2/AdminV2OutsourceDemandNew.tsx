@@ -87,6 +87,7 @@ export default function AdminV2OutsourceDemandNew() {
 
   const [title, setTitle] = useState("");
   const [demandType, setDemandType] = useState("");
+  const [opcLevel, setOpcLevel] = useState("any");
   const [isUrgent, setIsUrgent] = useState(false);
   const [mode, setMode] = useState<"public" | "invited">("public");
   const [clientDemandId, setClientDemandId] = useState("");
@@ -145,6 +146,7 @@ export default function AdminV2OutsourceDemandNew() {
   const handleAgentFillForm = (suggestion: FormSuggestion) => {
     if (suggestion.title) setTitle(suggestion.title);
     if (suggestion.type) setDemandType(suggestion.type);
+    if (suggestion.opcLevel) setOpcLevel(suggestion.opcLevel);
     if (suggestion.description) setDetail(suggestion.description);
     if (suggestion.budgetMin != null) setExpectedPriceMin(String(suggestion.budgetMin));
     if (suggestion.budgetMax != null) setExpectedPriceMax(String(suggestion.budgetMax));
@@ -195,6 +197,7 @@ export default function AdminV2OutsourceDemandNew() {
         demandType: demandType || null,
         isUrgent,
         mode,
+        opcLevel,
         clientDemandId: clientDemandId ? parseInt(clientDemandId) : null,
         expectedPriceMin: expectedPriceMin ? parseFloat(expectedPriceMin) : null,
         expectedPriceMax: expectedPriceMax ? parseFloat(expectedPriceMax) : null,
@@ -284,8 +287,8 @@ export default function AdminV2OutsourceDemandNew() {
               />
             </div>
 
-            {/* 类型 + 模式 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 类型 + OPC等级 + 模式 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-wide">需求类型</label>
                 <CustomSelect
@@ -294,6 +297,20 @@ export default function AdminV2OutsourceDemandNew() {
                   options={catCategories.map(c => ({ value: c.code, label: c.name }))}
                   placeholder="请选择需求分类"
                   loading={loadingCats}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-wide">OPC 等级要求</label>
+                <CustomSelect
+                  value={opcLevel}
+                  onChange={setOpcLevel}
+                  options={[
+                    { value: "any", label: "不限" },
+                    { value: "C", label: "C 级及以上" },
+                    { value: "B", label: "B 级及以上" },
+                    { value: "A", label: "A 级" },
+                  ]}
+                  placeholder="请选择等级"
                 />
               </div>
               <div>
