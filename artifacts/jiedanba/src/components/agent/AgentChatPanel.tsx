@@ -979,11 +979,6 @@ function FormSuggestionCard({ suggestion, onFill }: { suggestion: FormSuggestion
   if (suggestion.description) rows.push({ label: "需求描述", value: suggestion.description.slice(0, 80) + (suggestion.description.length > 80 ? "…" : "") });
   if (suggestion.skillTags?.length) rows.push({ label: "技能标签", value: suggestion.skillTags.join("、") });
   if (suggestion.opcLevel) rows.push({ label: "OPC等级", value: OPC_LEVEL_LABELS[suggestion.opcLevel] ?? suggestion.opcLevel });
-  if (suggestion.mode) rows.push({ label: "发布模式", value: suggestion.mode === "invited" ? "邀请发布" : "公开发布" });
-  if (suggestion.invitedOpcs?.length) {
-    rows.push({ label: "邀请对象", value: suggestion.invitedOpcs.map(o => o.nickname).join("、") });
-  }
-
   const bMin = suggestion.budgetMin ?? suggestion.budget;
   const bMax = suggestion.budgetMax ?? suggestion.budget;
   if (bMin && bMax && bMin !== bMax) {

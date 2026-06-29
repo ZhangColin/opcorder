@@ -839,16 +839,6 @@ OPC 特别需要但客户需求中常常缺失的内容，必须覆盖：
 1. 调用 \`get_opc_levels\` 获取平台 OPC 等级定义（C/B/A/不限）
 2. 根据已确认预算，向运营推荐合适等级（推荐逻辑同新建模式），让运营确认或修改（附 option_choices_json 单选）
 
-**步骤二：确认发布模式**
-
-询问运营：公开发布（所有符合等级的 OPC 均可抢单）？还是邀请发布（只邀请指定 OPC）？
-
-**步骤三（仅邀请模式）：选择邀请对象**
-
-1. 调用 \`search_opc_candidates\`（level 传已确认等级）
-2. 以多选 option_choices_json 呈现候选人列表，等运营选定
-3. 确认所选 OPC 后继续
-
 ### 第五步：自检
 
 调用 \`perform_self_check\` 工具：
@@ -889,9 +879,7 @@ OPC 特别需要但客户需求中常常缺失的内容，必须覆盖：
 
 1. 调用 \`estimate_budget\` 估算参考区间，向运营说明市场行情，询问预算区间（附 option_choices_json）
 
-### 第四阶段：OPC 等级与发布模式（必须执行）
-
-**步骤一：确认 OPC 等级要求**
+### 第四阶段：OPC 等级确认（必须执行）
 
 1. 调用 \`get_opc_levels\` 获取平台 OPC 等级定义（C/B/A/不限）
 2. 根据预算金额和需求复杂度，向运营推荐合适等级：
@@ -900,19 +888,7 @@ OPC 特别需要但客户需求中常常缺失的内容，必须覆盖：
    - 预算 > 20,000 元 → 建议 A 级或不限
 3. 以一句话说明推荐理由，让运营确认或修改（单选选项附 option_choices_json）
 
-**步骤二：确认发布模式**
-
-询问运营：这份需求是公开发布（所有符合等级的 OPC 均可抢单）？还是定向邀请（只邀请指定 OPC）？
-
-option_choices_json 附两个选项：公开发布 / 邀请发布
-
-**步骤三（仅邀请模式）：选择邀请对象**
-
-运营选择"邀请发布"后：
-1. 调用 \`search_opc_candidates\`（level 传已确认的 OPC 等级，keyword 可留空）
-2. 工具返回 candidates 列表，按工具指令中的格式整理成多选 option_choices_json 呈现给运营
-3. 等运营从选项中选出想邀请的 OPC（可多选）
-4. 确认所选 OPC 后继续输出文档
+发布模式（公开/邀请）和邀请具体 OPC 由运营在表单中自行设置，助手无需询问。
 
 ### 自检循环（进入文档输出前必须执行）
 
@@ -929,7 +905,7 @@ option_choices_json 附两个选项：公开发布 / 邀请发布
 1. 阅读"当前需求数据"，了解现有内容
 2. 询问用户想调整哪部分（附 option_choices_json 列出可能的调整方向）
 3. 修改或补充需求文档
-4. 输出 form_suggestion_json（含 title、type、description、budgetMin、budgetMax、opcLevel、mode，邀请模式还需 invitedOpcs）
+4. 输出 form_suggestion_json（含 title、type、description、budgetMin、budgetMax、opcLevel）
 
 注意：每次输出**完整文档**（含未改动部分），不能只输出改动段落。
 
@@ -1004,17 +980,12 @@ option_choices_json:{"q":"问题简述","opts":["选项A","选项B","其他，�
 
 ### 最终输出（所有模式均适用）
 
-**公开发布**：
-form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型代码（来自 get_demand_types 的 value 字段）","description":"完整Markdown需求文档正文","budgetMin":最低预算数字,"budgetMax":最高预算数字,"opcLevel":"C或B或A或any（来自 get_opc_levels 确认后的等级）","mode":"public"}
-
-**邀请发布**（invitedOpcs 为运营选定的 OPC 列表，每项含 id 和 nickname）：
-form_suggestion_json:{"title":"...","type":"...","description":"...","budgetMin":数字,"budgetMax":数字,"opcLevel":"C或B或A或any","mode":"invited","invitedOpcs":[{"id":OPC的profileId数字,"nickname":"OPC昵称"}]}
+form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型代码（来自 get_demand_types 的 value 字段）","description":"完整Markdown需求文档正文","budgetMin":最低预算数字,"budgetMax":最高预算数字,"opcLevel":"C或B或A或any（来自 get_opc_levels 确认后的等级）"}
 
 **字段说明**：
 - opcLevel：必填，值为 C / B / A / any 之一（来自 get_opc_levels 返回的 level 字段）
-- mode：必填，public 或 invited
-- invitedOpcs：仅 mode=invited 时填写，每项 id 为 search_opc_candidates 返回的 profileId
-- 不输出 deadline、bidDeadline、milestones（里程碑由独立助手负责）
+- 不输出 mode、invitedOpcs（发布模式由运营在表单中设置）
+- 不输出 deadline、bidDeadline、milestones（由独立助手负责）
 
 ---
 
@@ -1023,7 +994,7 @@ form_suggestion_json:{"title":"...","type":"...","description":"...","budgetMin"
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出
 
-<!-- prompt-version: 1.8 -->`;
+<!-- prompt-version: 1.9 -->`;
 
     if (!existingOpcDemand) {
       await db.insert(agentConfigsTable).values({
@@ -1034,7 +1005,7 @@ form_suggestion_json:{"title":"...","type":"...","description":"...","budgetMin"
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
-    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.8")) {
+    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 1.9")) {
       await db.execute(sql`UPDATE agent_configs SET system_prompt = ${opcDemandPrompt} WHERE scene_key = 'v2_admin_opc_demand'`);
       logger.info("Updated v2_admin_opc_demand agent config");
     }

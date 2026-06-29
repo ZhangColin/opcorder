@@ -91,10 +91,6 @@ export default function AdminV2OutsourceDemandNew() {
     if (suggestion.budgetMin != null) setExpectedPriceMin(String(suggestion.budgetMin));
     if (suggestion.budgetMax != null) setExpectedPriceMax(String(suggestion.budgetMax));
     if (suggestion.isUrgent != null) setIsUrgent(suggestion.isUrgent);
-    if (suggestion.mode) setMode(suggestion.mode);
-    if (suggestion.invitedOpcs?.length) {
-      setInvitedOpcs(suggestion.invitedOpcs.map(o => ({ id: o.id, nickname: o.nickname })));
-    }
   };
 
   const handleOpcSearch = async () => {

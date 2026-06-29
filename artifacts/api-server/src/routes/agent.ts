@@ -17,7 +17,7 @@ const ADMIN_ONLY_SCENE_KEYS = new Set(["v2_outsource_split", "v2_admin_opc_deman
 /** For scenes that only need a subset of tools, list the allowed tool names here. */
 const SCENE_ALLOWED_TOOLS = new Map<string, Set<string>>([
   ["v2_demand_analysis", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check"])],
-  ["v2_admin_opc_demand", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check", "get_linked_demand_details", "get_opc_levels", "search_opc_candidates"])],
+  ["v2_admin_opc_demand", new Set(["get_demand_types", "get_requirement_template", "estimate_budget", "perform_self_check", "get_linked_demand_details", "get_opc_levels"])],
 ]);
 
 type PersistedMessage = {
