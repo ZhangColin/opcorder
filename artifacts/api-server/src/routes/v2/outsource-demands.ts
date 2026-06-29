@@ -15,7 +15,7 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
   try {
     const userId = req.user!.id;
     const role = req.user!.role;
-    const { status, mode, search, page = "1", limit = "20" } = req.query as Record<string, string>;
+    const { status, mode, search, demandType, page = "1", limit = "20" } = req.query as Record<string, string>;
     const pg = Math.max(1, parseInt(page));
     const lim = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pg - 1) * lim;
@@ -23,6 +23,7 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
     const conditions: any[] = [];
     if (status) conditions.push(eq(v2OutsourceDemandsTable.status, status as any));
     if (mode) conditions.push(eq(v2OutsourceDemandsTable.mode, mode as any));
+    if (demandType) conditions.push(eq(v2OutsourceDemandsTable.demandType, demandType));
     if (search) conditions.push(ilike(v2OutsourceDemandsTable.title, `%${search}%`));
 
     if (role === "opc") {
