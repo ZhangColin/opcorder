@@ -248,11 +248,22 @@ function parseMessage(content: string): {
     const extracted = extractJsonObject(afterMarker);
     if (extracted) {
       try {
-        const parsed = JSON.parse(extracted.json) as { q?: string; opts?: string[]; multi?: boolean };
+        const parsed = JSON.parse(extracted.json) as { q?: string; opts?: unknown[]; multi?: boolean };
         if (parsed.opts && Array.isArray(parsed.opts)) {
+          const normalizedOpts = parsed.opts.map((o): string => {
+            if (typeof o === "string") return o;
+            if (o && typeof o === "object") {
+              const ob = o as Record<string, unknown>;
+              if (typeof ob.label === "string") return ob.label;
+              if (typeof ob.opt === "string") return ob.opt;
+              if (typeof ob.text === "string") return ob.text;
+              if (typeof ob.value === "string") return ob.value;
+            }
+            return String(o);
+          });
           optionChoices = {
             q: parsed.q ?? "",
-            opts: parsed.opts,
+            opts: normalizedOpts,
             multi: parsed.multi ?? false,
           };
           const before = workingContent.slice(0, optIdx).trim();
