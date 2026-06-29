@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy, BellRing, ClipboardList, Tag, Lock, Globe, Clock } from "lucide-react";
-import { useGetOverviewStats, useGetOpcLeaderboard, useGetCurrentUser, useListNotifications, useListOrders } from "@workspace/api-client-react";
+import { useGetOverviewStats, useGetOpcLeaderboard, useGetCurrentUser, useListNotifications } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { OPC_LEVELS } from "@/lib/constants";
 import { v2Get } from "@/lib/v2api";
@@ -201,10 +201,15 @@ export default function Home() {
   const topDemands = v2DemandsData?.items ?? [];
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
   const { data: notifData } = useListNotifications({ limit: 1 }, { query: { enabled: !!currentUser?.id } });
-  const { data: activeOrdersData } = useListOrders({ status: "in_progress", limit: 1 }, { query: { enabled: !!currentUser?.id } });
+  const { data: v2OrdersData } = useQuery<{ total: number; items: Array<{ status: string }> }>({
+    queryKey: ["v2-home-active-orders"],
+    queryFn: () => v2Get("/outsource-orders?limit=200"),
+    enabled: !!currentUser?.id,
+  });
 
-  const unreadNotifs   = notifData?.unreadCount ?? 0;
-  const activeOrders   = activeOrdersData?.total ?? 0;
+  const unreadNotifs = notifData?.unreadCount ?? 0;
+  const ACTIVE_STATUSES = new Set(["pending_contract", "executing", "warranty"]);
+  const activeOrders = (v2OrdersData?.items ?? []).filter(o => ACTIVE_STATUSES.has(o.status)).length;
   const showBanner     = !bannerDismissed && (unreadNotifs > 0 || activeOrders > 0) && !!currentUser;
 
   return (
@@ -241,7 +246,7 @@ export default function Home() {
             {/* 操作按钮 */}
             <div className="flex items-center gap-2 pl-[52px] sm:pl-0 sm:shrink-0">
               {activeOrders > 0 && (
-                <Link href="/orders">
+                <Link href="/opc/orders">
                   <button className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-colors whitespace-nowrap">
                     <ClipboardList size={13} /> 查看订单
                   </button>
