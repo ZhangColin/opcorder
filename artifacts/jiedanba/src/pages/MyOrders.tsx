@@ -93,7 +93,7 @@ export default function MyOrders() {
           <p className="text-muted-foreground text-sm">
             切换其他状态，或前往{" "}
             <Link href="/order-hall" className="text-primary font-bold hover:underline">
-              订单大厅
+              需求大厅
             </Link>{" "}
             接新单
           </p>

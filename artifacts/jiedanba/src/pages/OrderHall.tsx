@@ -219,6 +219,7 @@ export default function OrderHall() {
     page: 1,
     limit: 8,
     sortBy: "newest",
+    status: "published" as any,
   });
 
   const { data, isLoading } = useListDemands(appliedFilters);
@@ -232,6 +233,7 @@ export default function OrderHall() {
       page: newPage,
       limit: 8,
       sortBy: "newest",
+      status: "published" as any,
       type: selectedTypes.length === 1 ? selectedTypes[0] : undefined,
       opcLevel: selectedLevel || undefined,
       minBudget: budgetMin ? Number(budgetMin) : undefined,
@@ -365,7 +367,7 @@ export default function OrderHall() {
         {/* Header */}
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-primary font-display">订单大厅</h1>
+            <h1 className="text-4xl font-extrabold tracking-tight text-primary font-display">需求大厅</h1>
             <p className="text-muted-foreground mt-2 font-medium text-sm">
               共 <span className="text-foreground font-bold">{data?.total ?? "—"}</span> 个活跃匹配机会
             </p>
@@ -409,7 +411,7 @@ export default function OrderHall() {
                 setBudgetMin("");
                 setBudgetMax("");
                 setDeadline("");
-                setAppliedFilters({ page: 1, limit: 8, sortBy: "newest" });
+                setAppliedFilters({ page: 1, limit: 8, sortBy: "newest", status: "published" as any });
               }}
               className="px-5 py-2 bg-primary/10 text-primary font-bold rounded-xl hover:bg-primary hover:text-white transition-colors text-sm"
             >
