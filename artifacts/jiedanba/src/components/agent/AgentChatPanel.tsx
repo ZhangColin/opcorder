@@ -604,6 +604,17 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Show "generate doc" button after enough exchanges and no suggestion yet */}
+          {messages.filter(m => m.role === "user").length >= 4 && !latestSuggestion && !loading && (
+            <button
+              onClick={() => sendMessageText("信息差不多了，请现在整理需求文档并输出表单建议供我一键填入。")}
+              title="催助手整理文档并输出结果"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-primary bg-primary/8 border border-primary/20 rounded-lg hover:bg-primary/15 transition-colors"
+            >
+              <ClipboardList size={12} />
+              生成文档
+            </button>
+          )}
           <button onClick={handleClear} title="清空对话" className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
             <RotateCcw size={15} />
           </button>
@@ -709,26 +720,6 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Sticky fill bar — shows whenever any message has a form suggestion */}
-      {latestSuggestion && onFillForm && (
-        <div className="px-4 py-2.5 border-t border-primary/15 bg-primary/5 shrink-0 flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-primary truncate">
-              <ClipboardList size={11} className="inline mr-1 shrink-0" />
-              {latestSuggestion.title ? `「${latestSuggestion.title.slice(0, 20)}${latestSuggestion.title.length > 20 ? "…" : ""}」` : "需求方案已就绪"}
-            </p>
-            <p className="text-[10px] text-slate-400 mt-0.5">数据已收集完毕，点击填入表单</p>
-          </div>
-          <button
-            onClick={() => { onFillForm(latestSuggestion); onClose(); }}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-sm whitespace-nowrap"
-          >
-            <ClipboardList size={12} />
-            一键填入
-          </button>
-        </div>
-      )}
 
       {/* Input */}
       <div className="px-4 py-4 border-t border-slate-100 bg-white shrink-0">

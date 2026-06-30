@@ -386,6 +386,28 @@ ${detailStr}
     }
   }
 
+  // ── Auto wrap-up injection ───────────────────────────────────────────────────
+  // If the conversation has had enough user turns but no form_suggestion_json has
+  // appeared in any assistant message yet, inject a reminder into the system prompt
+  // so the model is nudged to finish up this turn.
+  {
+    const userTurns = historyMessages.filter(m => m.role === "user").length;
+    const hasSuggestion = historyMessages.some(
+      m => m.role === "assistant" && m.content && m.content.includes("form_suggestion_json:")
+    );
+    // Also check if this exact user message is already a manual wrap-up trigger
+    const isManualWrapUp = userMessageTrimmed.includes("整理需求文档") || userMessageTrimmed.includes("输出表单");
+
+    if (userTurns >= 8 && !hasSuggestion) {
+      const forceNote = isManualWrapUp
+        ? "\n\n【系统强制指令】用户已明确要求输出结果。请立即整理所有已收集的信息，生成完整需求文档，并在本条消息末尾输出 form_suggestion_json。禁止再追问，禁止省略此步骤。"
+        : "\n\n【系统提示】当前对话已进行多轮，信息收集应已基本完整。请在本轮回复结束前评估是否可以进入文档整理阶段——如果信息足够，本条消息末尾必须输出 form_suggestion_json；如确实还有关键缺口，最多再追问一个问题后必须输出。";
+      effectiveSystemPrompt = effectiveSystemPrompt + forceNote;
+    } else if (isManualWrapUp && !hasSuggestion) {
+      effectiveSystemPrompt = effectiveSystemPrompt + "\n\n【系统强制指令】用户已明确要求输出结果。请立即整理所有已收集的信息，生成完整需求文档，并在本条消息末尾输出 form_suggestion_json。禁止再追问，禁止省略此步骤。";
+    }
+  }
+
   // ── Tool-result accumulator ─────────────────────────────────────────────────
   // Each ReAct stage that calls a tool is the authoritative source for its field.
   // validate_timeline → bidDeadline + deadline
@@ -653,14 +675,14 @@ ${detailStr}
             if (selfCheckCount >= MAX_SELF_CHECKS) {
               result = {
                 action: "proceed_to_doc_stage",
-                message: `已完成 ${MAX_SELF_CHECKS} 次自检，已达上限。请直接进入第三阶段整理需求文档，不再追问。`,
+                message: `已完成 ${MAX_SELF_CHECKS} 次自检，已达上限。【强制执行】立即整理需求文档并在本条消息末尾输出 form_suggestion_json，不得再追问用户，不得省略该步骤。`,
               };
             } else {
               result = {
                 action: "continue",
                 checkNumber: selfCheckCount + 1,
                 remainingChecks: MAX_SELF_CHECKS - selfCheckCount - 1,
-                message: "请执行自检：检查已有答案是否有矛盾、组合后是否产生新疑问、模板章节是否有缺口。有则继续追问；无则进入第三阶段。",
+                message: "请执行自检：检查已有答案是否有矛盾、组合后是否产生新疑问、模板章节是否有缺口。有则继续追问；无则进入第三阶段，整理文档并输出 form_suggestion_json。",
               };
             }
           } else {
