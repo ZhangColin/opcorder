@@ -395,8 +395,17 @@ ${detailStr}
     const hasSuggestion = historyMessages.some(
       m => m.role === "assistant" && m.content && m.content.includes("form_suggestion_json:")
     );
-    // Also check if this exact user message is already a manual wrap-up trigger
-    const isManualWrapUp = userMessageTrimmed.includes("整理需求文档") || userMessageTrimmed.includes("输出表单");
+    // Detect natural wrap-up intent: user asking agent to write doc / produce output
+    const wrapUpKeywords = [
+      "写文档", "写需求", "写个文档", "出文档", "生成文档", "生成需求",
+      "整理文档", "整理需求", "整理一下", "汇总一下", "总结一下",
+      "输出表单", "输出结果", "生成结果", "出结果", "出表单",
+      "填入表单", "填表单", "一键填", "帮我填",
+      "信息差不多了", "差不多了", "够了", "可以了", "就这些了",
+      "开始写", "写吧", "你来写", "帮我写", "写出来", "给我文档",
+      "需求文档", "整理需求文档", "需求整理",
+    ];
+    const isManualWrapUp = wrapUpKeywords.some(kw => userMessageTrimmed.includes(kw));
 
     if (userTurns >= 8 && !hasSuggestion) {
       const forceNote = isManualWrapUp
