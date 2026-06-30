@@ -162,6 +162,18 @@ export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
   {
     type: "function",
     function: {
+      name: "get_current_time",
+      description: "获取服务器当前的精确日期和时间（北京时间）。在进行任何时间相关的计算或判断之前，必须先调用此工具确认今天的日期，再进行时间合理性判断或日期推算。",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_requirement_template",
       description: "根据需求类型获取需求文档模板。在第一阶段确认需求类型后立即调用，获取该类型需要收集的信息模块清单，作为第二阶段脑暴提问的框架依据。",
       parameters: {
@@ -368,6 +380,23 @@ type ToolResult = unknown;
 
 export function executeTool(name: string, args: Record<string, unknown>, context?: ToolExecutionContext): ToolResult {
   switch (name) {
+    case "get_current_time": {
+      const now = new Date();
+      // Beijing time = UTC+8
+      const bjOffset = 8 * 60;
+      const bjMs = now.getTime() + (bjOffset - now.getTimezoneOffset()) * 60000;
+      const bj = new Date(bjMs);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const dateStr = `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())}`;
+      const timeStr = `${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
+      return {
+        currentDate: dateStr,
+        currentTime: timeStr,
+        timezone: "Asia/Shanghai（UTC+8）",
+        note: "后续所有时间计算（如判断交付日期是否合理、推算截止日期等）请以此 currentDate 为基准，不要使用内部的训练截止日期。",
+      };
+    }
+
     case "get_requirement_template": {
       const rawType = (args.demandType as string) || "other";
       // Accept both new category codes (CG/SA/TK/BO/OTHER) and legacy keys

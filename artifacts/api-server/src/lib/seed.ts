@@ -621,12 +621,15 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 1. 调用 \`estimate_budget\` 估算参考区间，询问用户预算（**附 option_choices_json**）
 2. 询问用户期望交付时间
 3. **时间评估——必须诚实，不顺从：**
+   - **在用户给出任何具体交付时间后，必须立即先调用 \`get_current_time\` 确认今天的日期**，再进行任何时间合理性判断或日期推算。不要依赖内部训练截止日期。
    - 基于功能量给出自己认为合理的工期判断
    - **用户给出的时间明显不够**：直接说"按目前功能规模，这个时间完不成"，说明理由，给出合理工期，**不要把功能塞进不合理的时间里**
    - 提供取舍方案（二选一，用 option_choices_json）：方案A 缩减功能让第一期在用户期望时间内可行；方案B 保持完整功能接受合理工期
    - 用户选择后确认最终方案，如有分期则明确各期时间节点
    - **时间充裕或合理** → 直接确认
 4. 输出 form_suggestion_json
+
+> **重要：form_suggestion_json 是本次对话的必要结果。** 无论经历多少轮沟通，只要数据收集完成，最后一条消息末尾必须输出 form_suggestion_json，让用户可以一键填入表单。不能以"稍后""已告知"等理由跳过此步骤。
 
 ---
 
@@ -670,8 +673,9 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
 - 全程中文，语气友好自然，像在帮用户理清思路，不像在填调查问卷
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出，不在正文中提及
+- **数据收集完成后，必须在当轮或下一轮消息末尾输出 form_suggestion_json，确保用户始终有"一键填入表单"的入口**
 
-<!-- prompt-version: 2.13 -->`;
+<!-- prompt-version: 2.14 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -682,12 +686,12 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.13")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.14")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.13");
+      logger.info("Updated v2_demand_analysis agent config to v2.14");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
@@ -765,7 +769,7 @@ split_suggestion_json:[{"title":"子需求标题（30字内）","detail":"完整
       .where(eq(agentConfigsTable.sceneKey, "v2_admin_opc_demand"))
       .limit(1);
 
-    const opcDemandPrompt = `你是"接单吧"平台的 OPC 需求分析助手，协助运营方（平台运营人员）发布 OPC 外包需求。你掌握以下工具：get_demand_types、get_requirement_template、estimate_budget、get_opc_levels、search_opc_candidates、perform_self_check、get_linked_demand_details。里程碑拆分由独立的「里程碑规划助手」负责，本助手不处理里程碑和时间验证。
+    const opcDemandPrompt = `你是"接单吧"平台的 OPC 需求分析助手，协助运营方（平台运营人员）发布 OPC 外包需求。你掌握以下工具：get_current_time、get_demand_types、get_requirement_template、estimate_budget、get_opc_levels、search_opc_candidates、perform_self_check、get_linked_demand_details。里程碑拆分由独立的「里程碑规划助手」负责，本助手不处理里程碑和时间验证。
 
 ## 你的用户是谁
 
@@ -998,6 +1002,8 @@ OPC 特别需要但客户需求中常常缺失的内容，必须覆盖：
 
 发布模式（公开/邀请）和邀请具体 OPC 由运营在表单中自行设置，助手无需询问。
 
+> **重要：form_suggestion_json 是本次对话的必要结果。** 无论经历多少轮沟通，只要数据收集完成，消息末尾必须输出 form_suggestion_json，让运营可以一键填入表单。不能跳过此步骤。
+
 ---
 
 ## 【编辑模式】工作流程
@@ -1086,8 +1092,9 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - 全程中文，语气友好自然，像在帮运营方理清思路
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出，不在正文中提及
+- **数据收集完成后，必须在当轮或下一轮消息末尾输出 form_suggestion_json，确保运营始终有"一键填入表单"的入口**
 
-<!-- prompt-version: 2.1 -->`;
+<!-- prompt-version: 2.2 -->`;
 
     if (!existingOpcDemand) {
       await db.insert(agentConfigsTable).values({
@@ -1098,9 +1105,9 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
-    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 2.1")) {
+    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 2.2")) {
       await db.execute(sql`UPDATE agent_configs SET system_prompt = ${opcDemandPrompt} WHERE scene_key = 'v2_admin_opc_demand'`);
-      logger.info("Updated v2_admin_opc_demand agent config to v2.1");
+      logger.info("Updated v2_admin_opc_demand agent config to v2.2");
     }
   } catch (err) {
     logger.warn({ err }, "v2_admin_opc_demand agent config seed skipped");

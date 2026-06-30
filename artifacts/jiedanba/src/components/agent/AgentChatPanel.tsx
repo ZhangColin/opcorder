@@ -580,6 +580,16 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     return -1;
   })();
 
+  // Find the latest form suggestion across all messages for the sticky fill bar
+  const latestSuggestion = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].formSuggestion && !messages[i].isStreaming) {
+        return messages[i].formSuggestion!;
+      }
+    }
+    return null;
+  })();
+
   const panelContent = (
     <>
       {/* Header */}
@@ -699,6 +709,26 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Sticky fill bar — shows whenever any message has a form suggestion */}
+      {latestSuggestion && onFillForm && (
+        <div className="px-4 py-2.5 border-t border-primary/15 bg-primary/5 shrink-0 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-primary truncate">
+              <ClipboardList size={11} className="inline mr-1 shrink-0" />
+              {latestSuggestion.title ? `「${latestSuggestion.title.slice(0, 20)}${latestSuggestion.title.length > 20 ? "…" : ""}」` : "需求方案已就绪"}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">数据已收集完毕，点击填入表单</p>
+          </div>
+          <button
+            onClick={() => { onFillForm(latestSuggestion); onClose(); }}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-sm whitespace-nowrap"
+          >
+            <ClipboardList size={12} />
+            一键填入
+          </button>
+        </div>
+      )}
 
       {/* Input */}
       <div className="px-4 py-4 border-t border-slate-100 bg-white shrink-0">
@@ -1111,6 +1141,7 @@ function FormattedContent({ content }: { content: string }) {
 }
 
 const TOOL_LABEL_MAP: Record<string, string> = {
+  get_current_time: "当前时间",
   get_requirement_template: "需求文档模板",
   get_demand_types: "需求类型",
   get_skill_tags: "技能标签",
