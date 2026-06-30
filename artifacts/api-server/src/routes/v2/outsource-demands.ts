@@ -26,22 +26,7 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
     if (demandType) conditions.push(eq(v2OutsourceDemandsTable.demandType, demandType));
     if (search) conditions.push(ilike(v2OutsourceDemandsTable.title, `%${search}%`));
 
-    if (role === "opc") {
-      const myTenders = await db
-        .select({ outsourceDemandId: v2TendersTable.outsourceDemandId })
-        .from(v2TendersTable)
-        .where(eq(v2TendersTable.opcId, userId));
-      const myDemandIds = myTenders.map(t => t.outsourceDemandId);
-
-      const publicCondition = eq(v2OutsourceDemandsTable.mode, "public");
-      if (myDemandIds.length > 0) {
-        conditions.push(
-          or(publicCondition, inArray(v2OutsourceDemandsTable.id, myDemandIds))!
-        );
-      } else {
-        conditions.push(publicCondition);
-      }
-    } else if (role === "publisher") {
+    if (role === "publisher") {
       return res.status(403).json({ error: "发单方无权查看外包需求" });
     }
 
@@ -62,6 +47,9 @@ router.get("/outsource-demands", requireAuth, async (req: Request, res: Response
         expectedPriceMax: v2OutsourceDemandsTable.expectedPriceMax,
         status: v2OutsourceDemandsTable.status,
         tenderCount: sql<number>`(SELECT COUNT(*)::int FROM v2_tenders WHERE v2_tenders.outsource_demand_id = ${v2OutsourceDemandsTable.id})`,
+        isInvited: role === "opc"
+          ? sql<boolean>`EXISTS(SELECT 1 FROM v2_tenders WHERE v2_tenders.outsource_demand_id = ${v2OutsourceDemandsTable.id} AND v2_tenders.opc_id = ${userId})`
+          : sql<boolean>`true`,
         createdAt: v2OutsourceDemandsTable.createdAt,
         updatedAt: v2OutsourceDemandsTable.updatedAt,
       })
@@ -160,13 +148,14 @@ router.get("/outsource-demands/:id", requireAuth, async (req: Request, res: Resp
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
 
-    if (role === "opc" && demand.mode === "invited") {
+    let isInvited = true;
+    if (role === "opc") {
       const [myTender] = await db
         .select({ id: v2TendersTable.id })
         .from(v2TendersTable)
         .where(and(eq(v2TendersTable.outsourceDemandId, id), eq(v2TendersTable.opcId, userId)))
         .limit(1);
-      if (!myTender) return res.status(403).json({ error: "无权查看此外包需求" });
+      isInvited = !!myTender;
     }
 
     const [latestVersion] = await db
@@ -194,7 +183,7 @@ router.get("/outsource-demands/:id", requireAuth, async (req: Request, res: Resp
       .leftJoin(usersTable, eq(v2TendersTable.opcId, usersTable.id))
       .where(and(...tenderConditions));
 
-    return res.json({ ...demand, detail: latestVersion?.detail ?? null, latestVersion: latestVersion ?? null, tenders });
+    return res.json({ ...demand, isInvited, detail: latestVersion?.detail ?? null, latestVersion: latestVersion ?? null, tenders });
   } catch (err) {
     logger.error({ err }, "GET /v2/outsource-demands/:id failed");
     return res.status(500).json({ error: "服务器错误" });

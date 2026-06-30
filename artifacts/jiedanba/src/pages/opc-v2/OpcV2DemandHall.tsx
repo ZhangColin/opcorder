@@ -17,6 +17,7 @@ interface DemandItem {
   demandType: string;
   isUrgent: boolean;
   mode: "public" | "invited";
+  isInvited: boolean;
   expectedPriceMin: number | null;
   expectedPriceMax: number | null;
   status: string;
@@ -26,6 +27,7 @@ interface DemandItem {
 
 interface DemandDetail extends DemandItem {
   detail: string | null;
+  isInvited: boolean;
   latestVersion: {
     id: number;
     versionNo: number;
@@ -177,7 +179,11 @@ function DemandPreviewPanel({ demandId, onApply, applying, applied, onClose }: D
             <span className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl border border-emerald-200">
               <CheckCircle2 size={15} /> 已报名
             </span>
-          ) : data && data.mode === "public" && data.status === "negotiating" ? (
+          ) : data && data.mode === "invited" && !data.isInvited ? (
+            <span className="px-4 py-2.5 bg-amber-50 text-amber-700 text-sm font-bold rounded-xl border border-amber-200">
+              仅受邀 OPC 可投标
+            </span>
+          ) : data && data.status === "negotiating" ? (
             <button
               onClick={() => onApply(data.id, data.title)}
               disabled={applying === data?.id}
@@ -224,7 +230,7 @@ export default function OpcV2DemandHall() {
   const { data, isLoading, isError, refetch } = useQuery<PagedResponse>({
     queryKey: ["v2-opc-demand-hall", search, page],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), limit: "50", status: "negotiating", mode: "public" });
+      const params = new URLSearchParams({ page: String(page), limit: "50", status: "negotiating" });
       if (search) params.set("search", search);
       return v2Get(`/outsource-demands?${params}`);
     },
@@ -265,7 +271,7 @@ export default function OpcV2DemandHall() {
       <div className="py-6 space-y-6">
         <div>
           <h2 className="text-2xl font-black text-emerald-900 mb-1">需求大厅</h2>
-          <p className="text-sm text-slate-500">发现并报名公开外包需求，抢占优质合作机会</p>
+          <p className="text-sm text-slate-500">发现并报名外包需求，定向邀约需求仅受邀 OPC 可投标</p>
         </div>
 
         <form onSubmit={handleSearch} className="flex gap-2">
@@ -309,7 +315,7 @@ export default function OpcV2DemandHall() {
         ) : demands.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-slate-100">
             <Search size={32} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-sm text-slate-500 font-medium">暂无可报名的公开需求</p>
+            <p className="text-sm text-slate-500 font-medium">暂无外包需求</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -357,13 +363,13 @@ export default function OpcV2DemandHall() {
                           <span className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
                             <CheckCircle2 size={12} /> 已报名
                           </span>
-                        ) : demand.mode === "public" ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-emerald-700 text-white text-xs font-bold">
-                            点击查看
+                        ) : demand.mode === "invited" && !demand.isInvited ? (
+                          <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200">
+                            仅受邀可投标
                           </span>
                         ) : (
-                          <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold">
-                            邀请制
+                          <span className="px-3 py-1.5 rounded-xl bg-emerald-700 text-white text-xs font-bold">
+                            点击查看
                           </span>
                         )}
                       </div>

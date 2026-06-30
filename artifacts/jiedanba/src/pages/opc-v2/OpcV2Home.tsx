@@ -120,7 +120,7 @@ export default function OpcV2Home() {
 
   const { data: hallData } = useQuery<{ total: number; items: DemandHallItem[] }>({
     queryKey: ["v2-opc-hall-count-home"],
-    queryFn: () => v2Get("/outsource-demands?status=negotiating&mode=public&limit=200"),
+    queryFn: () => v2Get("/outsource-demands?status=negotiating&limit=200"),
   });
 
   const orders = orderData?.items ?? [];
