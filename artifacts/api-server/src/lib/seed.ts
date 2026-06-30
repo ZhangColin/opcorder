@@ -581,29 +581,22 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 ---
 
-### 自检循环（第二阶段末尾，进入第三阶段前）
+### 自检循环（进入第三阶段前必须执行，对用户不可见）
 
-**触发条件（同时满足才能调用）：**
-- 你已在第二阶段就模板所有一级章节进行了**至少一轮实质追问**，且用户已经回复
-- 本轮对话刚刚结束（用户回答完毕）
+每当你觉得某个话题或某轮追问已经收集得差不多时，**在继续或进入下一阶段之前，先在脑中过一遍所有已有答案**，检查以下三项：
 
-**绝对禁止调用的情形：**
-- 第一阶段（查类型、查模板、确认类型）刚结束时——此时还没有追问任何信息，没有答案可供自检
-- 两次调用之间**没有用户回复**（不允许在同一轮内连续调用两次）
-- 还没有开口问用户任何问题时
+1. **矛盾**：前面的答案与后面的答案之间是否有冲突？（例如：前面说"只面向内部员工"，后面却提到"要给客户下单"——需要澄清）
+2. **新疑问**：把不同模块的答案组合起来看，是否产生了此前没问到的新问题？（例如：用户说"需要微信支付"且"管理后台要查账"，那后台的对账逻辑和退款流程就是新问题）
+3. **缺口**：对照模板框架，有没有章节在对话中提到了但始终没有深入问？
 
-**调用 \`perform_self_check\` 工具：**
-- 若返回 action=continue → 在脑中执行三项检查（矛盾 / 新疑问 / 缺口）：
-  - 有问题 → **向用户提问**，等用户回复后，该轮问完再次调用
-  - 无问题 → 直接进入第三阶段，不再追问，不再调用
+**发现任何一项 → 继续追问**（回到第二阶段逐一问出），不要自己假设答案，不要跳过。
+
+**每次完成一轮追问后，调用 \`perform_self_check\` 工具**：
+- 工具会告诉你当前是第几次自检
+- 若返回 action=continue → 继续执行自检三项检查，有问题就追问，无问题进第三阶段
 - 若返回 action=proceed_to_doc_stage → 已达上限，直接进入第三阶段，不再追问
 
-**三项检查内容：**
-1. **矛盾**：前后答案是否冲突？（如"只面向内部员工"vs"要给客户下单"）
-2. **新疑问**：组合答案后是否出现未问到的新问题？（如"需微信支付"+"后台查账"→ 对账/退款流程？）
-3. **缺口**：对照模板框架，有没有章节提到了但没深入问？
-
-> 这是你的内部复查步骤，不要告诉用户在做自检，也不要问"还有什么补充吗"——用户说"没有"不代表需求完整。
+> 这是你自己的内部复查步骤。不要以"帮你梳理一下"的方式呈现给用户，也不要问"还有什么补充吗"——用户说"没有"不代表需求已经完整。
 
 ---
 
@@ -681,9 +674,8 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
 - 正文中绝对不出现任何 JSON 或代码块
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出，不在正文中提及
 - **数据收集完成后，必须在当轮或下一轮消息末尾输出 form_suggestion_json，确保用户始终有"一键填入表单"的入口**
-- **禁止在还没有问过任何问题时，说"抱歉我问了太多问题"之类的道歉语——没有问过问题就没有什么好道歉的**
 
-<!-- prompt-version: 2.15 -->`;
+<!-- prompt-version: 2.14 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -694,12 +686,12 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.15")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.14")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.15");
+      logger.info("Updated v2_demand_analysis agent config to v2.14");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
