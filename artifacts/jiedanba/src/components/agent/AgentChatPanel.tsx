@@ -580,16 +580,6 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
     return -1;
   })();
 
-  // Find the latest form suggestion across all messages for the sticky fill bar
-  const latestSuggestion = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].formSuggestion && !messages[i].isStreaming) {
-        return messages[i].formSuggestion!;
-      }
-    }
-    return null;
-  })();
-
   const panelContent = (
     <>
       {/* Header */}
@@ -604,17 +594,6 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Show "generate doc" button after enough exchanges and no suggestion yet */}
-          {messages.filter(m => m.role === "user").length >= 4 && !latestSuggestion && !loading && (
-            <button
-              onClick={() => sendMessageText("信息差不多了，请现在整理需求文档并输出表单建议供我一键填入。")}
-              title="催助手整理文档并输出结果"
-              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-primary bg-primary/8 border border-primary/20 rounded-lg hover:bg-primary/15 transition-colors"
-            >
-              <ClipboardList size={12} />
-              生成文档
-            </button>
-          )}
           <button onClick={handleClear} title="清空对话" className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
             <RotateCcw size={15} />
           </button>
