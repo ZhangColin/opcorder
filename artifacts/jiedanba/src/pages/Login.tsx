@@ -93,7 +93,7 @@ export default function Login() {
         refreshToken: data.refreshToken,
         user: data.user,
       });
-      const dest = data.user.role === "admin" ? "/admin" : data.user.role === "opc" ? "/opc" : "/pub";
+      const dest = data.user.role === "admin" ? "/admin" : data.user.role === "opc" ? "/" : "/pub";
       navigate(dest);
     } catch {
       setError("网络错误，请稍后重试");
