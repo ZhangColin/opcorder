@@ -583,7 +583,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 ### 自检循环（进入第三阶段前必须执行，对用户不可见）
 
-每当你觉得某个话题或某轮追问已经收集得差不多时，**在继续或进入下一阶段之前，先在脑中过一遍所有已有答案**，检查以下三项：
+**触发时机**：当你认为已通过充分问答收集到足够信息、可以开始撰写完整需求文档时，先在脑中过一遍所有已有答案，检查以下三项：
 
 1. **矛盾**：前面的答案与后面的答案之间是否有冲突？（例如：前面说"只面向内部员工"，后面却提到"要给客户下单"——需要澄清）
 2. **新疑问**：把不同模块的答案组合起来看，是否产生了此前没问到的新问题？（例如：用户说"需要微信支付"且"管理后台要查账"，那后台的对账逻辑和退款流程就是新问题）
@@ -591,7 +591,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 
 **发现任何一项 → 继续追问**（回到第二阶段逐一问出），不要自己假设答案，不要跳过。
 
-**每次完成一轮追问后，调用 \`perform_self_check\` 工具**：
+**三项均无问题，或已将新发现的问题向用户追问完毕后，调用 \`perform_self_check\` 工具**：
 - 工具会告诉你当前是第几次自检
 - 若返回 action=continue → 继续执行自检三项检查，有问题就追问，无问题进第三阶段
 - 若返回 action=proceed_to_doc_stage → 已达上限，直接进入第三阶段，不再追问
@@ -675,7 +675,7 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出，不在正文中提及
 - **数据收集完成后，必须在当轮或下一轮消息末尾输出 form_suggestion_json，确保用户始终有"一键填入表单"的入口**
 
-<!-- prompt-version: 2.14 -->`;
+<!-- prompt-version: 2.15 -->`;
 
     if (!existingV2Demand) {
       await db.insert(agentConfigsTable).values({
@@ -686,12 +686,12 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.14")) {
+    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.15")) {
       await db
         .update(agentConfigsTable)
         .set({ systemPrompt: v2DemandPrompt })
         .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.14");
+      logger.info("Updated v2_demand_analysis agent config to v2.15");
     }
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
@@ -962,7 +962,7 @@ OPC 特别需要但客户需求中常常缺失的内容，必须覆盖：
 
 ### 自检循环（进入第三阶段前必须执行，对用户不可见）
 
-每当你觉得某个话题已经收集得差不多时，**先在脑中过一遍所有已有答案**，检查三项：
+**触发时机**：当你认为已通过充分问答收集到足够信息、可以开始撰写完整需求文档时，先在脑中过一遍所有已有答案，检查三项：
 
 1. **矛盾**：前后答案之间是否有冲突？
 2. **新疑问**：把不同模块答案组合起来，是否产生了此前没问到的新问题？
@@ -970,7 +970,7 @@ OPC 特别需要但客户需求中常常缺失的内容，必须覆盖：
 
 **发现任何一项 → 继续追问**（每次只问一个），不要自己假设答案。
 
-**每次完成一轮追问后，调用 \`perform_self_check\` 工具**：
+**三项均无问题，或已将新发现的问题向运营方追问完毕后，调用 \`perform_self_check\` 工具**：
 - 返回 action=continue → 继续执行自检三项检查，有问题就追问，无问题进第三阶段
 - 返回 action=proceed_to_doc_stage → 已达上限，直接进入第三阶段
 
@@ -1094,7 +1094,7 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
 - option_choices_json / form_suggestion_json 只在消息最末尾以标记格式输出，不在正文中提及
 - **数据收集完成后，必须在当轮或下一轮消息末尾输出 form_suggestion_json，确保运营始终有"一键填入表单"的入口**
 
-<!-- prompt-version: 2.2 -->`;
+<!-- prompt-version: 2.3 -->`;
 
     if (!existingOpcDemand) {
       await db.insert(agentConfigsTable).values({
@@ -1105,9 +1105,9 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
-    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 2.2")) {
+    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 2.3")) {
       await db.execute(sql`UPDATE agent_configs SET system_prompt = ${opcDemandPrompt} WHERE scene_key = 'v2_admin_opc_demand'`);
-      logger.info("Updated v2_admin_opc_demand agent config to v2.2");
+      logger.info("Updated v2_admin_opc_demand agent config to v2.3");
     }
   } catch (err) {
     logger.warn({ err }, "v2_admin_opc_demand agent config seed skipped");

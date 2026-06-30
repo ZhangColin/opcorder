@@ -163,7 +163,7 @@ export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
     type: "function",
     function: {
       name: "get_current_time",
-      description: "获取服务器当前的精确日期和时间（北京时间）。在进行任何时间相关的计算或判断之前，必须先调用此工具确认今天的日期，再进行时间合理性判断或日期推算。",
+      description: "获取服务器当前的精确日期和时间（北京时间）。在第四阶段用户给出期望交付时间后，调用此工具确认今天的日期，再进行时间合理性判断或日期推算。不要在此阶段之前主动调用。",
       parameters: {
         type: "object",
         properties: {},
