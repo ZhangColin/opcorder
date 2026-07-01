@@ -6,7 +6,6 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type PostContestsRegisterBody = {
-  contestId: number;
-  trackId: number;
-};
+export interface CloseOrderBody {
+  reason?: string | null;
+}

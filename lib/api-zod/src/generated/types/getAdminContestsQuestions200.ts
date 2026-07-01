@@ -7,7 +7,7 @@
  */
 import type { ContestQuestion } from "./contestQuestion";
 
-export type GetAdminContestQuestions200 = {
+export type GetAdminContestsQuestions200 = {
   items: ContestQuestion[];
   total: number;
   page: number;

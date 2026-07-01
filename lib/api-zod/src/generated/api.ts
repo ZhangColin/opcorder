@@ -2088,14 +2088,14 @@ export const UpdateAgentConfigResponse = zod.object({
 /**
  * @summary List contest questions
  */
-export const GetAdminContestQuestionsQueryParams = zod.object({
+export const GetAdminContestsQuestionsQueryParams = zod.object({
   page: zod.coerce.number().optional(),
   pageSize: zod.coerce.number().optional(),
   catCategoryId: zod.coerce.number().optional(),
   keyword: zod.coerce.string().optional(),
 });
 
-export const GetAdminContestQuestionsResponse = zod.object({
+export const GetAdminContestsQuestionsResponse = zod.object({
   items: zod.array(
     zod.object({
       id: zod.number(),
@@ -2117,7 +2117,7 @@ export const GetAdminContestQuestionsResponse = zod.object({
 /**
  * @summary Create contest question
  */
-export const PostAdminContestQuestionsBody = zod.object({
+export const PostAdminContestsQuestionsBody = zod.object({
   catCategoryId: zod.number(),
   title: zod.string(),
   content: zod.string().optional(),
@@ -2127,11 +2127,11 @@ export const PostAdminContestQuestionsBody = zod.object({
 /**
  * @summary Get contest question
  */
-export const GetAdminContestQuestionsIdParams = zod.object({
+export const GetAdminContestsQuestionsIdParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetAdminContestQuestionsIdResponse = zod.object({
+export const GetAdminContestsQuestionsIdResponse = zod.object({
   id: zod.number(),
   catCategoryId: zod.number(),
   catName: zod.string().nullish(),
@@ -2146,18 +2146,18 @@ export const GetAdminContestQuestionsIdResponse = zod.object({
 /**
  * @summary Update contest question
  */
-export const PutAdminContestQuestionsIdParams = zod.object({
+export const PutAdminContestsQuestionsIdParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const PutAdminContestQuestionsIdBody = zod.object({
+export const PutAdminContestsQuestionsIdBody = zod.object({
   catCategoryId: zod.number(),
   title: zod.string(),
   content: zod.string().optional(),
   attachments: zod.array(zod.unknown()).optional(),
 });
 
-export const PutAdminContestQuestionsIdResponse = zod.object({
+export const PutAdminContestsQuestionsIdResponse = zod.object({
   id: zod.number(),
   catCategoryId: zod.number(),
   catName: zod.string().nullish(),
@@ -2172,7 +2172,7 @@ export const PutAdminContestQuestionsIdResponse = zod.object({
 /**
  * @summary Delete contest question
  */
-export const DeleteAdminContestQuestionsIdParams = zod.object({
+export const DeleteAdminContestsQuestionsIdParams = zod.object({
   id: zod.coerce.number(),
 });
 
@@ -2219,6 +2219,187 @@ export const PostAdminContestsBody = zod.object({
   deadlineAt: zod.string(),
   status: zod.enum(["draft", "published", "ended"]).optional(),
 });
+
+/**
+ * @summary List contest registrations
+ */
+export const GetAdminContestsRegistrationsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  contestId: zod.coerce.number().optional(),
+  trackId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+  userId: zod.coerce.number().optional(),
+});
+
+export const GetAdminContestsRegistrationsResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        contestId: zod.number(),
+        trackId: zod.number(),
+        userId: zod.number(),
+        status: zod.enum([
+          "registered",
+          "test_submitted",
+          "test_passed",
+          "test_failed",
+          "assignment_submitted",
+          "assignment_passed",
+          "assignment_failed",
+        ]),
+        testSubmittedAt: zod.date().nullish(),
+        testContent: zod.string().nullish(),
+        testAttachments: zod.array(zod.unknown()),
+        testUrls: zod.array(zod.unknown()),
+        testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+        assignmentSubmittedAt: zod.date().nullish(),
+        assignmentContent: zod.string().nullish(),
+        assignmentAttachments: zod.array(zod.unknown()),
+        assignmentUrls: zod.array(zod.unknown()),
+        assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+        gradeNote: zod.string().nullish(),
+        createdAt: zod.date(),
+        updatedAt: zod.date(),
+      })
+      .and(
+        zod.object({
+          userNickname: zod.string().nullish(),
+          userPhone: zod.string().nullish(),
+          contestTitle: zod.string().nullish(),
+          contestPublicAt: zod.date().nullish(),
+          catName: zod.string().nullish(),
+          catColorHex: zod.string().nullish(),
+          daysToPublic: zod.number().nullish(),
+        }),
+      ),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Get registration detail with questions
+ */
+export const GetAdminContestsRegistrationsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminContestsRegistrationsIdResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  userId: zod.number(),
+  status: zod.enum([
+    "registered",
+    "test_submitted",
+    "test_passed",
+    "test_failed",
+    "assignment_submitted",
+    "assignment_passed",
+    "assignment_failed",
+  ]),
+  testSubmittedAt: zod.date().nullish(),
+  testContent: zod.string().nullish(),
+  testAttachments: zod.array(zod.unknown()),
+  testUrls: zod.array(zod.unknown()),
+  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  assignmentContent: zod.string().nullish(),
+  assignmentAttachments: zod.array(zod.unknown()),
+  assignmentUrls: zod.array(zod.unknown()),
+  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  gradeNote: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Grade test submission
+ */
+export const PostAdminContestsRegistrationsIdGradeTestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PostAdminContestsRegistrationsIdGradeTestBody = zod.object({
+  grade: zod.enum(["A", "B", "C", "fail"]),
+  note: zod.string().optional(),
+});
+
+export const PostAdminContestsRegistrationsIdGradeTestResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  userId: zod.number(),
+  status: zod.enum([
+    "registered",
+    "test_submitted",
+    "test_passed",
+    "test_failed",
+    "assignment_submitted",
+    "assignment_passed",
+    "assignment_failed",
+  ]),
+  testSubmittedAt: zod.date().nullish(),
+  testContent: zod.string().nullish(),
+  testAttachments: zod.array(zod.unknown()),
+  testUrls: zod.array(zod.unknown()),
+  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  assignmentContent: zod.string().nullish(),
+  assignmentAttachments: zod.array(zod.unknown()),
+  assignmentUrls: zod.array(zod.unknown()),
+  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  gradeNote: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Grade assignment submission
+ */
+export const PostAdminContestsRegistrationsIdGradeAssignmentParams = zod.object(
+  {
+    id: zod.coerce.number(),
+  },
+);
+
+export const PostAdminContestsRegistrationsIdGradeAssignmentBody = zod.object({
+  grade: zod.enum(["A", "B", "C", "fail"]),
+  note: zod.string().optional(),
+});
+
+export const PostAdminContestsRegistrationsIdGradeAssignmentResponse =
+  zod.object({
+    id: zod.number(),
+    contestId: zod.number(),
+    trackId: zod.number(),
+    userId: zod.number(),
+    status: zod.enum([
+      "registered",
+      "test_submitted",
+      "test_passed",
+      "test_failed",
+      "assignment_submitted",
+      "assignment_passed",
+      "assignment_failed",
+    ]),
+    testSubmittedAt: zod.date().nullish(),
+    testContent: zod.string().nullish(),
+    testAttachments: zod.array(zod.unknown()),
+    testUrls: zod.array(zod.unknown()),
+    testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+    assignmentSubmittedAt: zod.date().nullish(),
+    assignmentContent: zod.string().nullish(),
+    assignmentAttachments: zod.array(zod.unknown()),
+    assignmentUrls: zod.array(zod.unknown()),
+    assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+    gradeNote: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  });
 
 /**
  * @summary Get contest with tracks
@@ -2305,6 +2486,34 @@ export const DeleteAdminContestsIdParams = zod.object({
 });
 
 /**
+ * @summary List tracks for a contest
+ */
+export const GetAdminContestsIdTracksParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminContestsIdTracksResponseItem = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  catCategoryId: zod.number(),
+  catName: zod.string().nullish(),
+  catColorHex: zod.string().nullish(),
+  testQuestionId: zod.number().nullish(),
+  aQuestionId: zod.number().nullish(),
+  bQuestionId: zod.number().nullish(),
+  cQuestionId: zod.number().nullish(),
+  testDurationHours: zod.number(),
+  aDurationHours: zod.number(),
+  bDurationHours: zod.number(),
+  cDurationHours: zod.number(),
+  quotaTotal: zod.number(),
+  quotaUsed: zod.number(),
+});
+export const GetAdminContestsIdTracksResponse = zod.array(
+  GetAdminContestsIdTracksResponseItem,
+);
+
+/**
  * @summary Add track to contest
  */
 export const PostAdminContestsIdTracksParams = zod.object({
@@ -2327,11 +2536,12 @@ export const PostAdminContestsIdTracksBody = zod.object({
 /**
  * @summary Update contest track
  */
-export const PutAdminContestTracksTrackIdParams = zod.object({
+export const PutAdminContestsIdTracksTrackIdParams = zod.object({
+  id: zod.coerce.number(),
   trackId: zod.coerce.number(),
 });
 
-export const PutAdminContestTracksTrackIdBody = zod.object({
+export const PutAdminContestsIdTracksTrackIdBody = zod.object({
   catCategoryId: zod.number(),
   testQuestionId: zod.number().nullish(),
   aQuestionId: zod.number().nullish(),
@@ -2344,7 +2554,7 @@ export const PutAdminContestTracksTrackIdBody = zod.object({
   quotaTotal: zod.number().optional(),
 });
 
-export const PutAdminContestTracksTrackIdResponse = zod.object({
+export const PutAdminContestsIdTracksTrackIdResponse = zod.object({
   id: zod.number(),
   contestId: zod.number(),
   catCategoryId: zod.number(),
@@ -2365,64 +2575,42 @@ export const PutAdminContestTracksTrackIdResponse = zod.object({
 /**
  * @summary Delete contest track
  */
-export const DeleteAdminContestTracksTrackIdParams = zod.object({
+export const DeleteAdminContestsIdTracksTrackIdParams = zod.object({
+  id: zod.coerce.number(),
   trackId: zod.coerce.number(),
 });
 
 /**
- * @summary List contest registrations
+ * @summary Get my contest registrations
  */
-export const GetAdminContestRegistrationsQueryParams = zod.object({
+export const GetContestsMyQueryParams = zod.object({
   page: zod.coerce.number().optional(),
   pageSize: zod.coerce.number().optional(),
-  contestId: zod.coerce.number().optional(),
-  trackId: zod.coerce.number().optional(),
-  status: zod.coerce.string().optional(),
-  userId: zod.coerce.number().optional(),
 });
 
-export const GetAdminContestRegistrationsResponse = zod.object({
+export const GetContestsMyResponse = zod.object({
   items: zod.array(
-    zod
-      .object({
-        id: zod.number(),
-        contestId: zod.number(),
-        trackId: zod.number(),
-        userId: zod.number(),
-        status: zod.enum([
-          "registered",
-          "test_submitted",
-          "test_passed",
-          "test_failed",
-          "assignment_submitted",
-          "assignment_passed",
-          "assignment_failed",
-        ]),
-        testSubmittedAt: zod.date().nullish(),
-        testContent: zod.string().nullish(),
-        testAttachments: zod.array(zod.unknown()),
-        testUrls: zod.array(zod.unknown()),
-        testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-        assignmentSubmittedAt: zod.date().nullish(),
-        assignmentContent: zod.string().nullish(),
-        assignmentAttachments: zod.array(zod.unknown()),
-        assignmentUrls: zod.array(zod.unknown()),
-        assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-        gradeNote: zod.string().nullish(),
-        createdAt: zod.date(),
-        updatedAt: zod.date(),
-      })
-      .and(
-        zod.object({
-          userNickname: zod.string().nullish(),
-          userPhone: zod.string().nullish(),
-          contestTitle: zod.string().nullish(),
-          contestPublicAt: zod.date().nullish(),
-          catName: zod.string().nullish(),
-          catColorHex: zod.string().nullish(),
-          daysToPublic: zod.number().nullish(),
-        }),
-      ),
+    zod.object({
+      id: zod.number(),
+      contestId: zod.number(),
+      trackId: zod.number(),
+      status: zod.string(),
+      testGrade: zod.string().nullish(),
+      assignmentGrade: zod.string().nullish(),
+      testSubmittedAt: zod.date().nullish(),
+      assignmentSubmittedAt: zod.date().nullish(),
+      createdAt: zod.date(),
+      contestTitle: zod.string().nullish(),
+      contestBenefitAt: zod.date().nullish(),
+      contestDeadlineAt: zod.date().nullish(),
+      contestRegistrationAt: zod.date().nullish(),
+      catName: zod.string().nullish(),
+      catColorHex: zod.string().nullish(),
+      testDurationHours: zod.number().nullish(),
+      aDurationHours: zod.number().nullish(),
+      bDurationHours: zod.number().nullish(),
+      cDurationHours: zod.number().nullish(),
+    }),
   ),
   total: zod.number(),
   page: zod.number(),
@@ -2430,18 +2618,13 @@ export const GetAdminContestRegistrationsResponse = zod.object({
 });
 
 /**
- * @summary Grade test submission
+ * @summary Get my registration detail with questions
  */
-export const PostAdminContestRegistrationsIdGradeTestParams = zod.object({
-  id: zod.coerce.number(),
+export const GetContestsMyRegistrationIdParams = zod.object({
+  registrationId: zod.coerce.number(),
 });
 
-export const PostAdminContestRegistrationsIdGradeTestBody = zod.object({
-  grade: zod.enum(["A", "B", "C", "fail"]),
-  note: zod.string().optional(),
-});
-
-export const PostAdminContestRegistrationsIdGradeTestResponse = zod.object({
+export const GetContestsMyRegistrationIdResponse = zod.object({
   id: zod.number(),
   contestId: zod.number(),
   trackId: zod.number(),
@@ -2471,51 +2654,97 @@ export const PostAdminContestRegistrationsIdGradeTestResponse = zod.object({
 });
 
 /**
- * @summary Grade assignment submission
+ * @summary Submit test answer
  */
-export const PostAdminContestRegistrationsIdGradeAssignmentParams = zod.object({
+export const PutContestsRegistrationsIdTestParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const PostAdminContestRegistrationsIdGradeAssignmentBody = zod.object({
-  grade: zod.enum(["A", "B", "C", "fail"]),
-  note: zod.string().optional(),
+export const PutContestsRegistrationsIdTestBody = zod.object({
+  content: zod.string().optional(),
+  attachments: zod.array(zod.unknown()).optional(),
+  urls: zod.array(zod.string()).optional(),
 });
 
-export const PostAdminContestRegistrationsIdGradeAssignmentResponse =
-  zod.object({
-    id: zod.number(),
-    contestId: zod.number(),
-    trackId: zod.number(),
-    userId: zod.number(),
-    status: zod.enum([
-      "registered",
-      "test_submitted",
-      "test_passed",
-      "test_failed",
-      "assignment_submitted",
-      "assignment_passed",
-      "assignment_failed",
-    ]),
-    testSubmittedAt: zod.date().nullish(),
-    testContent: zod.string().nullish(),
-    testAttachments: zod.array(zod.unknown()),
-    testUrls: zod.array(zod.unknown()),
-    testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-    assignmentSubmittedAt: zod.date().nullish(),
-    assignmentContent: zod.string().nullish(),
-    assignmentAttachments: zod.array(zod.unknown()),
-    assignmentUrls: zod.array(zod.unknown()),
-    assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-    gradeNote: zod.string().nullish(),
-    createdAt: zod.date(),
-    updatedAt: zod.date(),
-  });
+export const PutContestsRegistrationsIdTestResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  userId: zod.number(),
+  status: zod.enum([
+    "registered",
+    "test_submitted",
+    "test_passed",
+    "test_failed",
+    "assignment_submitted",
+    "assignment_passed",
+    "assignment_failed",
+  ]),
+  testSubmittedAt: zod.date().nullish(),
+  testContent: zod.string().nullish(),
+  testAttachments: zod.array(zod.unknown()),
+  testUrls: zod.array(zod.unknown()),
+  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  assignmentContent: zod.string().nullish(),
+  assignmentAttachments: zod.array(zod.unknown()),
+  assignmentUrls: zod.array(zod.unknown()),
+  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  gradeNote: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
 
 /**
- * @summary Get active (published) contest public detail
+ * @summary Submit assignment answer
  */
-export const GetContestsActiveResponse = zod.object({
+export const PutContestsRegistrationsIdAssignmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PutContestsRegistrationsIdAssignmentBody = zod.object({
+  content: zod.string().optional(),
+  attachments: zod.array(zod.unknown()).optional(),
+  urls: zod.array(zod.string()).optional(),
+});
+
+export const PutContestsRegistrationsIdAssignmentResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  userId: zod.number(),
+  status: zod.enum([
+    "registered",
+    "test_submitted",
+    "test_passed",
+    "test_failed",
+    "assignment_submitted",
+    "assignment_passed",
+    "assignment_failed",
+  ]),
+  testSubmittedAt: zod.date().nullish(),
+  testContent: zod.string().nullish(),
+  testAttachments: zod.array(zod.unknown()),
+  testUrls: zod.array(zod.unknown()),
+  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  assignmentContent: zod.string().nullish(),
+  assignmentAttachments: zod.array(zod.unknown()),
+  assignmentUrls: zod.array(zod.unknown()),
+  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  gradeNote: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Get public contest detail by ID
+ */
+export const GetContestsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetContestsIdResponse = zod.object({
   id: zod.number(),
   title: zod.string(),
   details: zod.string(),
@@ -2548,9 +2777,13 @@ export const GetContestsActiveResponse = zod.object({
 });
 
 /**
- * @summary List passed users per track for the active contest
+ * @summary Get passed-user public list for a contest
  */
-export const GetContestsPublicListResponseItem = zod.object({
+export const GetContestsIdPublicListParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetContestsIdPublicListResponseItem = zod.object({
   trackId: zod.number(),
   catName: zod.string().nullish(),
   catColorHex: zod.string().nullish(),
@@ -2561,143 +2794,14 @@ export const GetContestsPublicListResponseItem = zod.object({
     }),
   ),
 });
-export const GetContestsPublicListResponse = zod.array(
-  GetContestsPublicListResponseItem,
+export const GetContestsIdPublicListResponse = zod.array(
+  GetContestsIdPublicListResponseItem,
 );
 
 /**
  * @summary Register for a contest track
  */
-export const PostContestsRegisterBody = zod.object({
-  contestId: zod.number(),
-  trackId: zod.number(),
-});
-
-/**
- * @summary Get my contest registrations
- */
-export const GetContestsMyResponseItem = zod.object({
-  id: zod.number(),
-  contestId: zod.number(),
-  trackId: zod.number(),
-  status: zod.string(),
-  testGrade: zod.string().nullish(),
-  assignmentGrade: zod.string().nullish(),
-  testSubmittedAt: zod.date().nullish(),
-  assignmentSubmittedAt: zod.date().nullish(),
-  createdAt: zod.date(),
-  contestTitle: zod.string().nullish(),
-  contestBenefitAt: zod.date().nullish(),
-  contestDeadlineAt: zod.date().nullish(),
-  contestRegistrationAt: zod.date().nullish(),
-  catName: zod.string().nullish(),
-  catColorHex: zod.string().nullish(),
-  testDurationHours: zod.number().nullish(),
-  aDurationHours: zod.number().nullish(),
-  bDurationHours: zod.number().nullish(),
-  cDurationHours: zod.number().nullish(),
-});
-export const GetContestsMyResponse = zod.array(GetContestsMyResponseItem);
-
-/**
- * @summary Submit test answer
- */
-export const PostContestsMyRegistrationIdSubmitTestParams = zod.object({
-  registrationId: zod.coerce.number(),
-});
-
-export const PostContestsMyRegistrationIdSubmitTestBody = zod.object({
-  content: zod.string().optional(),
-  attachments: zod.array(zod.unknown()).optional(),
-  urls: zod.array(zod.string()).optional(),
-});
-
-export const PostContestsMyRegistrationIdSubmitTestResponse = zod.object({
-  id: zod.number(),
-  contestId: zod.number(),
-  trackId: zod.number(),
-  userId: zod.number(),
-  status: zod.enum([
-    "registered",
-    "test_submitted",
-    "test_passed",
-    "test_failed",
-    "assignment_submitted",
-    "assignment_passed",
-    "assignment_failed",
-  ]),
-  testSubmittedAt: zod.date().nullish(),
-  testContent: zod.string().nullish(),
-  testAttachments: zod.array(zod.unknown()),
-  testUrls: zod.array(zod.unknown()),
-  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-  assignmentSubmittedAt: zod.date().nullish(),
-  assignmentContent: zod.string().nullish(),
-  assignmentAttachments: zod.array(zod.unknown()),
-  assignmentUrls: zod.array(zod.unknown()),
-  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-  gradeNote: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
-});
-
-/**
- * @summary Submit assignment answer
- */
-export const PostContestsMyRegistrationIdSubmitAssignmentParams = zod.object({
-  registrationId: zod.coerce.number(),
-});
-
-export const PostContestsMyRegistrationIdSubmitAssignmentBody = zod.object({
-  content: zod.string().optional(),
-  attachments: zod.array(zod.unknown()).optional(),
-  urls: zod.array(zod.string()).optional(),
-});
-
-export const PostContestsMyRegistrationIdSubmitAssignmentResponse = zod.object({
-  id: zod.number(),
-  contestId: zod.number(),
-  trackId: zod.number(),
-  userId: zod.number(),
-  status: zod.enum([
-    "registered",
-    "test_submitted",
-    "test_passed",
-    "test_failed",
-    "assignment_submitted",
-    "assignment_passed",
-    "assignment_failed",
-  ]),
-  testSubmittedAt: zod.date().nullish(),
-  testContent: zod.string().nullish(),
-  testAttachments: zod.array(zod.unknown()),
-  testUrls: zod.array(zod.unknown()),
-  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-  assignmentSubmittedAt: zod.date().nullish(),
-  assignmentContent: zod.string().nullish(),
-  assignmentAttachments: zod.array(zod.unknown()),
-  assignmentUrls: zod.array(zod.unknown()),
-  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
-  gradeNote: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
-});
-
-/**
- * @summary Get question for my registration (after deadline passed)
- */
-export const GetContestsMyRegistrationIdQuestionParams = zod.object({
-  registrationId: zod.coerce.number(),
-});
-
-export const GetContestsMyRegistrationIdQuestionResponse = zod.object({
-  id: zod.number(),
-  catCategoryId: zod.number(),
-  catName: zod.string().nullish(),
-  catColorHex: zod.string().nullish(),
-  title: zod.string(),
-  content: zod.string(),
-  attachments: zod.array(zod.unknown()),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+export const PostContestsIdTracksTrackIdRegisterParams = zod.object({
+  id: zod.coerce.number(),
+  trackId: zod.coerce.number(),
 });

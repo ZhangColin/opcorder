@@ -1636,7 +1636,7 @@ paths:
         "404":
           description: Not found
 
-  /admin/contest-questions:
+  /admin/contests/questions:
     get:
       tags: [Admin]
       summary: List contest questions
@@ -1688,7 +1688,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ContestQuestion"
 
-  /admin/contest-questions/{id}:
+  /admin/contests/questions/{id}:
     get:
       tags: [Admin]
       summary: Get contest question
@@ -1789,6 +1789,115 @@ paths:
               schema:
                 $ref: "#/components/schemas/Contest"
 
+  /admin/contests/registrations:
+    get:
+      tags: [Admin]
+      summary: List contest registrations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: pageSize
+          schema: { type: integer }
+        - in: query
+          name: contestId
+          schema: { type: integer }
+        - in: query
+          name: trackId
+          schema: { type: integer }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: userId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContestRegistrationAdminRow"
+                  total: { type: integer }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                required: [items, total, page, pageSize]
+
+  /admin/contests/registrations/{id}:
+    get:
+      tags: [Admin]
+      summary: Get registration detail with questions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+        "404":
+          description: Not found
+
+  /admin/contests/registrations/{id}/grade-test:
+    post:
+      tags: [Admin]
+      summary: Grade test submission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestGradeInput"
+      responses:
+        "200":
+          description: Graded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
+  /admin/contests/registrations/{id}/grade-assignment:
+    post:
+      tags: [Admin]
+      summary: Grade assignment submission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestGradeInput"
+      responses:
+        "200":
+          description: Graded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
   /admin/contests/{id}:
     get:
       tags: [Admin]
@@ -1842,6 +1951,24 @@ paths:
           description: Deleted
 
   /admin/contests/{id}/tracks:
+    get:
+      tags: [Admin]
+      summary: List tracks for a contest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContestTrack"
     post:
       tags: [Admin]
       summary: Add track to contest
@@ -1865,12 +1992,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ContestTrack"
 
-  /admin/contest-tracks/{trackId}:
+  /admin/contests/{id}/tracks/{trackId}:
     put:
       tags: [Admin]
       summary: Update contest track
       security: [{ bearerAuth: [] }]
       parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
         - in: path
           name: trackId
           required: true
@@ -1894,6 +2025,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+        - in: path
           name: trackId
           required: true
           schema: { type: integer }
@@ -1901,10 +2036,10 @@ paths:
         "200":
           description: Deleted
 
-  /admin/contest-registrations:
+  /contests/my:
     get:
-      tags: [Admin]
-      summary: List contest registrations
+      tags: [Contests]
+      summary: Get my contest registrations
       security: [{ bearerAuth: [] }]
       parameters:
         - in: query
@@ -1912,18 +2047,6 @@ paths:
           schema: { type: integer }
         - in: query
           name: pageSize
-          schema: { type: integer }
-        - in: query
-          name: contestId
-          schema: { type: integer }
-        - in: query
-          name: trackId
-          schema: { type: integer }
-        - in: query
-          name: status
-          schema: { type: string }
-        - in: query
-          name: userId
           schema: { type: integer }
       responses:
         "200":
@@ -1936,65 +2059,91 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: "#/components/schemas/ContestRegistrationAdminRow"
+                      $ref: "#/components/schemas/ContestMyListItem"
                   total: { type: integer }
                   page: { type: integer }
                   pageSize: { type: integer }
                 required: [items, total, page, pageSize]
 
-  /admin/contest-registrations/{id}/grade-test:
-    post:
-      tags: [Admin]
-      summary: Grade test submission
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ContestGradeInput"
-      responses:
-        "200":
-          description: Graded
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ContestRegistration"
-
-  /admin/contest-registrations/{id}/grade-assignment:
-    post:
-      tags: [Admin]
-      summary: Grade assignment submission
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ContestGradeInput"
-      responses:
-        "200":
-          description: Graded
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ContestRegistration"
-
-  /contests/active:
+  /contests/my/{registrationId}:
     get:
       tags: [Contests]
-      summary: Get active (published) contest public detail
+      summary: Get my registration detail with questions
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: registrationId
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+
+  /contests/registrations/{id}/test:
+    put:
+      tags: [Contests]
+      summary: Submit test answer
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestSubmitTestInput"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
+  /contests/registrations/{id}/assignment:
+    put:
+      tags: [Contests]
+      summary: Submit assignment answer
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestSubmitTestInput"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
+  /contests/{id}:
+    get:
+      tags: [Contests]
+      summary: Get public contest detail by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
       responses:
         "200":
           description: OK
@@ -2003,12 +2152,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ContestPublicDetail"
         "404":
-          description: No active contest
+          description: Not found or not yet announced
 
-  /contests/public-list:
+  /contests/{id}/public-list:
     get:
       tags: [Contests]
-      summary: List passed users per track for the active contest
+      summary: Get passed-user public list for a contest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
       responses:
         "200":
           description: OK
@@ -2018,22 +2172,23 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PublicListTrack"
+        "403":
+          description: Public date not yet reached
 
-  /contests/register:
+  /contests/{id}/tracks/{trackId}/register:
     post:
       tags: [Contests]
       summary: Register for a contest track
       security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                contestId: { type: integer }
-                trackId: { type: integer }
-              required: [contestId, trackId]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+        - in: path
+          name: trackId
+          required: true
+          schema: { type: integer }
       responses:
         "201":
           description: Registered
@@ -2041,91 +2196,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ContestRegistration"
+        "400":
+          description: Quota full or outside registration window
         "409":
           description: Already registered
-
-  /contests/my:
-    get:
-      tags: [Contests]
-      summary: Get my contest registrations
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ContestMyListItem"
-
-  /contests/my/{registrationId}/submit-test:
-    post:
-      tags: [Contests]
-      summary: Submit test answer
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: registrationId
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ContestSubmitTestInput"
-      responses:
-        "200":
-          description: Submitted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ContestRegistration"
-
-  /contests/my/{registrationId}/submit-assignment:
-    post:
-      tags: [Contests]
-      summary: Submit assignment answer
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: registrationId
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ContestSubmitTestInput"
-      responses:
-        "200":
-          description: Submitted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ContestRegistration"
-
-  /contests/my/{registrationId}/question:
-    get:
-      tags: [Contests]
-      summary: Get question for my registration (after deadline passed)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: registrationId
-          required: true
-          schema: { type: integer }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ContestQuestion"
-        "403":
-          description: Not yet available or not eligible
 
 components:
   schemas:
@@ -3723,3 +3797,64 @@ components:
               nickname: { type: string, nullable: true }
               avatar: { type: string, nullable: true }
       required: [trackId, passedUsers]
+
+    SubmitOrderPaymentBody:
+      type: object
+      properties:
+        method:
+          type: string
+        receiptUrl:
+          type: string
+          nullable: true
+        paymentNote:
+          type: string
+          nullable: true
+      required: [method]
+
+    CloseOrderBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          nullable: true
+
+    CreateQuoteDimensionBody:
+      type: object
+      properties:
+        category: { type: string, nullable: true }
+        layer: { type: string }
+        code: { type: string }
+        label: { type: string }
+        description: { type: string, nullable: true }
+        sortOrder: { type: integer, nullable: true }
+        catCategoryId: { type: integer, nullable: true }
+      required: [layer, code, label]
+
+    UpdateQuoteDimensionBody:
+      type: object
+      properties:
+        label: { type: string }
+        description: { type: string, nullable: true }
+        sortOrder: { type: integer }
+        isActive: { type: boolean }
+
+    CreateQuoteTierBody:
+      type: object
+      properties:
+        dimensionId: { type: integer }
+        tier: { type: string }
+        tierLabel: { type: string }
+        basePrice: { type: number, nullable: true }
+        coefficient: { type: number, nullable: true }
+        description: { type: string, nullable: true }
+        sortOrder: { type: integer, nullable: true }
+      required: [dimensionId, tier, tierLabel]
+
+    UpdateQuoteTierBody:
+      type: object
+      properties:
+        tierLabel: { type: string }
+        basePrice: { type: number, nullable: true }
+        coefficient: { type: number, nullable: true }
+        description: { type: string, nullable: true }
+        sortOrder: { type: integer }

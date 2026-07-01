@@ -40,7 +40,6 @@ import type {
   ContestDetail,
   ContestGradeInput,
   ContestInput,
-  ContestMyListItem,
   ContestPublicDetail,
   ContestQuestion,
   ContestQuestionInput,
@@ -64,14 +63,16 @@ import type {
   EnrollCourseBody,
   Enrollment,
   EnrollmentWithCourse,
-  GetAdminContestQuestions200,
-  GetAdminContestQuestionsParams,
-  GetAdminContestRegistrations200,
-  GetAdminContestRegistrationsParams,
   GetAdminContests200,
   GetAdminContestsParams,
+  GetAdminContestsQuestions200,
+  GetAdminContestsQuestionsParams,
+  GetAdminContestsRegistrations200,
+  GetAdminContestsRegistrationsParams,
   GetAgentDemandAnalysisStatus200,
   GetAgentDemandHistoryParams,
+  GetContestsMy200,
+  GetContestsMyParams,
   GetOpcLeaderboardParams,
   HealthStatus,
   ListCoursesParams,
@@ -93,7 +94,6 @@ import type {
   Portfolio,
   Post,
   PostComment,
-  PostContestsRegisterBody,
   PostListResponse,
   PublicListTrack,
   RefundDemandPayment200,
@@ -5807,8 +5807,8 @@ export const useUpdateAgentConfig = <
 /**
  * @summary List contest questions
  */
-export const getGetAdminContestQuestionsUrl = (
-  params?: GetAdminContestQuestionsParams,
+export const getGetAdminContestsQuestionsUrl = (
+  params?: GetAdminContestsQuestionsParams,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -5821,16 +5821,16 @@ export const getGetAdminContestQuestionsUrl = (
   const stringifiedParams = normalizedParams.toString();
 
   return stringifiedParams.length > 0
-    ? `/api/admin/contest-questions?${stringifiedParams}`
-    : `/api/admin/contest-questions`;
+    ? `/api/admin/contests/questions?${stringifiedParams}`
+    : `/api/admin/contests/questions`;
 };
 
-export const getAdminContestQuestions = async (
-  params?: GetAdminContestQuestionsParams,
+export const getAdminContestsQuestions = async (
+  params?: GetAdminContestsQuestionsParams,
   options?: RequestInit,
-): Promise<GetAdminContestQuestions200> => {
-  return customFetch<GetAdminContestQuestions200>(
-    getGetAdminContestQuestionsUrl(params),
+): Promise<GetAdminContestsQuestions200> => {
+  return customFetch<GetAdminContestsQuestions200>(
+    getGetAdminContestsQuestionsUrl(params),
     {
       ...options,
       method: "GET",
@@ -5838,20 +5838,23 @@ export const getAdminContestQuestions = async (
   );
 };
 
-export const getGetAdminContestQuestionsQueryKey = (
-  params?: GetAdminContestQuestionsParams,
+export const getGetAdminContestsQuestionsQueryKey = (
+  params?: GetAdminContestsQuestionsParams,
 ) => {
-  return [`/api/admin/contest-questions`, ...(params ? [params] : [])] as const;
+  return [
+    `/api/admin/contests/questions`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
-export const getGetAdminContestQuestionsQueryOptions = <
-  TData = Awaited<ReturnType<typeof getAdminContestQuestions>>,
+export const getGetAdminContestsQuestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminContestsQuestions>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetAdminContestQuestionsParams,
+  params?: GetAdminContestsQuestionsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAdminContestQuestions>>,
+      Awaited<ReturnType<typeof getAdminContestsQuestions>>,
       TError,
       TData
     >;
@@ -5861,44 +5864,47 @@ export const getGetAdminContestQuestionsQueryOptions = <
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetAdminContestQuestionsQueryKey(params);
+    queryOptions?.queryKey ?? getGetAdminContestsQuestionsQueryKey(params);
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getAdminContestQuestions>>
+    Awaited<ReturnType<typeof getAdminContestsQuestions>>
   > = ({ signal }) =>
-    getAdminContestQuestions(params, { signal, ...requestOptions });
+    getAdminContestsQuestions(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getAdminContestQuestions>>,
+    Awaited<ReturnType<typeof getAdminContestsQuestions>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type GetAdminContestQuestionsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getAdminContestQuestions>>
+export type GetAdminContestsQuestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminContestsQuestions>>
 >;
-export type GetAdminContestQuestionsQueryError = ErrorType<unknown>;
+export type GetAdminContestsQuestionsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List contest questions
  */
 
-export function useGetAdminContestQuestions<
-  TData = Awaited<ReturnType<typeof getAdminContestQuestions>>,
+export function useGetAdminContestsQuestions<
+  TData = Awaited<ReturnType<typeof getAdminContestsQuestions>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetAdminContestQuestionsParams,
+  params?: GetAdminContestsQuestionsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAdminContestQuestions>>,
+      Awaited<ReturnType<typeof getAdminContestsQuestions>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAdminContestQuestionsQueryOptions(params, options);
+  const queryOptions = getGetAdminContestsQuestionsQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -5910,15 +5916,15 @@ export function useGetAdminContestQuestions<
 /**
  * @summary Create contest question
  */
-export const getPostAdminContestQuestionsUrl = () => {
-  return `/api/admin/contest-questions`;
+export const getPostAdminContestsQuestionsUrl = () => {
+  return `/api/admin/contests/questions`;
 };
 
-export const postAdminContestQuestions = async (
+export const postAdminContestsQuestions = async (
   contestQuestionInput: ContestQuestionInput,
   options?: RequestInit,
 ): Promise<ContestQuestion> => {
-  return customFetch<ContestQuestion>(getPostAdminContestQuestionsUrl(), {
+  return customFetch<ContestQuestion>(getPostAdminContestsQuestionsUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -5926,24 +5932,24 @@ export const postAdminContestQuestions = async (
   });
 };
 
-export const getPostAdminContestQuestionsMutationOptions = <
+export const getPostAdminContestsQuestionsMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postAdminContestQuestions>>,
+    Awaited<ReturnType<typeof postAdminContestsQuestions>>,
     TError,
     { data: BodyType<ContestQuestionInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof postAdminContestQuestions>>,
+  Awaited<ReturnType<typeof postAdminContestsQuestions>>,
   TError,
   { data: BodyType<ContestQuestionInput> },
   TContext
 > => {
-  const mutationKey = ["postAdminContestQuestions"];
+  const mutationKey = ["postAdminContestsQuestions"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -5953,76 +5959,76 @@ export const getPostAdminContestQuestionsMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof postAdminContestQuestions>>,
+    Awaited<ReturnType<typeof postAdminContestsQuestions>>,
     { data: BodyType<ContestQuestionInput> }
   > = (props) => {
     const { data } = props ?? {};
 
-    return postAdminContestQuestions(data, requestOptions);
+    return postAdminContestsQuestions(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type PostAdminContestQuestionsMutationResult = NonNullable<
-  Awaited<ReturnType<typeof postAdminContestQuestions>>
+export type PostAdminContestsQuestionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postAdminContestsQuestions>>
 >;
-export type PostAdminContestQuestionsMutationBody =
+export type PostAdminContestsQuestionsMutationBody =
   BodyType<ContestQuestionInput>;
-export type PostAdminContestQuestionsMutationError = ErrorType<unknown>;
+export type PostAdminContestsQuestionsMutationError = ErrorType<unknown>;
 
 /**
  * @summary Create contest question
  */
-export const usePostAdminContestQuestions = <
+export const usePostAdminContestsQuestions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postAdminContestQuestions>>,
+    Awaited<ReturnType<typeof postAdminContestsQuestions>>,
     TError,
     { data: BodyType<ContestQuestionInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof postAdminContestQuestions>>,
+  Awaited<ReturnType<typeof postAdminContestsQuestions>>,
   TError,
   { data: BodyType<ContestQuestionInput> },
   TContext
 > => {
-  return useMutation(getPostAdminContestQuestionsMutationOptions(options));
+  return useMutation(getPostAdminContestsQuestionsMutationOptions(options));
 };
 
 /**
  * @summary Get contest question
  */
-export const getGetAdminContestQuestionsIdUrl = (id: number) => {
-  return `/api/admin/contest-questions/${id}`;
+export const getGetAdminContestsQuestionsIdUrl = (id: number) => {
+  return `/api/admin/contests/questions/${id}`;
 };
 
-export const getAdminContestQuestionsId = async (
+export const getAdminContestsQuestionsId = async (
   id: number,
   options?: RequestInit,
 ): Promise<ContestQuestion> => {
-  return customFetch<ContestQuestion>(getGetAdminContestQuestionsIdUrl(id), {
+  return customFetch<ContestQuestion>(getGetAdminContestsQuestionsIdUrl(id), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetAdminContestQuestionsIdQueryKey = (id: number) => {
-  return [`/api/admin/contest-questions/${id}`] as const;
+export const getGetAdminContestsQuestionsIdQueryKey = (id: number) => {
+  return [`/api/admin/contests/questions/${id}`] as const;
 };
 
-export const getGetAdminContestQuestionsIdQueryOptions = <
-  TData = Awaited<ReturnType<typeof getAdminContestQuestionsId>>,
+export const getGetAdminContestsQuestionsIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminContestsQuestionsId>>,
   TError = ErrorType<unknown>,
 >(
   id: number,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAdminContestQuestionsId>>,
+      Awaited<ReturnType<typeof getAdminContestsQuestionsId>>,
       TError,
       TData
     >;
@@ -6032,12 +6038,12 @@ export const getGetAdminContestQuestionsIdQueryOptions = <
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getGetAdminContestQuestionsIdQueryKey(id);
+    queryOptions?.queryKey ?? getGetAdminContestsQuestionsIdQueryKey(id);
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getAdminContestQuestionsId>>
+    Awaited<ReturnType<typeof getAdminContestsQuestionsId>>
   > = ({ signal }) =>
-    getAdminContestQuestionsId(id, { signal, ...requestOptions });
+    getAdminContestsQuestionsId(id, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -6045,36 +6051,36 @@ export const getGetAdminContestQuestionsIdQueryOptions = <
     enabled: !!id,
     ...queryOptions,
   } as UseQueryOptions<
-    Awaited<ReturnType<typeof getAdminContestQuestionsId>>,
+    Awaited<ReturnType<typeof getAdminContestsQuestionsId>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type GetAdminContestQuestionsIdQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getAdminContestQuestionsId>>
+export type GetAdminContestsQuestionsIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminContestsQuestionsId>>
 >;
-export type GetAdminContestQuestionsIdQueryError = ErrorType<unknown>;
+export type GetAdminContestsQuestionsIdQueryError = ErrorType<unknown>;
 
 /**
  * @summary Get contest question
  */
 
-export function useGetAdminContestQuestionsId<
-  TData = Awaited<ReturnType<typeof getAdminContestQuestionsId>>,
+export function useGetAdminContestsQuestionsId<
+  TData = Awaited<ReturnType<typeof getAdminContestsQuestionsId>>,
   TError = ErrorType<unknown>,
 >(
   id: number,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAdminContestQuestionsId>>,
+      Awaited<ReturnType<typeof getAdminContestsQuestionsId>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAdminContestQuestionsIdQueryOptions(id, options);
+  const queryOptions = getGetAdminContestsQuestionsIdQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -6086,16 +6092,16 @@ export function useGetAdminContestQuestionsId<
 /**
  * @summary Update contest question
  */
-export const getPutAdminContestQuestionsIdUrl = (id: number) => {
-  return `/api/admin/contest-questions/${id}`;
+export const getPutAdminContestsQuestionsIdUrl = (id: number) => {
+  return `/api/admin/contests/questions/${id}`;
 };
 
-export const putAdminContestQuestionsId = async (
+export const putAdminContestsQuestionsId = async (
   id: number,
   contestQuestionInput: ContestQuestionInput,
   options?: RequestInit,
 ): Promise<ContestQuestion> => {
-  return customFetch<ContestQuestion>(getPutAdminContestQuestionsIdUrl(id), {
+  return customFetch<ContestQuestion>(getPutAdminContestsQuestionsIdUrl(id), {
     ...options,
     method: "PUT",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -6103,24 +6109,24 @@ export const putAdminContestQuestionsId = async (
   });
 };
 
-export const getPutAdminContestQuestionsIdMutationOptions = <
+export const getPutAdminContestsQuestionsIdMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putAdminContestQuestionsId>>,
+    Awaited<ReturnType<typeof putAdminContestsQuestionsId>>,
     TError,
     { id: number; data: BodyType<ContestQuestionInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof putAdminContestQuestionsId>>,
+  Awaited<ReturnType<typeof putAdminContestsQuestionsId>>,
   TError,
   { id: number; data: BodyType<ContestQuestionInput> },
   TContext
 > => {
-  const mutationKey = ["putAdminContestQuestionsId"];
+  const mutationKey = ["putAdminContestsQuestionsId"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -6130,82 +6136,82 @@ export const getPutAdminContestQuestionsIdMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putAdminContestQuestionsId>>,
+    Awaited<ReturnType<typeof putAdminContestsQuestionsId>>,
     { id: number; data: BodyType<ContestQuestionInput> }
   > = (props) => {
     const { id, data } = props ?? {};
 
-    return putAdminContestQuestionsId(id, data, requestOptions);
+    return putAdminContestsQuestionsId(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type PutAdminContestQuestionsIdMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putAdminContestQuestionsId>>
+export type PutAdminContestsQuestionsIdMutationResult = NonNullable<
+  Awaited<ReturnType<typeof putAdminContestsQuestionsId>>
 >;
-export type PutAdminContestQuestionsIdMutationBody =
+export type PutAdminContestsQuestionsIdMutationBody =
   BodyType<ContestQuestionInput>;
-export type PutAdminContestQuestionsIdMutationError = ErrorType<unknown>;
+export type PutAdminContestsQuestionsIdMutationError = ErrorType<unknown>;
 
 /**
  * @summary Update contest question
  */
-export const usePutAdminContestQuestionsId = <
+export const usePutAdminContestsQuestionsId = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putAdminContestQuestionsId>>,
+    Awaited<ReturnType<typeof putAdminContestsQuestionsId>>,
     TError,
     { id: number; data: BodyType<ContestQuestionInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof putAdminContestQuestionsId>>,
+  Awaited<ReturnType<typeof putAdminContestsQuestionsId>>,
   TError,
   { id: number; data: BodyType<ContestQuestionInput> },
   TContext
 > => {
-  return useMutation(getPutAdminContestQuestionsIdMutationOptions(options));
+  return useMutation(getPutAdminContestsQuestionsIdMutationOptions(options));
 };
 
 /**
  * @summary Delete contest question
  */
-export const getDeleteAdminContestQuestionsIdUrl = (id: number) => {
-  return `/api/admin/contest-questions/${id}`;
+export const getDeleteAdminContestsQuestionsIdUrl = (id: number) => {
+  return `/api/admin/contests/questions/${id}`;
 };
 
-export const deleteAdminContestQuestionsId = async (
+export const deleteAdminContestsQuestionsId = async (
   id: number,
   options?: RequestInit,
 ): Promise<void> => {
-  return customFetch<void>(getDeleteAdminContestQuestionsIdUrl(id), {
+  return customFetch<void>(getDeleteAdminContestsQuestionsIdUrl(id), {
     ...options,
     method: "DELETE",
   });
 };
 
-export const getDeleteAdminContestQuestionsIdMutationOptions = <
+export const getDeleteAdminContestsQuestionsIdMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteAdminContestQuestionsId>>,
+    Awaited<ReturnType<typeof deleteAdminContestsQuestionsId>>,
     TError,
     { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof deleteAdminContestQuestionsId>>,
+  Awaited<ReturnType<typeof deleteAdminContestsQuestionsId>>,
   TError,
   { id: number },
   TContext
 > => {
-  const mutationKey = ["deleteAdminContestQuestionsId"];
+  const mutationKey = ["deleteAdminContestsQuestionsId"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -6215,44 +6221,44 @@ export const getDeleteAdminContestQuestionsIdMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof deleteAdminContestQuestionsId>>,
+    Awaited<ReturnType<typeof deleteAdminContestsQuestionsId>>,
     { id: number }
   > = (props) => {
     const { id } = props ?? {};
 
-    return deleteAdminContestQuestionsId(id, requestOptions);
+    return deleteAdminContestsQuestionsId(id, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type DeleteAdminContestQuestionsIdMutationResult = NonNullable<
-  Awaited<ReturnType<typeof deleteAdminContestQuestionsId>>
+export type DeleteAdminContestsQuestionsIdMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminContestsQuestionsId>>
 >;
 
-export type DeleteAdminContestQuestionsIdMutationError = ErrorType<unknown>;
+export type DeleteAdminContestsQuestionsIdMutationError = ErrorType<unknown>;
 
 /**
  * @summary Delete contest question
  */
-export const useDeleteAdminContestQuestionsId = <
+export const useDeleteAdminContestsQuestionsId = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteAdminContestQuestionsId>>,
+    Awaited<ReturnType<typeof deleteAdminContestsQuestionsId>>,
     TError,
     { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof deleteAdminContestQuestionsId>>,
+  Awaited<ReturnType<typeof deleteAdminContestsQuestionsId>>,
   TError,
   { id: number },
   TContext
 > => {
-  return useMutation(getDeleteAdminContestQuestionsIdMutationOptions(options));
+  return useMutation(getDeleteAdminContestsQuestionsIdMutationOptions(options));
 };
 
 /**
@@ -6436,6 +6442,408 @@ export const usePostAdminContests = <
   TContext
 > => {
   return useMutation(getPostAdminContestsMutationOptions(options));
+};
+
+/**
+ * @summary List contest registrations
+ */
+export const getGetAdminContestsRegistrationsUrl = (
+  params?: GetAdminContestsRegistrationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/contests/registrations?${stringifiedParams}`
+    : `/api/admin/contests/registrations`;
+};
+
+export const getAdminContestsRegistrations = async (
+  params?: GetAdminContestsRegistrationsParams,
+  options?: RequestInit,
+): Promise<GetAdminContestsRegistrations200> => {
+  return customFetch<GetAdminContestsRegistrations200>(
+    getGetAdminContestsRegistrationsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminContestsRegistrationsQueryKey = (
+  params?: GetAdminContestsRegistrationsParams,
+) => {
+  return [
+    `/api/admin/contests/registrations`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetAdminContestsRegistrationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminContestsRegistrations>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAdminContestsRegistrationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminContestsRegistrations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminContestsRegistrationsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminContestsRegistrations>>
+  > = ({ signal }) =>
+    getAdminContestsRegistrations(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminContestsRegistrations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminContestsRegistrationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminContestsRegistrations>>
+>;
+export type GetAdminContestsRegistrationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List contest registrations
+ */
+
+export function useGetAdminContestsRegistrations<
+  TData = Awaited<ReturnType<typeof getAdminContestsRegistrations>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAdminContestsRegistrationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminContestsRegistrations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminContestsRegistrationsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get registration detail with questions
+ */
+export const getGetAdminContestsRegistrationsIdUrl = (id: number) => {
+  return `/api/admin/contests/registrations/${id}`;
+};
+
+export const getAdminContestsRegistrationsId = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ContestRegistration> => {
+  return customFetch<ContestRegistration>(
+    getGetAdminContestsRegistrationsIdUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminContestsRegistrationsIdQueryKey = (id: number) => {
+  return [`/api/admin/contests/registrations/${id}`] as const;
+};
+
+export const getGetAdminContestsRegistrationsIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminContestsRegistrationsId>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminContestsRegistrationsId>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminContestsRegistrationsIdQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminContestsRegistrationsId>>
+  > = ({ signal }) =>
+    getAdminContestsRegistrationsId(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminContestsRegistrationsId>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminContestsRegistrationsIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminContestsRegistrationsId>>
+>;
+export type GetAdminContestsRegistrationsIdQueryError = ErrorType<void>;
+
+/**
+ * @summary Get registration detail with questions
+ */
+
+export function useGetAdminContestsRegistrationsId<
+  TData = Awaited<ReturnType<typeof getAdminContestsRegistrationsId>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminContestsRegistrationsId>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminContestsRegistrationsIdQueryOptions(
+    id,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Grade test submission
+ */
+export const getPostAdminContestsRegistrationsIdGradeTestUrl = (id: number) => {
+  return `/api/admin/contests/registrations/${id}/grade-test`;
+};
+
+export const postAdminContestsRegistrationsIdGradeTest = async (
+  id: number,
+  contestGradeInput: ContestGradeInput,
+  options?: RequestInit,
+): Promise<ContestRegistration> => {
+  return customFetch<ContestRegistration>(
+    getPostAdminContestsRegistrationsIdGradeTestUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(contestGradeInput),
+    },
+  );
+};
+
+export const getPostAdminContestsRegistrationsIdGradeTestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeTest>>,
+    TError,
+    { id: number; data: BodyType<ContestGradeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeTest>>,
+  TError,
+  { id: number; data: BodyType<ContestGradeInput> },
+  TContext
+> => {
+  const mutationKey = ["postAdminContestsRegistrationsIdGradeTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeTest>>,
+    { id: number; data: BodyType<ContestGradeInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return postAdminContestsRegistrationsIdGradeTest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostAdminContestsRegistrationsIdGradeTestMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeTest>>
+  >;
+export type PostAdminContestsRegistrationsIdGradeTestMutationBody =
+  BodyType<ContestGradeInput>;
+export type PostAdminContestsRegistrationsIdGradeTestMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Grade test submission
+ */
+export const usePostAdminContestsRegistrationsIdGradeTest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeTest>>,
+    TError,
+    { id: number; data: BodyType<ContestGradeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeTest>>,
+  TError,
+  { id: number; data: BodyType<ContestGradeInput> },
+  TContext
+> => {
+  return useMutation(
+    getPostAdminContestsRegistrationsIdGradeTestMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Grade assignment submission
+ */
+export const getPostAdminContestsRegistrationsIdGradeAssignmentUrl = (
+  id: number,
+) => {
+  return `/api/admin/contests/registrations/${id}/grade-assignment`;
+};
+
+export const postAdminContestsRegistrationsIdGradeAssignment = async (
+  id: number,
+  contestGradeInput: ContestGradeInput,
+  options?: RequestInit,
+): Promise<ContestRegistration> => {
+  return customFetch<ContestRegistration>(
+    getPostAdminContestsRegistrationsIdGradeAssignmentUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(contestGradeInput),
+    },
+  );
+};
+
+export const getPostAdminContestsRegistrationsIdGradeAssignmentMutationOptions =
+  <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof postAdminContestsRegistrationsIdGradeAssignment>
+      >,
+      TError,
+      { id: number; data: BodyType<ContestGradeInput> },
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  }): UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeAssignment>>,
+    TError,
+    { id: number; data: BodyType<ContestGradeInput> },
+    TContext
+  > => {
+    const mutationKey = ["postAdminContestsRegistrationsIdGradeAssignment"];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<typeof postAdminContestsRegistrationsIdGradeAssignment>
+      >,
+      { id: number; data: BodyType<ContestGradeInput> }
+    > = (props) => {
+      const { id, data } = props ?? {};
+
+      return postAdminContestsRegistrationsIdGradeAssignment(
+        id,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type PostAdminContestsRegistrationsIdGradeAssignmentMutationResult =
+  NonNullable<
+    Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeAssignment>>
+  >;
+export type PostAdminContestsRegistrationsIdGradeAssignmentMutationBody =
+  BodyType<ContestGradeInput>;
+export type PostAdminContestsRegistrationsIdGradeAssignmentMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Grade assignment submission
+ */
+export const usePostAdminContestsRegistrationsIdGradeAssignment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeAssignment>>,
+    TError,
+    { id: number; data: BodyType<ContestGradeInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postAdminContestsRegistrationsIdGradeAssignment>>,
+  TError,
+  { id: number; data: BodyType<ContestGradeInput> },
+  TContext
+> => {
+  return useMutation(
+    getPostAdminContestsRegistrationsIdGradeAssignmentMutationOptions(options),
+  );
 };
 
 /**
@@ -6697,6 +7105,95 @@ export const useDeleteAdminContestsId = <
 };
 
 /**
+ * @summary List tracks for a contest
+ */
+export const getGetAdminContestsIdTracksUrl = (id: number) => {
+  return `/api/admin/contests/${id}/tracks`;
+};
+
+export const getAdminContestsIdTracks = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ContestTrack[]> => {
+  return customFetch<ContestTrack[]>(getGetAdminContestsIdTracksUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminContestsIdTracksQueryKey = (id: number) => {
+  return [`/api/admin/contests/${id}/tracks`] as const;
+};
+
+export const getGetAdminContestsIdTracksQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminContestsIdTracks>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminContestsIdTracks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminContestsIdTracksQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminContestsIdTracks>>
+  > = ({ signal }) =>
+    getAdminContestsIdTracks(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminContestsIdTracks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminContestsIdTracksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminContestsIdTracks>>
+>;
+export type GetAdminContestsIdTracksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List tracks for a contest
+ */
+
+export function useGetAdminContestsIdTracks<
+  TData = Awaited<ReturnType<typeof getAdminContestsIdTracks>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminContestsIdTracks>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminContestsIdTracksQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Add track to contest
  */
 export const getPostAdminContestsIdTracksUrl = (id: number) => {
@@ -6786,17 +7283,21 @@ export const usePostAdminContestsIdTracks = <
 /**
  * @summary Update contest track
  */
-export const getPutAdminContestTracksTrackIdUrl = (trackId: number) => {
-  return `/api/admin/contest-tracks/${trackId}`;
+export const getPutAdminContestsIdTracksTrackIdUrl = (
+  id: number,
+  trackId: number,
+) => {
+  return `/api/admin/contests/${id}/tracks/${trackId}`;
 };
 
-export const putAdminContestTracksTrackId = async (
+export const putAdminContestsIdTracksTrackId = async (
+  id: number,
   trackId: number,
   contestTrackInput: ContestTrackInput,
   options?: RequestInit,
 ): Promise<ContestTrack> => {
   return customFetch<ContestTrack>(
-    getPutAdminContestTracksTrackIdUrl(trackId),
+    getPutAdminContestsIdTracksTrackIdUrl(id, trackId),
     {
       ...options,
       method: "PUT",
@@ -6806,24 +7307,24 @@ export const putAdminContestTracksTrackId = async (
   );
 };
 
-export const getPutAdminContestTracksTrackIdMutationOptions = <
+export const getPutAdminContestsIdTracksTrackIdMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putAdminContestTracksTrackId>>,
+    Awaited<ReturnType<typeof putAdminContestsIdTracksTrackId>>,
     TError,
-    { trackId: number; data: BodyType<ContestTrackInput> },
+    { id: number; trackId: number; data: BodyType<ContestTrackInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof putAdminContestTracksTrackId>>,
+  Awaited<ReturnType<typeof putAdminContestsIdTracksTrackId>>,
   TError,
-  { trackId: number; data: BodyType<ContestTrackInput> },
+  { id: number; trackId: number; data: BodyType<ContestTrackInput> },
   TContext
 > => {
-  const mutationKey = ["putAdminContestTracksTrackId"];
+  const mutationKey = ["putAdminContestsIdTracksTrackId"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -6833,82 +7334,91 @@ export const getPutAdminContestTracksTrackIdMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putAdminContestTracksTrackId>>,
-    { trackId: number; data: BodyType<ContestTrackInput> }
+    Awaited<ReturnType<typeof putAdminContestsIdTracksTrackId>>,
+    { id: number; trackId: number; data: BodyType<ContestTrackInput> }
   > = (props) => {
-    const { trackId, data } = props ?? {};
+    const { id, trackId, data } = props ?? {};
 
-    return putAdminContestTracksTrackId(trackId, data, requestOptions);
+    return putAdminContestsIdTracksTrackId(id, trackId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type PutAdminContestTracksTrackIdMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putAdminContestTracksTrackId>>
+export type PutAdminContestsIdTracksTrackIdMutationResult = NonNullable<
+  Awaited<ReturnType<typeof putAdminContestsIdTracksTrackId>>
 >;
-export type PutAdminContestTracksTrackIdMutationBody =
+export type PutAdminContestsIdTracksTrackIdMutationBody =
   BodyType<ContestTrackInput>;
-export type PutAdminContestTracksTrackIdMutationError = ErrorType<unknown>;
+export type PutAdminContestsIdTracksTrackIdMutationError = ErrorType<unknown>;
 
 /**
  * @summary Update contest track
  */
-export const usePutAdminContestTracksTrackId = <
+export const usePutAdminContestsIdTracksTrackId = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putAdminContestTracksTrackId>>,
+    Awaited<ReturnType<typeof putAdminContestsIdTracksTrackId>>,
     TError,
-    { trackId: number; data: BodyType<ContestTrackInput> },
+    { id: number; trackId: number; data: BodyType<ContestTrackInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof putAdminContestTracksTrackId>>,
+  Awaited<ReturnType<typeof putAdminContestsIdTracksTrackId>>,
   TError,
-  { trackId: number; data: BodyType<ContestTrackInput> },
+  { id: number; trackId: number; data: BodyType<ContestTrackInput> },
   TContext
 > => {
-  return useMutation(getPutAdminContestTracksTrackIdMutationOptions(options));
+  return useMutation(
+    getPutAdminContestsIdTracksTrackIdMutationOptions(options),
+  );
 };
 
 /**
  * @summary Delete contest track
  */
-export const getDeleteAdminContestTracksTrackIdUrl = (trackId: number) => {
-  return `/api/admin/contest-tracks/${trackId}`;
+export const getDeleteAdminContestsIdTracksTrackIdUrl = (
+  id: number,
+  trackId: number,
+) => {
+  return `/api/admin/contests/${id}/tracks/${trackId}`;
 };
 
-export const deleteAdminContestTracksTrackId = async (
+export const deleteAdminContestsIdTracksTrackId = async (
+  id: number,
   trackId: number,
   options?: RequestInit,
 ): Promise<void> => {
-  return customFetch<void>(getDeleteAdminContestTracksTrackIdUrl(trackId), {
-    ...options,
-    method: "DELETE",
-  });
+  return customFetch<void>(
+    getDeleteAdminContestsIdTracksTrackIdUrl(id, trackId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
 };
 
-export const getDeleteAdminContestTracksTrackIdMutationOptions = <
+export const getDeleteAdminContestsIdTracksTrackIdMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteAdminContestTracksTrackId>>,
+    Awaited<ReturnType<typeof deleteAdminContestsIdTracksTrackId>>,
     TError,
-    { trackId: number },
+    { id: number; trackId: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof deleteAdminContestTracksTrackId>>,
+  Awaited<ReturnType<typeof deleteAdminContestsIdTracksTrackId>>,
   TError,
-  { trackId: number },
+  { id: number; trackId: number },
   TContext
 > => {
-  const mutationKey = ["deleteAdminContestTracksTrackId"];
+  const mutationKey = ["deleteAdminContestsIdTracksTrackId"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -6918,54 +7428,53 @@ export const getDeleteAdminContestTracksTrackIdMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof deleteAdminContestTracksTrackId>>,
-    { trackId: number }
+    Awaited<ReturnType<typeof deleteAdminContestsIdTracksTrackId>>,
+    { id: number; trackId: number }
   > = (props) => {
-    const { trackId } = props ?? {};
+    const { id, trackId } = props ?? {};
 
-    return deleteAdminContestTracksTrackId(trackId, requestOptions);
+    return deleteAdminContestsIdTracksTrackId(id, trackId, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type DeleteAdminContestTracksTrackIdMutationResult = NonNullable<
-  Awaited<ReturnType<typeof deleteAdminContestTracksTrackId>>
+export type DeleteAdminContestsIdTracksTrackIdMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminContestsIdTracksTrackId>>
 >;
 
-export type DeleteAdminContestTracksTrackIdMutationError = ErrorType<unknown>;
+export type DeleteAdminContestsIdTracksTrackIdMutationError =
+  ErrorType<unknown>;
 
 /**
  * @summary Delete contest track
  */
-export const useDeleteAdminContestTracksTrackId = <
+export const useDeleteAdminContestsIdTracksTrackId = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteAdminContestTracksTrackId>>,
+    Awaited<ReturnType<typeof deleteAdminContestsIdTracksTrackId>>,
     TError,
-    { trackId: number },
+    { id: number; trackId: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof deleteAdminContestTracksTrackId>>,
+  Awaited<ReturnType<typeof deleteAdminContestsIdTracksTrackId>>,
   TError,
-  { trackId: number },
+  { id: number; trackId: number },
   TContext
 > => {
   return useMutation(
-    getDeleteAdminContestTracksTrackIdMutationOptions(options),
+    getDeleteAdminContestsIdTracksTrackIdMutationOptions(options),
   );
 };
 
 /**
- * @summary List contest registrations
+ * @summary Get my contest registrations
  */
-export const getGetAdminContestRegistrationsUrl = (
-  params?: GetAdminContestRegistrationsParams,
-) => {
+export const getGetContestsMyUrl = (params?: GetContestsMyParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -6977,571 +7486,45 @@ export const getGetAdminContestRegistrationsUrl = (
   const stringifiedParams = normalizedParams.toString();
 
   return stringifiedParams.length > 0
-    ? `/api/admin/contest-registrations?${stringifiedParams}`
-    : `/api/admin/contest-registrations`;
-};
-
-export const getAdminContestRegistrations = async (
-  params?: GetAdminContestRegistrationsParams,
-  options?: RequestInit,
-): Promise<GetAdminContestRegistrations200> => {
-  return customFetch<GetAdminContestRegistrations200>(
-    getGetAdminContestRegistrationsUrl(params),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
-};
-
-export const getGetAdminContestRegistrationsQueryKey = (
-  params?: GetAdminContestRegistrationsParams,
-) => {
-  return [
-    `/api/admin/contest-registrations`,
-    ...(params ? [params] : []),
-  ] as const;
-};
-
-export const getGetAdminContestRegistrationsQueryOptions = <
-  TData = Awaited<ReturnType<typeof getAdminContestRegistrations>>,
-  TError = ErrorType<unknown>,
->(
-  params?: GetAdminContestRegistrationsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAdminContestRegistrations>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ?? getGetAdminContestRegistrationsQueryKey(params);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getAdminContestRegistrations>>
-  > = ({ signal }) =>
-    getAdminContestRegistrations(params, { signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getAdminContestRegistrations>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetAdminContestRegistrationsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getAdminContestRegistrations>>
->;
-export type GetAdminContestRegistrationsQueryError = ErrorType<unknown>;
-
-/**
- * @summary List contest registrations
- */
-
-export function useGetAdminContestRegistrations<
-  TData = Awaited<ReturnType<typeof getAdminContestRegistrations>>,
-  TError = ErrorType<unknown>,
->(
-  params?: GetAdminContestRegistrationsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getAdminContestRegistrations>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAdminContestRegistrationsQueryOptions(
-    params,
-    options,
-  );
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Grade test submission
- */
-export const getPostAdminContestRegistrationsIdGradeTestUrl = (id: number) => {
-  return `/api/admin/contest-registrations/${id}/grade-test`;
-};
-
-export const postAdminContestRegistrationsIdGradeTest = async (
-  id: number,
-  contestGradeInput: ContestGradeInput,
-  options?: RequestInit,
-): Promise<ContestRegistration> => {
-  return customFetch<ContestRegistration>(
-    getPostAdminContestRegistrationsIdGradeTestUrl(id),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(contestGradeInput),
-    },
-  );
-};
-
-export const getPostAdminContestRegistrationsIdGradeTestMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeTest>>,
-    TError,
-    { id: number; data: BodyType<ContestGradeInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeTest>>,
-  TError,
-  { id: number; data: BodyType<ContestGradeInput> },
-  TContext
-> => {
-  const mutationKey = ["postAdminContestRegistrationsIdGradeTest"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeTest>>,
-    { id: number; data: BodyType<ContestGradeInput> }
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return postAdminContestRegistrationsIdGradeTest(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type PostAdminContestRegistrationsIdGradeTestMutationResult =
-  NonNullable<
-    Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeTest>>
-  >;
-export type PostAdminContestRegistrationsIdGradeTestMutationBody =
-  BodyType<ContestGradeInput>;
-export type PostAdminContestRegistrationsIdGradeTestMutationError =
-  ErrorType<unknown>;
-
-/**
- * @summary Grade test submission
- */
-export const usePostAdminContestRegistrationsIdGradeTest = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeTest>>,
-    TError,
-    { id: number; data: BodyType<ContestGradeInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeTest>>,
-  TError,
-  { id: number; data: BodyType<ContestGradeInput> },
-  TContext
-> => {
-  return useMutation(
-    getPostAdminContestRegistrationsIdGradeTestMutationOptions(options),
-  );
-};
-
-/**
- * @summary Grade assignment submission
- */
-export const getPostAdminContestRegistrationsIdGradeAssignmentUrl = (
-  id: number,
-) => {
-  return `/api/admin/contest-registrations/${id}/grade-assignment`;
-};
-
-export const postAdminContestRegistrationsIdGradeAssignment = async (
-  id: number,
-  contestGradeInput: ContestGradeInput,
-  options?: RequestInit,
-): Promise<ContestRegistration> => {
-  return customFetch<ContestRegistration>(
-    getPostAdminContestRegistrationsIdGradeAssignmentUrl(id),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(contestGradeInput),
-    },
-  );
-};
-
-export const getPostAdminContestRegistrationsIdGradeAssignmentMutationOptions =
-  <TError = ErrorType<unknown>, TContext = unknown>(options?: {
-    mutation?: UseMutationOptions<
-      Awaited<
-        ReturnType<typeof postAdminContestRegistrationsIdGradeAssignment>
-      >,
-      TError,
-      { id: number; data: BodyType<ContestGradeInput> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  }): UseMutationOptions<
-    Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeAssignment>>,
-    TError,
-    { id: number; data: BodyType<ContestGradeInput> },
-    TContext
-  > => {
-    const mutationKey = ["postAdminContestRegistrationsIdGradeAssignment"];
-    const { mutation: mutationOptions, request: requestOptions } = options
-      ? options.mutation &&
-        "mutationKey" in options.mutation &&
-        options.mutation.mutationKey
-        ? options
-        : { ...options, mutation: { ...options.mutation, mutationKey } }
-      : { mutation: { mutationKey }, request: undefined };
-
-    const mutationFn: MutationFunction<
-      Awaited<
-        ReturnType<typeof postAdminContestRegistrationsIdGradeAssignment>
-      >,
-      { id: number; data: BodyType<ContestGradeInput> }
-    > = (props) => {
-      const { id, data } = props ?? {};
-
-      return postAdminContestRegistrationsIdGradeAssignment(
-        id,
-        data,
-        requestOptions,
-      );
-    };
-
-    return { mutationFn, ...mutationOptions };
-  };
-
-export type PostAdminContestRegistrationsIdGradeAssignmentMutationResult =
-  NonNullable<
-    Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeAssignment>>
-  >;
-export type PostAdminContestRegistrationsIdGradeAssignmentMutationBody =
-  BodyType<ContestGradeInput>;
-export type PostAdminContestRegistrationsIdGradeAssignmentMutationError =
-  ErrorType<unknown>;
-
-/**
- * @summary Grade assignment submission
- */
-export const usePostAdminContestRegistrationsIdGradeAssignment = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeAssignment>>,
-    TError,
-    { id: number; data: BodyType<ContestGradeInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof postAdminContestRegistrationsIdGradeAssignment>>,
-  TError,
-  { id: number; data: BodyType<ContestGradeInput> },
-  TContext
-> => {
-  return useMutation(
-    getPostAdminContestRegistrationsIdGradeAssignmentMutationOptions(options),
-  );
-};
-
-/**
- * @summary Get active (published) contest public detail
- */
-export const getGetContestsActiveUrl = () => {
-  return `/api/contests/active`;
-};
-
-export const getContestsActive = async (
-  options?: RequestInit,
-): Promise<ContestPublicDetail> => {
-  return customFetch<ContestPublicDetail>(getGetContestsActiveUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getGetContestsActiveQueryKey = () => {
-  return [`/api/contests/active`] as const;
-};
-
-export const getGetContestsActiveQueryOptions = <
-  TData = Awaited<ReturnType<typeof getContestsActive>>,
-  TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsActive>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getGetContestsActiveQueryKey();
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getContestsActive>>
-  > = ({ signal }) => getContestsActive({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsActive>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetContestsActiveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getContestsActive>>
->;
-export type GetContestsActiveQueryError = ErrorType<void>;
-
-/**
- * @summary Get active (published) contest public detail
- */
-
-export function useGetContestsActive<
-  TData = Awaited<ReturnType<typeof getContestsActive>>,
-  TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsActive>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetContestsActiveQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary List passed users per track for the active contest
- */
-export const getGetContestsPublicListUrl = () => {
-  return `/api/contests/public-list`;
-};
-
-export const getContestsPublicList = async (
-  options?: RequestInit,
-): Promise<PublicListTrack[]> => {
-  return customFetch<PublicListTrack[]>(getGetContestsPublicListUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getGetContestsPublicListQueryKey = () => {
-  return [`/api/contests/public-list`] as const;
-};
-
-export const getGetContestsPublicListQueryOptions = <
-  TData = Awaited<ReturnType<typeof getContestsPublicList>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsPublicList>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getGetContestsPublicListQueryKey();
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getContestsPublicList>>
-  > = ({ signal }) => getContestsPublicList({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsPublicList>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetContestsPublicListQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getContestsPublicList>>
->;
-export type GetContestsPublicListQueryError = ErrorType<unknown>;
-
-/**
- * @summary List passed users per track for the active contest
- */
-
-export function useGetContestsPublicList<
-  TData = Awaited<ReturnType<typeof getContestsPublicList>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsPublicList>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetContestsPublicListQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Register for a contest track
- */
-export const getPostContestsRegisterUrl = () => {
-  return `/api/contests/register`;
-};
-
-export const postContestsRegister = async (
-  postContestsRegisterBody: PostContestsRegisterBody,
-  options?: RequestInit,
-): Promise<ContestRegistration> => {
-  return customFetch<ContestRegistration>(getPostContestsRegisterUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(postContestsRegisterBody),
-  });
-};
-
-export const getPostContestsRegisterMutationOptions = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postContestsRegister>>,
-    TError,
-    { data: BodyType<PostContestsRegisterBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof postContestsRegister>>,
-  TError,
-  { data: BodyType<PostContestsRegisterBody> },
-  TContext
-> => {
-  const mutationKey = ["postContestsRegister"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof postContestsRegister>>,
-    { data: BodyType<PostContestsRegisterBody> }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return postContestsRegister(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type PostContestsRegisterMutationResult = NonNullable<
-  Awaited<ReturnType<typeof postContestsRegister>>
->;
-export type PostContestsRegisterMutationBody =
-  BodyType<PostContestsRegisterBody>;
-export type PostContestsRegisterMutationError = ErrorType<void>;
-
-/**
- * @summary Register for a contest track
- */
-export const usePostContestsRegister = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postContestsRegister>>,
-    TError,
-    { data: BodyType<PostContestsRegisterBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof postContestsRegister>>,
-  TError,
-  { data: BodyType<PostContestsRegisterBody> },
-  TContext
-> => {
-  return useMutation(getPostContestsRegisterMutationOptions(options));
-};
-
-/**
- * @summary Get my contest registrations
- */
-export const getGetContestsMyUrl = () => {
-  return `/api/contests/my`;
+    ? `/api/contests/my?${stringifiedParams}`
+    : `/api/contests/my`;
 };
 
 export const getContestsMy = async (
+  params?: GetContestsMyParams,
   options?: RequestInit,
-): Promise<ContestMyListItem[]> => {
-  return customFetch<ContestMyListItem[]>(getGetContestsMyUrl(), {
+): Promise<GetContestsMy200> => {
+  return customFetch<GetContestsMy200>(getGetContestsMyUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetContestsMyQueryKey = () => {
-  return [`/api/contests/my`] as const;
+export const getGetContestsMyQueryKey = (params?: GetContestsMyParams) => {
+  return [`/api/contests/my`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetContestsMyQueryOptions = <
   TData = Awaited<ReturnType<typeof getContestsMy>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsMy>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetContestsMyParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContestsMy>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetContestsMyQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetContestsMyQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getContestsMy>>> = ({
     signal,
-  }) => getContestsMy({ signal, ...requestOptions });
+  }) => getContestsMy(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getContestsMy>>,
@@ -7562,15 +7545,18 @@ export type GetContestsMyQueryError = ErrorType<unknown>;
 export function useGetContestsMy<
   TData = Awaited<ReturnType<typeof getContestsMy>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsMy>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetContestsMyQueryOptions(options);
+>(
+  params?: GetContestsMyParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContestsMy>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetContestsMyQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -7580,221 +7566,18 @@ export function useGetContestsMy<
 }
 
 /**
- * @summary Submit test answer
+ * @summary Get my registration detail with questions
  */
-export const getPostContestsMyRegistrationIdSubmitTestUrl = (
-  registrationId: number,
-) => {
-  return `/api/contests/my/${registrationId}/submit-test`;
+export const getGetContestsMyRegistrationIdUrl = (registrationId: number) => {
+  return `/api/contests/my/${registrationId}`;
 };
 
-export const postContestsMyRegistrationIdSubmitTest = async (
+export const getContestsMyRegistrationId = async (
   registrationId: number,
-  contestSubmitTestInput: ContestSubmitTestInput,
   options?: RequestInit,
 ): Promise<ContestRegistration> => {
   return customFetch<ContestRegistration>(
-    getPostContestsMyRegistrationIdSubmitTestUrl(registrationId),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(contestSubmitTestInput),
-    },
-  );
-};
-
-export const getPostContestsMyRegistrationIdSubmitTestMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitTest>>,
-    TError,
-    { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitTest>>,
-  TError,
-  { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-  TContext
-> => {
-  const mutationKey = ["postContestsMyRegistrationIdSubmitTest"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitTest>>,
-    { registrationId: number; data: BodyType<ContestSubmitTestInput> }
-  > = (props) => {
-    const { registrationId, data } = props ?? {};
-
-    return postContestsMyRegistrationIdSubmitTest(
-      registrationId,
-      data,
-      requestOptions,
-    );
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type PostContestsMyRegistrationIdSubmitTestMutationResult = NonNullable<
-  Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitTest>>
->;
-export type PostContestsMyRegistrationIdSubmitTestMutationBody =
-  BodyType<ContestSubmitTestInput>;
-export type PostContestsMyRegistrationIdSubmitTestMutationError =
-  ErrorType<unknown>;
-
-/**
- * @summary Submit test answer
- */
-export const usePostContestsMyRegistrationIdSubmitTest = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitTest>>,
-    TError,
-    { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitTest>>,
-  TError,
-  { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-  TContext
-> => {
-  return useMutation(
-    getPostContestsMyRegistrationIdSubmitTestMutationOptions(options),
-  );
-};
-
-/**
- * @summary Submit assignment answer
- */
-export const getPostContestsMyRegistrationIdSubmitAssignmentUrl = (
-  registrationId: number,
-) => {
-  return `/api/contests/my/${registrationId}/submit-assignment`;
-};
-
-export const postContestsMyRegistrationIdSubmitAssignment = async (
-  registrationId: number,
-  contestSubmitTestInput: ContestSubmitTestInput,
-  options?: RequestInit,
-): Promise<ContestRegistration> => {
-  return customFetch<ContestRegistration>(
-    getPostContestsMyRegistrationIdSubmitAssignmentUrl(registrationId),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(contestSubmitTestInput),
-    },
-  );
-};
-
-export const getPostContestsMyRegistrationIdSubmitAssignmentMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitAssignment>>,
-    TError,
-    { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitAssignment>>,
-  TError,
-  { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-  TContext
-> => {
-  const mutationKey = ["postContestsMyRegistrationIdSubmitAssignment"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitAssignment>>,
-    { registrationId: number; data: BodyType<ContestSubmitTestInput> }
-  > = (props) => {
-    const { registrationId, data } = props ?? {};
-
-    return postContestsMyRegistrationIdSubmitAssignment(
-      registrationId,
-      data,
-      requestOptions,
-    );
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type PostContestsMyRegistrationIdSubmitAssignmentMutationResult =
-  NonNullable<
-    Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitAssignment>>
-  >;
-export type PostContestsMyRegistrationIdSubmitAssignmentMutationBody =
-  BodyType<ContestSubmitTestInput>;
-export type PostContestsMyRegistrationIdSubmitAssignmentMutationError =
-  ErrorType<unknown>;
-
-/**
- * @summary Submit assignment answer
- */
-export const usePostContestsMyRegistrationIdSubmitAssignment = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitAssignment>>,
-    TError,
-    { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof postContestsMyRegistrationIdSubmitAssignment>>,
-  TError,
-  { registrationId: number; data: BodyType<ContestSubmitTestInput> },
-  TContext
-> => {
-  return useMutation(
-    getPostContestsMyRegistrationIdSubmitAssignmentMutationOptions(options),
-  );
-};
-
-/**
- * @summary Get question for my registration (after deadline passed)
- */
-export const getGetContestsMyRegistrationIdQuestionUrl = (
-  registrationId: number,
-) => {
-  return `/api/contests/my/${registrationId}/question`;
-};
-
-export const getContestsMyRegistrationIdQuestion = async (
-  registrationId: number,
-  options?: RequestInit,
-): Promise<ContestQuestion> => {
-  return customFetch<ContestQuestion>(
-    getGetContestsMyRegistrationIdQuestionUrl(registrationId),
+    getGetContestsMyRegistrationIdUrl(registrationId),
     {
       ...options,
       method: "GET",
@@ -7802,20 +7585,20 @@ export const getContestsMyRegistrationIdQuestion = async (
   );
 };
 
-export const getGetContestsMyRegistrationIdQuestionQueryKey = (
+export const getGetContestsMyRegistrationIdQueryKey = (
   registrationId: number,
 ) => {
-  return [`/api/contests/my/${registrationId}/question`] as const;
+  return [`/api/contests/my/${registrationId}`] as const;
 };
 
-export const getGetContestsMyRegistrationIdQuestionQueryOptions = <
-  TData = Awaited<ReturnType<typeof getContestsMyRegistrationIdQuestion>>,
+export const getGetContestsMyRegistrationIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getContestsMyRegistrationId>>,
   TError = ErrorType<void>,
 >(
   registrationId: number,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getContestsMyRegistrationIdQuestion>>,
+      Awaited<ReturnType<typeof getContestsMyRegistrationId>>,
       TError,
       TData
     >;
@@ -7826,15 +7609,12 @@ export const getGetContestsMyRegistrationIdQuestionQueryOptions = <
 
   const queryKey =
     queryOptions?.queryKey ??
-    getGetContestsMyRegistrationIdQuestionQueryKey(registrationId);
+    getGetContestsMyRegistrationIdQueryKey(registrationId);
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getContestsMyRegistrationIdQuestion>>
+    Awaited<ReturnType<typeof getContestsMyRegistrationId>>
   > = ({ signal }) =>
-    getContestsMyRegistrationIdQuestion(registrationId, {
-      signal,
-      ...requestOptions,
-    });
+    getContestsMyRegistrationId(registrationId, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -7842,36 +7622,36 @@ export const getGetContestsMyRegistrationIdQuestionQueryOptions = <
     enabled: !!registrationId,
     ...queryOptions,
   } as UseQueryOptions<
-    Awaited<ReturnType<typeof getContestsMyRegistrationIdQuestion>>,
+    Awaited<ReturnType<typeof getContestsMyRegistrationId>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type GetContestsMyRegistrationIdQuestionQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getContestsMyRegistrationIdQuestion>>
+export type GetContestsMyRegistrationIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getContestsMyRegistrationId>>
 >;
-export type GetContestsMyRegistrationIdQuestionQueryError = ErrorType<void>;
+export type GetContestsMyRegistrationIdQueryError = ErrorType<void>;
 
 /**
- * @summary Get question for my registration (after deadline passed)
+ * @summary Get my registration detail with questions
  */
 
-export function useGetContestsMyRegistrationIdQuestion<
-  TData = Awaited<ReturnType<typeof getContestsMyRegistrationIdQuestion>>,
+export function useGetContestsMyRegistrationId<
+  TData = Awaited<ReturnType<typeof getContestsMyRegistrationId>>,
   TError = ErrorType<void>,
 >(
   registrationId: number,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getContestsMyRegistrationIdQuestion>>,
+      Awaited<ReturnType<typeof getContestsMyRegistrationId>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetContestsMyRegistrationIdQuestionQueryOptions(
+  const queryOptions = getGetContestsMyRegistrationIdQueryOptions(
     registrationId,
     options,
   );
@@ -7882,3 +7662,457 @@ export function useGetContestsMyRegistrationIdQuestion<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Submit test answer
+ */
+export const getPutContestsRegistrationsIdTestUrl = (id: number) => {
+  return `/api/contests/registrations/${id}/test`;
+};
+
+export const putContestsRegistrationsIdTest = async (
+  id: number,
+  contestSubmitTestInput: ContestSubmitTestInput,
+  options?: RequestInit,
+): Promise<ContestRegistration> => {
+  return customFetch<ContestRegistration>(
+    getPutContestsRegistrationsIdTestUrl(id),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(contestSubmitTestInput),
+    },
+  );
+};
+
+export const getPutContestsRegistrationsIdTestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putContestsRegistrationsIdTest>>,
+    TError,
+    { id: number; data: BodyType<ContestSubmitTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof putContestsRegistrationsIdTest>>,
+  TError,
+  { id: number; data: BodyType<ContestSubmitTestInput> },
+  TContext
+> => {
+  const mutationKey = ["putContestsRegistrationsIdTest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof putContestsRegistrationsIdTest>>,
+    { id: number; data: BodyType<ContestSubmitTestInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return putContestsRegistrationsIdTest(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PutContestsRegistrationsIdTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof putContestsRegistrationsIdTest>>
+>;
+export type PutContestsRegistrationsIdTestMutationBody =
+  BodyType<ContestSubmitTestInput>;
+export type PutContestsRegistrationsIdTestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit test answer
+ */
+export const usePutContestsRegistrationsIdTest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putContestsRegistrationsIdTest>>,
+    TError,
+    { id: number; data: BodyType<ContestSubmitTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof putContestsRegistrationsIdTest>>,
+  TError,
+  { id: number; data: BodyType<ContestSubmitTestInput> },
+  TContext
+> => {
+  return useMutation(getPutContestsRegistrationsIdTestMutationOptions(options));
+};
+
+/**
+ * @summary Submit assignment answer
+ */
+export const getPutContestsRegistrationsIdAssignmentUrl = (id: number) => {
+  return `/api/contests/registrations/${id}/assignment`;
+};
+
+export const putContestsRegistrationsIdAssignment = async (
+  id: number,
+  contestSubmitTestInput: ContestSubmitTestInput,
+  options?: RequestInit,
+): Promise<ContestRegistration> => {
+  return customFetch<ContestRegistration>(
+    getPutContestsRegistrationsIdAssignmentUrl(id),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(contestSubmitTestInput),
+    },
+  );
+};
+
+export const getPutContestsRegistrationsIdAssignmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putContestsRegistrationsIdAssignment>>,
+    TError,
+    { id: number; data: BodyType<ContestSubmitTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof putContestsRegistrationsIdAssignment>>,
+  TError,
+  { id: number; data: BodyType<ContestSubmitTestInput> },
+  TContext
+> => {
+  const mutationKey = ["putContestsRegistrationsIdAssignment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof putContestsRegistrationsIdAssignment>>,
+    { id: number; data: BodyType<ContestSubmitTestInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return putContestsRegistrationsIdAssignment(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PutContestsRegistrationsIdAssignmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof putContestsRegistrationsIdAssignment>>
+>;
+export type PutContestsRegistrationsIdAssignmentMutationBody =
+  BodyType<ContestSubmitTestInput>;
+export type PutContestsRegistrationsIdAssignmentMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Submit assignment answer
+ */
+export const usePutContestsRegistrationsIdAssignment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof putContestsRegistrationsIdAssignment>>,
+    TError,
+    { id: number; data: BodyType<ContestSubmitTestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof putContestsRegistrationsIdAssignment>>,
+  TError,
+  { id: number; data: BodyType<ContestSubmitTestInput> },
+  TContext
+> => {
+  return useMutation(
+    getPutContestsRegistrationsIdAssignmentMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Get public contest detail by ID
+ */
+export const getGetContestsIdUrl = (id: number) => {
+  return `/api/contests/${id}`;
+};
+
+export const getContestsId = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ContestPublicDetail> => {
+  return customFetch<ContestPublicDetail>(getGetContestsIdUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetContestsIdQueryKey = (id: number) => {
+  return [`/api/contests/${id}`] as const;
+};
+
+export const getGetContestsIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getContestsId>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContestsId>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetContestsIdQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getContestsId>>> = ({
+    signal,
+  }) => getContestsId(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getContestsId>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetContestsIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getContestsId>>
+>;
+export type GetContestsIdQueryError = ErrorType<void>;
+
+/**
+ * @summary Get public contest detail by ID
+ */
+
+export function useGetContestsId<
+  TData = Awaited<ReturnType<typeof getContestsId>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContestsId>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetContestsIdQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get passed-user public list for a contest
+ */
+export const getGetContestsIdPublicListUrl = (id: number) => {
+  return `/api/contests/${id}/public-list`;
+};
+
+export const getContestsIdPublicList = async (
+  id: number,
+  options?: RequestInit,
+): Promise<PublicListTrack[]> => {
+  return customFetch<PublicListTrack[]>(getGetContestsIdPublicListUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetContestsIdPublicListQueryKey = (id: number) => {
+  return [`/api/contests/${id}/public-list`] as const;
+};
+
+export const getGetContestsIdPublicListQueryOptions = <
+  TData = Awaited<ReturnType<typeof getContestsIdPublicList>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContestsIdPublicList>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetContestsIdPublicListQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getContestsIdPublicList>>
+  > = ({ signal }) =>
+    getContestsIdPublicList(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getContestsIdPublicList>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetContestsIdPublicListQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getContestsIdPublicList>>
+>;
+export type GetContestsIdPublicListQueryError = ErrorType<void>;
+
+/**
+ * @summary Get passed-user public list for a contest
+ */
+
+export function useGetContestsIdPublicList<
+  TData = Awaited<ReturnType<typeof getContestsIdPublicList>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getContestsIdPublicList>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetContestsIdPublicListQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register for a contest track
+ */
+export const getPostContestsIdTracksTrackIdRegisterUrl = (
+  id: number,
+  trackId: number,
+) => {
+  return `/api/contests/${id}/tracks/${trackId}/register`;
+};
+
+export const postContestsIdTracksTrackIdRegister = async (
+  id: number,
+  trackId: number,
+  options?: RequestInit,
+): Promise<ContestRegistration> => {
+  return customFetch<ContestRegistration>(
+    getPostContestsIdTracksTrackIdRegisterUrl(id, trackId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getPostContestsIdTracksTrackIdRegisterMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postContestsIdTracksTrackIdRegister>>,
+    TError,
+    { id: number; trackId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof postContestsIdTracksTrackIdRegister>>,
+  TError,
+  { id: number; trackId: number },
+  TContext
+> => {
+  const mutationKey = ["postContestsIdTracksTrackIdRegister"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof postContestsIdTracksTrackIdRegister>>,
+    { id: number; trackId: number }
+  > = (props) => {
+    const { id, trackId } = props ?? {};
+
+    return postContestsIdTracksTrackIdRegister(id, trackId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PostContestsIdTracksTrackIdRegisterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof postContestsIdTracksTrackIdRegister>>
+>;
+
+export type PostContestsIdTracksTrackIdRegisterMutationError = ErrorType<void>;
+
+/**
+ * @summary Register for a contest track
+ */
+export const usePostContestsIdTracksTrackIdRegister = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof postContestsIdTracksTrackIdRegister>>,
+    TError,
+    { id: number; trackId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof postContestsIdTracksTrackIdRegister>>,
+  TError,
+  { id: number; trackId: number },
+  TContext
+> => {
+  return useMutation(
+    getPostContestsIdTracksTrackIdRegisterMutationOptions(options),
+  );
+};

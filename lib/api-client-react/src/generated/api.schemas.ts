@@ -1135,6 +1135,51 @@ export interface PublicListTrack {
   passedUsers: PublicListTrackPassedUsersItem[];
 }
 
+export interface SubmitOrderPaymentBody {
+  method: string;
+  receiptUrl?: string | null;
+  paymentNote?: string | null;
+}
+
+export interface CloseOrderBody {
+  reason?: string | null;
+}
+
+export interface CreateQuoteDimensionBody {
+  category?: string | null;
+  layer: string;
+  code: string;
+  label: string;
+  description?: string | null;
+  sortOrder?: number | null;
+  catCategoryId?: number | null;
+}
+
+export interface UpdateQuoteDimensionBody {
+  label?: string;
+  description?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface CreateQuoteTierBody {
+  dimensionId: number;
+  tier: string;
+  tierLabel: string;
+  basePrice?: number | null;
+  coefficient?: number | null;
+  description?: string | null;
+  sortOrder?: number | null;
+}
+
+export interface UpdateQuoteTierBody {
+  tierLabel?: string;
+  basePrice?: number | null;
+  coefficient?: number | null;
+  description?: string | null;
+  sortOrder?: number;
+}
+
 export type GetOpcLeaderboardParams = {
   limit?: number;
 };
@@ -1497,14 +1542,14 @@ export type BindAgentConversationToDemand200 = {
   success: boolean;
 };
 
-export type GetAdminContestQuestionsParams = {
+export type GetAdminContestsQuestionsParams = {
   page?: number;
   pageSize?: number;
   catCategoryId?: number;
   keyword?: string;
 };
 
-export type GetAdminContestQuestions200 = {
+export type GetAdminContestsQuestions200 = {
   items: ContestQuestion[];
   total: number;
   page: number;
@@ -1533,7 +1578,7 @@ export type GetAdminContests200 = {
   pageSize: number;
 };
 
-export type GetAdminContestRegistrationsParams = {
+export type GetAdminContestsRegistrationsParams = {
   page?: number;
   pageSize?: number;
   contestId?: number;
@@ -1542,14 +1587,21 @@ export type GetAdminContestRegistrationsParams = {
   userId?: number;
 };
 
-export type GetAdminContestRegistrations200 = {
+export type GetAdminContestsRegistrations200 = {
   items: ContestRegistrationAdminRow[];
   total: number;
   page: number;
   pageSize: number;
 };
 
-export type PostContestsRegisterBody = {
-  contestId: number;
-  trackId: number;
+export type GetContestsMyParams = {
+  page?: number;
+  pageSize?: number;
+};
+
+export type GetContestsMy200 = {
+  items: ContestMyListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
 };

@@ -5,10 +5,10 @@
  * JieDanBa OPC Matching Platform API
  * OpenAPI spec version: 1.0.0
  */
-import type { ContestRegistrationAdminRow } from "./contestRegistrationAdminRow";
+import type { ContestMyListItem } from "./contestMyListItem";
 
-export type GetAdminContestRegistrations200 = {
-  items: ContestRegistrationAdminRow[];
+export type GetContestsMy200 = {
+  items: ContestMyListItem[];
   total: number;
   page: number;
   pageSize: number;

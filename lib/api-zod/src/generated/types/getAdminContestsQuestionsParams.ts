@@ -6,11 +6,9 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type GetAdminContestRegistrationsParams = {
+export type GetAdminContestsQuestionsParams = {
   page?: number;
   pageSize?: number;
-  contestId?: number;
-  trackId?: number;
-  status?: string;
-  userId?: number;
+  catCategoryId?: number;
+  keyword?: string;
 };
