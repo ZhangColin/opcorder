@@ -237,20 +237,14 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
   }
 
   const qList = questions?.items ?? [];
-  const SelectQ = ({ label, fKey }: { label: string; fKey: "testQuestionId" | "aQuestionId" | "bQuestionId" | "cQuestionId" }) => (
-    <div>
-      <label className="block text-xs font-semibold text-slate-600 mb-1">{label}</label>
-      <div className="relative">
-        <select value={trackForm[fKey]} onChange={e => setTrackForm(f => ({ ...f, [fKey]: e.target.value }))}
-          className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20"
-          disabled={!selectedCatId}>
-          <option value="">{selectedCatId ? "请选择题目" : "请先选择赛道"}</option>
-          {qList.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
-        </select>
-        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-      </div>
-    </div>
-  );
+
+  type QRow = { label: string; qKey: "testQuestionId" | "aQuestionId" | "bQuestionId" | "cQuestionId"; dKey: "testDurationHours" | "aDurationHours" | "bDurationHours" | "cDurationHours"; badge: string };
+  const Q_ROWS: QRow[] = [
+    { label: "测试题",         qKey: "testQuestionId", dKey: "testDurationHours", badge: "试" },
+    { label: "A 级题（测试单）", qKey: "aQuestionId",    dKey: "aDurationHours",    badge: "A" },
+    { label: "B 级题（测试单）", qKey: "bQuestionId",    dKey: "bDurationHours",    badge: "B" },
+    { label: "C 级题（测试单）", qKey: "cQuestionId",    dKey: "cDurationHours",    badge: "C" },
+  ];
 
   return (
     <div>
@@ -300,38 +294,54 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
       )}
 
       <FormDialog open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTrack ? "编辑赛道" : "添加赛道"}>
-        <div className="flex flex-col gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">赛道分类 *</label>
-            <div className="relative">
-              <select value={trackForm.catCategoryId} onChange={e => setTrackForm(f => ({ ...f, catCategoryId: e.target.value, testQuestionId: "", aQuestionId: "", bQuestionId: "", cQuestionId: "" }))}
-                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20">
-                <option value="">请选择赛道分类</option>
-                {cats?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <div className="flex flex-col gap-5">
+          {/* 基本信息 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">赛道分类 *</label>
+              <div className="relative">
+                <select value={trackForm.catCategoryId} onChange={e => setTrackForm(f => ({ ...f, catCategoryId: e.target.value, testQuestionId: "", aQuestionId: "", bQuestionId: "", cQuestionId: "" }))}
+                  className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value="">请选择赛道分类</option>
+                  {cats?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">报名名额（0 = 不限）</label>
+              <input type="number" min="0" value={trackForm.quotaTotal} onChange={e => setTrackForm(f => ({ ...f, quotaTotal: e.target.value }))}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
             </div>
           </div>
-          <SelectQ label="测试题" fKey="testQuestionId" />
-          <SelectQ label="A 级题（测试单）" fKey="aQuestionId" />
-          <SelectQ label="B 级题（测试单）" fKey="bQuestionId" />
-          <SelectQ label="C 级题（测试单）" fKey="cQuestionId" />
-          <div className="grid grid-cols-2 gap-3">
-            {([["测试题完成时长（小时）", "testDurationHours"], ["A 级完成时长（小时）", "aDurationHours"], ["B 级完成时长（小时）", "bDurationHours"], ["C 级完成时长（小时）", "cDurationHours"]] as [string, string][]).map(([label, key]) => (
-              <div key={key}>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">{label}</label>
-                <input type="number" min="1" value={trackForm[key as keyof typeof trackForm]} onChange={e => setTrackForm(f => ({ ...f, [key]: e.target.value }))}
+
+          {/* 题目 + 完成时长（每行一组）*/}
+          <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-[auto_1fr_160px] items-center gap-x-3 px-1 mb-1">
+              <div className="w-6" />
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">题目</span>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">完成时长（小时）</span>
+            </div>
+            {Q_ROWS.map(({ label, qKey, dKey, badge }) => (
+              <div key={qKey} className="grid grid-cols-[auto_1fr_160px] items-center gap-x-3 py-2 px-1 rounded-xl hover:bg-slate-50 transition-colors">
+                <span className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-100 text-blue-700 text-[11px] font-extrabold shrink-0">{badge}</span>
+                <div className="relative min-w-0">
+                  <select value={trackForm[qKey]} onChange={e => setTrackForm(f => ({ ...f, [qKey]: e.target.value }))}
+                    className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20 truncate"
+                    disabled={!selectedCatId} title={label}>
+                    <option value="">{selectedCatId ? `选择${label}` : "请先选择赛道"}</option>
+                    {qList.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+                <input type="number" min="1" value={trackForm[dKey]} onChange={e => setTrackForm(f => ({ ...f, [dKey]: e.target.value }))}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
               </div>
             ))}
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">报名名额（0 = 不限）</label>
-            <input type="number" min="0" value={trackForm.quotaTotal} onChange={e => setTrackForm(f => ({ ...f, quotaTotal: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
-          </div>
+
           {trackErr && <div className="text-sm text-destructive bg-red-50 rounded-xl px-4 py-3">{trackErr}</div>}
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSaveTrack} disabled={saveMut.isPending} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2">
               {saveMut.isPending && <Loader2 size={15} className="animate-spin" />}
               {editTrack ? "保存修改" : "添加赛道"}
