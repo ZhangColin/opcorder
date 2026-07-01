@@ -25,6 +25,19 @@ export async function v2Get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Authenticated GET to /api/... (no /v2 prefix) */
+export async function apiGet<T>(path: string): Promise<T> {
+  const token = getAccessToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${BASE}${path}`, { headers });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e as any).error ?? `请求失败 (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function v2Post<T>(path: string, body?: unknown): Promise<T> {
   const res = await v2Fetch(path, { method: "POST", body: JSON.stringify(body ?? {}) });
   if (!res.ok) {

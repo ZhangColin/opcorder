@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Loader2, Trophy, ChevronRight, AlertCircle } from "lucide-react";
-import { v2Get } from "@/lib/v2api";
+import { apiGet } from "@/lib/v2api";
 import { OpcV2Layout } from "./OpcV2Layout";
 
 type RegistrationStatus =
@@ -62,7 +62,7 @@ export default function OpcV2ContestList() {
 
   const { data, isLoading, isError } = useQuery<{ items: MyRegistration[]; total: number }>({
     queryKey: ["opc-my-contests"],
-    queryFn: () => v2Get("/contests/my?pageSize=50"),
+    queryFn: () => apiGet("/api/contests/my?pageSize=50"),
     staleTime: 30_000,
   });
 

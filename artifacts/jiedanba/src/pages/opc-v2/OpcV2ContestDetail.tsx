@@ -5,7 +5,7 @@ import {
   Loader2, AlertCircle, ArrowLeft, Clock, CheckCircle2, Paperclip,
   Link2, X, UploadCloud, Trophy, ChevronRight,
 } from "lucide-react";
-import { v2Get, uploadFile } from "@/lib/v2api";
+import { apiGet, uploadFile } from "@/lib/v2api";
 import { getAccessToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -298,7 +298,7 @@ export default function OpcV2ContestDetail() {
 
   const { data: reg, isLoading, isError } = useQuery<RegistrationDetail>({
     queryKey: ["opc-contest-reg", registrationId],
-    queryFn: () => v2Get(`/contests/my/${registrationId}`),
+    queryFn: () => apiGet(`/api/contests/my/${registrationId}`),
     refetchOnWindowFocus: false,
   });
 
