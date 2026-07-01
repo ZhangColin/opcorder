@@ -49,6 +49,26 @@ type ContestQuestion = {
   createdAt: string;
 };
 
+/* Large centered dialog for the create/edit form */
+function FormDialog({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-6 pt-12 overflow-y-auto">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl flex flex-col">
+        <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
+          <h3 className="text-lg font-extrabold text-blue-900">{title}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-8">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* Right-side drawer — kept for preview */
 function Drawer({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   if (!open) return null;
   return (
@@ -338,31 +358,33 @@ export default function ContestQuestions() {
         </div>
       )}
 
-      {/* Create/Edit Drawer */}
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTarget ? "编辑题目" : "新增题目"}>
-        <div className="flex flex-col gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">赛道分类 *</label>
-            <div className="relative">
-              <select
-                value={form.catCategoryId}
-                onChange={e => setForm(f => ({ ...f, catCategoryId: e.target.value }))}
-                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">请选择赛道分类</option>
-                {cats?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      {/* Create/Edit — large centered dialog */}
+      <FormDialog open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTarget ? "编辑题目" : "新增题目"}>
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">赛道分类 *</label>
+              <div className="relative">
+                <select
+                  value={form.catCategoryId}
+                  onChange={e => setForm(f => ({ ...f, catCategoryId: e.target.value }))}
+                  className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">请选择赛道分类</option>
+                  {cats?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">题目标题 *</label>
-            <input
-              value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              placeholder="请输入题目标题"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-            />
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">题目标题 *</label>
+              <input
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="请输入题目标题"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">题目内容（Markdown）</label>
@@ -370,6 +392,7 @@ export default function ContestQuestions() {
               value={form.content}
               onChange={v => setForm(f => ({ ...f, content: v }))}
               placeholder="请输入题目详细内容（支持 Markdown 格式）…"
+              minHeight="400px"
             />
           </div>
           <AttachmentUploader
@@ -390,7 +413,7 @@ export default function ContestQuestions() {
             <button onClick={() => setDrawerOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">取消</button>
           </div>
         </div>
-      </Drawer>
+      </FormDialog>
 
       {/* Preview Drawer */}
       <Drawer open={!!previewItem} onClose={() => setPreviewItem(null)} title="题目详情">

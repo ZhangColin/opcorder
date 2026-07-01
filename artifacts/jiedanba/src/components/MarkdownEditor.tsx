@@ -14,6 +14,7 @@ interface MarkdownEditorProps {
   onChange: (markdown: string) => void;
   placeholder?: string;
   hasError?: boolean;
+  minHeight?: string;
 }
 
 export function MarkdownEditor({
@@ -21,6 +22,7 @@ export function MarkdownEditor({
   onChange,
   placeholder = "请详细描述任务要求、工作内容、交付物规格、验收标准等…",
   hasError = false,
+  minHeight,
 }: MarkdownEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -205,11 +207,9 @@ export function MarkdownEditor({
       </div>
 
       {/* Editor area — grows with content */}
-      <EditorContent
-        editor={editor}
-        className="px-4 py-3 cursor-text"
-        onClick={() => editor.commands.focus()}
-      />
+      <div style={minHeight ? { minHeight } : undefined} className="cursor-text" onClick={() => editor.commands.focus()}>
+        <EditorContent editor={editor} className="px-4 py-3" />
+      </div>
     </div>
   );
 }
