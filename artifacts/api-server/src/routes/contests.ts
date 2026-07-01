@@ -7,6 +7,13 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+/** 把前端 datetime-local 值（北京时间，无时区后缀）解析为正确的 UTC Date */
+function parseBJT(s: string): Date {
+  if (!s) return new Date(NaN);
+  // 已有时区信息则直接解析；否则补 +08:00（北京时间）
+  return new Date(s.includes('+') || s.includes('Z') ? s : s + ':00+08:00');
+}
+
 function paginate(query: Record<string, string | string[] | undefined>, defaultSize = 20) {
   const page = Math.max(1, parseInt(String(query.page ?? 1)) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(String(query.pageSize ?? defaultSize)) || defaultSize));
@@ -186,11 +193,11 @@ router.post("/admin/contests", requireAdmin, async (req, res) => {
     const [row] = await db.insert(contestsTable).values({
       title: title.trim(),
       details: details ?? "",
-      announcementAt: new Date(announcementAt),
-      registrationAt: new Date(registrationAt),
-      publicAt: new Date(publicAt),
-      benefitAt: new Date(benefitAt),
-      deadlineAt: new Date(deadlineAt),
+      announcementAt: parseBJT(announcementAt),
+      registrationAt: parseBJT(registrationAt),
+      publicAt: parseBJT(publicAt),
+      benefitAt: parseBJT(benefitAt),
+      deadlineAt: parseBJT(deadlineAt),
       status: status ?? "draft",
     }).returning();
     return res.status(201).json(row);
@@ -516,11 +523,11 @@ router.put("/admin/contests/:id", requireAdmin, async (req, res) => {
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (title !== undefined) updates.title = title.trim();
     if (details !== undefined) updates.details = details;
-    if (announcementAt !== undefined) updates.announcementAt = new Date(announcementAt);
-    if (registrationAt !== undefined) updates.registrationAt = new Date(registrationAt);
-    if (publicAt !== undefined) updates.publicAt = new Date(publicAt);
-    if (benefitAt !== undefined) updates.benefitAt = new Date(benefitAt);
-    if (deadlineAt !== undefined) updates.deadlineAt = new Date(deadlineAt);
+    if (announcementAt !== undefined) updates.announcementAt = parseBJT(announcementAt);
+    if (registrationAt !== undefined) updates.registrationAt = parseBJT(registrationAt);
+    if (publicAt !== undefined) updates.publicAt = parseBJT(publicAt);
+    if (benefitAt !== undefined) updates.benefitAt = parseBJT(benefitAt);
+    if (deadlineAt !== undefined) updates.deadlineAt = parseBJT(deadlineAt);
     if (status !== undefined) updates.status = status;
 
     const [row] = await db.update(contestsTable).set(updates as any).where(eq(contestsTable.id, id)).returning();
@@ -905,7 +912,12 @@ router.get("/contests", async (req, res) => {
         trackCount: sql<number>`(SELECT COUNT(*) FROM ${contestTracksTable} WHERE ${contestTracksTable.contestId} = ${contestsTable.id})::int`,
       })
       .from(contestsTable)
-      .where(inArray(contestsTable.status, ["published", "ended"]))
+      .where(
+        and(
+          inArray(contestsTable.status, ["published", "ended"]),
+          lte(contestsTable.announcementAt, sql`NOW()`),
+        )
+      )
       .orderBy(desc(contestsTable.announcementAt));
     return res.json(rows);
   } catch (err) {
