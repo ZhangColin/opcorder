@@ -14,6 +14,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import AdminActivities from "./AdminActivities";
+import ContestQuestions from "./admin-contests/ContestQuestions";
+import ContestActivities from "./admin-contests/ContestActivities";
+import ContestRegistrations from "./admin-contests/ContestRegistrations";
 import { AdminEmbeddedContext } from "@/context/AdminEmbeddedContext";
 import AdminV2Overview from "@/pages/admin-v2/AdminV2Overview";
 import AdminV2ClientDemandList from "@/pages/admin-v2/AdminV2ClientDemandList";
@@ -138,6 +141,7 @@ export type Module =
   | "platform_config" | "catcategories" | "cattags" | "creditlevels" | "creditrules"
   | "demands_orders" | "opc_management" | "system_management"
   | "operation_management" | "userData"
+  | "contest_questions" | "contest_activities" | "contest_registrations"
   | "v2_overview"
   | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_deliveries" | "v2_pub_tickets"
   | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets";
@@ -232,6 +236,15 @@ const NAV: NavItem[] = [
       { key: "screen_h",     label: "横屏大屏", href: "/screen",     icon: Monitor },
       { key: "screen_v",     label: "竖屏大屏", href: "/miniscreen", icon: Tablet },
       { key: "screenvideos", label: "视频管理", moduleKey: "screenvideos" as Module, icon: Video },
+    ],
+  },
+
+  {
+    key: "contest_activities", icon: Trophy, label: "OPC 大赛", permKey: "contest",
+    children: [
+      { key: "contest_activities",     label: "大赛活动", moduleKey: "contest_activities"     as Module, icon: Trophy },
+      { key: "contest_registrations",  label: "报名与评级", moduleKey: "contest_registrations" as Module, icon: Award },
+      { key: "contest_questions",      label: "题库",     moduleKey: "contest_questions"      as Module, icon: BookOpen },
     ],
   },
 
@@ -10175,6 +10188,9 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "v2_opc_tickets":     return withEmbedded(<AdminV2TicketBList />);
     case "v2_pub_workbench": return withEmbedded(<AdminV2Overview />);
     case "v2_opc_workbench": return withEmbedded(<AdminV2Overview />);
+    case "contest_questions":      return <ContestQuestions />;
+    case "contest_activities":     return <ContestActivities />;
+    case "contest_registrations":  return <ContestRegistrations />;
   }
 }
 
