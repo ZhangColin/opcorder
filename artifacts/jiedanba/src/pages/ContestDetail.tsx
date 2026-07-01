@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Clock, Users, Trophy, ChevronRight, Loader2, AlertCircle,
-  Calendar, Zap, Star, CheckCircle2, Medal,
+  Zap, Star, CheckCircle2, Medal,
 } from "lucide-react";
 import { getAccessToken, getStoredUser } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -420,26 +420,6 @@ export default function ContestDetail() {
           <PublicList contestId={contest.id} benefitAt={contest.benefitAt} />
         )}
 
-        {/* Key dates */}
-        <section>
-          <h2 className="text-xl font-extrabold text-blue-900 mb-4 flex items-center gap-2">
-            <Calendar size={18} className="text-primary" /> 关键时间
-          </h2>
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-50">
-            {[
-              { label: "公告开始", at: contest.announcementAt },
-              { label: "报名开始", at: contest.registrationAt },
-              { label: "公示公告", at: contest.publicAt },
-              { label: "权益发放", at: contest.benefitAt },
-              { label: "活动截止", at: contest.deadlineAt },
-            ].map(n => (
-              <div key={n.label} className="flex items-center justify-between px-6 py-3">
-                <span className="text-sm font-semibold text-slate-600">{n.label}</span>
-                <span className="text-sm text-slate-500">{fmtDate(n.at)}</span>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
 
       <Footer />
