@@ -7874,6 +7874,7 @@ const PERM_LABELS: Record<string, string> = {
   settings:       "站点设置",
   screen:         "数据大屏",
   operation:      "运营管理",
+  contest:        "OPC 大赛",
 };
 
 const PERM_SUB: Record<string, string> = {
@@ -7881,6 +7882,7 @@ const PERM_SUB: Record<string, string> = {
   settings:   "站点设置 · 智能体配置",
   screen:     "横屏大屏 · 竖屏大屏",
   operation:  "运营管理 · 用户登录数据",
+  contest:    "大赛活动 · 报名评级 · 题库管理",
 };
 
 const ALL_PERM_KEYS = Object.keys(PERM_LABELS);
