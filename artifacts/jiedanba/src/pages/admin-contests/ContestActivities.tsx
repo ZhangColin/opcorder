@@ -69,17 +69,17 @@ function fmtDtInput(s?: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function Drawer({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
+function FormDialog({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative ml-auto ${wide ? "w-full max-w-2xl" : "w-full max-w-xl"} bg-white h-full shadow-2xl flex flex-col`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="text-lg font-bold text-blue-900">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-6 pt-12 overflow-y-auto">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl flex flex-col">
+        <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
+          <h3 className="text-lg font-extrabold text-blue-900">{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={18} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="p-8">{children}</div>
       </div>
     </div>
   );
@@ -299,7 +299,7 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
         </div>
       )}
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTrack ? "编辑赛道" : "添加赛道"}>
+      <FormDialog open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTrack ? "编辑赛道" : "添加赛道"}>
         <div className="flex flex-col gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">赛道分类 *</label>
@@ -339,7 +339,7 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
             <button onClick={() => setDrawerOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">取消</button>
           </div>
         </div>
-      </Drawer>
+      </FormDialog>
     </div>
   );
 }
@@ -467,7 +467,7 @@ export default function ContestActivities() {
         </div>
         <ContestTrackManager contest={detailContest} />
 
-        <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="编辑大赛" wide>
+        <FormDialog open={drawerOpen} onClose={() => setDrawerOpen(false)} title="编辑大赛">
           <div className="flex flex-col gap-4">
             <ContestFormFields form={form} setForm={setForm} />
             {formErr && <div className="text-sm text-destructive bg-red-50 rounded-xl px-4 py-3">{formErr}</div>}
@@ -478,7 +478,7 @@ export default function ContestActivities() {
               <button onClick={() => setDrawerOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">取消</button>
             </div>
           </div>
-        </Drawer>
+        </FormDialog>
       </div>
     );
   }
@@ -564,7 +564,7 @@ export default function ContestActivities() {
         </div>
       )}
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTarget ? "编辑大赛" : "新建大赛"} wide>
+      <FormDialog open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTarget ? "编辑大赛" : "新建大赛"}>
         <div className="flex flex-col gap-4">
           <ContestFormFields form={form} setForm={setForm} />
           {formErr && <div className="text-sm text-destructive bg-red-50 rounded-xl px-4 py-3">{formErr}</div>}
@@ -576,7 +576,7 @@ export default function ContestActivities() {
             <button onClick={() => setDrawerOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">取消</button>
           </div>
         </div>
-      </Drawer>
+      </FormDialog>
     </div>
   );
 }

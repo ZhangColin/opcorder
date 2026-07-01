@@ -68,24 +68,6 @@ function FormDialog({ open, onClose, title, children }: { open: boolean; onClose
   );
 }
 
-/* Right-side drawer — kept for preview */
-function Drawer({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative ml-auto w-full max-w-xl bg-white h-full shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="text-lg font-bold text-blue-900">{title}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 function CatBadge({ name, colorHex }: { name?: string | null; colorHex?: string | null }) {
   if (!name) return <span className="text-slate-400 text-xs">—</span>;
@@ -415,8 +397,8 @@ export default function ContestQuestions() {
         </div>
       </FormDialog>
 
-      {/* Preview Drawer */}
-      <Drawer open={!!previewItem} onClose={() => setPreviewItem(null)} title="题目详情">
+      {/* Preview Dialog */}
+      <FormDialog open={!!previewItem} onClose={() => setPreviewItem(null)} title="题目详情">
         {previewItem && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
@@ -451,7 +433,7 @@ export default function ContestQuestions() {
             </div>
           </div>
         )}
-      </Drawer>
+      </FormDialog>
     </div>
   );
 }
