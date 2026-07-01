@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Edit2, Trash2, Loader2, X, ChevronDown,
-  Settings, ArrowLeft, Calendar, Users,
+  Settings, ArrowLeft, Calendar, Users, Link2, QrCode, Copy,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import { RichTextEditor, RichTextView } from "@/components/RichTextEditor";
@@ -399,6 +400,19 @@ export default function ContestActivities() {
     onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
   });
 
+  const [qrContest, setQrContest] = useState<Contest | null>(null);
+
+  function contestUrl(c: Contest) {
+    return `${window.location.origin}/jiedanba/contest/${c.id}`;
+  }
+
+  function copyLink(c: Contest) {
+    navigator.clipboard.writeText(contestUrl(c)).then(
+      () => toast({ title: "链接已复制" }),
+      () => toast({ title: "复制失败，请手动复制", variant: "destructive" }),
+    );
+  }
+
   function openCreate() {
     setEditTarget(null);
     setForm(blankForm);
@@ -550,9 +564,11 @@ export default function ContestActivities() {
                   <td className="px-6 py-4 text-sm text-slate-600">{c.trackCount}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{c.registrationCount}</td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button onClick={() => setDetailContest(c)} title="管理赛道" className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"><Settings size={15} /></button>
                       <button onClick={() => openEdit(c)} title="编辑" className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"><Edit2 size={15} /></button>
+                      <button onClick={() => copyLink(c)} title="复制详情链接" className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"><Link2 size={15} /></button>
+                      <button onClick={() => setQrContest(c)} title="显示二维码" className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"><QrCode size={15} /></button>
                       <button onClick={() => handleDelete(c)} title="删除" className="p-1.5 rounded-lg text-slate-400 hover:text-destructive hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
                     </div>
                   </td>
@@ -587,6 +603,27 @@ export default function ContestActivities() {
           </div>
         </div>
       </FormDialog>
+
+      {/* QR Code modal */}
+      {qrContest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setQrContest(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-5 w-80">
+            <button onClick={() => setQrContest(null)} className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={16} /></button>
+            <h3 className="font-extrabold text-blue-900 text-base text-center line-clamp-2">{qrContest.title}</h3>
+            <div className="p-3 bg-white border border-slate-100 rounded-xl shadow-inner">
+              <QRCodeSVG value={contestUrl(qrContest)} size={180} bgColor="#ffffff" fgColor="#1e293b" level="M" />
+            </div>
+            <div className="w-full">
+              <div className="text-[11px] text-slate-400 mb-1 text-center">详情链接</div>
+              <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                <span className="text-xs text-slate-600 truncate flex-1">{contestUrl(qrContest)}</span>
+                <button onClick={() => copyLink(qrContest)} className="shrink-0 p-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="复制链接"><Copy size={13} /></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
