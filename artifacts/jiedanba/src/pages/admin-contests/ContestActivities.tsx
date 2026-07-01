@@ -329,7 +329,7 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
                   <select value={trackForm[qKey]} onChange={e => setTrackForm(f => ({ ...f, [qKey]: e.target.value }))}
                     className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20 truncate"
                     disabled={!selectedCatId} title={label}>
-                    <option value="">{selectedCatId ? `选择${label}` : "请先选择赛道"}</option>
+                    <option value="" disabled hidden>{selectedCatId ? `选择${label}` : "请先选择赛道"}</option>
                     {qList.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
                   </select>
                   <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
