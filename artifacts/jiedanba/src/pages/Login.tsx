@@ -93,8 +93,14 @@ export default function Login() {
         refreshToken: data.refreshToken,
         user: data.user,
       });
-      const dest = data.user.role === "admin" ? "/admin" : data.user.role === "opc" ? "/" : "/pub";
-      navigate(dest);
+      const returnTo = sessionStorage.getItem("returnTo");
+      if (returnTo && returnTo.startsWith("/")) {
+        sessionStorage.removeItem("returnTo");
+        navigate(returnTo);
+      } else {
+        const dest = data.user.role === "admin" ? "/admin" : data.user.role === "opc" ? "/" : "/pub";
+        navigate(dest);
+      }
     } catch {
       setError("网络错误，请稍后重试");
     } finally {

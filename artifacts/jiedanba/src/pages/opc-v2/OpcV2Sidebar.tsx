@@ -49,7 +49,7 @@ export function OpcV2Sidebar({ onLogout: _onLogout, mobileOpen = false, onMobile
     { icon: Wallet,       label: "我的收款",  href: "/opc/income" },
     { icon: PackageCheck, label: "交付管理",  href: "/opc/deliveries", dot: (badges?.pendingB ?? 0) > 0 },
     { icon: Wrench,       label: "工单",      href: "/opc/tickets" },
-    { icon: Trophy,       label: "我的大赛",  href: "/opc/contests" },
+    { icon: Trophy,       label: "我的大赛",  href: "/profile/contests" },
   ];
 
   const navContent = (

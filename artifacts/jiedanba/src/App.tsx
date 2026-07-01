@@ -315,10 +315,10 @@ function Router() {
       <Route path="/opc/tickets">
         {() => <OpcGate><OpcV2TicketList /></OpcGate>}
       </Route>
-      <Route path="/opc/contests/:registrationId">
+      <Route path="/profile/contests/:registrationId">
         {() => <OpcGate><OpcV2ContestDetail /></OpcGate>}
       </Route>
-      <Route path="/opc/contests">
+      <Route path="/profile/contests">
         {() => <OpcGate><OpcV2ContestList /></OpcGate>}
       </Route>
 

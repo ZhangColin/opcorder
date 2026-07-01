@@ -342,7 +342,7 @@ export default function OpcV2ContestDetail() {
         <div className="flex flex-col items-center gap-3 py-24 text-slate-400">
           <AlertCircle size={36} className="opacity-30" />
           <p className="text-sm">报名记录不存在或无权查看</p>
-          <button onClick={() => navigate("/opc/contests")} className="text-xs text-primary hover:underline">返回列表</button>
+          <button onClick={() => navigate("/profile/contests")} className="text-xs text-primary hover:underline">返回列表</button>
         </div>
       </OpcV2Layout>
     );
@@ -371,7 +371,7 @@ export default function OpcV2ContestDetail() {
       <div className="py-6 flex flex-col gap-6">
         {/* Back + Header */}
         <div>
-          <button onClick={() => navigate("/opc/contests")} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors mb-4">
+          <button onClick={() => navigate("/profile/contests")} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors mb-4">
             <ArrowLeft size={15} /> 返回我的大赛
           </button>
           <div className="flex items-start justify-between gap-4 flex-wrap">

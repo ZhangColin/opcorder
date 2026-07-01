@@ -308,7 +308,7 @@ export default function ContestDetail() {
       if (!res.ok) throw new Error(data.error ?? "报名失败");
       toast({ title: "报名成功！即将跳转至个人中心" });
       qc.invalidateQueries({ queryKey: ["contest-detail", id] });
-      setTimeout(() => navigate(`/opc/contests/${data.id}`), 800);
+      setTimeout(() => navigate(`/profile/contests/${data.id}`), 800);
     } catch (e: any) {
       toast({ title: "报名失败", description: e.message, variant: "destructive" });
     } finally {

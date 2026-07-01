@@ -123,7 +123,7 @@ export default function OpcV2ContestList() {
                   return (
                     <tr
                       key={reg.id}
-                      onClick={() => navigate(`/opc/contests/${reg.id}`)}
+                      onClick={() => navigate(`/profile/contests/${reg.id}`)}
                       className="hover:bg-slate-50/60 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4">

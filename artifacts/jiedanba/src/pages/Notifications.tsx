@@ -232,7 +232,7 @@ export default function Notifications() {
     if (n.relatedType === "v2_outsource_order" && n.relatedId) navigate(`/opc/orders/${n.relatedId}`);
     else if (n.relatedType === "v2_outsource_demand" && n.relatedId) navigate(`/opc/demand-hall`);
     /* contest registration */
-    else if ((n.relatedType as string) === "contest_registration" && n.relatedId) navigate(`/opc/contests/${n.relatedId}`);
+    else if ((n.relatedType as string) === "contest_registration" && n.relatedId) navigate(`/profile/contests/${n.relatedId}`);
     /* legacy relatedType values */
     else if (n.relatedType === "order" && n.relatedId)     navigate(`/orders/${n.relatedId}`);
     else if (n.relatedType === "demand" && n.relatedId)    navigate(`/order-hall`);
