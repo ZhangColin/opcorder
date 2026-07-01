@@ -175,6 +175,15 @@ const NAV: NavItem[] = [
     ],
   },
 
+  {
+    key: "contest_activities", icon: Trophy, label: "OPC 大赛", permKey: "contest",
+    children: [
+      { key: "contest_activities",     label: "大赛活动", moduleKey: "contest_activities"     as Module, icon: Trophy },
+      { key: "contest_registrations",  label: "报名与评级", moduleKey: "contest_registrations" as Module, icon: Award },
+      { key: "contest_questions",      label: "题库",     moduleKey: "contest_questions"      as Module, icon: BookOpen },
+    ],
+  },
+
   { key: "cockpit",   icon: BarChart3,       label: "平台驾驶舱", permKey: "cockpit" },
   { key: "users",     icon: Users,           label: "用户管理",   permKey: "users" },
   { key: "finance",   icon: Wallet,          label: "财务管理",   permKey: "finance" },
@@ -236,15 +245,6 @@ const NAV: NavItem[] = [
       { key: "screen_h",     label: "横屏大屏", href: "/screen",     icon: Monitor },
       { key: "screen_v",     label: "竖屏大屏", href: "/miniscreen", icon: Tablet },
       { key: "screenvideos", label: "视频管理", moduleKey: "screenvideos" as Module, icon: Video },
-    ],
-  },
-
-  {
-    key: "contest_activities", icon: Trophy, label: "OPC 大赛", permKey: "contest",
-    children: [
-      { key: "contest_activities",     label: "大赛活动", moduleKey: "contest_activities"     as Module, icon: Trophy },
-      { key: "contest_registrations",  label: "报名与评级", moduleKey: "contest_registrations" as Module, icon: Award },
-      { key: "contest_questions",      label: "题库",     moduleKey: "contest_questions"      as Module, icon: BookOpen },
     ],
   },
 
