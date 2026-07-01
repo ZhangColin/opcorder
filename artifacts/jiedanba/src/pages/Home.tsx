@@ -1,11 +1,22 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy, BellRing, ClipboardList, Tag, Lock, Globe, Clock } from "lucide-react";
+import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy, BellRing, ClipboardList, Tag, Lock, Globe, Clock, CalendarDays } from "lucide-react";
 import { useGetOverviewStats, useGetOpcLeaderboard, useGetCurrentUser, useListNotifications } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { OPC_LEVELS } from "@/lib/constants";
 import { v2Get } from "@/lib/v2api";
 import { useDemandTypeLabel } from "@/lib/catCategories";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+type ContestItem = {
+  id: number;
+  title: string;
+  status: "published" | "ended";
+  registrationAt: string;
+  deadlineAt: string;
+  trackCount: number;
+};
 
 const RANK_STYLES = [
   { bg: "bg-amber-400",  text: "text-amber-950", border: "border-amber-300",  ring: "ring-amber-300"  },
@@ -200,6 +211,15 @@ export default function Home() {
   });
   const topDemands = v2DemandsData?.items ?? [];
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
+  const { data: contests = [], isLoading: contestsLoading } = useQuery<ContestItem[]>({
+    queryKey: ["home-public-contests"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/contests`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   const { data: notifData } = useListNotifications({ limit: 1 }, { query: { enabled: !!currentUser?.id } });
   const { data: v2OrdersData } = useQuery<{ total: number; items: Array<{ status: string }> }>({
     queryKey: ["v2-home-active-orders"],
@@ -366,6 +386,55 @@ export default function Home() {
         {/* Right Column: Sidebar */}
         <aside className="col-span-12 lg:col-span-4 space-y-8">
           
+          {/* OPC 大赛 */}
+          <div className="bg-card rounded-2xl md:rounded-3xl shadow-lg shadow-black/5 border border-border p-5 md:p-8">
+            <div className="flex items-center justify-between mb-5 md:mb-6">
+              <h3 className="text-xl font-black text-foreground font-display">OPC 大赛</h3>
+              <div className="w-10 h-10 rounded-full bg-amber-400/10 flex items-center justify-center">
+                <Trophy size={20} className="text-amber-500 fill-amber-400" />
+              </div>
+            </div>
+            {contestsLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map(i => <div key={i} className="h-12 bg-muted animate-pulse rounded-xl" />)}
+              </div>
+            ) : contests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">暂无进行中的大赛</p>
+            ) : (
+              <ul className="space-y-2">
+                {contests.map(c => {
+                  const now = new Date();
+                  const regEnd = new Date(c.deadlineAt);
+                  const regStart = new Date(c.registrationAt);
+                  const isActive = c.status === "published" && now >= regStart && now <= regEnd;
+                  const isEnded = c.status === "ended" || now > regEnd;
+                  return (
+                    <li key={c.id}>
+                      <button
+                        onClick={() => navigate(`/contest/${c.id}`)}
+                        className="w-full text-left group rounded-xl hover:bg-muted/50 transition-all p-2 -mx-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1">{c.title}</span>
+                          <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${isEnded ? "bg-slate-100 text-slate-400" : isActive ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                            {isEnded ? "已结束" : isActive ? "报名中" : "即将开始"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <CalendarDays size={9} />
+                            截止 {new Date(c.deadlineAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }).replace("/", ".")}
+                          </span>
+                          {c.trackCount > 0 && <span className="text-[10px] text-muted-foreground">{c.trackCount} 个赛道</span>}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
           {/* Leaderboard */}
           <div className="bg-card rounded-2xl md:rounded-3xl shadow-lg shadow-black/5 border border-border p-5 md:p-8">
             <div className="flex items-center justify-between mb-5 md:mb-8">
