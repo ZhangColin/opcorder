@@ -141,7 +141,7 @@ function AttachmentUploader({
 export default function ContestQuestions() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirm();
+  const { askConfirm, confirmDialog } = useConfirm();
 
   const [catFilter, setCatFilter] = useState<number | "">("");
   const [keyword, setKeyword] = useState("");
@@ -221,9 +221,8 @@ export default function ContestQuestions() {
     setDrawerOpen(true);
   }
 
-  async function handleDelete(q: ContestQuestion) {
-    const ok = await confirm({ title: "确认删除", description: `删除题目「${q.title}」？此操作不可撤销。`, confirmLabel: "删除", variant: "destructive" });
-    if (ok) deleteMut.mutate(q.id);
+  function handleDelete(q: ContestQuestion) {
+    askConfirm({ title: "确认删除", description: `删除题目「${q.title}」？此操作不可撤销。`, confirmLabel: "删除", confirmVariant: "destructive", onConfirm: () => deleteMut.mutate(q.id) });
   }
 
   function handleSubmit() {
@@ -237,6 +236,7 @@ export default function ContestQuestions() {
 
   return (
     <div>
+      {confirmDialog}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-extrabold text-blue-900">题库管理</h2>

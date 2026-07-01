@@ -143,7 +143,7 @@ function ContestFormFields({ form, setForm }: {
 function ContestTrackManager({ contest }: { contest: Contest }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirm();
+  const { askConfirm, confirmDialog: trackConfirmDialog } = useConfirm();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editTrack, setEditTrack] = useState<ContestTrack | null>(null);
@@ -214,9 +214,8 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
     setDrawerOpen(true);
   }
 
-  async function handleDeleteTrack(t: ContestTrack) {
-    const ok = await confirm({ title: "确认删除", description: `删除「${t.catName ?? "该"}」赛道配置？`, confirmLabel: "删除", variant: "destructive" });
-    if (ok) deleteMut.mutate(t.id);
+  function handleDeleteTrack(t: ContestTrack) {
+    askConfirm({ title: "确认删除", description: `删除「${t.catName ?? "该"}」赛道配置？`, confirmLabel: "删除", confirmVariant: "destructive", onConfirm: () => deleteMut.mutate(t.id) });
   }
 
   function handleSaveTrack() {
@@ -255,6 +254,7 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
 
   return (
     <div>
+      {trackConfirmDialog}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-blue-900">赛道配置</h3>
         <button onClick={openAddTrack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors">
@@ -348,7 +348,7 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
 export default function ContestActivities() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const confirm = useConfirm();
+  const { askConfirm: askConfirmContest, confirmDialog } = useConfirm();
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -407,9 +407,8 @@ export default function ContestActivities() {
     setDrawerOpen(true);
   }
 
-  async function handleDelete(c: Contest) {
-    const ok = await confirm({ title: "确认删除", description: `删除大赛「${c.title}」？仅草稿状态可删除。`, confirmLabel: "删除", variant: "destructive" });
-    if (ok) deleteMut.mutate(c.id);
+  function handleDelete(c: Contest) {
+    askConfirmContest({ title: "确认删除", description: `删除大赛「${c.title}」？仅草稿状态可删除。`, confirmLabel: "删除", confirmVariant: "destructive", onConfirm: () => deleteMut.mutate(c.id) });
   }
 
   function handleSubmit() {
@@ -486,6 +485,7 @@ export default function ContestActivities() {
 
   return (
     <div>
+      {confirmDialog}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-extrabold text-blue-900">大赛活动</h2>

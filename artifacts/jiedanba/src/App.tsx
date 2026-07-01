@@ -50,6 +50,9 @@ import OpcV2DeliveryList from "@/pages/opc-v2/OpcV2DeliveryList";
 import OpcV2TicketList from "@/pages/opc-v2/OpcV2TicketList";
 import OpcV2TicketDetail from "@/pages/opc-v2/OpcV2TicketDetail";
 import OpcV2IncomeDetail from "@/pages/opc-v2/OpcV2IncomeDetail";
+import OpcV2ContestList from "@/pages/opc-v2/OpcV2ContestList";
+import OpcV2ContestDetail from "@/pages/opc-v2/OpcV2ContestDetail";
+import ContestDetail from "@/pages/ContestDetail";
 import Admin from "@/pages/Admin";
 import ScreenDisplay from "@/pages/ScreenDisplay";
 import MiniScreen from "@/pages/MiniScreen";
@@ -206,6 +209,7 @@ function Router() {
   return (
     <Switch>
       {/* 公开路由 */}
+      <Route path="/contest/:id" component={ContestDetail} />
       <Route path="/login" component={Login} />
       <Route path="/auth/:role" component={Auth} />
       <Route path="/terms" component={Terms} />
@@ -310,6 +314,12 @@ function Router() {
       </Route>
       <Route path="/opc/tickets">
         {() => <OpcGate><OpcV2TicketList /></OpcGate>}
+      </Route>
+      <Route path="/opc/contests/:registrationId">
+        {() => <OpcGate><OpcV2ContestDetail /></OpcGate>}
+      </Route>
+      <Route path="/opc/contests">
+        {() => <OpcGate><OpcV2ContestList /></OpcGate>}
       </Route>
 
       {/* OPC 专属路由 */}

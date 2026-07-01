@@ -47,6 +47,8 @@ const NOTIF_TYPE_CFG: Record<
   v2_settlement_paid:             { label: "结算款已打款",   category: "order",  icon: Banknote },
   v2_demand_invited:              { label: "外包需求邀请",   category: "invite", icon: Zap },
   v2_outsource_detail_updated:    { label: "需求详情已更新", category: "order",  icon: Info },
+  contest_test_graded:            { label: "测试题评级结果", category: "system", icon: Trophy },
+  contest_assignment_graded:      { label: "测试单评级结果", category: "system", icon: Trophy },
 };
 
 const TABS = [
@@ -229,6 +231,8 @@ export default function Notifications() {
     /* v2 relatedType values */
     if (n.relatedType === "v2_outsource_order" && n.relatedId) navigate(`/opc/orders/${n.relatedId}`);
     else if (n.relatedType === "v2_outsource_demand" && n.relatedId) navigate(`/opc/demand-hall`);
+    /* contest registration */
+    else if ((n.relatedType as string) === "contest_registration" && n.relatedId) navigate(`/opc/contests/${n.relatedId}`);
     /* legacy relatedType values */
     else if (n.relatedType === "order" && n.relatedId)     navigate(`/orders/${n.relatedId}`);
     else if (n.relatedType === "demand" && n.relatedId)    navigate(`/order-hall`);
