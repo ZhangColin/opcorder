@@ -64,7 +64,9 @@ function fmtDate(s?: string | null) {
 
 function fmtDtInput(s?: string | null) {
   if (!s) return "";
-  return new Date(s).toISOString().slice(0, 16);
+  const d = new Date(s);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function Drawer({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {

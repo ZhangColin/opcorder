@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, contestsTable, contestQuestionsTable, contestTracksTable, contestRegistrationsTable, notificationsTable, opcTrackCertsTable, catCategoriesTable, usersTable } from "@workspace/db";
-import { eq, desc, and, count, sql, asc, inArray } from "drizzle-orm";
+import { eq, desc, and, count, sql, asc, inArray, ilike } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
 import { logger } from "../lib/logger";
@@ -22,6 +22,7 @@ router.get("/admin/contests/questions", requireAdmin, async (req, res) => {
 
     const conditions = [];
     if (catCategoryId) conditions.push(eq(contestQuestionsTable.catCategoryId, Number(catCategoryId)));
+    if (keyword?.trim()) conditions.push(ilike(contestQuestionsTable.title, `%${keyword.trim()}%`));
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [{ total }] = await db.select({ total: count() }).from(contestQuestionsTable).where(where);
