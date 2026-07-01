@@ -57,6 +57,7 @@ export * from "./contestSubmitTestInput";
 export * from "./contestTrack";
 export * from "./contestTrackInput";
 export * from "./contestTrackPublic";
+export * from "./contestWithCounts";
 export * from "./course";
 export * from "./courseCategory";
 export * from "./courseRequiredLevel";

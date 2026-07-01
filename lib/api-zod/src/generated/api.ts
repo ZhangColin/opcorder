@@ -2187,19 +2187,26 @@ export const GetAdminContestsQueryParams = zod.object({
 
 export const GetAdminContestsResponse = zod.object({
   items: zod.array(
-    zod.object({
-      id: zod.number(),
-      title: zod.string(),
-      details: zod.string(),
-      announcementAt: zod.date(),
-      registrationAt: zod.date(),
-      publicAt: zod.date(),
-      benefitAt: zod.date(),
-      deadlineAt: zod.date(),
-      status: zod.enum(["draft", "published", "ended"]),
-      createdAt: zod.date(),
-      updatedAt: zod.date(),
-    }),
+    zod
+      .object({
+        id: zod.number(),
+        title: zod.string(),
+        details: zod.string(),
+        announcementAt: zod.date(),
+        registrationAt: zod.date(),
+        publicAt: zod.date(),
+        benefitAt: zod.date(),
+        deadlineAt: zod.date(),
+        status: zod.enum(["draft", "published", "ended"]),
+        createdAt: zod.date(),
+        updatedAt: zod.date(),
+      })
+      .and(
+        zod.object({
+          trackCount: zod.number(),
+          registrationCount: zod.number(),
+        }),
+      ),
   ),
   total: zod.number(),
   page: zod.number(),

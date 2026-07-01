@@ -951,6 +951,11 @@ export interface Contest {
   updatedAt: string;
 }
 
+export type ContestWithCounts = Contest & {
+  trackCount: number;
+  registrationCount: number;
+};
+
 export type ContestDetail = Contest & {
   tracks: ContestTrack[];
 };
@@ -1572,7 +1577,7 @@ export const GetAdminContestsStatus = {
 } as const;
 
 export type GetAdminContests200 = {
-  items: Contest[];
+  items: ContestWithCounts[];
   total: number;
   page: number;
   pageSize: number;

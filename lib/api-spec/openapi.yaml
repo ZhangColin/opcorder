@@ -1766,7 +1766,7 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: "#/components/schemas/Contest"
+                      $ref: "#/components/schemas/ContestWithCounts"
                   total: { type: integer }
                   page: { type: integer }
                   pageSize: { type: integer }
@@ -3643,6 +3643,15 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
       required: [id, title, details, announcementAt, registrationAt, publicAt, benefitAt, deadlineAt, status, createdAt, updatedAt]
+
+    ContestWithCounts:
+      allOf:
+        - $ref: "#/components/schemas/Contest"
+        - type: object
+          properties:
+            trackCount: { type: integer }
+            registrationCount: { type: integer }
+          required: [trackCount, registrationCount]
 
     ContestDetail:
       allOf:

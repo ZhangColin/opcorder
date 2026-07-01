@@ -5,10 +5,10 @@
  * JieDanBa OPC Matching Platform API
  * OpenAPI spec version: 1.0.0
  */
-import type { Contest } from "./contest";
+import type { ContestWithCounts } from "./contestWithCounts";
 
 export type GetAdminContests200 = {
-  items: Contest[];
+  items: ContestWithCounts[];
   total: number;
   page: number;
   pageSize: number;
