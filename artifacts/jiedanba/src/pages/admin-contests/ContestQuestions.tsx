@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Loader2, Search, X, ChevronDown, Paperclip, UploadCloud } from "lucide-react";
+import { Plus, Edit2, Trash2, Copy, Loader2, Search, X, ChevronDown, Paperclip, UploadCloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
@@ -223,6 +223,14 @@ export default function ContestQuestions() {
     setDrawerOpen(true);
   }
 
+  function openDuplicate(q: ContestQuestion) {
+    setEditTarget(null);
+    setForm({ catCategoryId: String(q.catCategoryId), title: `${q.title}（副本）`, content: q.content });
+    setFormAttachments(Array.isArray(q.attachments) ? q.attachments : []);
+    setFormErr(null);
+    setDrawerOpen(true);
+  }
+
   function handleDelete(q: ContestQuestion) {
     askConfirm({ title: "确认删除", description: `删除题目「${q.title}」？此操作不可撤销。`, confirmLabel: "删除", confirmVariant: "destructive", onConfirm: () => deleteMut.mutate(q.id) });
   }
@@ -318,8 +326,9 @@ export default function ContestQuestions() {
                 <td className="px-6 py-4 text-xs text-slate-400">{new Date(q.createdAt).toLocaleDateString("zh-CN")}</td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => openEdit(q)} className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"><Edit2 size={15} /></button>
-                    <button onClick={() => handleDelete(q)} className="p-1.5 rounded-lg text-slate-400 hover:text-destructive hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
+                    <button onClick={() => openEdit(q)} title="编辑" className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"><Edit2 size={15} /></button>
+                    <button onClick={() => openDuplicate(q)} title="复制为新题" className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"><Copy size={15} /></button>
+                    <button onClick={() => handleDelete(q)} title="删除" className="p-1.5 rounded-lg text-slate-400 hover:text-destructive hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
                   </div>
                 </td>
               </tr>
