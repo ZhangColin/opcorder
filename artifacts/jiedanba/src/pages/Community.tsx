@@ -573,6 +573,16 @@ type AnnItem = {
   createdAt: string;
 };
 
+type ContestItem = {
+  id: number;
+  title: string;
+  status: "published" | "ended";
+  announcementAt: string;
+  registrationAt: string;
+  deadlineAt: string;
+  trackCount: number;
+};
+
 const COMM_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function Community() {
@@ -595,6 +605,16 @@ export default function Community() {
     queryKey: ["public-announcements"],
     queryFn: async () => {
       const res = await fetch(`${COMM_BASE}/api/announcements`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: contests = [] } = useQuery<ContestItem[]>({
+    queryKey: ["public-contests"],
+    queryFn: async () => {
+      const res = await fetch(`${COMM_BASE}/api/contests`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -985,6 +1005,48 @@ export default function Community() {
                 </ul>
               )}
             </section>
+
+            {/* OPC 大赛版块 */}
+            {contests.length > 0 && (
+              <section className="bg-slate-50 rounded-2xl p-6 border border-amber-100">
+                <h2 className="font-extrabold text-primary flex items-center gap-2 mb-5 text-sm">
+                  <Trophy size={16} className="text-amber-500 fill-amber-400" /> OPC 大赛
+                </h2>
+                <ul className="space-y-3">
+                  {contests.map(c => {
+                    const now = new Date();
+                    const regEnd = new Date(c.deadlineAt);
+                    const regStart = new Date(c.registrationAt);
+                    const isActive = c.status === "published" && now >= regStart && now <= regEnd;
+                    const isEnded = c.status === "ended" || now > regEnd;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          onClick={() => navigate(`/contest/${c.id}`)}
+                          className="w-full text-left group rounded-xl hover:bg-white hover:shadow-sm transition-all p-2 -mx-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1">{c.title}</span>
+                            <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${isEnded ? "bg-slate-100 text-slate-400" : isActive ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                              {isEnded ? "已结束" : isActive ? "报名中" : "即将开始"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                              <CalendarDays size={9} />
+                              截止 {new Date(c.deadlineAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" }).replace("/", ".")}
+                            </span>
+                            {c.trackCount > 0 && (
+                              <span className="text-[10px] text-slate-400">{c.trackCount} 个赛道</span>
+                            )}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
 
             <section className="bg-white rounded-2xl p-6 border border-slate-100">
               <h2 className="font-extrabold text-foreground flex items-center gap-2 mb-5 text-sm">

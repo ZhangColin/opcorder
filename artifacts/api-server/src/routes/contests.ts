@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, contestsTable, contestQuestionsTable, contestTracksTable, contestRegistrationsTable, notificationsTable, opcTrackCertsTable, catCategoriesTable, usersTable } from "@workspace/db";
-import { eq, desc, and, count, sql, asc, inArray, ilike } from "drizzle-orm";
+import { eq, desc, and, count, sql, asc, inArray, ilike, lte } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
 import { logger } from "../lib/logger";
@@ -887,6 +887,37 @@ router.put("/contests/registrations/:id/assignment", requireAuth, async (req, re
 });
 
 /* ─── Public: Contest Detail (无需登录) ─────────────────────────── */
+
+/* ─── Public: Contest list (published + past announcement) ─── */
+router.get("/contests", async (req, res) => {
+  try {
+    const now = new Date();
+    const rows = await db
+      .select({
+        id: contestsTable.id,
+        title: contestsTable.title,
+        status: contestsTable.status,
+        announcementAt: contestsTable.announcementAt,
+        registrationAt: contestsTable.registrationAt,
+        publicAt: contestsTable.publicAt,
+        benefitAt: contestsTable.benefitAt,
+        deadlineAt: contestsTable.deadlineAt,
+        trackCount: sql<number>`(SELECT COUNT(*) FROM ${contestTracksTable} WHERE ${contestTracksTable.contestId} = ${contestsTable.id})::int`,
+      })
+      .from(contestsTable)
+      .where(
+        and(
+          inArray(contestsTable.status, ["published", "ended"]),
+          lte(contestsTable.announcementAt, now),
+        )
+      )
+      .orderBy(desc(contestsTable.announcementAt));
+    return res.json(rows);
+  } catch (err) {
+    logger.error({ err }, "[contests GET]");
+    return res.status(500).json({ error: "获取大赛列表失败" });
+  }
+});
 
 router.get("/contests/:id", async (req, res) => {
   try {
