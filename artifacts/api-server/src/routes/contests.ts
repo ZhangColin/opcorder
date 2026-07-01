@@ -905,12 +905,7 @@ router.get("/contests", async (req, res) => {
         trackCount: sql<number>`(SELECT COUNT(*) FROM ${contestTracksTable} WHERE ${contestTracksTable.contestId} = ${contestsTable.id})::int`,
       })
       .from(contestsTable)
-      .where(
-        and(
-          inArray(contestsTable.status, ["published", "ended"]),
-          lte(contestsTable.announcementAt, now),
-        )
-      )
+      .where(inArray(contestsTable.status, ["published", "ended"]))
       .orderBy(desc(contestsTable.announcementAt));
     return res.json(rows);
   } catch (err) {
