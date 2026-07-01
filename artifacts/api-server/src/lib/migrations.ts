@@ -2735,5 +2735,139 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 039a: added opc_level to v2_outsource_demands");
   });
 
+  // Migration 040a: add contest_test_graded / contest_assignment_graded to notification_type enum (CRITICAL)
+  await once("040a", true, async () => {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'contest_test_graded' AFTER 'v2_discussion_replied';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'contest_assignment_graded' AFTER 'contest_test_graded';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    logger.info("Migration 040a: added contest notification types to enum");
+  });
+
+  // Migration 040b: create contest_status enum and contests table (CRITICAL)
+  await once("040b", true, async () => {
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE contest_status AS ENUM ('draft', 'published', 'ended');
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contests (
+        id            serial PRIMARY KEY,
+        title         varchar(200) NOT NULL,
+        details       text NOT NULL DEFAULT '',
+        announcement_at  timestamp NOT NULL,
+        registration_at  timestamp NOT NULL,
+        public_at        timestamp NOT NULL,
+        benefit_at       timestamp NOT NULL,
+        deadline_at      timestamp NOT NULL,
+        status        contest_status NOT NULL DEFAULT 'draft',
+        created_at    timestamp NOT NULL DEFAULT now(),
+        updated_at    timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    logger.info("Migration 040b: created contests table");
+  });
+
+  // Migration 040c: create contest_questions table (CRITICAL)
+  await once("040c", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contest_questions (
+        id              serial PRIMARY KEY,
+        cat_category_id integer NOT NULL REFERENCES cat_categories(id),
+        title           varchar(200) NOT NULL,
+        content         text NOT NULL DEFAULT '',
+        attachments     jsonb NOT NULL DEFAULT '[]',
+        created_at      timestamp NOT NULL DEFAULT now(),
+        updated_at      timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS contest_questions_cat_idx ON contest_questions(cat_category_id)`);
+    logger.info("Migration 040c: created contest_questions table");
+  });
+
+  // Migration 040d: create contest_tracks table (CRITICAL)
+  await once("040d", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contest_tracks (
+        id                  serial PRIMARY KEY,
+        contest_id          integer NOT NULL REFERENCES contests(id) ON DELETE CASCADE,
+        cat_category_id     integer NOT NULL REFERENCES cat_categories(id),
+        test_question_id    integer REFERENCES contest_questions(id),
+        a_question_id       integer REFERENCES contest_questions(id),
+        b_question_id       integer REFERENCES contest_questions(id),
+        c_question_id       integer REFERENCES contest_questions(id),
+        test_duration_hours integer NOT NULL DEFAULT 72,
+        a_duration_hours    integer NOT NULL DEFAULT 72,
+        b_duration_hours    integer NOT NULL DEFAULT 72,
+        c_duration_hours    integer NOT NULL DEFAULT 72,
+        quota_total         integer NOT NULL DEFAULT 0,
+        quota_used          integer NOT NULL DEFAULT 0,
+        created_at          timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS contest_tracks_contest_idx ON contest_tracks(contest_id)`);
+    logger.info("Migration 040d: created contest_tracks table");
+  });
+
+  // Migration 040e: create contest_grade, contest_registration_status enums and contest_registrations table (CRITICAL)
+  await once("040e", true, async () => {
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE contest_grade AS ENUM ('A', 'B', 'C', 'fail');
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE contest_registration_status AS ENUM (
+          'registered', 'test_submitted', 'test_passed', 'test_failed',
+          'assignment_submitted', 'assignment_passed', 'assignment_failed'
+        );
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contest_registrations (
+        id                      serial PRIMARY KEY,
+        contest_id              integer NOT NULL REFERENCES contests(id),
+        track_id                integer NOT NULL REFERENCES contest_tracks(id),
+        user_id                 integer NOT NULL REFERENCES users(id),
+        status                  contest_registration_status NOT NULL DEFAULT 'registered',
+
+        test_submitted_at       timestamp,
+        test_content            text,
+        test_attachments        jsonb NOT NULL DEFAULT '[]',
+        test_urls               jsonb NOT NULL DEFAULT '[]',
+        test_grade              contest_grade,
+
+        assignment_submitted_at timestamp,
+        assignment_content      text,
+        assignment_attachments  jsonb NOT NULL DEFAULT '[]',
+        assignment_urls         jsonb NOT NULL DEFAULT '[]',
+        assignment_grade        contest_grade,
+
+        grade_note              varchar(500),
+
+        created_at              timestamp NOT NULL DEFAULT now(),
+        updated_at              timestamp NOT NULL DEFAULT now(),
+
+        UNIQUE(track_id, user_id)
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS contest_registrations_contest_idx ON contest_registrations(contest_id)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS contest_registrations_user_idx ON contest_registrations(user_id)`);
+    logger.info("Migration 040e: created contest_registrations table");
+  });
+
   logger.info("Startup data migrations complete.");
 }

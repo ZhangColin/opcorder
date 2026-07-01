@@ -16,11 +16,15 @@ export interface BidApplication {
   opcLevel?: string;
   opcCreditScore?: number;
   opcAvgRating?: number;
+  /** Number of completed orders by this OPC */
+  opcCompletedOrders?: number;
   proposal: string;
   estimatedDays?: number;
   portfolioLinks?: string[];
   status: BidApplicationStatus;
   createdAt: Date;
+  /** Whether this OPC was auto-invited to bid on this demand */
   isInvited?: boolean;
+  /** Track level (A/B/C) at which this OPC was invited; null if not invited */
   invitedTrackLevel?: string | null;
 }

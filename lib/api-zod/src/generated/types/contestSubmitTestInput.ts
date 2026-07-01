@@ -6,8 +6,8 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface CreateBidInput {
-  proposal: string;
-  estimatedDays: number;
-  portfolioLinks?: string[];
+export interface ContestSubmitTestInput {
+  content?: string;
+  attachments?: unknown[];
+  urls?: string[];
 }

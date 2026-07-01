@@ -6,8 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface CreateBidInput {
-  proposal: string;
-  estimatedDays: number;
-  portfolioLinks?: string[];
-}
+export type PublicListTrackPassedUsersItem = {
+  nickname?: string | null;
+  avatar?: string | null;
+};

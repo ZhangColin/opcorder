@@ -229,6 +229,7 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/login-logs",    permission: "operation" },
   { prefix: "/api/admin/login-stats",   permission: "operation" },
   { prefix: "/api/admin/login-city",    permission: "operation" },
+  { prefix: "/api/admin/contests",      permission: "contest" },
 ];
 
 import { Request, Response, NextFunction } from "express";

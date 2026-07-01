@@ -22,7 +22,6 @@ export const GetOverviewStatsResponse = zod.object({
   payoutGrowth: zod.number(),
   activeOpcs: zod.number(),
   monthlyOrders: zod.number(),
-  monthlyDemands: zod.number(),
   completionRate: zod.number(),
 });
 
@@ -172,7 +171,6 @@ export const ListDemandsQueryParams = zod.object({
     ])
     .optional(),
   type: zod.coerce.string().optional(),
-  catCategoryId: zod.coerce.number().optional(),
   opcLevel: zod.enum(["C", "B", "A", "any"]).optional(),
   minBudget: zod.coerce.number().optional(),
   maxBudget: zod.coerce.number().optional(),
@@ -201,7 +199,15 @@ export const ListDemandsResponse = zod.object({
       id: zod.number(),
       demandNo: zod.string(),
       title: zod.string(),
-      type: zod.enum(["education", "software", "marketing", "content", "other"]),
+      type: zod.enum([
+        "ai_education",
+        "gov_training",
+        "ai_research",
+        "party_building",
+        "livestream_media",
+        "ai_tool_dev",
+        "other",
+      ]),
       typeLabel: zod.string().optional(),
       description: zod.string(),
       skillTags: zod.array(zod.string()),
@@ -277,17 +283,19 @@ export const createDemandBodyIsUrgentDefault = false;
 
 export const CreateDemandBody = zod.object({
   title: zod.string().max(createDemandBodyTitleMax),
-  /** Legacy type field. Now optional — catCategoryId is the primary classification field. */
-  type: zod.string().optional().default("other"),
+  type: zod.enum([
+    "ai_education",
+    "gov_training",
+    "ai_research",
+    "party_building",
+    "livestream_media",
+    "ai_tool_dev",
+    "other",
+  ]),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
   opcLevel: zod.enum(["C", "B", "A", "any"]),
-  /** @deprecated Use budgetMin/budgetMax instead. */
-  budget: zod.number().optional(),
-  /** Minimum budget (price range lower bound). */
-  budgetMin: zod.number().optional(),
-  /** Maximum budget (price range upper bound). */
-  budgetMax: zod.number().optional(),
+  budget: zod.number(),
   deadline: zod.coerce.date(),
   milestones: zod
     .array(
@@ -326,7 +334,15 @@ export const GetDemandByIdResponse = zod.object({
   id: zod.number(),
   demandNo: zod.string(),
   title: zod.string(),
-  type: zod.enum(["education", "software", "marketing", "content", "other"]),
+  type: zod.enum([
+    "ai_education",
+    "gov_training",
+    "ai_research",
+    "party_building",
+    "livestream_media",
+    "ai_tool_dev",
+    "other",
+  ]),
   typeLabel: zod.string().optional(),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
@@ -402,8 +418,6 @@ export const UpdateDemandBody = zod.object({
   skillTags: zod.array(zod.string()).optional(),
   opcLevel: zod.enum(["C", "B", "A", "any"]).optional(),
   budget: zod.number().optional(),
-  budgetMin: zod.number().optional(),
-  budgetMax: zod.number().optional(),
   deadline: zod.coerce.date().optional(),
   milestones: zod
     .array(
@@ -422,7 +436,15 @@ export const UpdateDemandResponse = zod.object({
   id: zod.number(),
   demandNo: zod.string(),
   title: zod.string(),
-  type: zod.enum(["education", "software", "marketing", "content", "other"]),
+  type: zod.enum([
+    "ai_education",
+    "gov_training",
+    "ai_research",
+    "party_building",
+    "livestream_media",
+    "ai_tool_dev",
+    "other",
+  ]),
   typeLabel: zod.string().optional(),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
@@ -512,7 +534,15 @@ export const UpdateDemandStatusResponse = zod.object({
   id: zod.number(),
   demandNo: zod.string(),
   title: zod.string(),
-  type: zod.enum(["education", "software", "marketing", "content", "other"]),
+  type: zod.enum([
+    "ai_education",
+    "gov_training",
+    "ai_research",
+    "party_building",
+    "livestream_media",
+    "ai_tool_dev",
+    "other",
+  ]),
   typeLabel: zod.string().optional(),
   description: zod.string(),
   skillTags: zod.array(zod.string()),
@@ -589,12 +619,25 @@ export const ListBidsForDemandResponseItem = zod.object({
   opcLevel: zod.string().optional(),
   opcCreditScore: zod.number().optional(),
   opcAvgRating: zod.number().optional(),
-  opcCompletedOrders: zod.number().optional(),
+  opcCompletedOrders: zod
+    .number()
+    .optional()
+    .describe("Number of completed orders by this OPC"),
   proposal: zod.string(),
   estimatedDays: zod.number().optional(),
   portfolioLinks: zod.array(zod.string()).optional(),
   status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
   createdAt: zod.date(),
+  isInvited: zod
+    .boolean()
+    .optional()
+    .describe("Whether this OPC was auto-invited to bid on this demand"),
+  invitedTrackLevel: zod
+    .string()
+    .nullish()
+    .describe(
+      "Track level (A\/B\/C) at which this OPC was invited; null if not invited",
+    ),
 });
 export const ListBidsForDemandResponse = zod.array(
   ListBidsForDemandResponseItem,
@@ -608,16 +651,9 @@ export const CreateBidParams = zod.object({
 });
 
 export const CreateBidBody = zod.object({
-  /** Text proposal / cover letter. Optional when quoteCardData is provided. */
-  proposal: zod.string().optional(),
+  proposal: zod.string(),
   estimatedDays: zod.number(),
   portfolioLinks: zod.array(zod.string()).optional(),
-  /** Structured quote card: maps dimension code (e.g. "D1") to tier code (e.g. "M"). */
-  quoteCardData: zod.record(zod.string(), zod.string()).optional(),
-  /** Final quoted price in yuan, computed from quote card selections. */
-  quotedPrice: zod.number().optional(),
-  /** Full immutable snapshot of the quote card at submission time. */
-  quoteCardSnapshot: zod.record(zod.string(), zod.unknown()).optional(),
 });
 
 /**
@@ -661,22 +697,44 @@ export const UpdateBidStatusBody = zod.object({
   status: zod.enum(["accepted", "rejected"]),
 });
 
-export const UpdateBidStatusResponse = zod.object({
-  id: zod.number(),
-  demandId: zod.number(),
-  opcId: zod.number(),
-  opcNickname: zod.string().optional(),
-  opcAvatar: zod.string().optional(),
-  opcLevel: zod.string().optional(),
-  opcCreditScore: zod.number().optional(),
-  opcAvgRating: zod.number().optional(),
-  orderId: zod.number().optional(),
-  proposal: zod.string(),
-  estimatedDays: zod.number().optional(),
-  portfolioLinks: zod.array(zod.string()).optional(),
-  status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
-  createdAt: zod.date(),
-});
+export const UpdateBidStatusResponse = zod
+  .object({
+    id: zod.number(),
+    demandId: zod.number(),
+    opcId: zod.number(),
+    opcNickname: zod.string().optional(),
+    opcAvatar: zod.string().optional(),
+    opcLevel: zod.string().optional(),
+    opcCreditScore: zod.number().optional(),
+    opcAvgRating: zod.number().optional(),
+    opcCompletedOrders: zod
+      .number()
+      .optional()
+      .describe("Number of completed orders by this OPC"),
+    proposal: zod.string(),
+    estimatedDays: zod.number().optional(),
+    portfolioLinks: zod.array(zod.string()).optional(),
+    status: zod.enum(["pending", "accepted", "rejected", "withdrawn"]),
+    createdAt: zod.date(),
+    isInvited: zod
+      .boolean()
+      .optional()
+      .describe("Whether this OPC was auto-invited to bid on this demand"),
+    invitedTrackLevel: zod
+      .string()
+      .nullish()
+      .describe(
+        "Track level (A\/B\/C) at which this OPC was invited; null if not invited",
+      ),
+  })
+  .and(
+    zod.object({
+      orderId: zod
+        .number()
+        .optional()
+        .describe("Created order ID (present when bid is accepted)"),
+    }),
+  );
 
 /**
  * @summary List orders
@@ -687,7 +745,6 @@ export const listOrdersQueryLimitDefault = 20;
 export const ListOrdersQueryParams = zod.object({
   status: zod
     .enum([
-      "pending_payment",
       "in_progress",
       "pending_acceptance",
       "completed",
@@ -2018,121 +2075,6 @@ export const UpdateAgentConfigBody = zod.object({
   isEnabled: zod.boolean().optional(),
 });
 
-/**
- * @summary Submit order deposit payment (publisher only)
- */
-export const SubmitOrderPaymentParams = zod.object({
-  orderId: zod.coerce.number(),
-});
-
-export const SubmitOrderPaymentBody = zod.object({
-  method: zod.enum(["online", "offline"]),
-  receiptUrl: zod.string().optional().describe("Receipt URL for offline payments"),
-  paymentNote: zod.string().optional(),
-});
-
-/**
- * @summary Close a pending_payment order (publisher or admin)
- */
-export const CloseOrderParams = zod.object({
-  orderId: zod.coerce.number(),
-});
-
-export const CloseOrderBody = zod.object({
-  reason: zod.string().optional(),
-});
-
-/**
- * Quote card config item (one dimension + tier combination)
- */
-export const QuoteCardConfigItem = zod.object({
-  id: zod.number(),
-  dimensionCode: zod.string(),
-  dimensionLabel: zod.string(),
-  tier: zod.enum(["S", "M", "L", "XL"]),
-  tierLabel: zod.string(),
-  basePrice: zod.number(),
-  coefficient: zod.number().nullish(),
-  description: zod.string().nullish(),
-  updatedAt: zod.date().optional(),
-});
-export const QuoteCardConfigResponse = zod.array(QuoteCardConfigItem);
-
-export const PutQuoteCardConfigBody = zod.object({
-  items: zod.array(
-    zod.object({
-      dimensionCode: zod.string(),
-      dimensionLabel: zod.string(),
-      tier: zod.string(),
-      tierLabel: zod.string(),
-      basePrice: zod.number().min(0),
-      coefficient: zod.number().nullish(),
-      description: zod.string().optional(),
-    })
-  ),
-});
-
-// ── Quote Card v2 (dynamic dimensions + tiers) ────────────────────────────
-
-export const QuoteDimTier = zod.object({
-  id: zod.number(),
-  tier: zod.string(),
-  tierLabel: zod.string(),
-  basePrice: zod.number(),
-  coefficient: zod.number().nullish(),
-  description: zod.string().nullish(),
-  sortOrder: zod.number(),
-});
-
-export const QuoteDim = zod.object({
-  id: zod.number(),
-  code: zod.string(),
-  label: zod.string(),
-  description: zod.string().nullish(),
-  sortOrder: zod.number(),
-  tiers: zod.array(QuoteDimTier),
-});
-
-export const QuoteCategoryConfig = zod.object({
-  category: zod.string(),
-  base: zod.array(QuoteDim),
-  adjustment: zod.array(QuoteDim),
-});
-
-export const CreateQuoteDimensionBody = zod.object({
-  category: zod.enum(["software", "education", "marketing", "content"]),
-  layer: zod.enum(["base", "adjustment"]),
-  code: zod.string().min(1).max(20),
-  label: zod.string().min(1),
-  description: zod.string().optional(),
-  sortOrder: zod.number().optional(),
-});
-
-export const UpdateQuoteDimensionBody = zod.object({
-  label: zod.string().min(1).optional(),
-  description: zod.string().nullish(),
-  sortOrder: zod.number().optional(),
-  isActive: zod.boolean().optional(),
-});
-
-export const CreateQuoteTierBody = zod.object({
-  dimensionId: zod.number(),
-  tier: zod.string().min(1).max(20),
-  tierLabel: zod.string().min(1),
-  basePrice: zod.number().min(0).optional(),
-  coefficient: zod.number().min(0.01).max(10).optional(),
-  description: zod.string().optional(),
-  sortOrder: zod.number().optional(),
-});
-
-export const UpdateQuoteTierBody = zod.object({
-  tierLabel: zod.string().min(1).optional(),
-  basePrice: zod.number().min(0).optional(),
-  coefficient: zod.number().min(0.01).max(10).nullish(),
-  description: zod.string().nullish(),
-  sortOrder: zod.number().optional(),
-});
-
 export const UpdateAgentConfigResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -2141,4 +2083,621 @@ export const UpdateAgentConfigResponse = zod.object({
   isEnabled: zod.boolean(),
   model: zod.string(),
   createdAt: zod.date(),
+});
+
+/**
+ * @summary List contest questions
+ */
+export const GetAdminContestQuestionsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  catCategoryId: zod.coerce.number().optional(),
+  keyword: zod.coerce.string().optional(),
+});
+
+export const GetAdminContestQuestionsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      catCategoryId: zod.number(),
+      catName: zod.string().nullish(),
+      catColorHex: zod.string().nullish(),
+      title: zod.string(),
+      content: zod.string(),
+      attachments: zod.array(zod.unknown()),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Create contest question
+ */
+export const PostAdminContestQuestionsBody = zod.object({
+  catCategoryId: zod.number(),
+  title: zod.string(),
+  content: zod.string().optional(),
+  attachments: zod.array(zod.unknown()).optional(),
+});
+
+/**
+ * @summary Get contest question
+ */
+export const GetAdminContestQuestionsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminContestQuestionsIdResponse = zod.object({
+  id: zod.number(),
+  catCategoryId: zod.number(),
+  catName: zod.string().nullish(),
+  catColorHex: zod.string().nullish(),
+  title: zod.string(),
+  content: zod.string(),
+  attachments: zod.array(zod.unknown()),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Update contest question
+ */
+export const PutAdminContestQuestionsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PutAdminContestQuestionsIdBody = zod.object({
+  catCategoryId: zod.number(),
+  title: zod.string(),
+  content: zod.string().optional(),
+  attachments: zod.array(zod.unknown()).optional(),
+});
+
+export const PutAdminContestQuestionsIdResponse = zod.object({
+  id: zod.number(),
+  catCategoryId: zod.number(),
+  catName: zod.string().nullish(),
+  catColorHex: zod.string().nullish(),
+  title: zod.string(),
+  content: zod.string(),
+  attachments: zod.array(zod.unknown()),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete contest question
+ */
+export const DeleteAdminContestQuestionsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List contests
+ */
+export const GetAdminContestsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  status: zod.enum(["draft", "published", "ended"]).optional(),
+});
+
+export const GetAdminContestsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      details: zod.string(),
+      announcementAt: zod.date(),
+      registrationAt: zod.date(),
+      publicAt: zod.date(),
+      benefitAt: zod.date(),
+      deadlineAt: zod.date(),
+      status: zod.enum(["draft", "published", "ended"]),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Create contest
+ */
+export const PostAdminContestsBody = zod.object({
+  title: zod.string(),
+  details: zod.string().optional(),
+  announcementAt: zod.string(),
+  registrationAt: zod.string(),
+  publicAt: zod.string(),
+  benefitAt: zod.string(),
+  deadlineAt: zod.string(),
+  status: zod.enum(["draft", "published", "ended"]).optional(),
+});
+
+/**
+ * @summary Get contest with tracks
+ */
+export const GetAdminContestsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminContestsIdResponse = zod
+  .object({
+    id: zod.number(),
+    title: zod.string(),
+    details: zod.string(),
+    announcementAt: zod.date(),
+    registrationAt: zod.date(),
+    publicAt: zod.date(),
+    benefitAt: zod.date(),
+    deadlineAt: zod.date(),
+    status: zod.enum(["draft", "published", "ended"]),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  })
+  .and(
+    zod.object({
+      tracks: zod.array(
+        zod.object({
+          id: zod.number(),
+          contestId: zod.number(),
+          catCategoryId: zod.number(),
+          catName: zod.string().nullish(),
+          catColorHex: zod.string().nullish(),
+          testQuestionId: zod.number().nullish(),
+          aQuestionId: zod.number().nullish(),
+          bQuestionId: zod.number().nullish(),
+          cQuestionId: zod.number().nullish(),
+          testDurationHours: zod.number(),
+          aDurationHours: zod.number(),
+          bDurationHours: zod.number(),
+          cDurationHours: zod.number(),
+          quotaTotal: zod.number(),
+          quotaUsed: zod.number(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update contest
+ */
+export const PutAdminContestsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PutAdminContestsIdBody = zod.object({
+  title: zod.string(),
+  details: zod.string().optional(),
+  announcementAt: zod.string(),
+  registrationAt: zod.string(),
+  publicAt: zod.string(),
+  benefitAt: zod.string(),
+  deadlineAt: zod.string(),
+  status: zod.enum(["draft", "published", "ended"]).optional(),
+});
+
+export const PutAdminContestsIdResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  details: zod.string(),
+  announcementAt: zod.date(),
+  registrationAt: zod.date(),
+  publicAt: zod.date(),
+  benefitAt: zod.date(),
+  deadlineAt: zod.date(),
+  status: zod.enum(["draft", "published", "ended"]),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Delete contest
+ */
+export const DeleteAdminContestsIdParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Add track to contest
+ */
+export const PostAdminContestsIdTracksParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PostAdminContestsIdTracksBody = zod.object({
+  catCategoryId: zod.number(),
+  testQuestionId: zod.number().nullish(),
+  aQuestionId: zod.number().nullish(),
+  bQuestionId: zod.number().nullish(),
+  cQuestionId: zod.number().nullish(),
+  testDurationHours: zod.number().optional(),
+  aDurationHours: zod.number().optional(),
+  bDurationHours: zod.number().optional(),
+  cDurationHours: zod.number().optional(),
+  quotaTotal: zod.number().optional(),
+});
+
+/**
+ * @summary Update contest track
+ */
+export const PutAdminContestTracksTrackIdParams = zod.object({
+  trackId: zod.coerce.number(),
+});
+
+export const PutAdminContestTracksTrackIdBody = zod.object({
+  catCategoryId: zod.number(),
+  testQuestionId: zod.number().nullish(),
+  aQuestionId: zod.number().nullish(),
+  bQuestionId: zod.number().nullish(),
+  cQuestionId: zod.number().nullish(),
+  testDurationHours: zod.number().optional(),
+  aDurationHours: zod.number().optional(),
+  bDurationHours: zod.number().optional(),
+  cDurationHours: zod.number().optional(),
+  quotaTotal: zod.number().optional(),
+});
+
+export const PutAdminContestTracksTrackIdResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  catCategoryId: zod.number(),
+  catName: zod.string().nullish(),
+  catColorHex: zod.string().nullish(),
+  testQuestionId: zod.number().nullish(),
+  aQuestionId: zod.number().nullish(),
+  bQuestionId: zod.number().nullish(),
+  cQuestionId: zod.number().nullish(),
+  testDurationHours: zod.number(),
+  aDurationHours: zod.number(),
+  bDurationHours: zod.number(),
+  cDurationHours: zod.number(),
+  quotaTotal: zod.number(),
+  quotaUsed: zod.number(),
+});
+
+/**
+ * @summary Delete contest track
+ */
+export const DeleteAdminContestTracksTrackIdParams = zod.object({
+  trackId: zod.coerce.number(),
+});
+
+/**
+ * @summary List contest registrations
+ */
+export const GetAdminContestRegistrationsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  contestId: zod.coerce.number().optional(),
+  trackId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+  userId: zod.coerce.number().optional(),
+});
+
+export const GetAdminContestRegistrationsResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        contestId: zod.number(),
+        trackId: zod.number(),
+        userId: zod.number(),
+        status: zod.enum([
+          "registered",
+          "test_submitted",
+          "test_passed",
+          "test_failed",
+          "assignment_submitted",
+          "assignment_passed",
+          "assignment_failed",
+        ]),
+        testSubmittedAt: zod.date().nullish(),
+        testContent: zod.string().nullish(),
+        testAttachments: zod.array(zod.unknown()),
+        testUrls: zod.array(zod.unknown()),
+        testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+        assignmentSubmittedAt: zod.date().nullish(),
+        assignmentContent: zod.string().nullish(),
+        assignmentAttachments: zod.array(zod.unknown()),
+        assignmentUrls: zod.array(zod.unknown()),
+        assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+        gradeNote: zod.string().nullish(),
+        createdAt: zod.date(),
+        updatedAt: zod.date(),
+      })
+      .and(
+        zod.object({
+          userNickname: zod.string().nullish(),
+          userPhone: zod.string().nullish(),
+          contestTitle: zod.string().nullish(),
+          contestPublicAt: zod.date().nullish(),
+          catName: zod.string().nullish(),
+          catColorHex: zod.string().nullish(),
+          daysToPublic: zod.number().nullish(),
+        }),
+      ),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Grade test submission
+ */
+export const PostAdminContestRegistrationsIdGradeTestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PostAdminContestRegistrationsIdGradeTestBody = zod.object({
+  grade: zod.enum(["A", "B", "C", "fail"]),
+  note: zod.string().optional(),
+});
+
+export const PostAdminContestRegistrationsIdGradeTestResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  userId: zod.number(),
+  status: zod.enum([
+    "registered",
+    "test_submitted",
+    "test_passed",
+    "test_failed",
+    "assignment_submitted",
+    "assignment_passed",
+    "assignment_failed",
+  ]),
+  testSubmittedAt: zod.date().nullish(),
+  testContent: zod.string().nullish(),
+  testAttachments: zod.array(zod.unknown()),
+  testUrls: zod.array(zod.unknown()),
+  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  assignmentContent: zod.string().nullish(),
+  assignmentAttachments: zod.array(zod.unknown()),
+  assignmentUrls: zod.array(zod.unknown()),
+  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  gradeNote: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Grade assignment submission
+ */
+export const PostAdminContestRegistrationsIdGradeAssignmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PostAdminContestRegistrationsIdGradeAssignmentBody = zod.object({
+  grade: zod.enum(["A", "B", "C", "fail"]),
+  note: zod.string().optional(),
+});
+
+export const PostAdminContestRegistrationsIdGradeAssignmentResponse =
+  zod.object({
+    id: zod.number(),
+    contestId: zod.number(),
+    trackId: zod.number(),
+    userId: zod.number(),
+    status: zod.enum([
+      "registered",
+      "test_submitted",
+      "test_passed",
+      "test_failed",
+      "assignment_submitted",
+      "assignment_passed",
+      "assignment_failed",
+    ]),
+    testSubmittedAt: zod.date().nullish(),
+    testContent: zod.string().nullish(),
+    testAttachments: zod.array(zod.unknown()),
+    testUrls: zod.array(zod.unknown()),
+    testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+    assignmentSubmittedAt: zod.date().nullish(),
+    assignmentContent: zod.string().nullish(),
+    assignmentAttachments: zod.array(zod.unknown()),
+    assignmentUrls: zod.array(zod.unknown()),
+    assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+    gradeNote: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  });
+
+/**
+ * @summary Get active (published) contest public detail
+ */
+export const GetContestsActiveResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  details: zod.string(),
+  announcementAt: zod.date(),
+  registrationAt: zod.date(),
+  publicAt: zod.date(),
+  benefitAt: zod.date(),
+  deadlineAt: zod.date(),
+  phase: zod.enum([
+    "pre_announcement",
+    "pre_registration",
+    "registration",
+    "pre_public",
+    "public",
+    "benefit",
+    "ended",
+  ]),
+  tracks: zod.array(
+    zod.object({
+      id: zod.number(),
+      catCategoryId: zod.number(),
+      catName: zod.string().nullish(),
+      catColorHex: zod.string().nullish(),
+      testDurationHours: zod.number(),
+      quotaTotal: zod.number(),
+      quotaUsed: zod.number(),
+      quotaRemaining: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary List passed users per track for the active contest
+ */
+export const GetContestsPublicListResponseItem = zod.object({
+  trackId: zod.number(),
+  catName: zod.string().nullish(),
+  catColorHex: zod.string().nullish(),
+  passedUsers: zod.array(
+    zod.object({
+      nickname: zod.string().nullish(),
+      avatar: zod.string().nullish(),
+    }),
+  ),
+});
+export const GetContestsPublicListResponse = zod.array(
+  GetContestsPublicListResponseItem,
+);
+
+/**
+ * @summary Register for a contest track
+ */
+export const PostContestsRegisterBody = zod.object({
+  contestId: zod.number(),
+  trackId: zod.number(),
+});
+
+/**
+ * @summary Get my contest registrations
+ */
+export const GetContestsMyResponseItem = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  status: zod.string(),
+  testGrade: zod.string().nullish(),
+  assignmentGrade: zod.string().nullish(),
+  testSubmittedAt: zod.date().nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+  contestTitle: zod.string().nullish(),
+  contestBenefitAt: zod.date().nullish(),
+  contestDeadlineAt: zod.date().nullish(),
+  contestRegistrationAt: zod.date().nullish(),
+  catName: zod.string().nullish(),
+  catColorHex: zod.string().nullish(),
+  testDurationHours: zod.number().nullish(),
+  aDurationHours: zod.number().nullish(),
+  bDurationHours: zod.number().nullish(),
+  cDurationHours: zod.number().nullish(),
+});
+export const GetContestsMyResponse = zod.array(GetContestsMyResponseItem);
+
+/**
+ * @summary Submit test answer
+ */
+export const PostContestsMyRegistrationIdSubmitTestParams = zod.object({
+  registrationId: zod.coerce.number(),
+});
+
+export const PostContestsMyRegistrationIdSubmitTestBody = zod.object({
+  content: zod.string().optional(),
+  attachments: zod.array(zod.unknown()).optional(),
+  urls: zod.array(zod.string()).optional(),
+});
+
+export const PostContestsMyRegistrationIdSubmitTestResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  userId: zod.number(),
+  status: zod.enum([
+    "registered",
+    "test_submitted",
+    "test_passed",
+    "test_failed",
+    "assignment_submitted",
+    "assignment_passed",
+    "assignment_failed",
+  ]),
+  testSubmittedAt: zod.date().nullish(),
+  testContent: zod.string().nullish(),
+  testAttachments: zod.array(zod.unknown()),
+  testUrls: zod.array(zod.unknown()),
+  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  assignmentContent: zod.string().nullish(),
+  assignmentAttachments: zod.array(zod.unknown()),
+  assignmentUrls: zod.array(zod.unknown()),
+  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  gradeNote: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Submit assignment answer
+ */
+export const PostContestsMyRegistrationIdSubmitAssignmentParams = zod.object({
+  registrationId: zod.coerce.number(),
+});
+
+export const PostContestsMyRegistrationIdSubmitAssignmentBody = zod.object({
+  content: zod.string().optional(),
+  attachments: zod.array(zod.unknown()).optional(),
+  urls: zod.array(zod.string()).optional(),
+});
+
+export const PostContestsMyRegistrationIdSubmitAssignmentResponse = zod.object({
+  id: zod.number(),
+  contestId: zod.number(),
+  trackId: zod.number(),
+  userId: zod.number(),
+  status: zod.enum([
+    "registered",
+    "test_submitted",
+    "test_passed",
+    "test_failed",
+    "assignment_submitted",
+    "assignment_passed",
+    "assignment_failed",
+  ]),
+  testSubmittedAt: zod.date().nullish(),
+  testContent: zod.string().nullish(),
+  testAttachments: zod.array(zod.unknown()),
+  testUrls: zod.array(zod.unknown()),
+  testGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  assignmentSubmittedAt: zod.date().nullish(),
+  assignmentContent: zod.string().nullish(),
+  assignmentAttachments: zod.array(zod.unknown()),
+  assignmentUrls: zod.array(zod.unknown()),
+  assignmentGrade: zod.enum(["A", "B", "C", "fail"]).nullish(),
+  gradeNote: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
+});
+
+/**
+ * @summary Get question for my registration (after deadline passed)
+ */
+export const GetContestsMyRegistrationIdQuestionParams = zod.object({
+  registrationId: zod.coerce.number(),
+});
+
+export const GetContestsMyRegistrationIdQuestionResponse = zod.object({
+  id: zod.number(),
+  catCategoryId: zod.number(),
+  catName: zod.string().nullish(),
+  catColorHex: zod.string().nullish(),
+  title: zod.string(),
+  content: zod.string(),
+  attachments: zod.array(zod.unknown()),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
 });

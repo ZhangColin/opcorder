@@ -19,6 +19,7 @@ export const ADMIN_PERMISSION_KEYS = [
   "settings",
   "screen",
   "operation",
+  "contest",
 ] as const;
 
 export type AdminPermissionKey = (typeof ADMIN_PERMISSION_KEYS)[number];

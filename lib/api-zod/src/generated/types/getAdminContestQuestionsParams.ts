@@ -6,8 +6,9 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface CreateBidInput {
-  proposal: string;
-  estimatedDays: number;
-  portfolioLinks?: string[];
-}
+export type GetAdminContestQuestionsParams = {
+  page?: number;
+  pageSize?: number;
+  catCategoryId?: number;
+  keyword?: string;
+};

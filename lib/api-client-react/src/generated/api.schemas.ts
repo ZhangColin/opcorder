@@ -15,8 +15,6 @@ export interface OverviewStats {
   activeOpcs: number;
   monthlyOrders: number;
   completionRate: number;
-  totalSettlements?: number;
-  activeDemands?: number;
 }
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -49,7 +47,6 @@ export type OpcProfileLevel =
   (typeof OpcProfileLevel)[keyof typeof OpcProfileLevel];
 
 export const OpcProfileLevel = {
-  newbie: "newbie",
   C: "C",
   B: "B",
   A: "A",
@@ -62,12 +59,6 @@ export interface OpcProfile {
   avatar?: string;
   level: OpcProfileLevel;
   bio?: string;
-  title?: string;
-  location?: string;
-  website?: string | null;
-  yearsExp?: number;
-  phone?: string;
-  wechat?: string;
   skillTags?: string[];
   industryTags?: string[];
   creditScore: number;
@@ -113,10 +104,12 @@ export interface Milestone {
 export type DemandType = (typeof DemandType)[keyof typeof DemandType];
 
 export const DemandType = {
-  education: "education",
-  software: "software",
-  marketing: "marketing",
-  content: "content",
+  ai_education: "ai_education",
+  gov_training: "gov_training",
+  ai_research: "ai_research",
+  party_building: "party_building",
+  livestream_media: "livestream_media",
+  ai_tool_dev: "ai_tool_dev",
   other: "other",
 } as const;
 
@@ -168,14 +161,9 @@ export interface Demand {
   type: DemandType;
   typeLabel?: string;
   description: string;
-  summary?: string | null;
   skillTags: string[];
   opcLevel: DemandOpcLevel;
-  requiredLevel?: string;
-  catCategoryId?: number;
   budget: number;
-  budgetMin?: number | null;
-  budgetMax?: number | null;
   deadline: string;
   milestones?: Milestone[];
   mode: DemandMode;
@@ -381,14 +369,43 @@ export interface MyBidItem {
   demandTitle?: string | null;
   demandStatus?: string | null;
   demandBudget?: number | null;
-  demandBudgetMin?: number | null;
-  demandBudgetMax?: number | null;
   demandDeadline?: string | null;
   proposal: string;
   estimatedDays?: number | null;
   portfolioLinks?: string[] | null;
   status: MyBidItemStatus;
   createdAt: string;
+}
+
+/**
+ * The track-cert level at which this OPC was invited.
+ */
+export type DemandInvitationTrackLevel =
+  (typeof DemandInvitationTrackLevel)[keyof typeof DemandInvitationTrackLevel];
+
+export const DemandInvitationTrackLevel = {
+  A: "A",
+  B: "B",
+  C: "C",
+} as const;
+
+/**
+ * An auto-generated invitation to an OPC to bid on a demand.
+ */
+export interface DemandInvitation {
+  id: number;
+  opcId: number;
+  opcNickname?: string | null;
+  opcAvatar?: string | null;
+  opcEmail?: string | null;
+  /** The track-cert level at which this OPC was invited. */
+  trackLevel: DemandInvitationTrackLevel;
+  /** How the invitation was created (e.g. "auto"). */
+  source: string;
+  invitedAt: string;
+  emailedAt?: string | null;
+  /** Whether this invited OPC has already submitted a bid on this demand. */
+  hasBid: boolean;
 }
 
 export type BidApplicationStatus =
@@ -410,34 +427,28 @@ export interface BidApplication {
   opcLevel?: string;
   opcCreditScore?: number;
   opcAvgRating?: number;
+  /** Number of completed orders by this OPC */
   opcCompletedOrders?: number;
   proposal: string;
   estimatedDays?: number;
   portfolioLinks?: string[];
-  quotedPrice?: number | null;
-  quoteCardData?: Record<string, unknown> | null;
-  quoteCardSnapshot?: Record<string, unknown> | null;
   status: BidApplicationStatus;
   createdAt: string;
+  /** Whether this OPC was auto-invited to bid on this demand */
   isInvited?: boolean;
+  /** Track level (A/B/C) at which this OPC was invited; null if not invited */
   invitedTrackLevel?: string | null;
 }
 
 export interface CreateBidInput {
-  /** Free-text proposal (optional when quoteCardData is provided) */
-  proposal?: string;
+  proposal: string;
   estimatedDays: number;
   portfolioLinks?: string[];
-  /** Structured quote card selections: dimension code → tier code (e.g. { D1: "M", C2: "L" }) */
-  quoteCardData?: Record<string, string>;
-  /** Total quoted price in yuan, calculated from quoteCardData selections */
-  quotedPrice?: number;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
-  pending_payment: "pending_payment",
   in_progress: "in_progress",
   pending_acceptance: "pending_acceptance",
   completed: "completed",
@@ -473,24 +484,8 @@ export interface Order {
   demandId: number;
   demandTitle: string;
   demandType?: string;
-  demandDescription?: string | null;
-  demandBudgetMin?: number | null;
-  demandBudgetMax?: number | null;
-  demandSkillTags?: string[] | null;
-  demandAttachments?: Array<{ name: string; size: string; type: string; url: string }> | null;
   opcId: number;
   opcNickname?: string;
-  opcProposal?: string | null;
-  opcQuoteCardSnapshot?: {
-    category: string;
-    baseLayers: Array<{ code: string; label: string; tier: string; tierLabel: string; price?: number; coefficient?: number }>;
-    adjustLayers: Array<{ code: string; label: string; tier: string; tierLabel: string; price?: number; coefficient?: number }>;
-    baseTotal: number;
-    factorProduct: number;
-    finalPrice: number;
-  } | null;
-  opcQuotedPrice?: number | null;
-  opcEstimatedDays?: number | null;
   publisherId: number;
   publisherName?: string;
   amount: number;
@@ -503,12 +498,6 @@ export interface Order {
   rating?: number;
   reviewComment?: string;
   deadline?: string;
-  paymentMethod?: string | null;
-  paymentReceiptUrl?: string | null;
-  paymentNote?: string | null;
-  paymentOrderNo?: string | null;
-  paymentRejectReason?: string | null;
-  paidAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -616,7 +605,6 @@ export const NotificationRelatedType = {
   demand: "demand",
   order: "order",
   bid: "bid",
-  portfolio: "portfolio",
 } as const;
 
 export interface Notification {
@@ -693,7 +681,6 @@ export const CourseRequiredLevel = {
   C: "C",
   B: "B",
   A: "A",
-  any: "any",
 } as const;
 
 export type CourseStatus = (typeof CourseStatus)[keyof typeof CourseStatus];
@@ -708,8 +695,6 @@ export interface Course {
   id: number;
   title: string;
   category: CourseCategory;
-  catCategoryId?: number | null;
-  catCategoryName?: string | null;
   requiredLevel: CourseRequiredLevel;
   durationMinutes: number;
   description: string;
@@ -896,6 +881,260 @@ export interface UpdateAgentConfigInput {
   isEnabled?: boolean;
 }
 
+export interface ContestQuestion {
+  id: number;
+  catCategoryId: number;
+  catName?: string | null;
+  catColorHex?: string | null;
+  title: string;
+  content: string;
+  attachments: unknown[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContestQuestionInput {
+  catCategoryId: number;
+  title: string;
+  content?: string;
+  attachments?: unknown[];
+}
+
+export interface ContestTrack {
+  id: number;
+  contestId: number;
+  catCategoryId: number;
+  catName?: string | null;
+  catColorHex?: string | null;
+  testQuestionId?: number | null;
+  aQuestionId?: number | null;
+  bQuestionId?: number | null;
+  cQuestionId?: number | null;
+  testDurationHours: number;
+  aDurationHours: number;
+  bDurationHours: number;
+  cDurationHours: number;
+  quotaTotal: number;
+  quotaUsed: number;
+}
+
+export interface ContestTrackPublic {
+  id: number;
+  catCategoryId: number;
+  catName?: string | null;
+  catColorHex?: string | null;
+  testDurationHours: number;
+  quotaTotal: number;
+  quotaUsed: number;
+  quotaRemaining: number;
+}
+
+export type ContestStatus = (typeof ContestStatus)[keyof typeof ContestStatus];
+
+export const ContestStatus = {
+  draft: "draft",
+  published: "published",
+  ended: "ended",
+} as const;
+
+export interface Contest {
+  id: number;
+  title: string;
+  details: string;
+  announcementAt: string;
+  registrationAt: string;
+  publicAt: string;
+  benefitAt: string;
+  deadlineAt: string;
+  status: ContestStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ContestDetail = Contest & {
+  tracks: ContestTrack[];
+};
+
+export type ContestPublicDetailPhase =
+  (typeof ContestPublicDetailPhase)[keyof typeof ContestPublicDetailPhase];
+
+export const ContestPublicDetailPhase = {
+  pre_announcement: "pre_announcement",
+  pre_registration: "pre_registration",
+  registration: "registration",
+  pre_public: "pre_public",
+  public: "public",
+  benefit: "benefit",
+  ended: "ended",
+} as const;
+
+export interface ContestPublicDetail {
+  id: number;
+  title: string;
+  details: string;
+  announcementAt: string;
+  registrationAt: string;
+  publicAt: string;
+  benefitAt: string;
+  deadlineAt: string;
+  phase: ContestPublicDetailPhase;
+  tracks: ContestTrackPublic[];
+}
+
+export type ContestInputStatus =
+  (typeof ContestInputStatus)[keyof typeof ContestInputStatus];
+
+export const ContestInputStatus = {
+  draft: "draft",
+  published: "published",
+  ended: "ended",
+} as const;
+
+export interface ContestInput {
+  title: string;
+  details?: string;
+  announcementAt: string;
+  registrationAt: string;
+  publicAt: string;
+  benefitAt: string;
+  deadlineAt: string;
+  status?: ContestInputStatus;
+}
+
+export interface ContestTrackInput {
+  catCategoryId: number;
+  testQuestionId?: number | null;
+  aQuestionId?: number | null;
+  bQuestionId?: number | null;
+  cQuestionId?: number | null;
+  testDurationHours?: number;
+  aDurationHours?: number;
+  bDurationHours?: number;
+  cDurationHours?: number;
+  quotaTotal?: number;
+}
+
+export type ContestRegistrationStatus =
+  (typeof ContestRegistrationStatus)[keyof typeof ContestRegistrationStatus];
+
+export const ContestRegistrationStatus = {
+  registered: "registered",
+  test_submitted: "test_submitted",
+  test_passed: "test_passed",
+  test_failed: "test_failed",
+  assignment_submitted: "assignment_submitted",
+  assignment_passed: "assignment_passed",
+  assignment_failed: "assignment_failed",
+} as const;
+
+export type ContestRegistrationTestGrade =
+  | (typeof ContestRegistrationTestGrade)[keyof typeof ContestRegistrationTestGrade]
+  | null;
+
+export const ContestRegistrationTestGrade = {
+  A: "A",
+  B: "B",
+  C: "C",
+  fail: "fail",
+} as const;
+
+export type ContestRegistrationAssignmentGrade =
+  | (typeof ContestRegistrationAssignmentGrade)[keyof typeof ContestRegistrationAssignmentGrade]
+  | null;
+
+export const ContestRegistrationAssignmentGrade = {
+  A: "A",
+  B: "B",
+  C: "C",
+  fail: "fail",
+} as const;
+
+export interface ContestRegistration {
+  id: number;
+  contestId: number;
+  trackId: number;
+  userId: number;
+  status: ContestRegistrationStatus;
+  testSubmittedAt?: string | null;
+  testContent?: string | null;
+  testAttachments: unknown[];
+  testUrls: unknown[];
+  testGrade?: ContestRegistrationTestGrade;
+  assignmentSubmittedAt?: string | null;
+  assignmentContent?: string | null;
+  assignmentAttachments: unknown[];
+  assignmentUrls: unknown[];
+  assignmentGrade?: ContestRegistrationAssignmentGrade;
+  gradeNote?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ContestRegistrationAdminRow = ContestRegistration & {
+  userNickname?: string | null;
+  userPhone?: string | null;
+  contestTitle?: string | null;
+  contestPublicAt?: string | null;
+  catName?: string | null;
+  catColorHex?: string | null;
+  daysToPublic?: number | null;
+};
+
+export type ContestGradeInputGrade =
+  (typeof ContestGradeInputGrade)[keyof typeof ContestGradeInputGrade];
+
+export const ContestGradeInputGrade = {
+  A: "A",
+  B: "B",
+  C: "C",
+  fail: "fail",
+} as const;
+
+export interface ContestGradeInput {
+  grade: ContestGradeInputGrade;
+  note?: string;
+}
+
+export interface ContestSubmitTestInput {
+  content?: string;
+  attachments?: unknown[];
+  urls?: string[];
+}
+
+export interface ContestMyListItem {
+  id: number;
+  contestId: number;
+  trackId: number;
+  status: string;
+  testGrade?: string | null;
+  assignmentGrade?: string | null;
+  testSubmittedAt?: string | null;
+  assignmentSubmittedAt?: string | null;
+  createdAt: string;
+  contestTitle?: string | null;
+  contestBenefitAt?: string | null;
+  contestDeadlineAt?: string | null;
+  contestRegistrationAt?: string | null;
+  catName?: string | null;
+  catColorHex?: string | null;
+  testDurationHours?: number | null;
+  aDurationHours?: number | null;
+  bDurationHours?: number | null;
+  cDurationHours?: number | null;
+}
+
+export type PublicListTrackPassedUsersItem = {
+  nickname?: string | null;
+  avatar?: string | null;
+};
+
+export interface PublicListTrack {
+  trackId: number;
+  catName?: string | null;
+  catColorHex?: string | null;
+  passedUsers: PublicListTrackPassedUsersItem[];
+}
+
 export type GetOpcLeaderboardParams = {
   limit?: number;
 };
@@ -919,7 +1158,6 @@ export type ListDemandsParams = {
    * Filter demands by publisher user ID
    */
   publisherId?: number;
-  catCategoryId?: number;
 };
 
 export type ListDemandsStatus =
@@ -1025,7 +1263,8 @@ export type UpdateBidStatusBody = {
   status: UpdateBidStatusBodyStatus;
 };
 
-export type UpdateBidStatusResponse = BidApplication & {
+export type UpdateBidStatus200 = BidApplication & {
+  /** Created order ID (present when bid is accepted) */
   orderId?: number;
 };
 
@@ -1048,7 +1287,6 @@ export type ListOrdersStatus =
   (typeof ListOrdersStatus)[keyof typeof ListOrdersStatus];
 
 export const ListOrdersStatus = {
-  pending_payment: "pending_payment",
   in_progress: "in_progress",
   pending_acceptance: "pending_acceptance",
   completed: "completed",
@@ -1257,4 +1495,61 @@ export type BindAgentConversationToDemandBody = {
 
 export type BindAgentConversationToDemand200 = {
   success: boolean;
+};
+
+export type GetAdminContestQuestionsParams = {
+  page?: number;
+  pageSize?: number;
+  catCategoryId?: number;
+  keyword?: string;
+};
+
+export type GetAdminContestQuestions200 = {
+  items: ContestQuestion[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type GetAdminContestsParams = {
+  page?: number;
+  pageSize?: number;
+  status?: GetAdminContestsStatus;
+};
+
+export type GetAdminContestsStatus =
+  (typeof GetAdminContestsStatus)[keyof typeof GetAdminContestsStatus];
+
+export const GetAdminContestsStatus = {
+  draft: "draft",
+  published: "published",
+  ended: "ended",
+} as const;
+
+export type GetAdminContests200 = {
+  items: Contest[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type GetAdminContestRegistrationsParams = {
+  page?: number;
+  pageSize?: number;
+  contestId?: number;
+  trackId?: number;
+  status?: string;
+  userId?: number;
+};
+
+export type GetAdminContestRegistrations200 = {
+  items: ContestRegistrationAdminRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type PostContestsRegisterBody = {
+  contestId: number;
+  trackId: number;
 };

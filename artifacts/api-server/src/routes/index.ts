@@ -21,6 +21,7 @@ import activitiesRouter from "./activities";
 import agentRouter from "./agent";
 import catCategoriesRouter from "./cat-categories";
 import v2Router from "./v2/index";
+import contestsRouter from "./contests";
 
 const router: IRouter = Router();
 
@@ -45,6 +46,7 @@ router.use(screenVideosRouter);
 router.use(activitiesRouter);
 router.use(agentRouter);
 router.use(catCategoriesRouter);
+router.use(contestsRouter);
 router.use("/v2", v2Router);
 
 export default router;

@@ -1636,6 +1636,497 @@ paths:
         "404":
           description: Not found
 
+  /admin/contest-questions:
+    get:
+      tags: [Admin]
+      summary: List contest questions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: pageSize
+          schema: { type: integer }
+        - in: query
+          name: catCategoryId
+          schema: { type: integer }
+        - in: query
+          name: keyword
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContestQuestion"
+                  total: { type: integer }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                required: [items, total, page, pageSize]
+    post:
+      tags: [Admin]
+      summary: Create contest question
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestQuestionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestQuestion"
+
+  /admin/contest-questions/{id}:
+    get:
+      tags: [Admin]
+      summary: Get contest question
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestQuestion"
+    put:
+      tags: [Admin]
+      summary: Update contest question
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestQuestionInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestQuestion"
+    delete:
+      tags: [Admin]
+      summary: Delete contest question
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+
+  /admin/contests:
+    get:
+      tags: [Admin]
+      summary: List contests
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: pageSize
+          schema: { type: integer }
+        - in: query
+          name: status
+          schema: { type: string, enum: [draft, published, ended] }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Contest"
+                  total: { type: integer }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                required: [items, total, page, pageSize]
+    post:
+      tags: [Admin]
+      summary: Create contest
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contest"
+
+  /admin/contests/{id}:
+    get:
+      tags: [Admin]
+      summary: Get contest with tracks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestDetail"
+    put:
+      tags: [Admin]
+      summary: Update contest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contest"
+    delete:
+      tags: [Admin]
+      summary: Delete contest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+
+  /admin/contests/{id}/tracks:
+    post:
+      tags: [Admin]
+      summary: Add track to contest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestTrackInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestTrack"
+
+  /admin/contest-tracks/{trackId}:
+    put:
+      tags: [Admin]
+      summary: Update contest track
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: trackId
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestTrackInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestTrack"
+    delete:
+      tags: [Admin]
+      summary: Delete contest track
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: trackId
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+
+  /admin/contest-registrations:
+    get:
+      tags: [Admin]
+      summary: List contest registrations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: pageSize
+          schema: { type: integer }
+        - in: query
+          name: contestId
+          schema: { type: integer }
+        - in: query
+          name: trackId
+          schema: { type: integer }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: userId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContestRegistrationAdminRow"
+                  total: { type: integer }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                required: [items, total, page, pageSize]
+
+  /admin/contest-registrations/{id}/grade-test:
+    post:
+      tags: [Admin]
+      summary: Grade test submission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestGradeInput"
+      responses:
+        "200":
+          description: Graded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
+  /admin/contest-registrations/{id}/grade-assignment:
+    post:
+      tags: [Admin]
+      summary: Grade assignment submission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestGradeInput"
+      responses:
+        "200":
+          description: Graded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
+  /contests/active:
+    get:
+      tags: [Contests]
+      summary: Get active (published) contest public detail
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestPublicDetail"
+        "404":
+          description: No active contest
+
+  /contests/public-list:
+    get:
+      tags: [Contests]
+      summary: List passed users per track for the active contest
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicListTrack"
+
+  /contests/register:
+    post:
+      tags: [Contests]
+      summary: Register for a contest track
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contestId: { type: integer }
+                trackId: { type: integer }
+              required: [contestId, trackId]
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+        "409":
+          description: Already registered
+
+  /contests/my:
+    get:
+      tags: [Contests]
+      summary: Get my contest registrations
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContestMyListItem"
+
+  /contests/my/{registrationId}/submit-test:
+    post:
+      tags: [Contests]
+      summary: Submit test answer
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: registrationId
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestSubmitTestInput"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
+  /contests/my/{registrationId}/submit-assignment:
+    post:
+      tags: [Contests]
+      summary: Submit assignment answer
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: registrationId
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContestSubmitTestInput"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestRegistration"
+
+  /contests/my/{registrationId}/question:
+    get:
+      tags: [Contests]
+      summary: Get question for my registration (after deadline passed)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: registrationId
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContestQuestion"
+        "403":
+          description: Not yet available or not eligible
+
 components:
   schemas:
     HealthStatus:
@@ -3004,3 +3495,231 @@ components:
           type: string
         isEnabled:
           type: boolean
+
+    ContestQuestion:
+      type: object
+      properties:
+        id: { type: integer }
+        catCategoryId: { type: integer }
+        catName: { type: string, nullable: true }
+        catColorHex: { type: string, nullable: true }
+        title: { type: string }
+        content: { type: string }
+        attachments: { type: array, items: {} }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, catCategoryId, title, content, attachments, createdAt, updatedAt]
+
+    ContestQuestionInput:
+      type: object
+      properties:
+        catCategoryId: { type: integer }
+        title: { type: string }
+        content: { type: string }
+        attachments: { type: array, items: {} }
+      required: [catCategoryId, title]
+
+    ContestTrack:
+      type: object
+      properties:
+        id: { type: integer }
+        contestId: { type: integer }
+        catCategoryId: { type: integer }
+        catName: { type: string, nullable: true }
+        catColorHex: { type: string, nullable: true }
+        testQuestionId: { type: integer, nullable: true }
+        aQuestionId: { type: integer, nullable: true }
+        bQuestionId: { type: integer, nullable: true }
+        cQuestionId: { type: integer, nullable: true }
+        testDurationHours: { type: integer }
+        aDurationHours: { type: integer }
+        bDurationHours: { type: integer }
+        cDurationHours: { type: integer }
+        quotaTotal: { type: integer }
+        quotaUsed: { type: integer }
+      required: [id, contestId, catCategoryId, testDurationHours, aDurationHours, bDurationHours, cDurationHours, quotaTotal, quotaUsed]
+
+    ContestTrackPublic:
+      type: object
+      properties:
+        id: { type: integer }
+        catCategoryId: { type: integer }
+        catName: { type: string, nullable: true }
+        catColorHex: { type: string, nullable: true }
+        testDurationHours: { type: integer }
+        quotaTotal: { type: integer }
+        quotaUsed: { type: integer }
+        quotaRemaining: { type: integer }
+      required: [id, catCategoryId, testDurationHours, quotaTotal, quotaUsed, quotaRemaining]
+
+    Contest:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        details: { type: string }
+        announcementAt: { type: string, format: date-time }
+        registrationAt: { type: string, format: date-time }
+        publicAt: { type: string, format: date-time }
+        benefitAt: { type: string, format: date-time }
+        deadlineAt: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [draft, published, ended]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, details, announcementAt, registrationAt, publicAt, benefitAt, deadlineAt, status, createdAt, updatedAt]
+
+    ContestDetail:
+      allOf:
+        - $ref: "#/components/schemas/Contest"
+        - type: object
+          properties:
+            tracks:
+              type: array
+              items:
+                $ref: "#/components/schemas/ContestTrack"
+          required: [tracks]
+
+    ContestPublicDetail:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        details: { type: string }
+        announcementAt: { type: string, format: date-time }
+        registrationAt: { type: string, format: date-time }
+        publicAt: { type: string, format: date-time }
+        benefitAt: { type: string, format: date-time }
+        deadlineAt: { type: string, format: date-time }
+        phase:
+          type: string
+          enum: [pre_announcement, pre_registration, registration, pre_public, public, benefit, ended]
+        tracks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContestTrackPublic"
+      required: [id, title, details, announcementAt, registrationAt, publicAt, benefitAt, deadlineAt, phase, tracks]
+
+    ContestInput:
+      type: object
+      properties:
+        title: { type: string }
+        details: { type: string }
+        announcementAt: { type: string }
+        registrationAt: { type: string }
+        publicAt: { type: string }
+        benefitAt: { type: string }
+        deadlineAt: { type: string }
+        status:
+          type: string
+          enum: [draft, published, ended]
+      required: [title, announcementAt, registrationAt, publicAt, benefitAt, deadlineAt]
+
+    ContestTrackInput:
+      type: object
+      properties:
+        catCategoryId: { type: integer }
+        testQuestionId: { type: integer, nullable: true }
+        aQuestionId: { type: integer, nullable: true }
+        bQuestionId: { type: integer, nullable: true }
+        cQuestionId: { type: integer, nullable: true }
+        testDurationHours: { type: integer }
+        aDurationHours: { type: integer }
+        bDurationHours: { type: integer }
+        cDurationHours: { type: integer }
+        quotaTotal: { type: integer }
+      required: [catCategoryId]
+
+    ContestRegistration:
+      type: object
+      properties:
+        id: { type: integer }
+        contestId: { type: integer }
+        trackId: { type: integer }
+        userId: { type: integer }
+        status:
+          type: string
+          enum: [registered, test_submitted, test_passed, test_failed, assignment_submitted, assignment_passed, assignment_failed]
+        testSubmittedAt: { type: string, format: date-time, nullable: true }
+        testContent: { type: string, nullable: true }
+        testAttachments: { type: array, items: {} }
+        testUrls: { type: array, items: {} }
+        testGrade: { type: string, enum: [A, B, C, fail], nullable: true }
+        assignmentSubmittedAt: { type: string, format: date-time, nullable: true }
+        assignmentContent: { type: string, nullable: true }
+        assignmentAttachments: { type: array, items: {} }
+        assignmentUrls: { type: array, items: {} }
+        assignmentGrade: { type: string, enum: [A, B, C, fail], nullable: true }
+        gradeNote: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, contestId, trackId, userId, status, testAttachments, testUrls, assignmentAttachments, assignmentUrls, createdAt, updatedAt]
+
+    ContestRegistrationAdminRow:
+      allOf:
+        - $ref: "#/components/schemas/ContestRegistration"
+        - type: object
+          properties:
+            userNickname: { type: string, nullable: true }
+            userPhone: { type: string, nullable: true }
+            contestTitle: { type: string, nullable: true }
+            contestPublicAt: { type: string, format: date-time, nullable: true }
+            catName: { type: string, nullable: true }
+            catColorHex: { type: string, nullable: true }
+            daysToPublic: { type: integer, nullable: true }
+
+    ContestGradeInput:
+      type: object
+      properties:
+        grade:
+          type: string
+          enum: [A, B, C, fail]
+        note: { type: string }
+      required: [grade]
+
+    ContestSubmitTestInput:
+      type: object
+      properties:
+        content: { type: string }
+        attachments: { type: array, items: {} }
+        urls: { type: array, items: { type: string } }
+
+    ContestMyListItem:
+      type: object
+      properties:
+        id: { type: integer }
+        contestId: { type: integer }
+        trackId: { type: integer }
+        status: { type: string }
+        testGrade: { type: string, nullable: true }
+        assignmentGrade: { type: string, nullable: true }
+        testSubmittedAt: { type: string, format: date-time, nullable: true }
+        assignmentSubmittedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        contestTitle: { type: string, nullable: true }
+        contestBenefitAt: { type: string, format: date-time, nullable: true }
+        contestDeadlineAt: { type: string, format: date-time, nullable: true }
+        contestRegistrationAt: { type: string, format: date-time, nullable: true }
+        catName: { type: string, nullable: true }
+        catColorHex: { type: string, nullable: true }
+        testDurationHours: { type: integer, nullable: true }
+        aDurationHours: { type: integer, nullable: true }
+        bDurationHours: { type: integer, nullable: true }
+        cDurationHours: { type: integer, nullable: true }
+      required: [id, contestId, trackId, status, createdAt]
+
+    PublicListTrack:
+      type: object
+      properties:
+        trackId: { type: integer }
+        catName: { type: string, nullable: true }
+        catColorHex: { type: string, nullable: true }
+        passedUsers:
+          type: array
+          items:
+            type: object
+            properties:
+              nickname: { type: string, nullable: true }
+              avatar: { type: string, nullable: true }
+      required: [trackId, passedUsers]

@@ -44,6 +44,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "v2_payment_online_paid",
   // Shared
   "v2_discussion_replied",
+  // Contest
+  "contest_test_graded",
+  "contest_assignment_graded",
 ]);
 
 export const notificationsTable = pgTable("notifications", {
