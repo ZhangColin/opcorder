@@ -403,7 +403,8 @@ export default function ContestActivities() {
   const [qrContest, setQrContest] = useState<Contest | null>(null);
 
   function contestUrl(c: Contest) {
-    return `${window.location.origin}/jiedanba/contest/${c.id}`;
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    return `${window.location.origin}${base}/contest/${c.id}`;
   }
 
   function copyLink(c: Contest) {
