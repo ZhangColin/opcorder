@@ -66,18 +66,44 @@ export async function v2Delete(path: string): Promise<void> {
 
 export const STORAGE_BASE = BASE;
 
+const EXT_MIME: Record<string, string> = {
+  md:   "text/markdown",
+  txt:  "text/plain",
+  html: "text/html",
+  htm:  "text/html",
+  jpg:  "image/jpeg",
+  jpeg: "image/jpeg",
+  png:  "image/png",
+  gif:  "image/gif",
+  webp: "image/webp",
+  pdf:  "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  zip:  "application/zip",
+  mp4:  "video/mp4",
+  webm: "video/webm",
+};
+
+function resolveContentType(file: File): string {
+  if (file.type && file.type !== "application/octet-stream") return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return EXT_MIME[ext] ?? "application/octet-stream";
+}
+
 export async function uploadFile(file: File): Promise<string> {
+  const contentType = resolveContentType(file);
   const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+    body: JSON.stringify({ name: file.name, size: file.size, contentType }),
   });
   if (!reqRes.ok) {
     const e = await reqRes.json().catch(() => ({}));
     throw new Error((e as any).error || "获取上传链接失败");
   }
   const { uploadURL, objectPath, sessionToken } = await reqRes.json();
-  const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
+  const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
   if (!putRes.ok) throw new Error("文件上传失败");
   const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
     method: "POST",

@@ -248,8 +248,8 @@ function SubmissionForm({
     try {
       const url = await uploadFile(file);
       setAttachments(prev => [...prev, { name: file.name, url }]);
-    } catch {
-      toast({ title: "附件上传失败", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "附件上传失败", description: (err as Error)?.message ?? "请重试", variant: "destructive" });
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -287,6 +287,7 @@ function SubmissionForm({
             {uploading ? <><Loader2 size={11} className="animate-spin" />上传中…</> : <><UploadCloud size={11} />点击上传附件</>}
           </button>
           <input ref={inputRef} type="file" className="hidden"
+            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.xlsx,.pptx,.md,.txt,.html,.htm,.zip,.mp4,.webm"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         </div>
       </div>
