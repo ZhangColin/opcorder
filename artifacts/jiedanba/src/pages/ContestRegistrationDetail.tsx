@@ -596,6 +596,18 @@ export default function ContestRegistrationDetail() {
           </SectionCard>
         )}
 
+        {/* ── 测试单审核结果 ── */}
+        {showAssignment && reg.assignmentGrade && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5">
+            <span className="font-bold text-blue-900 text-sm flex items-center gap-2 mb-3">
+              <Trophy size={14} className="text-amber-400" /> 测试单审核结果
+            </span>
+            <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.assignmentGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
+              {GRADE_CFG[reg.assignmentGrade]?.label ?? reg.assignmentGrade}
+            </span>
+          </div>
+        )}
+
       </div>
       <Footer />
     </div>
