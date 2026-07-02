@@ -748,7 +748,7 @@ export default function Profile() {
       const r = await fetch(`${API_BASE}/api/contests/my`, {
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
-      return r.ok ? r.json() : [];
+      return r.ok ? r.json().then((d: { items?: MyContest[] }) => d.items ?? []) : [];
     },
     enabled: !!user?.id,
   });

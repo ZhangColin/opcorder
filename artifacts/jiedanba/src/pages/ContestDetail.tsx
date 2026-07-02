@@ -142,11 +142,13 @@ function QuestionModal({
   onConfirm,
   onClose,
   registering,
+  isRegistered,
 }: {
   track: Track;
   onConfirm: () => void;
   onClose: () => void;
   registering: boolean;
+  isRegistered: boolean;
 }) {
   const q = track.testQuestion!;
   return (
@@ -193,15 +195,24 @@ function QuestionModal({
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
           >
-            取消
+            {isRegistered ? "关闭" : "取消"}
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={registering}
-            className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
-          >
-            {registering ? <><Loader2 size={14} className="animate-spin" />报名中…</> : <><Zap size={14} />确认报名</>}
-          </button>
+          {isRegistered ? (
+            <button
+              disabled
+              className="flex-1 py-2.5 rounded-xl bg-emerald-100 text-emerald-700 text-sm font-bold flex items-center justify-center gap-2 cursor-default"
+            >
+              <CheckCircle2 size={14} /> 已报名
+            </button>
+          ) : (
+            <button
+              onClick={onConfirm}
+              disabled={registering}
+              className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              {registering ? <><Loader2 size={14} className="animate-spin" />报名中…</> : <><Zap size={14} />确认报名</>}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -215,12 +226,14 @@ function TrackCard({
   contest,
   onRegister,
   registering,
+  isRegistered,
 }: {
   track: Track;
   phase: Phase;
   contest: Contest;
   onRegister: (trackId: number) => void;
   registering: number | null;
+  isRegistered: boolean;
 }) {
   const [showQuestion, setShowQuestion] = useState(false);
   const countdown = useCountdown(phase === "pre_registration" ? contest.registrationAt : undefined);
@@ -243,6 +256,23 @@ function TrackCard({
       );
     }
     if (phase === "registration") {
+      if (isRegistered) {
+        if (track.testQuestion) {
+          return (
+            <button
+              onClick={() => setShowQuestion(true)}
+              className="w-full py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 size={14} /> 已报名 · 查看题目
+            </button>
+          );
+        }
+        return (
+          <button disabled className="w-full py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold flex items-center justify-center gap-2 cursor-default">
+            <CheckCircle2 size={14} /> 已报名
+          </button>
+        );
+      }
       if (track.quotaRemaining <= 0) {
         return <button disabled className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 text-sm font-bold cursor-not-allowed">报名已满</button>;
       }
@@ -280,6 +310,7 @@ function TrackCard({
           onConfirm={() => { setShowQuestion(false); onRegister(track.id); }}
           onClose={() => setShowQuestion(false)}
           registering={isRegistering}
+          isRegistered={isRegistered}
         />
       )}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
@@ -391,6 +422,20 @@ export default function ContestDetail() {
     retry: false,
   });
 
+  const token = getAccessToken();
+  const { data: myRegs } = useQuery<{ items: Array<{ trackId: number }> }>({
+    queryKey: ["contest-my-regs", id],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/contests/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.ok ? res.json() : { items: [] };
+    },
+    enabled: !!token,
+    staleTime: 30_000,
+  });
+  const registeredTrackIds = new Set((myRegs?.items ?? []).map(r => r.trackId));
+
   async function handleRegister(trackId: number) {
     const user = getStoredUser();
     const token = getAccessToken();
@@ -409,6 +454,7 @@ export default function ContestDetail() {
       if (!res.ok) throw new Error(data.error ?? "报名失败");
       toast({ title: "报名成功！即将跳转至个人中心" });
       qc.invalidateQueries({ queryKey: ["contest-detail", id] });
+      qc.invalidateQueries({ queryKey: ["contest-my-regs", id] });
       setTimeout(() => navigate(`/profile/contests/${data.id}`), 800);
     } catch (e: any) {
       toast({ title: "报名失败", description: e.message, variant: "destructive" });
@@ -511,6 +557,7 @@ export default function ContestDetail() {
                 contest={contest}
                 onRegister={handleRegister}
                 registering={registering}
+                isRegistered={registeredTrackIds.has(track.id)}
               />
             ))}
           </div>
