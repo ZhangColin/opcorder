@@ -52,6 +52,7 @@ import OpcV2TicketDetail from "@/pages/opc-v2/OpcV2TicketDetail";
 import OpcV2IncomeDetail from "@/pages/opc-v2/OpcV2IncomeDetail";
 import OpcV2ContestList from "@/pages/opc-v2/OpcV2ContestList";
 import OpcV2ContestDetail from "@/pages/opc-v2/OpcV2ContestDetail";
+import ContestRegistrationDetail from "@/pages/ContestRegistrationDetail";
 import ContestDetail from "@/pages/ContestDetail";
 import Admin from "@/pages/Admin";
 import ScreenDisplay from "@/pages/ScreenDisplay";
@@ -321,7 +322,7 @@ function Router() {
         {() => <OpcGate><OpcV2TicketList /></OpcGate>}
       </Route>
       <Route path="/profile/contests/:registrationId">
-        {() => <OpcGate><OpcV2ContestDetail /></OpcGate>}
+        {() => <OpcGate><ContestRegistrationDetail /></OpcGate>}
       </Route>
       <Route path="/profile/contests">
         {() => <OpcGate><OpcV2ContestList /></OpcGate>}

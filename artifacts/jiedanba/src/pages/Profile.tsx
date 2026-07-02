@@ -20,6 +20,32 @@ import { PortfolioDrawer, TYPE_LABEL } from "@/components/PortfolioDrawer";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/* ─── Contest card countdown ─────────────────────── */
+function ContestCardCountdown({ target, label }: { target: string; label: string }) {
+  const [ms, setMs] = useState(() => Math.max(0, new Date(target).getTime() - Date.now()));
+  useEffect(() => {
+    const t = setInterval(() => setMs(Math.max(0, new Date(target).getTime() - Date.now())), 1000);
+    return () => clearInterval(t);
+  }, [target]);
+  const total = Math.floor(ms / 1000);
+  const d = Math.floor(total / 86400);
+  const h = String(Math.floor((total % 86400) / 3600)).padStart(2, "0");
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  const urgent = d === 0 && Number(h) < 2;
+  if (ms === 0) return (
+    <div className="mt-2 flex items-center gap-1 text-[11px] text-red-500 font-semibold">
+      <AlertCircle size={10} /> 已截止
+    </div>
+  );
+  return (
+    <div className={`mt-2 flex items-center gap-1.5 text-[11px] font-semibold ${urgent ? "text-red-600" : "text-amber-600"}`}>
+      <Star size={10} className="shrink-0" />
+      {label}：{d > 0 ? `${d}天 ` : ""}{h}:{m}:{s}
+    </div>
+  );
+}
+
 /* ─── Image Crop Modal ─────────────────────────── */
 interface CropModalProps {
   src: string;
@@ -732,6 +758,13 @@ export default function Profile() {
     id: number; contestId: number; trackId: number; status: RegistrationStatus;
     testGrade: Grade; assignmentGrade: Grade; createdAt: string;
     contestTitle: string | null; catName: string | null; catColorHex: string | null;
+    contestRegistrationAt: string | null;
+    contestBenefitAt: string | null;
+    contestDeadlineAt: string | null;
+    testDurationHours: number | null;
+    aDurationHours: number | null;
+    bDurationHours: number | null;
+    cDurationHours: number | null;
   }
   const CONTEST_STATUS: Record<RegistrationStatus, { label: string; cls: string }> = {
     registered:           { label: "已报名",     cls: "bg-blue-100 text-blue-700" },
@@ -1062,6 +1095,24 @@ export default function Profile() {
                   {myContests.slice(0, 3).map((c, i) => {
                     const borderColors = ["border-primary", "border-secondary", "border-violet-400"];
                     const statusCfg = CONTEST_STATUS[c.status];
+
+                    /* ── 倒计时 ── */
+                    let countdownTarget: string | null = null;
+                    let countdownLabel = "";
+                    if (c.status === "registered" && c.contestRegistrationAt && c.testDurationHours) {
+                      countdownTarget = new Date(new Date(c.contestRegistrationAt).getTime() + c.testDurationHours * 3600_000).toISOString();
+                      countdownLabel = "测试截止";
+                    } else if (c.status === "test_passed" && c.contestBenefitAt && Date.now() < new Date(c.contestBenefitAt).getTime()) {
+                      countdownTarget = c.contestBenefitAt;
+                      countdownLabel = "权益发放";
+                    } else if (c.status === "test_passed" && c.contestBenefitAt) {
+                      const dh = c.testGrade === "A" ? c.aDurationHours : c.testGrade === "B" ? c.bDurationHours : c.cDurationHours;
+                      if (dh) {
+                        countdownTarget = new Date(new Date(c.contestBenefitAt).getTime() + dh * 3600_000).toISOString();
+                        countdownLabel = "测试单截止";
+                      }
+                    }
+
                     return (
                       <Link key={c.id} href={`/profile/contests/${c.id}`}>
                         <div className={`bg-white p-6 rounded-2xl shadow-sm border-l-4 ${borderColors[i % 3]} border border-border/40 hover:shadow-md transition-shadow`}>
@@ -1092,6 +1143,9 @@ export default function Profile() {
                               {new Date(c.createdAt).toLocaleDateString("zh-CN")}
                             </span>
                           </div>
+                          {countdownTarget && (
+                            <ContestCardCountdown target={countdownTarget} label={countdownLabel} />
+                          )}
                         </div>
                       </Link>
                     );
