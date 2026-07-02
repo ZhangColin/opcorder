@@ -362,7 +362,25 @@ function TrackCard({
       );
     }
     if (phase === "pre_public" || phase === "public" || phase === "benefit" || phase === "ended") {
-      return null;
+      if (!track.testQuestion) return null;
+      if (isRegistered) {
+        return (
+          <button
+            onClick={() => setShowQuestion(true)}
+            className="w-full py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold flex items-center justify-center gap-2"
+          >
+            <CheckCircle2 size={14} /> 已报名 · 查看题目
+          </button>
+        );
+      }
+      return (
+        <button
+          onClick={() => setShowQuestion(true)}
+          className="w-full py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm flex items-center justify-center gap-2"
+        >
+          <BookOpen size={14} /> 查看题目
+        </button>
+      );
     }
     return null;
   }
