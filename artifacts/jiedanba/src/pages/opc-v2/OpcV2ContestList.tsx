@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, Trophy, ChevronRight, AlertCircle } from "lucide-react";
+import { Loader2, Trophy, ChevronRight, AlertCircle, ArrowLeft } from "lucide-react";
 import { apiGet } from "@/lib/v2api";
-import { OpcV2Layout } from "./OpcV2Layout";
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
 
 type RegistrationStatus =
   | "registered"
@@ -40,17 +41,21 @@ const STATUS_LABEL: Record<RegistrationStatus, { label: string; cls: string }> =
   assignment_failed:    { label: "测试单未通过", cls: "bg-red-100 text-red-600" },
 };
 
-const GRADE_LABEL: Record<string, { label: string; cls: string }> = {
-  A:    { label: "A 级", cls: "bg-amber-100 text-amber-700" },
-  B:    { label: "B 级", cls: "bg-blue-100 text-blue-700" },
-  C:    { label: "C 级", cls: "bg-slate-100 text-slate-600" },
-  fail: { label: "不通过", cls: "bg-red-100 text-red-600" },
+const GRADE_CLS: Record<string, string> = {
+  A:    "bg-green-100 text-green-700 border-green-200",
+  B:    "bg-blue-100 text-blue-700 border-blue-200",
+  C:    "bg-amber-100 text-amber-700 border-amber-200",
+  fail: "bg-red-100 text-red-600 border-red-200",
 };
 
 function GradeBadge({ grade }: { grade: Grade }) {
-  if (!grade) return <span className="text-xs text-slate-300">—</span>;
-  const cfg = GRADE_LABEL[grade];
-  return <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${cfg.cls}`}>{cfg.label}</span>;
+  if (!grade) return null;
+  const cls = GRADE_CLS[grade] ?? "bg-slate-100 text-slate-600 border-slate-200";
+  return (
+    <span className={`px-2 py-0.5 rounded-md text-xs font-black border ${cls}`}>
+      {grade === "fail" ? "不通过" : grade}
+    </span>
+  );
 }
 
 function fmtDate(iso: string) {
@@ -69,10 +74,21 @@ export default function OpcV2ContestList() {
   const items = data?.items ?? [];
 
   return (
-    <OpcV2Layout>
-      <div className="py-6">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <Navbar />
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 pt-24 sm:pt-28 pb-10">
+
+        <div className="flex items-center gap-3 mb-8">
+          <button
+            onClick={() => navigate("/profile")}
+            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors"
+          >
+            <ArrowLeft size={16} /> 个人中心
+          </button>
+        </div>
+
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
             <Trophy size={20} className="text-primary" />
           </div>
           <div>
@@ -104,62 +120,47 @@ export default function OpcV2ContestList() {
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
-                <tr>
-                  <th className="px-6 py-4">大赛</th>
-                  <th className="px-6 py-4">赛道</th>
-                  <th className="px-6 py-4">状态</th>
-                  <th className="px-6 py-4">测试题</th>
-                  <th className="px-6 py-4">测试单</th>
-                  <th className="px-6 py-4">报名时间</th>
-                  <th className="px-6 py-4" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {items.map(reg => {
-                  const statusCfg = STATUS_LABEL[reg.status] ?? { label: reg.status, cls: "bg-slate-100 text-slate-500" };
-                  return (
-                    <tr
-                      key={reg.id}
-                      onClick={() => navigate(`/profile/contests/${reg.id}`)}
-                      className="hover:bg-slate-50/60 cursor-pointer transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-blue-900 line-clamp-2 max-w-[200px] block">
-                          {reg.contestTitle ?? "—"}
+          <div className="flex flex-col gap-3">
+            {items.map(reg => {
+              const statusCfg = STATUS_LABEL[reg.status] ?? { label: reg.status, cls: "bg-slate-100 text-slate-500" };
+              return (
+                <button
+                  key={reg.id}
+                  onClick={() => navigate(`/profile/contests/${reg.id}`)}
+                  className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 hover:shadow-md hover:border-slate-200 transition-all flex items-center gap-4"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-blue-900 truncate mb-2">
+                      {reg.contestTitle ?? "OPC 大赛"}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {reg.catName && (
+                        <span
+                          className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
+                          style={{ backgroundColor: reg.catColorHex || "#6b7280" }}
+                        >
+                          {reg.catName}
                         </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {reg.catName ? (
-                          <span
-                            className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
-                            style={{ backgroundColor: reg.catColorHex || "#6b7280" }}
-                          >
-                            {reg.catName}
-                          </span>
-                        ) : <span className="text-xs text-slate-300">—</span>}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusCfg.cls}`}>
-                          {statusCfg.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4"><GradeBadge grade={reg.testGrade} /></td>
-                      <td className="px-6 py-4"><GradeBadge grade={reg.assignmentGrade} /></td>
-                      <td className="px-6 py-4 text-xs text-slate-400">{fmtDate(reg.createdAt)}</td>
-                      <td className="px-6 py-4">
-                        <ChevronRight size={16} className="text-slate-300" />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      )}
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusCfg.cls}`}>
+                        {statusCfg.label}
+                      </span>
+                      {reg.testGrade && <GradeBadge grade={reg.testGrade} />}
+                      {reg.assignmentGrade && <GradeBadge grade={reg.assignmentGrade} />}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-xs text-slate-400">{fmtDate(reg.createdAt)}</span>
+                    <ChevronRight size={16} className="text-slate-300" />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
+
       </div>
-    </OpcV2Layout>
+      <Footer />
+    </div>
   );
 }
