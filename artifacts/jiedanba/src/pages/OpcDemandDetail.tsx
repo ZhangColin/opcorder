@@ -55,7 +55,7 @@ function formatBudgetRange(min: number | null, max: number | null) {
 export default function OpcDemandDetail() {
   const { id } = useParams<{ id: string }>();
   const demandId = parseInt(id ?? "0");
-  const [, navigate] = useLocation();
+  const [currentPath, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [applying, setApplying] = useState(false);
@@ -83,7 +83,7 @@ export default function OpcDemandDetail() {
   async function handleApply() {
     if (!demand) return;
     if (isGuest) {
-      sessionStorage.setItem("returnTo", window.location.pathname);
+      sessionStorage.setItem("returnTo", currentPath);
       navigate("/login");
       return;
     }

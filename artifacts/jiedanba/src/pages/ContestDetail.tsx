@@ -275,7 +275,7 @@ function PublicList({ contestId, benefitAt }: { contestId: number; benefitAt: st
 /* ─── Main page ─── */
 export default function ContestDetail() {
   const { id } = useParams<{ id: string }>();
-  const [, navigate] = useLocation();
+  const [currentPath, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [registering, setRegistering] = useState<number | null>(null);
@@ -294,7 +294,7 @@ export default function ContestDetail() {
     const user = getStoredUser();
     const token = getAccessToken();
     if (!user || !token) {
-      sessionStorage.setItem("returnTo", window.location.pathname);
+      sessionStorage.setItem("returnTo", currentPath);
       navigate("/login");
       return;
     }
