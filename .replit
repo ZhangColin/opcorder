@@ -30,10 +30,6 @@ args = "数据库每日备份"
 task = "workflow.run"
 args = "API Server"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
 [[workflows.workflow]]
 name = "数据库每日备份"
 author = "agent"
@@ -56,18 +52,6 @@ outputType = "console"
 task = "shell.exec"
 args = "PORT=3000 RESEND_API_KEY=${RESEND_API_KEY:-re_dev_placeholder} pnpm --filter @workspace/api-server run dev"
 waitForPort = 3000
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 RESEND_API_KEY=${RESEND_API_KEY:-re_dev_placeholder} pnpm --filter @workspace/jiedanba run dev"
-waitForPort = 8080
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
