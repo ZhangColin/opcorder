@@ -414,7 +414,7 @@ export default function ContestRegistrationDetail() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar />
-      <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
+      <div className="flex-1 max-w-3xl mx-auto w-full px-4 pt-24 sm:pt-28 pb-8 flex flex-col gap-6">
 
         {/* Header */}
         <div>
