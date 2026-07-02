@@ -200,7 +200,7 @@ function SubmissionBlock({ label, question, content, attachments, urls, grade, o
   );
 }
 
-function DetailSheet({ reg, onClose, onRefresh }: { reg: Registration; onClose: () => void; onRefresh: () => void }) {
+function DetailModal({ reg, onClose, onRefresh }: { reg: Registration; onClose: () => void; onRefresh: () => void }) {
   const { toast } = useToast();
   const { data: detail, isLoading } = useQuery<RegistrationDetail>({
     queryKey: ["admin-contest-registration", reg.id],
@@ -241,28 +241,37 @@ function DetailSheet({ reg, onClose, onRefresh }: { reg: Registration; onClose: 
   const st = STATUS_MAP[reg.status] ?? { label: reg.status, color: "bg-slate-100 text-slate-600" };
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative ml-auto w-full max-w-lg bg-white h-full shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl flex flex-col my-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
-            <h3 className="text-base font-bold text-blue-900">报名详情</h3>
-            <p className="text-xs text-slate-400 mt-0.5">{reg.userNickname} · {reg.contestTitle}</p>
+            <h3 className="text-lg font-extrabold text-blue-900">报名详情</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${st.color}`}>{st.label}</span>
+              <CatBadge name={reg.catName} colorHex={reg.catColorHex} />
+              <span className="text-xs text-slate-400">{reg.userNickname}</span>
+              {reg.userPhone && <span className="text-xs text-slate-400">· {reg.userPhone}</span>}
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"><X size={18} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={18} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${st.color}`}>{st.label}</span>
-            <CatBadge name={reg.catName} colorHex={reg.catColorHex} />
-            {reg.gradeNote && <span className="text-xs text-slate-500">备注：{reg.gradeNote}</span>}
-          </div>
+        {/* Meta row */}
+        <div className="px-8 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-6 text-xs text-slate-500 flex-wrap">
+          <span><span className="font-semibold text-slate-600">大赛：</span>{reg.contestTitle ?? "—"}</span>
+          <span><span className="font-semibold text-slate-600">报名时间：</span>{fmtDate(reg.createdAt)}</span>
+          {reg.gradeNote && <span><span className="font-semibold text-slate-600">运营备注：</span>{reg.gradeNote}</span>}
+          {reg.contestPublicAt && <span><span className="font-semibold text-slate-600">公示日：</span>{fmtDate(reg.contestPublicAt)}{reg.daysToPublic !== null && reg.daysToPublic >= 0 ? <span className={`ml-1 font-bold ${reg.daysToPublic <= 1 ? "text-red-500" : reg.daysToPublic <= 3 ? "text-amber-500" : "text-slate-400"}`}>（{reg.daysToPublic}天后）</span> : ""}</span>}
+        </div>
 
+        {/* Body */}
+        <div className="p-8">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12 text-slate-400"><Loader2 size={20} className="animate-spin mr-2" /> 加载中…</div>
+            <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 size={22} className="animate-spin mr-2" /> 加载中…</div>
           ) : (
-            <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <SubmissionBlock
                 label="测试题提交"
                 question={detail?.track?.testQuestion}
@@ -274,25 +283,22 @@ function DetailSheet({ reg, onClose, onRefresh }: { reg: Registration; onClose: 
                 grading={gradingTest}
                 isGraded={testGraded}
               />
-
-              {(detail?.status === "test_passed" || detail?.assignmentSubmittedAt) && (
-                <SubmissionBlock
-                  label="测试单提交"
-                  question={
-                    detail?.testGrade === "A" ? detail?.track?.aQuestion :
-                    detail?.testGrade === "B" ? detail?.track?.bQuestion :
-                    detail?.testGrade === "C" ? detail?.track?.cQuestion : null
-                  }
-                  content={detail?.assignmentContent ?? null}
-                  attachments={detail?.assignmentAttachments as Attachment[] | null}
-                  urls={detail?.assignmentUrls as string[] | null}
-                  grade={detail?.assignmentGrade ?? null}
-                  onGrade={gradeAssignment}
-                  grading={gradingAssign}
-                  isGraded={assignGraded}
-                />
-              )}
-            </>
+              <SubmissionBlock
+                label="测试单提交"
+                question={
+                  detail?.testGrade === "A" ? detail?.track?.aQuestion :
+                  detail?.testGrade === "B" ? detail?.track?.bQuestion :
+                  detail?.testGrade === "C" ? detail?.track?.cQuestion : null
+                }
+                content={detail?.assignmentContent ?? null}
+                attachments={detail?.assignmentAttachments as Attachment[] | null}
+                urls={detail?.assignmentUrls as string[] | null}
+                grade={detail?.assignmentGrade ?? null}
+                onGrade={gradeAssignment}
+                grading={gradingAssign}
+                isGraded={assignGraded}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -444,7 +450,7 @@ export default function ContestRegistrations() {
       )}
 
       {selectedReg && (
-        <DetailSheet
+        <DetailModal
           reg={selectedReg}
           onClose={() => setSelectedReg(null)}
           onRefresh={refresh}
