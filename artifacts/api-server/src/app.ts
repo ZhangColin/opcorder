@@ -89,6 +89,12 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Admin endpoints return dynamic data — never let the browser serve stale ETags
+app.use("/api/admin", (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+
 app.use("/api", router);
 
 app.use((_req: Request, res: Response) => {
