@@ -4,6 +4,7 @@ import { Loader2, ChevronDown, X, ExternalLink, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { getAccessToken } from "@/lib/auth";
+import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -308,6 +309,7 @@ function DetailModal({ reg, onClose, onRefresh }: { reg: Registration; onClose: 
 
 export default function ContestRegistrations() {
   const qc = useQueryClient();
+  const inlineNav = useAdminInlineNav();
   const [contestId, setContestId] = useState("");
   const [trackId, setTrackId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -419,7 +421,7 @@ export default function ContestRegistrations() {
             ) : data.items.map(r => {
               const st = STATUS_MAP[r.status] ?? { label: r.status, color: "bg-slate-100 text-slate-600" };
               return (
-                <tr key={r.id} className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${rowBg(r)}`} onClick={() => setSelectedReg(r)}>
+                <tr key={r.id} className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${rowBg(r)}`} onClick={() => inlineNav?.push(`/admin/contests/registrations/${r.id}`)}>
                   <td className="px-5 py-3">
                     <div className="font-semibold text-blue-700">{r.userNickname ?? "—"}</div>
                     <div className="text-xs text-slate-400">{r.userPhone ?? ""}</div>
@@ -449,13 +451,6 @@ export default function ContestRegistrations() {
         </div>
       )}
 
-      {selectedReg && (
-        <DetailModal
-          reg={selectedReg}
-          onClose={() => setSelectedReg(null)}
-          onRefresh={refresh}
-        />
-      )}
     </div>
   );
 }

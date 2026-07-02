@@ -17,6 +17,7 @@ import AdminActivities from "./AdminActivities";
 import ContestQuestions from "./admin-contests/ContestQuestions";
 import ContestActivities from "./admin-contests/ContestActivities";
 import ContestRegistrations from "./admin-contests/ContestRegistrations";
+import ContestRegistrationAdminDetail from "./admin-contests/ContestRegistrationAdminDetail";
 import { AdminEmbeddedContext } from "@/context/AdminEmbeddedContext";
 import AdminV2Overview from "@/pages/admin-v2/AdminV2Overview";
 import AdminV2ClientDemandList from "@/pages/admin-v2/AdminV2ClientDemandList";
@@ -10137,6 +10138,17 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
         </AdminInlineNavContext.Provider>
       );
     }
+    const contestRegMatch = inlineRoute.match(/\/admin\/contests\/registrations\/(\d+)/);
+    if (contestRegMatch) {
+      const inlineId = parseInt(contestRegMatch[1], 10);
+      return (
+        <AdminInlineNavContext.Provider value={inlineNav}>
+          <AdminEmbeddedContext.Provider value={true}>
+            <ContestRegistrationAdminDetail inlineId={inlineId} />
+          </AdminEmbeddedContext.Provider>
+        </AdminInlineNavContext.Provider>
+      );
+    }
   }
 
   const withEmbedded = (node: React.ReactNode) => (
@@ -10192,7 +10204,7 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "v2_opc_workbench": return withEmbedded(<AdminV2Overview />);
     case "contest_questions":      return <ContestQuestions />;
     case "contest_activities":     return <ContestActivities />;
-    case "contest_registrations":  return <ContestRegistrations />;
+    case "contest_registrations":  return withEmbedded(<ContestRegistrations />);
   }
 }
 
