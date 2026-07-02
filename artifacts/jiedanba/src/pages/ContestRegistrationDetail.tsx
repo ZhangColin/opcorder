@@ -54,6 +54,7 @@ interface RegistrationDetail {
   assignmentContent: string | null;
   assignmentAttachments: Array<{ name: string; url: string }> | null;
   assignmentUrls: string[] | null;
+  gradeNote: string | null;
   testQuestion: Question | null;
   assignmentQuestion: Question | null;
 }
@@ -607,6 +608,12 @@ export default function ContestRegistrationDetail() {
                 </div>
               )}
             </div>
+            {reg.gradeNote && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">运营备注</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{reg.gradeNote}</p>
+              </div>
+            )}
           </SectionCard>
         )}
 
