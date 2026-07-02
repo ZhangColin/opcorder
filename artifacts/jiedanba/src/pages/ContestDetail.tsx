@@ -97,7 +97,7 @@ interface Contest {
   tracks: Track[];
 }
 
-interface PassedUser { nickname: string | null; avatar: string | null; }
+interface PassedUser { nickname: string | null; avatar: string | null; testGrade: string | null; }
 interface PublicTrack {
   trackId: number;
   catName: string | null;
@@ -446,13 +446,19 @@ function PublicList({ contestId, benefitAt }: { contestId: number; benefitAt: st
   if (isLoading) return <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={16} className="animate-spin" />加载公示名单…</div>;
   if (!data?.length) return null;
 
+  const GRADE_CLS: Record<string, string> = {
+    A: "bg-green-100 text-green-700 border-green-200",
+    B: "bg-blue-100 text-blue-700 border-blue-200",
+    C: "bg-amber-100 text-amber-700 border-amber-200",
+  };
+
   return (
     <section>
       <h2 className="text-xl font-extrabold text-blue-900 mb-1 flex items-center gap-2">
         <Medal size={20} className="text-amber-500" /> 通过公示名单
       </h2>
       <p className="text-xs text-slate-400 mb-4">权益发放时间：{fmtDate(benefitAt)}</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {data.map(track => (
           <div key={track.trackId} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -465,17 +471,22 @@ function PublicList({ contestId, benefitAt }: { contestId: number; benefitAt: st
             {track.passedUsers.length === 0 ? (
               <p className="text-sm text-slate-400">暂无通过人员</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2">
                 {track.passedUsers.map((u, i) => (
-                  <div key={i} className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-xl px-2.5 py-1.5">
+                  <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
                     {u.avatar ? (
-                      <img src={u.avatar} alt={u.nickname ?? ""} className="w-6 h-6 rounded-full object-cover" />
+                      <img src={u.avatar} alt={u.nickname ?? ""} className="w-7 h-7 rounded-full object-cover shrink-0" />
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary shrink-0">
                         {(u.nickname ?? "?")[0]}
                       </div>
                     )}
-                    <span className="text-xs font-semibold text-slate-700">{u.nickname ?? "匿名"}</span>
+                    <span className="text-sm font-semibold text-slate-700 flex-1 truncate">{u.nickname ?? "匿名"}</span>
+                    {u.testGrade && u.testGrade !== "fail" && (
+                      <span className={`px-1.5 py-0.5 rounded-md text-xs font-black border shrink-0 ${GRADE_CLS[u.testGrade] ?? "bg-slate-100 text-slate-600"}`}>
+                        {u.testGrade}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

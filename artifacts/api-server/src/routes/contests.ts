@@ -1044,7 +1044,7 @@ router.get("/contests/:id/public-list", async (req, res) => {
 
     const result = await Promise.all(tracks.map(async (track) => {
       const passedUsers = await db
-        .select({ nickname: usersTable.nickname, avatar: usersTable.avatar })
+        .select({ nickname: usersTable.nickname, avatar: usersTable.avatar, testGrade: contestRegistrationsTable.testGrade })
         .from(contestRegistrationsTable)
         .leftJoin(usersTable, eq(contestRegistrationsTable.userId, usersTable.id))
         .where(and(
