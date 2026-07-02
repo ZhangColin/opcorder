@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Loader2, AlertCircle, ArrowLeft, Clock, CheckCircle2, Paperclip,
+  Loader2, AlertCircle, Clock, CheckCircle2, Paperclip,
   Link2, X, UploadCloud, Trophy, BookOpen,
 } from "lucide-react";
 import { uploadFile } from "@/lib/v2api";
@@ -416,12 +416,8 @@ export default function ContestRegistrationDetail() {
       <Navbar />
       <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
 
-        {/* Back + Header */}
+        {/* Header */}
         <div>
-          <button onClick={() => navigate("/profile")}
-            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-primary transition-colors mb-4">
-            <ArrowLeft size={15} /> 返回个人中心
-          </button>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-2xl font-extrabold text-blue-900">{reg.contestTitle ?? "OPC 大赛"}</h1>
