@@ -944,9 +944,14 @@ router.get("/contests/:id", async (req, res) => {
         testDurationHours: contestTracksTable.testDurationHours,
         quotaTotal: contestTracksTable.quotaTotal,
         quotaUsed: contestTracksTable.quotaUsed,
+        testQuestionId: contestTracksTable.testQuestionId,
+        testQuestionTitle: contestQuestionsTable.title,
+        testQuestionContent: contestQuestionsTable.content,
+        testQuestionAttachments: contestQuestionsTable.attachments,
       })
       .from(contestTracksTable)
       .leftJoin(catCategoriesTable, eq(contestTracksTable.catCategoryId, catCategoriesTable.id))
+      .leftJoin(contestQuestionsTable, eq(contestTracksTable.testQuestionId, contestQuestionsTable.id))
       .where(eq(contestTracksTable.contestId, id))
       .orderBy(asc(contestTracksTable.id));
 
@@ -970,8 +975,20 @@ router.get("/contests/:id", async (req, res) => {
       deadlineAt: contest.deadlineAt,
       phase,
       tracks: tracks.map(t => ({
-        ...t,
+        id: t.id,
+        catCategoryId: t.catCategoryId,
+        catName: t.catName,
+        catColorHex: t.catColorHex,
+        testDurationHours: t.testDurationHours,
+        quotaTotal: t.quotaTotal,
+        quotaUsed: t.quotaUsed,
         quotaRemaining: Math.max(0, t.quotaTotal - t.quotaUsed),
+        testQuestion: t.testQuestionId ? {
+          id: t.testQuestionId,
+          title: t.testQuestionTitle ?? "",
+          content: t.testQuestionContent ?? null,
+          attachments: t.testQuestionAttachments ?? [],
+        } : null,
       })),
     });
   } catch (err) {

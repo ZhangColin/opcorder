@@ -5,7 +5,7 @@ import {
   Star, ChevronRight, ShieldCheck, BadgeCheck, Cpu, Bot, Globe, Lock,
   Pencil, X, Plus, Save, Camera, MapPin, Link2, Briefcase,
   Phone, MessageCircle, CheckCircle2, AlertCircle, Upload, ExternalLink, Banknote,
-  ZoomIn, ZoomOut, Crop, Loader2, Trophy,
+  ZoomIn, ZoomOut, Crop, Loader2, Trophy, Medal,
 } from "lucide-react";
 
 import {
@@ -726,6 +726,33 @@ export default function Profile() {
   const creditPoints    = (profile as any)?.creditPoints as number ?? 0;
   const rating          = Number(profile?.avgRating ?? 0);
 
+  type RegistrationStatus = "registered" | "test_submitted" | "test_passed" | "test_failed" | "assignment_submitted" | "assignment_passed" | "assignment_failed";
+  type Grade = "A" | "B" | "C" | "fail" | null;
+  interface MyContest {
+    id: number; contestId: number; trackId: number; status: RegistrationStatus;
+    testGrade: Grade; assignmentGrade: Grade; createdAt: string;
+    contestTitle: string | null; catName: string | null; catColorHex: string | null;
+  }
+  const CONTEST_STATUS: Record<RegistrationStatus, { label: string; cls: string }> = {
+    registered:           { label: "已报名",     cls: "bg-blue-100 text-blue-700" },
+    test_submitted:       { label: "测试已提交",  cls: "bg-amber-100 text-amber-700" },
+    test_passed:          { label: "测试通过",    cls: "bg-emerald-100 text-emerald-700" },
+    test_failed:          { label: "测试未通过",  cls: "bg-red-100 text-red-600" },
+    assignment_submitted: { label: "测试单已提交", cls: "bg-violet-100 text-violet-700" },
+    assignment_passed:    { label: "测试单通过",  cls: "bg-emerald-100 text-emerald-700" },
+    assignment_failed:    { label: "测试单未通过", cls: "bg-red-100 text-red-600" },
+  };
+  const { data: myContests = [] } = useQuery<MyContest[]>({
+    queryKey: ["my-contests", user?.id],
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/api/contests/my`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      return r.ok ? r.json() : [];
+    },
+    enabled: !!user?.id,
+  });
+
   const { data: trackCerts = [] } = useQuery<Array<{
     id: number; level: string; status: string; certified_at: string;
     cat_category_id: number; cat_category_name: string; cat_category_icon: string | null;
@@ -1020,6 +1047,58 @@ export default function Profile() {
 
           {/* Main 8-col */}
           <div className="col-span-12 lg:col-span-8 space-y-10">
+
+            {/* My Contests */}
+            {myContests.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-extrabold text-blue-900 font-display">我的大赛</h2>
+                  <Link href="/profile/contests"
+                    className="text-secondary font-bold text-sm hover:underline flex items-center gap-1">
+                    全部 <ChevronRight size={16} />
+                  </Link>
+                </div>
+                <div className="space-y-4">
+                  {myContests.slice(0, 3).map((c, i) => {
+                    const borderColors = ["border-primary", "border-secondary", "border-violet-400"];
+                    const statusCfg = CONTEST_STATUS[c.status];
+                    return (
+                      <Link key={c.id} href={`/profile/contests/${c.id}`}>
+                        <div className={`bg-white p-6 rounded-2xl shadow-sm border-l-4 ${borderColors[i % 3]} border border-border/40 hover:shadow-md transition-shadow`}>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Trophy size={15} className="text-amber-500 shrink-0" />
+                              <span className="font-bold text-blue-900 text-sm leading-snug">{c.contestTitle ?? "OPC 月度大赛"}</span>
+                            </div>
+                            <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${statusCfg.cls}`}>
+                              {statusCfg.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {c.catName && (
+                              <span
+                                className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white"
+                                style={{ backgroundColor: c.catColorHex || "#6b7280" }}
+                              >
+                                {c.catName}
+                              </span>
+                            )}
+                            {c.testGrade && (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">
+                                <Medal size={9} className="inline mr-0.5" />{c.testGrade} 级
+                              </span>
+                            )}
+                            <span className="text-xs text-slate-400">
+                              {new Date(c.createdAt).toLocaleDateString("zh-CN")}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {/* Portfolio */}
             <section>

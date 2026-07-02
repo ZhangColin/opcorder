@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Clock, Users, Trophy, ChevronRight, Loader2, AlertCircle,
-  Zap, Star, CheckCircle2, Medal,
+  Zap, Star, CheckCircle2, Medal, BookOpen, X,
 } from "lucide-react";
 import { getAccessToken, getStoredUser } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,13 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Phase = "pre_announcement" | "pre_registration" | "registration" | "pre_public" | "public" | "benefit" | "ended";
 
+interface TrackQuestion {
+  id: number;
+  title: string;
+  content: string | null;
+  attachments?: unknown[];
+}
+
 interface Track {
   id: number;
   catName: string | null;
@@ -23,6 +30,7 @@ interface Track {
   quotaTotal: number;
   quotaUsed: number;
   quotaRemaining: number;
+  testQuestion: TrackQuestion | null;
 }
 
 interface Contest {
@@ -128,6 +136,78 @@ function Timeline({ contest }: { contest: Contest }) {
   );
 }
 
+/* ─── Question Modal ─── */
+function QuestionModal({
+  track,
+  onConfirm,
+  onClose,
+  registering,
+}: {
+  track: Track;
+  onConfirm: () => void;
+  onClose: () => void;
+  registering: boolean;
+}) {
+  const q = track.testQuestion!;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div
+        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-2">
+            <BookOpen size={18} className="text-primary" />
+            <span className="font-extrabold text-blue-900 text-base">测试题目</span>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        {/* Track badge */}
+        <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 shrink-0">
+          <span
+            className="px-3 py-1 rounded-full text-sm font-bold text-white"
+            style={{ backgroundColor: track.catColorHex || "#6b7280" }}
+          >
+            {track.catName ?? "未知赛道"}
+          </span>
+          <span className="ml-3 text-xs text-slate-400 flex items-center gap-1 inline-flex">
+            <Clock size={11} /> 测试时限 {track.testDurationHours} 小时
+          </span>
+        </div>
+        {/* Question content */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <h3 className="font-extrabold text-blue-900 text-base mb-4">{q.title}</h3>
+          {q.content ? (
+            <RichTextView html={q.content} />
+          ) : (
+            <p className="text-sm text-slate-400 italic">题目内容暂未公开，报名后可见。</p>
+          )}
+        </div>
+        {/* Actions */}
+        <div className="px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={registering}
+            className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
+          >
+            {registering ? <><Loader2 size={14} className="animate-spin" />报名中…</> : <><Zap size={14} />确认报名</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Track Card ─── */
 function TrackCard({
   track,
@@ -142,6 +222,7 @@ function TrackCard({
   onRegister: (trackId: number) => void;
   registering: number | null;
 }) {
+  const [showQuestion, setShowQuestion] = useState(false);
   const countdown = useCountdown(phase === "pre_registration" ? contest.registrationAt : undefined);
   const quotaPct = Math.min(100, Math.round(((track.quotaTotal - track.quotaRemaining) / Math.max(1, track.quotaTotal)) * 100));
   const isRegistering = registering === track.id;
@@ -165,6 +246,16 @@ function TrackCard({
       if (track.quotaRemaining <= 0) {
         return <button disabled className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 text-sm font-bold cursor-not-allowed">报名已满</button>;
       }
+      if (track.testQuestion) {
+        return (
+          <button
+            onClick={() => setShowQuestion(true)}
+            className="w-full py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm flex items-center justify-center gap-2"
+          >
+            <BookOpen size={14} /> 查看题目
+          </button>
+        );
+      }
       return (
         <button
           onClick={() => onRegister(track.id)}
@@ -182,38 +273,48 @@ function TrackCard({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
+    <>
+      {showQuestion && (
+        <QuestionModal
+          track={track}
+          onConfirm={() => { setShowQuestion(false); onRegister(track.id); }}
+          onClose={() => setShowQuestion(false)}
+          registering={isRegistering}
+        />
+      )}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between">
+          <div>
+            <span
+              className="px-3 py-1 rounded-full text-sm font-bold text-white"
+              style={{ backgroundColor: track.catColorHex || "#6b7280" }}
+            >
+              {track.catName ?? "未知赛道"}
+            </span>
+            <p className="mt-2 text-xs text-slate-400 flex items-center gap-1">
+              <Clock size={11} /> 测试时限 {track.testDurationHours} 小时
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-black text-blue-900">{track.quotaRemaining}</div>
+            <div className="text-xs text-slate-400">剩余名额</div>
+          </div>
+        </div>
         <div>
-          <span
-            className="px-3 py-1 rounded-full text-sm font-bold text-white"
-            style={{ backgroundColor: track.catColorHex || "#6b7280" }}
-          >
-            {track.catName ?? "未知赛道"}
-          </span>
-          <p className="mt-2 text-xs text-slate-400 flex items-center gap-1">
-            <Clock size={11} /> 测试时限 {track.testDurationHours} 小时
-          </p>
+          <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+            <span>名额进度</span>
+            <span>{track.quotaTotal - track.quotaRemaining} / {track.quotaTotal}</span>
+          </div>
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-primary to-blue-400 rounded-full transition-all"
+              style={{ width: `${quotaPct}%` }}
+            />
+          </div>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-black text-blue-900">{track.quotaRemaining}</div>
-          <div className="text-xs text-slate-400">剩余名额</div>
-        </div>
+        <ButtonArea />
       </div>
-      <div>
-        <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-          <span>名额进度</span>
-          <span>{track.quotaTotal - track.quotaRemaining} / {track.quotaTotal}</span>
-        </div>
-        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-primary to-blue-400 rounded-full transition-all"
-            style={{ width: `${quotaPct}%` }}
-          />
-        </div>
-      </div>
-      <ButtonArea />
-    </div>
+    </>
   );
 }
 
