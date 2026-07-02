@@ -3,11 +3,11 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Clock, Users, Trophy, ChevronRight, Loader2, AlertCircle,
-  Zap, Star, CheckCircle2, Medal, BookOpen, X,
+  Zap, Star, CheckCircle2, Medal, BookOpen, X, Paperclip,
 } from "lucide-react";
 import { getAccessToken, getStoredUser } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { RichTextView } from "@/components/RichTextEditor";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 
@@ -19,7 +19,7 @@ interface TrackQuestion {
   id: number;
   title: string;
   content: string | null;
-  attachments?: unknown[];
+  attachments?: Array<{ name: string; url: string }>;
 }
 
 interface Track {
@@ -181,12 +181,29 @@ function QuestionModal({
           </span>
         </div>
         {/* Question content */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          <h3 className="font-extrabold text-blue-900 text-base mb-4">{q.title}</h3>
+        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
+          <h3 className="font-extrabold text-blue-900 text-base">{q.title}</h3>
           {q.content ? (
-            <RichTextView html={q.content} />
+            <div className="bg-slate-50 rounded-xl p-4">
+              <MarkdownContent content={q.content} />
+            </div>
           ) : (
             <p className="text-sm text-slate-400 italic">题目内容暂未公开，报名后可见。</p>
+          )}
+          {q.attachments && q.attachments.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1">
+                <Paperclip size={11} /> 题目附件
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {q.attachments.map((a, i) => (
+                  <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline bg-white rounded-lg px-3 py-2 border border-slate-200">
+                    <Paperclip size={11} className="text-slate-400 shrink-0" /> {a.name}
+                  </a>
+                ))}
+              </div>
+            </div>
           )}
         </div>
         {/* Actions */}
