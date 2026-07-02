@@ -410,21 +410,25 @@ router.post("/admin/contests/registrations/:id/grade-test", requireAdmin, async 
 router.post("/admin/contests/registrations/:id/grade-assignment", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { grade, note } = req.body as { grade: "A" | "B" | "C" | "fail"; note?: string };
-    if (!["A", "B", "C", "fail"].includes(grade)) {
-      return res.status(400).json({ error: "评级必须为 A / B / C / fail" });
+    const { pass, note } = req.body as { pass: boolean; note?: string };
+    if (typeof pass !== "boolean") {
+      return res.status(400).json({ error: "pass 必须为 true 或 false" });
     }
 
     const [reg] = await db.select().from(contestRegistrationsTable).where(eq(contestRegistrationsTable.id, id)).limit(1);
     if (!reg) return res.status(404).json({ error: "报名记录不存在" });
-    if (!reg.assignmentSubmittedAt) return res.status(400).json({ error: "测试单尚未提交，不可评级" });
+    if (!reg.assignmentSubmittedAt) return res.status(400).json({ error: "测试单尚未提交，不可审核" });
+    if (!reg.testGrade || reg.testGrade === "fail") return res.status(400).json({ error: "测试题未通过，不可审核测试单" });
 
-    const passed = grade !== "fail";
-    const newStatus = passed ? "assignment_passed" : "assignment_failed";
+    const testGrade = reg.testGrade as "A" | "B" | "C";
+
+    // assignmentGrade: if passed → store the level (A/B/C) earned; if failed → "fail"
+    const assignmentGrade = pass ? testGrade : "fail";
+    const newStatus = pass ? "assignment_passed" : "assignment_failed";
 
     const [updated] = await db.update(contestRegistrationsTable)
       .set({
-        assignmentGrade: grade,
+        assignmentGrade,
         status: newStatus as any,
         gradeNote: note ?? null,
         updatedAt: new Date(),
@@ -432,16 +436,29 @@ router.post("/admin/contests/registrations/:id/grade-assignment", requireAdmin, 
       .where(eq(contestRegistrationsTable.id, id))
       .returning();
 
-    if (passed) {
+    let levelUpgraded = false;
+    if (pass) {
       const [track] = await db.select({ catCategoryId: contestTracksTable.catCategoryId })
         .from(contestTracksTable).where(eq(contestTracksTable.id, reg.trackId)).limit(1);
       if (track) {
-        await db.execute(sql`
-          INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at, created_at)
-          VALUES (${reg.userId}, ${track.catCategoryId}, ${grade}, 'active', now(), now())
-          ON CONFLICT (user_id, cat_category_id)
-          DO UPDATE SET level = ${grade}, certified_at = now()
+        // Only upgrade if current track cert level is lower than testGrade
+        const LEVEL_RANK: Record<string, number> = { C: 1, B: 2, A: 3 };
+        const certRows = await db.execute(sql`
+          SELECT level FROM opc_track_certs
+          WHERE user_id = ${reg.userId} AND cat_category_id = ${track.catCategoryId}
+          LIMIT 1
         `);
+        const currentLevel = (certRows.rows[0] as { level?: string } | undefined)?.level;
+        const shouldUpgrade = !currentLevel || (LEVEL_RANK[currentLevel] ?? 0) < (LEVEL_RANK[testGrade] ?? 0);
+        if (shouldUpgrade) {
+          await db.execute(sql`
+            INSERT INTO opc_track_certs (user_id, cat_category_id, level, status, certified_at, created_at)
+            VALUES (${reg.userId}, ${track.catCategoryId}, ${testGrade}, 'active', now(), now())
+            ON CONFLICT (user_id, cat_category_id)
+            DO UPDATE SET level = ${testGrade}, certified_at = now()
+          `);
+          levelUpgraded = true;
+        }
       }
     }
 
@@ -453,16 +470,17 @@ router.post("/admin/contests/registrations/:id/grade-assignment", requireAdmin, 
       .leftJoin(catCategoriesTable, eq(contestTracksTable.catCategoryId, catCategoriesTable.id))
       .where(eq(contestTracksTable.id, reg.trackId)).limit(1);
 
-    const gradeLabel = grade === "fail" ? "未通过" : `${grade} 级`;
-    const resultText = passed
-      ? `恭喜您通过测试单考核，等级评定为 ${grade} 级！您在${trackRow?.catName ?? ""}赛道的认证等级已更新为 ${grade} 级。`
+    const resultText = pass
+      ? levelUpgraded
+        ? `恭喜您通过测试单考核！您在${trackRow?.catName ?? ""}赛道的认证等级已更新为 ${testGrade} 级。`
+        : `恭喜您通过测试单考核！您当前在${trackRow?.catName ?? ""}赛道的认证等级已达到或超过本次评定等级，等级保持不变。`
       : "很遗憾，您本次测试单考核未通过。";
 
     await db.insert(notificationsTable).values({
       userId: reg.userId,
       type: "contest_assignment_graded",
-      title: `【${contest?.title ?? "OPC 大赛"}】测试单评级结果：${gradeLabel}`,
-      content: `您在「${contest?.title ?? "OPC 大赛"}」${trackRow?.catName ?? ""}赛道的测试单已完成评审。\n${resultText}${note ? `\n运营备注：${note}` : ""}\n\n请前往个人中心「我的大赛」查看详情。`,
+      title: `【${contest?.title ?? "OPC 大赛"}】测试单审核结果：${pass ? "通过" : "未通过"}`,
+      content: `您在「${contest?.title ?? "OPC 大赛"}」${trackRow?.catName ?? ""}赛道的测试单已完成审核。\n${resultText}${note ? `\n运营备注：${note}` : ""}\n\n请前往个人中心「我的大赛」查看详情。`,
       relatedId: id,
       relatedType: "contest_registration",
     });
@@ -470,7 +488,7 @@ router.post("/admin/contests/registrations/:id/grade-assignment", requireAdmin, 
     return res.json(updated);
   } catch (err) {
     logger.error({ err }, "[admin/contests/registrations/:id/grade-assignment POST]");
-    return res.status(500).json({ error: "评级操作失败" });
+    return res.status(500).json({ error: "审核操作失败" });
   }
 });
 
