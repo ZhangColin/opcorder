@@ -299,9 +299,13 @@ router.get("/admin/contests/registrations/:id", requireAdmin, async (req, res) =
         userNickname: usersTable.nickname,
         userPhone: usersTable.phone,
         userEmail: usersTable.email,
+        contestTitle: contestsTable.title,
+        contestPublicAt: contestsTable.publicAt,
+        daysToPublic: sql<number | null>`CASE WHEN ${contestsTable.publicAt} IS NULL THEN NULL ELSE GREATEST(0, DATE_PART('day', ${contestsTable.publicAt}::timestamptz - now())::int) END`,
       })
       .from(contestRegistrationsTable)
       .leftJoin(usersTable, eq(contestRegistrationsTable.userId, usersTable.id))
+      .leftJoin(contestsTable, eq(contestRegistrationsTable.contestId, contestsTable.id))
       .where(eq(contestRegistrationsTable.id, id))
       .limit(1);
 
@@ -312,6 +316,7 @@ router.get("/admin/contests/registrations/:id", requireAdmin, async (req, res) =
         id: contestTracksTable.id,
         catCategoryId: contestTracksTable.catCategoryId,
         catName: catCategoriesTable.name,
+        catColorHex: catCategoriesTable.colorHex,
         testQuestionId: contestTracksTable.testQuestionId,
         aQuestionId: contestTracksTable.aQuestionId,
         bQuestionId: contestTracksTable.bQuestionId,

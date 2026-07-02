@@ -341,18 +341,23 @@ export default function ContestRegistrationAdminDetail({ inlineId }: { inlineId:
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${st.color}`}>{st.label}</span>
                   <CatBadge name={detail.catName} colorHex={detail.catColorHex} />
                 </div>
-                {detail.userPhone && <p className="text-sm text-slate-400 mb-3">{detail.userPhone}</p>}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-slate-500">
-                  <div><span className="font-semibold text-slate-600 block mb-0.5">大赛</span>{detail.contestTitle ?? "—"}</div>
+                {detail.userPhone && <p className="text-sm text-slate-400 mt-1">{detail.userPhone}</p>}
+                <div className="flex flex-wrap gap-x-6 gap-y-3 mt-3 text-xs text-slate-500">
+                  {detail.contestTitle && (
+                    <div><span className="font-semibold text-slate-600 block mb-0.5">大赛</span>{detail.contestTitle}</div>
+                  )}
                   <div><span className="font-semibold text-slate-600 block mb-0.5">报名时间</span>{fmtDate(detail.createdAt)}</div>
-                  <div><span className="font-semibold text-slate-600 block mb-0.5">公示日期</span>
-                    {fmtDate(detail.contestPublicAt)}
-                    {detail.daysToPublic !== null && detail.daysToPublic >= 0 && (
-                      <span className={`ml-1 font-bold ${detail.daysToPublic <= 1 ? "text-red-500" : detail.daysToPublic <= 3 ? "text-amber-500" : "text-slate-400"}`}>
-                        （{detail.daysToPublic}天后）
-                      </span>
-                    )}
-                  </div>
+                  {detail.contestPublicAt && (
+                    <div>
+                      <span className="font-semibold text-slate-600 block mb-0.5">公示日期</span>
+                      {fmtDate(detail.contestPublicAt)}
+                      {detail.daysToPublic !== null && detail.daysToPublic >= 0 && (
+                        <span className={`ml-1 font-bold ${detail.daysToPublic <= 1 ? "text-red-500" : detail.daysToPublic <= 3 ? "text-amber-500" : "text-slate-400"}`}>
+                          （{detail.daysToPublic}天后）
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {detail.gradeNote && <div><span className="font-semibold text-slate-600 block mb-0.5">运营备注</span>{detail.gradeNote}</div>}
                 </div>
               </div>
