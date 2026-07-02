@@ -8,6 +8,7 @@ import {
 import { getAccessToken, getStoredUser } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { RichTextView } from "@/components/RichTextEditor";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 
