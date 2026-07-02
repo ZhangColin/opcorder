@@ -249,6 +249,7 @@ router.get("/admin/contests/registrations", requireAdmin, async (req, res) => {
         contestPublicAt: contestsTable.publicAt,
         catName: catCategoriesTable.name,
         catColorHex: catCategoriesTable.colorHex,
+        contestDeadlineAt: contestsTable.deadlineAt,
       })
       .from(contestRegistrationsTable)
       .leftJoin(usersTable, eq(contestRegistrationsTable.userId, usersTable.id))
@@ -263,7 +264,9 @@ router.get("/admin/contests/registrations", requireAdmin, async (req, res) => {
     const items = rows.map(r => {
       const publicAt = r.contestPublicAt ? new Date(r.contestPublicAt) : null;
       const daysToPublic = publicAt ? Math.ceil((publicAt.getTime() - now.getTime()) / 86400000) : null;
-      return { ...r, daysToPublic };
+      const deadlineAt = r.contestDeadlineAt ? new Date(r.contestDeadlineAt) : null;
+      const daysToDeadline = deadlineAt ? Math.ceil((deadlineAt.getTime() - now.getTime()) / 86400000) : null;
+      return { ...r, daysToPublic, daysToDeadline };
     });
 
     return res.json({ items, total: Number(total), page, pageSize });
