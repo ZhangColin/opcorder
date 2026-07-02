@@ -763,6 +763,7 @@ router.get("/contests/my/:registrationId", requireAuth, async (req, res) => {
         assignmentAttachments: contestRegistrationsTable.assignmentAttachments,
         assignmentUrls: contestRegistrationsTable.assignmentUrls,
         assignmentGrade: contestRegistrationsTable.assignmentGrade,
+        gradeNote: contestRegistrationsTable.gradeNote,
         createdAt: contestRegistrationsTable.createdAt,
         contestTitle: contestsTable.title,
         contestRegistrationAt: contestsTable.registrationAt,
