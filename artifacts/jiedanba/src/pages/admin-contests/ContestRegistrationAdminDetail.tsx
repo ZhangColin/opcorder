@@ -360,7 +360,7 @@ export default function ContestRegistrationAdminDetail({ inlineId }: { inlineId:
           </div>
 
           {/* Submissions */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-6">
             <TestSubmissionBlock
               question={detail.track?.testQuestion}
               content={detail.testContent ?? null}
