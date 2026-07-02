@@ -339,7 +339,7 @@ export default function ContestRegistrationAdminDetail({ inlineId }: { inlineId:
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-xl font-extrabold text-blue-900">{detail.userNickname ?? "—"}</span>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${st.color}`}>{st.label}</span>
-                  <CatBadge name={detail.catName} colorHex={detail.catColorHex} />
+                  <CatBadge name={detail.track?.catName} colorHex={detail.track?.catColorHex} />
                 </div>
                 {detail.userPhone && <p className="text-sm text-slate-400 mt-1">{detail.userPhone}</p>}
                 <div className="flex flex-wrap gap-x-6 gap-y-3 mt-3 text-xs text-slate-500">

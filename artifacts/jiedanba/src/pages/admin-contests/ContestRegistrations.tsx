@@ -349,10 +349,8 @@ export default function ContestRegistrations() {
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
 
   function rowBg(reg: Registration) {
-    const d = reg.daysToPublic;
-    if (d === null || d < 0) return "";
-    if (d <= 1) return "bg-red-50";
-    if (d <= 3) return "bg-yellow-50";
+    if (reg.status === "test_submitted") return "bg-amber-50";
+    if (reg.status === "assignment_submitted") return "bg-purple-50";
     return "";
   }
 
@@ -395,8 +393,8 @@ export default function ContestRegistrations() {
 
       {/* Color legend */}
       <div className="flex items-center gap-4 mb-3 text-xs text-slate-500">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-200" /> 公示日 ≤3 天</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-200" /> 公示日 ≤1 天</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-100 border border-amber-200" /> 待评测试题</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-100 border border-purple-200" /> 待评测试单</span>
       </div>
 
       <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
