@@ -82,11 +82,6 @@ export default function OpcDemandDetail() {
 
   async function handleApply() {
     if (!demand) return;
-    if (isGuest) {
-      sessionStorage.setItem("returnTo", currentPath);
-      navigate("/login");
-      return;
-    }
     setApplying(true);
     try {
       const created = await v2Post<{ id: number }>(`/outsource-demands/${demandId}/apply`);
@@ -339,6 +334,27 @@ export default function OpcDemandDetail() {
                   : "此需求当前不在报名期。"}
               </p>
             </div>
+          </div>
+        ) : isGuest ? (
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Lock size={18} className="text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-foreground">登录后即可报价</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  登录您的 OPC 账号，报名参与此需求竞标
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                sessionStorage.setItem("returnTo", currentPath);
+                navigate("/login");
+              }}
+              className="shrink-0 flex items-center gap-2 px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors text-sm shadow-md hover:shadow-primary/30"
+            >
+              登录后报价
+            </button>
           </div>
         ) : (
           <div className="flex items-center justify-between">
