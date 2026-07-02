@@ -89,14 +89,16 @@ function GradeTag({ grade }: { grade: string | null }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>{grade === "fail" ? "不通过" : grade}</span>;
 }
 
-function TestGradeForm({ onSubmit, loading, disabled }: {
+function TestGradeForm({ onSubmit, loading, disabled, notSubmitted }: {
   onSubmit: (grade: "A" | "B" | "C" | "fail", note: string) => void;
   loading: boolean;
   disabled: boolean;
+  notSubmitted?: boolean;
 }) {
   const [grade, setGrade] = useState<"A" | "B" | "C" | "fail" | "">("");
   const [note, setNote] = useState("");
 
+  if (notSubmitted) return <div className="text-sm text-slate-400 mt-3 italic">（用户尚未提交，无法操作）</div>;
   if (disabled) return <div className="text-sm text-slate-400 mt-3 italic">（已评级，只读）</div>;
 
   return (
@@ -120,14 +122,16 @@ function TestGradeForm({ onSubmit, loading, disabled }: {
   );
 }
 
-function AssignmentReviewForm({ onSubmit, loading, disabled }: {
+function AssignmentReviewForm({ onSubmit, loading, disabled, notSubmitted }: {
   onSubmit: (pass: boolean, note: string) => void;
   loading: boolean;
   disabled: boolean;
+  notSubmitted?: boolean;
 }) {
   const [pass, setPass] = useState<boolean | null>(null);
   const [note, setNote] = useState("");
 
+  if (notSubmitted) return <div className="text-sm text-slate-400 mt-3 italic">（用户尚未提交，无法操作）</div>;
   if (disabled) return <div className="text-sm text-slate-400 mt-3 italic">（已审核，只读）</div>;
 
   return (
@@ -212,7 +216,7 @@ function TestSubmissionBlock({ question, content, attachments, urls, grade, onGr
         </div>
       )}
       <SubmissionContent content={content} attachments={attachments} urls={urls} />
-      <TestGradeForm onSubmit={onGrade} loading={grading} disabled={!!grade} />
+      <TestGradeForm onSubmit={onGrade} loading={grading} disabled={!!grade} notSubmitted={!content && !attachments?.length && !urls?.length} />
     </div>
   );
 }
@@ -267,7 +271,7 @@ function AssignmentSubmissionBlock({ question, content, attachments, urls, grade
         </div>
       )}
       <SubmissionContent content={content} attachments={attachments} urls={urls} />
-      <AssignmentReviewForm onSubmit={onReview} loading={reviewing} disabled={!!grade} />
+      <AssignmentReviewForm onSubmit={onReview} loading={reviewing} disabled={!!grade} notSubmitted={!content && !attachments?.length && !urls?.length} />
     </div>
   );
 }
