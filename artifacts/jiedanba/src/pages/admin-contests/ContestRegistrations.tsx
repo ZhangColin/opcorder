@@ -265,7 +265,7 @@ function DetailModal({ reg, onClose, onRefresh }: { reg: Registration; onClose: 
           <span><span className="font-semibold text-slate-600">大赛：</span>{reg.contestTitle ?? "—"}</span>
           <span><span className="font-semibold text-slate-600">报名时间：</span>{fmtDate(reg.createdAt)}</span>
           {reg.gradeNote && <span><span className="font-semibold text-slate-600">运营备注：</span>{reg.gradeNote}</span>}
-          {reg.contestPublicAt && <span><span className="font-semibold text-slate-600">公示日：</span>{fmtDate(reg.contestPublicAt)}{reg.daysToPublic !== null && reg.daysToPublic >= 0 ? <span className={`ml-1 font-bold ${reg.daysToPublic <= 1 ? "text-red-500" : reg.daysToPublic <= 3 ? "text-amber-500" : "text-slate-400"}`}>（{reg.daysToPublic}天后）</span> : ""}</span>}
+          {reg.contestPublicAt && <span><span className="font-semibold text-slate-600">公示日：</span>{fmtDate(reg.contestPublicAt)}</span>}
         </div>
 
         {/* Body */}

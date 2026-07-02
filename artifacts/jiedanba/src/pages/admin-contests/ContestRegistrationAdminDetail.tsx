@@ -89,17 +89,24 @@ function GradeTag({ grade }: { grade: string | null }) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>{grade === "fail" ? "不通过" : grade}</span>;
 }
 
-function TestGradeForm({ onSubmit, loading, disabled, notSubmitted }: {
+function TestGradeForm({ onSubmit, loading, disabled, notSubmitted, gradeValue, gradeNote }: {
   onSubmit: (grade: "A" | "B" | "C" | "fail", note: string) => void;
   loading: boolean;
   disabled: boolean;
   notSubmitted?: boolean;
+  gradeValue?: string | null;
+  gradeNote?: string | null;
 }) {
   const [grade, setGrade] = useState<"A" | "B" | "C" | "fail" | "">("");
   const [note, setNote] = useState("");
 
   if (notSubmitted) return <div className="text-sm text-slate-400 mt-3 italic">（用户尚未提交，无法操作）</div>;
-  if (disabled) return <div className="text-sm text-slate-400 mt-3 italic">（已评级，只读）</div>;
+  if (disabled) return (
+    <div className="mt-4 flex flex-col gap-1.5">
+      <GradeTag grade={gradeValue ?? null} />
+      {gradeNote && <p className="text-sm text-slate-500 leading-relaxed">{gradeNote}</p>}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-3 mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
@@ -122,17 +129,31 @@ function TestGradeForm({ onSubmit, loading, disabled, notSubmitted }: {
   );
 }
 
-function AssignmentReviewForm({ onSubmit, loading, disabled, notSubmitted }: {
+function AssignmentReviewForm({ onSubmit, loading, disabled, notSubmitted, assignmentGrade, gradeNote }: {
   onSubmit: (pass: boolean, note: string) => void;
   loading: boolean;
   disabled: boolean;
   notSubmitted?: boolean;
+  assignmentGrade?: string | null;
+  gradeNote?: string | null;
 }) {
   const [pass, setPass] = useState<boolean | null>(null);
   const [note, setNote] = useState("");
 
   if (notSubmitted) return <div className="text-sm text-slate-400 mt-3 italic">（用户尚未提交，无法操作）</div>;
-  if (disabled) return <div className="text-sm text-slate-400 mt-3 italic">（已审核，只读）</div>;
+  if (disabled) {
+    const passedTag = assignmentGrade === "fail"
+      ? <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600">不通过</span>
+      : assignmentGrade
+      ? <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">通过（{assignmentGrade}级认定）</span>
+      : null;
+    return (
+      <div className="mt-4 flex flex-col gap-1.5">
+        {passedTag}
+        {gradeNote && <p className="text-sm text-slate-500 leading-relaxed">{gradeNote}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
@@ -194,21 +215,19 @@ function SubmissionContent({ content, attachments, urls }: {
   );
 }
 
-function TestSubmissionBlock({ question, content, attachments, urls, grade, onGrade, grading }: {
+function TestSubmissionBlock({ question, content, attachments, urls, grade, gradeNote, onGrade, grading }: {
   question: ContestQuestion | null | undefined;
   content: string | null;
   attachments: Attachment[] | null;
   urls: string[] | null;
   grade: string | null;
+  gradeNote: string | null;
   onGrade: (grade: "A" | "B" | "C" | "fail", note: string) => void;
   grading: boolean;
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-bold text-blue-900">测试题提交</h3>
-        <GradeTag grade={grade} />
-      </div>
+      <h3 className="text-base font-bold text-blue-900 mb-4">测试题提交</h3>
       {question && (
         <div className="bg-blue-50 rounded-xl p-4 mb-4">
           <p className="text-xs font-bold text-blue-600 mb-2">题目：{question.title}</p>
@@ -216,17 +235,18 @@ function TestSubmissionBlock({ question, content, attachments, urls, grade, onGr
         </div>
       )}
       <SubmissionContent content={content} attachments={attachments} urls={urls} />
-      <TestGradeForm onSubmit={onGrade} loading={grading} disabled={!!grade} notSubmitted={!content && !attachments?.length && !urls?.length} />
+      <TestGradeForm onSubmit={onGrade} loading={grading} disabled={!!grade} notSubmitted={!content && !attachments?.length && !urls?.length} gradeValue={grade} gradeNote={gradeNote} />
     </div>
   );
 }
 
-function AssignmentSubmissionBlock({ question, content, attachments, urls, grade, onReview, reviewing, testGrade }: {
+function AssignmentSubmissionBlock({ question, content, attachments, urls, grade, gradeNote, onReview, reviewing, testGrade }: {
   question: ContestQuestion | null | undefined;
   content: string | null;
   attachments: Attachment[] | null;
   urls: string[] | null;
   grade: string | null;
+  gradeNote: string | null;
   onReview: (pass: boolean, note: string) => void;
   reviewing: boolean;
   testGrade: string | null;
@@ -248,21 +268,11 @@ function AssignmentSubmissionBlock({ question, content, attachments, urls, grade
       </div>
     );
   }
-  // testGrade is A/B/C → show assignment block
-  const passTag = grade === "fail"
-    ? <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600">不通过</span>
-    : grade
-    ? <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">通过（{grade}级认定）</span>
-    : null;
-
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-base font-bold text-blue-900">测试单提交</h3>
-          <p className="text-xs text-slate-400 mt-0.5">{testGrade} 级对应测试单</p>
-        </div>
-        {passTag}
+      <div className="mb-4">
+        <h3 className="text-base font-bold text-blue-900">测试单提交</h3>
+        <p className="text-xs text-slate-400 mt-0.5">{testGrade} 级对应测试单</p>
       </div>
       {question && (
         <div className="bg-blue-50 rounded-xl p-4 mb-4">
@@ -271,7 +281,7 @@ function AssignmentSubmissionBlock({ question, content, attachments, urls, grade
         </div>
       )}
       <SubmissionContent content={content} attachments={attachments} urls={urls} />
-      <AssignmentReviewForm onSubmit={onReview} loading={reviewing} disabled={!!grade} notSubmitted={!content && !attachments?.length && !urls?.length} />
+      <AssignmentReviewForm onSubmit={onReview} loading={reviewing} disabled={!!grade} notSubmitted={!content && !attachments?.length && !urls?.length} assignmentGrade={grade} gradeNote={gradeNote} />
     </div>
   );
 }
@@ -355,14 +365,8 @@ export default function ContestRegistrationAdminDetail({ inlineId }: { inlineId:
                     <div>
                       <span className="font-semibold text-slate-600 block mb-0.5">公示日期</span>
                       {fmtDate(detail.contestPublicAt)}
-                      {detail.daysToPublic !== null && detail.daysToPublic >= 0 && (
-                        <span className={`ml-1 font-bold ${detail.daysToPublic <= 1 ? "text-red-500" : detail.daysToPublic <= 3 ? "text-amber-500" : "text-slate-400"}`}>
-                          （{detail.daysToPublic}天后）
-                        </span>
-                      )}
                     </div>
                   )}
-                  {detail.gradeNote && <div><span className="font-semibold text-slate-600 block mb-0.5">运营备注</span>{detail.gradeNote}</div>}
                 </div>
               </div>
             </div>
@@ -376,6 +380,7 @@ export default function ContestRegistrationAdminDetail({ inlineId }: { inlineId:
               attachments={detail.testAttachments as Attachment[] | null}
               urls={detail.testUrls as string[] | null}
               grade={detail.testGrade ?? null}
+              gradeNote={detail.gradeNote ?? null}
               onGrade={gradeTest}
               grading={gradingTest}
             />
@@ -385,6 +390,7 @@ export default function ContestRegistrationAdminDetail({ inlineId }: { inlineId:
               attachments={detail.assignmentAttachments as Attachment[] | null}
               urls={detail.assignmentUrls as string[] | null}
               grade={detail.assignmentGrade ?? null}
+              gradeNote={detail.gradeNote ?? null}
               onReview={reviewAssignment}
               reviewing={gradingAssign}
               testGrade={detail.testGrade ?? null}
