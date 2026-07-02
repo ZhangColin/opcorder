@@ -603,7 +603,7 @@ export default function ContestRegistrationDetail() {
               )}
             </div>
             {reg.gradeNote && (
-              <div className="mt-3 pt-3 border-t border-slate-100">
+              <div className="mt-3">
                 <p className="text-sm text-slate-600 leading-relaxed">{reg.gradeNote}</p>
               </div>
             )}
