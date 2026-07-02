@@ -165,8 +165,8 @@ router.get("/admin/contests", requireAdmin, async (req, res) => {
         deadlineAt: contestsTable.deadlineAt,
         createdAt: contestsTable.createdAt,
         updatedAt: contestsTable.updatedAt,
-        trackCount: sql<number>`(SELECT COUNT(*) FROM ${contestTracksTable} WHERE ${contestTracksTable.contestId} = ${contestsTable.id})::int`,
-        registrationCount: sql<number>`(SELECT COUNT(*) FROM ${contestRegistrationsTable} WHERE ${contestRegistrationsTable.contestId} = ${contestsTable.id})::int`,
+        trackCount: sql<number>`(SELECT COUNT(*) FROM contest_tracks WHERE contest_tracks.contest_id = contests.id)::int`,
+        registrationCount: sql<number>`(SELECT COUNT(*) FROM contest_registrations WHERE contest_registrations.contest_id = contests.id)::int`,
       })
       .from(contestsTable)
       .where(where)
