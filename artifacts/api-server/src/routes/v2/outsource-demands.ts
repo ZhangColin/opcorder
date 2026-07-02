@@ -49,7 +49,7 @@ router.get("/outsource-demands", optionalAuth, async (req: Request, res: Respons
         tenderCount: sql<number>`(SELECT COUNT(*)::int FROM v2_tenders WHERE v2_tenders.outsource_demand_id = ${v2OutsourceDemandsTable.id})`,
         isInvited: role === "opc"
           ? sql<boolean>`EXISTS(SELECT 1 FROM v2_tenders WHERE v2_tenders.outsource_demand_id = ${v2OutsourceDemandsTable.id} AND v2_tenders.opc_id = ${userId})`
-          : sql<boolean>`true`,
+          : sql<boolean>`false`,
         createdAt: v2OutsourceDemandsTable.createdAt,
         updatedAt: v2OutsourceDemandsTable.updatedAt,
       })

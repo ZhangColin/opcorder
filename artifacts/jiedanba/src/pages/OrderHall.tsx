@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
   ChevronLeft, ChevronRight, Clock, LayoutGrid, List,
-  Loader2, AlertCircle, CheckCircle2, Lock, Tag, Zap,
+  Loader2, AlertCircle, CheckCircle2, Lock, Tag, Zap, BadgeCheck,
 } from "lucide-react";
 import { v2Get } from "@/lib/v2api";
 import { useDemandTypeLabel } from "@/lib/catCategories";
@@ -39,6 +39,7 @@ interface DemandItem {
   expectedPriceMax: number | null;
   status: string;
   tenderCount: number;
+  isInvited: boolean;
   createdAt: string;
 }
 
@@ -84,6 +85,11 @@ function DemandCard({ demand, onClick }: { demand: DemandItem; onClick: () => vo
             {demand.mode === "invited" && (
               <span className="bg-amber-100 text-amber-700 text-[10px] font-extrabold uppercase px-2 py-1 rounded-md tracking-wider flex items-center gap-0.5">
                 <Lock size={9} /> 邀请
+              </span>
+            )}
+            {demand.isInvited && (
+              <span className="bg-emerald-100 text-emerald-700 text-[10px] font-extrabold uppercase px-2 py-1 rounded-md tracking-wider flex items-center gap-0.5">
+                <BadgeCheck size={9} /> 已报名
               </span>
             )}
             <span className="bg-secondary/15 text-secondary text-[10px] font-extrabold uppercase px-2 py-1 rounded-md tracking-wider flex items-center gap-0.5">
@@ -147,6 +153,11 @@ function DemandListRow({ demand, onClick }: { demand: DemandItem; onClick: () =>
         )}
         {demand.mode === "invited" && (
           <span className="bg-amber-100 text-amber-700 text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide">邀请</span>
+        )}
+        {demand.isInvited && (
+          <span className="bg-emerald-100 text-emerald-700 text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide flex items-center gap-0.5">
+            <BadgeCheck size={8} /> 已报名
+          </span>
         )}
         <span className="bg-secondary/15 text-secondary text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide">
           {resolveDemandType(demand.demandType)}
