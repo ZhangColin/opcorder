@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import express, { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import {
   RequestUploadUrlBody,
@@ -147,6 +147,60 @@ router.post("/storage/uploads/verify", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to verify upload" });
   }
 });
+
+/**
+ * POST /storage/uploads/direct
+ *
+ * Single-step server-side upload. The file body is streamed directly from the
+ * client to GCS via the server — no browser→GCS presigned PUT needed, which
+ * avoids CORS / connectivity issues in proxied environments.
+ *
+ * Query params: name (filename), contentType (MIME type)
+ * Body: raw file bytes (Content-Type must match the contentType param)
+ */
+router.post(
+  "/storage/uploads/direct",
+  express.raw({ type: "*/*", limit: "55mb" }),
+  async (req: Request, res: Response) => {
+    const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
+    const contentType = typeof req.query.contentType === "string" ? req.query.contentType.trim() : "";
+    const size = (req.body as Buffer).length;
+
+    if (!name || !contentType) {
+      res.status(400).json({ error: "缺少 name 或 contentType 参数" });
+      return;
+    }
+
+    const validationError = validateFileUpload({ name, size, contentType });
+    if (validationError) {
+      res.status(422).json({ error: validationError.message, code: validationError.code });
+      return;
+    }
+
+    try {
+      const readable = Readable.from(req.body as Buffer);
+      const { quarantineGCSPath, publishedGCSPath, publishedObjectPath } =
+        await objectStorageService.streamToQuarantine(contentType, readable);
+
+      const quarantineFile = objectStorageService.getFileFromGCSPath(quarantineGCSPath);
+      const verificationError = await verifyUploadedFile(quarantineFile, contentType, name);
+      if (verificationError) {
+        await quarantineFile.delete().catch((err: unknown) => {
+          req.log.warn({ err, quarantineGCSPath }, "Failed to delete quarantine object after failed verification");
+        });
+        res.status(422).json({ error: verificationError.message, code: verificationError.code });
+        return;
+      }
+
+      await objectStorageService.promoteFromQuarantine(quarantineGCSPath, publishedGCSPath);
+      req.log.info({ publishedObjectPath }, "Direct upload verified and promoted");
+      res.json({ objectPath: publishedObjectPath });
+    } catch (error) {
+      req.log.error({ err: error }, "Error in direct upload");
+      res.status(500).json({ error: "上传失败，请重试" });
+    }
+  }
+);
 
 /**
  * GET /storage/public-objects/*

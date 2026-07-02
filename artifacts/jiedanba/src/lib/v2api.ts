@@ -93,23 +93,20 @@ function resolveContentType(file: File): string {
 
 export async function uploadFile(file: File): Promise<string> {
   const contentType = resolveContentType(file);
-  const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+  const token = getAccessToken();
+  const params = new URLSearchParams({ name: file.name, contentType });
+  const res = await fetch(`${BASE}/api/storage/uploads/direct?${params}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size, contentType }),
+    headers: {
+      "Content-Type": contentType,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: file,
   });
-  if (!reqRes.ok) {
-    const e = await reqRes.json().catch(() => ({}));
-    throw new Error((e as any).error || "获取上传链接失败");
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e as any).error ?? "上传失败，请重试");
   }
-  const { uploadURL, objectPath, sessionToken } = await reqRes.json();
-  const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
-  if (!putRes.ok) throw new Error("文件上传失败");
-  const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sessionToken }),
-  });
-  if (!verifyRes.ok) throw new Error("文件验证失败");
+  const { objectPath } = await res.json();
   return `${BASE}/api/storage${objectPath}`;
 }
