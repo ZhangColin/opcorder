@@ -1091,7 +1091,7 @@ export default function Profile() {
                     全部 <ChevronRight size={16} />
                   </Link>
                 </div>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   {myContests.slice(0, 3).map((c, i) => {
                     const borderColors = ["border-primary", "border-secondary", "border-violet-400"];
                     const statusCfg = CONTEST_STATUS[c.status];
