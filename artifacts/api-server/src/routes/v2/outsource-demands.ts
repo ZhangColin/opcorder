@@ -4,17 +4,17 @@ import {
   v2TendersTable, v2OutsourceOrdersTable, v2ClientDemandsTable, usersTable,
 } from "@workspace/db";
 import { eq, and, or, desc, count, ilike, inArray, sql } from "drizzle-orm";
-import { requireAuth } from "../../middleware/auth";
+import { requireAuth, optionalAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genOutsourceDemandNo } from "./utils";
 import { logger } from "../../lib/logger";
 
 const router: IRouter = Router();
 
-router.get("/outsource-demands", requireAuth, async (req: Request, res: Response) => {
+router.get("/outsource-demands", optionalAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const role = req.user!.role;
+    const userId = req.user?.id;
+    const role = req.user?.role;
     const { status, mode, search, demandType, page = "1", limit = "20" } = req.query as Record<string, string>;
     const pg = Math.max(1, parseInt(page));
     const lim = Math.min(100, Math.max(1, parseInt(limit)));
@@ -139,17 +139,17 @@ router.get("/outsource-demands/opc-search", requireAdmin, async (req: Request, r
   }
 });
 
-router.get("/outsource-demands/:id", requireAuth, async (req: Request, res: Response) => {
+router.get("/outsource-demands/:id", optionalAuth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const userId = req.user!.id;
-    const role = req.user!.role;
+    const userId = req.user?.id;
+    const role = req.user?.role;
 
     const [demand] = await db.select().from(v2OutsourceDemandsTable).where(eq(v2OutsourceDemandsTable.id, id)).limit(1);
     if (!demand) return res.status(404).json({ error: "外包需求不存在" });
 
     let isInvited = true;
-    if (role === "opc") {
+    if (role === "opc" && userId) {
       const [myTender] = await db
         .select({ id: v2TendersTable.id })
         .from(v2TendersTable)
@@ -165,23 +165,26 @@ router.get("/outsource-demands/:id", requireAuth, async (req: Request, res: Resp
       .orderBy(desc(v2OutsourceDemandVersionsTable.versionNo))
       .limit(1);
 
-    const tenderConditions: any[] = [eq(v2TendersTable.outsourceDemandId, id)];
-    if (role === "opc") tenderConditions.push(eq(v2TendersTable.opcId, userId));
-
-    const tenders = await db
-      .select({
-        id: v2TendersTable.id,
-        opcId: v2TendersTable.opcId,
-        opcNickname: usersTable.nickname,
-        status: v2TendersTable.status,
-        totalPrice: v2TendersTable.totalPrice,
-        priceBreakdown: v2TendersTable.priceBreakdown,
-        quotedAt: v2TendersTable.quotedAt,
-        createdAt: v2TendersTable.createdAt,
-      })
-      .from(v2TendersTable)
-      .leftJoin(usersTable, eq(v2TendersTable.opcId, usersTable.id))
-      .where(and(...tenderConditions));
+    // 游客：tenders 返回空数组；已登录 OPC：只看自己的投标
+    let tenders: any[] = [];
+    if (userId) {
+      const tenderConditions: any[] = [eq(v2TendersTable.outsourceDemandId, id)];
+      if (role === "opc") tenderConditions.push(eq(v2TendersTable.opcId, userId));
+      tenders = await db
+        .select({
+          id: v2TendersTable.id,
+          opcId: v2TendersTable.opcId,
+          opcNickname: usersTable.nickname,
+          status: v2TendersTable.status,
+          totalPrice: v2TendersTable.totalPrice,
+          priceBreakdown: v2TendersTable.priceBreakdown,
+          quotedAt: v2TendersTable.quotedAt,
+          createdAt: v2TendersTable.createdAt,
+        })
+        .from(v2TendersTable)
+        .leftJoin(usersTable, eq(v2TendersTable.opcId, usersTable.id))
+        .where(and(...tenderConditions));
+    }
 
     return res.json({ ...demand, isInvited, detail: latestVersion?.detail ?? null, latestVersion: latestVersion ?? null, tenders });
   } catch (err) {

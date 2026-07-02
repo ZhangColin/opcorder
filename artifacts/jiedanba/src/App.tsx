@@ -79,7 +79,7 @@ setAuthTokenGetter(() => getValidAccessToken(API_BASE));
 
 /* On 401: force-refresh the token once and retry; clear session + redirect to login on failure.
    Exception: on public browsing pages (e.g. /community), silently fail instead of redirecting. */
-const PUBLIC_PAGES = ["/community", "/academy"];
+const PUBLIC_PAGES = ["/community", "/academy", "/order-hall", "/contest"];
 
 setOn401Handler(async () => {
   const newToken = await refreshAccessToken(API_BASE);
@@ -280,6 +280,11 @@ function Router() {
       <Route path="/community" component={Community} />
       <Route path="/academy">{() => <Layout><Academy /></Layout>}</Route>
       <Route path="/academy/course/:id">{() => <Layout><AcademyDetail /></Layout>}</Route>
+
+      {/* 公开内容页：游客可访问 */}
+      <Route path="/order-hall/:id">{() => <Layout><OpcDemandDetail /></Layout>}</Route>
+      <Route path="/order-hall">{() => <Layout><OrderHall /></Layout>}</Route>
+      <Route path="/">{() => <Layout><Home /></Layout>}</Route>
 
       {/* OPC V2 工作台路由 */}
       <Route path="/opc">

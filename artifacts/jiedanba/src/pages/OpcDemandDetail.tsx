@@ -8,7 +8,7 @@ import {
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useDemandTypeLabel } from "@/lib/catCategories";
 import { useToast } from "@/hooks/use-toast";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getStoredUser } from "@/lib/auth";
 import { MarkdownContent } from "@/components/MarkdownContent";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -78,8 +78,15 @@ export default function OpcDemandDetail() {
     },
   });
 
+  const isGuest = !getStoredUser() || !getAccessToken();
+
   async function handleApply() {
     if (!demand) return;
+    if (isGuest) {
+      sessionStorage.setItem("returnTo", window.location.pathname);
+      navigate("/login");
+      return;
+    }
     setApplying(true);
     try {
       const created = await v2Post<{ id: number }>(`/outsource-demands/${demandId}/apply`);
@@ -123,7 +130,8 @@ export default function OpcDemandDetail() {
   const myMaxLevel = trackCerts.reduce((max, c) => {
     return (LEVEL_ORDER[c.level] ?? 0) > (LEVEL_ORDER[max] ?? 0) ? c.level : max;
   }, "any");
-  const levelEligible = requiredLevel === "any" || (LEVEL_ORDER[myMaxLevel] ?? 0) >= (LEVEL_ORDER[requiredLevel] ?? 0);
+  // 游客不做等级检查（无认证数据），已登录 OPC 才检查等级
+  const levelEligible = isGuest || requiredLevel === "any" || (LEVEL_ORDER[myMaxLevel] ?? 0) >= (LEVEL_ORDER[requiredLevel] ?? 0);
 
   const canBid = demand.mode === "public" && demand.status === "negotiating" && levelEligible;
 
@@ -187,12 +195,12 @@ export default function OpcDemandDetail() {
             <p className="font-bold text-foreground">
               {LEVEL_LABEL[requiredLevel] ?? requiredLevel}
             </p>
-            {requiredLevel !== "any" && !levelEligible && (
+            {!isGuest && requiredLevel !== "any" && !levelEligible && (
               <p className="text-[10px] text-destructive mt-0.5 flex items-center gap-1">
                 <Lock size={10} /> 您当前等级不符合要求
               </p>
             )}
-            {requiredLevel !== "any" && levelEligible && (
+            {!isGuest && requiredLevel !== "any" && levelEligible && (
               <p className="text-[10px] text-emerald-600 mt-0.5 flex items-center gap-1">
                 <CheckCircle2 size={10} /> 等级符合
               </p>

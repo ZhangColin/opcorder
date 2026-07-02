@@ -22,6 +22,24 @@ function getJwtSecret(): string {
   return secret;
 }
 
+/** 可选认证：有 token 就解析并挂到 req.user，无 token 或 token 无效则以游客身份继续 */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (token) {
+    try {
+      const payload = jwt.verify(token, getJwtSecret(), { algorithms: ["HS256"] }) as jwt.JwtPayload;
+      const userId = typeof payload.sub === "string" ? parseInt(payload.sub, 10) : Number(payload.sub);
+      if (userId && !isNaN(userId)) {
+        req.user = { id: userId, role: payload.role as string };
+      }
+    } catch {
+      // 无效 token，以游客身份继续
+    }
+  }
+  next();
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
