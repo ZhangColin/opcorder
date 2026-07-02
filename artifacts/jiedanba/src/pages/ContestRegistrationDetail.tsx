@@ -210,7 +210,6 @@ function SubmissionForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">答题内容（Markdown）</label>
         <MarkdownEditor value={content} onChange={setContent} placeholder="请详细描述您的解题思路和答案…" />
       </div>
 
