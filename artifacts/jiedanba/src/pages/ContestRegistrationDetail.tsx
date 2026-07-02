@@ -583,14 +583,11 @@ export default function ContestRegistrationDetail() {
 
         {/* ── 评级结果 ── */}
         {(reg.testGrade || reg.assignmentGrade) && (
-          <SectionCard
-            title={
-              <span className="font-bold text-blue-900 text-base flex items-center gap-2">
-                <Trophy size={16} className="text-amber-400" /> 评级结果
-              </span>
-            }
-          >
-            <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5">
+            <span className="font-bold text-blue-900 text-base flex items-center gap-2 mb-4">
+              <Trophy size={16} className="text-amber-400" /> 评级结果
+            </span>
+            <div className="flex flex-wrap gap-3">
               {reg.testGrade && (
                 <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.testGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
                   {GRADE_CFG[reg.testGrade]?.label ?? reg.testGrade}
@@ -603,11 +600,9 @@ export default function ContestRegistrationDetail() {
               )}
             </div>
             {reg.gradeNote && (
-              <div className="mt-3">
-                <p className="text-sm text-slate-600 leading-relaxed">{reg.gradeNote}</p>
-              </div>
+              <p className="mt-3 text-sm text-slate-600 leading-relaxed">{reg.gradeNote}</p>
             )}
-          </SectionCard>
+          </div>
         )}
 
       </div>
