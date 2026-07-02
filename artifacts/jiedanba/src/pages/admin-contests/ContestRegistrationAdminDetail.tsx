@@ -79,7 +79,7 @@ function fmtDate(s?: string | null) {
 }
 
 function CatBadge({ name, colorHex }: { name?: string | null; colorHex?: string | null }) {
-  if (!name) return <span className="text-slate-400 text-xs">—</span>;
+  if (!name) return null;
   return <span className="px-2 py-0.5 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: colorHex || "#6b7280" }}>{name}</span>;
 }
 
