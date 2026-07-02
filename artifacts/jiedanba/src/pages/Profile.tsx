@@ -1099,8 +1099,8 @@ export default function Profile() {
                     /* ── 倒计时 ── */
                     let countdownTarget: string | null = null;
                     let countdownLabel = "";
-                    if (c.status === "registered" && c.contestRegistrationAt && c.testDurationHours) {
-                      countdownTarget = new Date(new Date(c.contestRegistrationAt).getTime() + c.testDurationHours * 3600_000).toISOString();
+                    if (c.status === "registered" && c.createdAt && c.testDurationHours) {
+                      countdownTarget = new Date(new Date(c.createdAt).getTime() + c.testDurationHours * 3600_000).toISOString();
                       countdownLabel = "测试截止";
                     } else if (c.status === "test_passed" && c.contestBenefitAt && Date.now() < new Date(c.contestBenefitAt).getTime()) {
                       countdownTarget = c.contestBenefitAt;

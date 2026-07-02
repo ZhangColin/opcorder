@@ -451,8 +451,8 @@ export default function ContestRegistrationDetail() {
 
   const statusCfg = STATUS_CFG[reg.status] ?? { label: reg.status, cls: "bg-slate-100 text-slate-600" };
 
-  const testDeadline = reg.contestRegistrationAt && reg.testDurationHours
-    ? new Date(new Date(reg.contestRegistrationAt).getTime() + reg.testDurationHours * 3600_000).toISOString()
+  const testDeadline = reg.createdAt && reg.testDurationHours
+    ? new Date(new Date(reg.createdAt).getTime() + reg.testDurationHours * 3600_000).toISOString()
     : null;
   const testExpired = testDeadline ? Date.now() > new Date(testDeadline).getTime() : false;
 

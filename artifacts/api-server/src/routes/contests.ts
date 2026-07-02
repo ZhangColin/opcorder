@@ -805,13 +805,11 @@ router.put("/contests/registrations/:id/test", requireAuth, async (req, res) => 
     if (reg.testSubmittedAt) return res.status(400).json({ error: "测试题已提交，不可重复提交" });
     if (reg.status !== "registered") return res.status(400).json({ error: "当前状态不允许提交" });
 
-    const [contest] = await db.select({ registrationAt: contestsTable.registrationAt })
-      .from(contestsTable).where(eq(contestsTable.id, reg.contestId)).limit(1);
     const [track] = await db.select({ testDurationHours: contestTracksTable.testDurationHours })
       .from(contestTracksTable).where(eq(contestTracksTable.id, reg.trackId)).limit(1);
 
-    if (contest && track) {
-      const deadline = new Date(contest.registrationAt.getTime() + track.testDurationHours * 3600 * 1000);
+    if (track) {
+      const deadline = new Date(reg.createdAt.getTime() + track.testDurationHours * 3600 * 1000);
       if (new Date() > deadline) return res.status(400).json({ error: "测试题提交已超时" });
     }
 
