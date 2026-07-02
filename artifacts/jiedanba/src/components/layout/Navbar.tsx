@@ -15,7 +15,7 @@ export function Navbar() {
   const menuRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
-  const { data: user }    = useGetCurrentUser();
+  const { data: user, isLoading: userLoading } = useGetCurrentUser();
   const { data: profile } = useGetOpcProfile(user?.id ?? 1, { query: { queryKey: getGetOpcProfileQueryKey(user?.id ?? 1), enabled: !!user?.id } });
   const { data: notifData } = useListNotifications({ limit: 1 }, { query: { queryKey: getListNotificationsQueryKey({ limit: 1 }), enabled: !!user?.id, refetchInterval: 30000 } });
   const unreadCount = notifData?.unreadCount ?? 0;
@@ -139,73 +139,82 @@ export function Navbar() {
 
           <div className="h-8 w-px bg-border mx-1 hidden sm:block" />
 
-          {/* Desktop User chip with dropdown */}
+          {/* Desktop User chip / login button */}
           <div ref={menuRef} className="relative hidden md:block">
-            <button
-              onClick={() => setMenuOpen(v => !v)}
-              className={`flex items-center gap-3 pl-1.5 p-1 pr-3 rounded-full border transition-all cursor-pointer ${
-                menuOpen
-                  ? "border-primary/40 bg-primary/5"
-                  : "border-border/50 hover:border-primary/30 hover:bg-primary/5"
-              }`}>
-              <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-primary/10 flex items-center justify-center">
-                {avatar ? (
-                  <img src={avatar} alt={name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-sm font-black text-primary">{name?.[0] ?? "新"}</span>
-                )}
-              </div>
-              <div className="hidden sm:flex flex-col items-start">
-                <span className="text-sm font-bold text-foreground leading-none">{name}</span>
-                <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider mt-1">
-                  {certSummary}
-                </span>
-              </div>
-              <ChevronDown
-                size={14}
-                className={`text-muted-foreground hidden sm:block transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}
-              />
-            </button>
+            {!userLoading && !user ? (
+              <button
+                onClick={() => navigate("/login")}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-primary/40 bg-primary/5 hover:bg-primary/10 transition-all text-primary font-bold text-sm">
+                立即登录
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setMenuOpen(v => !v)}
+                  className={`flex items-center gap-3 pl-1.5 p-1 pr-3 rounded-full border transition-all cursor-pointer ${
+                    menuOpen
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border/50 hover:border-primary/30 hover:bg-primary/5"
+                  }`}>
+                  <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-primary/10 flex items-center justify-center">
+                    {avatar ? (
+                      <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-black text-primary">{name?.[0] ?? "新"}</span>
+                    )}
+                  </div>
+                  <div className="hidden sm:flex flex-col items-start">
+                    <span className="text-sm font-bold text-foreground leading-none">{name}</span>
+                    <span className="text-[10px] font-semibold text-secondary uppercase tracking-wider mt-1">
+                      {certSummary}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    size={14}
+                    className={`text-muted-foreground hidden sm:block transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-            {/* Desktop Dropdown */}
-            {menuOpen && (
-              <div className="absolute right-0 top-[calc(100%+8px)] w-48 bg-white rounded-2xl shadow-xl border border-border/40 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-xs font-bold text-blue-900 truncate">{name}</p>
-                  {trackCerts.length > 0 ? (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {trackCerts.map(c => (
-                        <span key={c.id} className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full text-white font-bold ${CERT_LEVEL_COLOR[c.level] ?? "bg-slate-400"}`}>
-                          {c.cat_category_name} · {CERT_LEVEL_NAME[c.level] ?? c.level}
-                        </span>
-                      ))}
+                {menuOpen && (
+                  <div className="absolute right-0 top-[calc(100%+8px)] w-48 bg-white rounded-2xl shadow-xl border border-border/40 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <p className="text-xs font-bold text-blue-900 truncate">{name}</p>
+                      {trackCerts.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {trackCerts.map(c => (
+                            <span key={c.id} className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full text-white font-bold ${CERT_LEVEL_COLOR[c.level] ?? "bg-slate-400"}`}>
+                              {c.cat_category_name} · {CERT_LEVEL_NAME[c.level] ?? c.level}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-400 mt-0.5">新手 · 未认证</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-[10px] text-slate-400 mt-0.5">新手 · 未认证</p>
-                  )}
-                </div>
-                <div className="py-1.5">
-                  <button
-                    onClick={handleAccountSettings}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
-                    <UserPen size={15} className="shrink-0" />
-                    账户设置
-                  </button>
-                  <button
-                    onClick={() => { setMenuOpen(false); setShowChangePw(true); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
-                    <KeyRound size={15} className="shrink-0" />
-                    修改密码
-                  </button>
-                  <div className="mx-4 my-1 border-t border-slate-100" />
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors text-left">
-                    <LogOut size={15} className="shrink-0" />
-                    退出登录
-                  </button>
-                </div>
-              </div>
+                    <div className="py-1.5">
+                      <button
+                        onClick={handleAccountSettings}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
+                        <UserPen size={15} className="shrink-0" />
+                        账户设置
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); setShowChangePw(true); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-primary/5 hover:text-primary transition-colors text-left">
+                        <KeyRound size={15} className="shrink-0" />
+                        修改密码
+                      </button>
+                      <div className="mx-4 my-1 border-t border-slate-100" />
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors text-left">
+                        <LogOut size={15} className="shrink-0" />
+                        退出登录
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -243,27 +252,37 @@ export function Navbar() {
             </button>
           </div>
 
-          {/* User info */}
-          <div className="px-5 py-4 bg-primary/5 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-primary/10 flex items-center justify-center">
-              {avatar ? (
-                <img src={avatar} alt={name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-sm font-black text-primary">{name?.[0] ?? "新"}</span>
+          {/* User info / login prompt */}
+          {!userLoading && !user ? (
+            <div className="px-5 py-4 bg-primary/5 border-b border-slate-100">
+              <button
+                onClick={() => { setMobileOpen(false); navigate("/login"); }}
+                className="w-full py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors">
+                立即登录
+              </button>
+            </div>
+          ) : (
+            <div className="px-5 py-4 bg-primary/5 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-primary/10 flex items-center justify-center">
+                {avatar ? (
+                  <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm font-black text-primary">{name?.[0] ?? "新"}</span>
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-foreground text-sm">{name}</p>
+                <p className="text-[10px] text-secondary font-semibold uppercase tracking-wider mt-0.5">
+                  {certSummary}
+                </p>
+              </div>
+              {unreadCount > 0 && (
+                <span className="ml-auto bg-destructive text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                  {unreadCount > 99 ? "99+" : unreadCount}条消息
+                </span>
               )}
             </div>
-            <div>
-              <p className="font-bold text-foreground text-sm">{name}</p>
-              <p className="text-[10px] text-secondary font-semibold uppercase tracking-wider mt-0.5">
-                {certSummary}
-              </p>
-            </div>
-            {unreadCount > 0 && (
-              <span className="ml-auto bg-destructive text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                {unreadCount > 99 ? "99+" : unreadCount}条消息
-              </span>
-            )}
-          </div>
+          )}
 
           {/* Nav links */}
           <nav className="flex-1 overflow-y-auto py-3">
@@ -284,28 +303,30 @@ export function Navbar() {
             })}
           </nav>
 
-          {/* Actions */}
-          <div className="border-t border-slate-100 py-3">
-            <button
-              onClick={handleAccountSettings}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors">
-              <UserPen size={15} className="shrink-0" />
-              账户设置
-            </button>
-            <button
-              onClick={() => { setMobileOpen(false); setShowChangePw(true); }}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors">
-              <KeyRound size={15} className="shrink-0" />
-              修改密码
-            </button>
-            <div className="mx-5 my-1 border-t border-slate-100" />
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
-              <LogOut size={15} className="shrink-0" />
-              退出登录
-            </button>
-          </div>
+          {/* Actions — only shown when logged in */}
+          {user && (
+            <div className="border-t border-slate-100 py-3">
+              <button
+                onClick={handleAccountSettings}
+                className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors">
+                <UserPen size={15} className="shrink-0" />
+                账户设置
+              </button>
+              <button
+                onClick={() => { setMobileOpen(false); setShowChangePw(true); }}
+                className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors">
+                <KeyRound size={15} className="shrink-0" />
+                修改密码
+              </button>
+              <div className="mx-5 my-1 border-t border-slate-100" />
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-5 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors">
+                <LogOut size={15} className="shrink-0" />
+                退出登录
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )}
