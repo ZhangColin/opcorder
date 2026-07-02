@@ -540,24 +540,15 @@ export default function ContestRegistrationDetail() {
           </div>
         </SectionCard>
 
-        {/* ── 评级结果 ── */}
-        {(reg.testGrade || reg.assignmentGrade) && (
+        {/* ── 测试题评级结果 ── */}
+        {reg.testGrade && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5">
-            <span className="font-bold text-blue-900 text-base flex items-center gap-2 mb-4">
-              <Trophy size={16} className="text-amber-400" /> 评级结果
+            <span className="font-bold text-blue-900 text-sm flex items-center gap-2 mb-3">
+              <Trophy size={14} className="text-amber-400" /> 测试题评级结果
             </span>
-            <div className="flex flex-wrap gap-3">
-              {reg.testGrade && (
-                <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.testGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
-                  {GRADE_CFG[reg.testGrade]?.label ?? reg.testGrade}
-                </span>
-              )}
-              {reg.assignmentGrade && (
-                <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.assignmentGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
-                  {GRADE_CFG[reg.assignmentGrade]?.label ?? reg.assignmentGrade}
-                </span>
-              )}
-            </div>
+            <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.testGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
+              {GRADE_CFG[reg.testGrade]?.label ?? reg.testGrade}
+            </span>
             {reg.gradeNote && (
               <p className="mt-3 text-sm text-slate-600 leading-relaxed">{reg.gradeNote}</p>
             )}
