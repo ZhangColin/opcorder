@@ -592,25 +592,18 @@ export default function ContestRegistrationDetail() {
           >
             <div className="grid grid-cols-2 gap-4">
               {reg.testGrade && (
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">测试题</p>
-                  <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.testGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
-                    {GRADE_CFG[reg.testGrade]?.label ?? reg.testGrade}
-                  </span>
-                </div>
+                <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.testGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
+                  {GRADE_CFG[reg.testGrade]?.label ?? reg.testGrade}
+                </span>
               )}
               {reg.assignmentGrade && (
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">测试单</p>
-                  <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.assignmentGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
-                    {GRADE_CFG[reg.assignmentGrade]?.label ?? reg.assignmentGrade}
-                  </span>
-                </div>
+                <span className={`inline-flex px-3 py-1.5 rounded-xl text-sm font-black border w-fit ${GRADE_CFG[reg.assignmentGrade]?.cls ?? "bg-slate-100 text-slate-600"}`}>
+                  {GRADE_CFG[reg.assignmentGrade]?.label ?? reg.assignmentGrade}
+                </span>
               )}
             </div>
             {reg.gradeNote && (
               <div className="mt-3 pt-3 border-t border-slate-100">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">运营备注</p>
                 <p className="text-sm text-slate-600 leading-relaxed">{reg.gradeNote}</p>
               </div>
             )}
