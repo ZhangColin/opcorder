@@ -79,7 +79,7 @@ setAuthTokenGetter(() => getValidAccessToken(API_BASE));
 
 /* On 401: force-refresh the token once and retry; clear session + redirect to login on failure.
    Exception: on public browsing pages (e.g. /community), silently fail instead of redirecting. */
-const PUBLIC_PAGES = ["/community", "/academy", "/order-hall", "/contest"];
+const PUBLIC_PAGES = ["/", "/community", "/academy", "/order-hall", "/contest"];
 
 setOn401Handler(async () => {
   const newToken = await refreshAccessToken(API_BASE);

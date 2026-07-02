@@ -141,7 +141,7 @@ export function Navbar() {
 
           {/* Desktop User chip / login button */}
           <div ref={menuRef} className="relative hidden md:block">
-            {!userLoading && !user ? (
+            {!user && (!userLoading || !getAccessToken()) ? (
               <button
                 onClick={() => navigate("/login")}
                 className="flex items-center gap-2 px-4 py-2 rounded-full border border-primary/40 bg-primary/5 hover:bg-primary/10 transition-all text-primary font-bold text-sm">
@@ -253,7 +253,7 @@ export function Navbar() {
           </div>
 
           {/* User info / login prompt */}
-          {!userLoading && !user ? (
+          {!user && (!userLoading || !getAccessToken()) ? (
             <div className="px-5 py-4 bg-primary/5 border-b border-slate-100">
               <button
                 onClick={() => { setMobileOpen(false); navigate("/login"); }}
