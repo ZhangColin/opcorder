@@ -26,10 +26,6 @@ router.get("/outsource-demands", optionalAuth, async (req: Request, res: Respons
     if (demandType) conditions.push(eq(v2OutsourceDemandsTable.demandType, demandType));
     if (search) conditions.push(ilike(v2OutsourceDemandsTable.title, `%${search}%`));
 
-    if (role === "publisher") {
-      return res.status(403).json({ error: "发单方无权查看外包需求" });
-    }
-
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const [totalRow] = await db.select({ count: count() }).from(v2OutsourceDemandsTable).where(whereClause);
     const rows = await db
