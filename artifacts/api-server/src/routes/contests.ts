@@ -182,10 +182,11 @@ router.get("/admin/contests", requireAdmin, async (req, res) => {
 
 router.post("/admin/contests", requireAdmin, async (req, res) => {
   try {
-    const { title, details, announcementAt, registrationAt, publicAt, benefitAt, deadlineAt, status } = req.body as {
+    const { title, details, announcementAt, registrationAt, registrationEndAt, publicAt, benefitAt, deadlineAt, status, announcementTitle, announcementDetails } = req.body as {
       title: string; details?: string;
-      announcementAt: string; registrationAt: string; publicAt: string; benefitAt: string; deadlineAt: string;
+      announcementAt: string; registrationAt: string; registrationEndAt?: string; publicAt: string; benefitAt: string; deadlineAt: string;
       status?: "draft" | "published" | "ended";
+      announcementTitle?: string; announcementDetails?: string;
     };
     if (!title?.trim() || !announcementAt || !registrationAt || !publicAt || !benefitAt || !deadlineAt) {
       return res.status(400).json({ error: "标题和所有时间节点为必填项" });
@@ -195,9 +196,12 @@ router.post("/admin/contests", requireAdmin, async (req, res) => {
       details: details ?? "",
       announcementAt: parseBJT(announcementAt),
       registrationAt: parseBJT(registrationAt),
+      registrationEndAt: registrationEndAt ? parseBJT(registrationEndAt) : null,
       publicAt: parseBJT(publicAt),
       benefitAt: parseBJT(benefitAt),
       deadlineAt: parseBJT(deadlineAt),
+      announcementTitle: announcementTitle ?? null,
+      announcementDetails: announcementDetails ?? null,
       status: status ?? "draft",
     }).returning();
     return res.status(201).json(row);
@@ -541,20 +545,24 @@ router.get("/admin/contests/:id", requireAdmin, async (req, res) => {
 router.put("/admin/contests/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { title, details, announcementAt, registrationAt, publicAt, benefitAt, deadlineAt, status } = req.body as {
+    const { title, details, announcementAt, registrationAt, registrationEndAt, publicAt, benefitAt, deadlineAt, status, announcementTitle, announcementDetails } = req.body as {
       title?: string; details?: string;
-      announcementAt?: string; registrationAt?: string; publicAt?: string; benefitAt?: string; deadlineAt?: string;
+      announcementAt?: string; registrationAt?: string; registrationEndAt?: string | null; publicAt?: string; benefitAt?: string; deadlineAt?: string;
       status?: "draft" | "published" | "ended";
+      announcementTitle?: string | null; announcementDetails?: string | null;
     };
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (title !== undefined) updates.title = title.trim();
     if (details !== undefined) updates.details = details;
     if (announcementAt !== undefined) updates.announcementAt = parseBJT(announcementAt);
     if (registrationAt !== undefined) updates.registrationAt = parseBJT(registrationAt);
+    if (registrationEndAt !== undefined) updates.registrationEndAt = registrationEndAt ? parseBJT(registrationEndAt) : null;
     if (publicAt !== undefined) updates.publicAt = parseBJT(publicAt);
     if (benefitAt !== undefined) updates.benefitAt = parseBJT(benefitAt);
     if (deadlineAt !== undefined) updates.deadlineAt = parseBJT(deadlineAt);
     if (status !== undefined) updates.status = status;
+    if (announcementTitle !== undefined) updates.announcementTitle = announcementTitle ?? null;
+    if (announcementDetails !== undefined) updates.announcementDetails = announcementDetails ?? null;
 
     const [row] = await db.update(contestsTable).set(updates as any).where(eq(contestsTable.id, id)).returning();
     if (!row) return res.status(404).json({ error: "大赛不存在" });
@@ -981,9 +989,12 @@ router.get("/contests/:id", async (req, res) => {
       .orderBy(asc(contestTracksTable.id));
 
     let phase: "pre_announcement" | "pre_registration" | "registration" | "pre_public" | "public" | "benefit" | "ended";
+    const registrationCutoff = contest.registrationEndAt
+      ? contest.registrationEndAt
+      : new Date(contest.publicAt.getTime() - 2 * 24 * 60 * 60 * 1000);
     if (now < contest.announcementAt) phase = "pre_announcement";
     else if (now < contest.registrationAt) phase = "pre_registration";
-    else if (now < new Date(contest.publicAt.getTime() - 2 * 24 * 60 * 60 * 1000)) phase = "registration";
+    else if (now < registrationCutoff) phase = "registration";
     else if (now < contest.publicAt) phase = "pre_public";
     else if (now < contest.benefitAt) phase = "public";
     else if (now < contest.deadlineAt) phase = "benefit";
@@ -995,9 +1006,12 @@ router.get("/contests/:id", async (req, res) => {
       details: contest.details,
       announcementAt: contest.announcementAt,
       registrationAt: contest.registrationAt,
+      registrationEndAt: contest.registrationEndAt,
       publicAt: contest.publicAt,
       benefitAt: contest.benefitAt,
       deadlineAt: contest.deadlineAt,
+      announcementTitle: contest.announcementTitle,
+      announcementDetails: contest.announcementDetails,
       phase,
       tracks: tracks.map(t => ({
         id: t.id,
@@ -1076,7 +1090,9 @@ router.post("/contests/:id/tracks/:trackId/register", requireAuth, async (req, r
     const now = new Date();
     if (now < contest.announcementAt) return res.status(404).json({ error: "大赛不存在" });
     if (now < contest.registrationAt) return res.status(400).json({ error: "报名时间未到" });
-    const registrationCutoff = new Date(contest.publicAt.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const registrationCutoff = contest.registrationEndAt
+      ? contest.registrationEndAt
+      : new Date(contest.publicAt.getTime() - 2 * 24 * 60 * 60 * 1000);
     if (now >= registrationCutoff) return res.status(400).json({ error: "报名已截止" });
 
     const [existing] = await db.select({ id: contestRegistrationsTable.id })

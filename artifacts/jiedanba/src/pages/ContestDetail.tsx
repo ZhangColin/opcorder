@@ -90,9 +90,12 @@ interface Contest {
   details: string | null;
   announcementAt: string;
   registrationAt: string;
+  registrationEndAt: string | null;
   publicAt: string;
   benefitAt: string;
   deadlineAt: string;
+  announcementTitle: string | null;
+  announcementDetails: string | null;
   phase: Phase;
   tracks: Track[];
 }
@@ -152,6 +155,7 @@ function Timeline({ contest }: { contest: Contest }) {
   const nodes = [
     { label: "公告",   at: contest.announcementAt },
     { label: "开始报名", at: contest.registrationAt },
+    ...(contest.registrationEndAt ? [{ label: "报名截止", at: contest.registrationEndAt }] : []),
     { label: "公示",   at: contest.publicAt },
     { label: "权益发放", at: contest.benefitAt },
     { label: "活动截止", at: contest.deadlineAt },
@@ -432,8 +436,18 @@ function TrackCard({
   );
 }
 
+const GRADE_LABEL: Record<string, string> = { A: "一等奖", B: "二等奖", C: "三等奖" };
+const GRADE_CLS: Record<string, string> = {
+  A: "bg-green-100 text-green-700 border-green-200",
+  B: "bg-blue-100 text-blue-700 border-blue-200",
+  C: "bg-amber-100 text-amber-700 border-amber-200",
+};
+
 /* ─── Public list ─── */
-function PublicList({ contestId, benefitAt }: { contestId: number; benefitAt: string }) {
+function PublicList({ contestId, benefitAt, announcementTitle, announcementDetails }: {
+  contestId: number; benefitAt: string;
+  announcementTitle: string | null; announcementDetails: string | null;
+}) {
   const { data, isLoading } = useQuery<PublicTrack[]>({
     queryKey: ["contest-public-list", contestId],
     queryFn: async () => {
@@ -446,18 +460,17 @@ function PublicList({ contestId, benefitAt }: { contestId: number; benefitAt: st
   if (isLoading) return <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={16} className="animate-spin" />加载公示名单…</div>;
   if (!data?.length) return null;
 
-  const GRADE_CLS: Record<string, string> = {
-    A: "bg-green-100 text-green-700 border-green-200",
-    B: "bg-blue-100 text-blue-700 border-blue-200",
-    C: "bg-amber-100 text-amber-700 border-amber-200",
-  };
-
   return (
     <section>
       <h2 className="text-xl font-extrabold text-blue-900 mb-1 flex items-center gap-2">
-        <Medal size={20} className="text-amber-500" /> 通过公示名单
+        <Medal size={20} className="text-amber-500" /> {announcementTitle || "通过公示名单"}
       </h2>
-      <p className="text-xs text-slate-400 mb-4">权益发放时间：{fmtDate(benefitAt)}</p>
+      <p className="text-xs text-slate-400 mb-2">权益发放时间：{fmtDate(benefitAt)}</p>
+      {announcementDetails && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-6">
+          <MarkdownContent content={announcementDetails} />
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {data.map(track => (
           <div key={track.trackId} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -484,7 +497,7 @@ function PublicList({ contestId, benefitAt }: { contestId: number; benefitAt: st
                     <span className="text-sm font-semibold text-slate-700 flex-1 truncate">{u.nickname ?? "匿名"}</span>
                     {u.testGrade && u.testGrade !== "fail" && (
                       <span className={`px-1.5 py-0.5 rounded-md text-xs font-black border shrink-0 ${GRADE_CLS[u.testGrade] ?? "bg-slate-100 text-slate-600"}`}>
-                        {u.testGrade}
+                        {GRADE_LABEL[u.testGrade] ?? u.testGrade}
                       </span>
                     )}
                   </div>
@@ -659,7 +672,12 @@ export default function ContestDetail() {
 
         {/* Public list */}
         {showPublicList && (
-          <PublicList contestId={contest.id} benefitAt={contest.benefitAt} />
+          <PublicList
+            contestId={contest.id}
+            benefitAt={contest.benefitAt}
+            announcementTitle={contest.announcementTitle}
+            announcementDetails={contest.announcementDetails}
+          />
         )}
 
       </div>

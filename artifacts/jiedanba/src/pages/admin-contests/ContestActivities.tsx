@@ -41,7 +41,8 @@ type CatCategory = { id: number; name: string; colorHex?: string | null };
 type ContestQuestion = { id: number; catCategoryId: number; title: string };
 type Contest = {
   id: number; title: string; details: string; status: "draft" | "published" | "ended";
-  announcementAt: string; registrationAt: string; publicAt: string; benefitAt: string; deadlineAt: string;
+  announcementAt: string; registrationAt: string; registrationEndAt?: string | null; publicAt: string; benefitAt: string; deadlineAt: string;
+  announcementTitle?: string | null; announcementDetails?: string | null;
   trackCount: number; registrationCount: number; createdAt: string;
 };
 type ContestTrack = {
@@ -77,11 +78,13 @@ function CatBadge({ name, colorHex }: { name?: string | null; colorHex?: string 
 /* ─── Contest Edit Page ─── */
 type ContestFormState = {
   title: string; details: string; status: string;
-  announcementAt: string; registrationAt: string; publicAt: string; benefitAt: string; deadlineAt: string;
+  announcementAt: string; registrationAt: string; registrationEndAt: string; publicAt: string; benefitAt: string; deadlineAt: string;
+  announcementTitle: string; announcementDetails: string;
 };
 const BLANK_CONTEST_FORM: ContestFormState = {
   title: "", details: "", status: "draft",
-  announcementAt: "", registrationAt: "", publicAt: "", benefitAt: "", deadlineAt: "",
+  announcementAt: "", registrationAt: "", registrationEndAt: "", publicAt: "", benefitAt: "", deadlineAt: "",
+  announcementTitle: "", announcementDetails: "",
 };
 
 function ContestEditPage({
@@ -104,9 +107,12 @@ function ContestEditPage({
       status: contest.status,
       announcementAt: fmtDtInput(contest.announcementAt),
       registrationAt: fmtDtInput(contest.registrationAt),
+      registrationEndAt: fmtDtInput(contest.registrationEndAt),
       publicAt: fmtDtInput(contest.publicAt),
       benefitAt: fmtDtInput(contest.benefitAt),
       deadlineAt: fmtDtInput(contest.deadlineAt),
+      announcementTitle: contest.announcementTitle ?? "",
+      announcementDetails: contest.announcementDetails ?? "",
     }
   );
   const [err, setErr] = useState<string | null>(null);
@@ -170,17 +176,18 @@ function ContestEditPage({
 
           <div className="grid grid-cols-1 gap-3">
             {([
-              ["公告开始时间", "announcementAt"],
-              ["报名开始时间", "registrationAt"],
-              ["公示开始时间", "publicAt"],
-              ["权益发放时间", "benefitAt"],
-              ["活动截止时间", "deadlineAt"],
-            ] as [string, keyof ContestFormState][]).map(([label, key]) => (
+              ["公告开始时间", "announcementAt", true],
+              ["报名开始时间", "registrationAt", true],
+              ["报名结束时间", "registrationEndAt", false],
+              ["公示开始时间", "publicAt", true],
+              ["权益发放时间", "benefitAt", true],
+              ["活动截止时间", "deadlineAt", true],
+            ] as [string, keyof ContestFormState, boolean][]).map(([label, key, required]) => (
               <div key={key}>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label} *</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}{required ? " *" : ""}</label>
                 <input
                   type="datetime-local"
-                  value={form[key]}
+                  value={form[key] as string}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
                 />
@@ -195,6 +202,27 @@ function ContestEditPage({
               onChange={v => setForm(f => ({ ...f, details: v }))}
               placeholder="请输入大赛详情介绍…"
               minHeight="150px"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示标题</label>
+            <input
+              value={form.announcementTitle}
+              onChange={e => setForm(f => ({ ...f, announcementTitle: e.target.value }))}
+              placeholder="公示阶段展示的标题，如「通过公示名单」"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示详情（Markdown）</label>
+            <textarea
+              value={form.announcementDetails}
+              onChange={e => setForm(f => ({ ...f, announcementDetails: e.target.value }))}
+              placeholder="公示阶段展示的详细说明，支持 Markdown 格式…"
+              rows={6}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-mono resize-y"
             />
           </div>
 

@@ -2869,5 +2869,13 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 040e: created contest_registrations table");
   });
 
+  // Migration 040f: add registration_end_at, announcement_title, announcement_details to contests
+  await once("040f", true, async () => {
+    await db.execute(sql`ALTER TABLE contests ADD COLUMN IF NOT EXISTS registration_end_at timestamp`);
+    await db.execute(sql`ALTER TABLE contests ADD COLUMN IF NOT EXISTS announcement_title text`);
+    await db.execute(sql`ALTER TABLE contests ADD COLUMN IF NOT EXISTS announcement_details text`);
+    logger.info("Migration 040f: added registration_end_at, announcement_title, announcement_details to contests");
+  });
+
   logger.info("Startup data migrations complete.");
 }
