@@ -177,10 +177,10 @@ function V2DemandMiniCard({ demand, onClick }: { demand: V2DemandItem; onClick: 
           {!demand.expectedPriceMin && !demand.expectedPriceMax
             ? "面议"
             : demand.expectedPriceMin && demand.expectedPriceMax
-            ? `¥${demand.expectedPriceMin.toLocaleString()}起`
+            ? `¥${demand.expectedPriceMin.toLocaleString()} - ¥${demand.expectedPriceMax.toLocaleString()}`
             : demand.expectedPriceMin
-            ? `¥${demand.expectedPriceMin.toLocaleString()}起`
-            : `¥${demand.expectedPriceMax?.toLocaleString()}`}
+            ? `¥${demand.expectedPriceMin.toLocaleString()} 起`
+            : `最高 ¥${demand.expectedPriceMax?.toLocaleString()}`}
         </span>
       </div>
       <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-sm leading-snug line-clamp-2">

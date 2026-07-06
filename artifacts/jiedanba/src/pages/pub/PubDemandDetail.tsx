@@ -713,7 +713,7 @@ export default function PubDemandDetail() {
               <div>
                 <p className="text-xs text-slate-400 mb-0.5">需求类型</p>
                 <p className="font-bold text-slate-800">
-                  {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
+                  {demandTypes.find(t => t.code === demand.demandType)?.name ?? DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
                 </p>
               </div>
             )}
@@ -1139,6 +1139,19 @@ export default function PubDemandDetail() {
             </div>
           </Section>
         )}
+
+        {/* 需求沟通区（报价与合同 tab 也显示）*/}
+        <Section title="需求沟通区" icon={FileText}>
+          <div className="mt-4">
+            <DiscussionThread
+              parentType="client_demand"
+              parentId={demandId}
+              placeholder="向运营方提问或补充信息…"
+              readOnly={["completed", "closed"].includes(demand.status)}
+              onAfterPost={() => markRead("client", demandId)}
+            />
+          </div>
+        </Section>
 
         </>}
 

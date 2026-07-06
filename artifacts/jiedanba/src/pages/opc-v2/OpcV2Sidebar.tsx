@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import {
-  LayoutGrid, FileText, Package, Wallet, Wrench, X, PackageCheck,
+  LayoutGrid, FileText, Package, Wallet, Wrench, X, PackageCheck, Search,
 } from "lucide-react";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -44,6 +44,7 @@ export function OpcV2Sidebar({ onLogout: _onLogout, mobileOpen = false, onMobile
 
   const navItems: NavItem[] = [
     { icon: LayoutGrid,   label: "待办总览",  href: "/opc" },
+    { icon: Search,       label: "需求大厅",  href: "/opc/demand-hall" },
     { icon: FileText,     label: "我的投标",  href: "/opc/tenders" },
     { icon: Package,      label: "我的订单",  href: "/opc/orders" },
     { icon: Wallet,       label: "我的收款",  href: "/opc/income" },

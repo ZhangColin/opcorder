@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, catCategoriesTable, catTagsTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { db, catCategoriesTable, catTagsTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
+import { eq, asc, and, inArray } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 import { logger } from "../lib/logger";
 
@@ -225,6 +225,50 @@ router.delete("/admin/cat-tags/:id", requireAdmin, async (req: Request, res: Res
   } catch (error) {
     logger.error({ error }, "Failed to delete cat tag");
     return res.status(500).json({ error: "删除标签失败" });
+  }
+});
+
+/* ─── Public: GET /quote-card/config?category=X ─────────────────────────── */
+router.get("/quote-card/config", async (req: Request, res: Response) => {
+  try {
+    const category = req.query.category as string | undefined;
+    if (!category) return res.status(400).json({ error: "category 参数必填" });
+
+    const dims = await db.select().from(quoteDimensionsTable)
+      .where(and(eq(quoteDimensionsTable.category, category), eq(quoteDimensionsTable.isActive, true)))
+      .orderBy(asc(quoteDimensionsTable.layer), asc(quoteDimensionsTable.sortOrder));
+
+    if (dims.length === 0) return res.json({ category, base: [], adjustment: [], optional: [] });
+
+    const dimIds = dims.map(d => d.id);
+    const tiers = await db.select().from(quoteTiersTable)
+      .where(inArray(quoteTiersTable.dimensionId, dimIds))
+      .orderBy(asc(quoteTiersTable.sortOrder));
+
+    const tiersByDim = new Map<number, typeof tiers>();
+    for (const t of tiers) {
+      if (!tiersByDim.has(t.dimensionId)) tiersByDim.set(t.dimensionId, []);
+      tiersByDim.get(t.dimensionId)!.push(t);
+    }
+
+    const mapDim = (d: typeof dims[0]) => ({
+      id: d.id, code: d.code, label: d.label, description: d.description, sortOrder: d.sortOrder,
+      tiers: (tiersByDim.get(d.id) ?? []).map(t => ({
+        id: t.id, tier: t.tier, tierLabel: t.tierLabel,
+        basePrice: t.basePrice, coefficient: t.coefficient,
+        description: t.description, sortOrder: t.sortOrder,
+      })),
+    });
+
+    return res.json({
+      category,
+      base: dims.filter(d => d.layer === "base").map(mapDim),
+      adjustment: dims.filter(d => d.layer === "adjustment").map(mapDim),
+      optional: dims.filter(d => d.layer === "optional").map(mapDim),
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /quote-card/config error");
+    return res.status(500).json({ error: "获取报价卡配置失败" });
   }
 });
 

@@ -18,6 +18,7 @@ interface ClientDemand {
   budgetMin?: number | null;
   budgetMax?: number | null;
   isUrgent?: boolean;
+  hopeDeliveryDate?: string | null;
   latestVersion?: { detail?: string | null; attachments?: Array<{ name: string; url: string }> } | null;
 }
 
@@ -34,6 +35,7 @@ export default function AdminV2OutsourceDemandNew() {
   const [clientDemandId, setClientDemandId] = useState("");
   const [expectedPriceMin, setExpectedPriceMin] = useState("");
   const [expectedPriceMax, setExpectedPriceMax] = useState("");
+  const [deadline, setDeadline] = useState("");
   const [detail, setDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -72,7 +74,8 @@ export default function AdminV2OutsourceDemandNew() {
       if (cd.budgetMax != null) setExpectedPriceMax(String(cd.budgetMax));
       if (cd.latestVersion?.detail) setDetail(cd.latestVersion.detail);
       if (cd.isUrgent) setIsUrgent(true);
-      toast({ title: "已带入关联需求内容", description: "已同步标题、类型、预算和详情" });
+      if (cd.hopeDeliveryDate) setDeadline(cd.hopeDeliveryDate.slice(0, 10));
+      toast({ title: "已带入关联需求内容", description: "已同步标题、类型、预算、期望交付时间和详情" });
     } catch {
       toast({ title: "带入失败", description: "无法读取关联需求详情", variant: "destructive" });
     }
@@ -130,6 +133,7 @@ export default function AdminV2OutsourceDemandNew() {
         clientDemandId: clientDemandId ? parseInt(clientDemandId) : null,
         expectedPriceMin: expectedPriceMin ? parseFloat(expectedPriceMin) : null,
         expectedPriceMax: expectedPriceMax ? parseFloat(expectedPriceMax) : null,
+        deadline: deadline || null,
         detail: detail.trim() || null,
         invitedOpcIds: mode === "invited" && invitedOpcs.length > 0 ? invitedOpcs.map(o => o.id) : undefined,
         status: asDraft ? "draft" : "negotiating",
@@ -262,8 +266,8 @@ export default function AdminV2OutsourceDemandNew() {
               </div>
             </div>
 
-            {/* 预算 + 紧急 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+            {/* 预算 + 期望交付时间 + 紧急 */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-wide">预算下限 (¥)</label>
                 <input
@@ -281,6 +285,15 @@ export default function AdminV2OutsourceDemandNew() {
                   value={expectedPriceMax}
                   onChange={e => setExpectedPriceMax(e.target.value)}
                   placeholder="0"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-wide">期望交付时间</label>
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={e => setDeadline(e.target.value)}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                 />
               </div>

@@ -845,7 +845,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               )}
               {demand.demandType && (
                 <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                  {DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
+                  {demandTypes.find(t => t.code === demand.demandType)?.name ?? DEMAND_TYPE_LABEL[demand.demandType] ?? demand.demandType}
                 </span>
               )}
               <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
@@ -1483,6 +1483,11 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
           ) : (
             <p className="text-sm text-slate-400 py-4">报价单尚未生成，请点击右上角「发起报价」。</p>
           )}
+        </Section>
+
+        {/* 沟通讨论（报价与合同 tab 也显示）*/}
+        <Section title="沟通讨论" icon={FileText}>
+          <DiscussionThread parentType="client_demand" parentId={id} placeholder="与发单方沟通…" onAfterPost={() => markRead("client", id)} />
         </Section>
 
             </>

@@ -26,18 +26,11 @@ import PubNotifications from "@/pages/pub/PubNotifications";
 import PubProfile from "@/pages/PublisherProfile";
 import Community from "@/pages/Community";
 import Auth from "@/pages/Auth";
-import DemandDetail from "@/pages/DemandDetail";
-import MyOrders from "@/pages/MyOrders";
-import OrderDetail from "@/pages/OrderDetail";
-import OrderHall from "@/pages/OrderHall";
-import OpcDemandDetail from "@/pages/OpcDemandDetail";
 import Profile from "@/pages/Profile";
 import Portfolios from "@/pages/Portfolios";
 import Academy from "@/pages/Academy";
 import AcademyDetail from "@/pages/AcademyDetail";
 import Notifications from "@/pages/Notifications";
-import OpcIncome from "@/pages/OpcIncome";
-import OpcMyBids from "@/pages/OpcMyBids";
 import AccountSettings from "@/pages/AccountSettings";
 import OpcV2Home from "@/pages/opc-v2/OpcV2Home";
 import OpcV2DemandHall from "@/pages/opc-v2/OpcV2DemandHall";
@@ -56,12 +49,13 @@ import ContestRegistrationDetail from "@/pages/ContestRegistrationDetail";
 import ContestDetail from "@/pages/ContestDetail";
 import Admin from "@/pages/Admin";
 import ScreenDisplay from "@/pages/ScreenDisplay";
-import MiniScreen from "@/pages/MiniScreen";
 import ActivityRegister from "@/pages/ActivityRegister";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import Support from "@/pages/Support";
 import NotFound from "@/pages/not-found";
+import OrderHall from "@/pages/OrderHall";
+import OpcDemandDetail from "@/pages/OpcDemandDetail";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,7 +74,7 @@ setAuthTokenGetter(() => getValidAccessToken(API_BASE));
 
 /* On 401: force-refresh the token once and retry; clear session + redirect to login on failure.
    Exception: on public browsing pages (e.g. /community), silently fail instead of redirecting. */
-const PUBLIC_PAGES = ["/", "/community", "/academy", "/order-hall", "/contest"];
+const PUBLIC_PAGES = ["/", "/community", "/academy", "/contest", "/order-hall"];
 
 setOn401Handler(async () => {
   const newToken = await refreshAccessToken(API_BASE);
@@ -220,10 +214,6 @@ function Router() {
       <Route path="/screen">
         {() => <AdminGate><ScreenDisplay /></AdminGate>}
       </Route>
-      <Route path="/miniscreen">
-        {() => <AdminGate><MiniScreen /></AdminGate>}
-      </Route>
-
       {/* 管理员专属 */}
       <Route path="/admin">
         {() => <AdminGate><Admin /></AdminGate>}
@@ -282,9 +272,11 @@ function Router() {
       <Route path="/academy">{() => <Layout><Academy /></Layout>}</Route>
       <Route path="/academy/course/:id">{() => <Layout><AcademyDetail /></Layout>}</Route>
 
-      {/* 公开内容页：游客可访问 */}
+      {/* 需求大厅：游客也可浏览 */}
       <Route path="/order-hall/:id">{() => <Layout><OpcDemandDetail /></Layout>}</Route>
       <Route path="/order-hall">{() => <Layout><OrderHall /></Layout>}</Route>
+
+      {/* 公开内容页：游客可访问 */}
       <Route path="/">{() => <Layout><Home /></Layout>}</Route>
 
       {/* OPC V2 工作台路由 */}
@@ -335,16 +327,9 @@ function Router() {
             <Layout>
               <Switch>
                 <Route path="/" component={Home} />
-                <Route path="/demands/:id" component={DemandDetail} />
-                <Route path="/order-hall/:id" component={OpcDemandDetail} />
-                <Route path="/order-hall" component={OrderHall} />
-                <Route path="/orders" component={MyOrders} />
-                <Route path="/orders/:id" component={OrderDetail} />
                 <Route path="/profile" component={Profile} />
                 <Route path="/portfolios" component={Portfolios} />
                 <Route path="/notifications" component={Notifications} />
-                <Route path="/income" component={OpcIncome} />
-                <Route path="/my-bids" component={OpcMyBids} />
                 <Route path="/account-settings" component={AccountSettings} />
                 <Route component={NotFound} />
               </Switch>

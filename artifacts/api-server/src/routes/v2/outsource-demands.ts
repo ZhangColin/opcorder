@@ -70,10 +70,10 @@ router.get("/outsource-demands", optionalAuth, async (req: Request, res: Respons
 router.post("/outsource-demands", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { clientDemandId, title, demandType, isUrgent, mode, opcLevel, expectedPriceMin, expectedPriceMax, milestones, invitedOpcIds, detail, attachments, status } = req.body as {
+    const { clientDemandId, title, demandType, isUrgent, mode, opcLevel, expectedPriceMin, expectedPriceMax, deadline, milestones, invitedOpcIds, detail, attachments, status } = req.body as {
       clientDemandId?: number; title: string; demandType?: string; isUrgent?: boolean;
       mode?: "public" | "invited"; opcLevel?: string; expectedPriceMin?: number; expectedPriceMax?: number;
-      milestones?: any[]; invitedOpcIds?: number[];
+      deadline?: string; milestones?: any[]; invitedOpcIds?: number[];
       detail?: string; attachments?: Array<{ name: string; url: string; size?: number }>;
       status?: "draft" | "negotiating";
     };
@@ -91,6 +91,7 @@ router.post("/outsource-demands", requireAdmin, async (req: Request, res: Respon
       opcLevel: opcLevel ?? "any",
       expectedPriceMin,
       expectedPriceMax,
+      deadline: deadline || null,
       milestones: milestones ?? [],
       status: status === "draft" ? "draft" : "negotiating",
     }).returning();

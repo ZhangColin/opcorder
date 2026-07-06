@@ -166,12 +166,16 @@ export function DiscussionThread({ parentType, parentId, placeholder = "输入�
                 }`}>
                   {post.content}
                 </div>
-                {post.attachments?.map((a, i) => (
-                  <a key={i} href={a.url} target="_blank" rel="noreferrer"
-                    className={`text-xs flex items-center gap-1 underline ${isMine ? "text-white/80" : "text-primary"}`}>
-                    <Paperclip size={11} /> {a.name}
-                  </a>
-                ))}
+                {post.attachments?.length > 0 && (
+                  <div className={`flex flex-col gap-1 ${isMine ? "items-end" : "items-start"}`}>
+                    {post.attachments.map((a, i) => (
+                      <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                        className="text-xs flex items-center gap-1 underline text-primary/70 hover:text-primary transition-colors">
+                        <Paperclip size={11} /> {a.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );

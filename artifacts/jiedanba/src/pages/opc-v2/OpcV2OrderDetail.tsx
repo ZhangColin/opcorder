@@ -184,6 +184,14 @@ export default function OpcV2OrderDetail() {
     return v ? parseInt(v, 10) : null;
   });
   const [expandedTicketId, setExpandedTicketId] = useState<number | null>(null);
+  const [catCategories, setCatCategories] = useState<Array<{ code: string; name: string }>>([]);
+  useEffect(() => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${base}/api/cat-categories`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Array<{ code: string; name: string }>) => setCatCategories(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   /* Tab */
   const [activeTab, setActiveTab] = useState<"demand" | "contract" | "delivery" | "ticket">(() => {
@@ -402,7 +410,7 @@ export default function OpcV2OrderDetail() {
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">需求类型</p>
                   <p className="font-semibold text-foreground text-sm">
-                    {DEMAND_TYPE_LABELS[demand.demandType] ?? demand.demandType}
+                    {catCategories.find(c => c.code === demand.demandType)?.name ?? DEMAND_TYPE_LABELS[demand.demandType] ?? demand.demandType}
                   </p>
                 </div>
               )}

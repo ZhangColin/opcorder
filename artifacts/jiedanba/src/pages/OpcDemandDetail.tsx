@@ -125,7 +125,6 @@ export default function OpcDemandDetail() {
   const myMaxLevel = trackCerts.reduce((max, c) => {
     return (LEVEL_ORDER[c.level] ?? 0) > (LEVEL_ORDER[max] ?? 0) ? c.level : max;
   }, "any");
-  // 游客不做等级检查（无认证数据），已登录 OPC 才检查等级
   const levelEligible = isGuest || requiredLevel === "any" || (LEVEL_ORDER[myMaxLevel] ?? 0) >= (LEVEL_ORDER[requiredLevel] ?? 0);
 
   const canBid = demand.mode === "public" && demand.status === "negotiating" && levelEligible;

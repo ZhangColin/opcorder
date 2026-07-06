@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { getAccessToken } from "@/lib/auth";
 import {
-  Bell, Check, CheckCheck, Package, Zap, FileCheck, AlertCircle,
-  MessageSquare, Info, ArrowRight, Clock, FileText, Banknote, ShieldCheck, Trophy,
+  Bell, Check, CheckCheck, FileCheck, AlertCircle,
+  Info, ArrowRight, Clock, FileText, Banknote, ShieldCheck, Trophy,
 } from "lucide-react";
 import {
   useListNotifications,
@@ -13,25 +12,11 @@ import {
 import type { Notification as NotificationItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useCurrentUser } from "@/hooks/use-current-user";
-
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
 const NOTIF_TYPE_CFG: Record<
   string,
   { label: string; category: string; icon: React.ComponentType<{ size?: number; className?: string }> }
 > = {
-  /* ── legacy types ── */
-  directed_invite:    { label: "定向邀约",   category: "invite",  icon: Zap },
-  bid_accepted:       { label: "抢单已确认", category: "bid",     icon: CheckCheck },
-  bid_rejected:       { label: "抢单未通过", category: "bid",     icon: AlertCircle },
-  bid_received:       { label: "收到抢单",   category: "bid",     icon: MessageSquare },
-  order_created:      { label: "订单已创建", category: "order",   icon: Package },
-  delivery_submitted: { label: "交付物提交", category: "order",   icon: FileCheck },
-  delivery_accepted:  { label: "交付已通过", category: "order",   icon: CheckCheck },
-  delivery_rejected:  { label: "交付被打回", category: "order",   icon: AlertCircle },
-  system:             { label: "系统通知",   category: "system",  icon: Info },
-  /* ── v2 types ── */
+  system:                         { label: "系统通知",       category: "system",  icon: Info },
   v2_tender_won:                  { label: "恭喜中标",       category: "order",  icon: Trophy },
   v2_tender_lost:                 { label: "未入选",         category: "order",  icon: AlertCircle },
   v2_tender_cancelled:            { label: "投标已取消",     category: "order",  icon: AlertCircle },
@@ -45,7 +30,7 @@ const NOTIF_TYPE_CFG: Record<
   v2_ticket_b_created:            { label: "质保工单",       category: "order",  icon: ShieldCheck },
   v2_ticket_b_closed:             { label: "工单已关闭",     category: "order",  icon: ShieldCheck },
   v2_settlement_paid:             { label: "结算款已打款",   category: "order",  icon: Banknote },
-  v2_demand_invited:              { label: "外包需求邀请",   category: "invite", icon: Zap },
+  v2_demand_invited:              { label: "外包需求邀请",   category: "invite", icon: Info },
   v2_outsource_detail_updated:    { label: "需求详情已更新", category: "order",  icon: Info },
   contest_test_graded:            { label: "测试题评级结果", category: "system", icon: Trophy },
   contest_assignment_graded:      { label: "测试单评级结果", category: "system", icon: Trophy },
@@ -53,8 +38,7 @@ const NOTIF_TYPE_CFG: Record<
 
 const TABS = [
   { key: "all",    label: "全部" },
-  { key: "invite", label: "定向邀约" },
-  { key: "bid",    label: "抢单结果" },
+  { key: "invite", label: "邀约通知" },
   { key: "order",  label: "订单动态" },
   { key: "system", label: "系统通知" },
   { key: "unread", label: "未读" },
@@ -72,28 +56,16 @@ function timeAgo(ts: string): string {
   return new Date(ts).toLocaleDateString("zh-CN");
 }
 
-function NotifCard({ n, onRead, onNavigate, onAcceptInvite, onRejectInvite, isActing }: {
+function NotifCard({ n, onRead, onNavigate }: {
   n: NotificationItem;
   onRead: (id: number) => void;
   onNavigate: (n: NotificationItem) => void;
-  onAcceptInvite: (n: NotificationItem) => void;
-  onRejectInvite: (n: NotificationItem) => void;
-  isActing: boolean;
 }) {
   const cfg = NOTIF_TYPE_CFG[n.type] ?? NOTIF_TYPE_CFG.system;
   const Icon = cfg.icon;
-  const isDirectedInvite = n.type === "directed_invite";
 
   const iconBg: Record<string, string> = {
-    directed_invite:    "bg-amber-100   text-amber-600",
-    bid_accepted:       "bg-green-100   text-green-600",
-    bid_rejected:       "bg-red-100     text-red-500",
-    bid_received:       "bg-blue-100    text-blue-600",
-    order_created:      "bg-purple-100  text-purple-600",
-    delivery_submitted: "bg-sky-100     text-sky-600",
-    delivery_accepted:  "bg-green-100   text-green-600",
-    delivery_rejected:  "bg-red-100     text-red-500",
-    system:             "bg-slate-100   text-slate-500",
+    system: "bg-slate-100 text-slate-500",
   };
 
   return (
@@ -141,43 +113,15 @@ function NotifCard({ n, onRead, onNavigate, onAcceptInvite, onRejectInvite, isAc
 
           <p className="text-sm text-muted-foreground leading-relaxed">{n.content}</p>
 
-          {/* Directed invite — Accept / Reject CTAs */}
-          {isDirectedInvite && n.relatedId && (
-            n.respondedAction ? (
-              <p className={`mt-3 text-sm font-bold ${
-                n.respondedAction === "accepted" ? "text-green-600" : "text-muted-foreground"
-              }`}>
-                {n.respondedAction === "accepted" ? "您已接受此邀约" : "您已婉拒此邀约"}
-              </p>
-            ) : (
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => onAcceptInvite(n)}
-                  disabled={isActing}
-                  className="flex-1 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                >
-                  {isActing ? "处理中…" : "接受邀约"}
-                </button>
-                <button
-                  onClick={() => onRejectInvite(n)}
-                  disabled={isActing}
-                  className="flex-1 py-2 border-2 border-border text-sm font-bold rounded-xl hover:border-red-300 hover:text-red-600 disabled:opacity-50 transition-colors"
-                >
-                  婉拒邀约
-                </button>
-              </div>
-            )
-          )}
-
-          {/* Jump link for non-invite notifications */}
-          {!isDirectedInvite && n.relatedId && n.relatedType && (
+          {/* Jump link */}
+          {n.relatedId && n.relatedType && (
             <button
               onClick={() => onNavigate(n)}
               className="mt-2 flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
             >
-              {(n.relatedType === "order" || n.relatedType === "v2_outsource_order") ? "查看订单"
-                : n.relatedType === "portfolio" ? "前往修改作品"
-                : n.relatedType === "v2_outsource_demand" ? "查看外包需求"
+              {(n.relatedType as string) === "v2_outsource_order" ? "查看订单"
+                : (n.relatedType as string) === "portfolio" ? "前往修改作品"
+                : (n.relatedType as string) === "v2_outsource_demand" ? "查看外包需求"
                 : "查看详情"}
               <ArrowRight size={12} />
             </button>
@@ -190,13 +134,10 @@ function NotifCard({ n, onRead, onNavigate, onAcceptInvite, onRejectInvite, isAc
 
 export default function Notifications() {
   const [activeTab, setActiveTab] = useState("all");
-  const [actingId, setActingId] = useState<number | null>(null);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { userId } = useCurrentUser();
-
-  const { data, refetch } = useListNotifications({ limit: 100 });
+  const { data } = useListNotifications({ limit: 100 });
   const markRead = useMarkNotificationRead();
   const { mutate: markAllRead } = useMarkAllNotificationsRead();
 
@@ -209,8 +150,6 @@ export default function Notifications() {
     const cfg = NOTIF_TYPE_CFG[n.type];
     return cfg?.category === activeTab;
   });
-
-  const inviteCount = notifications.filter((n) => n.type === "directed_invite" && !n.isRead).length;
 
   const handleRead = async (id: number) => {
     await markRead.mutateAsync({ notificationId: id });
@@ -228,51 +167,11 @@ export default function Notifications() {
 
   const handleNavigate = (n: NotificationItem) => {
     if (!n.isRead) handleRead(n.id);
-    /* v2 relatedType values */
-    if (n.relatedType === "v2_outsource_order" && n.relatedId) navigate(`/opc/orders/${n.relatedId}`);
-    else if (n.relatedType === "v2_outsource_demand" && n.relatedId) navigate(`/opc/demand-hall`);
-    /* contest registration */
+    if ((n.relatedType as string) === "v2_outsource_order" && n.relatedId) navigate(`/opc/orders/${n.relatedId}`);
+    else if ((n.relatedType as string) === "v2_outsource_demand" && n.relatedId) navigate(`/opc/demand-hall`);
     else if ((n.relatedType as string) === "contest_registration" && n.relatedId) navigate(`/profile/contests/${n.relatedId}`);
-    /* legacy relatedType values */
-    else if (n.relatedType === "order" && n.relatedId)     navigate(`/orders/${n.relatedId}`);
-    else if (n.relatedType === "demand" && n.relatedId)    navigate(`/order-hall`);
-    else if (n.relatedType === "bid" && n.relatedId)       navigate(`/order-hall`);
     else if (n.relatedType === "portfolio" && n.relatedId) navigate(`/profile?portfolio=${n.relatedId}`);
   };
-
-  const rejectInvite = async (n: NotificationItem) => {
-    if (!n.relatedId || !userId) return;
-    setActingId(n.id);
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/demands/${n.relatedId}/invite/respond`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getAccessToken() ?? ""}`,
-          },
-          body: JSON.stringify({ opcId: userId, action: "reject", notificationId: n.id }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "操作失败");
-      toast({ title: "已婉拒邀约" });
-      qc.invalidateQueries({ queryKey: ["/api/notifications"] });
-      refetch();
-    } catch (err: any) {
-      toast({ title: "操作失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
-    } finally {
-      setActingId(null);
-    }
-  };
-
-  const handleAcceptInvite = (n: NotificationItem) => {
-    if (!n.relatedId) return;
-    if (!n.isRead) handleRead(n.id);
-    navigate(`/demands/${n.relatedId}?action=quote&notifId=${n.id}`);
-  };
-  const handleRejectInvite = (n: NotificationItem) => rejectInvite(n);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -288,7 +187,7 @@ export default function Notifications() {
             )}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            接收抢单结果、定向邀约、订单状态等关键通知
+            接收邀约通知、合同动态、结算款等关键通知
           </p>
         </div>
         {unreadCount > 0 && (
@@ -304,9 +203,7 @@ export default function Notifications() {
       {/* Tabs */}
       <div className="flex gap-1 bg-muted/60 rounded-xl p-1 overflow-x-auto">
         {TABS.map((t) => {
-          const badge =
-            t.key === "unread" ? unreadCount :
-            t.key === "invite" ? inviteCount : 0;
+          const badge = t.key === "unread" ? unreadCount : 0;
           return (
             <button
               key={t.key}
@@ -344,9 +241,6 @@ export default function Notifications() {
               n={n}
               onRead={handleRead}
               onNavigate={handleNavigate}
-              onAcceptInvite={handleAcceptInvite}
-              onRejectInvite={handleRejectInvite}
-              isActing={actingId === n.id}
             />
           ))
         )}

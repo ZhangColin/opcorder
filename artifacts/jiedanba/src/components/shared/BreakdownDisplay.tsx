@@ -58,6 +58,9 @@ export function BreakdownDisplay({ bd, note, totalPrice, quoteConfig }: Props) {
     return null;
   };
 
+  const noteItem = bd.find(b => b.item === "备注");
+  const resolvedNote = noteItem?.note ?? note ?? null;
+
   const hasGroups = baseDimItems.length > 0 || adjPctItem || adjustDimItems.length > 0 || adjFactorItem || maintItem;
 
   if (!hasGroups) {
@@ -173,8 +176,8 @@ export function BreakdownDisplay({ bd, note, totalPrice, quoteConfig }: Props) {
       )}
 
       {/* 备注 */}
-      {note && (
-        <p className="text-xs text-slate-500 p-2.5 bg-slate-50 rounded-xl border border-slate-100">💬 {note}</p>
+      {resolvedNote && (
+        <p className="text-xs text-slate-500 p-2.5 bg-slate-50 rounded-xl border border-slate-100">💬 {resolvedNote}</p>
       )}
     </div>
   );
