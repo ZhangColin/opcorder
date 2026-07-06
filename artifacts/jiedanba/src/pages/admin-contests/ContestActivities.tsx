@@ -569,14 +569,13 @@ export default function ContestActivities() {
     return (
       <ContestEditPage
         contest={editingContest === "new" ? null : editingContest}
-        onBack={() => setEditingContest(null)}
-        onSaved={(saved) => {
+        onBack={() => {
           setEditingContest(null);
-          if (fromDetail) {
-            // Return to detail with fresh data from server - refetch list and use saved data
-            setDetailContest(saved);
-          }
-          // If creating new, go back to list (detailContest is null)
+        }}
+        onSaved={(saved) => {
+          // Stay on the edit page; update the contest in state so Back returns to detail with fresh data
+          setEditingContest(saved);
+          if (fromDetail) setDetailContest(saved);
         }}
       />
     );
