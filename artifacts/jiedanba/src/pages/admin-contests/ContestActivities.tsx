@@ -571,6 +571,7 @@ export default function ContestActivities() {
         contest={editingContest === "new" ? null : editingContest}
         onBack={() => {
           setEditingContest(null);
+          setDetailContest(null);
         }}
         onSaved={(saved) => {
           // Stay on the edit page; update the contest in state so Back returns to detail with fresh data
