@@ -100,13 +100,6 @@ interface Contest {
   tracks: Track[];
 }
 
-interface PassedUser { nickname: string | null; avatar: string | null; testGrade: string | null; }
-interface PublicTrack {
-  trackId: number;
-  catName: string | null;
-  catColorHex: string | null;
-  passedUsers: PassedUser[];
-}
 
 /* ─── Countdown hook ─── */
 function useCountdown(targetIso: string | undefined) {
@@ -436,77 +429,25 @@ function TrackCard({
   );
 }
 
-const GRADE_LABEL: Record<string, string> = { A: "一等奖", B: "二等奖", C: "三等奖" };
-const GRADE_CLS: Record<string, string> = {
-  A: "bg-green-100 text-green-700 border-green-200",
-  B: "bg-blue-100 text-blue-700 border-blue-200",
-  C: "bg-amber-100 text-amber-700 border-amber-200",
-};
 
 /* ─── Public list ─── */
-function PublicList({ contestId, benefitAt, announcementTitle, announcementDetails }: {
-  contestId: number; benefitAt: string;
+function PublicList({ benefitAt, announcementTitle, announcementDetails }: {
+  benefitAt: string;
   announcementTitle: string | null; announcementDetails: string | null;
 }) {
-  const { data, isLoading } = useQuery<PublicTrack[]>({
-    queryKey: ["contest-public-list", contestId],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/contests/${contestId}/public-list`);
-      if (!res.ok) throw new Error("获取公示名单失败");
-      return res.json();
-    },
-  });
-
-  if (isLoading) return <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={16} className="animate-spin" />加载公示名单…</div>;
-  if (!data?.length) return null;
+  if (!announcementTitle && !announcementDetails) return null;
 
   return (
     <section>
       <h2 className="text-xl font-extrabold text-blue-900 mb-1 flex items-center gap-2">
         <Medal size={20} className="text-amber-500" /> {announcementTitle || "通过公示名单"}
       </h2>
-      <p className="text-xs text-slate-400 mb-2">权益发放时间：{fmtDate(benefitAt)}</p>
+      <p className="text-xs text-slate-400 mb-4">权益发放时间：{fmtDate(benefitAt)}</p>
       {announcementDetails && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-6">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <MarkdownContent content={announcementDetails} />
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {data.map(track => (
-          <div key={track.trackId} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
-                style={{ backgroundColor: track.catColorHex || "#6b7280" }}>
-                {track.catName ?? "未知"}
-              </span>
-              <span className="text-xs text-slate-400">{track.passedUsers.length} 人通过</span>
-            </div>
-            {track.passedUsers.length === 0 ? (
-              <p className="text-sm text-slate-400">暂无通过人员</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {track.passedUsers.map((u, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
-                    {u.avatar ? (
-                      <img src={u.avatar} alt={u.nickname ?? ""} className="w-7 h-7 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary shrink-0">
-                        {(u.nickname ?? "?")[0]}
-                      </div>
-                    )}
-                    <span className="text-sm font-semibold text-slate-700 flex-1 truncate">{u.nickname ?? "匿名"}</span>
-                    {u.testGrade && u.testGrade !== "fail" && (
-                      <span className={`px-1.5 py-0.5 rounded-md text-xs font-black border shrink-0 ${GRADE_CLS[u.testGrade] ?? "bg-slate-100 text-slate-600"}`}>
-                        {GRADE_LABEL[u.testGrade] ?? u.testGrade}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -673,7 +614,6 @@ export default function ContestDetail() {
         {/* Public list */}
         {showPublicList && (
           <PublicList
-            contestId={contest.id}
             benefitAt={contest.benefitAt}
             announcementTitle={contest.announcementTitle}
             announcementDetails={contest.announcementDetails}
