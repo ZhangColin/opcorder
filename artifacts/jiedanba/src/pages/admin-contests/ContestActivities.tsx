@@ -147,88 +147,108 @@ function ContestEditPage({
       <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
         <h3 className="text-lg font-extrabold text-blue-900 mb-6">{isNew ? "新建大赛" : "编辑大赛"}</h3>
 
-        <div className="flex flex-col gap-5 max-w-2xl">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">大赛标题 *</label>
-            <input
-              value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              placeholder="请输入大赛名称"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-            />
-          </div>
+        {/* 双栏主布局 */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">状态</label>
-            <div className="relative">
-              <select
-                value={form.status}
-                onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="draft">草稿</option>
-                <option value="published">进行中</option>
-                <option value="ended">已结束</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          {/* ── 左栏：基本信息 + 大赛详情 ── */}
+          <div className="flex flex-col gap-5">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">基本信息</p>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">大赛标题 *</label>
+              <input
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="请输入大赛名称"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">状态</label>
+              <div className="relative">
+                <select
+                  value={form.status}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                  className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="draft">草稿</option>
+                  <option value="published">进行中</option>
+                  <option value="ended">已结束</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">大赛详情</label>
+              <RichTextEditor
+                value={form.details}
+                onChange={v => setForm(f => ({ ...f, details: v }))}
+                placeholder="请输入大赛详情介绍…"
+                minHeight="200px"
+              />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            {([
-              ["公告开始时间", "announcementAt", true],
-              ["报名开始时间", "registrationAt", true],
-              ["报名结束时间", "registrationEndAt", false],
-              ["公示开始时间", "publicAt", true],
-              ["权益发放时间", "benefitAt", true],
-              ["活动截止时间", "deadlineAt", true],
-            ] as [string, keyof ContestFormState, boolean][]).map(([label, key, required]) => (
-              <div key={key}>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}{required ? " *" : ""}</label>
-                <input
-                  type="datetime-local"
-                  value={form[key] as string}
-                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                />
+          {/* ── 右栏：时间节点 + 公示信息 ── */}
+          <div className="flex flex-col gap-5">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">时间节点</p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ["公告开始时间", "announcementAt", true],
+                ["报名开始时间", "registrationAt", true],
+                ["报名结束时间", "registrationEndAt", false],
+                ["公示开始时间", "publicAt", true],
+                ["权益发放时间", "benefitAt", true],
+                ["活动截止时间", "deadlineAt", true],
+              ] as [string, keyof ContestFormState, boolean][]).map(([label, key, required]) => (
+                <div key={key}>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">{label}{required ? " *" : ""}</label>
+                  <input
+                    type="datetime-local"
+                    value={form[key] as string}
+                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">公示信息</p>
+
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示标题</label>
+                  <input
+                    value={form.announcementTitle}
+                    onChange={e => setForm(f => ({ ...f, announcementTitle: e.target.value }))}
+                    placeholder="公示阶段展示的标题，如「通过公示名单」"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示详情（Markdown）</label>
+                  <textarea
+                    value={form.announcementDetails}
+                    onChange={e => setForm(f => ({ ...f, announcementDetails: e.target.value }))}
+                    placeholder="公示阶段展示的详细说明，支持 Markdown 格式…"
+                    rows={7}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-mono resize-y"
+                  />
+                </div>
               </div>
-            ))}
+            </div>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">大赛详情</label>
-            <RichTextEditor
-              value={form.details}
-              onChange={v => setForm(f => ({ ...f, details: v }))}
-              placeholder="请输入大赛详情介绍…"
-              minHeight="150px"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示标题</label>
-            <input
-              value={form.announcementTitle}
-              onChange={e => setForm(f => ({ ...f, announcementTitle: e.target.value }))}
-              placeholder="公示阶段展示的标题，如「通过公示名单」"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示详情（Markdown）</label>
-            <textarea
-              value={form.announcementDetails}
-              onChange={e => setForm(f => ({ ...f, announcementDetails: e.target.value }))}
-              placeholder="公示阶段展示的详细说明，支持 Markdown 格式…"
-              rows={6}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-mono resize-y"
-            />
-          </div>
-
+        {/* 错误提示 + 操作按钮 */}
+        <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-3">
           {err && <div className="text-sm text-destructive bg-red-50 rounded-xl px-4 py-3">{err}</div>}
-
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-3">
             <button
               onClick={handleSave}
               disabled={saveMut.isPending}
