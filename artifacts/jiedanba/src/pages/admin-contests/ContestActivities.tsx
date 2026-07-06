@@ -7,7 +7,7 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
-import { RichTextEditor, RichTextView } from "@/components/RichTextEditor";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { getAccessToken } from "@/lib/auth";
 
@@ -586,47 +586,20 @@ export default function ContestActivities() {
   if (detailContest) {
     return (
       <div>
-        <button onClick={() => setDetailContest(null)} className="flex items-center gap-2 text-sm text-slate-500 hover:text-blue-700 mb-6 font-semibold transition-colors">
-          <ArrowLeft size={16} /> 返回大赛列表
-        </button>
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-2xl font-extrabold text-blue-900">{detailContest.title}</h2>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_LABELS[detailContest.status]?.color ?? ""}`}>
-                  {STATUS_LABELS[detailContest.status]?.label}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-slate-500 mb-4">
-                {([
-                  ["公告开始", detailContest.announcementAt],
-                  ["报名开始", detailContest.registrationAt],
-                  ["公示开始", detailContest.publicAt],
-                  ["权益发放", detailContest.benefitAt],
-                  ["活动截止", detailContest.deadlineAt],
-                ] as [string, string][]).map(([label, val]) => (
-                  <div key={label} className="flex items-center gap-1">
-                    <Calendar size={12} />
-                    <span className="font-semibold text-slate-600">{label}：</span>{fmtDate(val)}
-                  </div>
-                ))}
-                <div className="flex items-center gap-1">
-                  <Users size={12} />
-                  <span className="font-semibold text-slate-600">报名总数：</span>{detailContest.registrationCount}
-                </div>
-              </div>
-              {detailContest.details && (
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <RichTextView html={detailContest.details} />
-                </div>
-              )}
-            </div>
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => setDetailContest(null)} className="flex items-center gap-2 text-sm text-slate-500 hover:text-blue-700 font-semibold transition-colors">
+            <ArrowLeft size={16} /> 返回大赛列表
+          </button>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-extrabold text-blue-900">{detailContest.title}</h2>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_LABELS[detailContest.status]?.color ?? ""}`}>
+              {STATUS_LABELS[detailContest.status]?.label}
+            </span>
             <button
               onClick={() => setEditingContest(detailContest)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors ml-2"
             >
-              <Edit2 size={15} /> 编辑大赛
+              <Edit2 size={13} /> 编辑大赛
             </button>
           </div>
         </div>
