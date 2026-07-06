@@ -8,6 +8,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import { RichTextEditor, RichTextView } from "@/components/RichTextEditor";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { getAccessToken } from "@/lib/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -147,10 +148,10 @@ function ContestEditPage({
       <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
         <h3 className="text-lg font-extrabold text-blue-900 mb-6">{isNew ? "新建大赛" : "编辑大赛"}</h3>
 
-        {/* 双栏主布局 */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {/* 第一行：基本信息（左） + 时间节点（右） */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-6">
 
-          {/* ── 左栏：基本信息 + 大赛详情 ── */}
+          {/* ── 左栏：标题 + 状态 ── */}
           <div className="flex flex-col gap-5">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">基本信息</p>
 
@@ -179,22 +180,11 @@ function ContestEditPage({
                 <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">大赛详情</label>
-              <RichTextEditor
-                value={form.details}
-                onChange={v => setForm(f => ({ ...f, details: v }))}
-                placeholder="请输入大赛详情介绍…"
-                minHeight="200px"
-              />
-            </div>
           </div>
 
-          {/* ── 右栏：时间节点 + 公示信息 ── */}
-          <div className="flex flex-col gap-5">
+          {/* ── 右栏：时间节点 ── */}
+          <div className="flex flex-col gap-4">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">时间节点</p>
-
             <div className="grid grid-cols-2 gap-3">
               {([
                 ["公告开始时间", "announcementAt", true],
@@ -215,33 +205,42 @@ function ContestEditPage({
                 </div>
               ))}
             </div>
+          </div>
+        </div>
 
-            <div className="pt-2 border-t border-slate-100">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">公示信息</p>
+        {/* 第二行：大赛详情（全宽） */}
+        <div className="mb-6 pt-5 border-t border-slate-100">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">大赛详情</p>
+          <RichTextEditor
+            value={form.details}
+            onChange={v => setForm(f => ({ ...f, details: v }))}
+            placeholder="请输入大赛详情介绍…"
+            minHeight="200px"
+          />
+        </div>
 
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示标题</label>
-                  <input
-                    value={form.announcementTitle}
-                    onChange={e => setForm(f => ({ ...f, announcementTitle: e.target.value }))}
-                    placeholder="公示阶段展示的标题，如「通过公示名单」"
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示详情（Markdown）</label>
-                  <textarea
-                    value={form.announcementDetails}
-                    onChange={e => setForm(f => ({ ...f, announcementDetails: e.target.value }))}
-                    placeholder="公示阶段展示的详细说明，支持 Markdown 格式…"
-                    rows={7}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-mono resize-y"
-                  />
-                </div>
-              </div>
+        {/* 第三行：公示信息（全宽） */}
+        <div className="mb-6 pt-5 border-t border-slate-100">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">公示信息</p>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示标题</label>
+              <input
+                value={form.announcementTitle}
+                onChange={e => setForm(f => ({ ...f, announcementTitle: e.target.value }))}
+                placeholder="公示阶段展示的标题，如「通过公示名单」"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              />
             </div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">公示详情</label>
+            <MarkdownEditor
+              value={form.announcementDetails}
+              onChange={v => setForm(f => ({ ...f, announcementDetails: v }))}
+              placeholder="公示阶段展示的详细说明，支持 Markdown 格式…"
+              minHeight="180px"
+            />
           </div>
         </div>
 
