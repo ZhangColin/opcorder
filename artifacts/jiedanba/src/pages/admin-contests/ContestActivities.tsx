@@ -140,45 +140,208 @@ function ContestFormFields({ form, setForm }: {
   );
 }
 
-/* ─── Track Detail View ─── */
-function ContestTrackManager({ contest }: { contest: Contest }) {
+/* ─── Track Edit Page ─── */
+type TrackFormState = {
+  catCategoryId: string; testQuestionId: string; aQuestionId: string; bQuestionId: string; cQuestionId: string;
+  testDurationHours: string; aDurationHours: string; bDurationHours: string; cDurationHours: string;
+  quotaTotal: string;
+};
+
+const BLANK_TRACK_FORM: TrackFormState = {
+  catCategoryId: "", testQuestionId: "", aQuestionId: "", bQuestionId: "", cQuestionId: "",
+  testDurationHours: "72", aDurationHours: "72", bDurationHours: "72", cDurationHours: "72",
+  quotaTotal: "0",
+};
+
+type QRow = { label: string; qKey: keyof Pick<TrackFormState, "testQuestionId" | "aQuestionId" | "bQuestionId" | "cQuestionId">; dKey: keyof Pick<TrackFormState, "testDurationHours" | "aDurationHours" | "bDurationHours" | "cDurationHours">; badge: string };
+const Q_ROWS: QRow[] = [
+  { label: "测试题",         qKey: "testQuestionId", dKey: "testDurationHours", badge: "试" },
+  { label: "A 级题（测试单）", qKey: "aQuestionId",    dKey: "aDurationHours",    badge: "A" },
+  { label: "B 级题（测试单）", qKey: "bQuestionId",    dKey: "bDurationHours",    badge: "B" },
+  { label: "C 级题（测试单）", qKey: "cQuestionId",    dKey: "cDurationHours",    badge: "C" },
+];
+
+function TrackEditPage({
+  contest,
+  track,
+  onBack,
+}: {
+  contest: Contest;
+  track: ContestTrack | null;
+  onBack: () => void;
+}) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { askConfirm, confirmDialog: trackConfirmDialog } = useConfirm();
+  const isNew = track === null;
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editTrack, setEditTrack] = useState<ContestTrack | null>(null);
-  const [trackForm, setTrackForm] = useState({
-    catCategoryId: "", testQuestionId: "", aQuestionId: "", bQuestionId: "", cQuestionId: "",
-    testDurationHours: "72", aDurationHours: "72", bDurationHours: "72", cDurationHours: "72",
-    quotaTotal: "0",
-  });
-  const [trackErr, setTrackErr] = useState<string | null>(null);
+  const [form, setForm] = useState<TrackFormState>(() =>
+    isNew ? BLANK_TRACK_FORM : {
+      catCategoryId: String(track.catCategoryId),
+      testQuestionId: track.testQuestionId ? String(track.testQuestionId) : "",
+      aQuestionId: track.aQuestionId ? String(track.aQuestionId) : "",
+      bQuestionId: track.bQuestionId ? String(track.bQuestionId) : "",
+      cQuestionId: track.cQuestionId ? String(track.cQuestionId) : "",
+      testDurationHours: String(track.testDurationHours),
+      aDurationHours: String(track.aDurationHours),
+      bDurationHours: String(track.bDurationHours),
+      cDurationHours: String(track.cDurationHours),
+      quotaTotal: String(track.quotaTotal),
+    }
+  );
+  const [err, setErr] = useState<string | null>(null);
 
-  const { data: cats } = useQuery<CatCategory[]>({ queryKey: ["admin-cat-categories"], queryFn: () => adminGet("/api/admin/cat-categories"), staleTime: 60_000 });
-  const { data: tracks, isLoading } = useQuery<ContestTrack[]>({
-    queryKey: ["admin-contest-tracks", contest.id],
-    queryFn: () => adminGet(`/api/admin/contests/${contest.id}/tracks`),
+  const { data: cats } = useQuery<CatCategory[]>({
+    queryKey: ["admin-cat-categories"],
+    queryFn: () => adminGet("/api/admin/cat-categories"),
+    staleTime: 60_000,
   });
-  const selectedCatId = trackForm.catCategoryId ? Number(trackForm.catCategoryId) : null;
+
+  const selectedCatId = form.catCategoryId ? Number(form.catCategoryId) : null;
   const { data: questions } = useQuery<{ items: ContestQuestion[] }>({
     queryKey: ["admin-contest-questions", selectedCatId],
     queryFn: () => adminGet(`/api/admin/contests/questions?catCategoryId=${selectedCatId}&pageSize=100`),
     enabled: !!selectedCatId,
   });
+  const qList = questions?.items ?? [];
 
   const saveMut = useMutation({
     mutationFn: async (payload: Record<string, number | null>) => {
-      if (editTrack) return adminPut(`/api/admin/contests/${contest.id}/tracks/${editTrack.id}`, payload);
+      if (!isNew) return adminPut(`/api/admin/contests/${contest.id}/tracks/${track.id}`, payload);
       return adminPost(`/api/admin/contests/${contest.id}/tracks`, payload);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-contest-tracks", contest.id] });
       qc.invalidateQueries({ queryKey: ["admin-contests"] });
-      toast({ title: editTrack ? "赛道已更新" : "赛道已添加" });
-      setDrawerOpen(false);
+      toast({ title: isNew ? "赛道已添加" : "赛道已更新" });
+      onBack();
     },
-    onError: (e: Error) => setTrackErr(e.message),
+    onError: (e: Error) => setErr(e.message),
+  });
+
+  function handleSave() {
+    setErr(null);
+    if (!form.catCategoryId) { setErr("请选择赛道分类"); return; }
+    const payload: Record<string, number | null> = {
+      catCategoryId: Number(form.catCategoryId),
+      testQuestionId: form.testQuestionId ? Number(form.testQuestionId) : null,
+      aQuestionId: form.aQuestionId ? Number(form.aQuestionId) : null,
+      bQuestionId: form.bQuestionId ? Number(form.bQuestionId) : null,
+      cQuestionId: form.cQuestionId ? Number(form.cQuestionId) : null,
+      testDurationHours: Number(form.testDurationHours) || 72,
+      aDurationHours: Number(form.aDurationHours) || 72,
+      bDurationHours: Number(form.bDurationHours) || 72,
+      cDurationHours: Number(form.cDurationHours) || 72,
+      quotaTotal: Number(form.quotaTotal) || 0,
+    };
+    saveMut.mutate(payload);
+  }
+
+  return (
+    <div>
+      <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-500 hover:text-blue-700 mb-6 font-semibold transition-colors">
+        <ArrowLeft size={16} /> 返回赛道列表
+      </button>
+
+      <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+        <h3 className="text-lg font-extrabold text-blue-900 mb-6">{isNew ? "添加赛道" : "编辑赛道"}</h3>
+
+        <div className="flex flex-col gap-5 max-w-2xl">
+          {/* 基本信息 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">赛道分类 *</label>
+              <div className="relative">
+                <select
+                  value={form.catCategoryId}
+                  onChange={e => setForm(f => ({ ...f, catCategoryId: e.target.value, testQuestionId: "", aQuestionId: "", bQuestionId: "", cQuestionId: "" }))}
+                  className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">请选择赛道分类</option>
+                  {cats?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">报名名额（0 = 不限）</label>
+              <input
+                type="number" min="0"
+                value={form.quotaTotal}
+                onChange={e => setForm(f => ({ ...f, quotaTotal: e.target.value }))}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              />
+            </div>
+          </div>
+
+          {/* 题目 + 完成时长 */}
+          <div>
+            <div className="grid grid-cols-[auto_1fr_180px] items-center gap-x-3 px-1 mb-2">
+              <div className="w-6" />
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">题目</span>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">完成时长（小时）</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              {Q_ROWS.map(({ label, qKey, dKey, badge }) => (
+                <div key={qKey} className="grid grid-cols-[auto_1fr_180px] items-center gap-x-3 py-2.5 px-1 rounded-xl hover:bg-slate-50 transition-colors">
+                  <span className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-100 text-blue-700 text-[11px] font-extrabold shrink-0">{badge}</span>
+                  <div className="relative min-w-0">
+                    <select
+                      value={form[qKey]}
+                      onChange={e => setForm(f => ({ ...f, [qKey]: e.target.value }))}
+                      className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20 truncate"
+                      disabled={!selectedCatId}
+                    >
+                      <option value="">{selectedCatId ? `选择${label}（可选）` : "请先选择赛道"}</option>
+                      {qList.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
+                    </select>
+                    <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                  <input
+                    type="number" min="1"
+                    value={form[dKey]}
+                    onChange={e => setForm(f => ({ ...f, [dKey]: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {err && <div className="text-sm text-destructive bg-red-50 rounded-xl px-4 py-3">{err}</div>}
+
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+            <button
+              onClick={handleSave}
+              disabled={saveMut.isPending}
+              className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {saveMut.isPending && <Loader2 size={15} className="animate-spin" />}
+              {isNew ? "添加赛道" : "保存修改"}
+            </button>
+            <button
+              onClick={onBack}
+              className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Track List ─── */
+function ContestTrackManager({ contest }: { contest: Contest }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
+
+  const [editingTrack, setEditingTrack] = useState<ContestTrack | null | "new">(null);
+
+  const { data: tracks, isLoading } = useQuery<ContestTrack[]>({
+    queryKey: ["admin-contest-tracks", contest.id],
+    queryFn: () => adminGet(`/api/admin/contests/${contest.id}/tracks`),
   });
 
   const deleteMut = useMutation({
@@ -191,68 +354,35 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
     onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
   });
 
-  function openAddTrack() {
-    setEditTrack(null);
-    setTrackForm({ catCategoryId: "", testQuestionId: "", aQuestionId: "", bQuestionId: "", cQuestionId: "", testDurationHours: "72", aDurationHours: "72", bDurationHours: "72", cDurationHours: "72", quotaTotal: "0" });
-    setTrackErr(null);
-    setDrawerOpen(true);
-  }
-  function openEditTrack(t: ContestTrack) {
-    setEditTrack(t);
-    setTrackForm({
-      catCategoryId: String(t.catCategoryId),
-      testQuestionId: t.testQuestionId ? String(t.testQuestionId) : "",
-      aQuestionId: t.aQuestionId ? String(t.aQuestionId) : "",
-      bQuestionId: t.bQuestionId ? String(t.bQuestionId) : "",
-      cQuestionId: t.cQuestionId ? String(t.cQuestionId) : "",
-      testDurationHours: String(t.testDurationHours),
-      aDurationHours: String(t.aDurationHours),
-      bDurationHours: String(t.bDurationHours),
-      cDurationHours: String(t.cDurationHours),
-      quotaTotal: String(t.quotaTotal),
-    });
-    setTrackErr(null);
-    setDrawerOpen(true);
-  }
-
   function handleDeleteTrack(t: ContestTrack) {
-    askConfirm({ title: "确认删除", description: `删除「${t.catName ?? "该"}」赛道配置？`, confirmLabel: "删除", confirmVariant: "destructive", onConfirm: () => deleteMut.mutate(t.id) });
+    askConfirm({
+      title: "确认删除",
+      description: `删除「${t.catName ?? "该"}」赛道配置？`,
+      confirmLabel: "删除",
+      confirmVariant: "destructive",
+      onConfirm: () => deleteMut.mutate(t.id),
+    });
   }
 
-  function handleSaveTrack() {
-    setTrackErr(null);
-    if (!trackForm.catCategoryId) { setTrackErr("请选择赛道分类"); return; }
-    const payload: Record<string, number | null> = {
-      catCategoryId: Number(trackForm.catCategoryId),
-      testQuestionId: trackForm.testQuestionId ? Number(trackForm.testQuestionId) : null,
-      aQuestionId: trackForm.aQuestionId ? Number(trackForm.aQuestionId) : null,
-      bQuestionId: trackForm.bQuestionId ? Number(trackForm.bQuestionId) : null,
-      cQuestionId: trackForm.cQuestionId ? Number(trackForm.cQuestionId) : null,
-      testDurationHours: Number(trackForm.testDurationHours) || 72,
-      aDurationHours: Number(trackForm.aDurationHours) || 72,
-      bDurationHours: Number(trackForm.bDurationHours) || 72,
-      cDurationHours: Number(trackForm.cDurationHours) || 72,
-      quotaTotal: Number(trackForm.quotaTotal) || 0,
-    };
-    saveMut.mutate(payload);
+  if (editingTrack !== null) {
+    return (
+      <TrackEditPage
+        contest={contest}
+        track={editingTrack === "new" ? null : editingTrack}
+        onBack={() => setEditingTrack(null)}
+      />
+    );
   }
-
-  const qList = questions?.items ?? [];
-
-  type QRow = { label: string; qKey: "testQuestionId" | "aQuestionId" | "bQuestionId" | "cQuestionId"; dKey: "testDurationHours" | "aDurationHours" | "bDurationHours" | "cDurationHours"; badge: string };
-  const Q_ROWS: QRow[] = [
-    { label: "测试题",         qKey: "testQuestionId", dKey: "testDurationHours", badge: "试" },
-    { label: "A 级题（测试单）", qKey: "aQuestionId",    dKey: "aDurationHours",    badge: "A" },
-    { label: "B 级题（测试单）", qKey: "bQuestionId",    dKey: "bDurationHours",    badge: "B" },
-    { label: "C 级题（测试单）", qKey: "cQuestionId",    dKey: "cDurationHours",    badge: "C" },
-  ];
 
   return (
     <div>
-      {trackConfirmDialog}
+      {confirmDialog}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-blue-900">赛道配置</h3>
-        <button onClick={openAddTrack} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors">
+        <button
+          onClick={() => setEditingTrack("new")}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors"
+        >
           <Plus size={14} /> 添加赛道
         </button>
       </div>
@@ -283,8 +413,21 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
                   <td className="px-4 py-3 text-xs text-slate-500">{t.aDurationHours}h / {t.bDurationHours}h / {t.cDurationHours}h</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => openEditTrack(t)} className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"><Edit2 size={14} /></button>
-                      <button onClick={() => handleDeleteTrack(t)} disabled={t.quotaUsed > 0} className="p-1.5 rounded-lg text-slate-400 hover:text-destructive hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"><Trash2 size={14} /></button>
+                      <button
+                        onClick={() => setEditingTrack(t)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"
+                        title="编辑赛道"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTrack(t)}
+                        disabled={t.quotaUsed > 0}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-destructive hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="删除赛道"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -293,64 +436,6 @@ function ContestTrackManager({ contest }: { contest: Contest }) {
           </table>
         </div>
       )}
-
-      <FormDialog open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editTrack ? "编辑赛道" : "添加赛道"}>
-        <div className="flex flex-col gap-5">
-          {/* 基本信息 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">赛道分类 *</label>
-              <div className="relative">
-                <select value={trackForm.catCategoryId} onChange={e => setTrackForm(f => ({ ...f, catCategoryId: e.target.value, testQuestionId: "", aQuestionId: "", bQuestionId: "", cQuestionId: "" }))}
-                  className="w-full appearance-none pl-3 pr-8 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20">
-                  <option value="">请选择赛道分类</option>
-                  {cats?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">报名名额（0 = 不限）</label>
-              <input type="number" min="0" value={trackForm.quotaTotal} onChange={e => setTrackForm(f => ({ ...f, quotaTotal: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
-            </div>
-          </div>
-
-          {/* 题目 + 完成时长（每行一组）*/}
-          <div className="flex flex-col gap-1">
-            <div className="grid grid-cols-[auto_1fr_160px] items-center gap-x-3 px-1 mb-1">
-              <div className="w-6" />
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">题目</span>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">完成时长（小时）</span>
-            </div>
-            {Q_ROWS.map(({ label, qKey, dKey, badge }) => (
-              <div key={qKey} className="grid grid-cols-[auto_1fr_160px] items-center gap-x-3 py-2 px-1 rounded-xl hover:bg-slate-50 transition-colors">
-                <span className="w-6 h-6 flex items-center justify-center rounded-lg bg-blue-100 text-blue-700 text-[11px] font-extrabold shrink-0">{badge}</span>
-                <div className="relative min-w-0">
-                  <select value={trackForm[qKey]} onChange={e => setTrackForm(f => ({ ...f, [qKey]: e.target.value }))}
-                    className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-primary/20 truncate"
-                    disabled={!selectedCatId} title={label}>
-                    <option value="" disabled hidden>{selectedCatId ? `选择${label}` : "请先选择赛道"}</option>
-                    {qList.map(q => <option key={q.id} value={q.id}>{q.title}</option>)}
-                  </select>
-                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-                <input type="number" min="1" value={trackForm[dKey]} onChange={e => setTrackForm(f => ({ ...f, [dKey]: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
-              </div>
-            ))}
-          </div>
-
-          {trackErr && <div className="text-sm text-destructive bg-red-50 rounded-xl px-4 py-3">{trackErr}</div>}
-          <div className="flex items-center gap-3 pt-1">
-            <button onClick={handleSaveTrack} disabled={saveMut.isPending} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2">
-              {saveMut.isPending && <Loader2 size={15} className="animate-spin" />}
-              {editTrack ? "保存修改" : "添加赛道"}
-            </button>
-            <button onClick={() => setDrawerOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">取消</button>
-          </div>
-        </div>
-      </FormDialog>
     </div>
   );
 }
@@ -386,10 +471,13 @@ export default function ContestActivities() {
       if (editTarget) return adminPut(`/api/admin/contests/${editTarget.id}`, payload);
       return adminPost("/api/admin/contests", payload);
     },
-    onSuccess: () => {
+    onSuccess: (_, _vars) => {
       qc.invalidateQueries({ queryKey: ["admin-contests"] });
       toast({ title: editTarget ? "大赛已更新" : "大赛已创建" });
       setDrawerOpen(false);
+      if (detailContest && editTarget && detailContest.id === editTarget.id) {
+        qc.invalidateQueries({ queryKey: ["admin-contests"] });
+      }
     },
     onError: (e: Error) => setFormErr(e.message),
   });
