@@ -260,7 +260,7 @@ function ContestEditPage({
               onClick={onBack}
               className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
             >
-              取消
+              返回
             </button>
           </div>
         </div>
