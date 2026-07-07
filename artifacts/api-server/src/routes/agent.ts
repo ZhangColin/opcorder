@@ -681,19 +681,10 @@ ${detailStr}
             const selfCheckCount = [...historyMessages, ...intermediateMessages]
               .filter(m => m.role === "tool" && m.toolName === "perform_self_check")
               .length;
-            if (selfCheckCount >= MAX_SELF_CHECKS) {
-              result = {
-                action: "proceed_to_doc_stage",
-                message: `已完成 ${MAX_SELF_CHECKS} 次自检，已达上限。请直接进入第三阶段整理需求文档，不再追问。`,
-              };
-            } else {
-              result = {
-                action: "continue",
-                checkNumber: selfCheckCount + 1,
-                remainingChecks: MAX_SELF_CHECKS - selfCheckCount - 1,
-                message: "请执行自检：检查已有答案是否有矛盾、组合后是否产生新疑问、模板章节是否有缺口。有则继续追问；无则进入第三阶段。",
-              };
-            }
+            result = {
+              round: selfCheckCount + 1,
+              max_rounds: MAX_SELF_CHECKS,
+            };
           } else {
             result = executeTool(toolName, toolArgs, toolContext);
           }

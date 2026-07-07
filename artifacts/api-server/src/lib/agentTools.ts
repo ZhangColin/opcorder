@@ -306,7 +306,7 @@ export function buildAgentTools(context?: ToolExecutionContext): LLMTool[] {
     type: "function",
     function: {
       name: "perform_self_check",
-      description: "在完成一轮追问后，调用此工具触发自检。系统会检查本次是第几次自检，并告诉你是继续检查（若还有余量）还是直接进入第三阶段整理需求文档（若已达上限）。每次完成一轮追问后调用，不要跳过。",
+      description: "纯计数器。仅在以下情况调用：你做完自检、发现了问题、已向用户追问、用户已回答之后，调用此接口记录本轮。返回 {round, max_rounds}。round < max_rounds 时回去再做一轮自检；round >= max_rounds 时立即停止追问，强制进入下一阶段。如果自检无问题，不调用此接口，直接进入下一阶段。",
       parameters: {
         type: "object",
         properties: {},
