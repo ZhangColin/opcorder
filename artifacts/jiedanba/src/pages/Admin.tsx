@@ -6503,116 +6503,108 @@ function AgentConfigEditPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Main edit area */}
-        <div className="xl:col-span-2 space-y-5">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
-            {/* Enabled toggle */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-700">启用状态</p>
-                <p className="text-xs text-slate-400 mt-0.5">停用后该场景的智能体不会被调用</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEnabled(v => !v)}
-                className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${enabled ? "bg-primary" : "bg-slate-300"}`}
-              >
-                <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${enabled ? "translate-x-6" : "translate-x-0"}`} />
-              </button>
-            </div>
-
-            {/* Prompt editor — split pane */}
+      <div className="space-y-4">
+        {/* Main edit card */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+          {/* Enabled toggle */}
+          <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">系统提示词</label>
-              <div className="grid grid-cols-2 gap-0 border border-slate-200 rounded-xl overflow-hidden" style={{ minHeight: 420 }}>
-                {/* Left: raw source */}
-                <div className="flex flex-col border-r border-slate-200">
-                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">源码</div>
-                  <textarea
-                    value={prompt}
-                    onChange={e => setPrompt(e.target.value)}
-                    placeholder="在此粘贴或输入 Markdown 源码…"
-                    className="flex-1 w-full px-4 py-3 text-sm font-mono text-slate-700 bg-white outline-none resize-none leading-relaxed"
-                    style={{ minHeight: 380 }}
-                  />
-                </div>
-                {/* Right: rendered preview */}
-                <div className="flex flex-col">
-                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">预览</div>
-                  <div className="flex-1 px-5 py-4 overflow-y-auto">
-                    {prompt ? (
-                      <MarkdownContent content={prompt} />
-                    ) : (
-                      <p className="text-sm text-slate-300 italic">预览将在此显示…</p>
-                    )}
-                  </div>
+              <p className="text-sm font-bold text-slate-700">启用状态</p>
+              <p className="text-xs text-slate-400 mt-0.5">停用后该场景的智能体不会被调用</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEnabled(v => !v)}
+              className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${enabled ? "bg-primary" : "bg-slate-300"}`}
+            >
+              <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${enabled ? "translate-x-6" : "translate-x-0"}`} />
+            </button>
+          </div>
+
+          {/* Prompt editor — split pane */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">系统提示词</label>
+            <div className="grid grid-cols-2 gap-0 border border-slate-200 rounded-xl overflow-hidden" style={{ minHeight: 460 }}>
+              <div className="flex flex-col border-r border-slate-200">
+                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">源码</div>
+                <textarea
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  placeholder="在此粘贴或输入 Markdown 源码…"
+                  className="flex-1 w-full px-4 py-3 text-sm font-mono text-slate-700 bg-white outline-none resize-none leading-relaxed"
+                  style={{ minHeight: 420 }}
+                />
+              </div>
+              <div className="flex flex-col">
+                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">预览</div>
+                <div className="flex-1 px-5 py-4 overflow-y-auto">
+                  {prompt ? (
+                    <MarkdownContent content={prompt} />
+                  ) : (
+                    <p className="text-sm text-slate-300 italic">预览将在此显示…</p>
+                  )}
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-1.5">{prompt.length} 字符</p>
             </div>
+            <p className="text-xs text-slate-400 mt-1.5">{prompt.length} 字符</p>
+          </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                保存配置
-              </button>
-              <button
-                onClick={onBack}
-                className="px-5 py-2.5 border border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
-              >
-                返回
-              </button>
-            </div>
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              保存配置
+            </button>
+            <button
+              onClick={onBack}
+              className="px-5 py-2.5 border border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+            >
+              返回
+            </button>
           </div>
         </div>
 
-        {/* Version history sidebar */}
-        <div className="xl:col-span-1">
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowVersions(v => !v)}
-              className="w-full flex items-center justify-between px-5 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              <span className="flex items-center gap-2"><History size={15} className="text-slate-400" /> 历史版本</span>
-              <ChevronDown size={14} className={`text-slate-400 transition-transform ${showVersions ? "rotate-180" : ""}`} />
-            </button>
-            {showVersions && (
-              <div className="border-t border-slate-100">
-                {versions.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-8">暂无历史版本</p>
-                ) : (
-                  <div className="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
-                    {versions.map((v) => (
-                      <div key={v.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-slate-600">
-                              {new Date(v.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                            <p className="text-xs text-slate-400 mt-0.5 truncate">{v.systemPrompt.slice(0, 60)}…</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => restoreVersion(v)}
-                            className="shrink-0 text-xs text-primary hover:underline font-semibold"
-                          >
-                            还原
-                          </button>
-                        </div>
+        {/* Version history — collapsible below */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowVersions(v => !v)}
+            className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <span className="flex items-center gap-2"><History size={14} className="text-slate-400" /> 历史版本</span>
+            <ChevronDown size={14} className={`text-slate-400 transition-transform ${showVersions ? "rotate-180" : ""}`} />
+          </button>
+          {showVersions && (
+            <div className="border-t border-slate-100">
+              {versions.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-6">暂无历史版本</p>
+              ) : (
+                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
+                  {versions.map((v) => (
+                    <div key={v.id} className="px-5 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0 flex items-center gap-4">
+                        <span className="text-xs font-semibold text-slate-600 shrink-0">
+                          {new Date(v.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        <span className="text-xs text-slate-400 truncate">{v.systemPrompt.slice(0, 80)}…</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                      <button
+                        type="button"
+                        onClick={() => restoreVersion(v)}
+                        className="shrink-0 text-xs text-primary hover:underline font-semibold"
+                      >
+                        还原
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
