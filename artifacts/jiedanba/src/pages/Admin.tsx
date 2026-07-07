@@ -6448,6 +6448,7 @@ function AgentConfigEditPage({
   const [enabled, setEnabled] = useState(cfg.isEnabled);
   const [saving, setSaving] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [previewVersion, setPreviewVersion] = useState<PromptVersion | null>(null);
 
   const { data: versions = [], refetch: refetchVersions } = useQuery<PromptVersion[]>({
     queryKey: ["agent-config-versions", cfg.id],
@@ -6575,7 +6576,7 @@ function AgentConfigEditPage({
             onClick={() => setShowVersions(v => !v)}
             className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
           >
-            <span className="flex items-center gap-2"><History size={14} className="text-slate-400" /> 历史版本</span>
+            <span className="flex items-center gap-2"><History size={14} className="text-slate-400" /> 历史版本{versions.length > 0 && <span className="text-xs font-normal text-slate-400">（{versions.length} 个）</span>}</span>
             <ChevronDown size={14} className={`text-slate-400 transition-transform ${showVersions ? "rotate-180" : ""}`} />
           </button>
           {showVersions && (
@@ -6583,30 +6584,97 @@ function AgentConfigEditPage({
               {versions.length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-6">暂无历史版本</p>
               ) : (
-                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
-                  {versions.map((v) => (
-                    <div key={v.id} className="px-5 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0 flex items-center gap-4">
-                        <span className="text-xs font-semibold text-slate-600 shrink-0">
-                          {new Date(v.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                        <span className="text-xs text-slate-400 truncate">{v.systemPrompt.slice(0, 80)}…</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => restoreVersion(v)}
-                        className="shrink-0 text-xs text-primary hover:underline font-semibold"
+                <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+                  {versions.map((v, idx) => {
+                    const versionNo = versions.length - idx;
+                    return (
+                      <div
+                        key={v.id}
+                        className="px-5 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-4 cursor-pointer"
+                        onClick={() => setPreviewVersion(v)}
                       >
-                        还原
-                      </button>
-                    </div>
-                  ))}
+                        <span className="shrink-0 w-8 text-center text-[11px] font-bold text-white bg-slate-400 rounded-full py-0.5">V{versionNo}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-slate-400">被替换于 {new Date(v.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">{v.systemPrompt.slice(0, 80)}{v.systemPrompt.length > 80 ? "…" : ""}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); restoreVersion(v); }}
+                          className="shrink-0 text-xs text-primary hover:underline font-semibold"
+                        >
+                          还原
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Version preview modal */}
+      {previewVersion && (() => {
+        const versionNo = versions.length - versions.findIndex(v => v.id === previewVersion.id);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+            onClick={() => setPreviewVersion(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
+              style={{ maxHeight: "90vh" }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-white bg-slate-400 rounded-full px-3 py-0.5">V{versionNo}</span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">历史版本 V{versionNo}</p>
+                    <p className="text-xs text-slate-400">被替换于 {new Date(previewVersion.createdAt).toLocaleString("zh-CN")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { restoreVersion(previewVersion); setPreviewVersion(null); }}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors"
+                  >
+                    还原此版本
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewVersion(null)}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+              {/* Modal body — split pane */}
+              <div className="flex-1 grid grid-cols-2 overflow-hidden">
+                <div className="flex flex-col border-r border-slate-100 overflow-hidden">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">源码</div>
+                  <textarea
+                    readOnly
+                    value={previewVersion.systemPrompt}
+                    className="flex-1 w-full px-4 py-3 text-sm font-mono text-slate-700 bg-white outline-none resize-none leading-relaxed overflow-y-auto"
+                  />
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">预览</div>
+                  <div className="flex-1 px-6 py-4 overflow-y-auto">
+                    <MarkdownContent content={previewVersion.systemPrompt} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
