@@ -2,6 +2,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
+import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
 import { useEffect } from "react";
 import {
   Bold, Italic, Strikethrough, Code, Quote,
@@ -38,6 +39,10 @@ export function MarkdownEditor({
         transformPastedText: true,
         transformCopiedText: false,
       }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content: value,
     onUpdate({ editor }) {

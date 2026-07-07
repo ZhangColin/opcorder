@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X, Send, Bot, Loader2, Sparkles, RotateCcw, Wrench, CheckCircle2, ClipboardList, ChevronRight } from "lucide-react";
 import { getValidAccessToken } from "@/lib/auth";
+import { MarkdownContent } from "@/components/MarkdownContent";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -644,7 +645,7 @@ export function AgentChatPanel({ open, onClose, sessionKey, demandId, onFillForm
               <div className="flex-1 min-w-0 space-y-2">
                 {msg.content && (
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 leading-relaxed shadow-sm">
-                    <FormattedContent content={msg.content} />
+                    <MarkdownContent content={msg.content} className="prose-table:w-full prose-td:border prose-td:border-slate-200 prose-td:px-2 prose-td:py-1 prose-th:border prose-th:border-slate-200 prose-th:px-2 prose-th:py-1 prose-th:bg-slate-100" />
                     {msg.isStreaming && msg.content && (
                       <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
                     )}
