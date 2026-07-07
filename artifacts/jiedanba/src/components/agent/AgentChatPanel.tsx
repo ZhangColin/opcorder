@@ -1119,4 +1119,5 @@ const TOOL_LABEL_MAP: Record<string, string> = {
   suggest_milestones: "里程碑方案",
   estimate_budget: "预算参考",
   validate_timeline: "时间合理性验证",
+  perform_self_check: "需求自检中…",
 };
