@@ -53,6 +53,7 @@ import {
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Video,
   Pin, Paperclip, ScrollText, Layers, PackageCheck, ChevronLeft,
+  History, ArrowLeft,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -6421,51 +6422,58 @@ type AgentConfig = {
   createdAt: string;
 };
 
-function AgentConfigManagement() {
+type PromptVersion = {
+  id: number;
+  agentConfigId: number;
+  systemPrompt: string;
+  remark: string | null;
+  createdAt: string;
+};
+
+/* ─── Agent Config Edit Page ─── */
+function AgentConfigEditPage({
+  cfg,
+  onBack,
+  onSaved,
+}: {
+  cfg: AgentConfig;
+  onBack: () => void;
+  onSaved: (updated: AgentConfig) => void;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  const { data: configs, isLoading } = useQuery<AgentConfig[]>({
-    queryKey: ["admin-agent-configs"],
-    queryFn: () => adminGet("/api/admin/agent-configs"),
+  const [prompt, setPrompt] = useState(cfg.systemPrompt);
+  const [enabled, setEnabled] = useState(cfg.isEnabled);
+  const [promptMode, setPromptMode] = useState<"edit" | "preview">("edit");
+  const [saving, setSaving] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+
+  const { data: versions = [], refetch: refetchVersions } = useQuery<PromptVersion[]>({
+    queryKey: ["agent-config-versions", cfg.id],
+    queryFn: () => adminGet(`/api/admin/agent-configs/${cfg.id}/versions`),
+    enabled: showVersions,
   });
 
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editPrompt, setEditPrompt] = useState("");
-  const [editEnabled, setEditEnabled] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const startEdit = (cfg: AgentConfig) => {
-    setEditingId(cfg.id);
-    setEditPrompt(cfg.systemPrompt);
-    setEditEnabled(cfg.isEnabled);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditPrompt("");
-  };
-
-  const saveEdit = async (id: number) => {
+  const handleSave = async () => {
     setSaving(true);
     try {
       const token = getAccessToken();
-      const res = await fetch(`${BASE}/api/admin/agent-configs/${id}`, {
+      const res = await fetch(`${BASE}/api/admin/agent-configs/${cfg.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ systemPrompt: editPrompt, isEnabled: editEnabled }),
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ systemPrompt: prompt, isEnabled: enabled }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `保存失败 (${res.status})`);
       }
+      const updated: AgentConfig = await res.json();
       await qc.invalidateQueries({ queryKey: ["admin-agent-configs"] });
+      if (showVersions) refetchVersions();
       toast({ title: "保存成功", description: "智能体配置已更新" });
-      setEditingId(null);
+      onSaved(updated);
     } catch (err: any) {
       toast({ title: "保存失败", description: err?.message ?? "请稍后重试", variant: "destructive" });
     } finally {
@@ -6473,107 +6481,251 @@ function AgentConfigManagement() {
     }
   };
 
+  const restoreVersion = (v: PromptVersion) => {
+    setPrompt(v.systemPrompt);
+    setPromptMode("edit");
+    toast({ title: "已还原", description: `已载入 ${new Date(v.createdAt).toLocaleString("zh-CN")} 的版本` });
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-500 hover:text-blue-700 font-semibold transition-colors">
+          <ArrowLeft size={16} /> 返回场景列表
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Bot size={15} className="text-primary" />
+          </div>
+          <div>
+            <span className="font-extrabold text-slate-900">{cfg.name}</span>
+            <span className="ml-2 text-xs text-slate-400">{cfg.sceneKey}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Main edit area */}
+        <div className="xl:col-span-2 space-y-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+            {/* Enabled toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-700">启用状态</p>
+                <p className="text-xs text-slate-400 mt-0.5">停用后该场景的智能体不会被调用</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnabled(v => !v)}
+                className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${enabled ? "bg-primary" : "bg-slate-300"}`}
+              >
+                <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${enabled ? "translate-x-6" : "translate-x-0"}`} />
+              </button>
+            </div>
+
+            {/* Prompt editor */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-bold text-slate-700">系统提示词</label>
+                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPromptMode("edit")}
+                    className={`px-3 py-1 rounded-md transition-colors ${promptMode === "edit" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPromptMode("preview")}
+                    className={`px-3 py-1 rounded-md transition-colors ${promptMode === "preview" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  >
+                    预览
+                  </button>
+                </div>
+              </div>
+
+              {promptMode === "edit" ? (
+                <MarkdownEditor
+                  value={prompt}
+                  onChange={setPrompt}
+                  placeholder="输入系统提示词…"
+                  minHeight="400px"
+                />
+              ) : (
+                <div className="border border-slate-200 rounded-xl bg-white p-5 min-h-[400px]">
+                  {prompt ? (
+                    <MarkdownContent content={prompt} />
+                  ) : (
+                    <p className="text-sm text-slate-400">暂无内容</p>
+                  )}
+                </div>
+              )}
+              <p className="text-xs text-slate-400 mt-1.5">{prompt.length} 字符</p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                保存配置
+              </button>
+              <button
+                onClick={onBack}
+                className="px-5 py-2.5 border border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+              >
+                返回
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Version history sidebar */}
+        <div className="xl:col-span-1">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowVersions(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <span className="flex items-center gap-2"><History size={15} className="text-slate-400" /> 历史版本</span>
+              <ChevronDown size={14} className={`text-slate-400 transition-transform ${showVersions ? "rotate-180" : ""}`} />
+            </button>
+            {showVersions && (
+              <div className="border-t border-slate-100">
+                {versions.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-8">暂无历史版本</p>
+                ) : (
+                  <div className="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
+                    {versions.map((v) => (
+                      <div key={v.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-slate-600">
+                              {new Date(v.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5 truncate">{v.systemPrompt.slice(0, 60)}…</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => restoreVersion(v)}
+                            className="shrink-0 text-xs text-primary hover:underline font-semibold"
+                          >
+                            还原
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentConfigManagement() {
+  const qc = useQueryClient();
+
+  const { data: configs, isLoading } = useQuery<AgentConfig[]>({
+    queryKey: ["admin-agent-configs"],
+    queryFn: () => adminGet("/api/admin/agent-configs"),
+  });
+
+  const [editingCfg, setEditingCfg] = useState<AgentConfig | null>(null);
+
+  if (editingCfg !== null) {
+    return (
+      <div className="space-y-8">
+        <LlmProviderManagement />
+        <div className="border-t border-slate-100 pt-6">
+          <AgentConfigEditPage
+            cfg={editingCfg}
+            onBack={() => setEditingCfg(null)}
+            onSaved={(updated) => setEditingCfg(updated)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <LlmProviderManagement />
 
       <div className="border-t border-slate-100 pt-6">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-base font-extrabold text-slate-900">智能体场景配置</h3>
-            <p className="text-sm text-slate-500 mt-0.5">管理各场景的系统提示词与启用状态</p>
+        <div className="mb-5">
+          <h3 className="text-base font-extrabold text-slate-900">智能体场景配置</h3>
+          <p className="text-sm text-slate-500 mt-0.5">管理各场景的系统提示词与启用状态</p>
+        </div>
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={24} className="animate-spin text-slate-400" />
           </div>
-        </div>
+        )}
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-slate-400" />
-        </div>
-      )}
-
-      {!isLoading && (!configs || configs.length === 0) && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
-          <Bot size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">暂无智能体配置</p>
-        </div>
-      )}
-
-      {configs?.map((cfg) => (
-        <div key={cfg.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Bot size={18} className="text-primary" />
-              </div>
-              <div>
-                <p className="font-extrabold text-slate-900">{cfg.name}</p>
-                <p className="text-xs text-slate-400">{cfg.sceneKey} · {cfg.model}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${cfg.isEnabled ? "bg-green-50 text-green-600" : "bg-slate-100 text-slate-400"}`}>
-                {cfg.isEnabled ? "已启用" : "已停用"}
-              </span>
-              {editingId !== cfg.id && (
-                <button
-                  onClick={() => startEdit(cfg)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors"
-                >
-                  <Edit2 size={12} /> 编辑
-                </button>
-              )}
-            </div>
+        {!isLoading && (!configs || configs.length === 0) && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+            <Bot size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">暂无智能体配置</p>
           </div>
+        )}
 
-          {editingId === cfg.id ? (
-            <div className="px-6 py-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-bold text-slate-700">启用状态</label>
-                <button
-                  type="button"
-                  onClick={() => setEditEnabled(prev => !prev)}
-                  className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${editEnabled ? "bg-primary" : "bg-slate-300"}`}
-                >
-                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${editEnabled ? "translate-x-6" : "translate-x-0"}`} />
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">系统提示词</label>
-                <textarea
-                  value={editPrompt}
-                  onChange={(e) => setEditPrompt(e.target.value)}
-                  rows={18}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y"
-                />
-                <p className="text-xs text-slate-400 mt-1">{editPrompt.length} 字符</p>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => saveEdit(cfg.id)}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  保存配置
-                </button>
-                <button
-                  onClick={cancelEdit}
-                  className="px-5 py-2.5 border border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="px-6 py-4">
-              <p className="text-xs font-bold text-slate-500 mb-2">系统提示词预览</p>
-              <pre className="text-xs text-slate-600 bg-slate-50 rounded-xl px-4 py-3 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto border border-slate-100">
-                {cfg.systemPrompt}
-              </pre>
-            </div>
-          )}
-        </div>
-      ))}
+        {configs && configs.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+                <tr>
+                  <th className="px-5 py-3">场景名称</th>
+                  <th className="px-5 py-3">Scene Key</th>
+                  <th className="px-5 py-3">模型</th>
+                  <th className="px-5 py-3">状态</th>
+                  <th className="px-5 py-3">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {configs.map(cfg => (
+                  <tr key={cfg.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Bot size={14} className="text-primary" />
+                        </div>
+                        <span className="font-bold text-sm text-slate-800">{cfg.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <code className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">{cfg.sceneKey}</code>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-slate-500">{cfg.model}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${cfg.isEnabled ? "bg-green-50 text-green-600" : "bg-slate-100 text-slate-400"}`}>
+                        {cfg.isEnabled ? "已启用" : "已停用"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={() => setEditingCfg(cfg)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors"
+                      >
+                        <Edit2 size={12} /> 编辑
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

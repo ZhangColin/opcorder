@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, agentConfigsTable, agentConversationsTable, llmProvidersTable, catCategoriesTable, catTagsTable, v2ClientDemandsTable, v2ClientDemandVersionsTable, opcProfilesTable, usersTable } from "@workspace/db";
+import { db, agentConfigsTable, agentConfigPromptVersionsTable, agentConversationsTable, llmProvidersTable, catCategoriesTable, catTagsTable, v2ClientDemandsTable, v2ClientDemandVersionsTable, opcProfilesTable, usersTable } from "@workspace/db";
 import { eq, and, asc, desc, or, ilike } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
@@ -921,9 +921,10 @@ router.get("/admin/agent-configs/:id", requireAdmin, async (req: Request, res: R
 router.put("/admin/agent-configs/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { systemPrompt, isEnabled } = req.body as {
+    const { systemPrompt, isEnabled, remark } = req.body as {
       systemPrompt?: string;
       isEnabled?: boolean;
+      remark?: string;
     };
 
     const updateData: Record<string, unknown> = {};
@@ -932,6 +933,18 @@ router.put("/admin/agent-configs/:id", requireAdmin, async (req: Request, res: R
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: "没有可更新的字段" });
+    }
+
+    // Snapshot current prompt as a version before overwriting
+    if (systemPrompt !== undefined) {
+      const [current] = await db.select().from(agentConfigsTable).where(eq(agentConfigsTable.id, id)).limit(1);
+      if (current) {
+        await db.insert(agentConfigPromptVersionsTable).values({
+          agentConfigId: id,
+          systemPrompt: current.systemPrompt,
+          remark: remark ?? null,
+        });
+      }
     }
 
     const [updated] = await db
@@ -948,6 +961,22 @@ router.put("/admin/agent-configs/:id", requireAdmin, async (req: Request, res: R
   } catch (error) {
     logger.error({ error }, "Failed to update agent config");
     return res.status(500).json({ error: "更新智能体配置失败" });
+  }
+});
+
+router.get("/admin/agent-configs/:id/versions", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const versions = await db
+      .select()
+      .from(agentConfigPromptVersionsTable)
+      .where(eq(agentConfigPromptVersionsTable.agentConfigId, id))
+      .orderBy(desc(agentConfigPromptVersionsTable.createdAt))
+      .limit(50);
+    return res.json(versions);
+  } catch (error) {
+    logger.error({ error }, "Failed to list agent config versions");
+    return res.status(500).json({ error: "获取版本历史失败" });
   }
 });
 

@@ -2877,5 +2877,20 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 040f: added registration_end_at, announcement_title, announcement_details to contests");
   });
 
+  // Migration 041a: create agent_config_prompt_versions table
+  await once("041a", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS agent_config_prompt_versions (
+        id              SERIAL PRIMARY KEY,
+        agent_config_id INTEGER NOT NULL REFERENCES agent_configs(id) ON DELETE CASCADE,
+        system_prompt   TEXT NOT NULL,
+        remark          VARCHAR(200),
+        created_at      TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS agent_config_prompt_versions_config_idx ON agent_config_prompt_versions(agent_config_id)`);
+    logger.info("Migration 041a: created agent_config_prompt_versions table");
+  });
+
   logger.info("Startup data migrations complete.");
 }

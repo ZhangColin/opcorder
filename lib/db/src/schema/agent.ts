@@ -29,6 +29,16 @@ export const agentConfigsTable = pgTable("agent_configs", {
 
 export type AgentConfig = typeof agentConfigsTable.$inferSelect;
 
+export const agentConfigPromptVersionsTable = pgTable("agent_config_prompt_versions", {
+  id: serial("id").primaryKey(),
+  agentConfigId: integer("agent_config_id").notNull().references(() => agentConfigsTable.id, { onDelete: "cascade" }),
+  systemPrompt: text("system_prompt").notNull(),
+  remark: varchar("remark", { length: 200 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type AgentConfigPromptVersion = typeof agentConfigPromptVersionsTable.$inferSelect;
+
 export const agentConversationsTable = pgTable("agent_conversations", {
   id: serial("id").primaryKey(),
   demandId: integer("demand_id").references(() => demandsTable.id, { onDelete: "set null" }),
