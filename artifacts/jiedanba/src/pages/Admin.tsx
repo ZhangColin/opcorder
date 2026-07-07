@@ -6522,15 +6522,33 @@ function AgentConfigEditPage({
               </button>
             </div>
 
-            {/* Prompt editor */}
+            {/* Prompt editor — split pane */}
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">系统提示词</label>
-              <MarkdownEditor
-                value={prompt}
-                onChange={setPrompt}
-                placeholder="输入系统提示词…"
-                minHeight="400px"
-              />
+              <div className="grid grid-cols-2 gap-0 border border-slate-200 rounded-xl overflow-hidden" style={{ minHeight: 420 }}>
+                {/* Left: raw source */}
+                <div className="flex flex-col border-r border-slate-200">
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">源码</div>
+                  <textarea
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    placeholder="在此粘贴或输入 Markdown 源码…"
+                    className="flex-1 w-full px-4 py-3 text-sm font-mono text-slate-700 bg-white outline-none resize-none leading-relaxed"
+                    style={{ minHeight: 380 }}
+                  />
+                </div>
+                {/* Right: rendered preview */}
+                <div className="flex flex-col">
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">预览</div>
+                  <div className="flex-1 px-5 py-4 overflow-y-auto">
+                    {prompt ? (
+                      <MarkdownContent content={prompt} />
+                    ) : (
+                      <p className="text-sm text-slate-300 italic">预览将在此显示…</p>
+                    )}
+                  </div>
+                </div>
+              </div>
               <p className="text-xs text-slate-400 mt-1.5">{prompt.length} 字符</p>
             </div>
 
