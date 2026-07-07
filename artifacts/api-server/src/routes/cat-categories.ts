@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, catCategoriesTable, catTagsTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
-import { eq, asc, and, inArray } from "drizzle-orm";
+import { db, catCategoriesTable, catTagsTable, catCategoryTemplateVersionsTable, quoteDimensionsTable, quoteTiersTable } from "@workspace/db";
+import { eq, asc, and, inArray, desc } from "drizzle-orm";
 import { requireAdmin } from "../middleware/adminAuth";
 import { logger } from "../lib/logger";
 
@@ -109,6 +109,18 @@ router.put("/admin/cat-categories/:id", requireAdmin, async (req: Request, res: 
       return res.status(400).json({ error: "没有可更新的字段" });
     }
 
+    // Snapshot old docTemplate before overwriting
+    if (docTemplate !== undefined) {
+      const [existing] = await db.select({ docTemplate: catCategoriesTable.docTemplate })
+        .from(catCategoriesTable).where(eq(catCategoriesTable.id, id)).limit(1);
+      if (existing?.docTemplate) {
+        await db.insert(catCategoryTemplateVersionsTable).values({
+          catCategoryId: id,
+          docTemplate: existing.docTemplate,
+        });
+      }
+    }
+
     const [updated] = await db
       .update(catCategoriesTable)
       .set(updateData)
@@ -120,6 +132,22 @@ router.put("/admin/cat-categories/:id", requireAdmin, async (req: Request, res: 
   } catch (error: any) {
     logger.error({ error }, "Failed to update cat category");
     return res.status(500).json({ error: "更新分类失败" });
+  }
+});
+
+/* ─── Admin: GET template versions for a category ─── */
+router.get("/admin/cat-categories/:id/template-versions", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const versions = await db
+      .select()
+      .from(catCategoryTemplateVersionsTable)
+      .where(eq(catCategoryTemplateVersionsTable.catCategoryId, id))
+      .orderBy(desc(catCategoryTemplateVersionsTable.createdAt));
+    return res.json(versions);
+  } catch (error) {
+    logger.error({ error }, "Failed to list template versions");
+    return res.status(500).json({ error: "获取版本历史失败" });
   }
 });
 

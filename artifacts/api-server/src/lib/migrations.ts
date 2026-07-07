@@ -2892,5 +2892,19 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 041a: created agent_config_prompt_versions table");
   });
 
+  // Migration 042a: create cat_category_template_versions table
+  await once("042a", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS cat_category_template_versions (
+        id               SERIAL PRIMARY KEY,
+        cat_category_id  INTEGER NOT NULL REFERENCES cat_categories(id) ON DELETE CASCADE,
+        doc_template     TEXT NOT NULL,
+        created_at       TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS cat_category_template_versions_cat_idx ON cat_category_template_versions(cat_category_id)`);
+    logger.info("Migration 042a: created cat_category_template_versions table");
+  });
+
   logger.info("Startup data migrations complete.");
 }

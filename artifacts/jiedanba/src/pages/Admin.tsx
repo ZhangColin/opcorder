@@ -7452,22 +7452,36 @@ function CatCategoryManagement() {
   const [tmplCat, setTmplCat] = useState<CatCategory | null>(null);
   const [tmplText, setTmplText] = useState("");
   const [tmplSaving, setTmplSaving] = useState(false);
+  const [showTmplVersions, setShowTmplVersions] = useState(false);
+  const [previewTmplVersion, setPreviewTmplVersion] = useState<{ id: number; docTemplate: string; createdAt: string } | null>(null);
+
+  const { data: tmplVersions = [], refetch: refetchTmplVersions } = useQuery<Array<{ id: number; catCategoryId: number; docTemplate: string; createdAt: string }>>({
+    queryKey: ["cat-template-versions", tmplCat?.id],
+    queryFn: () => adminGet(`/api/admin/cat-categories/${tmplCat!.id}/template-versions`),
+    enabled: !!tmplCat,
+  });
 
   const openTmpl = (cat: CatCategory) => {
     setTmplCat(cat);
     setTmplText(cat.docTemplate ?? "");
+    setShowTmplVersions(false);
+    setPreviewTmplVersion(null);
   };
-  const closeTmpl = () => { setTmplCat(null); setTmplText(""); };
+  const closeTmpl = () => { setTmplCat(null); setTmplText(""); setShowTmplVersions(false); setPreviewTmplVersion(null); };
   const saveTmpl = async () => {
     if (!tmplCat || tmplSaving) return;
     setTmplSaving(true);
     try {
       await adminPut(`/api/admin/cat-categories/${tmplCat.id}`, { docTemplate: tmplText });
       await qc.invalidateQueries({ queryKey: ["admin-cat-categories"] });
+      await refetchTmplVersions();
       toast({ title: "模板已保存" });
-      closeTmpl();
     } catch (err: any) { toast({ title: "保存失败", description: err.message, variant: "destructive" }); }
     finally { setTmplSaving(false); }
+  };
+  const restoreTmplVersion = (v: { docTemplate: string; createdAt: string }) => {
+    setTmplText(v.docTemplate);
+    toast({ title: "已还原", description: `已载入 ${new Date(v.createdAt).toLocaleString("zh-CN")} 的版本` });
   };
 
   const startAdd = () => { setForm({ ...emptyForm }); setEditingId(null); setAddingNew(true); };
@@ -7521,10 +7535,11 @@ function CatCategoryManagement() {
   return (
     <div className="space-y-6">
       {tmplCat && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+        <div className="fixed inset-0 z-50 flex flex-col bg-slate-50">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white flex-shrink-0">
             <div className="flex items-center gap-3">
-              <button onClick={closeTmpl} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors">
+              <button onClick={closeTmpl} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
                 <X size={18} />
               </button>
               <div>
@@ -7534,26 +7549,115 @@ function CatCategoryManagement() {
             </div>
             <div className="flex items-center gap-2">
               <button onClick={saveTmpl} disabled={tmplSaving}
-                className="px-5 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                {tmplSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 {tmplSaving ? "保存中…" : "保存模板"}
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-4xl mx-auto">
-              <MarkdownEditor
-                value={tmplText}
-                onChange={setTmplText}
-                placeholder="在这里编写需求文档模板…"
-              />
+
+          {/* Split-pane editor */}
+          <div className="flex-1 overflow-hidden p-4 flex flex-col gap-4 min-h-0">
+            <div className="flex-1 grid grid-cols-2 gap-0 border border-slate-200 rounded-xl overflow-hidden bg-white min-h-0">
+              <div className="flex flex-col border-r border-slate-200 min-h-0">
+                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">源码</div>
+                <textarea
+                  value={tmplText}
+                  onChange={e => setTmplText(e.target.value)}
+                  placeholder="在这里编写需求文档模板（Markdown 格式）…"
+                  className="flex-1 w-full px-4 py-3 text-sm font-mono text-slate-700 bg-white outline-none resize-none leading-relaxed overflow-y-auto"
+                />
+              </div>
+              <div className="flex flex-col min-h-0">
+                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">预览</div>
+                <div className="flex-1 px-5 py-4 overflow-y-auto">
+                  {tmplText ? <MarkdownContent content={tmplText} /> : <p className="text-sm text-slate-300 italic">预览将在此显示…</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Version history */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowTmplVersions(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <History size={14} className="text-slate-400" />
+                  历史版本{tmplVersions.length > 0 && <span className="text-xs font-normal text-slate-400">（{tmplVersions.length} 个）</span>}
+                </span>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform ${showTmplVersions ? "rotate-180" : ""}`} />
+              </button>
+              {showTmplVersions && (
+                <div className="border-t border-slate-100">
+                  {tmplVersions.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-5">暂无历史版本</p>
+                  ) : (
+                    <div className="divide-y divide-slate-50 max-h-48 overflow-y-auto">
+                      {tmplVersions.map((v, idx) => {
+                        const vNo = tmplVersions.length - idx;
+                        return (
+                          <div key={v.id} className="px-5 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-4 cursor-pointer" onClick={() => setPreviewTmplVersion(v)}>
+                            <span className="shrink-0 w-8 text-center text-[11px] font-bold text-white bg-slate-400 rounded-full py-0.5">V{vNo}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-slate-400">被替换于 {new Date(v.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</p>
+                              <p className="text-xs text-slate-500 truncate mt-0.5">{v.docTemplate.slice(0, 80)}{v.docTemplate.length > 80 ? "…" : ""}</p>
+                            </div>
+                            <button type="button" onClick={e => { e.stopPropagation(); restoreTmplVersion(v); }} className="shrink-0 text-xs text-primary hover:underline font-semibold">还原</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex-shrink-0 px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-            <p className="text-xs text-slate-400">共 {tmplText.length} 个字符</p>
+
+          <div className="flex-shrink-0 px-6 py-2.5 border-t border-slate-100 bg-white flex items-center justify-between">
+            <p className="text-xs text-slate-400">{tmplText.length} 字符</p>
             <p className="text-xs text-slate-400">发单方在提交需求时将看到此模板作为参考</p>
           </div>
         </div>
       )}
+
+      {/* Version preview modal */}
+      {previewTmplVersion && (() => {
+        const vNo = tmplVersions.length - tmplVersions.findIndex(v => v.id === previewTmplVersion.id);
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setPreviewTmplVersion(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style={{ maxHeight: "90vh" }} onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-white bg-slate-400 rounded-full px-3 py-0.5">V{vNo}</span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">历史版本 V{vNo}</p>
+                    <p className="text-xs text-slate-400">被替换于 {new Date(previewTmplVersion.createdAt).toLocaleString("zh-CN")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => { restoreTmplVersion(previewTmplVersion); setPreviewTmplVersion(null); }}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors">
+                    还原此版本
+                  </button>
+                  <button type="button" onClick={() => setPreviewTmplVersion(null)} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
+                </div>
+              </div>
+              <div className="flex-1 grid grid-cols-2 overflow-hidden">
+                <div className="flex flex-col border-r border-slate-100 overflow-hidden">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">源码</div>
+                  <textarea readOnly value={previewTmplVersion.docTemplate} className="flex-1 w-full px-4 py-3 text-sm font-mono text-slate-700 bg-white outline-none resize-none leading-relaxed overflow-y-auto" />
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">预览</div>
+                  <div className="flex-1 px-6 py-4 overflow-y-auto"><MarkdownContent content={previewTmplVersion.docTemplate} /></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <SectionHeader
         title="需求分类管理"

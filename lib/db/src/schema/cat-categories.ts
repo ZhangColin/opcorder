@@ -15,6 +15,14 @@ export const catCategoriesTable = pgTable("cat_categories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const catCategoryTemplateVersionsTable = pgTable("cat_category_template_versions", {
+  id: serial("id").primaryKey(),
+  catCategoryId: integer("cat_category_id").notNull().references(() => catCategoriesTable.id, { onDelete: "cascade" }),
+  docTemplate: text("doc_template").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertCatCategorySchema = createInsertSchema(catCategoriesTable).omit({ id: true, createdAt: true });
 export type InsertCatCategory = z.infer<typeof insertCatCategorySchema>;
 export type CatCategory = typeof catCategoriesTable.$inferSelect;
+export type CatCategoryTemplateVersion = typeof catCategoryTemplateVersionsTable.$inferSelect;
