@@ -685,6 +685,7 @@ ${detailStr}
               round: selfCheckCount + 1,
               max_rounds: MAX_SELF_CHECKS,
             };
+            logger.info({ agentType, round: selfCheckCount + 1, max_rounds: MAX_SELF_CHECKS }, "🔍 perform_self_check triggered");
           } else {
             result = executeTool(toolName, toolArgs, toolContext);
           }
