@@ -6446,7 +6446,6 @@ function AgentConfigEditPage({
 
   const [prompt, setPrompt] = useState(cfg.systemPrompt);
   const [enabled, setEnabled] = useState(cfg.isEnabled);
-  const [promptMode, setPromptMode] = useState<"edit" | "preview">("edit");
   const [saving, setSaving] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
 
@@ -6483,7 +6482,6 @@ function AgentConfigEditPage({
 
   const restoreVersion = (v: PromptVersion) => {
     setPrompt(v.systemPrompt);
-    setPromptMode("edit");
     toast({ title: "已还原", description: `已载入 ${new Date(v.createdAt).toLocaleString("zh-CN")} 的版本` });
   };
 
@@ -6526,42 +6524,13 @@ function AgentConfigEditPage({
 
             {/* Prompt editor */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-bold text-slate-700">系统提示词</label>
-                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setPromptMode("edit")}
-                    className={`px-3 py-1 rounded-md transition-colors ${promptMode === "edit" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                  >
-                    编辑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPromptMode("preview")}
-                    className={`px-3 py-1 rounded-md transition-colors ${promptMode === "preview" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                  >
-                    预览
-                  </button>
-                </div>
-              </div>
-
-              {promptMode === "edit" ? (
-                <MarkdownEditor
-                  value={prompt}
-                  onChange={setPrompt}
-                  placeholder="输入系统提示词…"
-                  minHeight="400px"
-                />
-              ) : (
-                <div className="border border-slate-200 rounded-xl bg-white p-5 min-h-[400px]">
-                  {prompt ? (
-                    <MarkdownContent content={prompt} />
-                  ) : (
-                    <p className="text-sm text-slate-400">暂无内容</p>
-                  )}
-                </div>
-              )}
+              <label className="block text-sm font-bold text-slate-700 mb-2">系统提示词</label>
+              <MarkdownEditor
+                value={prompt}
+                onChange={setPrompt}
+                placeholder="输入系统提示词…"
+                minHeight="400px"
+              />
               <p className="text-xs text-slate-400 mt-1.5">{prompt.length} 字符</p>
             </div>
 
