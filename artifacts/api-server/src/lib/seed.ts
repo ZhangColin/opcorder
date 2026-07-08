@@ -408,14 +408,8 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
-    } else if (!existingAgent.systemPrompt.includes("prompt-version: 3.11")) {
-      // Migrate to v3.11: add explicit follow-up question logic based on answer quality
-      await db
-        .update(agentConfigsTable)
-        .set({ systemPrompt })
-        .where(eq(agentConfigsTable.sceneKey, "demand_analysis"));
-      logger.info("Migrated demand analysis agent system prompt to v3.10");
     }
+    // NOTE: never overwrite existing config — system prompt is managed via backend UI.
   } catch (err) {
     logger.warn({ err }, "Agent config seed skipped");
   }
@@ -686,13 +680,8 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
-    } else if (!existingV2Demand.systemPrompt.includes("prompt-version: 2.15")) {
-      await db
-        .update(agentConfigsTable)
-        .set({ systemPrompt: v2DemandPrompt })
-        .where(eq(agentConfigsTable.sceneKey, "v2_demand_analysis"));
-      logger.info("Updated v2_demand_analysis agent config to v2.15");
     }
+    // NOTE: never overwrite existing config — system prompt is managed via backend UI.
   } catch (err) {
     logger.warn({ err }, "v2_demand_analysis agent config seed skipped");
   }
@@ -750,13 +739,8 @@ split_suggestion_json:[{"title":"子需求标题（30字内）","detail":"完整
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_outsource_split agent config");
-    } else if (!existingSplit.systemPrompt.includes("prompt-version: 1.0")) {
-      await db
-        .update(agentConfigsTable)
-        .set({ systemPrompt: splitPrompt })
-        .where(eq(agentConfigsTable.sceneKey, "v2_outsource_split"));
-      logger.info("Updated v2_outsource_split agent config");
     }
+    // NOTE: never overwrite existing config — system prompt is managed via backend UI.
   } catch (err) {
     logger.warn({ err }, "v2_outsource_split agent config seed skipped");
   }
@@ -1105,10 +1089,8 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
-    } else if (!existingOpcDemand.systemPrompt.includes("prompt-version: 2.3")) {
-      await db.execute(sql`UPDATE agent_configs SET system_prompt = ${opcDemandPrompt} WHERE scene_key = 'v2_admin_opc_demand'`);
-      logger.info("Updated v2_admin_opc_demand agent config to v2.3");
     }
+    // NOTE: never overwrite existing config — system prompt is managed via backend UI.
   } catch (err) {
     logger.warn({ err }, "v2_admin_opc_demand agent config seed skipped");
   }
@@ -1165,10 +1147,8 @@ form_suggestion_json:{"milestones":[{"name":"阶段名称","deadline":"YYYY-MM-D
         model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_milestone agent config");
-    } else if (!existingMilestone.systemPrompt.includes("prompt-version: 1.0")) {
-      await db.execute(sql`UPDATE agent_configs SET system_prompt = ${milestonePrompt} WHERE scene_key = 'v2_admin_opc_milestone'`);
-      logger.info("Updated v2_admin_opc_milestone agent config");
     }
+    // NOTE: never overwrite existing config — system prompt is managed via backend UI.
   } catch (err) {
     logger.warn({ err }, "v2_admin_opc_milestone agent config seed skipped");
   }
