@@ -826,7 +826,7 @@ ${detailStr}
     await saveAndEndOnError("超过最大工具调用次数，请重试");
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    logger.error({ error }, "Agent chat error");
+    logger.error({ err: error, errMsg, errStack: error instanceof Error ? error.stack : undefined }, "Agent chat error");
     const userMsg = "服务暂时繁忙，请稍后重试";
     try {
       await saveAndEndOnError(userMsg);
