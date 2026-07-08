@@ -23,7 +23,6 @@ export const agentConfigsTable = pgTable("agent_configs", {
   sceneKey: varchar("scene_key", { length: 50 }).notNull().unique(),
   systemPrompt: text("system_prompt").notNull(),
   isEnabled: boolean("is_enabled").notNull().default(true),
-  model: varchar("model", { length: 100 }).notNull().default("deepseek-chat"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

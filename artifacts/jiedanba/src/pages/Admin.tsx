@@ -6418,7 +6418,6 @@ type AgentConfig = {
   sceneKey: string;
   systemPrompt: string;
   isEnabled: boolean;
-  model: string;
   sortOrder: number;
   createdAt: string;
 };
@@ -6757,7 +6756,6 @@ function AgentConfigManagement() {
                   <th className="px-3 py-3 w-16 text-center">顺序</th>
                   <th className="px-5 py-3">场景名称</th>
                   <th className="px-5 py-3">Scene Key</th>
-                  <th className="px-5 py-3">模型</th>
                   <th className="px-5 py-3">状态</th>
                   <th className="px-5 py-3">操作</th>
                 </tr>
@@ -6797,7 +6795,6 @@ function AgentConfigManagement() {
                     <td className="px-5 py-3">
                       <code className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">{cfg.sceneKey}</code>
                     </td>
-                    <td className="px-5 py-3 text-xs text-slate-500">{cfg.model}</td>
                     <td className="px-5 py-3">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${cfg.isEnabled ? "bg-green-50 text-green-600" : "bg-slate-100 text-slate-400"}`}>
                         {cfg.isEnabled ? "已启用" : "已停用"}

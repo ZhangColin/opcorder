@@ -2919,5 +2919,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 042a: created cat_category_template_versions table");
   });
 
+  // Migration 043a: drop unused model column from agent_configs
+  await once("043a", true, async () => {
+    await db.execute(sql`ALTER TABLE agent_configs DROP COLUMN IF EXISTS model`);
+    logger.info("Migration 043a: dropped model column from agent_configs");
+  });
+
   logger.info("Startup data migrations complete.");
 }

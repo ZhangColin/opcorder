@@ -405,7 +405,6 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         sceneKey: "demand_analysis",
         systemPrompt,
         isEnabled: true,
-        model: "deepseek-chat",
       });
       logger.info("Seeded demand analysis agent config");
     }
@@ -677,7 +676,6 @@ form_suggestion_json:{"title":"需求标题（若无变化保持原文）","type
         sceneKey: "v2_demand_analysis",
         systemPrompt: v2DemandPrompt,
         isEnabled: true,
-        model: "deepseek-chat",
       });
       logger.info("Seeded v2_demand_analysis agent config");
     }
@@ -736,7 +734,6 @@ split_suggestion_json:[{"title":"子需求标题（30字内）","detail":"完整
         sceneKey: "v2_outsource_split",
         systemPrompt: splitPrompt,
         isEnabled: true,
-        model: "deepseek-chat",
       });
       logger.info("Seeded v2_outsource_split agent config");
     }
@@ -1086,7 +1083,6 @@ form_suggestion_json:{"title":"需求标题（50字内）","type":"需求类型�
         sceneKey: "v2_admin_opc_demand",
         systemPrompt: opcDemandPrompt,
         isEnabled: true,
-        model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_demand agent config");
     }
@@ -1144,7 +1140,6 @@ form_suggestion_json:{"milestones":[{"name":"阶段名称","deadline":"YYYY-MM-D
         sceneKey: "v2_admin_opc_milestone",
         systemPrompt: milestonePrompt,
         isEnabled: true,
-        model: "deepseek-chat",
       });
       logger.info("Seeded v2_admin_opc_milestone agent config");
     }
