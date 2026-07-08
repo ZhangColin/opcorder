@@ -147,10 +147,47 @@ async function persistMessages(
     .where(eq(agentConversationsTable.id, conversationId));
 }
 
+/**
+ * Removes orphaned tool_calls/tool messages from persisted history.
+ * An assistant message with tool_calls is "orphaned" when one or more of its
+ * tool_call_ids has no corresponding tool-result message (e.g. the server
+ * crashed mid-iteration and saved an incomplete intermediateMessages batch).
+ * Sending such a sequence to any LLM provider results in a 400 error.
+ */
+function sanitizeHistory(history: PersistedMessage[]): PersistedMessage[] {
+  // Pass 1: collect every tool_call_id that has a persisted tool-result.
+  const respondedIds = new Set<string>(
+    history
+      .filter(m => m.role === "tool" && m.toolCallId)
+      .map(m => m.toolCallId!)
+  );
+
+  // Pass 2: determine which assistant tool_calls messages are fully responded.
+  const validToolCallIds = new Set<string>();
+  for (const m of history) {
+    if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+      if (m.toolCalls.every(tc => respondedIds.has(tc.id))) {
+        m.toolCalls.forEach(tc => validToolCallIds.add(tc.id));
+      }
+    }
+  }
+
+  // Pass 3: keep only messages that are part of a complete call/result pair.
+  return history.filter(m => {
+    if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+      return m.toolCalls.every(tc => respondedIds.has(tc.id));
+    }
+    if (m.role === "tool") {
+      return m.toolCallId && validToolCallIds.has(m.toolCallId);
+    }
+    return true;
+  });
+}
+
 function buildLLMMessages(systemPrompt: string, history: PersistedMessage[], userMessage: string): LLMMessage[] {
   const messages: LLMMessage[] = [{ role: "system", content: systemPrompt }];
 
-  for (const m of history) {
+  for (const m of sanitizeHistory(history)) {
     if (m.role === "system") continue;
 
     if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
@@ -559,19 +596,12 @@ ${detailStr}
       if (response.toolCalls && response.toolCalls.length > 0) {
         const toolCalls: ToolCall[] = response.toolCalls;
 
-        intermediateMessages.push({
-          role: "assistant",
-          content: response.content ?? null,
-          toolCalls: toolCalls.map((tc) => ({
-            id: tc.id,
-            type: tc.type,
-            function: { name: tc.function.name, arguments: tc.function.arguments },
-          })),
-          ...(response.reasoningContent !== undefined ? { reasoningContent: response.reasoningContent } : {}),
-          timestamp: new Date().toISOString(),
-        });
-
+        // NOTE: we do NOT push the assistant message to intermediateMessages here.
+        // It is pushed atomically together with all tool results AFTER the loop,
+        // so that a mid-loop exception cannot leave an orphaned assistant(tool_calls)
+        // entry in the history without matching tool-result entries.
         const toolResultLLMMessages: LLMMessage[] = [];
+        const toolResultPersistedMessages: PersistedMessage[] = [];
 
         for (const toolCall of toolCalls) {
           const toolName = toolCall.function.name;
@@ -721,13 +751,30 @@ ${detailStr}
             name: toolName,
           });
 
-          intermediateMessages.push({
+          toolResultPersistedMessages.push({
             role: "tool",
             content: resultStr,
             toolCallId: toolCall.id,
             toolName,
             timestamp: new Date().toISOString(),
           });
+        }
+
+        // All tools finished successfully — now atomically commit assistant + results
+        // to intermediateMessages so history never contains a partial batch.
+        intermediateMessages.push({
+          role: "assistant",
+          content: response.content ?? null,
+          toolCalls: toolCalls.map((tc) => ({
+            id: tc.id,
+            type: tc.type,
+            function: { name: tc.function.name, arguments: tc.function.arguments },
+          })),
+          ...(response.reasoningContent !== undefined ? { reasoningContent: response.reasoningContent } : {}),
+          timestamp: new Date().toISOString(),
+        });
+        for (const r of toolResultPersistedMessages) {
+          intermediateMessages.push(r);
         }
 
         llmMessages.push({
