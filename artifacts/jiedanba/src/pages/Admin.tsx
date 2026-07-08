@@ -6419,6 +6419,7 @@ type AgentConfig = {
   systemPrompt: string;
   isEnabled: boolean;
   model: string;
+  sortOrder: number;
   createdAt: string;
 };
 
@@ -6688,6 +6689,27 @@ function AgentConfigManagement() {
   });
 
   const [editingCfg, setEditingCfg] = useState<AgentConfig | null>(null);
+  const [movingId, setMovingId] = useState<number | null>(null);
+
+  const moveConfig = async (idx: number, dir: "up" | "down") => {
+    if (!configs) return;
+    const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= configs.length) return;
+    const a = configs[idx];
+    const b = configs[swapIdx];
+    setMovingId(a.id);
+    try {
+      await Promise.all([
+        adminPut(`/api/admin/agent-configs/${a.id}`, { sortOrder: b.sortOrder }),
+        adminPut(`/api/admin/agent-configs/${b.id}`, { sortOrder: a.sortOrder }),
+      ]);
+      await qc.invalidateQueries({ queryKey: ["admin-agent-configs"] });
+    } catch {
+      toast({ title: "排序更新失败", variant: "destructive" });
+    } finally {
+      setMovingId(null);
+    }
+  };
 
   if (editingCfg !== null) {
     return (
@@ -6711,7 +6733,7 @@ function AgentConfigManagement() {
       <div className="border-t border-slate-100 pt-6">
         <div className="mb-5">
           <h3 className="text-base font-extrabold text-slate-900">智能体场景配置</h3>
-          <p className="text-sm text-slate-500 mt-0.5">管理各场景的系统提示词与启用状态</p>
+          <p className="text-sm text-slate-500 mt-0.5">管理各场景的系统提示词与启用状态，拖动箭头可调整顺序</p>
         </div>
 
         {isLoading && (
@@ -6732,6 +6754,7 @@ function AgentConfigManagement() {
             <table className="w-full text-left border-collapse">
               <thead className="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
                 <tr>
+                  <th className="px-3 py-3 w-16 text-center">顺序</th>
                   <th className="px-5 py-3">场景名称</th>
                   <th className="px-5 py-3">Scene Key</th>
                   <th className="px-5 py-3">模型</th>
@@ -6740,8 +6763,29 @@ function AgentConfigManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {configs.map(cfg => (
+                {configs.map((cfg, idx) => (
                   <tr key={cfg.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-3 py-3">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <button
+                          disabled={idx === 0 || movingId !== null}
+                          onClick={() => moveConfig(idx, "up")}
+                          className="p-1 rounded text-slate-300 hover:text-primary hover:bg-primary/5 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          title="上移"
+                        >
+                          {movingId === cfg.id ? <Loader2 size={12} className="animate-spin" /> : <ChevronUp size={12} />}
+                        </button>
+                        <span className="text-[10px] font-bold text-slate-400">{idx + 1}</span>
+                        <button
+                          disabled={idx === configs.length - 1 || movingId !== null}
+                          onClick={() => moveConfig(idx, "down")}
+                          className="p-1 rounded text-slate-300 hover:text-primary hover:bg-primary/5 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          title="下移"
+                        >
+                          <ChevronDown size={12} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">

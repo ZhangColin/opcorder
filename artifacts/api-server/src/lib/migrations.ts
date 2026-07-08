@@ -2892,6 +2892,19 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 041a: created agent_config_prompt_versions table");
   });
 
+  // Migration 042b: add sort_order to agent_configs
+  await once("042b", true, async () => {
+    await db.execute(sql`ALTER TABLE agent_configs ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`);
+    // Initialise sort_order to match insertion order (id order)
+    await db.execute(sql`
+      UPDATE agent_configs ac
+      SET sort_order = sub.rn
+      FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM agent_configs) sub
+      WHERE ac.id = sub.id
+    `);
+    logger.info("Migration 042b: added sort_order to agent_configs");
+  });
+
   // Migration 042a: create cat_category_template_versions table
   await once("042a", true, async () => {
     await db.execute(sql`

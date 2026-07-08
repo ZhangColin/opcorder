@@ -882,7 +882,7 @@ router.post("/agent/demand-analysis/bind-demand", requireAuth, async (req: Reque
 
 router.get("/admin/agent-configs", requireAdmin, async (_req: Request, res: Response) => {
   try {
-    const configs = await db.select().from(agentConfigsTable);
+    const configs = await db.select().from(agentConfigsTable).orderBy(asc(agentConfigsTable.sortOrder), asc(agentConfigsTable.id));
     return res.json(configs);
   } catch (error) {
     logger.error({ error }, "Failed to list agent configs");
@@ -913,15 +913,17 @@ router.get("/admin/agent-configs/:id", requireAdmin, async (req: Request, res: R
 router.put("/admin/agent-configs/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { systemPrompt, isEnabled, remark } = req.body as {
+    const { systemPrompt, isEnabled, remark, sortOrder } = req.body as {
       systemPrompt?: string;
       isEnabled?: boolean;
       remark?: string;
+      sortOrder?: number;
     };
 
     const updateData: Record<string, unknown> = {};
     if (systemPrompt !== undefined) updateData.systemPrompt = systemPrompt;
     if (isEnabled !== undefined) updateData.isEnabled = isEnabled;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: "没有可更新的字段" });
