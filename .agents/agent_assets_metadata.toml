@@ -72,3 +72,9 @@ id = "oOZu_k3epjs2-pgSQijPX"
 uri = "file://.local/docs/database-schema-zh.md"
 type = "text"
 title = "接单吧 数据库表结构说明（中文）"
+
+[[outputs]]
+id = "V4deoYGlU8_QJoYlPRfLa"
+uri = "file://docs/agent-system-design.md"
+type = "text"
+title = "接单吧智能体系统技术文档"
