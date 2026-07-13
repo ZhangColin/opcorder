@@ -94,15 +94,23 @@ type FormField = {
   options: string[];
 };
 
-/* ─── Beijing time helpers ───────────────────────── */
+/* ─── Naive Beijing time display ─────────────────── */
 
-function utcToBeijingLocal(isoString: string): string {
-  const bjMs = new Date(isoString).getTime() + 8 * 60 * 60 * 1000;
-  return new Date(bjMs).toISOString().slice(0, 16);
+function naiveDatetimeLocal(isoString: string): string {
+  // Stored value is already Beijing time (no real UTC conversion in DB).
+  // Use UTC accessors to read back the exact numbers that were stored.
+  const d = new Date(isoString);
+  const Y = d.getUTCFullYear();
+  const M = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const D = String(d.getUTCDate()).padStart(2, "0");
+  const h = String(d.getUTCHours()).padStart(2, "0");
+  const m = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${Y}-${M}-${D}T${h}:${m}`;
 }
 
-function beijingLocalToUtc(localValue: string): string {
-  return new Date(localValue + ":00+08:00").toISOString();
+function naiveDisplay(isoString: string, opts?: Intl.DateTimeFormatOptions): string {
+  // Always use timeZone:"UTC" so the browser doesn't shift the stored value.
+  return new Date(isoString).toLocaleString("zh-CN", { timeZone: "UTC", ...opts });
 }
 
 /* ─── Status display helper ──────────────────────── */
@@ -181,10 +189,10 @@ function ActivityFormModal({
   const [description, setDescription] = useState(activity?.description ?? "");
   const [location, setLocation] = useState(activity?.location ?? "");
   const [startTime, setStartTime] = useState(
-    activity?.startTime ? utcToBeijingLocal(activity.startTime) : ""
+    activity?.startTime ? naiveDatetimeLocal(activity.startTime) : ""
   );
   const [endTime, setEndTime] = useState(
-    activity?.endTime ? utcToBeijingLocal(activity.endTime) : ""
+    activity?.endTime ? naiveDatetimeLocal(activity.endTime) : ""
   );
   const [fields, setFields] = useState<FormField[]>(
     activity?.fields?.map(f => ({
@@ -235,8 +243,8 @@ function ActivityFormModal({
         title: title.trim(),
         description: description.trim() || undefined,
         location: location.trim() || undefined,
-        startTime: startTime ? beijingLocalToUtc(startTime) : undefined,
-        endTime: endTime ? beijingLocalToUtc(endTime) : undefined,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
         fields: fields.map((f, i) => ({ ...f, sortOrder: i })),
       };
 
@@ -815,8 +823,8 @@ export default function AdminActivities() {
                   <p className="font-semibold text-blue-900 text-sm">{act.title}</p>
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-500">
-                  {act.startTime && <div>{new Date(act.startTime).toLocaleDateString("zh-CN")}</div>}
-                  {act.endTime && <div>{new Date(act.endTime).toLocaleDateString("zh-CN")}</div>}
+                  {act.startTime && <div>{naiveDisplay(act.startTime, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>}
+                  {act.endTime && <div>{naiveDisplay(act.endTime, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>}
                   {!act.startTime && !act.endTime && "—"}
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">{act.location ?? "—"}</td>
