@@ -94,6 +94,17 @@ type FormField = {
   options: string[];
 };
 
+/* ─── Beijing time helpers ───────────────────────── */
+
+function utcToBeijingLocal(isoString: string): string {
+  const bjMs = new Date(isoString).getTime() + 8 * 60 * 60 * 1000;
+  return new Date(bjMs).toISOString().slice(0, 16);
+}
+
+function beijingLocalToUtc(localValue: string): string {
+  return new Date(localValue + ":00+08:00").toISOString();
+}
+
 /* ─── Status display helper ──────────────────────── */
 
 const STATUS_MAP = {
@@ -170,10 +181,10 @@ function ActivityFormModal({
   const [description, setDescription] = useState(activity?.description ?? "");
   const [location, setLocation] = useState(activity?.location ?? "");
   const [startTime, setStartTime] = useState(
-    activity?.startTime ? new Date(activity.startTime).toISOString().slice(0, 16) : ""
+    activity?.startTime ? utcToBeijingLocal(activity.startTime) : ""
   );
   const [endTime, setEndTime] = useState(
-    activity?.endTime ? new Date(activity.endTime).toISOString().slice(0, 16) : ""
+    activity?.endTime ? utcToBeijingLocal(activity.endTime) : ""
   );
   const [fields, setFields] = useState<FormField[]>(
     activity?.fields?.map(f => ({
@@ -224,8 +235,8 @@ function ActivityFormModal({
         title: title.trim(),
         description: description.trim() || undefined,
         location: location.trim() || undefined,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
+        startTime: startTime ? beijingLocalToUtc(startTime) : undefined,
+        endTime: endTime ? beijingLocalToUtc(endTime) : undefined,
         fields: fields.map((f, i) => ({ ...f, sortOrder: i })),
       };
 
