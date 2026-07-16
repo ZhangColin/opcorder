@@ -53,7 +53,7 @@ import {
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Video,
   Pin, Paperclip, ScrollText, Layers, PackageCheck, ChevronLeft,
-  History, ArrowLeft,
+  History, ArrowLeft, Building2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
