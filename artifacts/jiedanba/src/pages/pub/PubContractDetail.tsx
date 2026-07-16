@@ -24,6 +24,8 @@ interface Contract {
   publisherRejectedReason: string | null;
   createdAt: string;
   updatedAt: string;
+  invoiceType: string | null;
+  taxRate: string | null;
 }
 
 interface Demand {
@@ -85,7 +87,6 @@ export default function PubContractDetail() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [acting, setActing] = useState(false);
-  const [contractCfg, setContractCfg] = useState<{ invoiceType: string; taxRate: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -112,15 +113,6 @@ export default function PubContractDetail() {
 
   useEffect(() => { if (contractId > 0) load(); }, [contractId]);
 
-  useEffect(() => {
-    fetch(`${STORAGE_BASE}/api/platform-contract-config`)
-      .then(r => r.json())
-      .then((data: Array<{ partyType: string; invoiceType: string; taxRate: string }>) => {
-        const pub = data.find(d => d.partyType === "publisher");
-        if (pub) setContractCfg({ invoiceType: pub.invoiceType, taxRate: pub.taxRate });
-      })
-      .catch(() => {});
-  }, []);
 
   const handleConfirm = async () => {
     setActing(true);
@@ -240,19 +232,19 @@ export default function PubContractDetail() {
         )}
 
         {/* ── 发票与税率（只读） ── */}
-        {contractCfg && (
+        {(contract.invoiceType || contract.taxRate) && (
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
             <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
-              <FileCheck size={14} className="text-slate-400" /> 合同条款（运营设定）
+              <FileCheck size={14} className="text-slate-400" /> 发票信息（运营设定，只读）
             </h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
               <div>
                 <p className="text-xs text-slate-400 mb-0.5">发票类型</p>
-                <p className="text-sm font-semibold text-slate-700">{contractCfg.invoiceType || "—"}</p>
+                <p className="text-sm font-semibold text-slate-700">{contract.invoiceType || "—"}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-400 mb-0.5">税率</p>
-                <p className="text-sm font-semibold text-slate-700">{contractCfg.taxRate ? `${contractCfg.taxRate}%` : "—"}</p>
+                <p className="text-sm font-semibold text-slate-700">{contract.taxRate ? `${contract.taxRate}%` : "—"}</p>
               </div>
             </div>
           </div>

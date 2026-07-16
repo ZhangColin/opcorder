@@ -1,6 +1,6 @@
 import {
   pgTable, pgEnum, serial, integer, text, varchar,
-  timestamp, index,
+  timestamp, index, numeric,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { v2ClientDemandsTable } from "./v2-client-demands";
@@ -37,6 +37,8 @@ export const v2ContractsTable = pgTable("v2_contracts", {
   signedBy: integer("signed_by").references(() => usersTable.id),
   finalizedBy: integer("finalized_by").references(() => usersTable.id),
   finalizedAt: timestamp("finalized_at"),
+  invoiceType: varchar("invoice_type", { length: 20 }).default("普通发票"),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [

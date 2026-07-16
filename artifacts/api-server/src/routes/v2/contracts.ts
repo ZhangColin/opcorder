@@ -52,6 +52,8 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
         createdAt: v2ContractsTable.createdAt,
         updatedAt: v2ContractsTable.updatedAt,
         demandTitle: v2ClientDemandsTable.title,
+        invoiceType: v2ContractsTable.invoiceType,
+        taxRate: v2ContractsTable.taxRate,
       })
       .from(v2ContractsTable)
       .leftJoin(v2ClientDemandsTable, eq(v2ContractsTable.clientDemandId, v2ClientDemandsTable.id))
@@ -88,6 +90,8 @@ router.get("/contracts/:id", requireAuth, async (req: Request, res: Response) =>
         createdAt: v2ContractsTable.createdAt,
         updatedAt: v2ContractsTable.updatedAt,
         demandTitle: v2ClientDemandsTable.title,
+        invoiceType: v2ContractsTable.invoiceType,
+        taxRate: v2ContractsTable.taxRate,
       })
       .from(v2ContractsTable)
       .leftJoin(v2ClientDemandsTable, eq(v2ContractsTable.clientDemandId, v2ClientDemandsTable.id))
@@ -140,6 +144,25 @@ router.post("/contracts", requireAdmin, async (req: Request, res: Response) => {
     return res.status(201).json(created);
   } catch (err) {
     logger.error({ err }, "POST /v2/contracts failed");
+    return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.patch("/contracts/:id/invoice", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
+    if (!contract) return res.status(404).json({ error: "合同不存在" });
+    const { invoiceType, taxRate } = req.body as { invoiceType?: string; taxRate?: number };
+    if (!invoiceType) return res.status(400).json({ error: "发票类型必填" });
+    if (taxRate === undefined || taxRate === null) return res.status(400).json({ error: "税率必填" });
+    const [updated] = await db.update(v2ContractsTable)
+      .set({ invoiceType, taxRate: String(taxRate), updatedAt: new Date() })
+      .where(eq(v2ContractsTable.id, id))
+      .returning();
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "PATCH /v2/contracts/:id/invoice failed");
     return res.status(500).json({ error: "服务器错误" });
   }
 });

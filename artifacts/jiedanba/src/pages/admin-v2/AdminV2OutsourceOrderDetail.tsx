@@ -49,6 +49,8 @@ interface ContractDetail {
   content: string | null;
   signedFileUrl: string | null;
   opcConfirmedAt?: string | null;
+  invoiceType: string | null;
+  taxRate: string | null;
 }
 
 interface SettlementPlan {
@@ -189,6 +191,11 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
   const [editingContract, setEditingContract] = useState(false);
   const [contractEditContent, setContractEditContent] = useState("");
   const [contractActing, setContractActing] = useState(false);
+
+  /* Contract invoice editing */
+  const [editingInvoice, setEditingInvoice] = useState(false);
+  const [invoiceTypeEdit, setInvoiceTypeEdit] = useState("");
+  const [taxRateEdit, setTaxRateEdit] = useState("");
 
   /* Settlement plan inline forms */
   const [showAddSettlement, setShowAddSettlement] = useState(false);
@@ -347,6 +354,22 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
       setContractEditContent("");
     } catch (err: any) {
       toast({ title: "创建失败", description: err.message, variant: "destructive" });
+    } finally {
+      setContractActing(false);
+    }
+  };
+
+  const handleSaveInvoice = async () => {
+    if (!contract) return;
+    if (!invoiceTypeEdit) { toast({ title: "发票类型必填", variant: "destructive" }); return; }
+    setContractActing(true);
+    try {
+      const updated = await v2Patch<ContractDetail>(`/contracts/${contract.id}/invoice`, { invoiceType: invoiceTypeEdit, taxRate: parseFloat(taxRateEdit) || 0 });
+      toast({ title: "发票信息已保存" });
+      setContract(updated);
+      setEditingInvoice(false);
+    } catch (err: any) {
+      toast({ title: "保存失败", description: err.message, variant: "destructive" });
     } finally {
       setContractActing(false);
     }
@@ -813,6 +836,58 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                               className="mt-2 text-xs text-primary hover:underline disabled:opacity-50">
                               点击创建合同草稿
                             </button>
+                          </div>
+                        )}
+                        {/* 发票信息 */}
+                        {contract && (
+                          <div className="mt-4 border-t border-slate-100 pt-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">发票信息</p>
+                              {!editingInvoice && (
+                                <button
+                                  onClick={() => { setInvoiceTypeEdit(contract.invoiceType || "普通发票"); setTaxRateEdit(contract.taxRate ?? "0"); setEditingInvoice(true); }}
+                                  className="text-xs text-primary hover:underline"
+                                >编辑</button>
+                              )}
+                            </div>
+                            {!editingInvoice ? (
+                              <div className="grid grid-cols-2 gap-x-6">
+                                <div>
+                                  <p className="text-xs text-slate-400 mb-0.5">发票类型 <span className="text-red-400">*</span></p>
+                                  <p className="text-sm font-semibold text-slate-700">{contract.invoiceType || <span className="italic text-slate-400">未设置</span>}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-400 mb-0.5">税率 <span className="text-red-400">*</span></p>
+                                  <p className="text-sm font-semibold text-slate-700">{contract.taxRate != null ? `${contract.taxRate}%` : <span className="italic text-slate-400">未设置</span>}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs font-bold text-slate-600 mb-1 block">发票类型 <span className="text-red-500">*</span></label>
+                                    <select value={invoiceTypeEdit} onChange={e => setInvoiceTypeEdit(e.target.value)}
+                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                                      <option value="普通发票">普通发票</option>
+                                      <option value="专用发票">增值税专用发票</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs font-bold text-slate-600 mb-1 block">税率（%）<span className="text-red-500">*</span></label>
+                                    <input type="number" min={0} max={100} step={0.01} value={taxRateEdit}
+                                      onChange={e => setTaxRateEdit(e.target.value)} placeholder="如：6"
+                                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <button onClick={() => setEditingInvoice(false)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                                  <button onClick={handleSaveInvoice} disabled={contractActing}
+                                    className="px-3 py-1.5 text-xs bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
+                                    {contractActing ? "保存中…" : "保存"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </>

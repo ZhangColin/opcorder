@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign, Edit2, Send, ChevronDown, ChevronUp, Zap, Calendar, User } from "lucide-react";
+import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign, Edit2, Send, ChevronDown, ChevronUp, Zap, Calendar, User, Receipt } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
@@ -25,6 +25,8 @@ interface Contract {
   publisherRejectedReason: string | null;
   createdAt: string;
   updatedAt: string;
+  invoiceType: string | null;
+  taxRate: string | null;
 }
 
 interface Demand {
@@ -128,6 +130,10 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   const [planAmount, setPlanAmount] = useState("");
   const [planDueDate, setPlanDueDate] = useState("");
 
+  const [editingInvoice, setEditingInvoice] = useState(false);
+  const [invoiceTypeEdit, setInvoiceTypeEdit] = useState("");
+  const [taxRateEdit, setTaxRateEdit] = useState("");
+
   const load = async () => {
     setLoading(true);
     try {
@@ -164,6 +170,14 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
     } finally {
       setActing(false);
     }
+  };
+
+  const handleSaveInvoice = async () => {
+    if (!invoiceTypeEdit) { toast({ title: "发票类型必填", variant: "destructive" }); return; }
+    await act(async () => {
+      await v2Patch(`/contracts/${id}/invoice`, { invoiceType: invoiceTypeEdit, taxRate: parseFloat(taxRateEdit) || 0 });
+      setEditingInvoice(false);
+    }, "发票信息已保存");
   };
 
   // 保存正文（不改状态）
@@ -317,6 +331,64 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
           </div>
         )}
 
+
+        {/* ── 发票信息 ── */}
+        <Section title="发票信息" icon={Receipt}>
+          {!editingInvoice ? (
+            <div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 mb-4">
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">发票类型 <span className="text-red-400">*</span></p>
+                  <p className="text-sm font-semibold text-slate-700">{contract.invoiceType || <span className="text-slate-400 italic">未设置</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">税率 <span className="text-red-400">*</span></p>
+                  <p className="text-sm font-semibold text-slate-700">{contract.taxRate != null ? `${contract.taxRate}%` : <span className="text-slate-400 italic">未设置</span>}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setInvoiceTypeEdit(contract.invoiceType || "普通发票"); setTaxRateEdit(contract.taxRate ?? "0"); setEditingInvoice(true); }}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-xl px-3 py-1.5 transition-colors"
+              >
+                <Edit2 size={12} /> 编辑发票信息
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">发票类型 <span className="text-red-500">*</span></label>
+                <select
+                  value={invoiceTypeEdit}
+                  onChange={e => setInvoiceTypeEdit(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="普通发票">普通发票</option>
+                  <option value="专用发票">增值税专用发票</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">税率（%）<span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={taxRateEdit}
+                  onChange={e => setTaxRateEdit(e.target.value)}
+                  placeholder="如：6 代表 6%"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setEditingInvoice(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+                <button onClick={handleSaveInvoice} disabled={acting}
+                  className="px-4 py-2 text-sm bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50">
+                  {acting ? "保存中…" : "保存"}
+                </button>
+              </div>
+            </div>
+          )}
+        </Section>
 
         {/* ── 合同内容 ── */}
         {contract.content && !showEditPanel && (

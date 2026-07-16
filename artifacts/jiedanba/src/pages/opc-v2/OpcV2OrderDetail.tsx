@@ -51,6 +51,8 @@ interface ContractDetail {
   signedFileUrl: string | null;
   signedAt: string | null;
   opcConfirmedAt?: string | null;
+  invoiceType: string | null;
+  taxRate: string | null;
 }
 interface TenderInfo {
   id: number;
@@ -160,18 +162,6 @@ export default function OpcV2OrderDetail() {
 
   /* Contract */
   const [confirmingContract, setConfirmingContract] = useState(false);
-  const [contractCfg, setContractCfg] = useState<{ invoiceType: string; taxRate: string } | null>(null);
-
-  useEffect(() => {
-    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-    fetch(`${BASE}/api/platform-contract-config`)
-      .then(r => r.json())
-      .then((data: Array<{ partyType: string; invoiceType: string; taxRate: string }>) => {
-        const opc = data.find(d => d.partyType === "opc");
-        if (opc) setContractCfg({ invoiceType: opc.invoiceType, taxRate: opc.taxRate });
-      })
-      .catch(() => {});
-  }, []);
 
   /* Deliverable form */
   const [showDeliverableForm, setShowDeliverableForm] = useState(false);
@@ -655,17 +645,17 @@ export default function OpcV2OrderDetail() {
               )}
 
               {/* 发票与税率（只读） */}
-              {contractCfg && (
+              {contract && (contract.invoiceType || contract.taxRate) && (
                 <div className="mt-4 px-4 py-3 bg-muted/30 rounded-xl border border-border">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">合同条款（运营设定）</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">发票信息（运营设定，只读）</p>
                   <div className="grid grid-cols-2 gap-x-6">
                     <div>
                       <p className="text-xs text-muted-foreground mb-0.5">发票类型</p>
-                      <p className="text-sm font-semibold text-foreground">{contractCfg.invoiceType || "—"}</p>
+                      <p className="text-sm font-semibold text-foreground">{contract.invoiceType || "—"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground mb-0.5">税率</p>
-                      <p className="text-sm font-semibold text-foreground">{contractCfg.taxRate ? `${contractCfg.taxRate}%` : "—"}</p>
+                      <p className="text-sm font-semibold text-foreground">{contract.taxRate ? `${contract.taxRate}%` : "—"}</p>
                     </div>
                   </div>
                 </div>

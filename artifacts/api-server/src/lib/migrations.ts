@@ -2994,5 +2994,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 044d: created platform_contract_config table");
   });
 
+  await once("045a", true, async () => {
+    await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS invoice_type varchar(20) NOT NULL DEFAULT '普通发票'`);
+    await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS tax_rate numeric(5,2) NOT NULL DEFAULT 0`);
+    logger.info("Migration 045a: added invoice_type and tax_rate to v2_contracts");
+  });
+
   logger.info("Startup data migrations complete.");
 }
