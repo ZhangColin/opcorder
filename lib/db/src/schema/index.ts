@@ -48,3 +48,5 @@ export * from "./contest-questions";
 export * from "./contests";
 export * from "./contest-tracks";
 export * from "./contest-registrations";
+export * from "./platform-info";
+export * from "./platform-contract-config";

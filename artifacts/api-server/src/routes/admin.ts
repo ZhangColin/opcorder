@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -2991,6 +2991,101 @@ router.get("/admin/login-city", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "Route handler error");
     return res.status(500).json({ error: "获取城市分布失败" });
+  }
+});
+
+/* ─── Platform Info ──────────────────────────────── */
+
+router.get("/admin/platform-info", requireAdmin, async (_req, res) => {
+  try {
+    const rows = await db.select().from(platformInfoTable).where(eq(platformInfoTable.id, 1)).limit(1);
+    return res.json({ data: rows[0] ?? null });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch platform info");
+    return res.status(500).json({ error: "获取平台企业信息失败" });
+  }
+});
+
+router.put("/admin/platform-info", requireAdmin, async (req, res) => {
+  try {
+    const { companyName, creditCode, taxId, contactPerson, contactPhone, contactAddress, bankName, bankAccount } = req.body as {
+      companyName?: string; creditCode?: string; taxId?: string;
+      contactPerson?: string; contactPhone?: string; contactAddress?: string;
+      bankName?: string; bankAccount?: string;
+    };
+
+    const payload = {
+      companyName: companyName ?? null,
+      creditCode: creditCode ?? null,
+      taxId: taxId ?? null,
+      contactPerson: contactPerson ?? null,
+      contactPhone: contactPhone ?? null,
+      contactAddress: contactAddress ?? null,
+      bankName: bankName ?? null,
+      bankAccount: bankAccount ?? null,
+      updatedAt: new Date(),
+    };
+
+    const [row] = await db
+      .insert(platformInfoTable)
+      .values({ id: 1, ...payload })
+      .onConflictDoUpdate({ target: platformInfoTable.id, set: payload })
+      .returning();
+    return res.json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to save platform info");
+    return res.status(500).json({ error: "保存平台企业信息失败" });
+  }
+});
+
+/* ─── Platform Contract Config (invoice type + tax rate) ── */
+
+router.get("/admin/platform-contract-config", requireAdmin, async (_req, res) => {
+  try {
+    const rows = await db.select().from(platformContractConfigTable).orderBy(asc(platformContractConfigTable.partyType));
+    return res.json({ data: rows });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch platform contract config");
+    return res.status(500).json({ error: "获取合同配置失败" });
+  }
+});
+
+router.put("/admin/platform-contract-config/:partyType", requireAdmin, async (req, res) => {
+  try {
+    const partyType = req.params.partyType as "publisher" | "opc";
+    if (!["publisher", "opc"].includes(partyType)) {
+      return res.status(400).json({ error: "无效的合同类型" });
+    }
+    const { invoiceType, taxRate } = req.body as { invoiceType: "专用发票" | "普通发票"; taxRate: number };
+
+    if (!["专用发票", "普通发票"].includes(invoiceType)) {
+      return res.status(400).json({ error: "无效的发票类型" });
+    }
+    if (typeof taxRate !== "number" || taxRate < 0 || taxRate > 100) {
+      return res.status(400).json({ error: "税率必须在 0-100 之间" });
+    }
+
+    const payload = { invoiceType, taxRate: String(taxRate), updatedAt: new Date() };
+    const [row] = await db
+      .insert(platformContractConfigTable)
+      .values({ partyType, invoiceType, taxRate: String(taxRate) })
+      .onConflictDoUpdate({ target: platformContractConfigTable.partyType, set: payload })
+      .returning();
+    return res.json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to update platform contract config");
+    return res.status(500).json({ error: "保存合同配置失败" });
+  }
+});
+
+/* GET /api/platform-contract-config — public read for publishers and OPCs */
+router.get("/platform-contract-config", async (_req, res) => {
+  try {
+    const rows = await db.select().from(platformContractConfigTable).orderBy(asc(platformContractConfigTable.partyType));
+    return res.json({ data: rows });
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch platform contract config");
+    return res.status(500).json({ error: "获取合同配置失败" });
   }
 });
 

@@ -14,6 +14,11 @@ export const publisherProfilesTable = pgTable("publisher_profiles", {
   contactEmail: varchar("contact_email", { length: 200 }),
   creditCode: varchar("credit_code", { length: 100 }),
   companyLogo: text("company_logo"),
+  contactPerson: varchar("contact_person", { length: 50 }),
+  contactAddress: varchar("contact_address", { length: 300 }),
+  taxId: varchar("tax_id", { length: 100 }),
+  bankName: varchar("bank_name", { length: 100 }),
+  bankAccount: varchar("bank_account", { length: 50 }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

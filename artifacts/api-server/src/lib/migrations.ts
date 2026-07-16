@@ -2925,5 +2925,74 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 043a: dropped model column from agent_configs");
   });
 
+  // Migration 044a: add contact_person and contact_address to settlement_accounts; rename contact_name → contact_person
+  await once("044a", true, async () => {
+    await db.execute(sql`ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS contact_person VARCHAR(50)`);
+    await db.execute(sql`ALTER TABLE settlement_accounts ADD COLUMN IF NOT EXISTS contact_address VARCHAR(300)`);
+    // Copy existing contact_name into contact_person for backward compatibility
+    await db.execute(sql`UPDATE settlement_accounts SET contact_person = contact_name WHERE contact_person IS NULL AND contact_name IS NOT NULL`);
+    logger.info("Migration 044a: added contact_person, contact_address to settlement_accounts");
+  });
+
+  // Migration 044b: add contact_person, contact_address, tax_id, bank_name, bank_account to publisher_profiles
+  await once("044b", true, async () => {
+    await db.execute(sql`ALTER TABLE publisher_profiles ADD COLUMN IF NOT EXISTS contact_person VARCHAR(50)`);
+    await db.execute(sql`ALTER TABLE publisher_profiles ADD COLUMN IF NOT EXISTS contact_address VARCHAR(300)`);
+    await db.execute(sql`ALTER TABLE publisher_profiles ADD COLUMN IF NOT EXISTS tax_id VARCHAR(100)`);
+    await db.execute(sql`ALTER TABLE publisher_profiles ADD COLUMN IF NOT EXISTS bank_name VARCHAR(100)`);
+    await db.execute(sql`ALTER TABLE publisher_profiles ADD COLUMN IF NOT EXISTS bank_account VARCHAR(50)`);
+    logger.info("Migration 044b: added contact_person, contact_address, tax_id, bank_name, bank_account to publisher_profiles");
+  });
+
+  // Migration 044c: create platform_info table (singleton for platform company info)
+  await once("044c", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS platform_info (
+        id             SERIAL PRIMARY KEY,
+        company_name   VARCHAR(200),
+        credit_code    VARCHAR(50),
+        tax_id         VARCHAR(100),
+        contact_person VARCHAR(50),
+        contact_phone  VARCHAR(20),
+        contact_address VARCHAR(300),
+        bank_name      VARCHAR(100),
+        bank_account   VARCHAR(50),
+        updated_at     TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`INSERT INTO platform_info(id) VALUES (1) ON CONFLICT DO NOTHING`);
+    logger.info("Migration 044c: created platform_info table");
+  });
+
+  // Migration 044d: create platform_contract_config table (invoice type + tax rate per party)
+  await once("044d", true, async () => {
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'contract_party_type') THEN
+          CREATE TYPE contract_party_type AS ENUM ('publisher', 'opc');
+        END IF;
+      END $$
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'invoice_type') THEN
+          CREATE TYPE invoice_type AS ENUM ('专用发票', '普通发票');
+        END IF;
+      END $$
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS platform_contract_config (
+        id           SERIAL PRIMARY KEY,
+        party_type   contract_party_type NOT NULL UNIQUE,
+        invoice_type invoice_type NOT NULL DEFAULT '普通发票',
+        tax_rate     NUMERIC(5,2) NOT NULL DEFAULT 0,
+        updated_at   TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`INSERT INTO platform_contract_config(party_type, invoice_type, tax_rate) VALUES ('publisher', '普通发票', 0) ON CONFLICT DO NOTHING`);
+    await db.execute(sql`INSERT INTO platform_contract_config(party_type, invoice_type, tax_rate) VALUES ('opc', '普通发票', 0) ON CONFLICT DO NOTHING`);
+    logger.info("Migration 044d: created platform_contract_config table");
+  });
+
   logger.info("Startup data migrations complete.");
 }

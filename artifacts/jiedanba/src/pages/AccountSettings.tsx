@@ -210,6 +210,9 @@ interface ProfileForm {
 interface SettlementForm {
   companyName: string;
   creditCode: string;
+  contactPerson: string;
+  contactPhone: string;
+  contactAddress: string;
   businessLicenseUrl: string;
   legalRepIdFrontUrl: string;
   legalRepIdBackUrl: string;
@@ -217,8 +220,6 @@ interface SettlementForm {
   bankBranch: string;
   bankAccount: string;
   accountName: string;
-  contactName: string;
-  contactPhone: string;
 }
 
 const BANK_OPTIONS = [
@@ -235,10 +236,10 @@ const EMPTY_PROFILE: ProfileForm = {
 };
 
 const EMPTY_SETTLEMENT: SettlementForm = {
-  companyName: "", creditCode: "", businessLicenseUrl: "",
-  legalRepIdFrontUrl: "", legalRepIdBackUrl: "",
+  companyName: "", creditCode: "",
+  contactPerson: "", contactPhone: "", contactAddress: "",
+  businessLicenseUrl: "", legalRepIdFrontUrl: "", legalRepIdBackUrl: "",
   bankName: "", bankBranch: "", bankAccount: "", accountName: "",
-  contactName: "", contactPhone: "",
 };
 
 export default function AccountSettings() {
@@ -309,6 +310,9 @@ export default function AccountSettings() {
           const f: SettlementForm = {
             companyName: data.companyName ?? "",
             creditCode: data.creditCode ?? "",
+            contactPerson: data.contactPerson ?? "",
+            contactPhone: data.contactPhone ?? "",
+            contactAddress: data.contactAddress ?? "",
             businessLicenseUrl: data.businessLicenseUrl ?? "",
             legalRepIdFrontUrl: data.legalRepIdFrontUrl ?? "",
             legalRepIdBackUrl: data.legalRepIdBackUrl ?? "",
@@ -316,8 +320,6 @@ export default function AccountSettings() {
             bankBranch: data.bankBranch ?? "",
             bankAccount: data.bankAccount ?? "",
             accountName: data.accountName ?? "",
-            contactName: data.contactName ?? "",
-            contactPhone: data.contactPhone ?? "",
           };
           settlementInitialRef.current = f;
           settlementFormRef.current = f;
@@ -448,6 +450,9 @@ export default function AccountSettings() {
         if (!sf.bankBranch?.trim()) missingFields.push("开户行");
         if (!sf.bankAccount?.trim()) missingFields.push("银行账号");
         if (!sf.accountName?.trim()) missingFields.push("户名");
+        if (!sf.contactPerson?.trim()) missingFields.push("联系人");
+        if (!sf.contactPhone?.trim()) missingFields.push("联系方式");
+        if (!sf.contactAddress?.trim()) missingFields.push("联系地址");
 
         if (missingFields.length > 0) {
           toast({ title: "请填写完整结算信息", description: `缺少：${missingFields.join("、")}`, variant: "destructive" });
@@ -686,8 +691,8 @@ export default function AccountSettings() {
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
                   <Building2 size={12} />企业信息
                 </div>
-                <Field label="企业名称" value={settlementForm.companyName} onChange={v => setS("companyName", v)} placeholder="请输入营业执照上的企业名称" />
-                <Field label="统一社会信用代码" value={settlementForm.creditCode} onChange={v => setS("creditCode", v)} placeholder="18位统一社会信用代码" maxLength={18} />
+                <Field label="企业名称" value={settlementForm.companyName} onChange={v => setS("companyName", v)} placeholder="请输入营业执照上的企业名称" required />
+                <Field label="统一社会信用代码" value={settlementForm.creditCode} onChange={v => setS("creditCode", v)} placeholder="18位统一社会信用代码" maxLength={18} required />
               </div>
 
               {/* Document uploads */}
@@ -756,12 +761,13 @@ export default function AccountSettings() {
               {/* Contact info */}
               <div className="space-y-4">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  <User size={12} />财务联系人
+                  <User size={12} />联系信息
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="联系人姓名" value={settlementForm.contactName} onChange={v => setS("contactName", v)} placeholder="请输入联系人姓名" />
-                  <Field label="联系电话" value={settlementForm.contactPhone} onChange={v => setS("contactPhone", v)} placeholder="请输入联系电话" type="tel" />
+                  <Field label="联系人" value={settlementForm.contactPerson} onChange={v => setS("contactPerson", v)} placeholder="请输入联系人姓名" />
+                  <Field label="联系方式" value={settlementForm.contactPhone} onChange={v => setS("contactPhone", v)} placeholder="请输入联系电话" type="tel" />
                 </div>
+                <Field label="联系地址" value={settlementForm.contactAddress} onChange={v => setS("contactAddress", v)} placeholder="请输入公司联系地址" />
               </div>
 
               {/* Hint */}

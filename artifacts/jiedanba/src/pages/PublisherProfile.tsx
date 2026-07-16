@@ -200,6 +200,11 @@ interface PublisherProfileData {
   contactEmail: string | null;
   creditCode: string | null;
   companyLogo: string | null;
+  contactPerson: string | null;
+  contactAddress: string | null;
+  taxId: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
 }
 
 function InfoRow({ label, icon: Icon, value, placeholder }: {
@@ -241,6 +246,11 @@ export default function PublisherProfile() {
     contactEmail: "",
     creditCode: "",
     companyLogo: "",
+    contactPerson: "",
+    contactAddress: "",
+    taxId: "",
+    bankName: "",
+    bankAccount: "",
   });
   const [logoUploading, setLogoUploading] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -256,17 +266,22 @@ export default function PublisherProfile() {
       .then((data: PublisherProfileData) => {
         setProfile(data);
         setForm({
-          nickname:     data.nickname ?? "",
-          phone:        data.phone ?? "",
-          companyDesc:  data.companyDesc ?? "",
-          location:     data.location ?? "",
-          industry:     data.industry ?? "",
-          teamSize:     data.teamSize ?? "",
-          foundedYear:  data.foundedYear ?? "",
-          website:      data.website ?? "",
-          contactEmail: data.contactEmail ?? "",
-          creditCode:   data.creditCode ?? "",
-          companyLogo:  data.companyLogo ?? "",
+          nickname:       data.nickname ?? "",
+          phone:          data.phone ?? "",
+          companyDesc:    data.companyDesc ?? "",
+          location:       data.location ?? "",
+          industry:       data.industry ?? "",
+          teamSize:       data.teamSize ?? "",
+          foundedYear:    data.foundedYear ?? "",
+          website:        data.website ?? "",
+          contactEmail:   data.contactEmail ?? "",
+          creditCode:     data.creditCode ?? "",
+          companyLogo:    data.companyLogo ?? "",
+          contactPerson:  data.contactPerson ?? "",
+          contactAddress: data.contactAddress ?? "",
+          taxId:          data.taxId ?? "",
+          bankName:       data.bankName ?? "",
+          bankAccount:    data.bankAccount ?? "",
         });
       })
       .finally(() => setLoading(false));
@@ -302,17 +317,22 @@ export default function PublisherProfile() {
   const cancelEdit = () => {
     setEditing(false);
     setForm({
-      nickname:     profile?.nickname ?? "",
-      phone:        profile?.phone ?? "",
-      companyDesc:  profile?.companyDesc ?? "",
-      location:     profile?.location ?? "",
-      industry:     profile?.industry ?? "",
-      teamSize:     profile?.teamSize ?? "",
-      foundedYear:  profile?.foundedYear ?? "",
-      website:      profile?.website ?? "",
-      contactEmail: profile?.contactEmail ?? "",
-      creditCode:   profile?.creditCode ?? "",
-      companyLogo:  profile?.companyLogo ?? "",
+      nickname:       profile?.nickname ?? "",
+      phone:          profile?.phone ?? "",
+      companyDesc:    profile?.companyDesc ?? "",
+      location:       profile?.location ?? "",
+      industry:       profile?.industry ?? "",
+      teamSize:       profile?.teamSize ?? "",
+      foundedYear:    profile?.foundedYear ?? "",
+      website:        profile?.website ?? "",
+      contactEmail:   profile?.contactEmail ?? "",
+      creditCode:     profile?.creditCode ?? "",
+      companyLogo:    profile?.companyLogo ?? "",
+      contactPerson:  profile?.contactPerson ?? "",
+      contactAddress: profile?.contactAddress ?? "",
+      taxId:          profile?.taxId ?? "",
+      bankName:       profile?.bankName ?? "",
+      bankAccount:    profile?.bankAccount ?? "",
     });
   };
 
@@ -439,16 +459,19 @@ export default function PublisherProfile() {
                 {!editing ? (
                   <div>
                     <InfoRow label="公司名称"         icon={Building2} value={profile?.nickname} />
-                    {profile?.creditCode && (
-                      <InfoRow label="统一社会信用代码" icon={Hash}      value={profile.creditCode} />
-                    )}
-                    <InfoRow label="所在地区" icon={MapPin}   value={profile?.location}     placeholder="未填写" />
-                    <InfoRow label="所属行业" icon={Building2} value={profile?.industry}     placeholder="未填写" />
-                    <InfoRow label="团队规模" icon={Users}    value={profile?.teamSize}     placeholder="未填写" />
-                    <InfoRow label="成立年份" icon={Calendar} value={profile?.foundedYear}  placeholder="未填写" />
-                    <InfoRow label="官方网站" icon={Globe}    value={profile?.website}      placeholder="未填写" />
-                    <InfoRow label="联系邮箱" icon={Mail}     value={profile?.contactEmail} placeholder="未填写" />
-                    <InfoRow label="联系电话" icon={Phone}    value={profile?.phone}        placeholder="未填写" />
+                    <InfoRow label="统一社会信用代码" icon={Hash}     value={profile?.creditCode}    placeholder="未填写" />
+                    <InfoRow label="纳税识别号"       icon={Hash}     value={profile?.taxId}         placeholder="未填写" />
+                    <InfoRow label="联系人"           icon={Phone}    value={profile?.contactPerson} placeholder="未填写" />
+                    <InfoRow label="联系电话"         icon={Phone}    value={profile?.phone}         placeholder="未填写" />
+                    <InfoRow label="联系地址"         icon={MapPin}   value={profile?.contactAddress} placeholder="未填写" />
+                    <InfoRow label="开户银行"         icon={Building2} value={profile?.bankName}     placeholder="未填写" />
+                    <InfoRow label="账号"             icon={Hash}     value={profile?.bankAccount}   placeholder="未填写" />
+                    <InfoRow label="所在地区"         icon={MapPin}   value={profile?.location}      placeholder="未填写" />
+                    <InfoRow label="所属行业"         icon={Building2} value={profile?.industry}     placeholder="未填写" />
+                    <InfoRow label="团队规模"         icon={Users}    value={profile?.teamSize}      placeholder="未填写" />
+                    <InfoRow label="成立年份"         icon={Calendar} value={profile?.foundedYear}  placeholder="未填写" />
+                    <InfoRow label="官方网站"         icon={Globe}    value={profile?.website}       placeholder="未填写" />
+                    <InfoRow label="联系邮箱"         icon={Mail}     value={profile?.contactEmail}  placeholder="未填写" />
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -481,14 +504,19 @@ export default function PublisherProfile() {
                     </div>
 
                     {[
-                      { label: "公司名称",         key: "nickname"     as const, placeholder: "公司/机构名称" },
-                      { label: "统一社会信用代码",  key: "creditCode"   as const, placeholder: "如：91440300XXXXXXXXXX" },
-                      { label: "所在地区",          key: "location"     as const, placeholder: "如：深圳市南山区" },
-                      { label: "所属行业",          key: "industry"     as const, placeholder: "如：AI 教育、政府培训" },
-                      { label: "成立年份",          key: "foundedYear"  as const, placeholder: "如：2018" },
-                      { label: "官方网站",          key: "website"      as const, placeholder: "https://example.com" },
-                      { label: "联系邮箱",          key: "contactEmail" as const, placeholder: "contact@company.com" },
-                      { label: "联系电话",          key: "phone"        as const, placeholder: "如：13800138000" },
+                      { label: "公司名称",         key: "nickname"       as const, placeholder: "公司/机构名称" },
+                      { label: "统一社会信用代码",  key: "creditCode"     as const, placeholder: "如：91440300XXXXXXXXXX" },
+                      { label: "纳税识别号",        key: "taxId"          as const, placeholder: "纳税人识别号" },
+                      { label: "联系人",            key: "contactPerson"  as const, placeholder: "联系人姓名" },
+                      { label: "联系电话",          key: "phone"          as const, placeholder: "如：13800138000" },
+                      { label: "联系地址",          key: "contactAddress" as const, placeholder: "公司联系地址" },
+                      { label: "开户银行",          key: "bankName"       as const, placeholder: "如：中国工商银行" },
+                      { label: "账号",              key: "bankAccount"    as const, placeholder: "银行账号" },
+                      { label: "所在地区",          key: "location"       as const, placeholder: "如：深圳市南山区" },
+                      { label: "所属行业",          key: "industry"       as const, placeholder: "如：AI 教育、政府培训" },
+                      { label: "成立年份",          key: "foundedYear"    as const, placeholder: "如：2018" },
+                      { label: "官方网站",          key: "website"        as const, placeholder: "https://example.com" },
+                      { label: "联系邮箱",          key: "contactEmail"   as const, placeholder: "contact@company.com" },
                     ].map(({ label, key, placeholder }) => (
                       <div key={key}>
                         <label className="text-xs font-bold text-slate-600 block mb-1">{label}</label>

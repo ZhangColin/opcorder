@@ -27,12 +27,13 @@ router.put("/opc/settlement-account", requireAuth, async (req, res) => {
   const {
     companyName,
     creditCode,
+    contactPerson,
+    contactPhone,
+    contactAddress,
     bankName,
     bankBranch,
     bankAccount,
     accountName,
-    contactName,
-    contactPhone,
     businessLicenseUrl,
     legalRepIdFrontUrl,
     legalRepIdBackUrl,
@@ -40,12 +41,13 @@ router.put("/opc/settlement-account", requireAuth, async (req, res) => {
   } = req.body as {
     companyName?: string;
     creditCode?: string;
+    contactPerson?: string;
+    contactPhone?: string;
+    contactAddress?: string;
     bankName?: string;
     bankBranch?: string;
     bankAccount?: string;
     accountName?: string;
-    contactName?: string;
-    contactPhone?: string;
     businessLicenseUrl?: string;
     legalRepIdFrontUrl?: string;
     legalRepIdBackUrl?: string;
@@ -61,12 +63,13 @@ router.put("/opc/settlement-account", requireAuth, async (req, res) => {
   const payload = {
     companyName: companyName ?? null,
     creditCode: creditCode ?? null,
+    contactPerson: contactPerson ?? null,
+    contactPhone: contactPhone ?? null,
+    contactAddress: contactAddress ?? null,
     bankName: bankName ?? null,
     bankBranch: bankBranch ?? null,
     bankAccount: bankAccount ?? null,
     accountName: accountName ?? null,
-    contactName: contactName ?? null,
-    contactPhone: contactPhone ?? null,
     businessLicenseUrl: businessLicenseUrl ?? null,
     legalRepIdFrontUrl: legalRepIdFrontUrl ?? null,
     legalRepIdBackUrl: legalRepIdBackUrl ?? null,

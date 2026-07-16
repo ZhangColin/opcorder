@@ -146,7 +146,8 @@ export type Module =
   | "contest_questions" | "contest_activities" | "contest_registrations"
   | "v2_overview"
   | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_deliveries" | "v2_pub_tickets"
-  | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets";
+  | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets"
+  | "platform_info" | "contract_config";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -225,10 +226,12 @@ const NAV: NavItem[] = [
   {
     key: "system_management", icon: SlidersHorizontal, label: "系统管理", permKey: "settings",
     children: [
-      { key: "settings",   label: "站点设置",   moduleKey: "settings"   as Module, icon: SlidersHorizontal },
-      { key: "roles",      label: "角色管理",   moduleKey: "roles"      as Module, icon: KeyRound,   superAdminOnly: true },
-      { key: "adminusers", label: "管理员管理", moduleKey: "adminusers" as Module, icon: UserCog,    superAdminOnly: true },
-      { key: "syslogs",    label: "系统日志",   moduleKey: "syslogs"    as Module, icon: ScrollText, superAdminOnly: true },
+      { key: "platform_info",  label: "企业信息",   moduleKey: "platform_info"  as Module, icon: Building2 },
+      { key: "contract_config",label: "合同配置",   moduleKey: "contract_config"as Module, icon: FileCheck },
+      { key: "settings",       label: "站点设置",   moduleKey: "settings"       as Module, icon: SlidersHorizontal },
+      { key: "roles",          label: "角色管理",   moduleKey: "roles"          as Module, icon: KeyRound,   superAdminOnly: true },
+      { key: "adminusers",     label: "管理员管理", moduleKey: "adminusers"     as Module, icon: UserCog,    superAdminOnly: true },
+      { key: "syslogs",        label: "系统日志",   moduleKey: "syslogs"        as Module, icon: ScrollText, superAdminOnly: true },
     ],
   },
 
@@ -3637,6 +3640,206 @@ function QuoteCardConfigManagement() {
   );
 }
 
+/* ─── Platform Info Management ───────────────────── */
+
+function PlatformInfoManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery<{ data: Record<string, string> | null }>({
+    queryKey: ["admin-platform-info"],
+    queryFn: () => adminGet("/api/admin/platform-info"),
+  });
+
+  const [form, setForm] = useState({
+    companyName: "", creditCode: "", taxId: "",
+    contactPerson: "", contactPhone: "", contactAddress: "",
+    bankName: "", bankAccount: "",
+  });
+
+  useEffect(() => {
+    if (data?.data) {
+      const d = data.data as any;
+      setForm({
+        companyName:    d.companyName    ?? "",
+        creditCode:     d.creditCode     ?? "",
+        taxId:          d.taxId          ?? "",
+        contactPerson:  d.contactPerson  ?? "",
+        contactPhone:   d.contactPhone   ?? "",
+        contactAddress: d.contactAddress ?? "",
+        bankName:       d.bankName       ?? "",
+        bankAccount:    d.bankAccount    ?? "",
+      });
+    }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      fetch(`${BASE}/api/admin/platform-info`, {
+        method: "PUT",
+        headers: getAdminHeaders(),
+        body: JSON.stringify(form),
+      }).then(async r => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "保存失败"); return r.json(); }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-platform-info"] }); toast({ title: "平台企业信息已保存" }); },
+    onError: (e: Error) => toast({ title: "保存失败", description: e.message, variant: "destructive" }),
+  });
+
+  function fi(key: keyof typeof form, label: string, placeholder: string) {
+    return (
+      <div>
+        <label className="block text-sm font-bold text-slate-700 mb-1.5">{label}</label>
+        <input
+          value={form[key]}
+          onChange={e => setForm(v => ({ ...v, [key]: e.target.value }))}
+          placeholder={placeholder}
+          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50 transition"
+        />
+      </div>
+    );
+  }
+
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-primary" size={32} /></div>;
+
+  return (
+    <div className="max-w-2xl">
+      <SectionHeader title="平台企业信息" sub="维护平台方企业的基本工商与银行信息，用于合同、结算等场景" />
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">工商信息</h3>
+          <div className="grid grid-cols-1 gap-4">
+            {fi("companyName",   "公司名称",         "请输入营业执照上的公司名称")}
+            {fi("creditCode",    "统一社会信用代码", "18位统一社会信用代码")}
+            {fi("taxId",         "纳税识别号",       "纳税人识别号")}
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">联系信息</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {fi("contactPerson",  "联系人",   "联系人姓名")}
+            {fi("contactPhone",   "联系方式", "联系电话")}
+          </div>
+          {fi("contactAddress", "联系地址", "公司联系地址")}
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">银行信息</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {fi("bankName",    "开户银行", "如：中国工商银行")}
+            {fi("bankAccount", "账号",     "银行账号")}
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-md shadow-primary/20"
+          >
+            {saveMutation.isPending ? <><Loader2 size={15} className="animate-spin" />保存中…</> : <><Save size={15} />保存</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Platform Contract Config Management ────────── */
+
+function PlatformContractConfigManagement() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data, isLoading } = useQuery<{ data: Array<{ partyType: string; invoiceType: string; taxRate: string }> }>({
+    queryKey: ["admin-platform-contract-config"],
+    queryFn: () => adminGet("/api/admin/platform-contract-config"),
+  });
+
+  const [configs, setConfigs] = useState<Record<string, { invoiceType: string; taxRate: string }>>({
+    publisher: { invoiceType: "普通发票", taxRate: "0" },
+    opc:       { invoiceType: "普通发票", taxRate: "0" },
+  });
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (data?.data) {
+      const next: typeof configs = { ...configs };
+      for (const row of data.data) {
+        next[row.partyType] = { invoiceType: row.invoiceType, taxRate: row.taxRate };
+      }
+      setConfigs(next);
+    }
+  }, [data]);
+
+  async function handleSave(partyType: string) {
+    const cfg = configs[partyType];
+    setSaving(v => ({ ...v, [partyType]: true }));
+    try {
+      const res = await fetch(`${BASE}/api/admin/platform-contract-config/${partyType}`, {
+        method: "PUT",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ invoiceType: cfg.invoiceType, taxRate: parseFloat(cfg.taxRate) || 0 }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "保存失败");
+      qc.invalidateQueries({ queryKey: ["admin-platform-contract-config"] });
+      toast({ title: `${partyType === "publisher" ? "发单方" : "OPC"} 合同配置已保存` });
+    } catch (e: any) {
+      toast({ title: "保存失败", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(v => ({ ...v, [partyType]: false }));
+    }
+  }
+
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-primary" size={32} /></div>;
+
+  const parties: { key: string; label: string }[] = [
+    { key: "publisher", label: "发单方合同" },
+    { key: "opc",       label: "OPC 合同" },
+  ];
+
+  return (
+    <div className="max-w-2xl">
+      <SectionHeader title="合同配置" sub="设置与发单方和 OPC 签约合同中的发票类型和适用税率，发单方和 OPC 只可查看" />
+      <div className="space-y-6">
+        {parties.map(({ key, label }) => (
+          <div key={key} className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-700">{label}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">发票类型 <span className="text-red-500">*</span></label>
+                <select
+                  value={configs[key]?.invoiceType ?? "普通发票"}
+                  onChange={e => setConfigs(v => ({ ...v, [key]: { ...v[key], invoiceType: e.target.value } }))}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50"
+                >
+                  <option value="普通发票">普通发票</option>
+                  <option value="专用发票">专用发票</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">税率（%）<span className="text-red-500">*</span></label>
+                <input
+                  type="number" min={0} max={100} step={0.01}
+                  value={configs[key]?.taxRate ?? "0"}
+                  onChange={e => setConfigs(v => ({ ...v, [key]: { ...v[key], taxRate: e.target.value } }))}
+                  placeholder="如：6"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-slate-50"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => handleSave(key)}
+                disabled={saving[key]}
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {saving[key] ? <><Loader2 size={14} className="animate-spin" />保存中…</> : <><Save size={14} />保存</>}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Site Settings ──────────────────────────────── */
 
 function SiteSettingsManagement() {
@@ -6984,8 +7187,9 @@ function SettlementManagement() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-3 text-sm">
                     <div><p className="text-xs text-slate-400 mb-0.5">企业名称</p><p className="font-medium text-slate-700">{r.companyName || "—"}</p></div>
                     <div><p className="text-xs text-slate-400 mb-0.5">统一社会信用代码</p><p className="font-mono text-slate-700 text-xs">{r.creditCode || "—"}</p></div>
-                    <div><p className="text-xs text-slate-400 mb-0.5">联系人</p><p className="font-medium text-slate-700">{r.contactName || "—"}</p></div>
-                    <div><p className="text-xs text-slate-400 mb-0.5">联系电话</p><p className="font-medium text-slate-700">{r.contactPhone || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">联系人</p><p className="font-medium text-slate-700">{r.contactPerson || r.contactName || "—"}</p></div>
+                    <div><p className="text-xs text-slate-400 mb-0.5">联系方式</p><p className="font-medium text-slate-700">{r.contactPhone || "—"}</p></div>
+                    <div className="col-span-2 md:col-span-3"><p className="text-xs text-slate-400 mb-0.5">联系地址</p><p className="font-medium text-slate-700">{r.contactAddress || "—"}</p></div>
                   </div>
                 </div>
 
@@ -8304,6 +8508,8 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "quotecard":      return <QuoteCardConfigManagement />;
     case "agent":          return <AgentConfigManagement />;
     case "settlement":     return <SettlementManagement />;
+    case "platform_info":  return <PlatformInfoManagement />;
+    case "contract_config":return <PlatformContractConfigManagement />;
     case "settings":       return <SiteSettingsManagement />;
     case "roles":          return <AdminRolesPanel />;
     case "adminusers":     return <AdminUsersPanel />;

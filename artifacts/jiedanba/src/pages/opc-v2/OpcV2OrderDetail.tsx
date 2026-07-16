@@ -160,6 +160,18 @@ export default function OpcV2OrderDetail() {
 
   /* Contract */
   const [confirmingContract, setConfirmingContract] = useState(false);
+  const [contractCfg, setContractCfg] = useState<{ invoiceType: string; taxRate: string } | null>(null);
+
+  useEffect(() => {
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${BASE}/api/platform-contract-config`)
+      .then(r => r.json())
+      .then((data: Array<{ partyType: string; invoiceType: string; taxRate: string }>) => {
+        const opc = data.find(d => d.partyType === "opc");
+        if (opc) setContractCfg({ invoiceType: opc.invoiceType, taxRate: opc.taxRate });
+      })
+      .catch(() => {});
+  }, []);
 
   /* Deliverable form */
   const [showDeliverableForm, setShowDeliverableForm] = useState(false);
@@ -639,6 +651,23 @@ export default function OpcV2OrderDetail() {
               {contract?.content && (
                 <div className="mt-4 bg-muted/40 border border-border rounded-xl px-5 py-4 prose prose-sm max-w-none">
                   <MarkdownContent content={contract.content} />
+                </div>
+              )}
+
+              {/* 发票与税率（只读） */}
+              {contractCfg && (
+                <div className="mt-4 px-4 py-3 bg-muted/30 rounded-xl border border-border">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">合同条款（运营设定）</p>
+                  <div className="grid grid-cols-2 gap-x-6">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">发票类型</p>
+                      <p className="text-sm font-semibold text-foreground">{contractCfg.invoiceType || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">税率</p>
+                      <p className="text-sm font-semibold text-foreground">{contractCfg.taxRate ? `${contractCfg.taxRate}%` : "—"}</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardSection>

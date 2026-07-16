@@ -205,6 +205,11 @@ router.get("/users/:userId/publisher-profile", requireAuth, async (req, res) => 
       contactEmail: profile?.contactEmail ?? null,
       creditCode: profile?.creditCode ?? null,
       companyLogo: profile?.companyLogo ?? null,
+      contactPerson: profile?.contactPerson ?? null,
+      contactAddress: profile?.contactAddress ?? null,
+      taxId: profile?.taxId ?? null,
+      bankName: profile?.bankName ?? null,
+      bankAccount: profile?.bankAccount ?? null,
     });
   } catch {
     return res.status(500).json({ error: "Failed to fetch publisher profile" });
@@ -219,7 +224,7 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
       return res.status(403).json({ error: "无权修改他人资料" });
     }
 
-    const { nickname, phone, companyDesc, location, industry, teamSize, foundedYear, website, contactEmail, creditCode, companyLogo } = req.body;
+    const { nickname, phone, companyDesc, location, industry, teamSize, foundedYear, website, contactEmail, creditCode, companyLogo, contactPerson, contactAddress, taxId, bankName, bankAccount } = req.body;
 
     if (nickname !== undefined || phone !== undefined) {
       const userUpdate: Record<string, unknown> = {};
@@ -229,15 +234,20 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
     }
 
     const profileUpdate: Record<string, unknown> = { updatedAt: new Date() };
-    if (companyDesc  !== undefined) profileUpdate.companyDesc  = companyDesc;
-    if (location     !== undefined) profileUpdate.location     = location;
-    if (industry     !== undefined) profileUpdate.industry     = industry;
-    if (teamSize     !== undefined) profileUpdate.teamSize     = teamSize;
-    if (foundedYear  !== undefined) profileUpdate.foundedYear  = foundedYear;
-    if (website      !== undefined) profileUpdate.website      = website;
-    if (contactEmail !== undefined) profileUpdate.contactEmail = contactEmail;
-    if (creditCode   !== undefined) profileUpdate.creditCode   = creditCode;
-    if (companyLogo  !== undefined) profileUpdate.companyLogo  = companyLogo;
+    if (companyDesc     !== undefined) profileUpdate.companyDesc     = companyDesc;
+    if (location        !== undefined) profileUpdate.location        = location;
+    if (industry        !== undefined) profileUpdate.industry        = industry;
+    if (teamSize        !== undefined) profileUpdate.teamSize        = teamSize;
+    if (foundedYear     !== undefined) profileUpdate.foundedYear     = foundedYear;
+    if (website         !== undefined) profileUpdate.website         = website;
+    if (contactEmail    !== undefined) profileUpdate.contactEmail    = contactEmail;
+    if (creditCode      !== undefined) profileUpdate.creditCode      = creditCode;
+    if (companyLogo     !== undefined) profileUpdate.companyLogo     = companyLogo;
+    if (contactPerson   !== undefined) profileUpdate.contactPerson   = contactPerson;
+    if (contactAddress  !== undefined) profileUpdate.contactAddress  = contactAddress;
+    if (taxId           !== undefined) profileUpdate.taxId           = taxId;
+    if (bankName        !== undefined) profileUpdate.bankName        = bankName;
+    if (bankAccount     !== undefined) profileUpdate.bankAccount     = bankAccount;
 
     const [existing] = await db.select({ userId: publisherProfilesTable.userId })
       .from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, userId)).limit(1);
@@ -267,6 +277,11 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
       contactEmail: updatedProfile?.contactEmail ?? null,
       creditCode: updatedProfile?.creditCode ?? null,
       companyLogo: updatedProfile?.companyLogo ?? null,
+      contactPerson: updatedProfile?.contactPerson ?? null,
+      contactAddress: updatedProfile?.contactAddress ?? null,
+      taxId: updatedProfile?.taxId ?? null,
+      bankName: updatedProfile?.bankName ?? null,
+      bankAccount: updatedProfile?.bankAccount ?? null,
     });
   } catch (err) {
     logger.error({ err: err }, "Update publisher profile error:");

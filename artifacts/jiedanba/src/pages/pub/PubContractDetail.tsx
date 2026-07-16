@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import {
   FileSignature, Loader2, AlertCircle, CheckCircle2, XCircle, ExternalLink,
-  Clock, DollarSign, ChevronDown, ChevronUp, Zap, Calendar, Receipt,
+  Clock, DollarSign, ChevronDown, ChevronUp, Zap, Calendar, Receipt, FileCheck,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
-import { v2Get, v2Post } from "@/lib/v2api";
+import { v2Get, v2Post, STORAGE_BASE } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -85,6 +85,7 @@ export default function PubContractDetail() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [acting, setActing] = useState(false);
+  const [contractCfg, setContractCfg] = useState<{ invoiceType: string; taxRate: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -110,6 +111,16 @@ export default function PubContractDetail() {
   };
 
   useEffect(() => { if (contractId > 0) load(); }, [contractId]);
+
+  useEffect(() => {
+    fetch(`${STORAGE_BASE}/api/platform-contract-config`)
+      .then(r => r.json())
+      .then((data: Array<{ partyType: string; invoiceType: string; taxRate: string }>) => {
+        const pub = data.find(d => d.partyType === "publisher");
+        if (pub) setContractCfg({ invoiceType: pub.invoiceType, taxRate: pub.taxRate });
+      })
+      .catch(() => {});
+  }, []);
 
   const handleConfirm = async () => {
     setActing(true);
@@ -225,6 +236,25 @@ export default function PubContractDetail() {
             <p className="text-xs font-bold text-red-700 mb-1">您的退回说明</p>
             <p className="text-sm text-red-800">{contract.publisherRejectedReason}</p>
             <p className="text-xs text-red-400 mt-2">运营方正在修订合同内容</p>
+          </div>
+        )}
+
+        {/* ── 发票与税率（只读） ── */}
+        {contractCfg && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+              <FileCheck size={14} className="text-slate-400" /> 合同条款（运营设定）
+            </h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">发票类型</p>
+                <p className="text-sm font-semibold text-slate-700">{contractCfg.invoiceType || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">税率</p>
+                <p className="text-sm font-semibold text-slate-700">{contractCfg.taxRate ? `${contractCfg.taxRate}%` : "—"}</p>
+              </div>
+            </div>
           </div>
         )}
 
