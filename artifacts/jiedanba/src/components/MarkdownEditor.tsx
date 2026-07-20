@@ -35,7 +35,7 @@ export function MarkdownEditor({
         emptyEditorClass: "is-editor-empty",
       }),
       Markdown.configure({
-        html: false,
+        html: true,
         transformPastedText: true,
         transformCopiedText: false,
       }),
