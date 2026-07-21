@@ -5,7 +5,7 @@ import {
   Loader2, AlertCircle, CheckCircle2,
   DollarSign, Plus, Trash2, Send, FileText, History, X,
   ChevronDown, ChevronUp, Paperclip, ArrowRight,
-  Hash, Tag, CalendarDays, Globe, Mail, Flag,
+  Hash, Tag, CalendarDays, Globe, Mail, Flag, Copy, Check,
 } from "lucide-react";
 import { v2Get, v2Post } from "@/lib/v2api";
 import { useDemandTypeLabel } from "@/lib/catCategories";
@@ -160,6 +160,7 @@ export default function OpcV2TenderDetail() {
   }, [tender?.outsourceDemandId, tenderDataUpdatedAt]);
 
   const [showVersions, setShowVersions] = useState(false);
+  const [copiedDemand, setCopiedDemand] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
   const { data: versions = [] } = useQuery<DemandVersion[]>({
     queryKey: ["v2-demand-versions", tender?.outsourceDemandId],
@@ -460,11 +461,24 @@ export default function OpcV2TenderDetail() {
           <div className="px-5 py-3.5 border-b border-border">
             <div className="flex items-center gap-2">
               <FileText size={15} className="text-primary" />
-              <h3 className="font-bold text-foreground text-sm">需求详情</h3>
+              <h3 className="font-bold text-foreground text-sm flex-1">需求详情</h3>
               {demand?.latestVersion && (
                 <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                   v{demand.latestVersion.versionNo}
                 </span>
+              )}
+              {demand && (
+                <button
+                  onClick={() => {
+                    const text = `# ${demand.title}\n\n${demand.latestVersion?.detail ?? demand.detail ?? ""}`.trim();
+                    navigator.clipboard.writeText(text).then(() => { setCopiedDemand(true); setTimeout(() => setCopiedDemand(false), 2000); });
+                  }}
+                  title="复制需求文档"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors ml-1"
+                >
+                  {copiedDemand ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+                  {copiedDemand ? "已复制" : "复制"}
+                </button>
               )}
             </div>
           </div>

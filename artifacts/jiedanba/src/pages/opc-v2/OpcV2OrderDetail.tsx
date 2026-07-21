@@ -5,7 +5,7 @@ import {
   Loader2, AlertCircle, FileSignature, CheckCircle2, Paperclip,
   Package, Clock, Shield, XCircle, Plus, Wrench,
   RefreshCw, Lock, ChevronDown, ChevronUp, FileText,
-  ExternalLink, Send, DollarSign, Tag, CreditCard, Calendar, Flag,
+  ExternalLink, Send, DollarSign, Tag, CreditCard, Calendar, Flag, Copy, Check,
 } from "lucide-react";
 import { v2Get, v2Post, uploadFile } from "@/lib/v2api";
 import { markRead, hasUnreadSinceCreation } from "@/lib/demandRead";
@@ -162,6 +162,7 @@ export default function OpcV2OrderDetail() {
 
   /* Contract */
   const [confirmingContract, setConfirmingContract] = useState(false);
+  const [copiedDemand, setCopiedDemand] = useState(false);
 
   /* Deliverable form */
   const [showDeliverableForm, setShowDeliverableForm] = useState(false);
@@ -523,7 +524,23 @@ export default function OpcV2OrderDetail() {
             ) : (
               <>
                 {/* 需求描述 */}
-                <CardSection title="需求说明" icon={FileText}>
+                <CardSection
+                  title="需求说明"
+                  icon={FileText}
+                  actions={demand ? (
+                    <button
+                      onClick={() => {
+                        const text = `# ${order.demandTitle ?? ""}\n\n${demand.latestVersion?.detail ?? ""}`.trim();
+                        navigator.clipboard.writeText(text).then(() => { setCopiedDemand(true); setTimeout(() => setCopiedDemand(false), 2000); });
+                      }}
+                      title="复制需求文档"
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      {copiedDemand ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+                      {copiedDemand ? "已复制" : "复制"}
+                    </button>
+                  ) : undefined}
+                >
                   {demand.latestVersion?.detail ? (
                     <div className="prose prose-sm max-w-none">
                       <MarkdownContent content={demand.latestVersion.detail} />

@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
-  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload, Bot, Check,
+  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload, Bot, Check, Copy,
 } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
@@ -281,6 +281,8 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const [contracts, setContracts] = useState<ContractItem[]>([]);
   const [acting, setActing] = useState(false);
   const [activePanel, setActivePanel] = useState<ActionPanel>(null);
+
+  const [copiedDemand, setCopiedDemand] = useState(false);
 
   // Detail inline edit
   const [editMode, setEditMode] = useState(false);
@@ -1083,6 +1085,17 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
                 >
                   <History size={11} /> 历史版本
+                </button>
+                <button
+                  onClick={() => {
+                    const text = `# ${demand.title}\n\n${demand.latestVersion?.detail ?? ""}`.trim();
+                    navigator.clipboard.writeText(text).then(() => { setCopiedDemand(true); setTimeout(() => setCopiedDemand(false), 2000); });
+                  }}
+                  title="复制需求文档"
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
+                >
+                  {copiedDemand ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+                  {copiedDemand ? "已复制" : "复制"}
                 </button>
               </div>
             ) : undefined

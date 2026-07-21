@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, AlertCircle, Zap, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp,
   FileText, FileSignature, CreditCard, Wrench, ExternalLink, Plus, History, Edit2, X,
-  Link2, Paperclip, Bot, Check,
+  Link2, Paperclip, Bot, Check, Copy,
 } from "lucide-react";
 import { PubLayout } from "@/components/pub/PubLayout";
 import { DiscussionThread } from "@/components/pub/DiscussionThread";
@@ -239,6 +239,7 @@ export default function PubDemandDetail() {
   const [acting, setActing] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [copiedDemand, setCopiedDemand] = useState(false);
   const [selectedVersionIdx, setSelectedVersionIdx] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [editDetail, setEditDetail] = useState("");
@@ -889,6 +890,17 @@ export default function PubDemandDetail() {
                 className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
               >
                 <History size={11} /> 历史版本
+              </button>
+              <button
+                onClick={() => {
+                  const text = `# ${demand.title}\n\n${demand.latestVersion?.detail ?? ""}`.trim();
+                  navigator.clipboard.writeText(text).then(() => { setCopiedDemand(true); setTimeout(() => setCopiedDemand(false), 2000); });
+                }}
+                title="复制需求文档"
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-primary transition-colors"
+              >
+                {copiedDemand ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+                {copiedDemand ? "已复制" : "复制"}
               </button>
             </div>
           ) : undefined}>
