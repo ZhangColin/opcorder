@@ -671,10 +671,10 @@ router.put("/admin/contests/:id/tracks/:trackId", requireAdmin, async (req, res)
 
     const updates: Record<string, unknown> = {};
     if (catCategoryId !== undefined) updates.catCategoryId = Number(catCategoryId);
-    if (testQuestionId !== undefined) updates.testQuestionId = testQuestionId === 0 ? null : Number(testQuestionId);
-    if (aQuestionId !== undefined) updates.aQuestionId = aQuestionId === 0 ? null : Number(aQuestionId);
-    if (bQuestionId !== undefined) updates.bQuestionId = bQuestionId === 0 ? null : Number(bQuestionId);
-    if (cQuestionId !== undefined) updates.cQuestionId = cQuestionId === 0 ? null : Number(cQuestionId);
+    if (testQuestionId !== undefined) updates.testQuestionId = (testQuestionId === 0 || testQuestionId == null) ? null : Number(testQuestionId);
+    if (aQuestionId !== undefined) updates.aQuestionId = (aQuestionId === 0 || aQuestionId == null) ? null : Number(aQuestionId);
+    if (bQuestionId !== undefined) updates.bQuestionId = (bQuestionId === 0 || bQuestionId == null) ? null : Number(bQuestionId);
+    if (cQuestionId !== undefined) updates.cQuestionId = (cQuestionId === 0 || cQuestionId == null) ? null : Number(cQuestionId);
     if (testDurationHours !== undefined) updates.testDurationHours = Number(testDurationHours);
     if (aDurationHours !== undefined) updates.aDurationHours = Number(aDurationHours);
     if (bDurationHours !== undefined) updates.bDurationHours = Number(bDurationHours);
