@@ -53,6 +53,17 @@ export function MarkdownEditor({
       attributes: {
         class: "md-editor-inner outline-none prose prose-sm max-w-none text-slate-700 leading-relaxed",
       },
+      handlePaste(view, event) {
+        const text = event.clipboardData?.getData("text/plain");
+        const html = event.clipboardData?.getData("text/html");
+        // When clipboard has both HTML and plain text, and the plain text looks
+        // like Markdown, force the plain-text path so tiptap-markdown can parse it.
+        if (html && text && /(?:^|\n)#{1,6} |^\*\*|^__|\*[^*\s]|^[-*+] |\[.+\]\(|\n```|^\d+\. /m.test(text)) {
+          view.pasteText(text);
+          return true;
+        }
+        return false;
+      },
     },
   });
 

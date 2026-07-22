@@ -92,17 +92,18 @@ function AttachmentUploader({
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
-  async function handleFile(file: File) {
+  async function handleFiles(files: FileList) {
     setUploading(true);
-    try {
-      const url = await uploadFile(file);
-      onAdd({ name: file.name, url });
-    } catch {
-      toast({ title: "附件上传失败", variant: "destructive" });
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
+    for (const file of Array.from(files)) {
+      try {
+        const url = await uploadFile(file);
+        onAdd({ name: file.name, url });
+      } catch {
+        toast({ title: `${file.name} 上传失败`, variant: "destructive" });
+      }
     }
+    setUploading(false);
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   return (
@@ -132,8 +133,9 @@ function AttachmentUploader({
         <input
           ref={inputRef}
           type="file"
+          multiple
           className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+          onChange={e => { if (e.target.files?.length) handleFiles(e.target.files); }}
         />
       </div>
     </div>

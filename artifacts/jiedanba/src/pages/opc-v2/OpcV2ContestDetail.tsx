@@ -124,23 +124,24 @@ function SubmissionForm({
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  async function handleFile(file: File) {
+  async function handleFiles(files: FileList) {
     setUploading(true);
-    try {
-      const url = await uploadFile(file);
-      setAttachments(prev => [...prev, { name: file.name, url }]);
-    } catch (err) {
-      const msg = (err as Error)?.message ?? "";
-      const description = msg.includes("不支持的文件类型") || msg.includes("文件类型") || msg.includes("扩展名")
-        ? "不支持该文件格式，请上传 PDF、Word、Excel、PPT、图片、ZIP、RAR、7Z 等格式"
-        : msg.includes("超出限制") || msg.includes("大小")
-        ? msg
-        : "上传失败，请重试";
-      toast({ title: "附件上传失败", description, variant: "destructive" });
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
+    for (const file of Array.from(files)) {
+      try {
+        const url = await uploadFile(file);
+        setAttachments(prev => [...prev, { name: file.name, url }]);
+      } catch (err) {
+        const msg = (err as Error)?.message ?? "";
+        const description = msg.includes("不支持的文件类型") || msg.includes("文件类型") || msg.includes("扩展名")
+          ? "不支持该文件格式，请上传 PDF、Word、Excel、PPT、图片、ZIP、RAR、7Z 等格式"
+          : msg.includes("超出限制") || msg.includes("大小")
+          ? msg
+          : "上传失败，请重试";
+        toast({ title: `${file.name} 上传失败`, description, variant: "destructive" });
+      }
     }
+    setUploading(false);
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   function handleSubmit() {
@@ -178,9 +179,9 @@ function SubmissionForm({
           >
             {uploading ? <><Loader2 size={11} className="animate-spin" />上传中…</> : <><UploadCloud size={11} />点击上传附件</>}
           </button>
-          <input ref={inputRef} type="file" className="hidden"
+          <input ref={inputRef} type="file" multiple className="hidden"
             accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.xlsx,.pptx,.md,.txt,.html,.htm,.zip,.rar,.7z,.mp4,.webm"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+            onChange={e => { if (e.target.files?.length) handleFiles(e.target.files); }} />
         </div>
       </div>
 
