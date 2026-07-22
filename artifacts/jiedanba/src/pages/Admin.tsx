@@ -94,11 +94,12 @@ async function adminPatch(path: string, body: object) {
   return res.json();
 }
 
-async function adminPost(path: string, body: object) {
+async function adminPost(path: string, body: object, opts?: { signal?: AbortSignal }) {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: getAdminHeaders(),
     body: JSON.stringify(body),
+    signal: opts?.signal,
   });
   if (!res.ok) {
     const b = await res.json().catch(() => ({}));
@@ -7615,22 +7616,34 @@ function SkillRegistryModule() {
   const [fetchingPreview, setFetchingPreview] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [syncing, setSyncing] = useState<number | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
 
   const { data: skills = [], isLoading } = useQuery<SkillRow[]>({
     queryKey: ["admin-skills"],
     queryFn: () => adminGet<{ data: SkillRow[] }>("/api/admin/skills").then(r => r.data),
   });
 
+  function handleCancelPreview() {
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    setFetchingPreview(false);
+  }
+
   async function handlePreview() {
     if (!urlInput.trim()) return;
+    previewAbortRef.current?.abort();
+    const ac = new AbortController();
+    previewAbortRef.current = ac;
     setFetchingPreview(true);
     setPreview(null);
     try {
-      const res = await adminPost("/api/admin/skills/fetch-preview", { url: urlInput.trim() });
+      const res = await adminPost("/api/admin/skills/fetch-preview", { url: urlInput.trim() }, { signal: ac.signal });
       setPreview(res.data);
     } catch (e: any) {
+      if (e.name === "AbortError" || e.message === "请求已取消") return;
       toast({ title: "获取失败", description: e.message, variant: "destructive" });
     } finally {
+      if (previewAbortRef.current === ac) previewAbortRef.current = null;
       setFetchingPreview(false);
     }
   }
@@ -7712,19 +7725,34 @@ function SkillRegistryModule() {
           <input
             value={urlInput}
             onChange={e => setUrlInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") handlePreview(); }}
+            onKeyDown={e => { if (e.key === "Enter" && !fetchingPreview) handlePreview(); }}
             placeholder="粘贴 GitHub 仓库地址或 SKILL.md 文件直链…"
             className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            disabled={fetchingPreview}
           />
-          <button
-            onClick={handlePreview}
-            disabled={fetchingPreview || !urlInput.trim()}
-            className="px-5 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-bold hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center gap-2"
-          >
-            {fetchingPreview ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
-            预览
-          </button>
+          {fetchingPreview ? (
+            <button
+              onClick={handleCancelPreview}
+              className="px-5 py-2.5 bg-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-300 transition-colors flex items-center gap-2"
+            >
+              <X size={14} /> 取消
+            </button>
+          ) : (
+            <button
+              onClick={handlePreview}
+              disabled={!urlInput.trim()}
+              className="px-5 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-bold hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center gap-2"
+            >
+              <Eye size={14} /> 预览
+            </button>
+          )}
         </div>
+        {fetchingPreview && (
+          <p className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Loader2 size={11} className="animate-spin" />
+            正在连接 GitHub，网络较慢时最多等待 15 秒…
+          </p>
+        )}
         <p className="text-xs text-slate-400">支持 GitHub 仓库地址（自动查找 SKILL.md）、文件直链或 skillsovermcp.com 链接</p>
 
         {preview && (

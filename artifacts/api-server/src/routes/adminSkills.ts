@@ -17,11 +17,16 @@ router.post("/admin/skills/fetch-preview", async (req, res) => {
   if (!url || typeof url !== "string" || !url.trim()) {
     return res.status(400).json({ error: "请提供 skill 仓库地址" });
   }
+  const ac = new AbortController();
+  req.on("close", () => ac.abort());
   try {
-    const preview = await fetchSkillFromUrl(url.trim());
+    const preview = await fetchSkillFromUrl(url.trim(), ac.signal);
     return res.json({ data: preview });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (err instanceof Error && err.name === "AbortError") {
+      return;
+    }
     logger.warn({ err, url }, "skill fetch-preview failed");
     return res.status(422).json({ error: `获取 Skill 失败：${msg}` });
   }

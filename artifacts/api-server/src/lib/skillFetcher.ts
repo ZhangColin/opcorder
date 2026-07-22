@@ -1,5 +1,27 @@
 import { logger } from "./logger";
 
+function isAbortError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.name === "AbortError" || err.name === "TimeoutError")
+  );
+}
+
+function friendlyFetchError(err: unknown, url: string): Error {
+  if (err instanceof Error) {
+    if (err.name === "TimeoutError") {
+      return new Error("连接超时，请检查网络或稍后重试");
+    }
+    if (err.name === "AbortError") {
+      return new Error("请求已取消");
+    }
+    if (err.message.includes("fetch failed") || err.message.includes("ENOTFOUND") || err.message.includes("ECONNREFUSED")) {
+      return new Error("网络连接失败，请检查网络后重试");
+    }
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
 export interface FetchedSkill {
   name: string;
   description: string;
@@ -42,18 +64,23 @@ function toRawGithubUrl(repoBase: string, branch: string, filePath: string): str
   return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`;
 }
 
-async function resolveDefaultBranch(owner: string, repo: string): Promise<string> {
+async function resolveDefaultBranch(owner: string, repo: string, externalSignal?: AbortSignal): Promise<string> {
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
   try {
+    const timeoutSignal = AbortSignal.timeout(10_000);
+    const signal = externalSignal
+      ? AbortSignal.any([timeoutSignal, externalSignal])
+      : timeoutSignal;
     const res = await fetch(apiUrl, {
       headers: { "User-Agent": "JieDanBa-SkillFetcher/1.0", "Accept": "application/vnd.github+json" },
-      signal: AbortSignal.timeout(10_000),
+      signal,
     });
     if (res.ok) {
       const data = await res.json() as { default_branch?: string };
       return data.default_branch ?? "main";
     }
-  } catch {
+  } catch (err) {
+    if (isAbortError(err) && externalSignal?.aborted) throw err;
   }
   return "main";
 }
@@ -67,7 +94,7 @@ async function resolveDefaultBranch(owner: string, repo: string): Promise<string
  *  - https://raw.githubusercontent.com/owner/repo/main/SKILL.md  (raw link)
  *  - https://skillsovermcp.com/...  (skill page — extract GitHub source from page HTML)
  */
-async function resolveSkillMdUrl(inputUrl: string): Promise<{ rawUrl: string; repoBase: string }> {
+async function resolveSkillMdUrl(inputUrl: string, externalSignal?: AbortSignal): Promise<{ rawUrl: string; repoBase: string }> {
   const url = inputUrl.trim();
   assertAllowedHost(url);
 
@@ -102,30 +129,41 @@ async function resolveSkillMdUrl(inputUrl: string): Promise<{ rawUrl: string; re
       return { rawUrl, repoBase };
     }
 
-    const branch = await resolveDefaultBranch(owner, repo);
+    const branch = await resolveDefaultBranch(owner, repo, externalSignal);
     const rawUrl = toRawGithubUrl(repoBase, branch, "SKILL.md");
     assertAllowedHost(rawUrl);
     return { rawUrl, repoBase };
   }
 
   if (hostname === "skillsovermcp.com") {
-    const html = await fetchText(url);
+    const html = await fetchText(url, externalSignal);
     const ghMatch = html.match(/https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-][^"'\s]*/);
-    if (!ghMatch) throw new Error("无法从 skillsovermcp.com 页面提取 GitHub 仓库链接");
+    if (!ghMatch) {
+      throw new Error("无法从 skillsovermcp.com 页面解析 GitHub 仓库链接，请直接使用 GitHub 仓库地址");
+    }
     const extracted = ghMatch[0];
     assertAllowedHost(extracted);
-    return resolveSkillMdUrl(extracted);
+    return resolveSkillMdUrl(extracted, externalSignal);
   }
 
   throw new Error(`不支持的 URL 格式：${url}。请提供 GitHub 仓库地址或文件直链。`);
 }
 
-async function fetchText(url: string): Promise<string> {
+async function fetchText(url: string, externalSignal?: AbortSignal): Promise<string> {
   assertAllowedHost(url);
-  const res = await fetch(url, {
-    headers: { "User-Agent": "JieDanBa-SkillFetcher/1.0" },
-    signal: AbortSignal.timeout(15_000),
-  });
+  const timeoutSignal = AbortSignal.timeout(15_000);
+  const signal = externalSignal
+    ? AbortSignal.any([timeoutSignal, externalSignal])
+    : timeoutSignal;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "User-Agent": "JieDanBa-SkillFetcher/1.0" },
+      signal,
+    });
+  } catch (err) {
+    throw friendlyFetchError(err, url);
+  }
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} 获取 ${url} 失败`);
   }
@@ -166,10 +204,10 @@ function extractSkillDescription(skillMd: string): string {
   return para.length > 300 ? para.slice(0, 297) + "…" : (para || skillMd.slice(0, 200).trim());
 }
 
-export async function fetchSkillFromUrl(inputUrl: string): Promise<FetchedSkill> {
-  const { rawUrl, repoBase } = await resolveSkillMdUrl(inputUrl);
+export async function fetchSkillFromUrl(inputUrl: string, externalSignal?: AbortSignal): Promise<FetchedSkill> {
+  const { rawUrl, repoBase } = await resolveSkillMdUrl(inputUrl, externalSignal);
   logger.info({ rawUrl }, "Fetching SKILL.md");
-  const skillMd = await fetchText(rawUrl);
+  const skillMd = await fetchText(rawUrl, externalSignal);
 
   const name = extractSkillName(skillMd, repoBase);
   const description = extractSkillDescription(skillMd);
@@ -183,7 +221,7 @@ export async function fetchSkillFromUrl(inputUrl: string): Promise<FetchedSkill>
       try {
         const refUrl = `${skillMdDirUrl}/${relPath}`.replace(/\/\.\//g, "/");
         assertAllowedHost(refUrl);
-        const content = await fetchText(refUrl);
+        const content = await fetchText(refUrl, externalSignal);
         refFiles[relPath] = content;
         logger.info({ relPath }, "Fetched reference file");
       } catch (err) {
