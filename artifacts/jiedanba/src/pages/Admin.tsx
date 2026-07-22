@@ -53,7 +53,7 @@ import {
   Plus, Edit2, ChevronDown, ChevronUp, DollarSign, BadgeCent, FileCheck, ClipboardList, X, Trophy, RotateCcw, Undo2,
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Video,
   Pin, Paperclip, ScrollText, Layers, PackageCheck, ChevronLeft,
-  History, ArrowLeft, Building2,
+  History, ArrowLeft, Building2, GripVertical,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -147,7 +147,8 @@ export type Module =
   | "v2_overview"
   | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_deliveries" | "v2_pub_tickets"
   | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets"
-  | "platform_info" | "contract_config";
+  | "platform_info" | "contract_config"
+  | "skill_registry";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -211,7 +212,8 @@ const NAV: NavItem[] = [
       { key: "creditlevels",  label: "信用等级配置", moduleKey: "creditlevels"  as Module, icon: BadgeCheck },
       { key: "creditrules",   label: "积分规则配置", moduleKey: "creditrules"   as Module, icon: Zap },
       { key: "quotecard",     label: "报价卡配置",   moduleKey: "quotecard"     as Module, icon: BadgeCent },
-      { key: "agent",         label: "智能体配置",   moduleKey: "agent"         as Module, icon: Bot },
+      { key: "agent",          label: "智能体配置",   moduleKey: "agent"          as Module, icon: Bot },
+      { key: "skill_registry", label: "Skill 管理",  moduleKey: "skill_registry" as Module, icon: Layers },
       { key: "sensitivewords",label: "敏感词管理",   moduleKey: "sensitivewords"as Module, icon: Flame },
     ],
   },
@@ -6689,6 +6691,85 @@ function AgentConfigEditPage({
     toast({ title: "已还原", description: `已载入 ${new Date(v.createdAt).toLocaleString("zh-CN")} 的版本` });
   };
 
+  /* ── Skill 关联 ── */
+  const [showSkills, setShowSkills] = useState(false);
+  const [taskSkills, setTaskSkills] = useState<TaskSkillLink[]>([]);
+  const [skillSaving, setSkillSaving] = useState(false);
+  const skillDragIdxRef = useRef<number | null>(null);
+  const [skillDragOverIdx, setSkillDragOverIdx] = useState<number | null>(null);
+
+  const { data: allSkills = [] } = useQuery<SkillRow[]>({
+    queryKey: ["admin-skills"],
+    queryFn: () => adminGet<{ data: SkillRow[] }>("/api/admin/skills").then(r => r.data),
+    enabled: showSkills,
+  });
+
+  const { data: currentSkillLinks, isLoading: skillLinksLoading } = useQuery<TaskSkillLink[]>({
+    queryKey: ["admin-task-skills", cfg.sceneKey],
+    queryFn: () => adminGet<{ data: TaskSkillLink[] }>(`/api/admin/agent-task-types/${cfg.sceneKey}/skills`).then(r => r.data),
+    enabled: showSkills,
+  });
+
+  useEffect(() => {
+    if (currentSkillLinks) setTaskSkills(currentSkillLinks);
+  }, [currentSkillLinks]);
+
+  const activeSkills = allSkills.filter(s => s.isActive);
+  const linkedSkillIds = new Set(taskSkills.map(s => s.skillId));
+  const availableSkills = activeSkills.filter(s => !linkedSkillIds.has(s.id));
+
+  async function addSkill(skill: SkillRow) {
+    try {
+      const detail = await adminGet<{ data: TaskSkillLink }>(`/api/admin/skills/${skill.id}`);
+      setTaskSkills(prev => [...prev, {
+        id: 0, skillId: skill.id, sortOrder: prev.length,
+        name: detail.data.name, description: detail.data.description,
+        isActive: detail.data.isActive, skillMd: detail.data.skillMd ?? "", refFiles: detail.data.refFiles ?? {},
+      }]);
+    } catch {
+      setTaskSkills(prev => [...prev, {
+        id: 0, skillId: skill.id, sortOrder: prev.length,
+        name: skill.name, description: skill.description, isActive: skill.isActive,
+        skillMd: "", refFiles: {},
+      }]);
+    }
+  }
+
+  function removeSkill(skillId: number) {
+    setTaskSkills(prev => prev.filter(s => s.skillId !== skillId).map((s, i) => ({ ...s, sortOrder: i })));
+  }
+
+  function onSkillDragStart(idx: number) { skillDragIdxRef.current = idx; }
+  function onSkillDragOver(e: React.DragEvent, idx: number) { e.preventDefault(); setSkillDragOverIdx(idx); }
+  function onSkillDrop(dropIdx: number) {
+    const fromIdx = skillDragIdxRef.current;
+    if (fromIdx === null || fromIdx === dropIdx) { setSkillDragOverIdx(null); return; }
+    setTaskSkills(prev => {
+      const arr = [...prev];
+      const [moved] = arr.splice(fromIdx, 1);
+      arr.splice(dropIdx, 0, moved);
+      return arr.map((s, i) => ({ ...s, sortOrder: i }));
+    });
+    skillDragIdxRef.current = null;
+    setSkillDragOverIdx(null);
+  }
+  function onSkillDragEnd() { skillDragIdxRef.current = null; setSkillDragOverIdx(null); }
+
+  async function handleSkillSave() {
+    setSkillSaving(true);
+    try {
+      await adminPut(`/api/admin/agent-task-types/${cfg.sceneKey}/skills`, {
+        skills: taskSkills.map(s => ({ skillId: s.skillId, sortOrder: s.sortOrder })),
+      });
+      qc.invalidateQueries({ queryKey: ["admin-task-skills", cfg.sceneKey] });
+      toast({ title: "Skill 关联已保存" });
+    } catch (e: any) {
+      toast({ title: "保存失败", description: e.message, variant: "destructive" });
+    } finally {
+      setSkillSaving(false);
+    }
+  }
+
   return (
     <div>
       {/* Header */}
@@ -6813,6 +6894,83 @@ function AgentConfigEditPage({
                   })}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Skill configuration */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowSkills(v => !v)}
+            className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Layers size={14} className="text-slate-400" />
+              关联 Skill
+              {taskSkills.length > 0 && <span className="text-xs font-normal text-slate-400">（已关联 {taskSkills.length} 个）</span>}
+            </span>
+            <ChevronDown size={14} className={`text-slate-400 transition-transform ${showSkills ? "rotate-180" : ""}`} />
+          </button>
+          {showSkills && (
+            <div className="border-t border-slate-100 p-5 space-y-4">
+              <p className="text-xs text-slate-400">关联的 Skill 内容会在调用此智能体时自动注入到 system prompt 最前面。</p>
+              {skillLinksLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 py-4"><Loader2 size={14} className="animate-spin" />加载中…</div>
+              ) : (
+                <div className="space-y-2">
+                  {taskSkills.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-4">暂未关联任何 Skill</p>
+                  ) : (
+                    taskSkills.map((s, idx) => (
+                      <div key={s.skillId}
+                        draggable
+                        onDragStart={() => onSkillDragStart(idx)}
+                        onDragOver={(e) => onSkillDragOver(e, idx)}
+                        onDrop={() => onSkillDrop(idx)}
+                        onDragEnd={onSkillDragEnd}
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-grab active:cursor-grabbing ${skillDragOverIdx === idx ? "border-primary/40 bg-primary/5 scale-[0.99]" : "border-slate-100 bg-slate-50"}`}>
+                        <GripVertical size={14} className="text-slate-300 shrink-0" />
+                        <span className="text-[10px] font-bold text-slate-400 w-5 text-center">{idx + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-blue-900 truncate">{s.name}</p>
+                          {s.description && <p className="text-xs text-slate-400 truncate">{s.description}</p>}
+                        </div>
+                        <button onClick={() => removeSkill(s.skillId)}
+                          className="p-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors shrink-0">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              {availableSkills.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">可添加</p>
+                  {availableSkills.map(s => (
+                    <div key={s.id} onClick={() => addSkill(s)}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-blue-50/40 cursor-pointer transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-700 truncate">{s.name}</p>
+                        {s.description && <p className="text-xs text-slate-400 truncate">{s.description}</p>}
+                      </div>
+                      <Plus size={14} className="text-primary shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {allSkills.length > 0 && availableSkills.length === 0 && taskSkills.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-2">所有已激活的 Skill 均已关联</p>
+              )}
+              {allSkills.length === 0 && !skillLinksLoading && (
+                <p className="text-xs text-slate-400 text-center py-2">暂无可用 Skill，请先在「Skill 管理」中安装</p>
+              )}
+              <button onClick={handleSkillSave} disabled={skillSaving}
+                className="w-full py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                {skillSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                保存 Skill 关联
+              </button>
             </div>
           )}
         </div>
@@ -7432,6 +7590,490 @@ function SystemLogsPanel() {
   );
 }
 
+/* ─── Module: Skill 管理 ─────────────────────────── */
+
+interface SkillRow {
+  id: number; name: string; description: string | null;
+  sourceUrl: string; version: string | null;
+  lastSyncedAt: string | null; isActive: boolean; createdAt: string;
+}
+interface SkillDetail extends SkillRow {
+  skillMd: string; refFiles: Record<string, string>;
+}
+interface FetchPreview {
+  name: string; description: string; skillMd: string;
+  refFiles: Record<string, string>; version: string;
+}
+
+function SkillRegistryModule() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
+  const [urlInput, setUrlInput] = useState("");
+  const [preview, setPreview] = useState<FetchPreview | null>(null);
+  const [detail, setDetail] = useState<SkillDetail | null>(null);
+  const [fetchingPreview, setFetchingPreview] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [syncing, setSyncing] = useState<number | null>(null);
+
+  const { data: skills = [], isLoading } = useQuery<SkillRow[]>({
+    queryKey: ["admin-skills"],
+    queryFn: () => adminGet<{ data: SkillRow[] }>("/api/admin/skills").then(r => r.data),
+  });
+
+  async function handlePreview() {
+    if (!urlInput.trim()) return;
+    setFetchingPreview(true);
+    setPreview(null);
+    try {
+      const res = await adminPost("/api/admin/skills/fetch-preview", { url: urlInput.trim() });
+      setPreview(res.data);
+    } catch (e: any) {
+      toast({ title: "获取失败", description: e.message, variant: "destructive" });
+    } finally {
+      setFetchingPreview(false);
+    }
+  }
+
+  async function handleInstall() {
+    if (!preview) return;
+    setInstalling(true);
+    try {
+      await adminPost("/api/admin/skills", { url: urlInput.trim(), name: preview.name });
+      qc.invalidateQueries({ queryKey: ["admin-skills"] });
+      toast({ title: "Skill 已安装", description: preview.name });
+      setPreview(null); setUrlInput("");
+    } catch (e: any) {
+      toast({ title: "安装失败", description: e.message, variant: "destructive" });
+    } finally {
+      setInstalling(false);
+    }
+  }
+
+  async function handleSync(id: number) {
+    setSyncing(id);
+    try {
+      await adminPost(`/api/admin/skills/${id}/sync`, {});
+      qc.invalidateQueries({ queryKey: ["admin-skills"] });
+      toast({ title: "同步成功" });
+    } catch (e: any) {
+      toast({ title: "同步失败", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncing(null);
+    }
+  }
+
+  async function handleToggle(id: number, isActive: boolean) {
+    try {
+      await adminPatch(`/api/admin/skills/${id}`, { isActive: !isActive });
+      qc.invalidateQueries({ queryKey: ["admin-skills"] });
+      toast({ title: isActive ? "Skill 已禁用" : "Skill 已启用" });
+    } catch (e: any) {
+      toast({ title: "操作失败", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function handleDelete(skill: SkillRow) {
+    const ok = await askConfirm({
+      title: "确认删除",
+      description: `删除 Skill "${skill.name}"？若已被任务模板引用则无法删除。`,
+      confirmLabel: "删除",
+    });
+    if (!ok) return;
+    try {
+      await adminDelete(`/api/admin/skills/${skill.id}`);
+      qc.invalidateQueries({ queryKey: ["admin-skills"] });
+      toast({ title: "已删除" });
+    } catch (e: any) {
+      toast({ title: "删除失败", description: e.message, variant: "destructive" });
+    }
+  }
+
+  async function handleViewDetail(id: number) {
+    try {
+      const res = await adminGet<{ data: SkillDetail }>(`/api/admin/skills/${id}`);
+      setDetail(res.data);
+    } catch (e: any) {
+      toast({ title: "获取详情失败", description: e.message, variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {confirmDialog}
+      <SectionHeader title="Skill 管理" sub="安装、管理智能体技能包（Skill），供任务模板按需注入" />
+
+      {/* Install panel */}
+      <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+          <Plus size={14} /> 安装新 Skill
+        </h3>
+        <div className="flex gap-3">
+          <input
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handlePreview(); }}
+            placeholder="粘贴 GitHub 仓库地址或 SKILL.md 文件直链…"
+            className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <button
+            onClick={handlePreview}
+            disabled={fetchingPreview || !urlInput.trim()}
+            className="px-5 py-2.5 bg-slate-700 text-white rounded-xl text-sm font-bold hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center gap-2"
+          >
+            {fetchingPreview ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+            预览
+          </button>
+        </div>
+        <p className="text-xs text-slate-400">支持 GitHub 仓库地址（自动查找 SKILL.md）、文件直链或 skillsovermcp.com 链接</p>
+
+        {preview && (
+          <div className="border border-primary/20 rounded-xl p-4 space-y-3 bg-blue-50/40">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-bold text-blue-900 text-sm">{preview.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{preview.description}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-mono">{preview.version?.slice(0, 16)}</span>
+              </div>
+            </div>
+            <div className="text-xs text-slate-500">
+              引用文件：{Object.keys(preview.refFiles).length > 0 ? Object.keys(preview.refFiles).join("、") : "无"}
+            </div>
+            <div className="bg-white rounded-lg border border-slate-200 p-3 max-h-40 overflow-y-auto">
+              <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono leading-relaxed">{preview.skillMd.slice(0, 800)}{preview.skillMd.length > 800 ? "\n…（已截断）" : ""}</pre>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleInstall}
+                disabled={installing}
+                className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {installing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                确认安装
+              </button>
+              <button onClick={() => setPreview(null)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Installed skills */}
+      <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">已安装 Skill（{skills.length}）</h3>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10 text-slate-400"><Loader2 size={20} className="animate-spin mr-2" />加载中…</div>
+        ) : skills.length === 0 ? (
+          <div className="text-center py-10 text-slate-400 text-sm">暂无已安装的 Skill</div>
+        ) : (
+          <div className="space-y-3">
+            {skills.map(skill => (
+              <div key={skill.id} className={`rounded-xl border p-4 transition-all ${skill.isActive ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-70"}`}>
+                <div className="flex items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-blue-900 text-sm">{skill.name}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${skill.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-400"}`}>
+                        {skill.isActive ? "已启用" : "已禁用"}
+                      </span>
+                    </div>
+                    {skill.description && <p className="text-xs text-slate-500 mt-1">{skill.description}</p>}
+                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400 flex-wrap">
+                      <span className="font-mono truncate max-w-xs">{skill.sourceUrl}</span>
+                      {skill.lastSyncedAt && <span>同步于 {new Date(skill.lastSyncedAt).toLocaleString("zh-CN", { timeZone: "UTC" })}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => handleViewDetail(skill.id)}
+                      className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors" title="查看详情">
+                      <Eye size={14} />
+                    </button>
+                    <button onClick={() => handleSync(skill.id)} disabled={syncing === skill.id}
+                      className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors" title="同步更新">
+                      {syncing === skill.id ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    </button>
+                    <button onClick={() => handleToggle(skill.id, skill.isActive)}
+                      className={`p-1.5 rounded-lg transition-colors ${skill.isActive ? "hover:bg-orange-50 text-slate-400 hover:text-orange-600" : "hover:bg-green-50 text-slate-400 hover:text-green-600"}`}
+                      title={skill.isActive ? "禁用" : "启用"}>
+                      {skill.isActive ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                    <button onClick={() => handleDelete(skill)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors" title="删除">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Detail modal */}
+      {detail && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setDetail(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden" style={{ maxHeight: "90vh" }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <p className="font-bold text-blue-900">{detail.name}</p>
+                <p className="text-xs text-slate-400 mt-0.5 font-mono">{detail.sourceUrl}</p>
+              </div>
+              <button onClick={() => setDetail(null)} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">SKILL.md</h4>
+                <pre className="bg-slate-50 rounded-xl p-4 text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed overflow-x-auto">{detail.skillMd}</pre>
+              </div>
+              {Object.keys(detail.refFiles).length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">References（{Object.keys(detail.refFiles).length} 个文件）</h4>
+                  <div className="space-y-3">
+                    {Object.entries(detail.refFiles).map(([filename, content]) => (
+                      <div key={filename}>
+                        <p className="text-[11px] font-mono font-bold text-slate-500 mb-1">{filename}</p>
+                        <pre className="bg-slate-50 rounded-xl p-3 text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed overflow-x-auto max-h-48">{content}</pre>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Module: 任务模板配置 ───────────────────────── */
+
+interface TaskType { taskType: string; label: string; }
+interface TaskSkillLink {
+  id: number; skillId: number; sortOrder: number;
+  name: string; description: string | null; isActive: boolean;
+  skillMd: string; refFiles: Record<string, string>;
+}
+
+function AgentTaskConfigModule() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [selectedTaskType, setSelectedTaskType] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [taskSkills, setTaskSkills] = useState<TaskSkillLink[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const dragIdxRef = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const { data: taskTypes = [] } = useQuery<TaskType[]>({
+    queryKey: ["admin-agent-task-types"],
+    queryFn: () => adminGet<{ data: TaskType[] }>("/api/admin/agent-task-types").then(r => r.data),
+  });
+
+  const { data: allSkills = [] } = useQuery<SkillRow[]>({
+    queryKey: ["admin-skills"],
+    queryFn: () => adminGet<{ data: SkillRow[] }>("/api/admin/skills").then(r => r.data),
+  });
+
+  const { data: currentLinks, isLoading: linksLoading } = useQuery<TaskSkillLink[]>({
+    queryKey: ["admin-task-skills", selectedTaskType],
+    queryFn: () => adminGet<{ data: TaskSkillLink[] }>(`/api/admin/agent-task-types/${selectedTaskType}/skills`).then(r => r.data),
+    enabled: !!selectedTaskType,
+  });
+
+  useEffect(() => {
+    if (currentLinks) setTaskSkills(currentLinks);
+  }, [currentLinks]);
+
+  const activeSkills = allSkills.filter(s => s.isActive);
+  const linkedIds = new Set(taskSkills.map(s => s.skillId));
+  const availableToAdd = activeSkills.filter(s => !linkedIds.has(s.id));
+
+  async function addSkill(skill: SkillRow) {
+    try {
+      const detail = await adminGet<{ data: TaskSkillLink }>(`/api/admin/skills/${skill.id}`);
+      setTaskSkills(prev => [...prev, {
+        id: 0, skillId: skill.id, sortOrder: prev.length,
+        name: detail.data.name, description: detail.data.description,
+        isActive: detail.data.isActive,
+        skillMd: detail.data.skillMd ?? "",
+        refFiles: detail.data.refFiles ?? {},
+      }]);
+    } catch {
+      setTaskSkills(prev => [...prev, {
+        id: 0, skillId: skill.id, sortOrder: prev.length,
+        name: skill.name, description: skill.description, isActive: skill.isActive,
+        skillMd: "", refFiles: {},
+      }]);
+    }
+  }
+
+  function removeSkill(skillId: number) {
+    setTaskSkills(prev => prev.filter(s => s.skillId !== skillId).map((s, i) => ({ ...s, sortOrder: i })));
+  }
+
+  function onDragStart(idx: number) {
+    dragIdxRef.current = idx;
+  }
+
+  function onDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  }
+
+  function onDrop(dropIdx: number) {
+    const fromIdx = dragIdxRef.current;
+    if (fromIdx === null || fromIdx === dropIdx) { setDragOverIdx(null); return; }
+    setTaskSkills(prev => {
+      const arr = [...prev];
+      const [moved] = arr.splice(fromIdx, 1);
+      arr.splice(dropIdx, 0, moved);
+      return arr.map((s, i) => ({ ...s, sortOrder: i }));
+    });
+    dragIdxRef.current = null;
+    setDragOverIdx(null);
+  }
+
+  function onDragEnd() {
+    dragIdxRef.current = null;
+    setDragOverIdx(null);
+  }
+
+  async function handleSave() {
+    if (!selectedTaskType) return;
+    setSaving(true);
+    try {
+      await adminPut(`/api/admin/agent-task-types/${selectedTaskType}/skills`, {
+        skills: taskSkills.map(s => ({ skillId: s.skillId, sortOrder: s.sortOrder })),
+      });
+      qc.invalidateQueries({ queryKey: ["admin-task-skills", selectedTaskType] });
+      toast({ title: "任务模板已保存" });
+    } catch (e: any) {
+      toast({ title: "保存失败", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const previewText = taskSkills.length === 0
+    ? "（未关联任何 Skill）"
+    : "# Injected Skills\n\n" + taskSkills.map(s => {
+        const refs = Object.entries(s.refFiles ?? {});
+        const refSection = refs.length > 0
+          ? "\n\n" + refs.map(([fn, content]) => `### Reference: ${fn}\n\n${content}`).join("\n\n")
+          : "";
+        return `## Skill: ${s.name}\n\n${s.skillMd || "（内容加载中…）"}${refSection}`;
+      }).join("\n\n---\n\n");
+
+  const totalChars = previewText === "（未关联任何 Skill）" ? 0 : previewText.length;
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="智能体任务模板配置" sub="为每种任务类型配置关联的 Skill，执行时按顺序注入 system prompt" />
+
+      {/* Task type picker */}
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <label className="text-sm font-bold text-slate-700 block mb-3">选择任务类型</label>
+        <div className="flex flex-wrap gap-2">
+          {taskTypes.map(tt => (
+            <button key={tt.taskType} onClick={() => setSelectedTaskType(tt.taskType)}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${selectedTaskType === tt.taskType ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              {tt.label}
+              <span className="ml-1.5 text-[10px] font-mono opacity-70">({tt.taskType})</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedTaskType && (
+        <div className="grid grid-cols-2 gap-6">
+          {/* Left: configuration */}
+          <div className="space-y-4">
+            {/* Current linked skills */}
+            <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">已关联 Skill（拖拽排序）</h3>
+              {linksLoading ? (
+                <div className="flex items-center justify-center py-6 text-slate-400"><Loader2 size={16} className="animate-spin mr-2" />加载中…</div>
+              ) : taskSkills.length === 0 ? (
+                <p className="text-center py-6 text-sm text-slate-400">暂未关联任何 Skill</p>
+              ) : (
+                <div className="space-y-2">
+                  {taskSkills.map((s, idx) => (
+                    <div key={s.skillId}
+                      draggable
+                      onDragStart={() => onDragStart(idx)}
+                      onDragOver={(e) => onDragOver(e, idx)}
+                      onDrop={() => onDrop(idx)}
+                      onDragEnd={onDragEnd}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-grab active:cursor-grabbing ${dragOverIdx === idx ? "border-primary/40 bg-primary/5 scale-[0.99]" : "border-slate-100 bg-slate-50"}`}>
+                      <GripVertical size={14} className="text-slate-300 shrink-0" />
+                      <span className="text-[10px] font-bold text-slate-400 w-5 text-center">{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-blue-900 truncate">{s.name}</p>
+                        {s.description && <p className="text-xs text-slate-400 truncate">{s.description}</p>}
+                      </div>
+                      <button onClick={() => removeSkill(s.skillId)}
+                        className="p-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors shrink-0">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={handleSave} disabled={saving}
+                className="w-full py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                保存配置
+              </button>
+            </div>
+
+            {/* Available skills to add */}
+            {availableToAdd.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">可添加的 Skill</h3>
+                <div className="space-y-2">
+                  {availableToAdd.map(s => (
+                    <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors" onClick={() => addSkill(s)}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-700 truncate">{s.name}</p>
+                        {s.description && <p className="text-xs text-slate-400 truncate">{s.description}</p>}
+                      </div>
+                      <Plus size={14} className="text-primary shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: actual assembled prompt preview */}
+          <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3 flex flex-col">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">System Prompt 预览</h3>
+              <div className="flex items-center gap-3">
+                {totalChars > 0 && (
+                  <span className="text-[10px] font-mono text-slate-400">{taskSkills.length} 个 Skill · {totalChars.toLocaleString()} 字符</span>
+                )}
+                <button onClick={() => setShowPreview(!showPreview)}
+                  className="text-xs text-primary hover:underline font-semibold">
+                  {showPreview ? "收起" : "展开"}
+                </button>
+              </div>
+            </div>
+            <div className={`flex-1 bg-slate-50 rounded-xl border border-slate-100 overflow-hidden transition-all ${showPreview ? "" : "max-h-64"}`}>
+              <pre className="p-4 text-xs font-mono text-slate-600 whitespace-pre-wrap leading-relaxed overflow-y-auto max-h-[60vh]">{previewText}</pre>
+            </div>
+            <p className="text-xs text-slate-400">预览内容即实际注入 system prompt 的完整文本，含所有 Skill 正文及引用文件</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── ModuleContent ───────────────────────────────── */
 
 /* ─── Screen Videos Management ──────────────────── */
@@ -7942,13 +8584,15 @@ function CatCategoryManagement() {
               <input value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))}
                 placeholder="分类的简短描述" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
             </div>
-            <div className="col-span-2 flex items-center gap-3">
-              <label className="text-xs font-bold text-slate-500">启用状态</label>
-              <button type="button" onClick={() => setForm(p => ({...p, isActive: !p.isActive}))}
-                className={`relative w-10 h-5 rounded-full transition-colors ${form.isActive ? "bg-primary" : "bg-slate-300"}`}>
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? "translate-x-5" : "translate-x-0"}`} />
-              </button>
-              <span className="text-xs text-slate-500">{form.isActive ? "启用" : "禁用"}</span>
+            <div className="col-span-2 flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-bold text-slate-500">启用状态</label>
+                <button type="button" onClick={() => setForm(p => ({...p, isActive: !p.isActive}))}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${form.isActive ? "bg-primary" : "bg-slate-300"}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+                <span className="text-xs text-slate-500">{form.isActive ? "启用" : "禁用"}</span>
+              </div>
             </div>
           </div>
           <div className="flex gap-3">
@@ -7970,12 +8614,13 @@ function CatCategoryManagement() {
                 <th className="px-6 py-4">标签数</th>
                 <th className="px-6 py-4">排序</th>
                 <th className="px-6 py-4">状态</th>
+                <th className="px-6 py-4">Demo 生成</th>
                 <th className="px-6 py-4">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {categories.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-400">暂无分类</td></tr>
+                <tr><td colSpan={7} className="px-6 py-10 text-center text-sm text-slate-400">暂无分类</td></tr>
               ) : categories.map(cat => (
                 <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 font-bold text-slate-800 text-sm">{cat.name}</td>
@@ -8507,6 +9152,7 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "activities":     return <AdminActivities />;
     case "quotecard":      return <QuoteCardConfigManagement />;
     case "agent":          return <AgentConfigManagement />;
+    case "skill_registry": return <SkillRegistryModule />;
     case "settlement":     return <SettlementManagement />;
     case "platform_info":  return <PlatformInfoManagement />;
     case "contract_config":return <PlatformContractConfigManagement />;

@@ -50,3 +50,5 @@ export * from "./contest-tracks";
 export * from "./contest-registrations";
 export * from "./platform-info";
 export * from "./platform-contract-config";
+export * from "./skills";
+export * from "./demo-projects";

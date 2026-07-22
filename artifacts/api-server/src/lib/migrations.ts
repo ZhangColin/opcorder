@@ -58,6 +58,9 @@ export async function runMigrations(): Promise<void> {
           "020a", "020b", "020c", "020d", "020e", "020f", "020g",
           "021a", "021b", "021d",
           "022a", "023a", "025a", "026a", "027a", "028a",
+          "029a", "030a", "031a", "032a", "033a", "034a", "035a", "036a", "037a",
+          "038a", "039a", "040a", "041a", "042a", "043a", "044a", "044b", "044c",
+          "044d", "045a",
         ];
         for (const id of historicalIds) {
           await db.execute(sql`INSERT INTO schema_migrations(id) VALUES (${id}) ON CONFLICT DO NOTHING`);
@@ -2998,6 +3001,94 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS invoice_type varchar(20) NOT NULL DEFAULT '普通发票'`);
     await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS tax_rate numeric(5,2) NOT NULL DEFAULT 0`);
     logger.info("Migration 045a: added invoice_type and tax_rate to v2_contracts");
+  });
+
+  // Migration 046a: create skills and agent_task_skill_links tables
+  await once("046a", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS skills (
+        id            SERIAL PRIMARY KEY,
+        name          VARCHAR(200) NOT NULL,
+        description   TEXT,
+        source_url    VARCHAR(2000) NOT NULL,
+        skill_md      TEXT NOT NULL DEFAULT '',
+        ref_files     JSONB NOT NULL DEFAULT '{}',
+        version       VARCHAR(200),
+        last_synced_at TIMESTAMP,
+        is_active     BOOLEAN NOT NULL DEFAULT true,
+        created_at    TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS agent_task_skill_links (
+        id          SERIAL PRIMARY KEY,
+        task_type   VARCHAR(100) NOT NULL,
+        skill_id    INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        created_at  TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT agent_task_skill_links_task_type_skill_id_key UNIQUE (task_type, skill_id)
+      )
+    `);
+    logger.info("Migration 046a: created skills and agent_task_skill_links tables");
+  });
+
+  await once("047a", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS demo_projects (
+        id            SERIAL PRIMARY KEY,
+        demand_id     INTEGER NOT NULL UNIQUE,
+        status        VARCHAR(20) NOT NULL DEFAULT 'generating',
+        version       INTEGER NOT NULL DEFAULT 1,
+        files         JSONB,
+        entry_file    VARCHAR(200) NOT NULL DEFAULT 'src/App.tsx',
+        dependencies  JSONB NOT NULL DEFAULT '{}',
+        skill_snapshot TEXT,
+        revision_log  JSONB NOT NULL DEFAULT '[]',
+        error_msg     TEXT,
+        created_at    TIMESTAMP NOT NULL DEFAULT now(),
+        updated_at    TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS demo_project_versions (
+        id                SERIAL PRIMARY KEY,
+        demo_project_id   INTEGER NOT NULL REFERENCES demo_projects(id) ON DELETE CASCADE,
+        version           INTEGER NOT NULL,
+        files             JSONB NOT NULL DEFAULT '{}',
+        dependencies      JSONB NOT NULL DEFAULT '{}',
+        created_at        TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+    logger.info("Migration 047a: created demo_projects and demo_project_versions tables");
+  });
+
+  await once("048a", true, async () => {
+    await db.execute(sql`ALTER TABLE cat_categories ADD COLUMN IF NOT EXISTS enable_demo BOOLEAN NOT NULL DEFAULT false`);
+    logger.info("Migration 048a: added enable_demo to cat_categories");
+  });
+
+  // Migration 049a: add unique constraint on v2_outsource_orders.order_no (pre-create so drizzle-kit push stays non-interactive)
+  await once("049a", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_outsource_orders
+      ADD CONSTRAINT v2_outsource_orders_order_no_unique UNIQUE (order_no)
+    `);
+    logger.info("Migration 049a: added unique constraint v2_outsource_orders_order_no_unique");
+  });
+
+  // Migration 049b: add unique constraint on v2_contracts.contract_no (pre-create so drizzle-kit push stays non-interactive)
+  await once("049b", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE v2_contracts
+      ADD CONSTRAINT v2_contracts_contract_no_unique UNIQUE (contract_no)
+    `);
+    logger.info("Migration 049b: added unique constraint v2_contracts_contract_no_unique");
+  });
+
+  // Migration 050a: drop enable_demo column from cat_categories (demo is determined by demand type, not a per-category flag)
+  await once("050a", true, async () => {
+    await db.execute(sql`ALTER TABLE cat_categories DROP COLUMN IF EXISTS enable_demo`);
+    logger.info("Migration 050a: dropped enable_demo from cat_categories");
   });
 
   logger.info("Startup data migrations complete.");

@@ -3,8 +3,11 @@ import { useParams, useLocation } from "wouter";
 import {
   Loader2, Zap, ExternalLink, CheckCircle2, DollarSign, Edit2, X,
   Calendar, AlertTriangle, History, FileText, ChevronDown, ChevronUp, PlayCircle,
-  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload, Bot, Check, Copy,
+  Link2, Paperclip, Plus, RotateCcw, Wrench, Send, Upload, Bot, Check, Copy, LayoutTemplate,
 } from "lucide-react";
+import { DemoManagePanel } from "@/components/demo/DemoManagePanel";
+import { DemoStatusBadge } from "@/components/demo/DemoStatusBadge";
+import { useDemoStatus } from "@/hooks/useDemoStatus";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import type { FormSuggestion } from "@/components/agent/AgentChatPanel";
@@ -248,9 +251,12 @@ function Section({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(v => !v); } }}
+        className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-slate-50 transition-colors cursor-pointer select-none"
       >
         <Icon size={16} className="text-primary shrink-0" />
         <span className="font-bold text-slate-800 flex-1">{title}</span>
@@ -258,7 +264,7 @@ function Section({
           <div className="shrink-0" onClick={e => e.stopPropagation()}>{headerRight}</div>
         )}
         {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-      </button>
+      </div>
       {open && <div className="px-6 pt-4 pb-6 border-t border-slate-100">{children}</div>}
     </div>
   );
@@ -276,6 +282,7 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const [demand, setDemand] = useState<ClientDemand | null>(null);
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<PaymentPlan[]>([]);
+  const { data: adminDemoData, isLoading: adminDemoLoading } = useDemoStatus(id > 0 ? id : undefined);
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [quotation, setQuotation] = useState<QuotationCard | null>(null);
   const [contracts, setContracts] = useState<ContractItem[]>([]);
@@ -318,9 +325,9 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const pendingRestoreRef = useRef<Array<{ item: string; amount: number; note?: string }> | null>(null);
 
   // Tab — prefer prop (from inlineNav), fall back to URL search param
-  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket">(() => {
+  const [activeTab, setActiveTab] = useState<"needs" | "contract" | "delivery" | "ticket" | "demo">(() => {
     const t = initialTab ?? new URLSearchParams(window.location.search).get("tab") ?? "";
-    return (["needs", "contract", "delivery", "ticket"] as const).includes(t as any) ? (t as "needs" | "contract" | "delivery" | "ticket") : "needs";
+    return (["needs", "contract", "delivery", "ticket", "demo"] as const).includes(t as any) ? (t as "needs" | "contract" | "delivery" | "ticket" | "demo") : "needs";
   });
   const initialId: number | null = initialItemId ?? (() => {
     const raw = new URLSearchParams(window.location.search).get("id");
@@ -839,13 +846,15 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
   const stageIdx = STAGE_KEYS.indexOf(demand.status as typeof STAGE_KEYS[number]);
   const isPast = (s: string) => stageIdx >= 0 && stageIdx >= STAGE_KEYS.indexOf(s as typeof STAGE_KEYS[number]);
   const canEditPayments = aContract?.status === "draft" || aContract?.status === "publisher_rejected";
-  const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket"> = [
+  const demandCategory = V2_DEMAND_CATEGORY_MAP[demand.demandType ?? ""] ?? null;
+  const visibleTabs: Array<"needs" | "contract" | "delivery" | "ticket" | "demo"> = [
     "needs",
     ...(isPast("quoting")   ? ["contract" as const] : []),
     ...(isPast("executing") ? ["delivery" as const] : []),
     ...(isPast("warranty")  ? ["ticket"   as const] : []),
+    ...(demand.status !== "draft" && demandCategory === "software" ? ["demo" as const] : []),
   ];
-  const TAB_LABELS: Record<string, string> = { needs: "需求详情", contract: "报价与合同", delivery: "交付", ticket: "工单" };
+  const TAB_LABELS: Record<string, string> = { needs: "需求详情", contract: "报价与合同", delivery: "交付", ticket: "工单", demo: "Demo" };
 
 
   return (
@@ -864,6 +873,14 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
                 <span className="text-xs font-bold text-red-500 flex items-center gap-0.5 bg-red-50 px-2 py-0.5 rounded-full">
                   <Zap size={10} />紧急
                 </span>
+              )}
+              {demand.status !== "draft" && demandCategory === "software" && (
+                <DemoStatusBadge
+                  demo={adminDemoData}
+                  loading={adminDemoLoading}
+                  onPreview={() => setActiveTab("demo")}
+                  size="sm"
+                />
               )}
               {demand.demandType && (
                 <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
@@ -1870,6 +1887,11 @@ export default function AdminV2ClientDemandDetail({ inlineId, initialTab, initia
               );
             })}
           </div>
+        )}
+
+        {/* ── Demo 管理 Tab ── */}
+        {activeTab === "demo" && (
+          <DemoManagePanel demandId={id} demandTitle={demand.title} />
         )}
 
       </div>

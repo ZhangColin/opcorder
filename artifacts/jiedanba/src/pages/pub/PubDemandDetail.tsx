@@ -16,6 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 import { markRead } from "@/lib/demandRead";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import type { FormSuggestion } from "@/components/agent/AgentChatPanel";
+import { useDemoStatus } from "@/hooks/useDemoStatus";
+import { DemoStatusBadge } from "@/components/demo/DemoStatusBadge";
+import { DemoPreviewModal } from "@/components/demo/DemoPreviewModal";
 
 /* ── Constants ── */
 const DEMAND_TYPE_LABEL: Record<string, string> = {
@@ -24,6 +27,12 @@ const DEMAND_TYPE_LABEL: Record<string, string> = {
   content: "内容设计", education: "教育培训", software: "软件开发",
   CG: "内容设计", SA: "软件开发", TK: "教育培训", BO: "营销推广", OTHER: "其他",
   cg: "内容设计", sa: "软件开发", tk: "教育培训", bo: "营销推广",
+};
+const DEMAND_CATEGORY_MAP: Record<string, string | null> = {
+  content: "content", education: "education", software: "software", marketing: "marketing",
+  CG: "content", SA: "software", TK: "education", BO: "marketing",
+  cg: "content", sa: "software", tk: "education", bo: "marketing",
+  OTHER: null, other: null,
 };
 interface DemandType { id: number; code: string; name: string; }
 
@@ -260,6 +269,13 @@ export default function PubDemandDetail() {
   const [showConfirmQuoteModal, setShowConfirmQuoteModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [commentText, setCommentText] = useState("");
+
+  /* Demo */
+  const [showDemoPreview, setShowDemoPreview] = useState(false);
+  const isSoftwareDemand = DEMAND_CATEGORY_MAP[demand?.demandType ?? ""] === "software";
+  const { data: demoData, isLoading: demoLoading } = useDemoStatus(
+    demand && demand.status !== "draft" && isSoftwareDemand ? demandId : undefined
+  );
 
   /* Ticket creation */
   const [showCreateTicket, setShowCreateTicket] = useState(false);
@@ -657,6 +673,13 @@ export default function PubDemandDetail() {
                 </span>
               )}
               <span className="text-xs text-slate-400 font-mono">{demand.demandNo}</span>
+              {demand.status !== "draft" && isSoftwareDemand && (
+                <DemoStatusBadge
+                  demo={demoData}
+                  loading={demoLoading}
+                  onPreview={() => setShowDemoPreview(true)}
+                />
+              )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {canEditDetail && !editMode && (
@@ -1636,6 +1659,14 @@ export default function PubDemandDetail() {
             )}
           </div>
         </div>
+      )}
+      {showDemoPreview && demoData && demand && demoData.status === "ready" && (
+        <DemoPreviewModal
+          demandId={demandId}
+          demo={demoData}
+          demandTitle={demand.title}
+          onClose={() => setShowDemoPreview(false)}
+        />
       )}
       {demand && (
         <AgentChatPanel

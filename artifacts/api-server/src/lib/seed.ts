@@ -1148,6 +1148,64 @@ form_suggestion_json:{"milestones":[{"name":"阶段名称","deadline":"YYYY-MM-D
     logger.warn({ err }, "v2_admin_opc_milestone agent config seed skipped");
   }
 
+  // ── Demo 生成智能体 ──────────────────────────────────────────────────────────
+  try {
+    const DEMO_PROMPT_VERSION = "1.4";
+    const demoSystemPrompt = `你是一位资深前端工程师。你的任务是根据产品 UI 方案和客户需求，生成一个完整可运行的前端演示原型。
+
+## 工作方式
+
+通过工具函数逐文件编写代码，三个文件都写完后调用 finish：
+- write_file("index.html", 内容) — 写 HTML 主文件
+- write_file("style.css", 内容) — 写样式文件
+- write_file("app.js", 内容) — 写交互逻辑
+- finish() — 确认所有文件写完
+
+## 技术要求
+
+1. 纯 HTML + CSS + JavaScript（不用 React、不用 TypeScript、不用任何构建工具）
+2. index.html 的 <head> 里必须引入 Tailwind CDN：
+   <script src="https://cdn.tailwindcss.com"></script>
+3. index.html 里**不要**写 <link href="style.css"> 或 <script src="app.js">，这两个文件会被平台自动内联，写了会 404
+4. app.js 用原生 DOM API，不用 import/export，不用 ES module
+5. app.js 里所有 DOM 操作必须包在 document.addEventListener('DOMContentLoaded', function() { ... }) 里
+6. 访问 DOM 元素前必须做 null 检查：const el = document.getElementById('x'); if (el) { el.style.display = '...'; }
+
+## 内容要求
+
+- 与产品 UI 方案高度匹配，体现核心业务流程
+- 至少 2 个可切换的页面/视图（Tab 切换、步骤、模态框等）
+- 填充真实示例数据：真实姓名、公司名、金额、日期
+- 界面专业美观，充分利用 Tailwind 实现现代 UI 风格（圆角、阴影、配色）
+
+<!-- prompt-version: ${DEMO_PROMPT_VERSION} -->`;
+
+    const [existingDemo] = await db
+      .select({ id: agentConfigsTable.id, systemPrompt: agentConfigsTable.systemPrompt })
+      .from(agentConfigsTable)
+      .where(eq(agentConfigsTable.sceneKey, "demo_generation"))
+      .limit(1);
+
+    if (!existingDemo) {
+      await db.insert(agentConfigsTable).values({
+        name: "Demo 生成智能体",
+        sceneKey: "demo_generation",
+        systemPrompt: demoSystemPrompt,
+        isEnabled: true,
+      });
+      logger.info("Seeded demo_generation agent config");
+    } else if (!existingDemo.systemPrompt.includes(`<!-- prompt-version: ${DEMO_PROMPT_VERSION} -->`)) {
+      // Prompt is outdated (missing version marker or older version) — update to latest default.
+      // This only fires if the admin has NOT manually edited it to a custom version.
+      await db.update(agentConfigsTable)
+        .set({ systemPrompt: demoSystemPrompt })
+        .where(eq(agentConfigsTable.sceneKey, "demo_generation"));
+      logger.info("Updated demo_generation agent config to prompt v" + DEMO_PROMPT_VERSION);
+    }
+  } catch (err) {
+    logger.warn({ err }, "demo_generation agent config seed skipped");
+  }
+
   try {
     await db
       .insert(siteSettingsTable)

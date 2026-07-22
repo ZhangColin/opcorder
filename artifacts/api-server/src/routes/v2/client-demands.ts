@@ -1,12 +1,14 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2ClientDemandsTable, v2ClientDemandVersionsTable, v2ContractsTable, v2PaymentPlansTable, v2DiscussionPostsTable, notificationsTable, usersTable,
+  demoProjectsTable,
 } from "@workspace/db";
 import { eq, and, desc, count, ilike, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genClientDemandNo, genContractNo } from "./utils";
 import { logger } from "../../lib/logger";
+import { generateDemo } from "../../lib/demoAgent";
 
 const router: IRouter = Router();
 
@@ -241,6 +243,39 @@ router.post("/client-demands/:id/submit", requireAuth, async (req: Request, res:
     for (const admin of admins) {
       await notify(admin.id, "v2_demand_submitted", "新客户需求待处理",
         `发单方提交了新需求「${demand.title}」，请及时跟进。`, id, "v2_client_demand");
+    }
+
+    // Trigger Demo Agent for software-development demands with sufficient detail
+    // Software type codes: "software", "SA", "sa" (mirrors frontend DEMAND_CATEGORY_MAP → "software")
+    const detailText = detail ?? "";
+    const DEMO_MIN_DETAIL_LEN = 200;
+    const SOFTWARE_CODES = new Set(["software", "SA", "sa"]);
+    const demoCatEnabled = SOFTWARE_CODES.has(updated.demandType ?? "");
+    const demoDetailSufficient = detailText.length >= DEMO_MIN_DETAIL_LEN;
+    if (demoCatEnabled && demoDetailSufficient) {
+      try {
+        await db.insert(demoProjectsTable).values({
+          demandId: id,
+          status: "generating",
+          version: 1,
+          files: null,
+          entryFile: "src/App.tsx",
+          dependencies: {},
+          revisionLog: [],
+        }).onConflictDoNothing();
+      } catch (demoErr) {
+        logger.warn({ demoErr, demandId: id }, "Demo initial row insert failed (non-critical)");
+      }
+      setImmediate(() => {
+        generateDemo(id).catch((err) =>
+          logger.error({ err, demandId: id }, "generateDemo background task failed")
+        );
+      });
+    } else {
+      logger.info(
+        { demandId: id, demoCatEnabled, demoDetailLen: detailText.length },
+        "Skipped Demo generation: category not enabled or detail too short"
+      );
     }
 
     return res.json(updated);

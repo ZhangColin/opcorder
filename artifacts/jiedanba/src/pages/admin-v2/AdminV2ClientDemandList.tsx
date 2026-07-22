@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Search, Loader2, ChevronRight, Zap, ClipboardList } from "lucide-react";
+import { Search, Loader2, ChevronRight, Zap, ClipboardList, LayoutTemplate } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
@@ -160,6 +160,21 @@ export default function AdminV2ClientDemandList() {
                   </div>
                   <div className="flex items-end gap-4">
                     <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
+                      {d.status !== "draft" && d.demandType === "software" && (
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Demo</p>
+                          <span
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (inlineNav) inlineNav.push(`/admin/v2/client-demands/${d.id}?tab=demo`);
+                              else navigate(`/admin/v2/client-demands/${d.id}?tab=demo`);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
+                          >
+                            <LayoutTemplate size={10} /> 查看
+                          </span>
+                        </div>
+                      )}
                       {d.publisherNickname && (
                         <div>
                           <p className="text-[10px] text-slate-400 uppercase tracking-wider">发单方</p>
