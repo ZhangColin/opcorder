@@ -3,6 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
 import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
 import { useEffect } from "react";
 import {
   Bold, Italic, Strikethrough, Code, Quote,
@@ -56,15 +57,23 @@ export function MarkdownEditor({
       handlePaste(view, event) {
         const text = event.clipboardData?.getData("text/plain");
         const html = event.clipboardData?.getData("text/html");
-        // When clipboard has both HTML and plain text, and the plain text looks
-        // like Markdown, bypass the HTML path and feed the text through the
-        // clipboardTextParser that tiptap-markdown installs (which parses full
-        // Markdown — headings, lists, tables, code blocks, etc.).
+        // When the clipboard has both HTML and plain text and the plain text
+        // looks like Markdown, bypass tiptap's HTML path.
+        // tiptap-markdown's own clipboardTextParser uses `inline: true` which
+        // strips all block-level structure (headings, lists, tables, code blocks).
+        // Instead, we call parser.parse() WITHOUT inline:true, convert the
+        // resulting HTML to a ProseMirror Slice, and dispatch it directly.
         if (html && text && /(?:^|\n)#{1,6} |^\*\*|^__|\*[^*\s]|^[-*+] |\[.+\]\(|\n```|^\d+\. /m.test(text)) {
-          const parser = view.props.clipboardTextParser;
-          if (parser) {
+          const mdParser = editor?.storage?.markdown?.parser;
+          if (mdParser) {
+            const renderedHtml = mdParser.parse(text);
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = renderedHtml.trim();
             const $pos = view.state.doc.resolve(view.state.selection.from);
-            const slice = parser(text, $pos, false);
+            const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(wrapper, {
+              preserveWhitespace: true,
+              context: $pos,
+            });
             view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
             return true;
           }
