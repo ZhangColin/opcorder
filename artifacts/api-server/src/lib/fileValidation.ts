@@ -49,6 +49,11 @@ export const ALLOWED_MIME_TYPES: Record<string, readonly string[]> = {
   "text/markdown": ["md"],
   "text/html": ["html", "htm"],
   "application/zip": ["zip"],
+  "application/x-zip-compressed": ["zip"],
+  "application/x-zip": ["zip"],
+  "application/x-rar-compressed": ["rar"],
+  "application/vnd.rar": ["rar"],
+  "application/x-7z-compressed": ["7z"],
 };
 
 const ALLOWED_EXTENSION_SET = new Set(Object.values(ALLOWED_MIME_TYPES).flat());

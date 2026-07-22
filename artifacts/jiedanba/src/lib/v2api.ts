@@ -81,6 +81,8 @@ const EXT_MIME: Record<string, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   zip:  "application/zip",
+  rar:  "application/x-rar-compressed",
+  "7z": "application/x-7z-compressed",
   mp4:  "video/mp4",
   webm: "video/webm",
 };
