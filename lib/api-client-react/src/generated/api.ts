@@ -24,10 +24,24 @@ import type {
   AdminAddRegistrationTag200,
   AdminAddRegistrationTagBody,
   AdminDeleteRegistrationTag200,
+  AdminDeleteSkill200,
   AdminDemandPaymentRow,
+  AdminFetchSkillPreview200,
+  AdminFetchSkillPreviewBody,
   AdminGetActivityTags200,
+  AdminGetSkill200,
+  AdminGetTaskTypeSkills200,
+  AdminInstallSkill201,
+  AdminInstallSkillBody,
   AdminListActivitiesParams,
+  AdminListAgentTaskTypes200,
   AdminListRegistrationsParams,
+  AdminListSkills200,
+  AdminPatchSkill200,
+  AdminPatchSkillBody,
+  AdminPutTaskSkillsBody,
+  AdminPutTaskTypeSkills200,
+  AdminSyncSkill200,
   AdminToggleActivity200,
   AdminUpdateRegistrationNoteBody,
   AgentChatInput,
@@ -8115,4 +8129,859 @@ export const usePostContestsIdTracksTrackIdRegister = <
   return useMutation(
     getPostContestsIdTracksTrackIdRegisterMutationOptions(options),
   );
+};
+
+/**
+ * @summary Fetch skill preview from a remote URL (admin only)
+ */
+export const getAdminFetchSkillPreviewUrl = () => {
+  return `/api/admin/skills/fetch-preview`;
+};
+
+export const adminFetchSkillPreview = async (
+  adminFetchSkillPreviewBody: AdminFetchSkillPreviewBody,
+  options?: RequestInit,
+): Promise<AdminFetchSkillPreview200> => {
+  return customFetch<AdminFetchSkillPreview200>(
+    getAdminFetchSkillPreviewUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminFetchSkillPreviewBody),
+    },
+  );
+};
+
+export const getAdminFetchSkillPreviewMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminFetchSkillPreview>>,
+    TError,
+    { data: BodyType<AdminFetchSkillPreviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminFetchSkillPreview>>,
+  TError,
+  { data: BodyType<AdminFetchSkillPreviewBody> },
+  TContext
+> => {
+  const mutationKey = ["adminFetchSkillPreview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminFetchSkillPreview>>,
+    { data: BodyType<AdminFetchSkillPreviewBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminFetchSkillPreview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminFetchSkillPreviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminFetchSkillPreview>>
+>;
+export type AdminFetchSkillPreviewMutationBody =
+  BodyType<AdminFetchSkillPreviewBody>;
+export type AdminFetchSkillPreviewMutationError = ErrorType<void>;
+
+/**
+ * @summary Fetch skill preview from a remote URL (admin only)
+ */
+export const useAdminFetchSkillPreview = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminFetchSkillPreview>>,
+    TError,
+    { data: BodyType<AdminFetchSkillPreviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminFetchSkillPreview>>,
+  TError,
+  { data: BodyType<AdminFetchSkillPreviewBody> },
+  TContext
+> => {
+  return useMutation(getAdminFetchSkillPreviewMutationOptions(options));
+};
+
+/**
+ * @summary List all installed skills (admin only)
+ */
+export const getAdminListSkillsUrl = () => {
+  return `/api/admin/skills`;
+};
+
+export const adminListSkills = async (
+  options?: RequestInit,
+): Promise<AdminListSkills200> => {
+  return customFetch<AdminListSkills200>(getAdminListSkillsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListSkillsQueryKey = () => {
+  return [`/api/admin/skills`] as const;
+};
+
+export const getAdminListSkillsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListSkills>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSkills>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListSkillsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListSkills>>> = ({
+    signal,
+  }) => adminListSkills({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSkills>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListSkillsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListSkills>>
+>;
+export type AdminListSkillsQueryError = ErrorType<void>;
+
+/**
+ * @summary List all installed skills (admin only)
+ */
+
+export function useAdminListSkills<
+  TData = Awaited<ReturnType<typeof adminListSkills>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSkills>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListSkillsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Install a new skill from a remote URL (admin only)
+ */
+export const getAdminInstallSkillUrl = () => {
+  return `/api/admin/skills`;
+};
+
+export const adminInstallSkill = async (
+  adminInstallSkillBody: AdminInstallSkillBody,
+  options?: RequestInit,
+): Promise<AdminInstallSkill201> => {
+  return customFetch<AdminInstallSkill201>(getAdminInstallSkillUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminInstallSkillBody),
+  });
+};
+
+export const getAdminInstallSkillMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminInstallSkill>>,
+    TError,
+    { data: BodyType<AdminInstallSkillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminInstallSkill>>,
+  TError,
+  { data: BodyType<AdminInstallSkillBody> },
+  TContext
+> => {
+  const mutationKey = ["adminInstallSkill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminInstallSkill>>,
+    { data: BodyType<AdminInstallSkillBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminInstallSkill(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminInstallSkillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminInstallSkill>>
+>;
+export type AdminInstallSkillMutationBody = BodyType<AdminInstallSkillBody>;
+export type AdminInstallSkillMutationError = ErrorType<void>;
+
+/**
+ * @summary Install a new skill from a remote URL (admin only)
+ */
+export const useAdminInstallSkill = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminInstallSkill>>,
+    TError,
+    { data: BodyType<AdminInstallSkillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminInstallSkill>>,
+  TError,
+  { data: BodyType<AdminInstallSkillBody> },
+  TContext
+> => {
+  return useMutation(getAdminInstallSkillMutationOptions(options));
+};
+
+/**
+ * @summary Get skill detail by ID (admin only)
+ */
+export const getAdminGetSkillUrl = (id: number) => {
+  return `/api/admin/skills/${id}`;
+};
+
+export const adminGetSkill = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminGetSkill200> => {
+  return customFetch<AdminGetSkill200>(getAdminGetSkillUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetSkillQueryKey = (id: number) => {
+  return [`/api/admin/skills/${id}`] as const;
+};
+
+export const getAdminGetSkillQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetSkill>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetSkill>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetSkillQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminGetSkill>>> = ({
+    signal,
+  }) => adminGetSkill(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSkill>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetSkillQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetSkill>>
+>;
+export type AdminGetSkillQueryError = ErrorType<void>;
+
+/**
+ * @summary Get skill detail by ID (admin only)
+ */
+
+export function useAdminGetSkill<
+  TData = Awaited<ReturnType<typeof adminGetSkill>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetSkill>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetSkillQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update skill name or active status (admin only)
+ */
+export const getAdminPatchSkillUrl = (id: number) => {
+  return `/api/admin/skills/${id}`;
+};
+
+export const adminPatchSkill = async (
+  id: number,
+  adminPatchSkillBody: AdminPatchSkillBody,
+  options?: RequestInit,
+): Promise<AdminPatchSkill200> => {
+  return customFetch<AdminPatchSkill200>(getAdminPatchSkillUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminPatchSkillBody),
+  });
+};
+
+export const getAdminPatchSkillMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchSkill>>,
+    TError,
+    { id: number; data: BodyType<AdminPatchSkillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchSkill>>,
+  TError,
+  { id: number; data: BodyType<AdminPatchSkillBody> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchSkill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchSkill>>,
+    { id: number; data: BodyType<AdminPatchSkillBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchSkill(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchSkillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchSkill>>
+>;
+export type AdminPatchSkillMutationBody = BodyType<AdminPatchSkillBody>;
+export type AdminPatchSkillMutationError = ErrorType<void>;
+
+/**
+ * @summary Update skill name or active status (admin only)
+ */
+export const useAdminPatchSkill = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchSkill>>,
+    TError,
+    { id: number; data: BodyType<AdminPatchSkillBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchSkill>>,
+  TError,
+  { id: number; data: BodyType<AdminPatchSkillBody> },
+  TContext
+> => {
+  return useMutation(getAdminPatchSkillMutationOptions(options));
+};
+
+/**
+ * @summary Delete a skill (admin only)
+ */
+export const getAdminDeleteSkillUrl = (id: number) => {
+  return `/api/admin/skills/${id}`;
+};
+
+export const adminDeleteSkill = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminDeleteSkill200> => {
+  return customFetch<AdminDeleteSkill200>(getAdminDeleteSkillUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteSkillMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteSkill>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteSkill>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteSkill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteSkill>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteSkill(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteSkillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteSkill>>
+>;
+
+export type AdminDeleteSkillMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a skill (admin only)
+ */
+export const useAdminDeleteSkill = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteSkill>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteSkill>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteSkillMutationOptions(options));
+};
+
+/**
+ * @summary Re-sync a skill from its remote URL (admin only)
+ */
+export const getAdminSyncSkillUrl = (id: number) => {
+  return `/api/admin/skills/${id}/sync`;
+};
+
+export const adminSyncSkill = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminSyncSkill200> => {
+  return customFetch<AdminSyncSkill200>(getAdminSyncSkillUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminSyncSkillMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncSkill>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminSyncSkill>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminSyncSkill"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminSyncSkill>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminSyncSkill(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminSyncSkillMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminSyncSkill>>
+>;
+
+export type AdminSyncSkillMutationError = ErrorType<void>;
+
+/**
+ * @summary Re-sync a skill from its remote URL (admin only)
+ */
+export const useAdminSyncSkill = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncSkill>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminSyncSkill>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminSyncSkillMutationOptions(options));
+};
+
+/**
+ * @summary List all known agent task types (admin only)
+ */
+export const getAdminListAgentTaskTypesUrl = () => {
+  return `/api/admin/agent-task-types`;
+};
+
+export const adminListAgentTaskTypes = async (
+  options?: RequestInit,
+): Promise<AdminListAgentTaskTypes200> => {
+  return customFetch<AdminListAgentTaskTypes200>(
+    getAdminListAgentTaskTypesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListAgentTaskTypesQueryKey = () => {
+  return [`/api/admin/agent-task-types`] as const;
+};
+
+export const getAdminListAgentTaskTypesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListAgentTaskTypes>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAgentTaskTypes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListAgentTaskTypesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListAgentTaskTypes>>
+  > = ({ signal }) => adminListAgentTaskTypes({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAgentTaskTypes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListAgentTaskTypesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListAgentTaskTypes>>
+>;
+export type AdminListAgentTaskTypesQueryError = ErrorType<void>;
+
+/**
+ * @summary List all known agent task types (admin only)
+ */
+
+export function useAdminListAgentTaskTypes<
+  TData = Awaited<ReturnType<typeof adminListAgentTaskTypes>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAgentTaskTypes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListAgentTaskTypesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get skills linked to a task type (admin only)
+ */
+export const getAdminGetTaskTypeSkillsUrl = (taskType: string) => {
+  return `/api/admin/agent-task-types/${taskType}/skills`;
+};
+
+export const adminGetTaskTypeSkills = async (
+  taskType: string,
+  options?: RequestInit,
+): Promise<AdminGetTaskTypeSkills200> => {
+  return customFetch<AdminGetTaskTypeSkills200>(
+    getAdminGetTaskTypeSkillsUrl(taskType),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminGetTaskTypeSkillsQueryKey = (taskType: string) => {
+  return [`/api/admin/agent-task-types/${taskType}/skills`] as const;
+};
+
+export const getAdminGetTaskTypeSkillsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetTaskTypeSkills>>,
+  TError = ErrorType<void>,
+>(
+  taskType: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetTaskTypeSkills>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetTaskTypeSkillsQueryKey(taskType);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetTaskTypeSkills>>
+  > = ({ signal }) =>
+    adminGetTaskTypeSkills(taskType, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!taskType,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTaskTypeSkills>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetTaskTypeSkillsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetTaskTypeSkills>>
+>;
+export type AdminGetTaskTypeSkillsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get skills linked to a task type (admin only)
+ */
+
+export function useAdminGetTaskTypeSkills<
+  TData = Awaited<ReturnType<typeof adminGetTaskTypeSkills>>,
+  TError = ErrorType<void>,
+>(
+  taskType: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetTaskTypeSkills>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetTaskTypeSkillsQueryOptions(taskType, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Replace skills linked to a task type (admin only)
+ */
+export const getAdminPutTaskTypeSkillsUrl = (taskType: string) => {
+  return `/api/admin/agent-task-types/${taskType}/skills`;
+};
+
+export const adminPutTaskTypeSkills = async (
+  taskType: string,
+  adminPutTaskSkillsBody: AdminPutTaskSkillsBody,
+  options?: RequestInit,
+): Promise<AdminPutTaskTypeSkills200> => {
+  return customFetch<AdminPutTaskTypeSkills200>(
+    getAdminPutTaskTypeSkillsUrl(taskType),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminPutTaskSkillsBody),
+    },
+  );
+};
+
+export const getAdminPutTaskTypeSkillsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPutTaskTypeSkills>>,
+    TError,
+    { taskType: string; data: BodyType<AdminPutTaskSkillsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPutTaskTypeSkills>>,
+  TError,
+  { taskType: string; data: BodyType<AdminPutTaskSkillsBody> },
+  TContext
+> => {
+  const mutationKey = ["adminPutTaskTypeSkills"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPutTaskTypeSkills>>,
+    { taskType: string; data: BodyType<AdminPutTaskSkillsBody> }
+  > = (props) => {
+    const { taskType, data } = props ?? {};
+
+    return adminPutTaskTypeSkills(taskType, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPutTaskTypeSkillsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPutTaskTypeSkills>>
+>;
+export type AdminPutTaskTypeSkillsMutationBody =
+  BodyType<AdminPutTaskSkillsBody>;
+export type AdminPutTaskTypeSkillsMutationError = ErrorType<void>;
+
+/**
+ * @summary Replace skills linked to a task type (admin only)
+ */
+export const useAdminPutTaskTypeSkills = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPutTaskTypeSkills>>,
+    TError,
+    { taskType: string; data: BodyType<AdminPutTaskSkillsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPutTaskTypeSkills>>,
+  TError,
+  { taskType: string; data: BodyType<AdminPutTaskSkillsBody> },
+  TContext
+> => {
+  return useMutation(getAdminPutTaskTypeSkillsMutationOptions(options));
 };

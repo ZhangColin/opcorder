@@ -1185,6 +1185,75 @@ export interface UpdateQuoteTierBody {
   sortOrder?: number;
 }
 
+export interface AdminSkillRow {
+  id: number;
+  name: string;
+  description?: string | null;
+  sourceUrl: string;
+  version?: string | null;
+  lastSyncedAt?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type AdminSkillDetailRefFiles = { [key: string]: string };
+
+export type AdminSkillDetail = AdminSkillRow & {
+  skillMd: string;
+  refFiles: AdminSkillDetailRefFiles;
+};
+
+export type AdminSkillPreviewRefFiles = { [key: string]: string };
+
+export interface AdminSkillPreview {
+  name: string;
+  description: string;
+  skillMd: string;
+  refFiles: AdminSkillPreviewRefFiles;
+  version: string;
+}
+
+export interface AdminFetchSkillPreviewBody {
+  url: string;
+}
+
+export interface AdminInstallSkillBody {
+  url: string;
+  name?: string | null;
+}
+
+export interface AdminPatchSkillBody {
+  isActive?: boolean | null;
+  name?: string | null;
+}
+
+export interface AdminTaskType {
+  taskType: string;
+  label: string;
+}
+
+export type AdminTaskSkillLinkRefFiles = { [key: string]: string };
+
+export interface AdminTaskSkillLink {
+  id: number;
+  skillId: number;
+  sortOrder: number;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  skillMd: string;
+  refFiles: AdminTaskSkillLinkRefFiles;
+}
+
+export type AdminPutTaskSkillsBodySkillsItem = {
+  skillId: number;
+  sortOrder: number;
+};
+
+export interface AdminPutTaskSkillsBody {
+  skills: AdminPutTaskSkillsBodySkillsItem[];
+}
+
 export type GetOpcLeaderboardParams = {
   limit?: number;
 };
@@ -1609,4 +1678,44 @@ export type GetContestsMy200 = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+export type AdminFetchSkillPreview200 = {
+  data: AdminSkillPreview;
+};
+
+export type AdminListSkills200 = {
+  data: AdminSkillRow[];
+};
+
+export type AdminInstallSkill201 = {
+  data: AdminSkillDetail;
+};
+
+export type AdminGetSkill200 = {
+  data: AdminSkillDetail;
+};
+
+export type AdminPatchSkill200 = {
+  data: AdminSkillDetail;
+};
+
+export type AdminDeleteSkill200 = {
+  ok: boolean;
+};
+
+export type AdminSyncSkill200 = {
+  data: AdminSkillDetail;
+};
+
+export type AdminListAgentTaskTypes200 = {
+  data: AdminTaskType[];
+};
+
+export type AdminGetTaskTypeSkills200 = {
+  data: AdminTaskSkillLink[];
+};
+
+export type AdminPutTaskTypeSkills200 = {
+  data: AdminTaskSkillLink[];
 };

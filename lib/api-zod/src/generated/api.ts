@@ -2812,3 +2812,208 @@ export const PostContestsIdTracksTrackIdRegisterParams = zod.object({
   id: zod.coerce.number(),
   trackId: zod.coerce.number(),
 });
+
+/**
+ * @summary Fetch skill preview from a remote URL (admin only)
+ */
+export const AdminFetchSkillPreviewBody = zod.object({
+  url: zod.string(),
+});
+
+export const AdminFetchSkillPreviewResponse = zod.object({
+  data: zod.object({
+    name: zod.string(),
+    description: zod.string(),
+    skillMd: zod.string(),
+    refFiles: zod.record(zod.string(), zod.string()),
+    version: zod.string(),
+  }),
+});
+
+/**
+ * @summary List all installed skills (admin only)
+ */
+export const AdminListSkillsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      sourceUrl: zod.string(),
+      version: zod.string().nullish(),
+      lastSyncedAt: zod.date().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Install a new skill from a remote URL (admin only)
+ */
+export const AdminInstallSkillBody = zod.object({
+  url: zod.string(),
+  name: zod.string().nullish(),
+});
+
+/**
+ * @summary Get skill detail by ID (admin only)
+ */
+export const AdminGetSkillParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminGetSkillResponse = zod.object({
+  data: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      sourceUrl: zod.string(),
+      version: zod.string().nullish(),
+      lastSyncedAt: zod.date().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.date(),
+    })
+    .and(
+      zod.object({
+        skillMd: zod.string(),
+        refFiles: zod.record(zod.string(), zod.string()),
+      }),
+    ),
+});
+
+/**
+ * @summary Update skill name or active status (admin only)
+ */
+export const AdminPatchSkillParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminPatchSkillBody = zod.object({
+  isActive: zod.boolean().nullish(),
+  name: zod.string().nullish(),
+});
+
+export const AdminPatchSkillResponse = zod.object({
+  data: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      sourceUrl: zod.string(),
+      version: zod.string().nullish(),
+      lastSyncedAt: zod.date().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.date(),
+    })
+    .and(
+      zod.object({
+        skillMd: zod.string(),
+        refFiles: zod.record(zod.string(), zod.string()),
+      }),
+    ),
+});
+
+/**
+ * @summary Delete a skill (admin only)
+ */
+export const AdminDeleteSkillParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteSkillResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Re-sync a skill from its remote URL (admin only)
+ */
+export const AdminSyncSkillParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminSyncSkillResponse = zod.object({
+  data: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      sourceUrl: zod.string(),
+      version: zod.string().nullish(),
+      lastSyncedAt: zod.date().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.date(),
+    })
+    .and(
+      zod.object({
+        skillMd: zod.string(),
+        refFiles: zod.record(zod.string(), zod.string()),
+      }),
+    ),
+});
+
+/**
+ * @summary List all known agent task types (admin only)
+ */
+export const AdminListAgentTaskTypesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      taskType: zod.string(),
+      label: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get skills linked to a task type (admin only)
+ */
+export const AdminGetTaskTypeSkillsParams = zod.object({
+  taskType: zod.coerce.string(),
+});
+
+export const AdminGetTaskTypeSkillsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      skillId: zod.number(),
+      sortOrder: zod.number(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      isActive: zod.boolean(),
+      skillMd: zod.string(),
+      refFiles: zod.record(zod.string(), zod.string()),
+    }),
+  ),
+});
+
+/**
+ * @summary Replace skills linked to a task type (admin only)
+ */
+export const AdminPutTaskTypeSkillsParams = zod.object({
+  taskType: zod.coerce.string(),
+});
+
+export const AdminPutTaskTypeSkillsBody = zod.object({
+  skills: zod.array(
+    zod.object({
+      skillId: zod.number(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+export const AdminPutTaskTypeSkillsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      skillId: zod.number(),
+      sortOrder: zod.number(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      isActive: zod.boolean(),
+      skillMd: zod.string(),
+      refFiles: zod.record(zod.string(), zod.string()),
+    }),
+  ),
+});

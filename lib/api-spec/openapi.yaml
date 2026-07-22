@@ -27,6 +27,10 @@ tags:
     description: Activity registration management
   - name: agent
     description: AI demand analysis agent
+  - name: adminSkills
+    description: Admin skill management
+  - name: adminAgentTaskTypes
+    description: Admin agent task type configuration
 
 paths:
   /healthz:
@@ -2201,6 +2205,306 @@ paths:
         "409":
           description: Already registered
 
+  /admin/skills/fetch-preview:
+    post:
+      operationId: adminFetchSkillPreview
+      tags: [adminSkills]
+      summary: Fetch skill preview from a remote URL (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminFetchSkillPreviewBody"
+      responses:
+        "200":
+          description: Skill preview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdminSkillPreview"
+                required: [data]
+        "400":
+          description: Missing URL
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "422":
+          description: Failed to fetch skill
+
+  /admin/skills:
+    get:
+      operationId: adminListSkills
+      tags: [adminSkills]
+      summary: List all installed skills (admin only)
+      responses:
+        "200":
+          description: Skills list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminSkillRow"
+                required: [data]
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    post:
+      operationId: adminInstallSkill
+      tags: [adminSkills]
+      summary: Install a new skill from a remote URL (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminInstallSkillBody"
+      responses:
+        "201":
+          description: Installed skill
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdminSkillDetail"
+                required: [data]
+        "400":
+          description: Missing URL
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "422":
+          description: Install failed
+
+  /admin/skills/{id}:
+    get:
+      operationId: adminGetSkill
+      tags: [adminSkills]
+      summary: Get skill detail by ID (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Skill detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdminSkillDetail"
+                required: [data]
+        "400":
+          description: Invalid ID
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    patch:
+      operationId: adminPatchSkill
+      tags: [adminSkills]
+      summary: Update skill name or active status (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPatchSkillBody"
+      responses:
+        "200":
+          description: Updated skill
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdminSkillDetail"
+                required: [data]
+        "400":
+          description: Invalid ID or no updatable fields
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+    delete:
+      operationId: adminDeleteSkill
+      tags: [adminSkills]
+      summary: Delete a skill (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+        "400":
+          description: Invalid ID
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+        "409":
+          description: Skill is referenced by task templates
+
+  /admin/skills/{id}/sync:
+    post:
+      operationId: adminSyncSkill
+      tags: [adminSkills]
+      summary: Re-sync a skill from its remote URL (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Synced skill
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/AdminSkillDetail"
+                required: [data]
+        "400":
+          description: Invalid ID
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Not found
+        "422":
+          description: Sync failed
+
+  /admin/agent-task-types:
+    get:
+      operationId: adminListAgentTaskTypes
+      tags: [adminAgentTaskTypes]
+      summary: List all known agent task types (admin only)
+      responses:
+        "200":
+          description: Task type list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminTaskType"
+                required: [data]
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/agent-task-types/{taskType}/skills:
+    get:
+      operationId: adminGetTaskTypeSkills
+      tags: [adminAgentTaskTypes]
+      summary: Get skills linked to a task type (admin only)
+      parameters:
+        - name: taskType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task skill links
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminTaskSkillLink"
+                required: [data]
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+    put:
+      operationId: adminPutTaskTypeSkills
+      tags: [adminAgentTaskTypes]
+      summary: Replace skills linked to a task type (admin only)
+      parameters:
+        - name: taskType
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPutTaskSkillsBody"
+      responses:
+        "200":
+          description: Updated task skill links
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminTaskSkillLink"
+                required: [data]
+        "400":
+          description: Unknown task type or invalid skills array
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
 components:
   schemas:
     HealthStatus:
@@ -3867,3 +4171,93 @@ components:
         coefficient: { type: number, nullable: true }
         description: { type: string, nullable: true }
         sortOrder: { type: integer }
+
+    AdminSkillRow:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        sourceUrl: { type: string }
+        version: { type: string, nullable: true }
+        lastSyncedAt: { type: string, format: date-time, nullable: true }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, sourceUrl, isActive, createdAt]
+
+    AdminSkillDetail:
+      allOf:
+        - $ref: "#/components/schemas/AdminSkillRow"
+        - type: object
+          properties:
+            skillMd: { type: string }
+            refFiles:
+              type: object
+              additionalProperties: { type: string }
+          required: [skillMd, refFiles]
+
+    AdminSkillPreview:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        skillMd: { type: string }
+        refFiles:
+          type: object
+          additionalProperties: { type: string }
+        version: { type: string }
+      required: [name, description, skillMd, refFiles, version]
+
+    AdminFetchSkillPreviewBody:
+      type: object
+      properties:
+        url: { type: string }
+      required: [url]
+
+    AdminInstallSkillBody:
+      type: object
+      properties:
+        url: { type: string }
+        name: { type: string, nullable: true }
+      required: [url]
+
+    AdminPatchSkillBody:
+      type: object
+      properties:
+        isActive: { type: boolean, nullable: true }
+        name: { type: string, nullable: true }
+
+    AdminTaskType:
+      type: object
+      properties:
+        taskType: { type: string }
+        label: { type: string }
+      required: [taskType, label]
+
+    AdminTaskSkillLink:
+      type: object
+      properties:
+        id: { type: integer }
+        skillId: { type: integer }
+        sortOrder: { type: integer }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        isActive: { type: boolean }
+        skillMd: { type: string }
+        refFiles:
+          type: object
+          additionalProperties: { type: string }
+      required: [id, skillId, sortOrder, name, isActive, skillMd, refFiles]
+
+    AdminPutTaskSkillsBody:
+      type: object
+      properties:
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              skillId: { type: integer }
+              sortOrder: { type: integer }
+            required: [skillId, sortOrder]
+      required: [skills]
