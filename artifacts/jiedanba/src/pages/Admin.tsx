@@ -8055,7 +8055,7 @@ function AgentTaskConfigModule() {
               <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">System Prompt 预览</h3>
               <div className="flex items-center gap-3">
                 {totalChars > 0 && (
-                  <span className="text-[10px] font-mono text-slate-400">{taskSkills.length} 个 Skill · {totalChars.toLocaleString()} 字符</span>
+                  <span className="text-[10px] font-mono text-slate-400">已配置 {taskSkills.length} 个 Skill，总计 {totalChars.toLocaleString()} 字符</span>
                 )}
                 <button onClick={() => setShowPreview(!showPreview)}
                   className="text-xs text-primary hover:underline font-semibold">

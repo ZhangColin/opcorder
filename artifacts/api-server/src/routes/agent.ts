@@ -6,6 +6,7 @@ import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/adminAuth";
 import { callLLM, streamLLM, type LLMMessage, type ToolCall } from "../lib/llm";
 import { buildAgentTools, executeTool, type ToolExecutionContext } from "../lib/agentTools";
+import { getSkillsForTask } from "../lib/skillRegistry";
 
 const router: IRouter = Router();
 
@@ -333,7 +334,10 @@ router.post("/agent/demand-analysis/chat", requireAuth, async (req: Request, res
   }
 
   // Build effective system prompt — inject context blocks as needed
-  let effectiveSystemPrompt = config.systemPrompt;
+  const skillsBlock = await getSkillsForTask(resolvedSceneKey);
+  let effectiveSystemPrompt = skillsBlock
+    ? skillsBlock + "\n\n---\n\n" + config.systemPrompt
+    : config.systemPrompt;
 
   // Edit mode: inject existing demand data
   if (mode === "edit" && existingDemandData) {
