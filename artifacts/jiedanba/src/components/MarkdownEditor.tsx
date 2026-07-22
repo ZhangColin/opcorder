@@ -57,10 +57,17 @@ export function MarkdownEditor({
         const text = event.clipboardData?.getData("text/plain");
         const html = event.clipboardData?.getData("text/html");
         // When clipboard has both HTML and plain text, and the plain text looks
-        // like Markdown, force the plain-text path so tiptap-markdown can parse it.
+        // like Markdown, bypass the HTML path and feed the text through the
+        // clipboardTextParser that tiptap-markdown installs (which parses full
+        // Markdown — headings, lists, tables, code blocks, etc.).
         if (html && text && /(?:^|\n)#{1,6} |^\*\*|^__|\*[^*\s]|^[-*+] |\[.+\]\(|\n```|^\d+\. /m.test(text)) {
-          view.pasteText(text);
-          return true;
+          const parser = view.props.clipboardTextParser;
+          if (parser) {
+            const $pos = view.state.doc.resolve(view.state.selection.from);
+            const slice = parser(text, $pos, false);
+            view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+            return true;
+          }
         }
         return false;
       },
