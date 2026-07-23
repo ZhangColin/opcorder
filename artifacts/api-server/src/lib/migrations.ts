@@ -3070,19 +3070,25 @@ export async function runMigrations(): Promise<void> {
   // Migration 049a: add unique constraint on v2_outsource_orders.order_no (pre-create so drizzle-kit push stays non-interactive)
   await once("049a", true, async () => {
     await db.execute(sql`
-      ALTER TABLE v2_outsource_orders
-      ADD CONSTRAINT v2_outsource_orders_order_no_unique UNIQUE (order_no)
+      DO $$ BEGIN
+        ALTER TABLE v2_outsource_orders
+          ADD CONSTRAINT v2_outsource_orders_order_no_unique UNIQUE (order_no);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
     `);
-    logger.info("Migration 049a: added unique constraint v2_outsource_orders_order_no_unique");
+    logger.info("Migration 049a: ensured unique constraint v2_outsource_orders_order_no_unique");
   });
 
   // Migration 049b: add unique constraint on v2_contracts.contract_no (pre-create so drizzle-kit push stays non-interactive)
   await once("049b", true, async () => {
     await db.execute(sql`
-      ALTER TABLE v2_contracts
-      ADD CONSTRAINT v2_contracts_contract_no_unique UNIQUE (contract_no)
+      DO $$ BEGIN
+        ALTER TABLE v2_contracts
+          ADD CONSTRAINT v2_contracts_contract_no_unique UNIQUE (contract_no);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
     `);
-    logger.info("Migration 049b: added unique constraint v2_contracts_contract_no_unique");
+    logger.info("Migration 049b: ensured unique constraint v2_contracts_contract_no_unique");
   });
 
   // Migration 050a: drop enable_demo column from cat_categories (demo is determined by demand type, not a per-category flag)
