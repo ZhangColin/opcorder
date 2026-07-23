@@ -102,3 +102,9 @@ id = "3h9L2gxLEgCe3s8hQiUoX"
 uri = "file://接单吧OPC撮合交易平台_用户操作手册_V1.0.pdf"
 type = "pdf"
 title = "② 用户操作手册（35KB）"
+
+[[outputs]]
+id = "DxEACsJjzriHYOQJqh5Ci"
+uri = "file://artifacts_source.zip"
+type = "unspecified"
+title = "artifacts 源码包（排除 node_modules/dist 等，15MB）"
