@@ -19,8 +19,8 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 # ── 字体 ──────────────────────────────────────────────────────────────────────
 pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
 CN   = "STSong-Light"
-CODE = "Courier"
-CODB = "Courier-Bold"
+CODE = "STSong-Light"
+CODB = "STSong-Light"
 
 # ── 颜色 ──────────────────────────────────────────────────────────────────────
 DARK  = colors.HexColor("#1a3a6b")
