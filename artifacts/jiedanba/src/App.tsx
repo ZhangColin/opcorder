@@ -119,6 +119,20 @@ function roleHomePath(role: string | null): string {
   return "/login";
 }
 
+/**
+ * 首页专用守卫：匿名 / OPC 放行；其他已登录角色跳转到各自工作台。
+ * 避免发单方或管理员看到 OPC 视角的首页。
+ */
+function PublicOpcGate({ children }: { children: React.ReactNode }) {
+  const role = getRole();
+  const [, navigate] = useLocation();
+  if (role !== null && role !== "opc") {
+    navigate(roleHomePath(role));
+    return null;
+  }
+  return <>{children}</>;
+}
+
 /** 仅限 OPC 访问；其他角色重定向到各自首页 */
 function OpcGate({ children }: { children: React.ReactNode }) {
   const role = getRole();
@@ -276,8 +290,8 @@ function Router() {
       <Route path="/order-hall/:id">{() => <Layout><OpcDemandDetail /></Layout>}</Route>
       <Route path="/order-hall">{() => <Layout><OrderHall /></Layout>}</Route>
 
-      {/* 公开内容页：游客可访问 */}
-      <Route path="/">{() => <Layout><Home /></Layout>}</Route>
+      {/* 公开内容页：匿名/OPC 可访问；其他已登录角色跳自己工作台 */}
+      <Route path="/">{() => <PublicOpcGate><Layout><Home /></Layout></PublicOpcGate>}</Route>
 
       {/* OPC V2 工作台路由 */}
       <Route path="/opc">
