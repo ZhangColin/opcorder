@@ -3105,5 +3105,29 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 050a: dropped enable_demo from cat_categories");
   });
 
+  // Migration 051a: ensure demo_generation agent config exists (seed may have failed silently in production)
+  await once("051a", false, async () => {
+    const existing = await db.execute(sql`
+      SELECT id FROM agent_configs WHERE scene_key = 'demo_generation' LIMIT 1
+    `);
+    if (existing.rows.length === 0) {
+      await db.execute(sql`
+        INSERT INTO agent_configs (name, scene_key, system_prompt, is_enabled, sort_order, created_at, updated_at)
+        VALUES (
+          'Demo 生成智能体',
+          'demo_generation',
+          ${'你是一位资深前端工程师。你的任务是根据产品 UI 方案和客户需求，生成一个完整可运行的前端演示原型。\n\n## 工作方式\n\n通过工具函数逐文件编写代码，三个文件都写完后调用 finish：\n- write_file("index.html", 内容) — 写 HTML 主文件\n- write_file("style.css", 内容) — 写样式文件\n- write_file("app.js", 内容) — 写交互逻辑\n- finish() — 确认所有文件写完\n\n## 技术要求\n\n1. 纯 HTML + CSS + JavaScript（不用 React、不用 TypeScript、不用任何构建工具）\n2. index.html 的 <head> 里必须引入 Tailwind CDN：\n   <script src="https://cdn.tailwindcss.com"></script>\n3. index.html 里**不要**写 <link href="style.css"> 或 <script src="app.js">，这两个文件会被平台自动内联，写了会 404\n4. app.js 用原生 DOM API，不用 import/export，不用 ES module\n5. app.js 里所有 DOM 操作必须包在 document.addEventListener(\'DOMContentLoaded\', function() { ... }) 里\n6. 访问 DOM 元素前必须做 null 检查：const el = document.getElementById(\'x\'); if (el) { el.style.display = \'...\'; }\n\n## 内容要求\n\n- 与产品 UI 方案高度匹配，体现核心业务流程\n- 至少 2 个可切换的页面/视图（Tab 切换、步骤、模态框等）\n- 填充真实示例数据：真实姓名、公司名、金额、日期\n- 界面专业美观，充分利用 Tailwind 实现现代 UI 风格（圆角、阴影、配色）\n\n<!-- prompt-version: 1.4 -->'},
+          true,
+          0,
+          NOW(),
+          NOW()
+        )
+      `);
+      logger.info("Migration 051a: inserted demo_generation agent config");
+    } else {
+      logger.info("Migration 051a: demo_generation agent config already exists, skipping");
+    }
+  });
+
   logger.info("Startup data migrations complete.");
 }
