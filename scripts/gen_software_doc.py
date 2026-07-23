@@ -11,41 +11,18 @@ from reportlab.platypus import (
     PageBreak, HRFlowable
 )
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 import os
 import datetime
 
-# ─── 字体 ───────────────────────────────────────────────────────────────────
-FONT_PATHS = [
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-]
-BOLD_PATHS = [
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-]
+# ─── 字体：使用 ReportLab 内置 CIDFont，无需系统字体 ────────────────────────
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
-def find_font(paths):
-    for p in paths:
-        if os.path.exists(p):
-            return p
-    return None
+pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+pdfmetrics.registerFont(UnicodeCIDFont("MSung-Light"))
 
-reg_path = find_font(FONT_PATHS)
-bold_path = find_font(BOLD_PATHS) or reg_path
-
-if reg_path:
-    pdfmetrics.registerFont(TTFont("CJK", reg_path))
-    pdfmetrics.registerFont(TTFont("CJK-Bold", bold_path))
-    FN = "CJK"
-    FB = "CJK-Bold"
-else:
-    FN = "Helvetica"
-    FB = "Helvetica-Bold"
+FN = "STSong-Light"   # 正文
+FB = "MSung-Light"    # 标题/粗体（无真粗体，用明朝体区分）
 
 # ─── 配色 ───────────────────────────────────────────────────────────────────
 C_DARK  = colors.HexColor("#1a3a6b")
