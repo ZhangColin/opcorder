@@ -148,7 +148,7 @@ export default function AdminV2ClientDemandList() {
               return (
                 <button key={d.id} onClick={go}
                   className={`w-full text-left rounded-2xl border shadow-sm p-4 transition-all hover:-translate-y-0.5 hover:shadow-md group ${
-                    needsAttention ? "bg-amber-50/40 border-amber-200" : "bg-white border-slate-100"
+                    "bg-white border-slate-100"
                   }`}>
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="text-[15px] font-bold text-slate-800 truncate flex items-center gap-1.5">
