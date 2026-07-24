@@ -445,7 +445,14 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
 
     if (pdfUrl) {
       // Non-standard path: admin provides a signed PDF to upload directly
-      const allowedHosts = (process.env.ALLOWED_PDF_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean);
+      // Build the set of allowed PDF hosts: Replit preview domains + APP_BASE_URL host (production
+      // app domain, e.g. www.opcorder.com) + any extra hosts from ALLOWED_PDF_HOSTS env var.
+      // This ensures that files uploaded via the app's own storage API are always accepted.
+      const extraHosts = (process.env.ALLOWED_PDF_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean);
+      const appBaseHost = (() => {
+        try { return new URL(process.env.APP_BASE_URL ?? "").hostname; } catch { return ""; }
+      })();
+      const allowedHosts = [...extraHosts, ...(appBaseHost ? [appBaseHost] : [])];
       let pdfHostOk = false;
       try {
         const pdfParsed = new URL(pdfUrl);
