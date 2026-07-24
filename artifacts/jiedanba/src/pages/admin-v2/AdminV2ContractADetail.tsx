@@ -208,16 +208,15 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   };
 
   const handleInitiateEsign = async () => {
-    if (!esignPdfFile) {
-      toast({ title: "请先选择合同 PDF 文件", variant: "destructive" }); return;
-    }
     setEsignActing(true);
     try {
-      const pdfUrl = await uploadFile(esignPdfFile);
-      await v2Post(`/contracts/${id}/initiate-esign`, {
-        pdfUrl,
-        ...(esignIdNumber.trim() ? { counterpartyIdNumber: esignIdNumber.trim() } : {}),
-      });
+      const body: Record<string, unknown> = {};
+      if (esignPdfFile) {
+        body.pdfUrl = await uploadFile(esignPdfFile);
+      }
+      // No pdfUrl → standard path: API generates PDF from contract markdown content
+      if (esignIdNumber.trim()) body.counterpartyIdNumber = esignIdNumber.trim();
+      await v2Post(`/contracts/${id}/initiate-esign`, body);
       toast({ title: "e签宝签署已发起，平台已盖章，等待对方签署" });
       setShowEsignPanel(false);
       setEsignPdfFile(null);
@@ -371,31 +370,34 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
               <p className="text-sm font-bold text-violet-800 mb-0.5">发起 e签宝电子签署</p>
               <p className="text-xs text-violet-600">上传合同 PDF（需包含 {`{{甲方签章}}`} 和 {`{{乙方签章}}`} 关键字用于定位盖章位置），平台将自动盖章并将签署链接发给对方。</p>
             </div>
+            <div className="bg-white border border-violet-100 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-bold text-slate-700">PDF 来源</p>
+              <div className="flex gap-2">
+                <button onClick={() => setEsignPdfFile(null)}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors ${!esignPdfFile ? "bg-violet-600 text-white border-violet-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                  根据合同正文自动生成（推荐）
+                </button>
+                <label className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center cursor-pointer transition-colors ${esignPdfFile ? "bg-violet-600 text-white border-violet-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                  {esignPdfFile ? `已选：${esignPdfFile.name}` : "上传自定义 PDF"}
+                  <input type="file" accept=".pdf" className="hidden" onChange={e => setEsignPdfFile(e.target.files?.[0] ?? null)} />
+                </label>
+              </div>
+              {!esignPdfFile && (
+                <p className="text-xs text-violet-600">将根据合同正文（Markdown）自动渲染 PDF，并在末尾插入签章占位符。</p>
+              )}
+            </div>
             <div>
-              <label className="text-xs font-bold text-slate-600 mb-1 block">合同 PDF <span className="text-red-500">*</span></label>
-              <FilePickerZone
-                variant="zone"
-                file={esignPdfFile}
-                onChange={setEsignPdfFile}
-                onClear={() => setEsignPdfFile(null)}
-                accept=".pdf"
-                hint="仅支持 PDF 格式"
+              <label className="text-xs font-bold text-slate-600 mb-1 block">对方身份证号（如对方未注册 e签宝账号则必填）</label>
+              <input
+                value={esignIdNumber}
+                onChange={e => setEsignIdNumber(e.target.value)}
+                placeholder="例：110101199001011234"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
               />
             </div>
-            {contract.channel === "b" && (
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">OPC 身份证号（如 OPC 未注册 e签宝账号则必填）</label>
-                <input
-                  value={esignIdNumber}
-                  onChange={e => setEsignIdNumber(e.target.value)}
-                  placeholder="例：110101199001011234"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
-                />
-              </div>
-            )}
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowEsignPanel(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
-              <button onClick={handleInitiateEsign} disabled={esignActing || !esignPdfFile}
+              <button onClick={handleInitiateEsign} disabled={esignActing}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 disabled:opacity-50">
                 {esignActing ? <><Loader2 size={14} className="animate-spin" /> 处理中…</> : <><Pen size={14} /> 发起签署</>}
               </button>

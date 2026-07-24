@@ -1,5 +1,9 @@
 import crypto from "crypto";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { Router, type IRouter, type Request, type Response } from "express";
+import { mdToPdf } from "md-to-pdf";
 import {
   db, v2ContractsTable, v2ClientDemandsTable, v2OutsourceOrdersTable, usersTable,
   v2OutsourceDemandsTable,
@@ -39,7 +43,15 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
       conditions.push(eq(v2ContractsTable.channel, "a"));
       conditions.push(inArray(v2ContractsTable.clientDemandId, ids));
     } else if (role === "opc") {
+      // Scope to B-channel contracts owned by this OPC (via the linked outsource order)
+      const ownedOrders = await db
+        .select({ id: v2OutsourceOrdersTable.id })
+        .from(v2OutsourceOrdersTable)
+        .where(eq(v2OutsourceOrdersTable.opcId, userId));
+      const ownedOrderIds = ownedOrders.map(o => o.id);
+      if (ownedOrderIds.length === 0) return res.json([]);
       conditions.push(eq(v2ContractsTable.channel, "b"));
+      conditions.push(inArray(v2ContractsTable.outsourceOrderId, ownedOrderIds));
     }
 
     const rows = await db
@@ -120,6 +132,14 @@ router.get("/contracts/:id", requireAuth, async (req: Request, res: Response) =>
       }
     } else if (role === "opc") {
       if (row.channel !== "b") return res.status(403).json({ error: "无权查看此合同" });
+      // Ownership check: the linked outsource order must belong to this OPC
+      if (row.outsourceOrderId) {
+        const [ord] = await db.select({ opcId: v2OutsourceOrdersTable.opcId })
+          .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, row.outsourceOrderId)).limit(1);
+        if (ord?.opcId !== userId) return res.status(403).json({ error: "无权查看此合同" });
+      } else {
+        return res.status(403).json({ error: "无权查看此合同" });
+      }
     }
 
     return res.json(row);
@@ -343,7 +363,6 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
   try {
     const id = parseInt(req.params.id);
     const { pdfUrl, counterpartyIdNumber } = req.body as { pdfUrl?: string; counterpartyIdNumber?: string };
-    if (!pdfUrl) return res.status(400).json({ error: "pdfUrl 必填（请上传 PDF 后传入地址）" });
 
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
@@ -371,24 +390,52 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       return res.status(400).json({ error: identity.pendingReason ?? "对方签署账号未注册，请检查对方实名信息" });
     }
 
-    // SSRF guard: only allow fetches from trusted object-storage domains
-    const allowedHosts = (process.env.ALLOWED_PDF_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean);
-    let pdfHostOk = false;
-    try {
-      const pdfParsed = new URL(pdfUrl);
-      pdfHostOk = pdfParsed.protocol === "https:" && (
-        pdfParsed.hostname.endsWith(".replit.app") ||
-        pdfParsed.hostname.endsWith(".replit.dev") ||
-        pdfParsed.hostname.endsWith(".replit.co") ||
-        allowedHosts.some(h => pdfParsed.hostname === h || pdfParsed.hostname.endsWith("." + h))
-      );
-    } catch { /* invalid URL, will 400 below */ }
-    if (!pdfHostOk) return res.status(400).json({ error: "pdfUrl 域名不在允许范围内" });
-
-    // Download PDF from storage URL
-    const pdfRes = await fetch(pdfUrl, { signal: AbortSignal.timeout(30_000) });
-    if (!pdfRes.ok) return res.status(400).json({ error: `PDF 下载失败 (${pdfRes.status})` });
-    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+    // ── Obtain PDF buffer ─────────────────────────────────────────────────
+    // Standard path: no pdfUrl → render contract markdown content to PDF
+    // Custom path  : pdfUrl provided → download from object storage (SSRF-guarded)
+    let pdfBuffer: Buffer;
+    if (!pdfUrl) {
+      // Standard path: generate PDF from contract's markdown content
+      if (!contract.content || !contract.content.trim()) {
+        return res.status(400).json({ error: "合同正文为空，无法生成 PDF；请先填写合同内容或上传 PDF 文件" });
+      }
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "esign-contract-"));
+      const tmpMd = path.join(tmpDir, "contract.md");
+      const tmpPdf = path.join(tmpDir, "contract.pdf");
+      try {
+        // Prepend header with signing placeholders if missing
+        let md = contract.content;
+        if (!md.includes("{{甲方签章}}")) md += "\n\n{{甲方签章}}\n";
+        if (!md.includes("{{乙方签章}}")) md += "\n\n{{乙方签章}}\n";
+        fs.writeFileSync(tmpMd, md, "utf-8");
+        const pdf = await mdToPdf({ path: tmpMd }, {
+          dest: tmpPdf,
+          css: "body { font-family: sans-serif; font-size: 12pt; } h1,h2,h3 { page-break-after: avoid; }",
+          pdf_options: { format: "A4", margin: { top: "20mm", right: "18mm", bottom: "20mm", left: "18mm" } },
+        });
+        if (!pdf || !pdf.filename) throw new Error("md-to-pdf returned no output");
+        pdfBuffer = fs.readFileSync(tmpPdf);
+      } finally {
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup, non-fatal */ }
+      }
+    } else {
+      // Custom path: download from caller-provided URL (SSRF guard)
+      const allowedHosts = (process.env.ALLOWED_PDF_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean);
+      let pdfHostOk = false;
+      try {
+        const pdfParsed = new URL(pdfUrl);
+        pdfHostOk = pdfParsed.protocol === "https:" && (
+          pdfParsed.hostname.endsWith(".replit.app") ||
+          pdfParsed.hostname.endsWith(".replit.dev") ||
+          pdfParsed.hostname.endsWith(".replit.co") ||
+          allowedHosts.some(h => pdfParsed.hostname === h || pdfParsed.hostname.endsWith("." + h))
+        );
+      } catch { /* invalid URL → 400 below */ }
+      if (!pdfHostOk) return res.status(400).json({ error: "pdfUrl 域名不在允许范围内" });
+      const pdfRes = await fetch(pdfUrl, { signal: AbortSignal.timeout(30_000) });
+      if (!pdfRes.ok) return res.status(400).json({ error: `PDF 下载失败 (${pdfRes.status})` });
+      pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+    }
     const contentMd5 = crypto.createHash("md5").update(pdfBuffer).digest("base64");
 
     // Upload PDF to e签宝
