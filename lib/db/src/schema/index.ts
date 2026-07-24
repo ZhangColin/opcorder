@@ -52,3 +52,5 @@ export * from "./platform-info";
 export * from "./platform-contract-config";
 export * from "./skills";
 export * from "./demo-projects";
+export * from "./contract-templates";
+export * from "./contract-placeholder-defs";

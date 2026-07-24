@@ -3128,5 +3128,122 @@ export async function runMigrations(): Promise<void> {
     }
   });
 
+  // Migration 052a: add esign columns to users; create contract_templates and contract_placeholder_defs tables
+  await once("052a", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS esign_account_id VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS esign_org_id VARCHAR(100)
+    `);
+
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'contract_template_channel') THEN
+          CREATE TYPE contract_template_channel AS ENUM ('a', 'b');
+        END IF;
+      END $$
+    `);
+
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'contract_template_sign_type') THEN
+          CREATE TYPE contract_template_sign_type AS ENUM ('company', 'personal', 'both');
+        END IF;
+      END $$
+    `);
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contract_templates (
+        id                 SERIAL PRIMARY KEY,
+        title              VARCHAR(200) NOT NULL,
+        demand_type        VARCHAR(50),
+        channel            contract_template_channel NOT NULL,
+        sign_type          contract_template_sign_type NOT NULL DEFAULT 'company',
+        is_standard        BOOLEAN NOT NULL DEFAULT TRUE,
+        original_file_url  TEXT,
+        original_file_name VARCHAR(300),
+        markdown_content   TEXT,
+        esign_template_id  VARCHAR(100),
+        variable_mapping   JSONB DEFAULT '{}',
+        is_active          BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at         TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at         TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS contract_templates_demand_type_idx ON contract_templates (demand_type)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS contract_templates_channel_idx ON contract_templates (channel)
+    `);
+
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'placeholder_group') THEN
+          CREATE TYPE placeholder_group AS ENUM ('demand','order','payment','milestone','platform','party_a','party_b');
+        END IF;
+      END $$
+    `);
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contract_placeholder_defs (
+        id            SERIAL PRIMARY KEY,
+        key           VARCHAR(100) NOT NULL UNIQUE,
+        label         VARCHAR(100) NOT NULL,
+        description   TEXT,
+        "group"       placeholder_group NOT NULL,
+        source_field  VARCHAR(200),
+        example_value VARCHAR(200),
+        is_builtin    BOOLEAN NOT NULL DEFAULT FALSE,
+        sort_order    INTEGER NOT NULL DEFAULT 0,
+        created_at    TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS contract_placeholder_defs_group_idx ON contract_placeholder_defs ("group")
+    `);
+
+    logger.info("Migration 052a: esign columns + contract_templates + contract_placeholder_defs created");
+  });
+
+  // Migration 052b: seed built-in placeholder definitions
+  await once("052b", false, async () => {
+    const builtins: Array<{ key: string; label: string; description: string; group: string; sourceField: string; exampleValue: string; sortOrder: number }> = [
+      { key: "{{平台名称}}",       label: "平台名称",       description: "系统名称",                     group: "platform", sourceField: "platform_info.company_name",            exampleValue: "接单吧运营有限公司",  sortOrder: 10 },
+      { key: "{{平台统一社信代码}}", label: "平台统一社信代码", description: "平台营业执照统一社会信用代码",         group: "platform", sourceField: "platform_info.credit_code",             exampleValue: "91110108XXXXXXXX",   sortOrder: 11 },
+      { key: "{{平台联系人}}",      label: "平台联系人",      description: "平台合同签署联系人",                group: "platform", sourceField: "platform_info.contact_person",          exampleValue: "张三",              sortOrder: 12 },
+      { key: "{{平台联系电话}}",    label: "平台联系电话",    description: "平台联系电话",                    group: "platform", sourceField: "platform_info.contact_phone",           exampleValue: "010-12345678",       sortOrder: 13 },
+      { key: "{{平台地址}}",       label: "平台地址",       description: "平台注册地址",                    group: "platform", sourceField: "platform_info.contact_address",         exampleValue: "北京市朝阳区XXX路1号",  sortOrder: 14 },
+      { key: "{{需求编号}}",       label: "需求编号",       description: "需求单号",                       group: "demand",   sourceField: "client_demands.demand_no",              exampleValue: "XQ-20240101-0001",    sortOrder: 20 },
+      { key: "{{需求名称}}",       label: "需求名称",       description: "需求标题",                       group: "demand",   sourceField: "client_demands.title",                  exampleValue: "某产品OPC合作项目",    sortOrder: 21 },
+      { key: "{{需求总金额}}",     label: "需求总金额",     description: "需求合同总金额（元）",                group: "demand",   sourceField: "client_demands.budget_max",              exampleValue: "100000.00",          sortOrder: 22 },
+      { key: "{{需求开始日期}}",   label: "需求开始日期",   description: "需求开始日期",                    group: "demand",   sourceField: "client_demands.start_date",             exampleValue: "2024-01-01",         sortOrder: 23 },
+      { key: "{{需求结束日期}}",   label: "需求结束日期",   description: "需求截止日期",                    group: "demand",   sourceField: "client_demands.bid_deadline",           exampleValue: "2024-12-31",         sortOrder: 24 },
+      { key: "{{订单编号}}",       label: "订单编号",       description: "外包订单编号",                    group: "order",    sourceField: "outsource_orders.order_no",             exampleValue: "DD-20240101-0001",    sortOrder: 30 },
+      { key: "{{订单金额}}",       label: "订单金额",       description: "外包订单合同金额（元）",              group: "order",    sourceField: "outsource_orders.contract_amount",      exampleValue: "50000.00",           sortOrder: 31 },
+      { key: "{{里程碑数量}}",     label: "里程碑数量",     description: "合同里程碑总数",                   group: "milestone",sourceField: "computed",                              exampleValue: "3",                  sortOrder: 40 },
+      { key: "{{付款方式}}",       label: "付款方式",       description: "合同付款方式描述",                  group: "payment",  sourceField: "computed",                              exampleValue: "按里程碑付款",         sortOrder: 41 },
+      { key: "{{甲方名称}}",       label: "甲方名称",       description: "甲方（发单方公司名称）",               group: "party_a",  sourceField: "publisher_profiles.company_name",       exampleValue: "北京某某科技有限公司",  sortOrder: 50 },
+      { key: "{{甲方统一社信代码}}", label: "甲方统一社信代码", description: "甲方统一社会信用代码",                group: "party_a",  sourceField: "publisher_profiles.credit_code",        exampleValue: "91110108YYYYYYYY",   sortOrder: 51 },
+      { key: "{{甲方联系人}}",     label: "甲方联系人",     description: "甲方签约联系人",                    group: "party_a",  sourceField: "users.name",                            exampleValue: "李四",              sortOrder: 52 },
+      { key: "{{甲方联系电话}}",   label: "甲方联系电话",   description: "甲方联系电话",                    group: "party_a",  sourceField: "users.phone",                           exampleValue: "13800138000",        sortOrder: 53 },
+      { key: "{{乙方名称}}",       label: "乙方名称",       description: "乙方（OPC 个人或公司名称）",           group: "party_b",  sourceField: "computed",                              exampleValue: "王五",              sortOrder: 60 },
+      { key: "{{乙方身份证号}}",   label: "乙方身份证号",   description: "乙方身份证号码（个人OPC）",             group: "party_b",  sourceField: "computed",                              exampleValue: "110101YYYYMMDD0011", sortOrder: 61 },
+      { key: "{{乙方联系电话}}",   label: "乙方联系电话",   description: "乙方联系电话",                    group: "party_b",  sourceField: "computed",                              exampleValue: "13900139000",        sortOrder: 62 },
+      { key: "{{签署日期}}",       label: "签署日期",       description: "合同签署日期（自动填入）",               group: "platform", sourceField: "computed",                              exampleValue: "2024-06-01",         sortOrder: 70 },
+    ];
+
+    for (const p of builtins) {
+      await db.execute(sql`
+        INSERT INTO contract_placeholder_defs (key, label, description, "group", source_field, example_value, is_builtin, sort_order)
+        VALUES (${p.key}, ${p.label}, ${p.description}, ${p.group}::placeholder_group, ${p.sourceField}, ${p.exampleValue}, TRUE, ${p.sortOrder})
+        ON CONFLICT (key) DO NOTHING
+      `);
+    }
+    logger.info("Migration 052b: seeded built-in placeholder definitions");
+  });
+
   logger.info("Startup data migrations complete.");
 }

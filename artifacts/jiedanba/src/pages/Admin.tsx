@@ -34,6 +34,8 @@ import AdminV2DeliveryBList from "@/pages/admin-v2/AdminV2DeliveryBList";
 import AdminV2DeliveryADetail from "@/pages/admin-v2/AdminV2DeliveryADetail";
 import AdminV2DeliveryBDetail from "@/pages/admin-v2/AdminV2DeliveryBDetail";
 import AdminV2OutsourceDemandNew from "@/pages/admin-v2/AdminV2OutsourceDemandNew";
+import AdminContractTemplates from "@/pages/admin-v2/AdminContractTemplates";
+import AdminContractPlaceholders from "@/pages/admin-v2/AdminContractPlaceholders";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatBudget } from "@/lib/utils";
 import { useLocation } from "wouter";
@@ -149,7 +151,8 @@ export type Module =
   | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_deliveries" | "v2_pub_tickets"
   | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets"
   | "platform_info" | "contract_config"
-  | "skill_registry";
+  | "skill_registry"
+  | "contract_templates" | "contract_placeholders";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
@@ -229,8 +232,10 @@ const NAV: NavItem[] = [
   {
     key: "system_management", icon: SlidersHorizontal, label: "系统管理", permKey: "settings",
     children: [
-      { key: "platform_info",  label: "企业信息",   moduleKey: "platform_info"  as Module, icon: Building2 },
-      { key: "contract_config",label: "合同配置",   moduleKey: "contract_config"as Module, icon: FileCheck },
+      { key: "platform_info",           label: "企业信息",     moduleKey: "platform_info"           as Module, icon: Building2 },
+      { key: "contract_config",         label: "合同配置",     moduleKey: "contract_config"         as Module, icon: FileCheck },
+      { key: "contract_templates",      label: "合同模板",     moduleKey: "contract_templates"      as Module, icon: FileText },
+      { key: "contract_placeholders",   label: "合同占位符",   moduleKey: "contract_placeholders"   as Module, icon: FileText },
       { key: "settings",       label: "站点设置",   moduleKey: "settings"       as Module, icon: SlidersHorizontal },
       { key: "roles",          label: "角色管理",   moduleKey: "roles"          as Module, icon: KeyRound,   superAdminOnly: true },
       { key: "adminusers",     label: "管理员管理", moduleKey: "adminusers"     as Module, icon: UserCog,    superAdminOnly: true },
@@ -9211,6 +9216,8 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "contest_questions":      return <ContestQuestions />;
     case "contest_activities":     return <ContestActivities />;
     case "contest_registrations":  return withEmbedded(<ContestRegistrations />);
+    case "contract_templates":     return <AdminContractTemplates />;
+    case "contract_placeholders":  return <AdminContractPlaceholders />;
     default:                       return null;
   }
 }

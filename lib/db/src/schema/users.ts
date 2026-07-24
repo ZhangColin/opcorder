@@ -17,6 +17,8 @@ export const usersTable = pgTable("users", {
   role: userRoleEnum("role").notNull().default("opc"),
   status: userStatusEnum("status").notNull().default("active"),
   isSuperAdmin: boolean("is_super_admin").notNull().default(false),
+  esignAccountId: varchar("esign_account_id", { length: 100 }),
+  esignOrgId: varchar("esign_org_id", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   unique("users_email_key").on(t.email),

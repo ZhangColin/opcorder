@@ -14,6 +14,7 @@ import ticketsBRouter from "./tickets-b";
 import discussionsRouter from "./discussions";
 import overviewRouter from "./overview";
 import deliveryBadgeCountsRouter from "./delivery-badge-counts";
+import contractTemplatesRouter from "./contract-templates";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use("/", ticketsBRouter);
 router.use("/", discussionsRouter);
 router.use("/", overviewRouter);
 router.use("/", deliveryBadgeCountsRouter);
+router.use("/", contractTemplatesRouter);
 
 export default router;
