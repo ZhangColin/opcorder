@@ -247,7 +247,7 @@ export function verifyWebhookSignature(headers: {
     const timestamp = headers["x-timstamp"] ?? "";
     const incomingSig = headers["x-signature"] ?? "";
     const contentMd5 = crypto.createHash("md5").update(body).digest("base64");
-    const stringToSign = ["POST", contentMd5, "application/json; charset=UTF-8", timestamp, "/webhooks/esign"].join("\n");
+    const stringToSign = ["POST", contentMd5, "application/json; charset=UTF-8", timestamp, "/api/webhooks/esign"].join("\n");
     const expected = `${APP_ID}:${crypto.createHmac("sha256", APP_SECRET).update(stringToSign).digest("base64")}`;
     return expected === incomingSig;
   } catch {

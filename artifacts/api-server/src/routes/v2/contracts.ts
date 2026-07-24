@@ -60,6 +60,8 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
         demandTitle: v2ClientDemandsTable.title,
         invoiceType: v2ContractsTable.invoiceType,
         taxRate: v2ContractsTable.taxRate,
+        esignSignUrl: v2ContractsTable.esignSignUrl,
+        esignSignedFileUrl: v2ContractsTable.esignSignedFileUrl,
       })
       .from(v2ContractsTable)
       .leftJoin(v2ClientDemandsTable, eq(v2ContractsTable.clientDemandId, v2ClientDemandsTable.id))
@@ -368,6 +370,20 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
     if (!identity.accountId && !identity.orgId) {
       return res.status(400).json({ error: identity.pendingReason ?? "对方签署账号未注册，请检查对方实名信息" });
     }
+
+    // SSRF guard: only allow fetches from trusted object-storage domains
+    const allowedHosts = (process.env.ALLOWED_PDF_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean);
+    let pdfHostOk = false;
+    try {
+      const pdfParsed = new URL(pdfUrl);
+      pdfHostOk = pdfParsed.protocol === "https:" && (
+        pdfParsed.hostname.endsWith(".replit.app") ||
+        pdfParsed.hostname.endsWith(".replit.dev") ||
+        pdfParsed.hostname.endsWith(".replit.co") ||
+        allowedHosts.some(h => pdfParsed.hostname === h || pdfParsed.hostname.endsWith("." + h))
+      );
+    } catch { /* invalid URL, will 400 below */ }
+    if (!pdfHostOk) return res.status(400).json({ error: "pdfUrl 域名不在允许范围内" });
 
     // Download PDF from storage URL
     const pdfRes = await fetch(pdfUrl, { signal: AbortSignal.timeout(30_000) });

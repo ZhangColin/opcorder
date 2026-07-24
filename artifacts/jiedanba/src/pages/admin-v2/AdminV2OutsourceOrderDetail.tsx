@@ -4,7 +4,7 @@ import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 import {
   Loader2, X, Upload, CheckCircle2, Clock, ExternalLink, Wrench,
   FileSignature, Package, Shield, XCircle, CreditCard, ChevronDown, ChevronUp,
-  Paperclip, Plus, Edit2, Send, DollarSign, FileText, Flag, Calendar,
+  Paperclip, Plus, Edit2, Send, DollarSign, FileText, Flag, Calendar, Pen, Download,
 } from "lucide-react";
 import { AdminV2Layout, Section } from "@/components/admin-v2/AdminV2Layout";
 import { BreakdownDisplay } from "@/components/shared/BreakdownDisplay";
@@ -51,6 +51,8 @@ interface ContractDetail {
   opcConfirmedAt?: string | null;
   invoiceType: string | null;
   taxRate: string | null;
+  esignSignUrl?: string | null;
+  esignSignedFileUrl?: string | null;
 }
 
 interface SettlementPlan {
@@ -186,6 +188,12 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
   const [showUploadContract, setShowUploadContract] = useState(false);
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [uploadingContract, setUploadingContract] = useState(false);
+
+  /* e签宝发起签署 */
+  const [showEsignPanel, setShowEsignPanel] = useState(false);
+  const [esignPdfFile, setEsignPdfFile] = useState<File | null>(null);
+  const [esignIdNumber, setEsignIdNumber] = useState("");
+  const [esignActing, setEsignActing] = useState(false);
 
   /* Contract inline editing */
   const [editingContract, setEditingContract] = useState(false);
@@ -405,6 +413,30 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
       toast({ title: "定稿失败", description: err.message, variant: "destructive" });
     } finally {
       setContractActing(false);
+    }
+  };
+
+  const handleInitiateEsign = async () => {
+    if (!contract || !esignPdfFile) {
+      toast({ title: "请先选择合同 PDF 文件", variant: "destructive" }); return;
+    }
+    setEsignActing(true);
+    try {
+      const pdfUrl = await uploadFile(esignPdfFile);
+      const updated = await v2Post<ContractDetail>(`/contracts/${contract.id}/initiate-esign`, {
+        pdfUrl,
+        ...(esignIdNumber.trim() ? { counterpartyIdNumber: esignIdNumber.trim() } : {}),
+      });
+      toast({ title: "e签宝签署已发起，平台已盖章，等待OPC签署" });
+      setShowEsignPanel(false);
+      setEsignPdfFile(null);
+      setEsignIdNumber("");
+      setContract(updated as any);
+      await load();
+    } catch (err: any) {
+      toast({ title: "发起失败", description: err.message, variant: "destructive" });
+    } finally {
+      setEsignActing(false);
     }
   };
 
@@ -731,8 +763,12 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                 pending_publisher_confirm:{ label: "待OPC确认",  color: "bg-amber-100 text-amber-700" },
                 publisher_rejected:       { label: "OPC已驳回",  color: "bg-red-100 text-red-600" },
                 pending_sign:             { label: "待签约",     color: "bg-orange-100 text-orange-700" },
+                esign_platform_signed:    { label: "平台盖章中", color: "bg-blue-100 text-blue-700" },
+                esign_pending:            { label: "待OPC签署",  color: "bg-violet-100 text-violet-700" },
                 signed:                   { label: "已签约",     color: "bg-green-100 text-green-700" },
               };
+              const canInitiateEsign = contract?.status === "pending_sign";
+              const isEsignInProgress = ["esign_platform_signed", "esign_pending"].includes(contract?.status ?? "");
               const cs = contract ? (CONTRACT_STATUS_MAP[contract.status] ?? { label: contract.status, color: "bg-slate-100 text-slate-500" }) : null;
               const canEditContent = !!contract && ["draft", "pending_contract"].includes(order.status) && !opcConfirmed;
               return (
@@ -763,16 +799,22 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                           <Send size={11} /> 发送给OPC确认
                         </button>
                       )}
-                      {canUploadContract && (
-                        <button onClick={() => setShowUploadContract(true)}
-                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                          <Upload size={11} /> 上传合同文件
+                      {canInitiateEsign && (
+                        <button onClick={() => setShowEsignPanel(v => !v)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${showEsignPanel ? "bg-violet-100 text-violet-700" : "bg-violet-600 text-white hover:bg-violet-700"}`}>
+                          <Pen size={11} /> 发起e签宝
                         </button>
                       )}
-                      {order.signedFileUrl && (
-                        <a href={order.signedFileUrl} target="_blank" rel="noreferrer"
+                      {canUploadContract && (
+                        <button onClick={() => setShowUploadContract(true)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border border-green-300 text-green-700 rounded-lg hover:bg-green-50 transition-colors">
+                          <Upload size={11} /> 手动上传合同
+                        </button>
+                      )}
+                      {(contract?.esignSignedFileUrl || order.signedFileUrl) && (
+                        <a href={contract?.esignSignedFileUrl ?? order.signedFileUrl!} target="_blank" rel="noreferrer"
                           className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline">
-                          <ExternalLink size={11} /> 已签合同
+                          <Download size={11} /> 盖章合同
                         </a>
                       )}
                     </div>
@@ -802,17 +844,71 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                       </div>
                     ) : (
                       <>
+                        {/* e签宝发起签署面板 */}
+                        {showEsignPanel && canInitiateEsign && (
+                          <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
+                            <p className="text-xs font-bold text-violet-800">发起 e签宝电子签署 — 上传含关键字的合同 PDF</p>
+                            <FilePickerZone
+                              variant="zone"
+                              file={esignPdfFile}
+                              onChange={setEsignPdfFile}
+                              onClear={() => setEsignPdfFile(null)}
+                              accept=".pdf"
+                              hint="仅支持 PDF 格式，需含签章关键字"
+                            />
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 mb-1 block">OPC 身份证号（未注册 e签宝 则必填）</label>
+                              <input
+                                value={esignIdNumber}
+                                onChange={e => setEsignIdNumber(e.target.value)}
+                                placeholder="例：110101199001011234"
+                                className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <button onClick={() => setShowEsignPanel(false)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">取消</button>
+                              <button onClick={handleInitiateEsign} disabled={esignActing || !esignPdfFile}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-violet-600 text-white rounded-lg font-bold hover:bg-violet-700 disabled:opacity-50">
+                                {esignActing ? <><Loader2 size={12} className="animate-spin" /> 处理中…</> : <><Pen size={12} /> 发起签署</>}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* e签宝进度 banner */}
+                        {isEsignInProgress && (
+                          <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Clock size={14} className="text-violet-600 animate-pulse shrink-0" />
+                              <p className="text-sm font-bold text-violet-800">
+                                {contract?.status === "esign_platform_signed" ? "平台已盖章，等待下一步…" : "等待 OPC 完成签署"}
+                              </p>
+                            </div>
+                            {contract?.esignSignUrl && (
+                              <div className="flex items-center gap-2">
+                                <input readOnly value={contract.esignSignUrl}
+                                  className="flex-1 text-xs border border-violet-200 rounded-lg px-2 py-1 bg-white font-mono text-slate-600 truncate"
+                                />
+                                <a href={contract.esignSignUrl} target="_blank" rel="noreferrer"
+                                  className="flex items-center gap-1 text-xs font-bold text-violet-700 border border-violet-200 bg-white hover:bg-violet-50 rounded-lg px-2 py-1 shrink-0 transition-colors">
+                                  <ExternalLink size={11} /> 打开
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* 待签约状态提示 */}
-                        {order.status === "pending_contract" && contract && !contract.opcConfirmedAt && (
+                        {order.status === "pending_contract" && contract && !contract.opcConfirmedAt && !isEsignInProgress && (
                           <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
                             <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
                             <p className="text-sm font-bold text-amber-800">等待 OPC 查阅合同内容并确认</p>
                           </div>
                         )}
-                        {order.status === "pending_contract" && contract?.opcConfirmedAt && !contract.signedFileUrl && (
+                        {order.status === "pending_contract" && contract?.opcConfirmedAt && !contract.signedFileUrl && !isEsignInProgress && (
                           <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 rounded-xl border border-blue-200">
                             <CheckCircle2 size={15} className="text-blue-600 shrink-0 mt-0.5" />
-                            <p className="text-sm font-bold text-blue-800">OPC 已确认合同内容，请安排线下 / 电子签约后上传已签合同文件</p>
+                            <p className="text-sm font-bold text-blue-800">OPC 已确认合同内容，可发起 e签宝电子签约或手动上传已签合同文件</p>
                           </div>
                         )}
                         {contract?.status === "pending_publisher_confirm" && !contract?.opcConfirmedAt && (
