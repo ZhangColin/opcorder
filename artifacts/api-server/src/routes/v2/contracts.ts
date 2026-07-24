@@ -488,26 +488,45 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
     // Platform auto-seals
     await platformAutoSign(flowId);
 
-    // Get counterparty sign URL (non-fatal if it fails)
+    // Get counterparty sign URL — required before transitioning to esign_pending
+    // Retry up to 2 times; if all fail, leave status as esign_platform_signed and return error
     let signUrl = "";
-    try {
-      if (identity.orgId) {
-        signUrl = await getOrgSignUrl(flowId, identity.orgId);
-      } else if (identity.accountId) {
-        signUrl = await getSignUrl(flowId, identity.accountId);
+    let signUrlError: Error | null = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        if (identity.orgId) {
+          signUrl = await getOrgSignUrl(flowId, identity.orgId);
+        } else if (identity.accountId) {
+          signUrl = await getSignUrl(flowId, identity.accountId);
+        }
+        signUrlError = null;
+        break;
+      } catch (err: any) {
+        signUrlError = err;
+        logger.warn({ err, flowId, attempt }, `Failed to get counterparty sign URL (attempt ${attempt}/2)`);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
       }
-    } catch (err: any) {
-      logger.warn({ err, flowId }, "Failed to get counterparty sign URL (non-fatal)");
+    }
+
+    if (!signUrl) {
+      // Platform has signed but we can't provide counterparty a link; leave in esign_platform_signed
+      // Admin can retry via e签宝 console; counterparty will also receive e签宝 app notification directly
+      logger.error({ flowId, contractId: id, signUrlError }, "Failed to obtain counterparty sign URL after retries; contract stays esign_platform_signed");
+      return res.status(502).json({
+        error: "平台已完成盖章，但获取对方签署链接失败，请稍后在管理后台重试或从 e签宝 控制台获取链接",
+        flowId,
+        hint: "contract_status=esign_platform_signed; counterparty will receive e签宝 app notification",
+      });
     }
 
     // Update DB: counterparty pending
     const [updated] = await db.update(v2ContractsTable)
-      .set({ status: "esign_pending", esignSignUrl: signUrl || null, updatedAt: new Date() })
+      .set({ status: "esign_pending", esignSignUrl: signUrl, updatedAt: new Date() })
       .where(eq(v2ContractsTable.id, id))
       .returning();
 
-    // Notify counterparty
-    const linkSuffix = signUrl ? `\n签署链接：${signUrl}` : "";
+    // Notify counterparty with sign link
+    const linkSuffix = `\n签署链接：${signUrl}`;
     if (contract.channel === "a" && contract.clientDemandId) {
       const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
         .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);

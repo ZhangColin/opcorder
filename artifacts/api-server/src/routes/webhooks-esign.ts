@@ -81,15 +81,27 @@ router.post("/webhooks/esign", async (req: Request, res: Response) => {
       return res.status(200).json({ message: "ok (already signed)" });
     }
 
-    // Fetch final signed PDF URL from e签宝
+    // Fetch final signed PDF URL from e签宝 — retry up to 3 times (signing PDF may still be processing)
     let esignSignedFileUrl: string | null = null;
-    try {
-      esignSignedFileUrl = await getSignedFileUrl(flowId);
-    } catch (err: any) {
-      logger.warn({ err, flowId }, "Failed to get signed PDF URL from e签宝 (non-fatal)");
+    let pdfFetchError: Error | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        esignSignedFileUrl = await getSignedFileUrl(flowId);
+        pdfFetchError = null;
+        break;
+      } catch (err: any) {
+        pdfFetchError = err;
+        logger.warn({ err, flowId, attempt }, `e签宝 signed PDF URL fetch attempt ${attempt}/3 failed`);
+        if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 2000)); // 2s, 4s backoff
+      }
     }
 
-    // Update contract to signed
+    if (!esignSignedFileUrl) {
+      // Signing is legally complete but PDF archival failed; mark signed and alert admins
+      logger.error({ flowId, contractId: contract.id, pdfFetchError }, "⚠️ e签宝 PDF archival failed after 3 retries — contract marked signed with null PDF URL; admin manual retrieval required");
+    }
+
+    // Update contract to signed (signature is legally final regardless of PDF URL)
     await db.update(v2ContractsTable)
       .set({
         status: "signed",
@@ -102,6 +114,15 @@ router.post("/webhooks/esign", async (req: Request, res: Response) => {
 
     // Notify all parties + trigger downstream status changes
     const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));
+
+    // Alert admins if PDF archival failed so they can retrieve it manually from e签宝 console
+    if (!esignSignedFileUrl) {
+      for (const admin of admins) {
+        await notify(admin.id, "v2_contract_signed", "⚠️ 合同已签署但 PDF 归档失败，请手动处理",
+          `合同「${contract.contractNo}」已完成电子签署（flowId: ${flowId}），但从 e签宝 获取签署 PDF 失败，请登录 e签宝 控制台手动下载并补录至系统。`,
+          contract.id, "v2_contract");
+      }
+    }
 
     if (contract.channel === "a" && contract.clientDemandId) {
       // Channel A: update demand to executing
