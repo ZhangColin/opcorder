@@ -21,6 +21,27 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+// Hard-fail at startup when required e签宝 credentials are missing in production.
+// An absent APP_SECRET means verifyWebhookSignature() always returns false, so
+// every callback would be silently rejected — worse, a misconfigured deploy
+// could let forged callbacks through if the skip-in-dev branch were ever reached.
+if (process.env["NODE_ENV"] === "production") {
+  const missingEsignVars: string[] = [];
+  if (!process.env["ESIGN_APP_ID"])     missingEsignVars.push("ESIGN_APP_ID");
+  if (!process.env["ESIGN_APP_SECRET"]) missingEsignVars.push("ESIGN_APP_SECRET");
+  if (!process.env["ESIGN_ORG_ID"])     missingEsignVars.push("ESIGN_ORG_ID");
+
+  if (missingEsignVars.length > 0) {
+    logger.fatal(
+      { missingVars: missingEsignVars },
+      "FATAL: Required e签宝 environment variables are not set. " +
+      "The server will NOT start to prevent forged webhook callbacks from being accepted. " +
+      `Missing: ${missingEsignVars.join(", ")}`,
+    );
+    process.exit(1);
+  }
+}
+
 async function start() {
   // Start listening immediately so production health checks pass without timing out.
   // Schema sync and migrations run after the server is accepting connections.
