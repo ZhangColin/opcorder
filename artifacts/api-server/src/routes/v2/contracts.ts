@@ -3,6 +3,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2ContractsTable, v2ClientDemandsTable, v2OutsourceOrdersTable, usersTable,
   v2OutsourceDemandsTable, contractTemplatesTable,
+  publisherProfilesTable, settlementAccountsTable, contractPlaceholderDefsTable,
+  platformInfoTable,
 } from "@workspace/db";
 import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -373,23 +375,34 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
     if (!contract) return res.status(404).json({ error: "合同不存在" });
     if (contract.status !== "pending_sign") return res.status(400).json({ error: "合同不在待签约状态" });
 
-    // Determine counterparty user ID
+    // Determine counterparty user ID and collect runtime demand/order data for variable resolution
     let counterpartyUserId: number;
+    let runtimeDemand: { demandNo: string; title: string; budgetMax: number | null } | null = null;
+    let runtimeOrder: { orderNo: string } | null = null;
+
     if (contract.channel === "a" && contract.clientDemandId) {
-      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
-        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
+      const [demand] = await db.select({
+        publisherId: v2ClientDemandsTable.publisherId,
+        demandNo: v2ClientDemandsTable.demandNo,
+        title: v2ClientDemandsTable.title,
+        budgetMax: v2ClientDemandsTable.budgetMax,
+      }).from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
       if (!demand) return res.status(400).json({ error: "未找到关联需求" });
       counterpartyUserId = demand.publisherId;
+      runtimeDemand = { demandNo: demand.demandNo, title: demand.title, budgetMax: demand.budgetMax };
     } else if (contract.channel === "b" && contract.outsourceOrderId) {
-      const [order] = await db.select({ opcId: v2OutsourceOrdersTable.opcId })
-        .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, contract.outsourceOrderId)).limit(1);
+      const [order] = await db.select({
+        opcId: v2OutsourceOrdersTable.opcId,
+        orderNo: v2OutsourceOrdersTable.orderNo,
+      }).from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, contract.outsourceOrderId)).limit(1);
       if (!order) return res.status(400).json({ error: "未找到关联订单" });
       counterpartyUserId = order.opcId;
+      runtimeOrder = { orderNo: order.orderNo };
     } else {
       return res.status(400).json({ error: "合同未关联需求或订单" });
     }
 
-    // Get counterparty contact info
+    // Get counterparty contact info + supplementary data (parallel)
     const [counterparty] = await db
       .select({ nickname: usersTable.nickname, phone: usersTable.phone })
       .from(usersTable)
@@ -397,6 +410,35 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       .limit(1);
     if (!counterparty) return res.status(400).json({ error: "对方用户不存在" });
     if (!counterparty.phone) return res.status(400).json({ error: "对方手机号未填写，无法发起电子签署" });
+
+    // Fetch platform info, counterparty settlement account, and (for channel A) publisher profile in parallel.
+    // Settlement account enables enterprise (org) signing when the counterparty has a verified company identity.
+    // In V3, signer info is embedded per-flow at creation time so there is no pre-registration step —
+    // any change to user profile / company details is automatically picked up on the next sign flow.
+    const [platformInfo, counterpartySettlement, publisherProfile] = await Promise.all([
+      db.select().from(platformInfoTable).limit(1).then(r => r[0] ?? null),
+      db.select({
+        companyName: settlementAccountsTable.companyName,
+        creditCode: settlementAccountsTable.creditCode,
+        contactPerson: settlementAccountsTable.contactPerson,
+        contactPhone: settlementAccountsTable.contactPhone,
+      })
+        .from(settlementAccountsTable)
+        .where(and(
+          eq(settlementAccountsTable.userId, counterpartyUserId),
+          eq(settlementAccountsTable.status, "verified"),
+        ))
+        .orderBy(desc(settlementAccountsTable.updatedAt))
+        .limit(1)
+        .then(r => r[0] ?? null),
+      contract.channel === "a"
+        ? db.select({ creditCode: publisherProfilesTable.creditCode, contactPerson: publisherProfilesTable.contactPerson })
+            .from(publisherProfilesTable)
+            .where(eq(publisherProfilesTable.userId, counterpartyUserId))
+            .limit(1)
+            .then(r => r[0] ?? null)
+        : Promise.resolve(null),
+    ]);
 
     // ── Obtain fileId for signing ─────────────────────────────────────────
     let fileId: string;
@@ -447,9 +489,63 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       if (!template?.esignTemplateId) {
         return res.status(400).json({ error: "合同模板未配置 e签宝 模板ID，请联系管理员配置或上传合同PDF" });
       }
-      const components = Object.entries((template.variableMapping as Record<string, string>) ?? {}).map(
-        ([key, value]) => ({ componentKey: key, componentValue: value })
-      );
+      // Resolve runtime values for template components using placeholder sourceField definitions.
+      // The variableMapping stored on the template provides static fallback values; runtime
+      // data (from demand, order, platform, counterparty) is preferred when a sourceField is known.
+      const placeholderDefs = await db.select({ key: contractPlaceholderDefsTable.key, sourceField: contractPlaceholderDefsTable.sourceField })
+        .from(contractPlaceholderDefsTable);
+      const defByKey = new Map(placeholderDefs.map(d => [d.key, d.sourceField ?? ""]));
+
+      // sourceField → resolved runtime value
+      const today = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Shanghai" }).replace(/\//g, "-");
+      const runtimeBySourceField: Record<string, string | null | undefined> = {
+        "platform_info.company_name":    platformInfo?.companyName,
+        "platform_info.credit_code":     platformInfo?.creditCode,
+        "platform_info.contact_person":  platformInfo?.contactPerson,
+        "platform_info.contact_phone":   platformInfo?.contactPhone,
+        "platform_info.contact_address": platformInfo?.contactAddress,
+        "client_demands.demand_no":      runtimeDemand?.demandNo,
+        "client_demands.title":          runtimeDemand?.title,
+        "client_demands.budget_max":     runtimeDemand?.budgetMax?.toFixed(2),
+        "outsource_orders.order_no":     runtimeOrder?.orderNo,
+        // For channel A: party A = publisher (counterparty); company name from settlement account or
+        // publisher profile contact person. For channel B: party A = platform, handled by platform_info.
+        "publisher_profiles.company_name":
+          contract.channel === "a"
+            ? (counterpartySettlement?.companyName ?? publisherProfile?.contactPerson ?? counterparty.nickname ?? null)
+            : (platformInfo?.companyName ?? null),
+        "publisher_profiles.credit_code":
+          contract.channel === "a"
+            ? (counterpartySettlement?.creditCode ?? publisherProfile?.creditCode ?? null)
+            : (platformInfo?.creditCode ?? null),
+        "users.name":  counterparty.nickname,
+        "users.phone": counterparty.phone,
+      };
+
+      // Per-placeholder-key overrides for "computed" sourceField values
+      const computedByKey: Record<string, string> = {
+        "{{签署日期}}":   today,
+        // party B name: channel A → platform name; channel B → OPC nickname or company
+        "{{乙方名称}}":   contract.channel === "a"
+          ? (platformInfo?.companyName ?? "接单吧平台")
+          : (counterpartySettlement?.companyName ?? counterparty.nickname ?? ""),
+        "{{乙方联系电话}}": contract.channel === "a"
+          ? (platformInfo?.contactPhone ?? "")
+          : (counterparty.phone ?? ""),
+        "{{乙方身份证号}}": counterpartyIdNumber ?? "",
+      };
+
+      const variableMap = (template.variableMapping as Record<string, string>) ?? {};
+      const components = Object.entries(variableMap).map(([key, staticValue]) => {
+        if (computedByKey[key] != null) return { componentKey: key, componentValue: computedByKey[key] };
+        const sourceField = defByKey.get(key) ?? "";
+        if (sourceField && sourceField !== "computed") {
+          const resolved = runtimeBySourceField[sourceField];
+          if (resolved != null) return { componentKey: key, componentValue: resolved };
+        }
+        return { componentKey: key, componentValue: staticValue };
+      });
+
       fileId = await createFileFromTemplate({
         docTemplateId: template.esignTemplateId,
         fileName: `合同_${contract.contractNo}.pdf`,
@@ -498,39 +594,55 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       }],
     };
 
-    // Signer 2: counterparty (signerType=0, phone-based — signs via e签宝 page).
-    // In V3, signer info (phone, name, ID number) is embedded per-flow at creation time —
-    // there is no pre-registration step. This naturally satisfies the "auto-refresh after
-    // user info changes" requirement: every new sign flow picks up the latest user data
-    // from the DB, so changed phone/name/ID is automatically reflected without any
-    // explicit re-registration call.
-    //
-    // Enterprise (org) signing is not supported here because the users table does not
-    // store a unified social credit code or company name. Personal phone-based signing
-    // (signerType=0) is valid for all current users on this platform.
-    const counterpartySigner: V3Signer = {
-      signerType: 0,
-      psnSignerInfo: {
-        psnAccount: counterparty.phone,
-        psnInfo: {
-          ...(counterparty.nickname ? { psnName: counterparty.nickname } : {}),
-          ...(counterpartyIdNumber ? { psnIDCardNum: counterpartyIdNumber, psnIDCardType: "0" } : {}),
+    // Signer 2: counterparty — enterprise (org) signer when a verified settlement account with
+    // company name + credit code exists; otherwise personal phone-based signer.
+    // In V3, all signer info is embedded per-flow at creation time — no pre-registration is needed.
+    // This naturally satisfies "auto-refresh after user info changes": each new sign flow fetches
+    // the latest user/company data from the DB so changes to credit code, company name, or phone
+    // are automatically reflected without any explicit re-registration call.
+    const counterpartySignField = {
+      customBizNum: `counterparty_${contract.contractNo}`,
+      fileId,
+      normalSignFieldConfig: {
+        signFieldPosition: {
+          positionPage: String(counterpartyPos.page),
+          positionX: counterpartyPos.x,
+          positionY: counterpartyPos.y,
         },
+        signFieldStyle: 1,
       },
-      signConfig: { signOrder: 2 },
-      signFields: [{
-        customBizNum: `counterparty_${contract.contractNo}`,
-        fileId,
-        normalSignFieldConfig: {
-          signFieldPosition: {
-            positionPage: String(counterpartyPos.page),
-            positionX: counterpartyPos.x,
-            positionY: counterpartyPos.y,
-          },
-          signFieldStyle: 1,
-        },
-      }],
     };
+
+    const useOrgSigner = !!(counterpartySettlement?.companyName && counterpartySettlement?.creditCode);
+    const counterpartySigner: V3Signer = useOrgSigner
+      ? {
+          signerType: 1,
+          orgSignerInfo: {
+            orgName: counterpartySettlement!.companyName!,
+            orgInfo: {
+              orgIDCardNum: counterpartySettlement!.creditCode!,
+              orgIDCardType: "CRED_ORG_USCC",
+            },
+            transactorInfo: {
+              psnAccount: counterparty.phone,
+              ...(counterparty.nickname ? { psnInfo: { psnName: counterparty.nickname } } : {}),
+            },
+          },
+          signConfig: { signOrder: 2 },
+          signFields: [counterpartySignField],
+        }
+      : {
+          signerType: 0,
+          psnSignerInfo: {
+            psnAccount: counterparty.phone,
+            psnInfo: {
+              ...(counterparty.nickname ? { psnName: counterparty.nickname } : {}),
+              ...(counterpartyIdNumber ? { psnIDCardNum: counterpartyIdNumber, psnIDCardType: "0" } : {}),
+            },
+          },
+          signConfig: { signOrder: 2 },
+          signFields: [counterpartySignField],
+        };
 
     // Create sign flow (autoStart=true triggers platform auto-seal immediately)
     const signFlowId = await createSignFlow({
