@@ -145,26 +145,60 @@ function validateVariableMapping(
    Contract templates
    ───────────────────────────────────────────────── */
 
+/**
+ * GET /v2/contract-templates
+ * When `grouped=true` is passed, returns items arranged by demandType.
+ * Each group entry has { demandType, channelA, channelB } where channelA/B are
+ * the single active template for that slot (or null if none).
+ * Without `grouped`, returns flat paginated list (for search/filter UX).
+ */
 router.get("/contract-templates", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { channel, demandType, search, page = "1", limit = "20", isActive } = req.query as Record<string, string>;
-    const pg = Math.max(1, parseInt(page));
-    const lim = Math.min(100, Math.max(1, parseInt(limit)));
-    const offset = (pg - 1) * lim;
+    const { channel, demandType, search, page = "1", limit = "100", isActive, grouped } = req.query as Record<string, string>;
 
     const conditions: any[] = [];
     if (channel) conditions.push(eq(contractTemplatesTable.channel, channel as any));
     if (demandType) conditions.push(eq(contractTemplatesTable.demandType, demandType));
     if (search) conditions.push(ilike(contractTemplatesTable.title, `%${search}%`));
-    if (isActive !== undefined) conditions.push(eq(contractTemplatesTable.isActive, isActive === "true"));
+    if (isActive !== undefined && isActive !== "") conditions.push(eq(contractTemplatesTable.isActive, isActive === "true"));
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    if (grouped === "true") {
+      const rows = await db
+        .select()
+        .from(contractTemplatesTable)
+        .where(whereClause)
+        .orderBy(asc(contractTemplatesTable.demandType), desc(contractTemplatesTable.updatedAt));
+
+      type GroupRow = { demandType: string | null; channelA: any; channelB: any };
+      const groupMap = new Map<string, GroupRow>();
+
+      for (const row of rows) {
+        const key = row.demandType ?? "__universal__";
+        if (!groupMap.has(key)) {
+          groupMap.set(key, { demandType: row.demandType, channelA: null, channelB: null });
+        }
+        const g = groupMap.get(key)!;
+        if (row.channel === "a" && !g.channelA) g.channelA = row;
+        if (row.channel === "b" && !g.channelB) g.channelB = row;
+      }
+
+      const groups = [...groupMap.values()];
+      const universal = groups.find(g => g.demandType === null);
+      const typed = groups.filter(g => g.demandType !== null).sort((a, b) => (a.demandType ?? "").localeCompare(b.demandType ?? ""));
+      return res.json({ groups: [...typed, ...(universal ? [universal] : [])] });
+    }
+
+    const pg = Math.max(1, parseInt(page));
+    const lim = Math.min(200, Math.max(1, parseInt(limit)));
+    const offset = (pg - 1) * lim;
     const [totalRow] = await db.select({ count: count() }).from(contractTemplatesTable).where(whereClause);
     const rows = await db
       .select()
       .from(contractTemplatesTable)
       .where(whereClause)
-      .orderBy(desc(contractTemplatesTable.updatedAt))
+      .orderBy(asc(contractTemplatesTable.demandType), asc(contractTemplatesTable.channel))
       .limit(lim)
       .offset(offset);
 
@@ -232,6 +266,17 @@ router.get("/contract-templates/:id", requireAdmin, async (req: Request, res: Re
   }
 });
 
+/** Check uniqueness: each (demandType, channel) slot may hold only one template. */
+async function checkSlotUnique(channel: "a" | "b", demandType: string | null | undefined, excludeId?: number) {
+  const normDt = demandType?.trim() || null;
+  const conditions: any[] = [
+    eq(contractTemplatesTable.channel, channel),
+    normDt ? eq(contractTemplatesTable.demandType, normDt) : isNull(contractTemplatesTable.demandType),
+  ];
+  const rows = await db.select({ id: contractTemplatesTable.id }).from(contractTemplatesTable).where(and(...conditions));
+  return rows.filter(r => r.id !== excludeId);
+}
+
 router.post("/contract-templates", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { title, demandType, channel, signType, isStandard, markdownContent, esignTemplateId, variableMapping } = req.body as {
@@ -242,6 +287,13 @@ router.post("/contract-templates", requireAdmin, async (req: Request, res: Respo
     };
     if (!title?.trim() || !channel) {
       return res.status(400).json({ error: "标题和渠道不能为空" });
+    }
+
+    const conflicts = await checkSlotUnique(channel, demandType);
+    if (conflicts.length > 0) {
+      const slotLabel = channel === "a" ? "A（发单方）" : "B（OPC）";
+      const dtLabel = demandType?.trim() || "通用";
+      return res.status(409).json({ error: `需求类型「${dtLabel}」的 Channel ${slotLabel} 已有模板，每个槽位只能有一个模板` });
     }
 
     if (isStandard && esignTemplateId?.trim()) {
@@ -282,6 +334,18 @@ router.put("/contract-templates/:id", requireAdmin, async (req: Request, res: Re
       esignTemplateId?: string; variableMapping?: Record<string, string>;
       isActive?: boolean; originalFileUrl?: string; originalFileName?: string;
     };
+
+    const effectiveChannel = channel ?? existing.channel;
+    const effectiveDemandType = demandType !== undefined ? demandType : existing.demandType;
+
+    if (channel !== undefined || demandType !== undefined) {
+      const conflicts = await checkSlotUnique(effectiveChannel, effectiveDemandType, id);
+      if (conflicts.length > 0) {
+        const slotLabel = effectiveChannel === "a" ? "A（发单方）" : "B（OPC）";
+        const dtLabel = effectiveDemandType?.trim() || "通用";
+        return res.status(409).json({ error: `需求类型「${dtLabel}」的 Channel ${slotLabel} 已有模板，每个槽位只能有一个模板` });
+      }
+    }
 
     const effectiveIsStandard = isStandard !== undefined ? isStandard : existing.isStandard;
     const effectiveEsignId = esignTemplateId !== undefined ? esignTemplateId?.trim() : existing.esignTemplateId;

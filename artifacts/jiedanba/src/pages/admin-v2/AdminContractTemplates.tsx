@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { v2Get } from "@/lib/v2api";
 import { getAccessToken } from "@/lib/auth";
@@ -8,20 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Upload, RefreshCw, ChevronDown, X, FileText, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, RefreshCw, ChevronDown, FileText, Download } from "lucide-react";
 import type { ContractTemplate, ContractPlaceholderDef } from "@workspace/db";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -36,15 +31,25 @@ async function apiFetch(method: string, path: string, body?: unknown): Promise<a
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error((e as any).error ?? `请求失败 (${res.status})`); }
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error((e as any).error ?? `请求失败 (${res.status})`);
+  }
   return res.json();
 }
 
-interface TemplateListRes { total: number; page: number; limit: number; items: ContractTemplate[] }
+interface GroupedRes {
+  groups: Array<{
+    demandType: string | null;
+    channelA: ContractTemplate | null;
+    channelB: ContractTemplate | null;
+  }>;
+}
 interface PlaceholderListRes { items: ContractPlaceholderDef[] }
 
-const CHANNEL_LABELS: Record<string, string> = { a: "A（发单方）", b: "B（OPC）" };
-const SIGN_TYPE_LABELS: Record<string, string> = { company: "对公签署", personal: "个人签署", both: "对公+个人" };
+const SIGN_TYPE_LABELS: Record<string, string> = {
+  company: "对公", personal: "个人", both: "对公+个人",
+};
 const GROUP_LABELS: Record<string, string> = {
   demand: "需求信息", order: "订单信息", payment: "金额付款", milestone: "里程碑",
   platform: "平台信息", party_a: "甲方信息", party_b: "乙方信息",
@@ -61,46 +66,15 @@ const DEFAULT_FORM = {
 /* ────────────────────────────────────────
    Inline Markdown renderer with placeholder highlighting
    ──────────────────────────────────────── */
-function MarkdownPreview({ markdown, placeholders }: { markdown: string; placeholders: ContractPlaceholderDef[] }) {
-  const sampleMap = Object.fromEntries(placeholders.map(p => [p.key, p.exampleValue || p.label]));
-
-  const rendered = markdown
-    .split(/(\{\{[^{}]+\}\})/g)
-    .map((part, i) => {
-      if (/^\{\{[^{}]+\}\}$/.test(part)) {
-        const sample = sampleMap[part] ?? part.slice(2, -2);
-        return (
-          <mark key={i} style={{ background: "#fef08a", borderRadius: 3, padding: "0 2px" }} title={part}>
-            {sample}
-          </mark>
-        );
-      }
-      return part;
-    });
-
-  const lines = markdown.split("\n");
-  let inList = false;
-  const elements: JSX.Element[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
-    const h3 = raw.match(/^### (.+)/); if (h3) { elements.push(<h3 key={i} className="text-base font-bold mt-3">{renderInline(h3[1], sampleMap)}</h3>); continue; }
-    const h2 = raw.match(/^## (.+)/); if (h2) { elements.push(<h2 key={i} className="text-lg font-bold mt-4">{renderInline(h2[1], sampleMap)}</h2>); continue; }
-    const h1 = raw.match(/^# (.+)/); if (h1) { elements.push(<h1 key={i} className="text-xl font-bold mt-4 text-center">{renderInline(h1[1], sampleMap)}</h1>); continue; }
-    if (raw.trim() === "") { elements.push(<div key={i} className="h-2" />); continue; }
-    const li = raw.match(/^[-*] (.+)/);
-    if (li) { elements.push(<li key={i} className="ml-4 list-disc">{renderInline(li[1], sampleMap)}</li>); continue; }
-    elements.push(<p key={i} className="text-sm leading-relaxed">{renderInline(raw, sampleMap)}</p>);
-  }
-
-  return <div className="prose prose-sm max-w-none p-4 text-sm leading-relaxed">{elements}</div>;
-}
-
 function renderInline(text: string, sampleMap: Record<string, string>): React.ReactNode[] {
   return text.split(/(\{\{[^{}]+\}\})/g).map((part, i) => {
     if (/^\{\{[^{}]+\}\}$/.test(part)) {
       const sample = sampleMap[part] ?? part.slice(2, -2);
-      return <mark key={i} style={{ background: "#fef08a", borderRadius: 3, padding: "0 2px" }} title={part}>{sample}</mark>;
+      return (
+        <mark key={i} style={{ background: "#fef08a", borderRadius: 3, padding: "0 2px" }} title={part}>
+          {sample}
+        </mark>
+      );
     }
     const boldParts = part.split(/(\*\*[^*]+\*\*)/g).map((bp, j) => {
       if (/^\*\*[^*]+\*\*$/.test(bp)) return <strong key={j}>{bp.slice(2, -2)}</strong>;
@@ -110,8 +84,24 @@ function renderInline(text: string, sampleMap: Record<string, string>): React.Re
   });
 }
 
+function MarkdownPreview({ markdown, placeholders }: { markdown: string; placeholders: ContractPlaceholderDef[] }) {
+  const sampleMap = Object.fromEntries(placeholders.map(p => [p.key, p.exampleValue || p.label]));
+  const lines = markdown.split("\n");
+  const elements: React.ReactNode[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const h3 = raw.match(/^### (.+)/); if (h3) { elements.push(<h3 key={i} className="text-base font-bold mt-3">{renderInline(h3[1], sampleMap)}</h3>); continue; }
+    const h2 = raw.match(/^## (.+)/); if (h2) { elements.push(<h2 key={i} className="text-lg font-bold mt-4">{renderInline(h2[1], sampleMap)}</h2>); continue; }
+    const h1 = raw.match(/^# (.+)/); if (h1) { elements.push(<h1 key={i} className="text-xl font-bold mt-4 text-center">{renderInline(h1[1], sampleMap)}</h1>); continue; }
+    if (raw.trim() === "") { elements.push(<div key={i} className="h-2" />); continue; }
+    const li = raw.match(/^[-*] (.+)/); if (li) { elements.push(<li key={i} className="ml-4 list-disc text-sm">{renderInline(li[1], sampleMap)}</li>); continue; }
+    elements.push(<p key={i} className="text-sm leading-relaxed">{renderInline(raw, sampleMap)}</p>);
+  }
+  return <div className="prose prose-sm max-w-none p-4">{elements}</div>;
+}
+
 /* ────────────────────────────────────────
-   Template workbench (3-column editor)
+   3-column workbench
    ──────────────────────────────────────── */
 interface WorkbenchProps {
   form: typeof DEFAULT_FORM;
@@ -125,7 +115,6 @@ interface WorkbenchProps {
 
 function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, saving, isNew }: WorkbenchProps) {
   const [uploading, setUploading] = useState(false);
-  const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,9 +125,7 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
     if (!ta) return;
     const start = ta.selectionStart ?? ta.value.length;
     const end = ta.selectionEnd ?? start;
-    const before = ta.value.slice(0, start);
-    const after = ta.value.slice(end);
-    const newVal = before + text + after;
+    const newVal = ta.value.slice(0, start) + text + ta.value.slice(end);
     setForm(prev => ({ ...prev, markdownContent: newVal }));
     requestAnimationFrame(() => {
       ta.focus();
@@ -149,9 +136,7 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (form.markdownContent.trim()) {
-      if (!confirm("编辑器中已有内容，上传后将自动覆盖。继续吗？")) return;
-    }
+    if (form.markdownContent.trim() && !confirm("编辑器中已有内容，上传后将自动覆盖。继续吗？")) return;
     setUploading(true);
     try {
       const token = getAccessToken();
@@ -177,9 +162,8 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
   const missingPlaceholders = (() => {
     if (!form.isStandard || !form.esignTemplateId.trim()) return [];
     const re = /\{\{[^{}]+\}\}/g;
-    const found = [...(form.markdownContent.matchAll(re))].map(m => m[0]);
-    const unique = [...new Set(found)];
-    return unique.filter(k => !form.variableMapping[k]);
+    const found = [...new Set([...(form.markdownContent.matchAll(re))].map(m => m[0]))];
+    return found.filter(k => !form.variableMapping[k]);
   })();
 
   return (
@@ -231,7 +215,6 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
         </div>
       </div>
 
-      {/* Validation warning */}
       {missingPlaceholders.length > 0 && (
         <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
           ⚠ 标准合同须完善变量映射，以下占位符尚未映射到 e签宝变量名：
@@ -240,21 +223,18 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
       )}
 
       {/* 3-column main area */}
-      <div className="flex flex-1 overflow-hidden divide-x" style={{ minHeight: 0, height: "calc(100vh - 340px)" }}>
+      <div className="flex flex-1 divide-x overflow-hidden" style={{ minHeight: 0, height: "calc(100vh - 350px)" }}>
 
-        {/* Left: file upload */}
+        {/* Left: file upload + variable mapping */}
         <div className="w-56 shrink-0 flex flex-col bg-muted/20 p-3 gap-3 overflow-y-auto">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">原始文件</p>
           <input ref={fileInputRef} type="file" accept=".pdf,.docx,.doc" className="hidden" onChange={handleFileUpload} />
-          <Button
-            type="button" variant="outline" size="sm" className="w-full flex items-center gap-1.5 text-xs" disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <Button type="button" variant="outline" size="sm" className="w-full flex items-center gap-1.5 text-xs" disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}>
             {uploading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
             {uploading ? "解析中…" : "上传 PDF / DOCX"}
           </Button>
-          <p className="text-[11px] text-muted-foreground">上传后自动转为 Markdown 填入编辑器，需人工校对内容</p>
-
+          <p className="text-[11px] text-muted-foreground">上传后自动转为 Markdown，供运营人工校对</p>
           {form.originalFileName && (
             <div className="bg-background rounded border p-2 text-xs space-y-1">
               <div className="flex items-center gap-1 text-muted-foreground">
@@ -270,13 +250,10 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
             </div>
           )}
 
-          {/* Variable mapping (only when esignTemplateId set) */}
           {form.esignTemplateId.trim() && (
             <>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2">变量映射</p>
-              <p className="text-[11px] text-muted-foreground">
-                将合同中的 {"{{占位符}}"} 映射到 e签宝模板变量名。
-              </p>
+              <p className="text-[11px] text-muted-foreground">将合同中的 {"{{占位符}}"} 映射到 e签宝模板变量名。</p>
               {(() => {
                 const re = /\{\{[^{}]+\}\}/g;
                 const found = [...new Set([...(form.markdownContent.matchAll(re))].map(m => m[0]))];
@@ -285,9 +262,7 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
                     <p className="text-[11px] font-mono text-blue-700">{key}</p>
                     <Input
                       value={form.variableMapping[key] ?? ""}
-                      onChange={e => setForm(p => ({
-                        ...p, variableMapping: { ...p.variableMapping, [key]: e.target.value }
-                      }))}
+                      onChange={e => setForm(p => ({ ...p, variableMapping: { ...p.variableMapping, [key]: e.target.value } }))}
                       placeholder="e签宝变量名"
                       className="h-7 text-xs"
                     />
@@ -311,14 +286,20 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
                       {GROUP_LABELS[g] ?? g} <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="max-h-64 overflow-y-auto">
+                  <DropdownMenuContent className="max-h-72 overflow-y-auto w-72">
                     <DropdownMenuLabel className="text-xs">{GROUP_LABELS[g] ?? g}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {gItems.map(p => (
-                      <DropdownMenuItem key={p.key} className="text-xs flex flex-col items-start gap-0.5"
+                      <DropdownMenuItem key={p.key} className="flex flex-col items-start gap-0.5 py-2"
                         onSelect={() => insertAtCursor(p.key)}>
-                        <span className="font-mono text-blue-700">{p.key}</span>
+                        <span className="font-mono text-blue-700 text-xs">{p.key}</span>
                         <span className="text-muted-foreground text-[11px]">{p.label}{p.description ? ` — ${p.description}` : ""}</span>
+                        {p.sourceField && (
+                          <span className="text-[10px] text-emerald-600 font-mono">来源：{p.sourceField}</span>
+                        )}
+                        {!p.sourceField && (
+                          <span className="text-[10px] text-orange-500">来源：需人工填写</span>
+                        )}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -351,7 +332,7 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
         </div>
       </div>
 
-      {/* Footer actions */}
+      {/* Footer */}
       <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10">
         <Button variant="ghost" onClick={onCancel}>返回列表</Button>
         <Button onClick={onSave} disabled={saving || !form.title.trim()}>
@@ -363,27 +344,76 @@ function TemplateWorkbench({ form, setForm, placeholders, onSave, onCancel, savi
 }
 
 /* ────────────────────────────────────────
-   Main page: list view
+   TemplateSlotCard — channel A or B slot in a group row
+   ──────────────────────────────────────── */
+function TemplateSlotCard({
+  template,
+  channel,
+  demandType,
+  onEdit,
+  onDelete,
+  onToggle,
+}: {
+  template: ContractTemplate | null;
+  channel: "a" | "b";
+  demandType: string | null;
+  onEdit: (t: ContractTemplate) => void;
+  onDelete: (t: ContractTemplate) => void;
+  onToggle: (t: ContractTemplate) => void;
+}) {
+  const label = channel === "a" ? "A 通道（发单方）" : "B 通道（OPC）";
+  if (!template) {
+    return (
+      <div className="border-2 border-dashed border-muted rounded-lg p-3 flex flex-col gap-2 opacity-50">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="text-[11px] text-muted-foreground">暂无模板</p>
+      </div>
+    );
+  }
+  return (
+    <div className="border rounded-lg p-3 flex flex-col gap-2 bg-background">
+      <div className="flex items-start justify-between gap-1">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="text-sm font-semibold truncate" title={template.title}>{template.title}</p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Switch checked={template.isActive} onCheckedChange={() => onToggle(template)} />
+        </div>
+      </div>
+      <div className="flex gap-1 flex-wrap">
+        <Badge variant="outline" className="text-[10px] px-1 py-0">{SIGN_TYPE_LABELS[template.signType]}</Badge>
+        {template.esignTemplateId && <Badge variant="secondary" className="text-[10px] px-1 py-0 font-mono">e签宝</Badge>}
+        {!template.isActive && <Badge variant="destructive" className="text-[10px] px-1 py-0">已停用</Badge>}
+      </div>
+      <div className="flex gap-1 mt-1">
+        <Button variant="outline" size="sm" className="h-6 text-xs flex-1" onClick={() => onEdit(template)}>
+          <Pencil className="h-3 w-3 mr-1" />编辑
+        </Button>
+        <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive"
+          onClick={() => { if (confirm(`确认删除模板「${template.title}」？`)) onDelete(template); }}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────
+   Main page
    ──────────────────────────────────────── */
 export default function AdminContractTemplates() {
   const qc = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [channelFilter, setChannelFilter] = useState("");
   const [editItem, setEditItem] = useState<ContractTemplate | null>(null);
   const [showWorkbench, setShowWorkbench] = useState(false);
   const [form, setForm] = useState<typeof DEFAULT_FORM>(DEFAULT_FORM);
   const [isNew, setIsNew] = useState(false);
+  const [newGroupDemandType, setNewGroupDemandType] = useState("");
 
-  const queryKey = ["admin-contract-templates", page, search, channelFilter];
-  const { data, isLoading } = useQuery<TemplateListRes>({
-    queryKey,
-    queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
-      if (search) params.set("search", search);
-      if (channelFilter) params.set("channel", channelFilter);
-      return v2Get<TemplateListRes>(`/contract-templates?${params}`);
-    },
+  const groupedKey = ["admin-contract-templates-grouped"];
+  const { data: groupedData, isLoading } = useQuery<GroupedRes>({
+    queryKey: groupedKey,
+    queryFn: () => v2Get<GroupedRes>("/contract-templates?grouped=true"),
   });
 
   const { data: phData } = useQuery<PlaceholderListRes>({
@@ -411,7 +441,7 @@ export default function AdminContractTemplates() {
       return apiFetch("POST", `/contract-templates`, payload);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-contract-templates"] });
+      qc.invalidateQueries({ queryKey: groupedKey });
       setShowWorkbench(false);
       toast({ title: editItem ? "已更新" : "已创建", description: form.title });
     },
@@ -420,24 +450,24 @@ export default function AdminContractTemplates() {
 
   const toggleMut = useMutation({
     mutationFn: (item: ContractTemplate) => apiFetch("PUT", `/contract-templates/${item.id}`, { isActive: !item.isActive }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-contract-templates"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: groupedKey }),
     onError: (e: Error) => toast({ title: "操作失败", description: e.message, variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) => apiFetch("DELETE", `/contract-templates/${id}`).catch(() => fetch(`${BASE}/api/v2/contract-templates/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getAccessToken()}` } })),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-contract-templates"] }); toast({ title: "已删除" }); },
+    mutationFn: (id: number) => apiFetch("DELETE", `/contract-templates/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: groupedKey }); toast({ title: "已删除" }); },
     onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
   });
 
-  function openCreate() {
+  function openCreate(opts: { channel: "a" | "b"; demandType: string }) {
     setEditItem(null);
-    setForm({ ...DEFAULT_FORM });
+    setForm({ ...DEFAULT_FORM, channel: opts.channel, demandType: opts.demandType });
     setIsNew(true);
     setShowWorkbench(true);
   }
 
-  async function openEdit(item: ContractTemplate) {
+  function openEdit(item: ContractTemplate) {
     setEditItem(item);
     setForm({
       title: item.title,
@@ -456,21 +486,16 @@ export default function AdminContractTemplates() {
     setShowWorkbench(true);
   }
 
-  const items = data?.items ?? [];
-  const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / 20);
+  const groups = groupedData?.groups ?? [];
 
   if (showWorkbench) {
     return (
       <div className="flex flex-col h-full">
         <TemplateWorkbench
-          form={form}
-          setForm={setForm}
-          placeholders={placeholders}
+          form={form} setForm={setForm} placeholders={placeholders}
           onSave={() => saveMut.mutate(form)}
           onCancel={() => setShowWorkbench(false)}
-          saving={saveMut.isPending}
-          isNew={isNew}
+          saving={saveMut.isPending} isNew={isNew}
         />
       </div>
     );
@@ -479,92 +504,84 @@ export default function AdminContractTemplates() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">合同模板管理</h2>
-        <Button size="sm" onClick={openCreate} className="flex items-center gap-1">
-          <Plus className="h-4 w-4" /> 新建模板
+        <div>
+          <h2 className="text-xl font-semibold">合同模板管理</h2>
+          <p className="text-sm text-muted-foreground">每个需求类型下最多两个模板槽位：A（发单方）和 B（OPC）</p>
+        </div>
+      </div>
+
+      {/* Add new demand-type group */}
+      <div className="flex gap-2 items-center border rounded-lg p-3 bg-muted/20">
+        <Input
+          placeholder="新增需求类型（留空则为通用模板）"
+          value={newGroupDemandType}
+          onChange={e => setNewGroupDemandType(e.target.value)}
+          className="w-64"
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              openCreate({ channel: "a", demandType: newGroupDemandType.trim() });
+              setNewGroupDemandType("");
+            }
+          }}
+        />
+        <Button size="sm" variant="outline" onClick={() => {
+          openCreate({ channel: "a", demandType: newGroupDemandType.trim() });
+          setNewGroupDemandType("");
+        }}>
+          <Plus className="h-4 w-4 mr-1" />新建 Channel A 模板
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => {
+          openCreate({ channel: "b", demandType: newGroupDemandType.trim() });
+          setNewGroupDemandType("");
+        }}>
+          <Plus className="h-4 w-4 mr-1" />新建 Channel B 模板
         </Button>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        <Input
-          placeholder="搜索模板名称…"
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }}
-          className="w-56"
-        />
-        <Select value={channelFilter || "__all__"} onValueChange={v => { setChannelFilter(v === "__all__" ? "" : v); setPage(1); }}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="全部通道" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">全部通道</SelectItem>
-            <SelectItem value="a">A 通道（发单方）</SelectItem>
-            <SelectItem value="b">B 通道（OPC）</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {isLoading && <p className="text-center text-muted-foreground py-8">加载中…</p>}
 
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>模板名称</TableHead>
-              <TableHead>需求类型</TableHead>
-              <TableHead>通道</TableHead>
-              <TableHead>签署方式</TableHead>
-              <TableHead>e签宝模板ID</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">加载中…</TableCell></TableRow>
-            ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">暂无模板，点击「新建模板」开始</TableCell></TableRow>
-            ) : items.map(item => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.title}</TableCell>
-                <TableCell>{item.demandType || <span className="text-muted-foreground text-xs">通用</span>}</TableCell>
-                <TableCell>
-                  <Badge variant={item.channel === "a" ? "default" : "secondary"}>
-                    {CHANNEL_LABELS[item.channel]}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-sm">{SIGN_TYPE_LABELS[item.signType]}</TableCell>
-                <TableCell className="text-xs font-mono text-muted-foreground max-w-[120px] truncate">
-                  {item.esignTemplateId || "—"}
-                </TableCell>
-                <TableCell>
-                  <Switch checked={item.isActive} onCheckedChange={() => toggleMut.mutate(item)} disabled={toggleMut.isPending} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(item)} title="编辑">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost" size="icon" className="text-destructive hover:text-destructive"
-                      onClick={() => { if (confirm(`确认删除模板「${item.title}」？`)) deleteMut.mutate(item.id); }}
-                      title="删除"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex gap-2 justify-center">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>上一页</Button>
-          <span className="text-sm self-center">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>下一页</Button>
+      {!isLoading && groups.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-sm">暂无合同模板</p>
+          <p className="text-xs mt-1">在上方输入需求类型后点击新建</p>
         </div>
       )}
+
+      {/* Grouped list */}
+      <div className="space-y-3">
+        {groups.map((g, idx) => (
+          <div key={idx} className="border rounded-xl overflow-hidden">
+            <div className="px-4 py-2 bg-muted/30 border-b flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">
+                  {g.demandType ?? <span className="italic text-muted-foreground">通用模板（无需求类型限制）</span>}
+                </span>
+                {g.demandType && <Badge variant="outline" className="text-[10px]">{g.demandType}</Badge>}
+              </div>
+              <div className="flex gap-1">
+                {!g.channelA && (
+                  <Button variant="ghost" size="sm" className="h-6 text-xs"
+                    onClick={() => openCreate({ channel: "a", demandType: g.demandType ?? "" })}>
+                    <Plus className="h-3 w-3 mr-0.5" />A 通道
+                  </Button>
+                )}
+                {!g.channelB && (
+                  <Button variant="ghost" size="sm" className="h-6 text-xs"
+                    onClick={() => openCreate({ channel: "b", demandType: g.demandType ?? "" })}>
+                    <Plus className="h-3 w-3 mr-0.5" />B 通道
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 p-3">
+              <TemplateSlotCard template={g.channelA} channel="a" demandType={g.demandType}
+                onEdit={openEdit} onDelete={t => deleteMut.mutate(t.id)} onToggle={t => toggleMut.mutate(t)} />
+              <TemplateSlotCard template={g.channelB} channel="b" demandType={g.demandType}
+                onEdit={openEdit} onDelete={t => deleteMut.mutate(t.id)} onToggle={t => toggleMut.mutate(t)} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
