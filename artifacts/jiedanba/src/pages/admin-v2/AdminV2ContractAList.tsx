@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import { Loader2, ChevronRight, FileText } from "lucide-react";
+import { Loader2, ChevronRight, FileText, Copy, Check } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get } from "@/lib/v2api";
 import { hasUnread } from "@/lib/demandRead";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface Contract {
   id: number;
@@ -16,14 +17,17 @@ interface Contract {
   signedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  esignSignUrl?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  draft:                      { label: "草稿",       color: "bg-slate-100 text-slate-500" },
-  pending_publisher_confirm:  { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
-  publisher_rejected:         { label: "已退回",      color: "bg-red-100 text-red-600" },
-  pending_sign:               { label: "待签约",      color: "bg-orange-100 text-orange-700" },
-  signed:                     { label: "已签约",      color: "bg-green-100 text-green-700" },
+  draft:                      { label: "草稿",         color: "bg-slate-100 text-slate-500" },
+  pending_publisher_confirm:  { label: "待发单方确认",  color: "bg-amber-100 text-amber-700" },
+  publisher_rejected:         { label: "已退回",        color: "bg-red-100 text-red-600" },
+  pending_sign:               { label: "待签约",        color: "bg-orange-100 text-orange-700" },
+  esign_platform_signed:      { label: "平台盖章处理中", color: "bg-blue-100 text-blue-700" },
+  esign_pending:              { label: "待对方签署",    color: "bg-violet-100 text-violet-700" },
+  signed:                     { label: "已签约",        color: "bg-green-100 text-green-700" },
 };
 
 const STATUS_TABS = [
@@ -31,6 +35,8 @@ const STATUS_TABS = [
   { value: "pending_publisher_confirm", label: "待确认" },
   { value: "publisher_rejected",        label: "已退回" },
   { value: "pending_sign",              label: "待签约" },
+  { value: "esign_platform_signed",     label: "平台盖章中" },
+  { value: "esign_pending",             label: "待对方签署" },
   { value: "signed",                    label: "已签约" },
   { value: "",                          label: "全部" },
 ];
@@ -40,9 +46,11 @@ const HIGHLIGHT = ["pending_publisher_confirm", "publisher_rejected"];
 export default function AdminV2ContractAList() {
   const [, navigate] = useLocation();
   const inlineNav = useAdminInlineNav();
+  const { toast } = useToast();
   const [items, setItems] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("draft");
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,6 +66,22 @@ export default function AdminV2ContractAList() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const copySignUrl = useCallback(async (e: React.MouseEvent, contract: Contract) => {
+    e.stopPropagation();
+    if (!contract.esignSignUrl) {
+      toast({ title: "签署链接不存在", variant: "destructive" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(contract.esignSignUrl);
+      setCopiedId(contract.id);
+      toast({ title: "签署链接已复制", description: "可直接发送给对方完成签署" });
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      toast({ title: "复制失败", description: "请手动复制", variant: "destructive" });
+    }
+  }, [toast]);
 
   const highlighted = items.filter(c => HIGHLIGHT.includes(c.status));
   const counts = STATUS_TABS.reduce((acc, tab) => {
@@ -117,6 +141,8 @@ export default function AdminV2ContractAList() {
             ).map(c => {
               const cfg = STATUS_CONFIG[c.status] ?? { label: c.status, color: "bg-slate-100 text-slate-500" };
               const highlight = HIGHLIGHT.includes(c.status);
+              const isEsignPending = c.status === "esign_pending";
+              const isEsignPlatformSigned = c.status === "esign_platform_signed";
               const go = () => c.clientDemandId
                 ? (inlineNav ? inlineNav.push(`/admin/v2/client-demands/${c.clientDemandId}?tab=contract`) : navigate(`/admin/v2/client-demands/${c.clientDemandId}?tab=contract`))
                 : (inlineNav ? inlineNav.push(`/admin/v2/contracts-a/${c.id}`) : navigate(`/admin/v2/contracts-a/${c.id}`));
@@ -130,7 +156,21 @@ export default function AdminV2ContractAList() {
                       {c.demandTitle || c.contractNo}
                       {hasUnread("contract", c.id, c.updatedAt) && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
                     </span>
-                    <span className={`shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+                      {isEsignPending && (
+                        <button
+                          onClick={(e) => copySignUrl(e, c)}
+                          title="复制对方签署链接"
+                          className="flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-colors">
+                          {copiedId === c.id ? <Check size={12} /> : <Copy size={12} />}
+                          {copiedId === c.id ? "已复制" : "复制链接"}
+                        </button>
+                      )}
+                      {isEsignPlatformSigned && (
+                        <span className="text-xs text-blue-500 font-medium">盖章处理中…</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-end gap-4">
                     <div className="flex gap-4 flex-1 min-w-0 flex-wrap">
