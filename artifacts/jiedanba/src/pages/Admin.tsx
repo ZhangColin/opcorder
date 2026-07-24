@@ -22,6 +22,7 @@ import { AdminEmbeddedContext } from "@/context/AdminEmbeddedContext";
 import AdminV2Overview from "@/pages/admin-v2/AdminV2Overview";
 import AdminV2ClientDemandList from "@/pages/admin-v2/AdminV2ClientDemandList";
 import AdminV2ContractAList from "@/pages/admin-v2/AdminV2ContractAList";
+import AdminV2ContractBList from "@/pages/admin-v2/AdminV2ContractBList";
 import AdminV2PaymentAList from "@/pages/admin-v2/AdminV2PaymentAList";
 import AdminV2TicketAList from "@/pages/admin-v2/AdminV2TicketAList";
 import AdminV2OutsourceDemandList from "@/pages/admin-v2/AdminV2OutsourceDemandList";
@@ -149,7 +150,7 @@ export type Module =
   | "contest_questions" | "contest_activities" | "contest_registrations"
   | "v2_overview"
   | "v2_pub_workbench" | "v2_pub_demands" | "v2_pub_contracts" | "v2_pub_payments" | "v2_pub_deliveries" | "v2_pub_tickets"
-  | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets"
+  | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_contracts" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets"
   | "platform_info" | "contract_config"
   | "skill_registry"
   | "contract_templates" | "contract_placeholders";
@@ -177,6 +178,7 @@ const NAV: NavItem[] = [
       { key: "v2_opc_demands",  label: "需求", moduleKey: "v2_opc_demands"  as Module, icon: FileText },
       { key: "v2_opc_tenders",  label: "投标", moduleKey: "v2_opc_tenders"  as Module, icon: Trophy },
       { key: "v2_opc_orders",   label: "订单", moduleKey: "v2_opc_orders"   as Module, icon: ShoppingBag },
+      { key: "v2_opc_contracts", label: "合同", moduleKey: "v2_opc_contracts" as Module, icon: FileCheck },
       { key: "v2_opc_payments",   label: "付款", moduleKey: "v2_opc_payments"   as Module, icon: CreditCard },
       { key: "v2_opc_deliveries", label: "交付", moduleKey: "v2_opc_deliveries" as Module, icon: PackageCheck },
       { key: "v2_opc_tickets",    label: "工单", moduleKey: "v2_opc_tickets"    as Module, icon: ClipboardList },
@@ -9208,6 +9210,7 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "v2_opc_demands":     return withEmbedded(<AdminV2OutsourceDemandList />);
     case "v2_opc_tenders":   return withEmbedded(<AdminV2TenderList />);
     case "v2_opc_orders":    return withEmbedded(<AdminV2OutsourceOrderList />);
+    case "v2_opc_contracts": return withEmbedded(<AdminV2ContractBList />);
     case "v2_opc_payments":    return withEmbedded(<AdminV2PaymentBList />);
     case "v2_opc_deliveries":  return withEmbedded(<AdminV2DeliveryBList />);
     case "v2_opc_tickets":     return withEmbedded(<AdminV2TicketBList />);

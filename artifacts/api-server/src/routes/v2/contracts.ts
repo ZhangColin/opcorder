@@ -60,6 +60,7 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
         contractNo: v2ContractsTable.contractNo,
         channel: v2ContractsTable.channel,
         clientDemandId: v2ContractsTable.clientDemandId,
+        outsourceOrderId: v2ContractsTable.outsourceOrderId,
         status: v2ContractsTable.status,
         content: v2ContractsTable.content,
         signedFileUrl: v2ContractsTable.signedFileUrl,
@@ -70,6 +71,7 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
         createdAt: v2ContractsTable.createdAt,
         updatedAt: v2ContractsTable.updatedAt,
         demandTitle: v2ClientDemandsTable.title,
+        outsourceOrderNo: v2OutsourceOrdersTable.orderNo,
         invoiceType: v2ContractsTable.invoiceType,
         taxRate: v2ContractsTable.taxRate,
         esignSignUrl: v2ContractsTable.esignSignUrl,
@@ -77,6 +79,7 @@ router.get("/contracts", requireAuth, async (req: Request, res: Response) => {
       })
       .from(v2ContractsTable)
       .leftJoin(v2ClientDemandsTable, eq(v2ContractsTable.clientDemandId, v2ClientDemandsTable.id))
+      .leftJoin(v2OutsourceOrdersTable, eq(v2ContractsTable.outsourceOrderId, v2OutsourceOrdersTable.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(v2ContractsTable.createdAt));
 
