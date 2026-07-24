@@ -22,17 +22,22 @@ router.post("/webhooks/esign", async (req: Request, res: Response) => {
     // Use rawBody captured by express.json verify hook; fall back to re-stringify
     const rawBody: string = (req as any).rawBody ?? JSON.stringify(req.body);
 
-    // Verify e签宝 signature (skip in dev if APP_SECRET not configured)
+    // Verify e签宝 signature.
+    // e签宝 sends X-Tsign-Open-TIMESTAMP + X-Tsign-Open-SIGNATURE on every callback.
+    // In dev/sandbox we skip verification when APP_SECRET is not configured.
     const isDev = process.env["NODE_ENV"] !== "production";
     const isValid = verifyWebhookSignature(
       {
-        "x-timstamp": req.headers["x-timstamp"] as string,
-        "x-signature": req.headers["x-signature"] as string,
+        "x-tsign-open-timestamp": req.headers["x-tsign-open-timestamp"] as string,
+        "x-tsign-open-signature": req.headers["x-tsign-open-signature"] as string,
       },
       rawBody,
     );
     if (!isValid && !isDev) {
-      logger.warn("e签宝 webhook signature invalid — rejected");
+      logger.warn({
+        hasTimestamp: !!req.headers["x-tsign-open-timestamp"],
+        hasSignature: !!req.headers["x-tsign-open-signature"],
+      }, "e签宝 webhook signature invalid — rejected");
       return res.status(401).json({ error: "签名验证失败" });
     }
 

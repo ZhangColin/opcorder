@@ -238,18 +238,60 @@ export async function getSignedFileUrl(flowId: string): Promise<string> {
   return data.docs?.[0]?.fileDownloadUrl ?? "";
 }
 
-/* ─── Verify webhook signature ─── */
-export function verifyWebhookSignature(headers: {
-  "x-timstamp"?: string;
-  "x-signature"?: string;
-}, body: string): boolean {
+/**
+ * Verify an incoming e签宝 webhook callback signature.
+ *
+ * e签宝 sends these headers on every callback:
+ *   X-Tsign-Open-TIMESTAMP         — millisecond Unix timestamp
+ *   X-Tsign-Open-SIGNATURE         — HMAC-SHA256 hex digest
+ *   X-Tsign-Open-SIGNATURE-ALGORITHM — always "hmac-sha256"
+ *   X-Tsign-Open-App-Id            — the AppId (informational)
+ *
+ * Signature construction (per open.esign.cn/doc/opendoc/notify3/pmy852):
+ *   data   = timestamp_string + sorted_query_param_values + raw_body_utf8
+ *   result = HMAC-SHA256(data, APP_SECRET).hexdigest()
+ *
+ * Query param values: if the notifyUrl has query params, sort by key (ASCII),
+ * concatenate values only.  Our notifyUrl has no query params → empty string.
+ *
+ * Replay-attack protection: reject callbacks whose timestamp is more than
+ * TIMESTAMP_TOLERANCE_MS milliseconds away from server time.
+ */
+const TIMESTAMP_TOLERANCE_MS = 10 * 60 * 1000; // 10 minutes
+
+export function verifyWebhookSignature(
+  headers: {
+    "x-tsign-open-timestamp"?: string;
+    "x-tsign-open-signature"?: string;
+  },
+  body: string,
+  notifyUrlQuery = "",
+): boolean {
   try {
-    const timestamp = headers["x-timstamp"] ?? "";
-    const incomingSig = headers["x-signature"] ?? "";
-    const contentMd5 = crypto.createHash("md5").update(body).digest("base64");
-    const stringToSign = ["POST", contentMd5, "application/json; charset=UTF-8", timestamp, "/api/webhooks/esign"].join("\n");
-    const expected = `${APP_ID}:${crypto.createHmac("sha256", APP_SECRET).update(stringToSign).digest("base64")}`;
-    return expected === incomingSig;
+    if (!APP_SECRET) return false;
+
+    const timestamp = headers["x-tsign-open-timestamp"] ?? "";
+    const incomingSig = (headers["x-tsign-open-signature"] ?? "").toLowerCase();
+    if (!timestamp || !incomingSig) return false;
+
+    // Replay-attack guard
+    const ts = Number(timestamp);
+    if (Number.isNaN(ts) || Math.abs(Date.now() - ts) > TIMESTAMP_TOLERANCE_MS) return false;
+
+    // Sort query params by key (ASCII order), concatenate values only
+    let queryValues = "";
+    if (notifyUrlQuery) {
+      const params = new URLSearchParams(notifyUrlQuery);
+      const sortedKeys = [...params.keys()].sort();
+      queryValues = sortedKeys.map((k) => params.get(k) ?? "").join("");
+    }
+
+    // Signature = HMAC-SHA256(timestamp + queryValues + rawBody, appSecret)
+    const data = timestamp + queryValues + body;
+    const expected = crypto.createHmac("sha256", APP_SECRET).update(data, "utf8").digest("hex");
+
+    if (expected.length !== incomingSig.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(incomingSig, "utf8"));
   } catch {
     return false;
   }
