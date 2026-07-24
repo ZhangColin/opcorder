@@ -9,10 +9,18 @@
 import crypto from "crypto";
 import { logger } from "../logger";
 
-const APP_ID     = process.env["ESIGN_APP_ID"]     ?? "";
-const APP_SECRET = process.env["ESIGN_APP_SECRET"]  ?? "";
-const ORG_ID     = process.env["ESIGN_ORG_ID"]      ?? "";
-const BASE_URL   = process.env["ESIGN_BASE_URL"]     ?? "https://smlopenapi.esign.cn";
+const IS_PROD = process.env["NODE_ENV"] === "production";
+
+const APP_ID     = IS_PROD
+  ? (process.env["ESIGN_APP_ID"]      ?? "")
+  : (process.env["ESIGN_TEST_APP_ID"] ?? process.env["ESIGN_APP_ID"] ?? "");
+const APP_SECRET = IS_PROD
+  ? (process.env["ESIGN_APP_SECRET"]      ?? "")
+  : (process.env["ESIGN_TEST_APP_SECRET"] ?? process.env["ESIGN_APP_SECRET"] ?? "");
+const ORG_ID     = IS_PROD
+  ? (process.env["ESIGN_ORG_ID"]      ?? "")
+  : (process.env["ESIGN_TEST_ORG_ID"] ?? process.env["ESIGN_ORG_ID"] ?? "");
+const BASE_URL   = process.env["ESIGN_BASE_URL"] ?? (IS_PROD ? "https://openapi.esign.cn" : "https://smlopenapi.esign.cn");
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
