@@ -3269,5 +3269,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 053b: added v2_contract_esign_pending to notification_type enum");
   });
 
+  // Migration 053c: add template_id FK to v2_contracts
+  await once("053c", false, async () => {
+    await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS template_id INTEGER REFERENCES contract_templates(id) ON DELETE SET NULL`);
+    logger.info("Migration 053c: added template_id to v2_contracts");
+  });
+
   logger.info("Startup data migrations complete.");
 }

@@ -159,6 +159,26 @@ export function extractFirstPosition(results: KeywordPositionResult[], keyword: 
   return entry?.keywordPositions?.[0] ?? entry?.positions?.[0] ?? null;
 }
 
+/* ─── Create file from doc template ─────────────────────────────────── */
+
+/**
+ * Fill an e签宝 doc-template with variable values and generate a file.
+ * Returns the fileId of the generated document.
+ */
+export async function createFileFromTemplate(params: {
+  docTemplateId: string;
+  fileName: string;
+  components?: Array<{ componentKey: string; componentValue: string }>;
+}): Promise<string> {
+  const data = await esignRequest<{ fileId: string }>("POST", "/v3/files/create-by-doc-template", {
+    docTemplateId: params.docTemplateId,
+    fileName: params.fileName,
+    components: params.components ?? [],
+    requiredCheck: true,
+  });
+  return data.fileId;
+}
+
 /* ─── Create signing flow ────────────────────────────────────────────── */
 export interface V3SignerField {
   customBizNum: string;

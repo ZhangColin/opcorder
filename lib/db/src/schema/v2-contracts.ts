@@ -5,6 +5,7 @@ import {
 import { usersTable } from "./users";
 import { v2ClientDemandsTable } from "./v2-client-demands";
 import { v2OutsourceOrdersTable } from "./v2-outsource-orders";
+import { contractTemplatesTable } from "./contract-templates";
 
 export const v2ContractChannelEnum = pgEnum("v2_contract_channel", [
   "a",
@@ -43,6 +44,7 @@ export const v2ContractsTable = pgTable("v2_contracts", {
   esignDocId: varchar("esign_doc_id", { length: 100 }),
   esignSignUrl: text("esign_sign_url"),
   esignSignedFileUrl: text("esign_signed_file_url"),
+  templateId: integer("template_id").references(() => contractTemplatesTable.id, { onDelete: "set null" }),
   invoiceType: varchar("invoice_type", { length: 20 }).default("普通发票"),
   taxRate: numeric("tax_rate", { precision: 5, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

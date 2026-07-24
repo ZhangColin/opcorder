@@ -1,12 +1,8 @@
 import crypto from "crypto";
-import fs from "fs";
-import os from "os";
-import path from "path";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { mdToPdf } from "md-to-pdf";
 import {
   db, v2ContractsTable, v2ClientDemandsTable, v2OutsourceOrdersTable, usersTable,
-  v2OutsourceDemandsTable,
+  v2OutsourceDemandsTable, contractTemplatesTable,
 } from "@workspace/db";
 import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -14,7 +10,7 @@ import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genContractNo } from "./utils";
 import { logger } from "../../lib/logger";
 import {
-  getFileUploadUrl, uploadFileToEsign, createSignFlow,
+  getFileUploadUrl, uploadFileToEsign, createSignFlow, createFileFromTemplate,
   getSignUrl, getKeywordPositions, extractFirstPosition,
   type V3Signer, type KeywordPositionResult,
 } from "../../lib/esign/index";
@@ -155,11 +151,12 @@ router.get("/contracts/:id", requireAuth, async (req: Request, res: Response) =>
 router.post("/contracts", requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { channel, clientDemandId, outsourceOrderId, content } = req.body as {
+    const { channel, clientDemandId, outsourceOrderId, content, templateId } = req.body as {
       channel: "a" | "b";
       clientDemandId?: number;
       outsourceOrderId?: number;
       content?: string;
+      templateId?: number;
     };
     if (!channel) return res.status(400).json({ error: "channel 必填 (a/b)" });
     if (channel === "a" && !clientDemandId) return res.status(400).json({ error: "A通道合同需要 clientDemandId" });
@@ -172,6 +169,7 @@ router.post("/contracts", requireAdmin, async (req: Request, res: Response) => {
       clientDemandId,
       outsourceOrderId,
       content,
+      templateId,
       status: "draft",
     }).returning();
 
@@ -365,7 +363,7 @@ router.post("/contracts/:id/publisher-reject", requireAuth, async (req: Request,
 router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { pdfUrl } = req.body as { pdfUrl?: string };
+    const { pdfUrl, counterpartyIdNumber } = req.body as { pdfUrl?: string; counterpartyIdNumber?: string };
 
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
@@ -387,7 +385,7 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       return res.status(400).json({ error: "合同未关联需求或订单" });
     }
 
-    // Get counterparty contact info (V3: no pre-registration — embed phone directly in flow)
+    // Get counterparty contact info
     const [counterparty] = await db
       .select({ nickname: usersTable.nickname, phone: usersTable.phone })
       .from(usersTable)
@@ -396,31 +394,11 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
     if (!counterparty) return res.status(400).json({ error: "对方用户不存在" });
     if (!counterparty.phone) return res.status(400).json({ error: "对方手机号未填写，无法发起电子签署" });
 
-    // ── Obtain PDF buffer ─────────────────────────────────────────────────
-    let pdfBuffer: Buffer;
-    if (!pdfUrl) {
-      if (!contract.content || !contract.content.trim()) {
-        return res.status(400).json({ error: "合同正文为空，无法生成 PDF；请先填写合同内容或上传 PDF 文件" });
-      }
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "esign-contract-"));
-      const tmpMd  = path.join(tmpDir, "contract.md");
-      const tmpPdf = path.join(tmpDir, "contract.pdf");
-      try {
-        let md = contract.content;
-        if (!md.includes("{{甲方签章}}")) md += "\n\n{{甲方签章}}\n";
-        if (!md.includes("{{乙方签章}}")) md += "\n\n{{乙方签章}}\n";
-        fs.writeFileSync(tmpMd, md, "utf-8");
-        const pdf = await mdToPdf({ path: tmpMd }, {
-          dest: tmpPdf,
-          css: "body { font-family: sans-serif; font-size: 12pt; } h1,h2,h3 { page-break-after: avoid; }",
-          pdf_options: { format: "A4", margin: { top: "20mm", right: "18mm", bottom: "20mm", left: "18mm" } },
-        });
-        if (!pdf || !pdf.filename) throw new Error("md-to-pdf returned no output");
-        pdfBuffer = fs.readFileSync(tmpPdf);
-      } finally {
-        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup */ }
-      }
-    } else {
+    // ── Obtain fileId for signing ─────────────────────────────────────────
+    let fileId: string;
+
+    if (pdfUrl) {
+      // Non-standard path: admin provides a signed PDF to upload directly
       const allowedHosts = (process.env.ALLOWED_PDF_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean);
       let pdfHostOk = false;
       try {
@@ -435,18 +413,37 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       if (!pdfHostOk) return res.status(400).json({ error: "pdfUrl 域名不在允许范围内" });
       const pdfRes = await fetch(pdfUrl, { signal: AbortSignal.timeout(30_000) });
       if (!pdfRes.ok) return res.status(400).json({ error: `PDF 下载失败 (${pdfRes.status})` });
-      pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+      const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+      const contentMd5 = crypto.createHash("md5").update(pdfBuffer).digest("base64");
+      const { fileId: uploadedFileId, uploadUrl } = await getFileUploadUrl({
+        fileName: `合同_${contract.contractNo}.pdf`,
+        fileSize: pdfBuffer.length,
+        contentMd5,
+        convertToPDF: false,
+      });
+      await uploadFileToEsign(uploadUrl, pdfBuffer, "application/pdf");
+      fileId = uploadedFileId;
+    } else {
+      // Standard path: generate file from the contract's associated e签宝 doc-template
+      if (!contract.templateId) {
+        return res.status(400).json({ error: "合同未关联模板，如需电子签署请上传合同PDF（非标准路径）" });
+      }
+      const [template] = await db.select()
+        .from(contractTemplatesTable)
+        .where(eq(contractTemplatesTable.id, contract.templateId))
+        .limit(1);
+      if (!template?.esignTemplateId) {
+        return res.status(400).json({ error: "合同模板未配置 e签宝 模板ID，请联系管理员配置或上传合同PDF" });
+      }
+      const components = Object.entries((template.variableMapping as Record<string, string>) ?? {}).map(
+        ([key, value]) => ({ componentKey: key, componentValue: value })
+      );
+      fileId = await createFileFromTemplate({
+        docTemplateId: template.esignTemplateId,
+        fileName: `合同_${contract.contractNo}.pdf`,
+        components,
+      });
     }
-    const contentMd5 = crypto.createHash("md5").update(pdfBuffer).digest("base64");
-
-    // Upload PDF to e签宝
-    const { fileId, uploadUrl } = await getFileUploadUrl({
-      fileName: `合同_${contract.contractNo}.pdf`,
-      fileSize: pdfBuffer.length,
-      contentMd5,
-      convertToPDF: false,
-    });
-    await uploadFileToEsign(uploadUrl, pdfBuffer, "application/pdf");
 
     // Channel A: counterparty=甲方(publisher), platform=乙方
     // Channel B: counterparty=乙方(OPC),       platform=甲方
@@ -494,7 +491,10 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       signerType: 0,
       psnSignerInfo: {
         psnAccount: counterparty.phone,
-        ...(counterparty.nickname ? { psnInfo: { psnName: counterparty.nickname } } : {}),
+        psnInfo: {
+          ...(counterparty.nickname ? { psnName: counterparty.nickname } : {}),
+          ...(counterpartyIdNumber ? { psnIDCardNum: counterpartyIdNumber, psnIDCardType: "0" } : {}),
+        },
       },
       signConfig: { signOrder: 2 },
       signFields: [{
@@ -520,10 +520,9 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       notifyUrl,
     });
 
-    // Flow starts automatically; platform seals automatically.
-    // Go straight to esign_pending (no separate platformAutoSign step in V3).
+    // Platform auto-sealed — record intermediate state before waiting for counterparty
     await db.update(v2ContractsTable)
-      .set({ status: "esign_pending", esignFlowId: signFlowId, esignDocId: fileId, updatedAt: new Date() })
+      .set({ status: "esign_platform_signed", esignFlowId: signFlowId, esignDocId: fileId, updatedAt: new Date() })
       .where(eq(v2ContractsTable.id, id));
 
     // Get counterparty sign URL — retry up to 2 times
@@ -542,16 +541,17 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
     }
 
     if (!signUrl) {
-      logger.error({ signFlowId, contractId: id, signUrlError }, "Failed to obtain counterparty sign URL; contract stays esign_pending");
+      logger.error({ signFlowId, contractId: id, signUrlError }, "Failed to obtain counterparty sign URL; contract stays esign_platform_signed");
       return res.status(502).json({
         error: "流程已创建（平台已自动盖章），但获取对方签署链接失败，请稍后在管理后台重试或从 e签宝 控制台获取链接",
         signFlowId,
-        hint: "contract_status=esign_pending",
+        hint: "contract_status=esign_platform_signed",
       });
     }
 
+    // Transition to esign_pending — counterparty link obtained, awaiting their signature
     const [updated] = await db.update(v2ContractsTable)
-      .set({ esignSignUrl: signUrl, updatedAt: new Date() })
+      .set({ status: "esign_pending", esignSignUrl: signUrl, updatedAt: new Date() })
       .where(eq(v2ContractsTable.id, id))
       .returning();
 
