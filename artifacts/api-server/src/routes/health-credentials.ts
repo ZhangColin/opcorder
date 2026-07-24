@@ -37,7 +37,7 @@ router.get("/health/credentials", requireAdmin, (_req, res) => {
       credentials: [
         check("ESIGN_APP_ID",     true,  "e签宝 open-platform App ID"),
         check("ESIGN_APP_SECRET", true,  "e签宝 open-platform App Secret"),
-        check("ESIGN_ORG_ID",     true,  "e签宝 organization ID for contract stamping"),
+        // ESIGN_ORG_ID removed in V3 — platform auto-sign is configured at the e签宝 console level
         check("ESIGN_BASE_URL",   false, "e签宝 API base URL (defaults to sandbox if absent)"),
       ],
     },

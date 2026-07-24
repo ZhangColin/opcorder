@@ -29,7 +29,8 @@ if (process.env["NODE_ENV"] === "production") {
   const missingEsignVars: string[] = [];
   if (!process.env["ESIGN_APP_ID"])     missingEsignVars.push("ESIGN_APP_ID");
   if (!process.env["ESIGN_APP_SECRET"]) missingEsignVars.push("ESIGN_APP_SECRET");
-  if (!process.env["ESIGN_ORG_ID"])     missingEsignVars.push("ESIGN_ORG_ID");
+  // ESIGN_ORG_ID is not required in V3 — platform auto-sign is configured at the
+  // e签宝 console level and does not need to be passed in API calls.
 
   if (missingEsignVars.length > 0) {
     logger.fatal(

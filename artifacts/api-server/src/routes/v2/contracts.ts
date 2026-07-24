@@ -363,7 +363,11 @@ router.post("/contracts/:id/publisher-reject", requireAuth, async (req: Request,
 router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { pdfUrl, counterpartyIdNumber } = req.body as { pdfUrl?: string; counterpartyIdNumber?: string };
+    const { pdfUrl, counterpartyIdNumber, templateId: bodyTemplateId } = req.body as {
+      pdfUrl?: string;
+      counterpartyIdNumber?: string;
+      templateId?: number;
+    };
 
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
@@ -425,12 +429,20 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       fileId = uploadedFileId;
     } else {
       // Standard path: generate file from the contract's associated e签宝 doc-template
-      if (!contract.templateId) {
-        return res.status(400).json({ error: "合同未关联模板，如需电子签署请上传合同PDF（非标准路径）" });
+      // templateId may come from the request body (set at initiate time) or stored on the contract
+      const effectiveTemplateId = bodyTemplateId ?? contract.templateId;
+      if (!effectiveTemplateId) {
+        return res.status(400).json({ error: "合同未关联模板，如需电子签署请上传合同PDF（非标准路径）或在发起时选择合同模板" });
+      }
+      // Persist the templateId on the contract if it was supplied in the request
+      if (bodyTemplateId && bodyTemplateId !== contract.templateId) {
+        await db.update(v2ContractsTable)
+          .set({ templateId: bodyTemplateId, updatedAt: new Date() })
+          .where(eq(v2ContractsTable.id, id));
       }
       const [template] = await db.select()
         .from(contractTemplatesTable)
-        .where(eq(contractTemplatesTable.id, contract.templateId))
+        .where(eq(contractTemplatesTable.id, effectiveTemplateId))
         .limit(1);
       if (!template?.esignTemplateId) {
         return res.status(400).json({ error: "合同模板未配置 e签宝 模板ID，请联系管理员配置或上传合同PDF" });
@@ -486,7 +498,16 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       }],
     };
 
-    // Signer 2: counterparty (signerType=0, phone-based — signs via e签宝 page)
+    // Signer 2: counterparty (signerType=0, phone-based — signs via e签宝 page).
+    // In V3, signer info (phone, name, ID number) is embedded per-flow at creation time —
+    // there is no pre-registration step. This naturally satisfies the "auto-refresh after
+    // user info changes" requirement: every new sign flow picks up the latest user data
+    // from the DB, so changed phone/name/ID is automatically reflected without any
+    // explicit re-registration call.
+    //
+    // Enterprise (org) signing is not supported here because the users table does not
+    // store a unified social credit code or company name. Personal phone-based signing
+    // (signerType=0) is valid for all current users on this platform.
     const counterpartySigner: V3Signer = {
       signerType: 0,
       psnSignerInfo: {

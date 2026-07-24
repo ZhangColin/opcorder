@@ -194,6 +194,8 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
   const [esignPdfFile, setEsignPdfFile] = useState<File | null>(null);
   const [esignIdNumber, setEsignIdNumber] = useState("");
   const [esignActing, setEsignActing] = useState(false);
+  const [esignTemplateId, setEsignTemplateId] = useState<number | "">("");
+  const [esignTemplates, setEsignTemplates] = useState<{ id: number; title: string; esignTemplateId: string | null }[]>([]);
 
   /* Contract inline editing */
   const [editingContract, setEditingContract] = useState(false);
@@ -258,6 +260,13 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
   };
 
   useEffect(() => { if (id > 0) load(); }, [id]);
+
+  useEffect(() => {
+    if (!showEsignPanel) return;
+    v2Get<{ id: number; title: string; esignTemplateId: string | null }[]>("/contract-templates?channel=b&isActive=true")
+      .then(rows => setEsignTemplates(Array.isArray(rows) ? rows : []))
+      .catch(() => setEsignTemplates([]));
+  }, [showEsignPanel]);
 
   /* 静默刷新（不触发全局 loading 动画） */
   const softLoad = async () => {
@@ -423,14 +432,17 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
       const body: Record<string, unknown> = {};
       if (esignPdfFile) {
         body.pdfUrl = await uploadFile(esignPdfFile);
+      } else {
+        // Standard path: pass templateId so backend can generate PDF from e签宝 template
+        if (esignTemplateId) body.templateId = esignTemplateId;
       }
-      // No pdfUrl → standard path: API generates PDF from contract markdown content
       if (esignIdNumber.trim()) body.counterpartyIdNumber = esignIdNumber.trim();
       const updated = await v2Post<ContractDetail>(`/contracts/${contract.id}/initiate-esign`, body);
       toast({ title: "e签宝签署已发起，平台已盖章，等待OPC签署" });
       setShowEsignPanel(false);
       setEsignPdfFile(null);
       setEsignIdNumber("");
+      setEsignTemplateId("");
       setContract(updated as any);
       await load();
     } catch (err: any) {
@@ -853,7 +865,7 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                               <div className="flex gap-1.5">
                                 <button onClick={() => setEsignPdfFile(null)}
                                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${!esignPdfFile ? "bg-violet-600 text-white border-violet-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                                  自动生成（推荐）
+                                  使用合同模板（推荐）
                                 </button>
                                 <label className={`flex-1 py-1.5 text-xs font-bold rounded-lg border text-center cursor-pointer transition-colors ${esignPdfFile ? "bg-violet-600 text-white border-violet-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
                                   {esignPdfFile ? "已选自定义PDF" : "上传自定义 PDF"}
@@ -861,7 +873,24 @@ export default function AdminV2OutsourceOrderDetail({ inlineId, initialTab, init
                                 </label>
                               </div>
                               {!esignPdfFile && (
-                                <p className="text-xs text-violet-600">根据合同正文自动渲染 PDF，末尾追加签章占位符。</p>
+                                <div>
+                                  <label className="text-xs font-bold text-slate-600 mb-1 block">选择合同模板 <span className="text-red-500">*</span></label>
+                                  <select
+                                    value={esignTemplateId}
+                                    onChange={e => setEsignTemplateId(e.target.value ? Number(e.target.value) : "")}
+                                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-200"
+                                  >
+                                    <option value="">— 请选择模板 —</option>
+                                    {esignTemplates.map(t => (
+                                      <option key={t.id} value={t.id} disabled={!t.esignTemplateId}>
+                                        {t.title}{!t.esignTemplateId ? "（未配置 e签宝 模板ID）" : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {esignTemplates.length === 0 && (
+                                    <p className="text-xs text-slate-400 mt-1">暂无可用 B 通道模板，请先在后台配置模板，或上传自定义 PDF。</p>
+                                  )}
+                                </div>
                               )}
                             </div>
                             <div>
