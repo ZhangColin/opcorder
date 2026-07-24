@@ -16,6 +16,8 @@ export const v2ContractStatusEnum = pgEnum("v2_contract_status", [
   "pending_publisher_confirm",
   "publisher_rejected",
   "pending_sign",
+  "esign_platform_signed",
+  "esign_pending",
   "signed",
 ]);
 
@@ -37,6 +39,10 @@ export const v2ContractsTable = pgTable("v2_contracts", {
   signedBy: integer("signed_by").references(() => usersTable.id),
   finalizedBy: integer("finalized_by").references(() => usersTable.id),
   finalizedAt: timestamp("finalized_at"),
+  esignFlowId: varchar("esign_flow_id", { length: 100 }),
+  esignDocId: varchar("esign_doc_id", { length: 100 }),
+  esignSignUrl: text("esign_sign_url"),
+  esignSignedFileUrl: text("esign_signed_file_url"),
   invoiceType: varchar("invoice_type", { length: 20 }).default("普通发票"),
   taxRate: numeric("tax_rate", { precision: 5, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -53,6 +53,8 @@ interface ContractDetail {
   opcConfirmedAt?: string | null;
   invoiceType: string | null;
   taxRate: string | null;
+  esignSignUrl?: string | null;
+  esignSignedFileUrl?: string | null;
 }
 interface TenderInfo {
   id: number;
@@ -653,6 +655,41 @@ export default function OpcV2OrderDetail() {
                 )
               )}
 
+
+              {/* e签宝待签署 banner（OPC 需签署时显示） */}
+              {contract?.status === "esign_pending" && (
+                <div className="flex flex-col gap-3 px-4 py-4 bg-violet-50 border border-violet-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <FileSignature size={16} className="text-violet-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-violet-800">请完成电子签署</p>
+                      <p className="text-xs text-violet-600 mt-0.5">平台已盖章，请点击以下链接完成您的签名。</p>
+                    </div>
+                  </div>
+                  {contract.esignSignUrl ? (
+                    <a href={contract.esignSignUrl} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-2 self-start bg-violet-600 text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-violet-700 transition-colors">
+                      <ExternalLink size={13} /> 前往 e签宝签署
+                    </a>
+                  ) : (
+                    <p className="text-xs text-violet-500 italic">签署链接生成中，请稍后刷新</p>
+                  )}
+                </div>
+              )}
+
+              {/* e签宝已签署提示 */}
+              {(contract?.esignSignedFileUrl) && (
+                <div className="flex items-center justify-between px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={15} className="text-green-600 shrink-0" />
+                    <p className="text-sm font-bold text-green-800">电子合同已签署完成</p>
+                  </div>
+                  <a href={contract.esignSignedFileUrl} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1 text-xs font-bold text-green-700 hover:underline">
+                    <ExternalLink size={11} /> 下载盖章合同
+                  </a>
+                </div>
+              )}
 
               {/* 合同正文（Markdown） */}
               {contract?.content && (

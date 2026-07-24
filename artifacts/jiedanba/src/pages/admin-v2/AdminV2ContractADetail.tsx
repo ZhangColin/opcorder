@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign, Edit2, Send, ChevronDown, ChevronUp, Zap, Calendar, User, Receipt } from "lucide-react";
+import { Loader2, X, ExternalLink, Upload, FileText, PlusCircle, DollarSign, Edit2, Send, ChevronDown, ChevronUp, Zap, Calendar, User, Receipt, Pen, Clock, Download } from "lucide-react";
 import { AdminV2Layout } from "@/components/admin-v2/AdminV2Layout";
 import { v2Get, v2Post, v2Patch, uploadFile } from "@/lib/v2api";
 import { markRead } from "@/lib/demandRead";
@@ -27,6 +27,9 @@ interface Contract {
   updatedAt: string;
   invoiceType: string | null;
   taxRate: string | null;
+  esignFlowId: string | null;
+  esignSignUrl: string | null;
+  esignSignedFileUrl: string | null;
 }
 
 interface Demand {
@@ -75,11 +78,13 @@ const DEMAND_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  draft:                      { label: "草稿",       color: "bg-slate-100 text-slate-500" },
-  pending_publisher_confirm:  { label: "待发单方确认", color: "bg-amber-100 text-amber-700" },
-  publisher_rejected:         { label: "已退回",      color: "bg-red-100 text-red-600" },
-  pending_sign:               { label: "待签约",      color: "bg-orange-100 text-orange-700" },
-  signed:                     { label: "已签约",      color: "bg-green-100 text-green-700" },
+  draft:                      { label: "草稿",         color: "bg-slate-100 text-slate-500" },
+  pending_publisher_confirm:  { label: "待发单方确认",   color: "bg-amber-100 text-amber-700" },
+  publisher_rejected:         { label: "已退回",        color: "bg-red-100 text-red-600" },
+  pending_sign:               { label: "待签约",        color: "bg-orange-100 text-orange-700" },
+  esign_platform_signed:      { label: "平台已盖章",     color: "bg-blue-100 text-blue-700" },
+  esign_pending:              { label: "待对方签署",     color: "bg-violet-100 text-violet-700" },
+  signed:                     { label: "已签约",        color: "bg-green-100 text-green-700" },
 };
 
 const PAY_STATUS: Record<string, { label: string; color: string }> = {
@@ -124,6 +129,12 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // e签宝发起签署面板
+  const [showEsignPanel, setShowEsignPanel] = useState(false);
+  const [esignPdfFile, setEsignPdfFile] = useState<File | null>(null);
+  const [esignIdNumber, setEsignIdNumber] = useState("");
+  const [esignActing, setEsignActing] = useState(false);
 
   const [showAddPlan, setShowAddPlan] = useState(false);
   const [planDesc, setPlanDesc] = useState("");
@@ -196,6 +207,29 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
     }, "合同已定稿，通知发单方确认");
   };
 
+  const handleInitiateEsign = async () => {
+    if (!esignPdfFile) {
+      toast({ title: "请先选择合同 PDF 文件", variant: "destructive" }); return;
+    }
+    setEsignActing(true);
+    try {
+      const pdfUrl = await uploadFile(esignPdfFile);
+      await v2Post(`/contracts/${id}/initiate-esign`, {
+        pdfUrl,
+        ...(esignIdNumber.trim() ? { counterpartyIdNumber: esignIdNumber.trim() } : {}),
+      });
+      toast({ title: "e签宝签署已发起，平台已盖章，等待对方签署" });
+      setShowEsignPanel(false);
+      setEsignPdfFile(null);
+      setEsignIdNumber("");
+      await load();
+    } catch (err: any) {
+      toast({ title: "发起失败", description: err.message, variant: "destructive" });
+    } finally {
+      setEsignActing(false);
+    }
+  };
+
   const handleUploadSigned = async () => {
     if (!selectedFile) {
       toast({ title: "请选择文件", variant: "destructive" }); return;
@@ -253,6 +287,8 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
   const canEdit = ["draft", "publisher_rejected"].includes(contract.status);
   const canFinalize = canEdit;
   const canUploadSigned = contract.status === "pending_sign";
+  const canInitiateEsign = contract.status === "pending_sign";
+  const isEsignInProgress = ["esign_platform_signed", "esign_pending"].includes(contract.status);
 
   return (
     <AdminV2Layout title={contract.demandTitle ?? `合同 ${contract.contractNo}`} backHref="/admin/v2/contracts-a" backLabel="合同">
@@ -300,21 +336,89 @@ export default function AdminV2ContractADetail({ inlineId }: { inlineId?: number
                   <Send size={14} /> 定稿通知
                 </button>
               )}
-              {canUploadSigned && (
-                <button onClick={() => setShowUploadModal(true)} disabled={acting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-colors">
-                  <Upload size={14} /> 上传合同文件
+              {canInitiateEsign && (
+                <button onClick={() => setShowEsignPanel(v => !v)} disabled={acting}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${showEsignPanel ? "bg-violet-100 text-violet-700" : "bg-violet-600 text-white hover:bg-violet-700"}`}>
+                  <Pen size={14} /> 发起 e签宝签署
                 </button>
               )}
-              {contract.signedFileUrl && (
-                <a href={contract.signedFileUrl} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-                  <ExternalLink size={14} /> 查看签署合同
+              {canUploadSigned && (
+                <button onClick={() => setShowUploadModal(true)} disabled={acting}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-green-300 text-green-700 rounded-xl text-sm font-bold hover:bg-green-50 transition-colors">
+                  <Upload size={14} /> 手动上传签约文件
+                </button>
+              )}
+              {isEsignInProgress && (
+                <div className="flex items-center gap-1.5 px-4 py-2 bg-violet-50 border border-violet-200 rounded-xl text-sm text-violet-700 font-medium">
+                  <Clock size={14} className="animate-pulse" />
+                  {contract.status === "esign_platform_signed" ? "平台已盖章，等待发起…" : "等待对方完成签署"}
+                </div>
+              )}
+              {(contract.esignSignedFileUrl || contract.signedFileUrl) && (
+                <a href={contract.esignSignedFileUrl ?? contract.signedFileUrl!} target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-colors">
+                  <Download size={14} /> 下载盖章合同
                 </a>
               )}
             </div>
           </div>
         </div>
+
+        {/* ── e签宝发起签署面板 ── */}
+        {showEsignPanel && canInitiateEsign && (
+          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5 space-y-4">
+            <div>
+              <p className="text-sm font-bold text-violet-800 mb-0.5">发起 e签宝电子签署</p>
+              <p className="text-xs text-violet-600">上传合同 PDF（需包含 {`{{甲方签章}}`} 和 {`{{乙方签章}}`} 关键字用于定位盖章位置），平台将自动盖章并将签署链接发给对方。</p>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 mb-1 block">合同 PDF <span className="text-red-500">*</span></label>
+              <FilePickerZone
+                variant="zone"
+                file={esignPdfFile}
+                onChange={setEsignPdfFile}
+                onClear={() => setEsignPdfFile(null)}
+                accept=".pdf"
+                hint="仅支持 PDF 格式"
+              />
+            </div>
+            {contract.channel === "b" && (
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">OPC 身份证号（如 OPC 未注册 e签宝账号则必填）</label>
+                <input
+                  value={esignIdNumber}
+                  onChange={e => setEsignIdNumber(e.target.value)}
+                  placeholder="例：110101199001011234"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowEsignPanel(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={handleInitiateEsign} disabled={esignActing || !esignPdfFile}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 disabled:opacity-50">
+                {esignActing ? <><Loader2 size={14} className="animate-spin" /> 处理中…</> : <><Pen size={14} /> 发起签署</>}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── e签宝进度提示 ── */}
+        {isEsignInProgress && contract.esignSignUrl && (
+          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5">
+            <p className="text-sm font-bold text-violet-800 mb-1">待对方完成电子签署</p>
+            <p className="text-xs text-violet-600 mb-3">平台已完成盖章，签署链接已通知对方。也可复制以下链接直接发给对方：</p>
+            <div className="flex items-center gap-2">
+              <input readOnly value={contract.esignSignUrl}
+                className="flex-1 text-xs border border-violet-200 rounded-lg px-3 py-1.5 bg-white font-mono text-slate-600 truncate"
+              />
+              <a href={contract.esignSignUrl} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 text-xs font-bold text-violet-700 border border-violet-200 bg-white hover:bg-violet-50 rounded-lg px-3 py-1.5 shrink-0 transition-colors">
+                <ExternalLink size={12} /> 打开
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* ── 编辑正文面板 ── */}
         {showEditPanel && canEdit && (

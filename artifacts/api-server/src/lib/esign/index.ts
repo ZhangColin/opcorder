@@ -255,6 +255,15 @@ export function verifyWebhookSignature(headers: {
   }
 }
 
+/* ─── Get org sign URL (for enterprise/publisher signers) ─── */
+export async function getOrgSignUrl(flowId: string, orgId: string): Promise<string> {
+  const data = await esignRequest<EsignSignUrlData>(
+    "GET",
+    `/v1/signflows/${flowId}/organizations/${orgId}/signUrl?redirectUrl=`,
+  );
+  return data.shortUrl;
+}
+
 /* ─── Expose platform org ID for use in routes ─── */
 export function getPlatformOrgId(): string {
   return ORG_ID;

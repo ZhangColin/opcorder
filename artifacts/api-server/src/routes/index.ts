@@ -21,6 +21,7 @@ import v2Router from "./v2/index";
 import contestsRouter from "./contests";
 import adminSkillsRouter from "./adminSkills";
 import demoRouter from "./demo";
+import esignWebhookRouter from "./webhooks-esign";
 
 const router: IRouter = Router();
 
@@ -45,6 +46,7 @@ router.use(catCategoriesRouter);
 router.use(contestsRouter);
 router.use(adminSkillsRouter);
 router.use(demoRouter);
+router.use(esignWebhookRouter);
 router.use("/v2", v2Router);
 
 export default router;

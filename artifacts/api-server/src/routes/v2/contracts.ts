@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2ContractsTable, v2ClientDemandsTable, v2OutsourceOrdersTable, usersTable,
@@ -8,6 +9,11 @@ import { requireAuth } from "../../middleware/auth";
 import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genContractNo } from "./utils";
 import { logger } from "../../lib/logger";
+import {
+  getFileUploadUrl, uploadFileToEsign, createSignFlow, platformAutoSign,
+  getSignUrl, getOrgSignUrl, getPlatformOrgId, type FlowSigner,
+} from "../../lib/esign/index";
+import { ensureEsignAccount } from "../../lib/esign/accounts";
 
 const router: IRouter = Router();
 
@@ -92,6 +98,9 @@ router.get("/contracts/:id", requireAuth, async (req: Request, res: Response) =>
         demandTitle: v2ClientDemandsTable.title,
         invoiceType: v2ContractsTable.invoiceType,
         taxRate: v2ContractsTable.taxRate,
+        esignFlowId: v2ContractsTable.esignFlowId,
+        esignSignUrl: v2ContractsTable.esignSignUrl,
+        esignSignedFileUrl: v2ContractsTable.esignSignedFileUrl,
       })
       .from(v2ContractsTable)
       .leftJoin(v2ClientDemandsTable, eq(v2ContractsTable.clientDemandId, v2ClientDemandsTable.id))
@@ -325,6 +334,139 @@ router.post("/contracts/:id/publisher-reject", requireAuth, async (req: Request,
   } catch (err) {
     logger.error({ err }, "POST /v2/contracts/:id/publisher-reject failed");
     return res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { pdfUrl, counterpartyIdNumber } = req.body as { pdfUrl?: string; counterpartyIdNumber?: string };
+    if (!pdfUrl) return res.status(400).json({ error: "pdfUrl 必填（请上传 PDF 后传入地址）" });
+
+    const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
+    if (!contract) return res.status(404).json({ error: "合同不存在" });
+    if (contract.status !== "pending_sign") return res.status(400).json({ error: "合同不在待签约状态" });
+
+    // Determine counterparty user ID
+    let counterpartyUserId: number;
+    if (contract.channel === "a" && contract.clientDemandId) {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
+      if (!demand) return res.status(400).json({ error: "未找到关联需求" });
+      counterpartyUserId = demand.publisherId;
+    } else if (contract.channel === "b" && contract.outsourceOrderId) {
+      const [order] = await db.select({ opcId: v2OutsourceOrdersTable.opcId })
+        .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, contract.outsourceOrderId)).limit(1);
+      if (!order) return res.status(400).json({ error: "未找到关联订单" });
+      counterpartyUserId = order.opcId;
+    } else {
+      return res.status(400).json({ error: "合同未关联需求或订单" });
+    }
+
+    // Ensure e签宝 account for counterparty
+    const identity = await ensureEsignAccount(counterpartyUserId, counterpartyIdNumber);
+    if (!identity.accountId && !identity.orgId) {
+      return res.status(400).json({ error: identity.pendingReason ?? "对方签署账号未注册，请检查对方实名信息" });
+    }
+
+    // Download PDF from storage URL
+    const pdfRes = await fetch(pdfUrl, { signal: AbortSignal.timeout(30_000) });
+    if (!pdfRes.ok) return res.status(400).json({ error: `PDF 下载失败 (${pdfRes.status})` });
+    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+    const contentMd5 = crypto.createHash("md5").update(pdfBuffer).digest("base64");
+
+    // Upload PDF to e签宝
+    const { fileId, uploadUrl } = await getFileUploadUrl({
+      fileName: `合同_${contract.contractNo}.pdf`,
+      fileSize: pdfBuffer.length,
+      contentMd5,
+      convert2Pdf: false,
+    });
+    await uploadFileToEsign(uploadUrl, pdfBuffer, "application/pdf");
+
+    // Build counterparty signer (keyword positioning)
+    const counterpartyKeyword = contract.channel === "a" ? "{{甲方签章}}" : "{{乙方签章}}";
+    const platformKeyword   = contract.channel === "a" ? "{{乙方签章}}" : "{{甲方签章}}";
+    let counterpartySigner: FlowSigner;
+    if (identity.orgId) {
+      counterpartySigner = {
+        signerType: "ORG",
+        orgId: identity.orgId,
+        signOrder: 2,
+        signBeans: [{ fileId, posType: "0", keyword: counterpartyKeyword }],
+      };
+    } else {
+      counterpartySigner = {
+        signerType: "PERSON",
+        accountId: identity.accountId!,
+        signOrder: 2,
+        signBeans: [{ fileId, posType: "0", keyword: counterpartyKeyword }],
+      };
+    }
+
+    // Build webhook notify URL
+    const appBaseUrl = process.env["APP_BASE_URL"] ?? "";
+    const notifyUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/esign` : undefined;
+
+    // Create sign flow
+    const flowId = await createSignFlow({
+      businessScene: `合同签署_${contract.contractNo}`,
+      fileId,
+      platformSigner: { orgId: getPlatformOrgId(), keyword: platformKeyword },
+      counterpartySigner,
+      notifyUrl,
+    });
+
+    // Update DB: platform is signing
+    await db.update(v2ContractsTable)
+      .set({ status: "esign_platform_signed", esignFlowId: flowId, esignDocId: fileId, updatedAt: new Date() })
+      .where(eq(v2ContractsTable.id, id));
+
+    // Platform auto-seals
+    await platformAutoSign(flowId);
+
+    // Get counterparty sign URL (non-fatal if it fails)
+    let signUrl = "";
+    try {
+      if (identity.orgId) {
+        signUrl = await getOrgSignUrl(flowId, identity.orgId);
+      } else if (identity.accountId) {
+        signUrl = await getSignUrl(flowId, identity.accountId);
+      }
+    } catch (err: any) {
+      logger.warn({ err, flowId }, "Failed to get counterparty sign URL (non-fatal)");
+    }
+
+    // Update DB: counterparty pending
+    const [updated] = await db.update(v2ContractsTable)
+      .set({ status: "esign_pending", esignSignUrl: signUrl || null, updatedAt: new Date() })
+      .where(eq(v2ContractsTable.id, id))
+      .returning();
+
+    // Notify counterparty
+    const linkSuffix = signUrl ? `\n签署链接：${signUrl}` : "";
+    if (contract.channel === "a" && contract.clientDemandId) {
+      const [demand] = await db.select({ publisherId: v2ClientDemandsTable.publisherId })
+        .from(v2ClientDemandsTable).where(eq(v2ClientDemandsTable.id, contract.clientDemandId)).limit(1);
+      if (demand) {
+        await notify(demand.publisherId, "v2_contract_esign_pending", "合同已发起电子签署，请完成签署",
+          `合同「${contract.contractNo}」已发起电子签署，请点击下方签署链接完成电子签名。${linkSuffix}`,
+          id, "v2_contract");
+      }
+    } else if (contract.channel === "b" && contract.outsourceOrderId) {
+      const [order] = await db.select({ opcId: v2OutsourceOrdersTable.opcId })
+        .from(v2OutsourceOrdersTable).where(eq(v2OutsourceOrdersTable.id, contract.outsourceOrderId)).limit(1);
+      if (order) {
+        await notify(order.opcId, "v2_contract_esign_pending", "合同已发起电子签署，请完成签署",
+          `合同「${contract.contractNo}」已发起电子签署，请点击下方签署链接完成电子签名。${linkSuffix}`,
+          contract.outsourceOrderId, "v2_outsource_order");
+      }
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    logger.error({ err }, "POST /v2/contracts/:id/initiate-esign failed");
+    return res.status(500).json({ error: String((err as any)?.message ?? "服务器错误") });
   }
 });
 

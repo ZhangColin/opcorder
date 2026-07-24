@@ -3245,5 +3245,18 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 052b: seeded built-in placeholder definitions");
   });
 
+  // Migration 053a: add esign flow fields to v2_contracts + extend v2_contract_status enum
+  await once("053a", true, async () => {
+    // Extend enum (must run outside transaction — PostgreSQL restriction)
+    await db.execute(sql`ALTER TYPE v2_contract_status ADD VALUE IF NOT EXISTS 'esign_platform_signed'`);
+    await db.execute(sql`ALTER TYPE v2_contract_status ADD VALUE IF NOT EXISTS 'esign_pending'`);
+    // Add esign columns
+    await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS esign_flow_id VARCHAR(100)`);
+    await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS esign_doc_id VARCHAR(100)`);
+    await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS esign_sign_url TEXT`);
+    await db.execute(sql`ALTER TABLE v2_contracts ADD COLUMN IF NOT EXISTS esign_signed_file_url TEXT`);
+    logger.info("Migration 053a: esign flow fields added to v2_contracts");
+  });
+
   logger.info("Startup data migrations complete.");
 }
