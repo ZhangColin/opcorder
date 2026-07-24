@@ -12,7 +12,8 @@ type V2NotifType =
   | "v2_outsource_detail_updated" | "v2_tender_won" | "v2_tender_lost"
   | "v2_tender_cancelled" | "v2_delivery_b_submitted" | "v2_delivery_b_approved"
   | "v2_delivery_b_rejected" | "v2_settlement_paid" | "v2_ticket_b_created"
-  | "v2_ticket_b_closed" | "v2_discussion_replied" | "v2_payment_online_paid";
+  | "v2_ticket_b_closed" | "v2_discussion_replied" | "v2_payment_online_paid"
+  | "v2_contract_esign_pending";
 
 export async function notify(
   userId: number,

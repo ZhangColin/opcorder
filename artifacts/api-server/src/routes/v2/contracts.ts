@@ -14,10 +14,10 @@ import { requireAdmin } from "../../middleware/adminAuth";
 import { notify, genContractNo } from "./utils";
 import { logger } from "../../lib/logger";
 import {
-  getFileUploadUrl, uploadFileToEsign, createSignFlow, platformAutoSign,
-  getSignUrl, getOrgSignUrl, getPlatformOrgId, type FlowSigner,
+  getFileUploadUrl, uploadFileToEsign, createSignFlow,
+  getSignUrl, getKeywordPositions, extractFirstPosition,
+  type V3Signer, type KeywordPositionResult,
 } from "../../lib/esign/index";
-import { ensureEsignAccount } from "../../lib/esign/accounts";
 
 const router: IRouter = Router();
 
@@ -365,7 +365,7 @@ router.post("/contracts/:id/publisher-reject", requireAuth, async (req: Request,
 router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { pdfUrl, counterpartyIdNumber } = req.body as { pdfUrl?: string; counterpartyIdNumber?: string };
+    const { pdfUrl } = req.body as { pdfUrl?: string };
 
     const [contract] = await db.select().from(v2ContractsTable).where(eq(v2ContractsTable.id, id)).limit(1);
     if (!contract) return res.status(404).json({ error: "合同不存在" });
@@ -387,26 +387,25 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       return res.status(400).json({ error: "合同未关联需求或订单" });
     }
 
-    // Ensure e签宝 account for counterparty
-    const identity = await ensureEsignAccount(counterpartyUserId, counterpartyIdNumber);
-    if (!identity.accountId && !identity.orgId) {
-      return res.status(400).json({ error: identity.pendingReason ?? "对方签署账号未注册，请检查对方实名信息" });
-    }
+    // Get counterparty contact info (V3: no pre-registration — embed phone directly in flow)
+    const [counterparty] = await db
+      .select({ nickname: usersTable.nickname, phone: usersTable.phone })
+      .from(usersTable)
+      .where(eq(usersTable.id, counterpartyUserId))
+      .limit(1);
+    if (!counterparty) return res.status(400).json({ error: "对方用户不存在" });
+    if (!counterparty.phone) return res.status(400).json({ error: "对方手机号未填写，无法发起电子签署" });
 
     // ── Obtain PDF buffer ─────────────────────────────────────────────────
-    // Standard path: no pdfUrl → render contract markdown content to PDF
-    // Custom path  : pdfUrl provided → download from object storage (SSRF-guarded)
     let pdfBuffer: Buffer;
     if (!pdfUrl) {
-      // Standard path: generate PDF from contract's markdown content
       if (!contract.content || !contract.content.trim()) {
         return res.status(400).json({ error: "合同正文为空，无法生成 PDF；请先填写合同内容或上传 PDF 文件" });
       }
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "esign-contract-"));
-      const tmpMd = path.join(tmpDir, "contract.md");
+      const tmpMd  = path.join(tmpDir, "contract.md");
       const tmpPdf = path.join(tmpDir, "contract.pdf");
       try {
-        // Prepend header with signing placeholders if missing
         let md = contract.content;
         if (!md.includes("{{甲方签章}}")) md += "\n\n{{甲方签章}}\n";
         if (!md.includes("{{乙方签章}}")) md += "\n\n{{乙方签章}}\n";
@@ -419,10 +418,9 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
         if (!pdf || !pdf.filename) throw new Error("md-to-pdf returned no output");
         pdfBuffer = fs.readFileSync(tmpPdf);
       } finally {
-        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup, non-fatal */ }
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* cleanup */ }
       }
     } else {
-      // Custom path: download from caller-provided URL (SSRF guard)
       const allowedHosts = (process.env.ALLOWED_PDF_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean);
       let pdfHostOk = false;
       try {
@@ -433,7 +431,7 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
           pdfParsed.hostname.endsWith(".replit.co") ||
           allowedHosts.some(h => pdfParsed.hostname === h || pdfParsed.hostname.endsWith("." + h))
         );
-      } catch { /* invalid URL → 400 below */ }
+      } catch { /* invalid URL */ }
       if (!pdfHostOk) return res.status(400).json({ error: "pdfUrl 域名不在允许范围内" });
       const pdfRes = await fetch(pdfUrl, { signal: AbortSignal.timeout(30_000) });
       if (!pdfRes.ok) return res.status(400).json({ error: `PDF 下载失败 (${pdfRes.status})` });
@@ -446,85 +444,114 @@ router.post("/contracts/:id/initiate-esign", requireAdmin, async (req: Request, 
       fileName: `合同_${contract.contractNo}.pdf`,
       fileSize: pdfBuffer.length,
       contentMd5,
-      convert2Pdf: false,
+      convertToPDF: false,
     });
     await uploadFileToEsign(uploadUrl, pdfBuffer, "application/pdf");
 
-    // Build counterparty signer (keyword positioning)
+    // Channel A: counterparty=甲方(publisher), platform=乙方
+    // Channel B: counterparty=乙方(OPC),       platform=甲方
     const counterpartyKeyword = contract.channel === "a" ? "{{甲方签章}}" : "{{乙方签章}}";
-    const platformKeyword   = contract.channel === "a" ? "{{乙方签章}}" : "{{甲方签章}}";
-    let counterpartySigner: FlowSigner;
-    if (identity.orgId) {
-      counterpartySigner = {
-        signerType: "ORG",
-        orgId: identity.orgId,
-        signOrder: 2,
-        signBeans: [{ fileId, posType: "0", keyword: counterpartyKeyword }],
-      };
-    } else {
-      counterpartySigner = {
-        signerType: "PERSON",
-        accountId: identity.accountId!,
-        signOrder: 2,
-        signBeans: [{ fileId, posType: "0", keyword: counterpartyKeyword }],
-      };
+    const platformKeyword     = contract.channel === "a" ? "{{乙方签章}}" : "{{甲方签章}}";
+
+    // Resolve keyword positions in the uploaded PDF for precise stamp placement
+    let kwPositions: KeywordPositionResult[] = [];
+    try {
+      kwPositions = await getKeywordPositions(fileId, [platformKeyword, counterpartyKeyword]);
+    } catch (err) {
+      logger.warn({ err, fileId }, "e签宝 keyword position lookup failed; using fallback coordinates");
     }
 
-    // Build webhook notify URL
-    const appBaseUrl = process.env["APP_BASE_URL"] ?? "";
-    const notifyUrl = appBaseUrl ? `${appBaseUrl}/api/webhooks/esign` : undefined;
+    // Fallback coordinates (bottom corners of page 1) if keywords not found
+    const FALLBACK_PLATFORM     = { page: 1, x: 420, y: 680 };
+    const FALLBACK_COUNTERPARTY = { page: 1, x: 100, y: 680 };
+    const platformPos     = extractFirstPosition(kwPositions, platformKeyword)     ?? FALLBACK_PLATFORM;
+    const counterpartyPos = extractFirstPosition(kwPositions, counterpartyKeyword) ?? FALLBACK_COUNTERPARTY;
 
-    // Create sign flow
-    const flowId = await createSignFlow({
-      businessScene: `合同签署_${contract.contractNo}`,
+    const appBaseUrl = process.env["APP_BASE_URL"] ?? "";
+    const notifyUrl  = appBaseUrl ? `${appBaseUrl}/api/webhooks/esign` : undefined;
+
+    // Signer 1: platform (signerType=1, autoSign=true — seals automatically on flow start)
+    const platformSigner: V3Signer = {
+      signerType: 1,
+      signConfig: { signOrder: 1 },
+      signFields: [{
+        customBizNum: `platform_${contract.contractNo}`,
+        fileId,
+        normalSignFieldConfig: {
+          autoSign: true,
+          signFieldPosition: {
+            positionPage: String(platformPos.page),
+            positionX: platformPos.x,
+            positionY: platformPos.y,
+          },
+          signFieldStyle: 1,
+        },
+      }],
+    };
+
+    // Signer 2: counterparty (signerType=0, phone-based — signs via e签宝 page)
+    const counterpartySigner: V3Signer = {
+      signerType: 0,
+      psnSignerInfo: {
+        psnAccount: counterparty.phone,
+        ...(counterparty.nickname ? { psnInfo: { psnName: counterparty.nickname } } : {}),
+      },
+      signConfig: { signOrder: 2 },
+      signFields: [{
+        customBizNum: `counterparty_${contract.contractNo}`,
+        fileId,
+        normalSignFieldConfig: {
+          signFieldPosition: {
+            positionPage: String(counterpartyPos.page),
+            positionX: counterpartyPos.x,
+            positionY: counterpartyPos.y,
+          },
+          signFieldStyle: 1,
+        },
+      }],
+    };
+
+    // Create sign flow (autoStart=true triggers platform auto-seal immediately)
+    const signFlowId = await createSignFlow({
+      title: `合同签署_${contract.contractNo}`,
       fileId,
-      platformSigner: { orgId: getPlatformOrgId(), keyword: platformKeyword },
-      counterpartySigner,
+      fileName: `合同_${contract.contractNo}.pdf`,
+      signers: [platformSigner, counterpartySigner],
       notifyUrl,
     });
 
-    // Update DB: platform is signing
+    // Flow starts automatically; platform seals automatically.
+    // Go straight to esign_pending (no separate platformAutoSign step in V3).
     await db.update(v2ContractsTable)
-      .set({ status: "esign_platform_signed", esignFlowId: flowId, esignDocId: fileId, updatedAt: new Date() })
+      .set({ status: "esign_pending", esignFlowId: signFlowId, esignDocId: fileId, updatedAt: new Date() })
       .where(eq(v2ContractsTable.id, id));
 
-    // Platform auto-seals
-    await platformAutoSign(flowId);
-
-    // Get counterparty sign URL — required before transitioning to esign_pending
-    // Retry up to 2 times; if all fail, leave status as esign_platform_signed and return error
+    // Get counterparty sign URL — retry up to 2 times
     let signUrl = "";
     let signUrlError: Error | null = null;
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        if (identity.orgId) {
-          signUrl = await getOrgSignUrl(flowId, identity.orgId);
-        } else if (identity.accountId) {
-          signUrl = await getSignUrl(flowId, identity.accountId);
-        }
+        signUrl = await getSignUrl(signFlowId, counterparty.phone);
         signUrlError = null;
         break;
       } catch (err: any) {
         signUrlError = err;
-        logger.warn({ err, flowId, attempt }, `Failed to get counterparty sign URL (attempt ${attempt}/2)`);
+        logger.warn({ err, signFlowId, attempt }, `Failed to get counterparty sign URL (attempt ${attempt}/2)`);
         if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
       }
     }
 
     if (!signUrl) {
-      // Platform has signed but we can't provide counterparty a link; leave in esign_platform_signed
-      // Admin can retry via e签宝 console; counterparty will also receive e签宝 app notification directly
-      logger.error({ flowId, contractId: id, signUrlError }, "Failed to obtain counterparty sign URL after retries; contract stays esign_platform_signed");
+      logger.error({ signFlowId, contractId: id, signUrlError }, "Failed to obtain counterparty sign URL; contract stays esign_pending");
       return res.status(502).json({
-        error: "平台已完成盖章，但获取对方签署链接失败，请稍后在管理后台重试或从 e签宝 控制台获取链接",
-        flowId,
-        hint: "contract_status=esign_platform_signed; counterparty will receive e签宝 app notification",
+        error: "流程已创建（平台已自动盖章），但获取对方签署链接失败，请稍后在管理后台重试或从 e签宝 控制台获取链接",
+        signFlowId,
+        hint: "contract_status=esign_pending",
       });
     }
 
-    // Update DB: counterparty pending
     const [updated] = await db.update(v2ContractsTable)
-      .set({ status: "esign_pending", esignSignUrl: signUrl, updatedAt: new Date() })
+      .set({ esignSignUrl: signUrl, updatedAt: new Date() })
       .where(eq(v2ContractsTable.id, id))
       .returning();
 

@@ -41,17 +41,24 @@ router.post("/webhooks/esign", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "签名验证失败" });
     }
 
+    // V3 callback payload shape:
+    //   { action: "SIGN_FLOW_COMPLETE", signFlowId: "...", signFlowStatus: "2", ... }
+    // Individual-signer callback (ignored here):
+    //   { action: "SIGN_MISSON_COMPLETE", signFlowId: "...", ... }
     const payload = req.body as {
+      action?: string;
+      signFlowId?: string;
+      signFlowStatus?: string;
+      // V1 legacy fields (fallback)
       eventType?: string;
       flowId?: string;
       data?: { flowId?: string; result?: number; status?: string };
     };
 
-    // Support both flat and nested payload shapes
-    const flowId = payload.flowId ?? payload.data?.flowId;
-    const eventType = (payload.eventType ?? "").toUpperCase();
+    const action = (payload.action ?? payload.eventType ?? "").toUpperCase();
+    const flowId = payload.signFlowId ?? payload.flowId ?? payload.data?.flowId;
 
-    logger.info({ flowId, eventType }, "e签宝 webhook received");
+    logger.info({ flowId, action }, "e签宝 webhook received");
 
     if (!flowId) {
       return res.status(200).json({ message: "ok (no flowId)" });
@@ -59,13 +66,15 @@ router.post("/webhooks/esign", async (req: Request, res: Response) => {
 
     // Only act on flow-complete events
     const isComplete =
-      eventType === "SIGN_FLOW_FINISH" ||
-      eventType === "FLOW_FINISH" ||
-      (payload.data?.result === 2) ||
-      (payload.data?.status === "COMPLETE");
+      action === "SIGN_FLOW_COMPLETE" ||
+      action === "SIGN_FLOW_FINISH" ||
+      action === "FLOW_FINISH" ||
+      payload.signFlowStatus === "2" ||
+      payload.data?.result === 2 ||
+      payload.data?.status === "COMPLETE";
 
     if (!isComplete) {
-      logger.info({ flowId, eventType }, "e签宝 webhook: ignoring non-complete event");
+      logger.info({ flowId, action }, "e签宝 webhook: ignoring non-complete event");
       return res.status(200).json({ message: "ok (ignored)" });
     }
 

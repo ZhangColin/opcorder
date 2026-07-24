@@ -1,10 +1,25 @@
 /**
- * e签宝 Open API SDK wrapper
+ * e签宝 SaaS API V3 wrapper
  *
- * Docs: https://open.esign.cn/doc/opendoc
+ * Auth (from official Postman pre-request script):
+ *   stringToSign = METHOD + "\n*\/*\n" + Base64(MD5(body)) + "\napplication/json; charset=UTF-8\n\n" + path
+ *   X-Tsign-Open-Ca-Signature = Base64( HMAC-SHA256( stringToSign, appSecret ) )
  *
- * Authentication: every request carries X-timstamp + X-signature headers.
- * Signature = Base64( HMAC-SHA256( method\ncontent-md5\ncontent-type\ntimestamp\n/path, AppSecret ) )
+ * Required headers (every call):
+ *   X-Tsign-Open-App-Id:       {appId}
+ *   X-Tsign-Open-Ca-Timestamp: {ms timestamp}
+ *   X-Tsign-Open-Ca-Signature: {signature}
+ *   Content-MD5:               {Base64(MD5(body))}  — MD5 of "" for GET
+ *   X-Tsign-Open-Auth-Mode:    Signature
+ *   Accept:                    *\/*
+ *   Content-Type:              application/json; charset=UTF-8
+ *
+ * Endpoints (all /v3/):
+ *   POST /v3/files/file-upload-url
+ *   POST /v3/files/{fileId}/keyword-positions
+ *   POST /v3/sign-flow/create-by-file
+ *   POST /v3/sign-flow/{id}/sign-url
+ *   GET  /v3/sign-flow/{id}/file-download-url
  */
 import crypto from "crypto";
 import { logger } from "../logger";
@@ -17,38 +32,46 @@ const APP_ID     = IS_PROD
 const APP_SECRET = IS_PROD
   ? (process.env["ESIGN_APP_SECRET"]      ?? "")
   : (process.env["ESIGN_TEST_APP_SECRET"] ?? process.env["ESIGN_APP_SECRET"] ?? "");
-const ORG_ID     = IS_PROD
-  ? (process.env["ESIGN_ORG_ID"]      ?? "")
-  : (process.env["ESIGN_TEST_ORG_ID"] ?? process.env["ESIGN_ORG_ID"] ?? "");
-const BASE_URL   = process.env["ESIGN_BASE_URL"] ?? (IS_PROD ? "https://openapi.esign.cn" : "https://smlopenapi.esign.cn");
+const BASE_URL   = process.env["ESIGN_BASE_URL"] ?? (IS_PROD
+  ? "https://openapi.esign.cn"
+  : "https://smlopenapi.esign.cn");
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
-function sign(method: HttpMethod, path: string, contentMd5: string, contentType: string): { timestamp: string; signature: string } {
-  const timestamp = String(Date.now());
-  const stringToSign = [method, contentMd5, contentType, timestamp, path].join("\n");
-  const signature = crypto.createHmac("sha256", APP_SECRET).update(stringToSign).digest("base64");
-  return { timestamp, signature };
+const ACCEPT       = "*/*";
+const CONTENT_TYPE = "application/json; charset=UTF-8";
+
+/**
+ * V3 signing: signs the full HTTP request metadata.
+ * bodyStr should be the raw JSON string (or "" for GET/no-body).
+ * path must include sorted query params when present (e.g. "/v3/foo?a=1&b=2").
+ */
+function buildAuth(method: HttpMethod, path: string, bodyStr: string): {
+  timestamp: string;
+  signature: string;
+  contentMd5: string;
+} {
+  const timestamp  = String(Date.now());
+  const contentMd5 = crypto.createHash("md5").update(bodyStr, "utf8").digest("base64");
+  const date       = "";
+  const stringToSign = `${method}\n${ACCEPT}\n${contentMd5}\n${CONTENT_TYPE}\n${date}\n${path}`;
+  const signature  = crypto.createHmac("sha256", APP_SECRET).update(stringToSign).digest("base64");
+  return { timestamp, signature, contentMd5 };
 }
 
 async function esignRequest<T>(method: HttpMethod, path: string, body?: object): Promise<T> {
-  const bodyStr = body ? JSON.stringify(body) : "";
-  const contentType = body ? "application/json; charset=UTF-8" : "";
-  const contentMd5 = bodyStr
-    ? crypto.createHash("md5").update(bodyStr).digest("base64")
-    : "";
-
-  const { timestamp, signature } = sign(method, path, contentMd5, contentType);
+  const bodyStr   = body ? JSON.stringify(body) : "";
+  const { timestamp, signature, contentMd5 } = buildAuth(method, path, bodyStr);
 
   const headers: Record<string, string> = {
-    "X-timstamp": timestamp,
-    "X-signature": `${APP_ID}:${signature}`,
-    "Accept": "application/json",
+    "X-Tsign-Open-App-Id":       APP_ID,
+    "X-Tsign-Open-Ca-Timestamp": timestamp,
+    "X-Tsign-Open-Ca-Signature": signature,
+    "Content-MD5":               contentMd5,
+    "X-Tsign-Open-Auth-Mode":    "Signature",
+    "Accept":                    ACCEPT,
+    "Content-Type":              CONTENT_TYPE,
   };
-  if (body) {
-    headers["Content-Type"] = contentType;
-    headers["Content-MD5"] = contentMd5;
-  }
 
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
@@ -61,54 +84,14 @@ async function esignRequest<T>(method: HttpMethod, path: string, body?: object):
   const json = await res.json() as { code: number; message: string; data: T };
 
   if (json.code !== 0) {
-    logger.warn({ path, code: json.code, message: json.message }, "e签宝 API error");
+    logger.warn({ path, code: json.code, message: json.message }, "e签宝 V3 API error");
     throw new Error(`e签宝 错误 ${json.code}: ${json.message}`);
   }
 
   return json.data;
 }
 
-/* ─── Organization account (企业签约方) ─── */
-export interface EsignOrgData {
-  orgId: string;
-}
-
-export async function registerOrgAccount(params: {
-  thirdPartyOrgId: string;
-  orgName: string;
-  creditCode: string;
-}): Promise<string> {
-  const data = await esignRequest<EsignOrgData>("POST", "/v1/organizations/createByThirdParty", {
-    thirdPartyOrgId: params.thirdPartyOrgId,
-    name: params.orgName,
-    idType: "CRED_ORG_USCC",
-    idNumber: params.creditCode,
-  });
-  return data.orgId;
-}
-
-/* ─── Personal account (个人签约方) ─── */
-export interface EsignPersonalData {
-  accountId: string;
-}
-
-export async function registerPersonalAccount(params: {
-  thirdPartyUserId: string;
-  name: string;
-  idNumber: string;
-  mobile: string;
-}): Promise<string> {
-  const data = await esignRequest<EsignPersonalData>("POST", "/v1/accounts/createByThirdParty", {
-    thirdPartyUserId: params.thirdPartyUserId,
-    name: params.name,
-    idType: "CRED_PSN_CH_IDCARD",
-    idNumber: params.idNumber,
-    mobile: params.mobile,
-  });
-  return data.accountId;
-}
-
-/* ─── File upload URL ─── */
+/* ─── File upload URL ────────────────────────────────────────────────── */
 export interface EsignUploadData {
   fileId: string;
   uploadUrl: string;
@@ -118,18 +101,18 @@ export async function getFileUploadUrl(params: {
   fileName: string;
   fileSize: number;
   contentMd5: string;
-  convert2Pdf?: boolean;
+  convertToPDF?: boolean;
 }): Promise<EsignUploadData> {
-  const data = await esignRequest<EsignUploadData>("POST", "/v1/files/getUploadUrl", {
-    fileName: params.fileName,
-    fileSize: params.fileSize,
-    contentMd5: params.contentMd5,
-    convert2Pdf: params.convert2Pdf ?? false,
+  return esignRequest<EsignUploadData>("POST", "/v3/files/file-upload-url", {
+    fileName:    params.fileName,
+    fileSize:    String(params.fileSize),
+    contentMd5:  params.contentMd5,
+    contentType: "application/octet-stream",
+    convertToPDF: params.convertToPDF ?? false,
   });
-  return data;
 }
 
-/* ─── Upload file bytes to presigned URL ─── */
+/* ─── Upload file bytes to presigned URL ─────────────────────────────── */
 export async function uploadFileToEsign(uploadUrl: string, fileBuffer: Buffer, contentType: string): Promise<void> {
   const res = await fetch(uploadUrl, {
     method: "PUT",
@@ -142,130 +125,166 @@ export async function uploadFileToEsign(uploadUrl: string, fileBuffer: Buffer, c
   }
 }
 
-/* ─── Create signing flow ─── */
-export interface EsignFlowData {
-  flowId: string;
+/* ─── Keyword positions ──────────────────────────────────────────────── */
+export interface KeywordPosition {
+  page: number;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
 }
 
-export interface EsignSignerInfo {
-  signerId: string;
-  signerUrl?: string;
+export interface KeywordPositionResult {
+  keyword: string;
+  keywordPositions?: KeywordPosition[];
+  positions?: KeywordPosition[];
 }
 
-export interface FlowSigner {
-  signerType: "PERSON" | "ORG";
-  accountId?: string;
-  orgId?: string;
-  authorizedAccountId?: string;
-  signOrder: number;
-  noticeType?: "1";
-  noticeMobile?: string;
-  signBeans: Array<{
-    fileId: string;
-    posType: "0";
-    keyword: string;
-    keywordIndex?: number;
-  }>;
+export async function getKeywordPositions(fileId: string, keywords: string[]): Promise<KeywordPositionResult[]> {
+  const data = await esignRequest<KeywordPositionResult[]>(
+    "POST",
+    `/v3/files/${fileId}/keyword-positions`,
+    { keywords },
+  );
+  logger.info({ fileId, keywords, count: data?.length }, "e签宝 keyword positions fetched");
+  return data ?? [];
 }
+
+/**
+ * Extract the first position for a given keyword from the result array.
+ * Returns null if the keyword was not found in the PDF.
+ */
+export function extractFirstPosition(results: KeywordPositionResult[], keyword: string): KeywordPosition | null {
+  const entry = results.find(r => r.keyword === keyword);
+  return entry?.keywordPositions?.[0] ?? entry?.positions?.[0] ?? null;
+}
+
+/* ─── Create signing flow ────────────────────────────────────────────── */
+export interface V3SignerField {
+  customBizNum: string;
+  fileId: string;
+  normalSignFieldConfig: {
+    autoSign?: boolean;
+    signFieldPosition: {
+      positionPage: string;
+      positionX: number;
+      positionY: number;
+    };
+    signFieldStyle: number;
+  };
+}
+
+export interface V3PlatformSigner {
+  signerType: 1;
+  signConfig: { signOrder: number };
+  signFields: V3SignerField[];
+}
+
+export interface V3PersonalSigner {
+  signerType: 0;
+  psnSignerInfo: {
+    psnAccount: string;
+    psnInfo?: {
+      psnName?: string;
+      psnIDCardNum?: string;
+      psnIDCardType?: string;
+    };
+  };
+  signConfig: {
+    signOrder: number;
+    forcedReadingTime?: number;
+  };
+  signFields: V3SignerField[];
+}
+
+export interface V3OrgSigner {
+  signerType: 1;
+  orgSignerInfo: {
+    orgName: string;
+    orgInfo: {
+      orgIDCardNum: string;
+      orgIDCardType: "CRED_ORG_USCC";
+    };
+    transactorInfo: {
+      psnAccount: string;
+      psnInfo?: {
+        psnName?: string;
+      };
+    };
+  };
+  signConfig: { signOrder: number };
+  signFields: V3SignerField[];
+}
+
+export type V3Signer = V3PlatformSigner | V3PersonalSigner | V3OrgSigner;
 
 export async function createSignFlow(params: {
-  businessScene: string;
+  title: string;
   fileId: string;
-  platformSigner: {
-    orgId: string;
-    keyword: string;
-  };
-  counterpartySigner: FlowSigner;
+  fileName: string;
+  signers: V3Signer[];
   notifyUrl?: string;
+  redirectUrl?: string;
 }): Promise<string> {
-  const body = {
-    businessScene: params.businessScene,
-    initiatorEvidenceInfo: {
-      hashAlgorithm: "SHA256",
+  const body: Record<string, unknown> = {
+    docs: [{ fileId: params.fileId, fileName: params.fileName }],
+    signFlowConfig: {
+      signFlowTitle: params.title,
+      autoStart: true,
+      autoFinish: true,
+      noticeConfig: { noticeTypes: "1,2" },
+      signConfig: { availableSignClientTypes: "1" },
+      ...(params.notifyUrl ? { notifyUrl: params.notifyUrl } : {}),
+      ...(params.redirectUrl ? { redirectConfig: { redirectUrl: params.redirectUrl } } : {}),
     },
-    docs: [
-      {
-        fileId: params.fileId,
-        fileName: "合同",
-      },
-    ],
-    signers: [
-      {
-        signerType: "ORG",
-        orgId: params.platformSigner.orgId,
-        signOrder: 1,
-        signBeans: [
-          {
-            fileId: params.fileId,
-            posType: "0",
-            keyword: params.platformSigner.keyword,
-            keywordIndex: 0,
-          },
-        ],
-      },
-      {
-        ...params.counterpartySigner,
-        signOrder: 2,
-      },
-    ],
-    ...(params.notifyUrl ? { notifyUrl: params.notifyUrl } : {}),
+    signers: params.signers,
   };
 
-  const data = await esignRequest<EsignFlowData>("POST", "/v1/signflows/createFlowOneStep", body);
-  return data.flowId;
+  const data = await esignRequest<{ signFlowId: string }>("POST", "/v3/sign-flow/create-by-file", body);
+  return data.signFlowId;
 }
 
-/* ─── Platform auto-seal (server-side) ─── */
-export async function platformAutoSign(flowId: string): Promise<void> {
-  await esignRequest<unknown>("POST", `/v1/signflows/${flowId}/seal`, {});
-}
-
-/* ─── Get counterparty sign URL ─── */
-export interface EsignSignUrlData {
-  shortUrl: string;
-}
-
-export async function getSignUrl(flowId: string, accountId: string): Promise<string> {
-  const data = await esignRequest<EsignSignUrlData>(
-    "GET",
-    `/v1/signflows/${flowId}/signers/${accountId}/signUrl?redirectUrl=`,
+/* ─── Get counterparty sign URL ─────────────────────────────────────── */
+export async function getSignUrl(signFlowId: string, psnAccount: string): Promise<string> {
+  const data = await esignRequest<{ signUrl?: string; shortUrl?: string; url?: string }>(
+    "POST",
+    `/v3/sign-flow/${signFlowId}/sign-url`,
+    { operator: { psnAccount } },
   );
-  return data.shortUrl;
+  const url = data.signUrl ?? data.shortUrl ?? data.url ?? "";
+  if (!url) {
+    logger.warn({ signFlowId, psnAccount, data }, "e签宝 V3 sign-url response had no URL field");
+  }
+  return url;
 }
 
-/* ─── Download final signed PDF ─── */
-export interface EsignDownloadData {
-  fileDownloadUrl: string;
-}
-
-export async function getSignedFileUrl(flowId: string): Promise<string> {
-  const data = await esignRequest<{ docs: Array<{ fileDownloadUrl: string }> }>(
+/* ─── Download final signed PDF URL ─────────────────────────────────── */
+export async function getSignedFileUrl(signFlowId: string): Promise<string> {
+  const data = await esignRequest<{ downloadUrl?: string; fileDownloadUrl?: string; url?: string }>(
     "GET",
-    `/v1/signflows/${flowId}/documents/download`,
+    `/v3/sign-flow/${signFlowId}/file-download-url`,
   );
-  return data.docs?.[0]?.fileDownloadUrl ?? "";
+  const url = data.downloadUrl ?? data.fileDownloadUrl ?? data.url ?? "";
+  if (!url) {
+    logger.warn({ signFlowId, data }, "e签宝 V3 file-download-url response had no URL field");
+  }
+  return url;
 }
 
 /**
  * Verify an incoming e签宝 webhook callback signature.
  *
- * e签宝 sends these headers on every callback:
+ * e签宝 sends these headers on every callback (V3):
  *   X-Tsign-Open-TIMESTAMP         — millisecond Unix timestamp
  *   X-Tsign-Open-SIGNATURE         — HMAC-SHA256 hex digest
  *   X-Tsign-Open-SIGNATURE-ALGORITHM — always "hmac-sha256"
  *   X-Tsign-Open-App-Id            — the AppId (informational)
  *
- * Signature construction (per open.esign.cn/doc/opendoc/notify3/pmy852):
- *   data   = timestamp_string + sorted_query_param_values + raw_body_utf8
- *   result = HMAC-SHA256(data, APP_SECRET).hexdigest()
+ * Signature = HMAC-SHA256(timestamp + sortedQueryValues + rawBody, appSecret).hex
  *
- * Query param values: if the notifyUrl has query params, sort by key (ASCII),
- * concatenate values only.  Our notifyUrl has no query params → empty string.
- *
- * Replay-attack protection: reject callbacks whose timestamp is more than
- * TIMESTAMP_TOLERANCE_MS milliseconds away from server time.
+ * Replay-attack protection: reject callbacks more than TIMESTAMP_TOLERANCE_MS away from now.
  */
-const TIMESTAMP_TOLERANCE_MS = 10 * 60 * 1000; // 10 minutes
+const TIMESTAMP_TOLERANCE_MS = 10 * 60 * 1000;
 
 export function verifyWebhookSignature(
   headers: {
@@ -278,15 +297,13 @@ export function verifyWebhookSignature(
   try {
     if (!APP_SECRET) return false;
 
-    const timestamp = headers["x-tsign-open-timestamp"] ?? "";
+    const timestamp   = headers["x-tsign-open-timestamp"] ?? "";
     const incomingSig = (headers["x-tsign-open-signature"] ?? "").toLowerCase();
     if (!timestamp || !incomingSig) return false;
 
-    // Replay-attack guard
     const ts = Number(timestamp);
     if (Number.isNaN(ts) || Math.abs(Date.now() - ts) > TIMESTAMP_TOLERANCE_MS) return false;
 
-    // Sort query params by key (ASCII order), concatenate values only
     let queryValues = "";
     if (notifyUrlQuery) {
       const params = new URLSearchParams(notifyUrlQuery);
@@ -294,8 +311,7 @@ export function verifyWebhookSignature(
       queryValues = sortedKeys.map((k) => params.get(k) ?? "").join("");
     }
 
-    // Signature = HMAC-SHA256(timestamp + queryValues + rawBody, appSecret)
-    const data = timestamp + queryValues + body;
+    const data     = timestamp + queryValues + body;
     const expected = crypto.createHmac("sha256", APP_SECRET).update(data, "utf8").digest("hex");
 
     if (expected.length !== incomingSig.length) return false;
@@ -303,18 +319,4 @@ export function verifyWebhookSignature(
   } catch {
     return false;
   }
-}
-
-/* ─── Get org sign URL (for enterprise/publisher signers) ─── */
-export async function getOrgSignUrl(flowId: string, orgId: string): Promise<string> {
-  const data = await esignRequest<EsignSignUrlData>(
-    "GET",
-    `/v1/signflows/${flowId}/organizations/${orgId}/signUrl?redirectUrl=`,
-  );
-  return data.shortUrl;
-}
-
-/* ─── Expose platform org ID for use in routes ─── */
-export function getPlatformOrgId(): string {
-  return ORG_ID;
 }

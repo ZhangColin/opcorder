@@ -3258,5 +3258,16 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 053a: esign flow fields added to v2_contracts");
   });
 
+  // Migration 053b: add v2_contract_esign_pending to notification_type enum
+  await once("053b", true, async () => {
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'v2_contract_esign_pending' AFTER 'v2_contract_signed';
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    logger.info("Migration 053b: added v2_contract_esign_pending to notification_type enum");
+  });
+
   logger.info("Startup data migrations complete.");
 }

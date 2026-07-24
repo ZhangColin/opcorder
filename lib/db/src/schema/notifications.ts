@@ -17,6 +17,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "v2_contract_confirmed",
   "v2_contract_rejected",
   "v2_contract_signed",
+  "v2_contract_esign_pending",
   "v2_payment_voucher_uploaded",
   "v2_payment_approved",
   "v2_delivery_a_created",
