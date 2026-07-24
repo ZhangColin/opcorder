@@ -249,6 +249,8 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
     if (bankName        !== undefined) profileUpdate.bankName        = bankName;
     if (bankAccount     !== undefined) profileUpdate.bankAccount     = bankAccount;
 
+    const enterpriseCertChanged = creditCode !== undefined;
+
     const [existing] = await db.select({ userId: publisherProfilesTable.userId })
       .from(publisherProfilesTable).where(eq(publisherProfilesTable.userId, userId)).limit(1);
 
@@ -256,6 +258,11 @@ router.patch("/users/:userId/publisher-profile", requireAuth, async (req, res) =
       await db.update(publisherProfilesTable).set(profileUpdate).where(eq(publisherProfilesTable.userId, userId));
     } else {
       await db.insert(publisherProfilesTable).values({ userId, ...profileUpdate });
+    }
+
+    if (enterpriseCertChanged) {
+      const { clearEsignIds } = await import("../lib/esign/accounts");
+      await clearEsignIds(userId);
     }
 
     const [updatedUser] = await db.select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email, phone: usersTable.phone })
