@@ -221,6 +221,8 @@ const NAV: NavItem[] = [
       { key: "agent",          label: "智能体配置",   moduleKey: "agent"          as Module, icon: Bot },
       { key: "skill_registry", label: "Skill 管理",  moduleKey: "skill_registry" as Module, icon: Layers },
       { key: "sensitivewords",label: "敏感词管理",   moduleKey: "sensitivewords"as Module, icon: Flame },
+      { key: "contract_templates",    label: "合同模板",   moduleKey: "contract_templates"    as Module, icon: FileText },
+      { key: "contract_placeholders", label: "合同占位符", moduleKey: "contract_placeholders" as Module, icon: FileText },
     ],
   },
 
@@ -236,8 +238,6 @@ const NAV: NavItem[] = [
     children: [
       { key: "platform_info",           label: "企业信息",     moduleKey: "platform_info"           as Module, icon: Building2 },
       { key: "contract_config",         label: "合同配置",     moduleKey: "contract_config"         as Module, icon: FileCheck },
-      { key: "contract_templates",      label: "合同模板",     moduleKey: "contract_templates"      as Module, icon: FileText },
-      { key: "contract_placeholders",   label: "合同占位符",   moduleKey: "contract_placeholders"   as Module, icon: FileText },
       { key: "settings",       label: "站点设置",   moduleKey: "settings"       as Module, icon: SlidersHorizontal },
       { key: "roles",          label: "角色管理",   moduleKey: "roles"          as Module, icon: KeyRound,   superAdminOnly: true },
       { key: "adminusers",     label: "管理员管理", moduleKey: "adminusers"     as Module, icon: UserCog,    superAdminOnly: true },
