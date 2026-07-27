@@ -22,6 +22,9 @@
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
 
@@ -58,6 +61,9 @@
   --accent: 153 96% 64%;          /* #4dffb2 - Bright Mint */
   --accent-foreground: 160 100% 10%;
   
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 15% 10%;
+
   --muted: 240 10% 92%;
   --muted-foreground: 240 5% 45%;
   
@@ -86,6 +92,9 @@
   --accent: 153 96% 64%;
   --accent-foreground: 160 100% 10%;
   
+  --popover: 220 20% 8%;
+  --popover-foreground: 210 20% 98%;
+
   --muted: 220 15% 15%;
   --muted-foreground: 220 10% 65%;
   
