@@ -3806,7 +3806,7 @@ function PlatformContractConfigManagement() {
 
   return (
     <div className="max-w-2xl">
-      <SectionHeader title="合同配置" sub="设置与发单方和 OPC 签约合同中的发票类型和适用税率，发单方和 OPC 只可查看" />
+      <SectionHeader title="合同配置" sub="新合同创建时将自动沿用此处的发票类型和税率作为默认值，运营人员可在每份合同中单独修改" />
       <div className="space-y-6">
         {parties.map(({ key, label }) => (
           <div key={key} className="bg-white rounded-2xl shadow-sm p-6 space-y-4">

@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2TendersTable, v2OutsourceDemandsTable, v2OutsourceOrdersTable,
-  v2ContractsTable, v2ClientDemandsTable, usersTable,
+  v2ContractsTable, v2ClientDemandsTable, usersTable, platformContractConfigTable,
 } from "@workspace/db";
 import { eq, and, ne, desc, count, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -230,11 +230,14 @@ router.post("/tenders/:id/select-winner", requireAdmin, async (req: Request, res
       .where(eq(v2OutsourceDemandsTable.id, tender.outsourceDemandId));
 
     const contractNo = await genContractNo("b");
+    const [opcCfg] = await db.select().from(platformContractConfigTable).where(eq(platformContractConfigTable.partyType, "opc")).limit(1);
     const [contract] = await db.insert(v2ContractsTable).values({
       contractNo,
       channel: "b",
       outsourceOrderId: order.id,
       status: "draft",
+      invoiceType: opcCfg?.invoiceType ?? "普通发票",
+      taxRate: opcCfg?.taxRate ?? "0",
     }).returning();
 
     await notify(tender.opcId, "v2_tender_won", "恭喜！您已中标",
@@ -343,11 +346,14 @@ router.post("/tenders/batch-select-winners", requireAdmin, async (req: Request, 
         .where(eq(v2TendersTable.id, tender.id));
 
       const contractNo = await genContractNo("b");
+      const [opcCfgBatch] = await db.select().from(platformContractConfigTable).where(eq(platformContractConfigTable.partyType, "opc")).limit(1);
       const [contract] = await db.insert(v2ContractsTable).values({
         contractNo,
         channel: "b",
         outsourceOrderId: order.id,
         status: "draft",
+        invoiceType: opcCfgBatch?.invoiceType ?? "普通发票",
+        taxRate: opcCfgBatch?.taxRate ?? "0",
       }).returning();
       contracts.push(contract);
 

@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db, v2ClientDemandsTable, v2ClientDemandVersionsTable, v2ContractsTable, v2PaymentPlansTable, v2DiscussionPostsTable, notificationsTable, usersTable,
-  demoProjectsTable,
+  demoProjectsTable, platformContractConfigTable,
 } from "@workspace/db";
 import { eq, and, desc, count, ilike, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -375,11 +375,14 @@ router.post("/client-demands/:id/confirm-quote", requireAuth, async (req: Reques
 
     // 自动创建草稿合同，供运营方填写内容后定稿
     const contractNo = await genContractNo("a");
+    const [pubCfg] = await db.select().from(platformContractConfigTable).where(eq(platformContractConfigTable.partyType, "publisher")).limit(1);
     await db.insert(v2ContractsTable).values({
       contractNo,
       channel: "a",
       clientDemandId: id,
       status: "draft",
+      invoiceType: pubCfg?.invoiceType ?? "普通发票",
+      taxRate: pubCfg?.taxRate ?? "0",
     });
 
     const admins = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.role, "admin"));

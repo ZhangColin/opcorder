@@ -4,7 +4,7 @@ import {
   db, v2ContractsTable, v2ClientDemandsTable, v2OutsourceOrdersTable, usersTable,
   v2OutsourceDemandsTable, contractTemplatesTable,
   publisherProfilesTable, settlementAccountsTable, contractPlaceholderDefsTable,
-  platformInfoTable,
+  platformInfoTable, platformContractConfigTable,
 } from "@workspace/db";
 import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { requireAuth } from "../../middleware/auth";
@@ -165,6 +165,8 @@ router.post("/contracts", requireAdmin, async (req: Request, res: Response) => {
     if (channel === "b" && !outsourceOrderId) return res.status(400).json({ error: "B通道合同需要 outsourceOrderId" });
 
     const contractNo = await genContractNo(channel);
+    const cfgParty = channel === "a" ? "publisher" : "opc";
+    const [cfg] = await db.select().from(platformContractConfigTable).where(eq(platformContractConfigTable.partyType, cfgParty)).limit(1);
     const [created] = await db.insert(v2ContractsTable).values({
       contractNo,
       channel,
@@ -173,6 +175,8 @@ router.post("/contracts", requireAdmin, async (req: Request, res: Response) => {
       content,
       templateId,
       status: "draft",
+      invoiceType: cfg?.invoiceType ?? "普通发票",
+      taxRate: cfg?.taxRate ?? "0",
     }).returning();
 
     return res.status(201).json(created);
