@@ -33,13 +33,11 @@ if (process.env["NODE_ENV"] === "production") {
   // e签宝 console level and does not need to be passed in API calls.
 
   if (missingEsignVars.length > 0) {
-    logger.fatal(
+    logger.warn(
       { missingVars: missingEsignVars },
-      "FATAL: Required e签宝 environment variables are not set. " +
-      "The server will NOT start to prevent forged webhook callbacks from being accepted. " +
+      "e签宝 environment variables are not set — electronic signature features will be unavailable. " +
       `Missing: ${missingEsignVars.join(", ")}`,
     );
-    process.exit(1);
   }
 }
 
