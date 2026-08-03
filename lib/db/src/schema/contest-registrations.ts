@@ -36,7 +36,7 @@ export const contestRegistrationsTable = pgTable("contest_registrations", {
   assignmentUrls: jsonb("assignment_urls").notNull().default([]),
   assignmentGrade: contestGradeEnum("assignment_grade"),
 
-  gradeNote: varchar("grade_note", { length: 500 }),
+  gradeNote: text("grade_note"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -3275,5 +3275,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 053c: added template_id to v2_contracts");
   });
 
+  // Migration 054a: widen grade_note from varchar(500) to text
+  await once("054a", true, async () => {
+    await db.execute(sql`ALTER TABLE contest_registrations ALTER COLUMN grade_note TYPE TEXT`);
+    logger.info("Migration 054a: grade_note widened to text");
+  });
+
   logger.info("Startup data migrations complete.");
 }
