@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { rateLimit } from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { Resend } from "resend";
 import { db, usersTable, opcProfilesTable, refreshTokensTable, siteSettingsTable, userLoginLogsTable } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
@@ -25,7 +25,7 @@ const smsCodeLimiter = rateLimit({
   max: 1,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req.body?.phone ?? req.ip) as string,
+  keyGenerator: (req) => (req.body?.phone ?? ipKeyGenerator(req)) as string,
   message: { error: "发送过于频繁，请60秒后再试" },
 });
 
