@@ -193,3 +193,7 @@ The frontend TypeScript types and Zod validators are auto-generated from the Ope
 - DB push: `pnpm --filter @workspace/db run push`
 - Seed data: `pnpm --filter @workspace/scripts run seed`
 - Dev servers: Managed via Replit workflows
+  - `前端应用`: Vite dev server on port 5000 (webview), `BASE_PATH=/`, proxies `/api` to `http://localhost:3000`
+  - `API Server`: Express dev server on port 3000 (console)
+  - `数据库每日备份`: backup scheduler (console)
+  - Note: after GitHub import (2026-08), the platform-managed artifact workflows (port 8080 routing, `/jiedanba/` base path) no longer exist; the app runs via standard workflows with base `/` and API on port 3000.
