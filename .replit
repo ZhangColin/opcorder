@@ -68,12 +68,14 @@ channel = "stable-25_05"
 
 [userenv.shared]
 PAYMENT_APP_ID = "P5D95AW5HOZFDVH1672QIODY0GZCDDCP"
+PRIVATE_OBJECT_DIR = "/replit-objstore-c1949c7c-efeb-4e1f-9eef-4ef3e64d9013/.private"
+PUBLIC_OBJECT_SEARCH_PATHS = "/replit-objstore-c1949c7c-efeb-4e1f-9eef-4ef3e64d9013/public"
 
 [userenv.production]
 APP_BASE_URL = "https://www.opcorder.com"
 
 [objectStorage]
-defaultBucketID = "replit-objstore-a4f7b544-ec5e-4a3c-92aa-f4d1aff08fca"
+defaultBucketID = "replit-objstore-c1949c7c-efeb-4e1f-9eef-4ef3e64d9013"
 
 [[ports]]
 localPort = 8080
