@@ -64,29 +64,65 @@ async function main() {
     return p;
   }
 
+  function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`${label} 超时(${ms}ms)`)), ms)),
+    ]);
+  }
+
+  // 一次性列出目标 bucket 中已存在的对象(断点续传加速)
+  const existingSizes = new Map<string, number>();
+  const seen = new Set<string>();
+  for (const e of entries) {
+    const base = targetFor(e.group);
+    if (seen.has(base)) continue;
+    seen.add(base);
+    const { bucket, prefix } = parsePath(base);
+    const cleanPrefix = prefix ? prefix.replace(/\/+$/, "") + "/" : "";
+    const [files] = await storage.bucket(bucket).getFiles({ prefix: cleanPrefix });
+    for (const f of files) existingSizes.set(`${bucket}/${f.name}`, Number(f.metadata.size || 0));
+  }
+  console.log(`目标 bucket 已有 ${existingSizes.size} 个对象`);
+
   let ok = 0;
   const failed: string[] = [];
   for (const e of entries) {
+    let done = false;
+    for (let attempt = 1; attempt <= 3 && !done; attempt++) {
     try {
       const base = targetFor(e.group);
       const { bucket, prefix } = parsePath(base);
       const objectName = (prefix ? prefix.replace(/\/+$/, "") + "/" : "") + e.relPath;
-      const res = await fetch(e.signedUrl);
+      // 断点续传:已存在且大小一致则跳过
+      if (existingSizes.get(`${bucket}/${objectName}`) === e.size) {
+        ok++;
+        done = true;
+        continue;
+      }
+      const res = await fetch(e.signedUrl, { signal: AbortSignal.timeout(120000) });
       if (!res.ok || !res.body) throw new Error(`下载失败 HTTP ${res.status}`);
       const file = storage.bucket(bucket).file(objectName);
-      await pipeline(
-        Readable.fromWeb(res.body as import("stream/web").ReadableStream),
-        file.createWriteStream({
-          contentType: e.contentType,
-          resumable: false,
-          metadata: { metadata: e.customMetadata },
-        }),
+      await withTimeout(
+        pipeline(
+          Readable.fromWeb(res.body as import("stream/web").ReadableStream),
+          file.createWriteStream({
+            contentType: e.contentType,
+            resumable: false,
+            metadata: { metadata: e.customMetadata },
+          }),
+        ),
+        180000,
+        "上传",
       );
       ok++;
+      done = true;
       console.log(`✓ [${ok}/${entries.length}] ${e.relPath} (${(e.size / 1024).toFixed(0)} KB)`);
     } catch (err) {
-      failed.push(e.relPath);
-      console.error(`✗ ${e.relPath}: ${err}`);
+      console.error(`  重试 ${attempt}/3 失败 ${e.relPath}: ${err}`);
+      if (attempt === 3) failed.push(e.relPath);
+      else await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
     }
   }
   console.log(`\n导入完成: 成功 ${ok}/${entries.length}` + (failed.length ? `,失败: ${failed.join(", ")}` : ""));
