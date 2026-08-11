@@ -1,26 +1,10 @@
 ---
-name: Replit proxy base path for jiedanba artifact
-description: History of base path change and why it was reverted back to "/"
+name: Vite base path routing (jiedanba)
+description: How the platform routes the jiedanba web artifact and what vite base must be — DO NOT hardcode /jiedanba/ in this environment.
 ---
 
-## Current state (correct)
-`vite.config.ts` uses `const basePath = process.env.BASE_PATH ?? "/"` — defaults to `/`.
-Vite proxy is the simple form: `proxy: { "/api": { target: "http://localhost:3000" } }`.
-The `Start application` workflow does NOT set `BASE_PATH`.
+Rule: vite base for artifacts/jiedanba must come from the platform-injected env: `process.env.BASE_PATH ?? "/"`. In THIS environment the artifact is routed at the ROOT path (artifact.toml: `paths = ["/"]`, `BASE_PATH = "/"`, localPort 24926; `/api` routes to api-server:8080). Hardcoding "/jiedanba/" breaks the preview (white screen at "/") and would break the production build.
 
-## History
-A previous session changed the default to `/jiedanba/` to fix a white-screen issue in the
-Replit dev preview iframe. This was a mistake — the user confirmed the app worked at `/`
-before that change and does not want the sub-path. The change was reverted.
+**Why:** In the OLD account's environment the proxy routed only /jiedanba/* to the artifact, so the base had to be "/jiedanba/". After migration (2026-08) the platform config changed to root routing — the old lesson became actively harmful and caused a white-screen regression when reapplied on 2026-08-11.
 
-## API calls
-All files use `import.meta.env.BASE_URL.replace(/\/$/, "")` as the API prefix.
-With `base="/"`, `BASE_URL="/"`, prefix becomes `""`, so requests are `/api/...` ✓
-
-## SiteLogo
-`SiteLogo.tsx` uses `resolveAssetUrl()` which prepends `BASE_URL` to `/api/` paths.
-With `base="/"`: `"".replace(/\/$/, "") + "/api/..."` = `"/api/..."` ✓ (still works)
-
-## Do NOT
-- Set `BASE_PATH=/jiedanba/` in any workflow
-- Hardcode `basePath = "/jiedanba/"` in vite.config.ts
+**How to apply:** trust `artifacts/jiedanba/.replit-artifact/artifact.toml` as the source of truth for routing/BASE_PATH before touching vite base. When debugging white screens, first check that config plus orphan processes (see orphan-port-processes.md), not the base path.

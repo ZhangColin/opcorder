@@ -19,9 +19,10 @@ if (!isBuild && (Number.isNaN(port) || port <= 0)) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// IMPORTANT: must be hardcoded "/jiedanba/" — the external proxy only routes
-// /jiedanba/* to this artifact; a "/" base breaks asset URLs and白屏.
-const basePath = "/jiedanba/";
+// BASE_PATH is injected by the platform (artifact.toml services.env).
+// In this environment the web artifact is routed at the ROOT path "/",
+// so do NOT hardcode "/jiedanba/" here — that breaks the preview.
+const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig({
   base: basePath,
