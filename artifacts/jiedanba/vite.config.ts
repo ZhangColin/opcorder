@@ -19,7 +19,9 @@ if (!isBuild && (Number.isNaN(port) || port <= 0)) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH ?? "/jiedanba/";
+// IMPORTANT: must be hardcoded "/jiedanba/" — the external proxy only routes
+// /jiedanba/* to this artifact; a "/" base breaks asset URLs and白屏.
+const basePath = "/jiedanba/";
 
 export default defineConfig({
   base: basePath,
