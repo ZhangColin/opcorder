@@ -417,7 +417,7 @@ export default function Home() {
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1">{c.title}</span>
                           <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${isEnded ? "bg-slate-100 text-slate-400" : isActive ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                            {isEnded ? "已结束" : isActive ? "报名中" : "即将开始"}
+                            {isEnded ? "已结束" : isActive ? "进行中" : "即将开始"}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-1">
