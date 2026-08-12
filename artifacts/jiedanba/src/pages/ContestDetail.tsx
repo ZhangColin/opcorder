@@ -126,7 +126,7 @@ function phaseBadge(phase: Phase) {
   const map: Record<Phase, { label: string; cls: string }> = {
     pre_announcement: { label: "未公告", cls: "bg-slate-100 text-slate-500" },
     pre_registration: { label: "待报名", cls: "bg-amber-100 text-amber-700" },
-    registration:     { label: "报名中", cls: "bg-emerald-100 text-emerald-700" },
+    registration:     { label: "进行中", cls: "bg-emerald-100 text-emerald-700" },
     pre_public:       { label: "已截止", cls: "bg-slate-100 text-slate-500" },
     public:           { label: "公示中", cls: "bg-blue-100 text-blue-700" },
     benefit:          { label: "权益发放", cls: "bg-violet-100 text-violet-700" },
