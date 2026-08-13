@@ -108,3 +108,10 @@ id = "DxEACsJjzriHYOQJqh5Ci"
 uri = "file://artifacts_source.zip"
 type = "unspecified"
 title = "artifacts 源码包（排除 node_modules/dist 等，15MB）"
+
+[[outputs]]
+id = "hEQBk-u8JsKY8tQdow-4N"
+uri = "file://docs/tech-doc-%E4%B8%89%E5%A4%A7%E5%8A%9F%E8%83%BD%E6%A8%A1%E5%9D%97/%E6%8E%A5%E5%8D%95%E5%90%A7-%E4%B8%89%E5%A4%A7%E5%8A%9F%E8%83%BD%E6%A8%A1%E5%9D%97%E6%8A%80%E6%9C%AF%E6%96%87%E6%A1%A3.pdf"
+type = "pdf"
+title = "接单吧 三大功能模块技术文档（修订版）"
+description = "修正了接口动词（PUT）、Demo 状态值（error）、accumulated 注入行为描述，并补充报价卡读取权限现状说明"
