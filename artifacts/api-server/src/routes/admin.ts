@@ -257,8 +257,12 @@ router.get("/admin/stats", async (_req, res) => {
   try {
     const [orderStats] = await db.select({
       totalOrders: count(),
-      totalAmount: sql<number>`COALESCE(SUM(${ordersTable.amount}) FILTER (WHERE ${ordersTable.status} = 'completed'), 0)`,
     }).from(ordersTable);
+
+    // 结算总额:按原版口径,统计需求表的预算总额
+    const [budgetStats] = await db.select({
+      totalBudget: sql<number>`COALESCE(SUM(${demandsTable.budget}), 0)`,
+    }).from(demandsTable);
 
     const [completedOrders] = await db.select({ cnt: count() })
       .from(ordersTable).where(eq(ordersTable.status, "completed"));
@@ -283,7 +287,7 @@ router.get("/admin/stats", async (_req, res) => {
 
     return res.json({
       totalOrders: total,
-      totalAmount: Number(orderStats.totalAmount) || 0,
+      totalAmount: Number(budgetStats.totalBudget) || 0,
       completionRate: Math.round(completionRate * 10) / 10,
       activeOpcs: Number(activeOpcCount.cnt) || 0,
       inProgressOrders: Number(inProgressOrders.cnt) || 0,
