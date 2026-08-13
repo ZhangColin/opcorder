@@ -257,7 +257,7 @@ router.get("/admin/stats", async (_req, res) => {
   try {
     const [orderStats] = await db.select({
       totalOrders: count(),
-      totalAmount: sql<number>`COALESCE(SUM(${ordersTable.amount}), 0)`,
+      totalAmount: sql<number>`COALESCE(SUM(${ordersTable.amount}) FILTER (WHERE ${ordersTable.status} = 'completed'), 0)`,
     }).from(ordersTable);
 
     const [completedOrders] = await db.select({ cnt: count() })
