@@ -8,7 +8,7 @@
  * Run:  pnpm tsx scripts/src/generate-schema-doc.ts
  */
 
-import { readFileSync, writeFileSync, readdirSync } from "fs";
+import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -731,6 +731,7 @@ function run() {
   }
 
   const output = parts.join("\n");
+  mkdirSync(dirname(OUTPUT_FILE), { recursive: true });
   writeFileSync(OUTPUT_FILE, output, "utf8");
   console.log(`✓ 已生成 ${OUTPUT_FILE}（共 ${totalTables} 张表）`);
 }
