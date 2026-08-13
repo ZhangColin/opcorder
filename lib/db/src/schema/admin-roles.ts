@@ -24,6 +24,7 @@ export const ADMIN_PERMISSION_KEYS = [
   "community",
   "announcement_category",
   "announcement",
+  "consult",
 ] as const;
 
 export type AdminPermissionKey = (typeof ADMIN_PERMISSION_KEYS)[number];

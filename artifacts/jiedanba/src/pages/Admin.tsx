@@ -57,7 +57,7 @@ import {
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Video,
   Pin, Paperclip, ScrollText, Layers, PackageCheck, ChevronLeft,
   History, ArrowLeft, Building2, GripVertical,
-  Globe2, Tag,
+  Globe2, Tag, MessageSquare,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -156,7 +156,7 @@ export type Module =
   | "skill_registry"
   | "contract_templates" | "contract_placeholders"
   // 社区管理
-  | "community_workbench" | "community_overview" | "announcement_category" | "announcement_mgmt";
+  | "community_workbench" | "community_overview" | "announcement_category" | "announcement_mgmt" | "consult_mgmt";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean; permKey?: string };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; permKeys?: string[]; children?: NavChild[] };
@@ -199,11 +199,12 @@ const NAV: NavItem[] = [
 
   {
     key: "community_workbench", icon: Megaphone, label: "社区管理",
-    permKeys: ["community", "announcement_category", "announcement"],
+    permKeys: ["community", "announcement_category", "announcement", "consult"],
     children: [
       { key: "community_overview",    label: "社区",     moduleKey: "community_overview"    as Module, icon: Globe2,   permKey: "community" },
       { key: "announcement_category", label: "公告类别", moduleKey: "announcement_category" as Module, icon: Tag,      permKey: "announcement_category" },
       { key: "announcement_mgmt",     label: "公告",     moduleKey: "announcement_mgmt"     as Module, icon: Megaphone, permKey: "announcement" },
+      { key: "consult_mgmt",          label: "咨询管理", moduleKey: "consult_mgmt"          as Module, icon: MessageSquare, permKey: "consult" },
     ],
   },
 
@@ -5899,6 +5900,7 @@ const PERM_LABELS: Record<string, string> = {
   community:             "社区管理 · 社区",
   announcement_category: "社区管理 · 公告类别",
   announcement:          "社区管理 · 公告",
+  consult:               "社区管理 · 咨询管理",
 };
 
 const PERM_SUB: Record<string, string> = {
@@ -5910,6 +5912,7 @@ const PERM_SUB: Record<string, string> = {
   community:             "社区子菜单（功能建设中）",
   announcement_category: "公告类别增删改",
   announcement:          "公告增删改 · 发布/取消发布",
+  consult:               "咨询管理（功能建设中）",
 };
 
 const ALL_PERM_KEYS = Object.keys(PERM_LABELS);
@@ -9234,6 +9237,7 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "community_overview":     return <CommunityOverview />;
     case "announcement_category":  return <AnnouncementCategoryManagement />;
     case "announcement_mgmt":      return <AnnouncementManagement />;
+    case "consult_mgmt":           return <ConsultManagement />;
     default:                       return null;
   }
 }
@@ -9246,6 +9250,21 @@ function CommunityOverview() {
       <h2 className="text-xl font-bold text-blue-900 mb-6">社区</h2>
       <div className="bg-white rounded-2xl p-12 shadow-sm text-center text-slate-400">
         <Globe2 size={36} className="mx-auto mb-3 text-slate-200" />
+        <p className="font-semibold">功能建设中</p>
+        <p className="text-sm mt-1">此菜单的具体功能将逐步添加</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Consult Management (placeholder) ──────── */
+
+function ConsultManagement() {
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-blue-900 mb-6">咨询管理</h2>
+      <div className="bg-white rounded-2xl p-12 shadow-sm text-center text-slate-400">
+        <MessageSquare size={36} className="mx-auto mb-3 text-slate-200" />
         <p className="font-semibold">功能建设中</p>
         <p className="text-sm mt-1">此菜单的具体功能将逐步添加</p>
       </div>
