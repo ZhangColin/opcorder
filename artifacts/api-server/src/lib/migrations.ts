@@ -3345,5 +3345,43 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 055c: ensured 社区管理员 role exists");
   });
 
+  // Migration 056a: create communities and community_admins tables
+  await once("056a", false, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS communities (
+        id          SERIAL PRIMARY KEY,
+        name        VARCHAR(200) NOT NULL,
+        address     TEXT,
+        description TEXT,
+        logo_url    TEXT,
+        qr_code_url TEXT,
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS community_admins (
+        community_id INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (community_id, user_id)
+      )
+    `);
+    logger.info("Migration 056a: created communities and community_admins tables");
+  });
+
+  // Migration 056b: 社区管理员 role must have ONLY the announcement permission (strip consult etc.)
+  await once("056b", false, async () => {
+    await db.execute(sql`
+      UPDATE admin_roles
+      SET permissions = ARRAY['announcement']::TEXT[],
+          updated_at  = NOW()
+      WHERE name = '社区管理员'
+        AND permissions IS DISTINCT FROM ARRAY['announcement']::TEXT[]
+    `);
+    logger.info("Migration 056b: set 社区管理员 permissions to exactly [announcement]");
+  });
+
   logger.info("Startup data migrations complete.");
 }

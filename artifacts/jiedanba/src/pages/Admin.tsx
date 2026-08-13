@@ -9244,15 +9244,298 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
 
 /* ─── Community ─────────────────────────────── */
 
+type CommunityRow = {
+  id: number; name: string; address: string | null; description: string | null;
+  logoUrl: string | null; qrCodeUrl: string | null; sortOrder: number;
+  admins: { id: number; nickname: string | null; email: string | null }[];
+};
+type AdminUserOption = { id: number; nickname: string | null; email: string | null; isSuperAdmin: boolean };
+
+const EMPTY_COMMUNITY_FORM = { name: "", address: "", description: "", logoUrl: "", qrCodeUrl: "", adminUserIds: [] as number[] };
+
 function CommunityOverview() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
+  const { data: adminProfile } = useAdminProfile();
+  const isSuperAdmin = !!adminProfile?.isSuperAdmin;
+
+  const [editing, setEditing] = useState<CommunityRow | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState(EMPTY_COMMUNITY_FORM);
+  const [uploading, setUploading] = useState<"logo" | "qr" | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "communities"],
+    queryFn: () => adminGet<{ data: CommunityRow[] }>("/api/admin/communities"),
+  });
+  const communities = data?.data ?? [];
+
+  const { data: adminUsers } = useQuery({
+    queryKey: ["admin", "admin-users-for-community"],
+    queryFn: () => adminGet<AdminUserOption[]>("/api/admin/admin-users"),
+    enabled: isSuperAdmin,
+  });
+  const adminOptions = (adminUsers ?? []).filter(u => !u.isSuperAdmin);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "communities"] });
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const body = {
+        name: form.name, address: form.address, description: form.description,
+        logoUrl: form.logoUrl, qrCodeUrl: form.qrCodeUrl, adminUserIds: form.adminUserIds,
+      };
+      if (editing) return adminPatch(`/api/admin/communities/${editing.id}`, body);
+      return adminPost("/api/admin/communities", body);
+    },
+    onSuccess: () => { invalidate(); closeModal(); toast({ title: editing ? "社区已更新" : "社区已创建" }); },
+    onError: (e: Error) => toast({ title: "保存失败", description: e.message, variant: "destructive" }),
+  });
+
+  const reorderMut = useMutation({
+    mutationFn: (ids: number[]) => adminPost("/api/admin/communities/reorder", { ids }),
+    onSuccess: invalidate,
+    onError: (e: Error) => toast({ title: "调整顺序失败", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => adminDelete(`/api/admin/communities/${id}`),
+    onSuccess: () => { invalidate(); toast({ title: "社区已删除" }); },
+    onError: (e: Error) => toast({ title: "删除失败", description: e.message, variant: "destructive" }),
+  });
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const ids = communities.map(c => c.id);
+    const j = idx + dir;
+    if (j < 0 || j >= ids.length) return;
+    [ids[idx], ids[j]] = [ids[j], ids[idx]];
+    reorderMut.mutate(ids);
+  };
+
+  const openCreate = () => { setCreating(true); setEditing(null); setForm(EMPTY_COMMUNITY_FORM); };
+  const openEdit = (c: CommunityRow) => {
+    setEditing(c); setCreating(false);
+    setForm({
+      name: c.name, address: c.address ?? "", description: c.description ?? "",
+      logoUrl: c.logoUrl ?? "", qrCodeUrl: c.qrCodeUrl ?? "",
+      adminUserIds: c.admins.map(a => a.id),
+    });
+  };
+  const closeModal = () => { setCreating(false); setEditing(null); };
+
+  const handleImageUpload = async (kind: "logo" | "qr", file: File) => {
+    setUploading(kind);
+    try {
+      const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!reqRes.ok) throw new Error("上传请求失败");
+      const { uploadURL, objectPath, sessionToken } = await reqRes.json();
+      const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!putRes.ok) throw new Error("文件上传失败");
+      const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+        method: "POST", headers: getAdminHeaders(),
+        body: JSON.stringify({ sessionToken }),
+      });
+      if (!verifyRes.ok) throw new Error("文件验证失败");
+      const url = `${BASE}/api/storage${objectPath}`;
+      setForm(f => kind === "logo" ? { ...f, logoUrl: url } : { ...f, qrCodeUrl: url });
+      toast({ title: "图片上传成功" });
+    } catch (e: unknown) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const toggleAdmin = (id: number) => setForm(f => ({
+    ...f,
+    adminUserIds: f.adminUserIds.includes(id) ? f.adminUserIds.filter(x => x !== id) : [...f.adminUserIds, id],
+  }));
+
+  const modalOpen = creating || !!editing;
+
+  const imgField = (label: string, kind: "logo" | "qr", value: string) => (
+    <div>
+      <label className="block text-sm font-medium text-slate-600 mb-1">{label}</label>
+      <div className="flex items-center gap-3">
+        {value ? (
+          <img src={value} alt={label} className="w-16 h-16 rounded-lg object-cover border border-slate-200" />
+        ) : (
+          <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300">
+            <ImageIcon size={22} />
+          </div>
+        )}
+        <label className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-600 cursor-pointer hover:bg-slate-50 inline-flex items-center gap-1.5">
+          {uploading === kind ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+          {value ? "更换图片" : "上传图片"}
+          <input type="file" accept="image/*" className="hidden" disabled={uploading !== null}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(kind, f); e.target.value = ""; }} />
+        </label>
+        {value && (
+          <button className="text-sm text-slate-400 hover:text-red-500"
+            onClick={() => setForm(f => kind === "logo" ? { ...f, logoUrl: "" } : { ...f, qrCodeUrl: "" })}>
+            移除
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div>
-      <h2 className="text-xl font-bold text-blue-900 mb-6">社区</h2>
-      <div className="bg-white rounded-2xl p-12 shadow-sm text-center text-slate-400">
-        <Globe2 size={36} className="mx-auto mb-3 text-slate-200" />
-        <p className="font-semibold">功能建设中</p>
-        <p className="text-sm mt-1">此菜单的具体功能将逐步添加</p>
+      {confirmDialog}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-blue-900">社区</h2>
+        {isSuperAdmin && (
+          <button onClick={openCreate}
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 inline-flex items-center gap-1.5">
+            <Plus size={16} /> 添加社区
+          </button>
+        )}
       </div>
+
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        {isLoading ? (
+          <div className="p-12 text-center text-slate-400"><Loader2 className="animate-spin mx-auto" /></div>
+        ) : communities.length === 0 ? (
+          <div className="p-12 text-center text-slate-400">
+            <Globe2 size={36} className="mx-auto mb-3 text-slate-200" />
+            <p className="font-semibold">暂无社区</p>
+            {isSuperAdmin && <p className="text-sm mt-1">点击右上角「添加社区」创建第一个社区</p>}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-100 bg-slate-50/60">
+                <th className="px-4 py-3 font-medium w-20">顺序</th>
+                <th className="px-4 py-3 font-medium">社区</th>
+                <th className="px-4 py-3 font-medium">地址</th>
+                <th className="px-4 py-3 font-medium">社区管理员</th>
+                <th className="px-4 py-3 font-medium w-40">二维码</th>
+                {isSuperAdmin && <th className="px-4 py-3 font-medium w-32 text-right">操作</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {communities.map((c, idx) => (
+                <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/40">
+                  <td className="px-4 py-3">
+                    {isSuperAdmin ? (
+                      <div className="flex items-center gap-1">
+                        <button disabled={idx === 0 || reorderMut.isPending} onClick={() => move(idx, -1)}
+                          className="p-1 rounded text-slate-400 hover:text-blue-600 disabled:opacity-30"><ChevronUp size={16} /></button>
+                        <button disabled={idx === communities.length - 1 || reorderMut.isPending} onClick={() => move(idx, 1)}
+                          className="p-1 rounded text-slate-400 hover:text-blue-600 disabled:opacity-30"><ChevronDown size={16} /></button>
+                      </div>
+                    ) : <span className="text-slate-400">{idx + 1}</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {c.logoUrl ? (
+                        <img src={c.logoUrl} alt={c.name} className="w-10 h-10 rounded-lg object-cover border border-slate-100" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><Globe2 size={18} /></div>
+                      )}
+                      <div>
+                        <div className="font-semibold text-slate-800">{c.name}</div>
+                        {c.description && <div className="text-xs text-slate-400 line-clamp-1 max-w-xs">{c.description}</div>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{c.address || "—"}</td>
+                  <td className="px-4 py-3">
+                    {c.admins.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {c.admins.map(a => (
+                          <span key={a.id} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs">
+                            {a.nickname || a.email || `#${a.id}`}
+                          </span>
+                        ))}
+                      </div>
+                    ) : <span className="text-slate-300">未设置</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {c.qrCodeUrl ? (
+                      <img src={c.qrCodeUrl} alt="官方二维码" className="w-12 h-12 rounded object-cover border border-slate-100" />
+                    ) : <span className="text-slate-300">—</span>}
+                  </td>
+                  {isSuperAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      <button className="p-1.5 rounded text-slate-400 hover:text-blue-600" onClick={() => openEdit(c)}><Edit2 size={15} /></button>
+                      <button className="p-1.5 rounded text-slate-400 hover:text-red-500"
+                        onClick={() => askConfirm({
+                          title: "删除社区",
+                          description: `确定删除社区「${c.name}」吗?该操作不可恢复。`,
+                          onConfirm: () => deleteMut.mutate(c.id),
+                        })}>
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={closeModal}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-blue-900 mb-4">{editing ? "编辑社区" : "添加社区"}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">名称 <span className="text-red-500">*</span></label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="社区名称" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">地址</label>
+                <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="社区地址" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">描述</label>
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  rows={3} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="社区简介" />
+              </div>
+              {imgField("Logo", "logo", form.logoUrl)}
+              {imgField("官方二维码", "qr", form.qrCodeUrl)}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">社区管理员</label>
+                {adminOptions.length === 0 ? (
+                  <p className="text-sm text-slate-400">暂无可选的管理员账号,请先在「权限管理」中创建管理员</p>
+                ) : (
+                  <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-44 overflow-y-auto">
+                    {adminOptions.map(u => (
+                      <label key={u.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
+                        <input type="checkbox" checked={form.adminUserIds.includes(u.id)} onChange={() => toggleAdmin(u.id)} />
+                        <span className="text-slate-700">{u.nickname || "—"}</span>
+                        <span className="text-slate-400 text-xs">{u.email}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={closeModal} className="px-4 py-2 rounded-xl border border-slate-300 text-sm text-slate-600 hover:bg-slate-50">取消</button>
+              <button
+                onClick={() => {
+                  if (!form.name.trim()) { toast({ title: "请填写社区名称", variant: "destructive" }); return; }
+                  saveMut.mutate();
+                }}
+                disabled={saveMut.isPending || uploading !== null}
+                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 inline-flex items-center gap-1.5">
+                {saveMut.isPending && <Loader2 size={14} className="animate-spin" />} 保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable, communityAnnouncementCategoriesTable, communityAnnouncementsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable, communityAnnouncementCategoriesTable, communityAnnouncementsTable, communitiesTable, communityAdminsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -3295,6 +3295,135 @@ router.delete("/admin/community-announcements/:id", requireAdmin, requirePermiss
   } catch (err) {
     logger.error({ err }, "Failed to delete community announcement");
     return res.status(500).json({ error: "删除公告失败" });
+  }
+});
+
+/* ── 社区 CRUD (/admin/communities) — 超管维护,community 权限可查看 ── */
+
+async function loadCommunityAdmins(communityIds: number[]) {
+  if (!communityIds.length) return {} as Record<number, { id: number; nickname: string | null; email: string | null }[]>;
+  const rows = await db
+    .select({ communityId: communityAdminsTable.communityId, id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email })
+    .from(communityAdminsTable)
+    .innerJoin(usersTable, eq(communityAdminsTable.userId, usersTable.id))
+    .where(inArray(communityAdminsTable.communityId, communityIds));
+  const map: Record<number, { id: number; nickname: string | null; email: string | null }[]> = {};
+  for (const r of rows) {
+    (map[r.communityId] ??= []).push({ id: r.id, nickname: r.nickname, email: r.email });
+  }
+  return map;
+}
+
+router.get("/admin/communities", requireAdmin, requirePermission("community"), async (_req, res) => {
+  try {
+    const rows = await db.select().from(communitiesTable)
+      .orderBy(asc(communitiesTable.sortOrder), asc(communitiesTable.id));
+    const adminMap = await loadCommunityAdmins(rows.map(r => r.id));
+    return res.json({ data: rows.map(r => ({ ...r, admins: adminMap[r.id] ?? [] })) });
+  } catch (err) {
+    logger.error({ err }, "Failed to list communities");
+    return res.status(500).json({ error: "获取社区列表失败" });
+  }
+});
+
+async function replaceCommunityAdmins(communityId: number, adminUserIds: number[]) {
+  // Only allow users who are actually admins
+  const valid = adminUserIds.length
+    ? await db.select({ id: usersTable.id }).from(usersTable)
+        .where(and(inArray(usersTable.id, adminUserIds), eq(usersTable.role, "admin")))
+    : [];
+  await db.delete(communityAdminsTable).where(eq(communityAdminsTable.communityId, communityId));
+  if (valid.length) {
+    await db.insert(communityAdminsTable).values(valid.map(v => ({ communityId, userId: v.id })));
+  }
+}
+
+router.post("/admin/communities", requireSuperAdmin, async (req, res) => {
+  try {
+    const { name, address, description, logoUrl, qrCodeUrl, sortOrder, adminUserIds } = req.body as {
+      name: string; address?: string; description?: string; logoUrl?: string; qrCodeUrl?: string;
+      sortOrder?: number; adminUserIds?: number[];
+    };
+    if (!name?.trim()) return res.status(400).json({ error: "社区名称不能为空" });
+    const [row] = await db.insert(communitiesTable).values({
+      name: name.trim(),
+      address: address?.trim() || null,
+      description: description?.trim() || null,
+      logoUrl: logoUrl?.trim() || null,
+      qrCodeUrl: qrCodeUrl?.trim() || null,
+      sortOrder: sortOrder ?? 0,
+    }).returning();
+    if (Array.isArray(adminUserIds)) await replaceCommunityAdmins(row.id, adminUserIds);
+    return res.status(201).json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to create community");
+    return res.status(500).json({ error: "创建社区失败" });
+  }
+});
+
+router.patch("/admin/communities/:id", requireSuperAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const { name, address, description, logoUrl, qrCodeUrl, sortOrder, adminUserIds } = req.body as {
+      name?: string; address?: string; description?: string; logoUrl?: string; qrCodeUrl?: string;
+      sortOrder?: number; adminUserIds?: number[];
+    };
+    const set: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) {
+      if (!name.trim()) return res.status(400).json({ error: "社区名称不能为空" });
+      set.name = name.trim();
+    }
+    if (address !== undefined) set.address = address.trim() || null;
+    if (description !== undefined) set.description = description.trim() || null;
+    if (logoUrl !== undefined) set.logoUrl = logoUrl.trim() || null;
+    if (qrCodeUrl !== undefined) set.qrCodeUrl = qrCodeUrl.trim() || null;
+    if (sortOrder !== undefined) set.sortOrder = sortOrder;
+    const [row] = await db.update(communitiesTable).set(set)
+      .where(eq(communitiesTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "社区不存在" });
+    if (Array.isArray(adminUserIds)) await replaceCommunityAdmins(id, adminUserIds);
+    return res.json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to update community");
+    return res.status(500).json({ error: "更新社区失败" });
+  }
+});
+
+/* 调整社区顺序:传入完整 id 数组,按数组顺序重排 */
+router.post("/admin/communities/reorder", requireSuperAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body as { ids: number[] };
+    if (!Array.isArray(ids) || !ids.length || ids.some(id => !Number.isInteger(id))) {
+      return res.status(400).json({ error: "ids 不能为空且必须为整数数组" });
+    }
+    if (new Set(ids).size !== ids.length) return res.status(400).json({ error: "ids 不能重复" });
+    const existing = await db.select({ id: communitiesTable.id }).from(communitiesTable);
+    const existingIds = new Set(existing.map(r => r.id));
+    if (ids.length !== existingIds.size || ids.some(id => !existingIds.has(id))) {
+      return res.status(400).json({ error: "ids 必须包含且仅包含全部社区" });
+    }
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < ids.length; i++) {
+        await tx.update(communitiesTable)
+          .set({ sortOrder: i, updatedAt: new Date() })
+          .where(eq(communitiesTable.id, ids[i]));
+      }
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to reorder communities");
+    return res.status(500).json({ error: "调整顺序失败" });
+  }
+});
+
+router.delete("/admin/communities/:id", requireSuperAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    await db.delete(communitiesTable).where(eq(communitiesTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to delete community");
+    return res.status(500).json({ error: "删除社区失败" });
   }
 });
 
