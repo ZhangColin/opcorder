@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, opcProfilesTable, v2SettlementPlansTable, v2OutsourceDemandsTable } from "@workspace/db";
+import { db, opcProfilesTable, ordersTable, demandsTable } from "@workspace/db";
 import { eq, sql, count } from "drizzle-orm";
 import { GetOverviewStatsResponse } from "@workspace/api-zod";
 const router: IRouter = Router();
@@ -10,18 +10,30 @@ router.get("/stats/overview", async (_req, res) => {
       count: count(),
     }).from(opcProfilesTable);
 
+    // 原版统计:结算总额 = 已完成订单金额合计(orders 表)
     const [settlementStats] = await db.select({
-      totalPaid: sql<number>`COALESCE(SUM(${v2SettlementPlansTable.amount}), 0)`,
-    }).from(v2SettlementPlansTable)
-      .where(eq(v2SettlementPlansTable.status, "paid"));
+      totalPaid: sql<number>`COALESCE(SUM(${ordersTable.amount}), 0)`,
+    }).from(ordersTable)
+      .where(eq(ordersTable.status, "completed"));
+
+    // 原版统计:订单完成率 = 已完成订单数 / 总订单数(orders 表)
+    const [orderTotals] = await db.select({
+      total: count(),
+      completed: sql<number>`COUNT(*) FILTER (WHERE ${ordersTable.status} = 'completed')`,
+    }).from(ordersTable);
 
     const [monthlyDemandsResult] = await db.select({
       cnt: count(),
-    }).from(v2OutsourceDemandsTable)
-      .where(sql`date_trunc('month', ${v2OutsourceDemandsTable.createdAt}) = date_trunc('month', now())`);
+    }).from(demandsTable)
+      .where(sql`date_trunc('month', ${demandsTable.createdAt}) = date_trunc('month', now())`);
 
     const totalPayout = Number(settlementStats.totalPaid) || 0;
     const monthlyDemands = Number(monthlyDemandsResult.cnt) || 0;
+    const totalOrders = Number(orderTotals.total) || 0;
+    const completedOrders = Number(orderTotals.completed) || 0;
+    const completionRate = totalOrders > 0
+      ? Math.round((completedOrders / totalOrders) * 1000) / 10
+      : 0;
 
     const data = GetOverviewStatsResponse.parse({
       totalPayout,
@@ -29,7 +41,7 @@ router.get("/stats/overview", async (_req, res) => {
       activeOpcs: Number(opcCount.count) || 0,
       monthlyOrders: monthlyDemands,
       monthlyDemands,
-      completionRate: 0,
+      completionRate,
     });
     res.json(data);
   } catch (error) {
