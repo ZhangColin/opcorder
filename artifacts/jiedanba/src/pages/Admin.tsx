@@ -9249,7 +9249,7 @@ type CommunityRow = {
   logoUrl: string | null; qrCodeUrl: string | null; sortOrder: number;
   admins: { id: number; nickname: string | null; email: string | null }[];
 };
-type AdminUserOption = { id: number; nickname: string | null; email: string | null; isSuperAdmin: boolean };
+type AdminUserOption = { id: number; nickname: string | null; email: string | null };
 
 const EMPTY_COMMUNITY_FORM = { name: "", address: "", description: "", logoUrl: "", qrCodeUrl: "", adminUserIds: [] as number[] };
 
@@ -9272,11 +9272,11 @@ function CommunityOverview() {
   const communities = data?.data ?? [];
 
   const { data: adminUsers } = useQuery({
-    queryKey: ["admin", "admin-users-for-community"],
-    queryFn: () => adminGet<AdminUserOption[]>("/api/admin/admin-users"),
+    queryKey: ["admin", "community-eligible-admins"],
+    queryFn: () => adminGet<{ data: AdminUserOption[] }>("/api/admin/communities/eligible-admins"),
     enabled: isSuperAdmin,
   });
-  const adminOptions = (adminUsers ?? []).filter(u => !u.isSuperAdmin);
+  const adminOptions = adminUsers?.data ?? [];
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "communities"] });
 
@@ -9507,16 +9507,38 @@ function CommunityOverview() {
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">社区管理员</label>
                 {adminOptions.length === 0 ? (
-                  <p className="text-sm text-slate-400">暂无可选的管理员账号,请先在「权限管理」中创建管理员</p>
+                  <p className="text-sm text-slate-400">暂无「社区管理员」角色的账号,请先在「权限管理」中给管理员分配社区管理员角色</p>
                 ) : (
-                  <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-44 overflow-y-auto">
-                    {adminOptions.map(u => (
-                      <label key={u.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
-                        <input type="checkbox" checked={form.adminUserIds.includes(u.id)} onChange={() => toggleAdmin(u.id)} />
-                        <span className="text-slate-700">{u.nickname || "—"}</span>
-                        <span className="text-slate-400 text-xs">{u.email}</span>
-                      </label>
-                    ))}
+                  <div className="space-y-2">
+                    <select
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
+                      value=""
+                      onChange={e => {
+                        const id = parseInt(e.target.value, 10);
+                        if (!Number.isNaN(id) && !form.adminUserIds.includes(id)) {
+                          setForm(f => ({ ...f, adminUserIds: [...f.adminUserIds, id] }));
+                        }
+                      }}>
+                      <option value="">选择管理员添加…</option>
+                      {adminOptions.filter(u => !form.adminUserIds.includes(u.id)).map(u => (
+                        <option key={u.id} value={u.id}>{u.nickname || "—"}{u.email ? `（${u.email}）` : ""}</option>
+                      ))}
+                    </select>
+                    {form.adminUserIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {form.adminUserIds.map(id => {
+                          const u = adminOptions.find(o => o.id === id);
+                          return (
+                            <span key={id} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs">
+                              {u?.nickname || u?.email || `#${id}`}
+                              <button className="text-blue-400 hover:text-red-500" onClick={() => toggleAdmin(id)}>
+                                <X size={12} />
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -3326,12 +3326,31 @@ router.get("/admin/communities", requireAdmin, requirePermission("community"), a
   }
 });
 
+/** 拥有「社区管理员」角色的管理员用户 */
+async function listCommunityAdminCandidates() {
+  return db
+    .select({ id: usersTable.id, nickname: usersTable.nickname, email: usersTable.email })
+    .from(usersTable)
+    .innerJoin(adminRoleAssignmentsTable, eq(adminRoleAssignmentsTable.userId, usersTable.id))
+    .innerJoin(adminRolesTable, eq(adminRoleAssignmentsTable.roleId, adminRolesTable.id))
+    .where(and(eq(usersTable.role, "admin"), eq(adminRolesTable.name, "社区管理员")))
+    .orderBy(asc(usersTable.id));
+}
+
+router.get("/admin/communities/eligible-admins", requireSuperAdmin, async (_req, res) => {
+  try {
+    return res.json({ data: await listCommunityAdminCandidates() });
+  } catch (err) {
+    logger.error({ err }, "Failed to list eligible community admins");
+    return res.status(500).json({ error: "获取可选社区管理员失败" });
+  }
+});
+
 async function replaceCommunityAdmins(communityId: number, adminUserIds: number[]) {
-  // Only allow users who are actually admins
-  const valid = adminUserIds.length
-    ? await db.select({ id: usersTable.id }).from(usersTable)
-        .where(and(inArray(usersTable.id, adminUserIds), eq(usersTable.role, "admin")))
-    : [];
+  // Only allow admin users who hold the 社区管理员 role
+  const candidates = adminUserIds.length ? await listCommunityAdminCandidates() : [];
+  const candidateIds = new Set(candidates.map(c => c.id));
+  const valid = adminUserIds.filter(id => candidateIds.has(id)).map(id => ({ id }));
   await db.delete(communityAdminsTable).where(eq(communityAdminsTable.communityId, communityId));
   if (valid.length) {
     await db.insert(communityAdminsTable).values(valid.map(v => ({ communityId, userId: v.id })));
