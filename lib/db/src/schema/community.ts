@@ -13,6 +13,7 @@ export const communityAnnouncementCategoriesTable = pgTable("community_announcem
 export const communityAnnouncementsTable = pgTable("community_announcements", {
   id:          serial("id").primaryKey(),
   categoryId:  integer("category_id").references(() => communityAnnouncementCategoriesTable.id, { onDelete: "set null" }),
+  communityId: integer("community_id").references(() => communitiesTable.id, { onDelete: "set null" }),
   title:       varchar("title", { length: 300 }).notNull(),
   content:     text("content").notNull().default(""),
   isPublished: boolean("is_published").notNull().default(false),

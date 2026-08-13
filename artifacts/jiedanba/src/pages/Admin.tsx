@@ -9739,10 +9739,11 @@ function AnnouncementCategoryManagement() {
 
 type AnnItem = {
   id: number; title: string; content: string; categoryId: number | null; categoryName: string | null;
+  communityId: number | null; communityName: string | null;
   isPublished: boolean; sortOrder: number; publishedAt: string | null; createdAt: string;
 };
 
-type AnnListResponse = { data: AnnItem[]; categories: { id: number; name: string }[]; total: number; page: number; pageSize: number };
+type AnnListResponse = { data: AnnItem[]; categories: { id: number; name: string }[]; communities: { id: number; name: string }[]; total: number; page: number; pageSize: number };
 
 function AnnouncementManagement() {
   const qc = useQueryClient();
@@ -9752,23 +9753,26 @@ function AnnouncementManagement() {
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [filterCat, setFilterCat] = useState<string>("");
+  const [filterCommunity, setFilterCommunity] = useState<string>("");
   const [editing, setEditing] = useState<AnnItem | null>(null);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ title: "", content: "", categoryId: "" as string, isPublished: false, sortOrder: 0 });
+  const [form, setForm] = useState({ title: "", content: "", categoryId: "" as string, communityId: "" as string, isPublished: false, sortOrder: 0 });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "announcements", page, keyword, filterCat],
+    queryKey: ["admin", "announcements", page, keyword, filterCat, filterCommunity],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), pageSize: "20" });
       if (keyword) params.set("keyword", keyword);
       if (filterCat) params.set("categoryId", filterCat);
+      if (filterCommunity) params.set("communityId", filterCommunity);
       return adminGet<AnnListResponse>(`/api/admin/community-announcements?${params}`);
     },
   });
 
-  const rows       = data?.data ?? [];
-  const total      = data?.total ?? 0;
-  const categories = data?.categories ?? [];
+  const rows        = data?.data ?? [];
+  const total       = data?.total ?? 0;
+  const categories  = data?.categories ?? [];
+  const communities = data?.communities ?? [];
   const totalPages = Math.ceil(total / 20);
   const showForm   = creating || !!editing;
 
@@ -9779,6 +9783,7 @@ function AnnouncementManagement() {
         title: form.title.trim(),
         content: form.content,
         categoryId: form.categoryId ? parseInt(form.categoryId) : null,
+        communityId: form.communityId ? parseInt(form.communityId) : null,
         isPublished: form.isPublished,
         sortOrder: form.sortOrder,
       };
@@ -9791,7 +9796,7 @@ function AnnouncementManagement() {
       }
       qc.invalidateQueries({ queryKey: ["admin", "announcements"] });
       setEditing(null); setCreating(false);
-      setForm({ title: "", content: "", categoryId: "", isPublished: false, sortOrder: 0 });
+      setForm({ title: "", content: "", categoryId: "", communityId: "", isPublished: false, sortOrder: 0 });
     } catch (err) { toast({ title: "操作失败", description: (err as Error).message, variant: "destructive" }); }
   }
 
@@ -9821,16 +9826,16 @@ function AnnouncementManagement() {
 
   function startEdit(row: AnnItem) {
     setEditing(row); setCreating(false);
-    setForm({ title: row.title, content: row.content, categoryId: row.categoryId ? String(row.categoryId) : "", isPublished: row.isPublished, sortOrder: row.sortOrder });
+    setForm({ title: row.title, content: row.content, categoryId: row.categoryId ? String(row.categoryId) : "", communityId: row.communityId ? String(row.communityId) : "", isPublished: row.isPublished, sortOrder: row.sortOrder });
   }
-  function cancelEdit() { setEditing(null); setCreating(false); setForm({ title: "", content: "", categoryId: "", isPublished: false, sortOrder: 0 }); }
+  function cancelEdit() { setEditing(null); setCreating(false); setForm({ title: "", content: "", categoryId: "", communityId: "", isPublished: false, sortOrder: 0 }); }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-blue-900">公告管理</h2>
         {!showForm && (
-          <button onClick={() => { setCreating(true); setEditing(null); setForm({ title: "", content: "", categoryId: "", isPublished: false, sortOrder: 0 }); }}
+          <button onClick={() => { setCreating(true); setEditing(null); setForm({ title: "", content: "", categoryId: "", communityId: communities.length === 1 ? String(communities[0].id) : "", isPublished: false, sortOrder: 0 }); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
             <Plus size={15} /> 新建公告
           </button>
@@ -9847,6 +9852,14 @@ function AnnouncementManagement() {
               <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
                 placeholder="公告标题" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">所属社区</label>
+              <select value={form.communityId} onChange={e => setForm(f => ({ ...f, communityId: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary bg-white">
+                <option value="">— 未指定社区 —</option>
+                {communities.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-1">所属类别</label>
@@ -9892,6 +9905,11 @@ function AnnouncementManagement() {
             <input value={keyword} onChange={e => { setKeyword(e.target.value); setPage(1); }}
               placeholder="搜索标题或内容…" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary" />
           </div>
+          <select value={filterCommunity} onChange={e => { setFilterCommunity(e.target.value); setPage(1); }}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary bg-white">
+            <option value="">所有社区</option>
+            {communities.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+          </select>
           <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1); }}
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary bg-white">
             <option value="">所有类别</option>
@@ -9916,6 +9934,7 @@ function AnnouncementManagement() {
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="text-left px-5 py-3 text-slate-500 font-semibold">ID</th>
                 <th className="text-left px-5 py-3 text-slate-500 font-semibold">标题</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">社区</th>
                 <th className="text-left px-5 py-3 text-slate-500 font-semibold">类别</th>
                 <th className="text-left px-5 py-3 text-slate-500 font-semibold">状态</th>
                 <th className="text-left px-5 py-3 text-slate-500 font-semibold">排序</th>
@@ -9930,6 +9949,11 @@ function AnnouncementManagement() {
                   <td className="px-5 py-3.5">
                     <p className="font-semibold text-blue-900 max-w-[220px] truncate">{row.title}</p>
                     {row.content && <p className="text-slate-400 text-xs mt-0.5 max-w-[220px] truncate">{row.content.replace(/#+\s*/g, "").slice(0, 60)}</p>}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    {row.communityName
+                      ? <span className="px-2 py-0.5 bg-violet-50 text-violet-600 rounded-full text-xs font-semibold">{row.communityName}</span>
+                      : <span className="text-slate-300 text-xs">未指定</span>}
                   </td>
                   <td className="px-5 py-3.5">
                     {row.categoryName

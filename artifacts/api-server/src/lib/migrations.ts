@@ -3383,5 +3383,14 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 056b: set 社区管理员 permissions to exactly [announcement]");
   });
 
+  // Migration 057a: community_announcements gets community_id (公告按社区区分)
+  await once("057a", false, async () => {
+    await db.execute(sql`
+      ALTER TABLE community_announcements
+      ADD COLUMN IF NOT EXISTS community_id INTEGER REFERENCES communities(id) ON DELETE SET NULL
+    `);
+    logger.info("Migration 057a: added community_id to community_announcements");
+  });
+
   logger.info("Startup data migrations complete.");
 }

@@ -1,5 +1,5 @@
 import { logger } from "../lib/logger";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable, communityAnnouncementCategoriesTable, communityAnnouncementsTable, communitiesTable, communityAdminsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
@@ -3200,35 +3200,64 @@ router.delete("/admin/community-announcement-categories/:id", requireAdmin, requ
 
 /* ── 社区公告 CRUD (/admin/community-announcements) ── */
 
+/**
+ * Returns the community ids the current admin may manage announcements for.
+ * `null` means unrestricted (super admin); an array (possibly empty) means restricted.
+ */
+async function getManagedCommunityIds(req: Request): Promise<number[] | null> {
+  if (req.user?.isSuperAdmin) return null;
+  const rows = await db
+    .select({ communityId: communityAdminsTable.communityId })
+    .from(communityAdminsTable)
+    .where(eq(communityAdminsTable.userId, req.user!.id));
+  return rows.map(r => r.communityId);
+}
+
 router.get("/admin/community-announcements", requireAdmin, requirePermission("announcement"), async (req, res) => {
   try {
-    const { page = "1", pageSize = "20", keyword, categoryId } = req.query as Record<string, string>;
+    const { page = "1", pageSize = "20", keyword, categoryId, communityId } = req.query as Record<string, string>;
     const { page: p, pageSize: ps, offset } = paginate({ page, pageSize });
+    const managedIds = await getManagedCommunityIds(req);
+
     const conditions = [];
     if (keyword) conditions.push(or(
       ilike(communityAnnouncementsTable.title, `%${keyword}%`),
       ilike(communityAnnouncementsTable.content, `%${keyword}%`),
     )!);
     if (categoryId) conditions.push(eq(communityAnnouncementsTable.categoryId, parseInt(categoryId, 10)));
+    if (communityId) conditions.push(eq(communityAnnouncementsTable.communityId, parseInt(communityId, 10)));
+    if (managedIds !== null) {
+      if (managedIds.length === 0) {
+        // 社区管理员未被指派任何社区 — 看不到任何公告
+        return res.json({ data: [], categories: [], communities: [], total: 0, page: p, pageSize: ps });
+      }
+      conditions.push(inArray(communityAnnouncementsTable.communityId, managedIds));
+    }
     const where = conditions.length ? and(...conditions) : undefined;
 
-    const [total, rows, categories] = await Promise.all([
+    const communityWhere = managedIds !== null ? inArray(communitiesTable.id, managedIds) : undefined;
+    const [total, rows, categories, communities] = await Promise.all([
       db.select({ cnt: count() }).from(communityAnnouncementsTable).where(where),
       db.select({
         announcement: communityAnnouncementsTable,
         categoryName: communityAnnouncementCategoriesTable.name,
+        communityName: communitiesTable.name,
       }).from(communityAnnouncementsTable)
         .leftJoin(communityAnnouncementCategoriesTable, eq(communityAnnouncementsTable.categoryId, communityAnnouncementCategoriesTable.id))
+        .leftJoin(communitiesTable, eq(communityAnnouncementsTable.communityId, communitiesTable.id))
         .where(where)
         .orderBy(asc(communityAnnouncementsTable.sortOrder), desc(communityAnnouncementsTable.id))
         .limit(ps).offset(offset),
       db.select({ id: communityAnnouncementCategoriesTable.id, name: communityAnnouncementCategoriesTable.name })
         .from(communityAnnouncementCategoriesTable).orderBy(asc(communityAnnouncementCategoriesTable.sortOrder)),
+      db.select({ id: communitiesTable.id, name: communitiesTable.name })
+        .from(communitiesTable).where(communityWhere).orderBy(asc(communitiesTable.sortOrder), asc(communitiesTable.id)),
     ]);
 
     return res.json({
-      data: rows.map(r => ({ ...r.announcement, categoryName: r.categoryName })),
+      data: rows.map(r => ({ ...r.announcement, categoryName: r.categoryName, communityName: r.communityName })),
       categories,
+      communities,
       total: Number(total[0].cnt),
       page: p,
       pageSize: ps,
@@ -3241,15 +3270,25 @@ router.get("/admin/community-announcements", requireAdmin, requirePermission("an
 
 router.post("/admin/community-announcements", requireAdmin, requirePermission("announcement"), async (req, res) => {
   try {
-    const { title, content, categoryId, isPublished, sortOrder } = req.body as {
-      title: string; content?: string; categoryId?: number; isPublished?: boolean; sortOrder?: number;
+    const { title, content, categoryId, isPublished, sortOrder, communityId } = req.body as {
+      title: string; content?: string; categoryId?: number; isPublished?: boolean; sortOrder?: number; communityId?: number | null;
     };
     if (!title?.trim()) return res.status(400).json({ error: "公告标题不能为空" });
+
+    const managedIds = await getManagedCommunityIds(req);
+    if (managedIds !== null) {
+      if (managedIds.length === 0) return res.status(403).json({ error: "您尚未被指派任何社区,无法发布公告" });
+      if (!communityId || !managedIds.includes(communityId)) {
+        return res.status(403).json({ error: "只能在自己管理的社区发布公告" });
+      }
+    }
+
     const now = new Date();
     const [row] = await db.insert(communityAnnouncementsTable).values({
       title: title.trim(),
       content: content?.trim() ?? "",
       categoryId: categoryId ?? null,
+      communityId: communityId ?? null,
       isPublished: isPublished ?? false,
       sortOrder: sortOrder ?? 0,
       publishedAt: isPublished ? now : null,
@@ -3264,14 +3303,29 @@ router.post("/admin/community-announcements", requireAdmin, requirePermission("a
 router.patch("/admin/community-announcements/:id", requireAdmin, requirePermission("announcement"), async (req, res) => {
   try {
     const id = parseInt(req.params.id as string, 10);
-    const { title, content, categoryId, isPublished, sortOrder } = req.body as {
-      title?: string; content?: string; categoryId?: number | null; isPublished?: boolean; sortOrder?: number;
+    const { title, content, categoryId, isPublished, sortOrder, communityId } = req.body as {
+      title?: string; content?: string; categoryId?: number | null; isPublished?: boolean; sortOrder?: number; communityId?: number | null;
     };
+
+    const managedIds = await getManagedCommunityIds(req);
+    if (managedIds !== null) {
+      const [existing] = await db.select({ communityId: communityAnnouncementsTable.communityId })
+        .from(communityAnnouncementsTable).where(eq(communityAnnouncementsTable.id, id)).limit(1);
+      if (!existing) return res.status(404).json({ error: "公告不存在" });
+      if (existing.communityId === null || !managedIds.includes(existing.communityId)) {
+        return res.status(403).json({ error: "只能管理自己社区的公告" });
+      }
+      if (communityId !== undefined && (communityId === null || !managedIds.includes(communityId))) {
+        return res.status(403).json({ error: "只能将公告归属到自己管理的社区" });
+      }
+    }
+
     const now = new Date();
     const set: Record<string, unknown> = { updatedAt: now };
     if (title !== undefined) set.title = title.trim();
     if (content !== undefined) set.content = content;
     if (categoryId !== undefined) set.categoryId = categoryId;
+    if (communityId !== undefined) set.communityId = communityId;
     if (sortOrder !== undefined) set.sortOrder = sortOrder;
     if (isPublished !== undefined) {
       set.isPublished = isPublished;
@@ -3290,6 +3344,15 @@ router.patch("/admin/community-announcements/:id", requireAdmin, requirePermissi
 router.delete("/admin/community-announcements/:id", requireAdmin, requirePermission("announcement"), async (req, res) => {
   try {
     const id = parseInt(req.params.id as string, 10);
+    const managedIds = await getManagedCommunityIds(req);
+    if (managedIds !== null) {
+      const [existing] = await db.select({ communityId: communityAnnouncementsTable.communityId })
+        .from(communityAnnouncementsTable).where(eq(communityAnnouncementsTable.id, id)).limit(1);
+      if (!existing) return res.json({ ok: true });
+      if (existing.communityId === null || !managedIds.includes(existing.communityId)) {
+        return res.status(403).json({ error: "只能删除自己社区的公告" });
+      }
+    }
     await db.delete(communityAnnouncementsTable).where(eq(communityAnnouncementsTable.id, id));
     return res.json({ ok: true });
   } catch (err) {
