@@ -6101,35 +6101,36 @@ function AdminUsersPanel() {
   });
 
   const [showInvite, setShowInvite] = useState(false);
-  const [searchQ, setSearchQ] = useState("");
-  const [searchResults, setSearchResults] = useState<{ id: number; nickname: string; email: string; role: string }[]>([]);
-  const [selectedUser, setSelectedUser] = useState<{ id: number; nickname: string; email: string } | null>(null);
+  const [newNickname, setNewNickname] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [inviteRoles, setInviteRoles] = useState<number[]>([]);
   const [editAdminId, setEditAdminId] = useState<number | null>(null);
   const [editRoles, setEditRoles] = useState<number[]>([]);
 
-  const searchMutation = useMutation({
-    mutationFn: (q: string) => adminGet<{ id: number; nickname: string; email: string; role: string }[]>(`/api/admin/admin-users/search-users?q=${encodeURIComponent(q)}`),
-    onSuccess: setSearchResults,
-  });
-
-  function handleSearch(q: string) {
-    setSearchQ(q);
-    if (q.trim().length >= 1) searchMutation.mutate(q.trim());
-    else setSearchResults([]);
+  function resetCreateForm() {
+    setNewNickname(""); setNewEmail(""); setNewPhone(""); setNewPassword(""); setInviteRoles([]);
   }
 
-  const promoteMutation = useMutation({
-    mutationFn: () => adminPost("/api/admin/admin-users", { userId: selectedUser!.id, roleIds: inviteRoles }),
+  const createMutation = useMutation({
+    mutationFn: () => adminPost("/api/admin/admin-users/create", {
+      nickname: newNickname.trim(),
+      email: newEmail.trim() || undefined,
+      phone: newPhone.trim() || undefined,
+      password: newPassword,
+      roleIds: inviteRoles,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rbac-admin-accounts"] });
       setShowInvite(false);
-      setSelectedUser(null);
-      setInviteRoles([]);
-      toast({ title: "管理员已添加" });
+      resetCreateForm();
+      toast({ title: "管理员已创建" });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
+
+  const canCreate = newNickname.trim() && newPassword.length >= 6 && (newEmail.trim() || newPhone.trim());
 
   const updateRolesMutation = useMutation({
     mutationFn: ({ id, roles }: { id: number; roles: number[] }) => adminPatch(`/api/admin/admin-users/${id}`, { roleIds: roles }),
@@ -6158,9 +6159,9 @@ function AdminUsersPanel() {
         title="管理员管理"
         sub="添加和管理平台管理员账号，分配角色以控制功能访问权限"
         action={
-          <button onClick={() => { setShowInvite(true); setSelectedUser(null); setSearchQ(""); setSearchResults([]); setInviteRoles([]); }}
+          <button onClick={() => { setShowInvite(true); resetCreateForm(); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
-            <Plus size={15} /> 添加管理员
+            <Plus size={15} /> 创建管理员
           </button>
         }
       />
@@ -6168,75 +6169,63 @@ function AdminUsersPanel() {
       {showInvite && (
         <div className="bg-white rounded-2xl shadow-sm p-6 border border-primary/20">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-bold text-blue-900">添加管理员</h3>
+            <h3 className="text-base font-bold text-blue-900">创建管理员</h3>
             <button onClick={() => setShowInvite(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
           </div>
           <div className="space-y-4">
-            {!selectedUser ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">搜索用户（昵称或邮箱）</label>
-                <input value={searchQ} onChange={e => handleSearch(e.target.value)}
-                  placeholder="输入关键词搜索现有用户…"
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">昵称 *</label>
+                <input value={newNickname} onChange={e => setNewNickname(e.target.value)}
+                  placeholder="管理员显示名称"
                   className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                {searchResults.length > 0 && (
-                  <div className="mt-2 border rounded-xl overflow-hidden divide-y">
-                    {searchResults.map(u => (
-                      <button key={u.id} onClick={() => { setSelectedUser(u); setSearchResults([]); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-blue-50 transition-colors">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold shrink-0">
-                          {u.nickname?.[0] ?? "?"}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-blue-900 truncate">{u.nickname}</p>
-                          <p className="text-xs text-slate-400 truncate">{u.email} · {u.role}</p>
-                        </div>
-                        <ChevronRight size={14} className="text-slate-300 shrink-0" />
-                      </button>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">登录密码 *（至少 6 位）</label>
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                  placeholder="设置初始密码" autoComplete="new-password"
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">邮箱（与手机号至少填一个，用于登录）</label>
+                <input value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5">手机号（与邮箱至少填一个，用于登录）</label>
+                <input value={newPhone} onChange={e => setNewPhone(e.target.value)}
+                  placeholder="13800000000" maxLength={11}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-2">分配角色（可多选）</label>
+              {allRoles.length === 0
+                ? <p className="text-sm text-slate-400">请先在「角色管理」中创建角色</p>
+                : (
+                  <div className="flex flex-wrap gap-2">
+                    {allRoles.map(r => (
+                      <label key={r.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border cursor-pointer text-sm transition-colors ${
+                        inviteRoles.includes(r.id) ? "bg-primary/10 border-primary text-primary font-bold" : "border-slate-200 text-slate-600 hover:border-primary/40"
+                      }`}>
+                        <input type="checkbox" className="hidden" checked={inviteRoles.includes(r.id)}
+                          onChange={() => setInviteRoles(prev => prev.includes(r.id) ? prev.filter(x => x !== r.id) : [...prev, r.id])} />
+                        <Check size={12} className={inviteRoles.includes(r.id) ? "text-primary" : "text-transparent"} />
+                        {r.name}
+                      </label>
                     ))}
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
-                <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
-                  {selectedUser.nickname[0]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-blue-900">{selectedUser.nickname}</p>
-                  <p className="text-xs text-slate-500">{selectedUser.email}</p>
-                </div>
-                <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600"><X size={15} /></button>
-              </div>
-            )}
-
-            {selectedUser && (
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2">分配角色（可多选）</label>
-                {allRoles.length === 0
-                  ? <p className="text-sm text-slate-400">请先在「角色管理」中创建角色</p>
-                  : (
-                    <div className="flex flex-wrap gap-2">
-                      {allRoles.map(r => (
-                        <label key={r.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border cursor-pointer text-sm transition-colors ${
-                          inviteRoles.includes(r.id) ? "bg-primary/10 border-primary text-primary font-bold" : "border-slate-200 text-slate-600 hover:border-primary/40"
-                        }`}>
-                          <input type="checkbox" className="hidden" checked={inviteRoles.includes(r.id)}
-                            onChange={() => setInviteRoles(prev => prev.includes(r.id) ? prev.filter(x => x !== r.id) : [...prev, r.id])} />
-                          <Check size={12} className={inviteRoles.includes(r.id) ? "text-primary" : "text-transparent"} />
-                          {r.name}
-                        </label>
-                      ))}
-                    </div>
-                  )
-                }
-              </div>
-            )}
+                )
+              }
+            </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowInvite(false)} className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700">取消</button>
-              <button onClick={() => promoteMutation.mutate()} disabled={!selectedUser || promoteMutation.isPending}
+              <button onClick={() => createMutation.mutate()} disabled={!canCreate || createMutation.isPending}
                 className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-primary/90">
-                {promoteMutation.isPending ? "添加中…" : "确认添加"}
+                {createMutation.isPending ? "创建中…" : "确认创建"}
               </button>
             </div>
           </div>

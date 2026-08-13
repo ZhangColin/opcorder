@@ -1,5 +1,6 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
+import bcrypt from "bcryptjs";
 import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
@@ -2362,6 +2363,55 @@ router.get("/admin/admin-users", requireSuperAdmin, async (_req, res) => {
     return res.json(admins.map(a => ({ ...a, roleIds: roleMap[a.id] ?? [] })));
   } catch (err) {
     return res.status(500).json({ error: "获取管理员列表失败" });
+  }
+});
+
+/** Create a brand-new admin account (super admin only) */
+router.post("/admin/admin-users/create", requireSuperAdmin, async (req, res) => {
+  try {
+    const { nickname, email, phone, password, roleIds } = req.body as {
+      nickname: string; email?: string; phone?: string; password: string; roleIds?: number[];
+    };
+    const nick = typeof nickname === "string" ? nickname.trim() : "";
+    const mail = typeof email === "string" && email.trim() ? email.trim().toLowerCase() : null;
+    const tel = typeof phone === "string" && phone.trim() ? phone.trim() : null;
+    if (!nick) return res.status(400).json({ error: "请填写昵称" });
+    if (typeof password !== "string" || password.length < 6) return res.status(400).json({ error: "密码至少 6 位" });
+    if (!mail && !tel) return res.status(400).json({ error: "邮箱和手机号至少填写一个（用于登录）" });
+    if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return res.status(400).json({ error: "邮箱格式不正确" });
+    if (tel && !/^1[3-9]\d{9}$/.test(tel)) return res.status(400).json({ error: "手机号格式不正确" });
+
+    if (mail) {
+      const [dup] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, mail)).limit(1);
+      if (dup) return res.status(409).json({ error: "该邮箱已被使用" });
+    }
+    if (tel) {
+      const [dup] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.phone, tel)).limit(1);
+      if (dup) return res.status(409).json({ error: "该手机号已被使用" });
+    }
+
+    // Validate + dedupe role IDs before touching the users table
+    const requestedRoleIds = [...new Set((Array.isArray(roleIds) ? roleIds : []).filter(r => Number.isInteger(r)))] as number[];
+    if (requestedRoleIds.length > 0) {
+      const existing = await db.select({ id: adminRolesTable.id }).from(adminRolesTable).where(inArray(adminRolesTable.id, requestedRoleIds));
+      if (existing.length !== requestedRoleIds.length) return res.status(400).json({ error: "包含不存在的角色" });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newId = await db.transaction(async (tx) => {
+      const [user] = await tx.insert(usersTable)
+        .values({ nickname: nick, email: mail, phone: tel, passwordHash, role: "admin" })
+        .returning({ id: usersTable.id });
+      if (requestedRoleIds.length > 0) {
+        await tx.insert(adminRoleAssignmentsTable).values(requestedRoleIds.map(r => ({ userId: user.id, roleId: r })));
+      }
+      return user.id;
+    });
+
+    return res.json({ success: true, id: newId });
+  } catch (err) {
+    logger.error({ err }, "create admin user failed");
+    return res.status(500).json({ error: "创建管理员失败" });
   }
 });
 
