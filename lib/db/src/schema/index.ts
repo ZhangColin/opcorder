@@ -54,3 +54,4 @@ export * from "./skills";
 export * from "./demo-projects";
 export * from "./contract-templates";
 export * from "./contract-placeholder-defs";
+export * from "./community";

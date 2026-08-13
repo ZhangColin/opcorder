@@ -3281,5 +3281,69 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 054a: grade_note widened to text");
   });
 
+  // Migration 055a: create community_announcement_categories and community_announcements tables
+  await once("055a", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS community_announcement_categories (
+        id          SERIAL PRIMARY KEY,
+        name        VARCHAR(100) NOT NULL,
+        description TEXT,
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS community_announcements (
+        id           SERIAL PRIMARY KEY,
+        category_id  INTEGER REFERENCES community_announcement_categories(id) ON DELETE SET NULL,
+        title        VARCHAR(300) NOT NULL,
+        content      TEXT NOT NULL DEFAULT '',
+        is_published BOOLEAN NOT NULL DEFAULT FALSE,
+        sort_order   INTEGER NOT NULL DEFAULT 0,
+        published_at TIMESTAMP,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    logger.info("Migration 055a: created community announcement tables");
+  });
+
+  // Migration 055b: grant 社区管理员 role the 'announcement' permission (idempotent append)
+  await once("055b", false, async () => {
+    await db.execute(sql`
+      UPDATE admin_roles
+      SET permissions = array_append(permissions, 'announcement'),
+          updated_at  = NOW()
+      WHERE name = '社区管理员'
+        AND NOT ('announcement' = ANY(permissions))
+    `);
+    logger.info("Migration 055b: granted announcement permission to 社区管理员 role");
+  });
+
+  // Migration 055d: enforce exact permissions for 社区管理员 — set to exactly ['announcement']
+  // 055b only appended; this corrects any pre-existing over-permissioned role to least privilege
+  await once("055d", false, async () => {
+    await db.execute(sql`
+      UPDATE admin_roles
+      SET permissions = ARRAY['announcement']::TEXT[],
+          updated_at  = NOW()
+      WHERE name = '社区管理员'
+    `);
+    logger.info("Migration 055d: set 社区管理员 permissions to exactly [announcement]");
+  });
+
+  // Migration 055c: idempotently create 社区管理员 role if missing (fresh-DB safety)
+  await once("055c", false, async () => {
+    await db.execute(sql`
+      INSERT INTO admin_roles (name, description, permissions)
+      SELECT '社区管理员', '负责社区公告的发布与管理', ARRAY['announcement']::TEXT[]
+      WHERE NOT EXISTS (
+        SELECT 1 FROM admin_roles WHERE name = '社区管理员'
+      )
+    `);
+    logger.info("Migration 055c: ensured 社区管理员 role exists");
+  });
+
   logger.info("Startup data migrations complete.");
 }

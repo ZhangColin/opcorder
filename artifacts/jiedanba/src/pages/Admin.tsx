@@ -57,6 +57,7 @@ import {
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Video,
   Pin, Paperclip, ScrollText, Layers, PackageCheck, ChevronLeft,
   History, ArrowLeft, Building2, GripVertical,
+  Globe2, Tag,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -153,10 +154,12 @@ export type Module =
   | "v2_opc_workbench" | "v2_opc_demands" | "v2_opc_tenders" | "v2_opc_orders" | "v2_opc_contracts" | "v2_opc_payments" | "v2_opc_deliveries" | "v2_opc_tickets"
   | "platform_info" | "contract_config"
   | "skill_registry"
-  | "contract_templates" | "contract_placeholders";
+  | "contract_templates" | "contract_placeholders"
+  // 社区管理
+  | "community_workbench" | "community_overview" | "announcement_category" | "announcement_mgmt";
 
-type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean };
-type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; children?: NavChild[] };
+type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean; permKey?: string };
+type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; permKeys?: string[]; children?: NavChild[] };
 
 const NAV: NavItem[] = [
   { key: "dashboard", icon: LayoutDashboard, label: "数据看板",   permKey: "dashboard" },
@@ -191,6 +194,16 @@ const NAV: NavItem[] = [
       { key: "contest_activities",     label: "大赛活动", moduleKey: "contest_activities"     as Module, icon: Trophy },
       { key: "contest_registrations",  label: "报名与评级", moduleKey: "contest_registrations" as Module, icon: Award },
       { key: "contest_questions",      label: "题库",     moduleKey: "contest_questions"      as Module, icon: BookOpen },
+    ],
+  },
+
+  {
+    key: "community_workbench", icon: Megaphone, label: "社区管理",
+    permKeys: ["community", "announcement_category", "announcement"],
+    children: [
+      { key: "community_overview",    label: "社区",     moduleKey: "community_overview"    as Module, icon: Globe2,   permKey: "community" },
+      { key: "announcement_category", label: "公告类别", moduleKey: "announcement_category" as Module, icon: Tag,      permKey: "announcement_category" },
+      { key: "announcement_mgmt",     label: "公告",     moduleKey: "announcement_mgmt"     as Module, icon: Megaphone, permKey: "announcement" },
     ],
   },
 
@@ -5865,31 +5878,38 @@ type AdminAccount = {
 /* ─── RBAC: permission key labels ────────────────── */
 
 const PERM_LABELS: Record<string, string> = {
-  dashboard:      "数据看板",
-  cockpit:        "平台驾驶舱",
-  users:          "用户管理",
-  demands:        "需求管理",
-  payments:       "保证金审核",
-  orders:         "订单管理",
-  disputes:       "争议管理",
-  finance:        "财务管理",
-  ecosystem:      "OPC 生态池",
-  training:       "认证培训",
-  levelcert:      "等级认证",
-  content:        "内容审核",
-  sensitivewords: "敏感词管理",
-  settings:       "站点设置",
-  screen:         "数据大屏",
-  operation:      "运营管理",
-  contest:        "OPC 大赛",
+  dashboard:             "数据看板",
+  cockpit:               "平台驾驶舱",
+  users:                 "用户管理",
+  demands:               "需求管理",
+  payments:              "保证金审核",
+  orders:                "订单管理",
+  disputes:              "争议管理",
+  finance:               "财务管理",
+  ecosystem:             "OPC 生态池",
+  training:              "认证培训",
+  levelcert:             "等级认证",
+  content:               "内容审核",
+  sensitivewords:        "敏感词管理",
+  settings:              "站点设置",
+  screen:                "数据大屏",
+  operation:             "运营管理",
+  contest:               "OPC 大赛",
+  // 社区管理模块
+  community:             "社区管理 · 社区",
+  announcement_category: "社区管理 · 公告类别",
+  announcement:          "社区管理 · 公告",
 };
 
 const PERM_SUB: Record<string, string> = {
-  finance:    "财务管理 · 结算账户审核",
-  settings:   "站点设置 · 智能体配置",
-  screen:     "横屏大屏",
-  operation:  "运营管理 · 用户登录数据",
-  contest:    "大赛活动 · 报名评级 · 题库管理",
+  finance:               "财务管理 · 结算账户审核",
+  settings:              "站点设置 · 智能体配置",
+  screen:                "横屏大屏",
+  operation:             "运营管理 · 用户登录数据",
+  contest:               "大赛活动 · 报名评级 · 题库管理",
+  community:             "社区子菜单（功能建设中）",
+  announcement_category: "公告类别增删改",
+  announcement:          "公告增删改 · 发布/取消发布",
 };
 
 const ALL_PERM_KEYS = Object.keys(PERM_LABELS);
@@ -9210,8 +9230,433 @@ function ModuleContent({ module, inlineRoute, setInlineRoute }: { module: Module
     case "contest_registrations":  return withEmbedded(<ContestRegistrations />);
     case "contract_templates":     return <AdminContractTemplates />;
     case "contract_placeholders":  return <AdminContractPlaceholders />;
+    case "community_workbench":
+    case "community_overview":     return <CommunityOverview />;
+    case "announcement_category":  return <AnnouncementCategoryManagement />;
+    case "announcement_mgmt":      return <AnnouncementManagement />;
     default:                       return null;
   }
+}
+
+/* ─── Community ─────────────────────────────── */
+
+function CommunityOverview() {
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-blue-900 mb-6">社区</h2>
+      <div className="bg-white rounded-2xl p-12 shadow-sm text-center text-slate-400">
+        <Globe2 size={36} className="mx-auto mb-3 text-slate-200" />
+        <p className="font-semibold">功能建设中</p>
+        <p className="text-sm mt-1">此菜单的具体功能将逐步添加</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Announcement Category Management ──────── */
+
+type AnnCategory = { id: number; name: string; description: string | null; sortOrder: number; createdAt: string };
+
+function AnnouncementCategoryManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
+
+  const [editing, setEditing] = useState<AnnCategory | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", sortOrder: 0 });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "announcement-categories"],
+    queryFn: () => adminGet<{ data: AnnCategory[] }>("/api/admin/community-announcement-categories"),
+  });
+
+  const rows = data?.data ?? [];
+
+  async function save() {
+    if (!form.name.trim()) { toast({ title: "名称不能为空", variant: "destructive" }); return; }
+    try {
+      if (editing) {
+        await adminPatch(`/api/admin/community-announcement-categories/${editing.id}`, form);
+        toast({ title: "更新成功" });
+      } else {
+        await adminPost("/api/admin/community-announcement-categories", form);
+        toast({ title: "创建成功" });
+      }
+      qc.invalidateQueries({ queryKey: ["admin", "announcement-categories"] });
+      setEditing(null); setCreating(false);
+      setForm({ name: "", description: "", sortOrder: 0 });
+    } catch (err) { toast({ title: "操作失败", description: (err as Error).message, variant: "destructive" }); }
+  }
+
+  function remove(id: number, name: string) {
+    askConfirm({
+      title: `删除「${name}」?`,
+      description: "该类别下的公告将变为无分类，不会被删除。",
+      confirmLabel: "确认删除",
+      confirmVariant: "destructive",
+      onConfirm: async () => {
+        try {
+          await adminDelete(`/api/admin/community-announcement-categories/${id}`);
+          toast({ title: "已删除" });
+          qc.invalidateQueries({ queryKey: ["admin", "announcement-categories"] });
+        } catch (err) { toast({ title: "删除失败", description: (err as Error).message, variant: "destructive" }); }
+      },
+    });
+  }
+
+  function startEdit(row: AnnCategory) {
+    setEditing(row);
+    setCreating(false);
+    setForm({ name: row.name, description: row.description ?? "", sortOrder: row.sortOrder });
+  }
+
+  function cancelEdit() { setEditing(null); setCreating(false); setForm({ name: "", description: "", sortOrder: 0 }); }
+
+  const showForm = creating || !!editing;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-blue-900">公告类别</h2>
+        {!showForm && (
+          <button onClick={() => { setCreating(true); setEditing(null); setForm({ name: "", description: "", sortOrder: 0 }); }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={15} /> 新建类别
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-primary/20">
+          <h3 className="font-bold text-blue-900 mb-4">{editing ? "编辑类别" : "新建类别"}</h3>
+          <div className="grid grid-cols-1 gap-4 max-w-lg">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">类别名称 <span className="text-red-500">*</span></label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
+                placeholder="如：政策公告、活动通知…" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">描述（选填）</label>
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
+                placeholder="简短描述该类别的用途" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">排序权重</label>
+              <input type="number" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
+                placeholder="数字越小越靠前，默认 0" />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-5">
+            <button onClick={save} className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center gap-2">
+              <Save size={14} /> 保存
+            </button>
+            <button onClick={cancelEdit} className="px-5 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-32"><Loader2 className="animate-spin text-primary" /></div>
+      ) : rows.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-slate-400">
+          <Tag size={36} className="mx-auto mb-3 text-slate-200" />
+          <p className="font-semibold">暂无公告类别</p>
+          <p className="text-sm mt-1">点击「新建类别」开始添加</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">ID</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">类别名称</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">描述</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">排序</th>
+                <th className="text-right px-5 py-3 text-slate-500 font-semibold">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(row => (
+                <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                  <td className="px-5 py-3.5 text-slate-400 text-xs">{row.id}</td>
+                  <td className="px-5 py-3.5 font-semibold text-blue-900">{row.name}</td>
+                  <td className="px-5 py-3.5 text-slate-500">{row.description || <span className="text-slate-300">—</span>}</td>
+                  <td className="px-5 py-3.5 text-slate-500">{row.sortOrder}</td>
+                  <td className="px-5 py-3.5 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => startEdit(row)}
+                        className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors" title="编辑">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => remove(row.id, row.name)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="删除">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {confirmDialog}
+    </div>
+  );
+}
+
+/* ─── Announcement Management ────────────────── */
+
+type AnnItem = {
+  id: number; title: string; content: string; categoryId: number | null; categoryName: string | null;
+  isPublished: boolean; sortOrder: number; publishedAt: string | null; createdAt: string;
+};
+
+type AnnListResponse = { data: AnnItem[]; categories: { id: number; name: string }[]; total: number; page: number; pageSize: number };
+
+function AnnouncementManagement() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { askConfirm, confirmDialog } = useConfirm();
+
+  const [page, setPage] = useState(1);
+  const [keyword, setKeyword] = useState("");
+  const [filterCat, setFilterCat] = useState<string>("");
+  const [editing, setEditing] = useState<AnnItem | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ title: "", content: "", categoryId: "" as string, isPublished: false, sortOrder: 0 });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "announcements", page, keyword, filterCat],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: "20" });
+      if (keyword) params.set("keyword", keyword);
+      if (filterCat) params.set("categoryId", filterCat);
+      return adminGet<AnnListResponse>(`/api/admin/community-announcements?${params}`);
+    },
+  });
+
+  const rows       = data?.data ?? [];
+  const total      = data?.total ?? 0;
+  const categories = data?.categories ?? [];
+  const totalPages = Math.ceil(total / 20);
+  const showForm   = creating || !!editing;
+
+  async function save() {
+    if (!form.title.trim()) { toast({ title: "标题不能为空", variant: "destructive" }); return; }
+    try {
+      const payload = {
+        title: form.title.trim(),
+        content: form.content,
+        categoryId: form.categoryId ? parseInt(form.categoryId) : null,
+        isPublished: form.isPublished,
+        sortOrder: form.sortOrder,
+      };
+      if (editing) {
+        await adminPatch(`/api/admin/community-announcements/${editing.id}`, payload);
+        toast({ title: "更新成功" });
+      } else {
+        await adminPost("/api/admin/community-announcements", payload);
+        toast({ title: "创建成功" });
+      }
+      qc.invalidateQueries({ queryKey: ["admin", "announcements"] });
+      setEditing(null); setCreating(false);
+      setForm({ title: "", content: "", categoryId: "", isPublished: false, sortOrder: 0 });
+    } catch (err) { toast({ title: "操作失败", description: (err as Error).message, variant: "destructive" }); }
+  }
+
+  async function togglePublish(row: AnnItem) {
+    try {
+      await adminPatch(`/api/admin/community-announcements/${row.id}`, { isPublished: !row.isPublished });
+      toast({ title: row.isPublished ? "已取消发布" : "已发布" });
+      qc.invalidateQueries({ queryKey: ["admin", "announcements"] });
+    } catch (err) { toast({ title: "操作失败", description: (err as Error).message, variant: "destructive" }); }
+  }
+
+  function remove(id: number, title: string) {
+    askConfirm({
+      title: `删除公告「${title}」?`,
+      description: "此操作不可撤销。",
+      confirmLabel: "确认删除",
+      confirmVariant: "destructive",
+      onConfirm: async () => {
+        try {
+          await adminDelete(`/api/admin/community-announcements/${id}`);
+          toast({ title: "已删除" });
+          qc.invalidateQueries({ queryKey: ["admin", "announcements"] });
+        } catch (err) { toast({ title: "删除失败", description: (err as Error).message, variant: "destructive" }); }
+      },
+    });
+  }
+
+  function startEdit(row: AnnItem) {
+    setEditing(row); setCreating(false);
+    setForm({ title: row.title, content: row.content, categoryId: row.categoryId ? String(row.categoryId) : "", isPublished: row.isPublished, sortOrder: row.sortOrder });
+  }
+  function cancelEdit() { setEditing(null); setCreating(false); setForm({ title: "", content: "", categoryId: "", isPublished: false, sortOrder: 0 }); }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-bold text-blue-900">公告管理</h2>
+        {!showForm && (
+          <button onClick={() => { setCreating(true); setEditing(null); setForm({ title: "", content: "", categoryId: "", isPublished: false, sortOrder: 0 }); }}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+            <Plus size={15} /> 新建公告
+          </button>
+        )}
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-primary/20">
+          <h3 className="font-bold text-blue-900 mb-4">{editing ? "编辑公告" : "新建公告"}</h3>
+          <div className="grid grid-cols-1 gap-4 max-w-2xl">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">标题 <span className="text-red-500">*</span></label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary"
+                placeholder="公告标题" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">所属类别</label>
+              <select value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary bg-white">
+                <option value="">— 无类别 —</option>
+                {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">内容（支持 Markdown）</label>
+              <MarkdownEditor value={form.content} onChange={v => setForm(f => ({ ...f, content: v }))} minHeight="240px" />
+            </div>
+            <div className="flex gap-6 items-center">
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">排序权重</label>
+                <input type="number" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
+                  className="w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary" />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer mt-5">
+                <input type="checkbox" checked={form.isPublished} onChange={e => setForm(f => ({ ...f, isPublished: e.target.checked }))}
+                  className="w-4 h-4 accent-primary rounded" />
+                <span className="text-sm font-semibold text-slate-600">立即发布</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-5">
+            <button onClick={save} className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center gap-2">
+              <Save size={14} /> 保存
+            </button>
+            <button onClick={cancelEdit} className="px-5 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      {!showForm && (
+        <div className="flex gap-3 mb-4">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={keyword} onChange={e => { setKeyword(e.target.value); setPage(1); }}
+              placeholder="搜索标题或内容…" className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary" />
+          </div>
+          <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1); }}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary bg-white">
+            <option value="">所有类别</option>
+            {categories.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* List */}
+      {!showForm && (isLoading ? (
+        <div className="flex items-center justify-center h-32"><Loader2 className="animate-spin text-primary" /></div>
+      ) : rows.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-slate-400">
+          <Megaphone size={36} className="mx-auto mb-3 text-slate-200" />
+          <p className="font-semibold">暂无公告</p>
+          <p className="text-sm mt-1">点击「新建公告」开始添加</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">ID</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">标题</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">类别</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">状态</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">排序</th>
+                <th className="text-left px-5 py-3 text-slate-500 font-semibold">创建时间</th>
+                <th className="text-right px-5 py-3 text-slate-500 font-semibold">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(row => (
+                <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                  <td className="px-5 py-3.5 text-slate-400 text-xs">{row.id}</td>
+                  <td className="px-5 py-3.5">
+                    <p className="font-semibold text-blue-900 max-w-[220px] truncate">{row.title}</p>
+                    {row.content && <p className="text-slate-400 text-xs mt-0.5 max-w-[220px] truncate">{row.content.replace(/#+\s*/g, "").slice(0, 60)}</p>}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    {row.categoryName
+                      ? <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-semibold">{row.categoryName}</span>
+                      : <span className="text-slate-300 text-xs">无</span>}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    {row.isPublished
+                      ? <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold">已发布</span>
+                      : <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-bold">草稿</span>}
+                  </td>
+                  <td className="px-5 py-3.5 text-slate-500">{row.sortOrder}</td>
+                  <td className="px-5 py-3.5 text-slate-400 text-xs">{new Date(row.createdAt).toLocaleDateString("zh-CN")}</td>
+                  <td className="px-5 py-3.5 text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <button onClick={() => togglePublish(row)}
+                        className={`p-1.5 rounded-lg transition-colors ${row.isPublished ? "hover:bg-amber-50 text-amber-500 hover:text-amber-700" : "hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700"}`}
+                        title={row.isPublished ? "取消发布" : "发布"}>
+                        {row.isPublished ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                      <button onClick={() => startEdit(row)}
+                        className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors" title="编辑">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => remove(row.id, row.title)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="删除">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center px-5 py-4 border-t border-slate-100">
+              <span className="text-sm text-slate-500">共 {total} 条</span>
+              <div className="flex gap-2">
+                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors">上一页</button>
+                <span className="px-3 py-1.5 text-sm text-slate-500">{page} / {totalPages}</span>
+                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors">下一页</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      {confirmDialog}
+    </div>
+  );
 }
 
 /* ─── Sidebar Logo ───────────────────────────── */
@@ -9252,21 +9697,47 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
   function canSee(item: typeof NAV[0]): boolean {
     if (item.superAdminOnly) return isSuperAdmin;
     if (hasAllPerms) return true;
+    if (item.permKeys) return item.permKeys.some(k => permissions.includes(k));
     if (!item.permKey) return true;
     return permissions.includes(item.permKey);
   }
 
+  function canSeeChild(child: NavChild): boolean {
+    if (child.superAdminOnly && !isSuperAdmin) return false;
+    if (hasAllPerms) return true;
+    if (!child.permKey) return true;
+    return permissions.includes(child.permKey);
+  }
+
   const visibleNav = NAV.filter(canSee);
 
-  // If the current active module is no longer accessible, jump to the first visible one.
-  // Must also check child module keys (e.g. "catcategories", "cattags") so clicking sub-items doesn't reset.
+  // Returns the first permitted leaf module key for a nav item.
+  // For groups, picks the first child the user can see.
+  function firstPermittedKey(item: NavItem): Module {
+    if (item.children?.length) {
+      const firstChild = item.children.filter(canSeeChild).find(c => c.moduleKey);
+      if (firstChild?.moduleKey) return firstChild.moduleKey;
+    }
+    return item.key;
+  }
+
+  // If the current active module is no longer accessible, jump to the first visible leaf.
+  // Also handles the case where active equals a parent group key (has children) — redirect
+  // to the first permitted child so the rendered component matches the user's permissions.
   useEffect(() => {
     const allowed = visibleNav.some(n =>
       n.key === active ||
       n.children?.some(c => c.moduleKey === active)
     );
     if (!allowed && visibleNav.length > 0) {
-      setActive(visibleNav[0].key);
+      setActive(firstPermittedKey(visibleNav[0]));
+      return;
+    }
+    // If active is a parent group key (has children), redirect to first permitted child
+    const activeGroup = visibleNav.find(n => n.key === active && n.children?.length);
+    if (activeGroup) {
+      const target = firstPermittedKey(activeGroup);
+      if (target !== active) setActive(target);
     }
   }, [visibleNav.map(n => n.key).join(","), active]);
 
@@ -9329,7 +9800,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
                   {/* Sub-items */}
                   {isExpanded && (
                     <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-3">
-                      {item.children.filter(child => !child.superAdminOnly || isSuperAdmin).map(child => {
+                      {item.children.filter(canSeeChild).map(child => {
                         const isChildActive = child.moduleKey && active === child.moduleKey;
                         if (child.moduleKey) {
                           return (

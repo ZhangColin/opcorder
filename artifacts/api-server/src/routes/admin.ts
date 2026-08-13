@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable, communityAnnouncementCategoriesTable, communityAnnouncementsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -226,7 +226,9 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   { prefix: "/api/admin/login-logs",    permission: "operation" },
   { prefix: "/api/admin/login-stats",   permission: "operation" },
   { prefix: "/api/admin/login-city",    permission: "operation" },
-  { prefix: "/api/admin/contests",      permission: "contest" },
+  { prefix: "/api/admin/contests",              permission: "contest" },
+  // community routes use inline requirePermission — not prefix-matched here
+  // to avoid startsWith collision between /api/admin/community and community-*
 ];
 
 import { Request, Response, NextFunction } from "express";
@@ -3125,6 +3127,170 @@ router.put("/admin/platform-contract-config/:partyType", requireAdmin, async (re
   } catch (err) {
     logger.error({ err }, "Failed to update platform contract config");
     return res.status(500).json({ error: "保存合同配置失败" });
+  }
+});
+
+/* ─── COMMUNITY MANAGEMENT ─────────────────────────────────────────────── */
+
+/* ── 社区公告类别 CRUD (/admin/community-announcement-categories) ── */
+
+router.get("/admin/community-announcement-categories", requireAdmin, requirePermission("announcement_category"), async (_req, res) => {
+  try {
+    const rows = await db.select().from(communityAnnouncementCategoriesTable)
+      .orderBy(asc(communityAnnouncementCategoriesTable.sortOrder), asc(communityAnnouncementCategoriesTable.id));
+    return res.json({ data: rows });
+  } catch (err) {
+    logger.error({ err }, "Failed to list community announcement categories");
+    return res.status(500).json({ error: "获取公告类别失败" });
+  }
+});
+
+router.post("/admin/community-announcement-categories", requireAdmin, requirePermission("announcement_category"), async (req, res) => {
+  try {
+    const { name, description, sortOrder } = req.body as { name: string; description?: string; sortOrder?: number };
+    if (!name?.trim()) return res.status(400).json({ error: "类别名称不能为空" });
+    const [row] = await db.insert(communityAnnouncementCategoriesTable)
+      .values({ name: name.trim(), description: description?.trim() ?? null, sortOrder: sortOrder ?? 0 })
+      .returning();
+    return res.status(201).json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to create community announcement category");
+    return res.status(500).json({ error: "创建公告类别失败" });
+  }
+});
+
+router.patch("/admin/community-announcement-categories/:id", requireAdmin, requirePermission("announcement_category"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const { name, description, sortOrder } = req.body as { name?: string; description?: string; sortOrder?: number };
+    const set: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) set.name = name.trim();
+    if (description !== undefined) set.description = description.trim() || null;
+    if (sortOrder !== undefined) set.sortOrder = sortOrder;
+    const [row] = await db.update(communityAnnouncementCategoriesTable).set(set)
+      .where(eq(communityAnnouncementCategoriesTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "类别不存在" });
+    return res.json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to update community announcement category");
+    return res.status(500).json({ error: "更新公告类别失败" });
+  }
+});
+
+router.delete("/admin/community-announcement-categories/:id", requireAdmin, requirePermission("announcement_category"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    // Unlink community announcements before deleting the category
+    await db.execute(sql`
+      UPDATE community_announcements SET category_id = NULL, updated_at = NOW()
+      WHERE category_id = ${id}
+    `);
+    await db.delete(communityAnnouncementCategoriesTable)
+      .where(eq(communityAnnouncementCategoriesTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to delete community announcement category");
+    return res.status(500).json({ error: "删除公告类别失败" });
+  }
+});
+
+/* ── 社区公告 CRUD (/admin/community-announcements) ── */
+
+router.get("/admin/community-announcements", requireAdmin, requirePermission("announcement"), async (req, res) => {
+  try {
+    const { page = "1", pageSize = "20", keyword, categoryId } = req.query as Record<string, string>;
+    const { page: p, pageSize: ps, offset } = paginate({ page, pageSize });
+    const conditions = [];
+    if (keyword) conditions.push(or(
+      ilike(communityAnnouncementsTable.title, `%${keyword}%`),
+      ilike(communityAnnouncementsTable.content, `%${keyword}%`),
+    )!);
+    if (categoryId) conditions.push(eq(communityAnnouncementsTable.categoryId, parseInt(categoryId, 10)));
+    const where = conditions.length ? and(...conditions) : undefined;
+
+    const [total, rows, categories] = await Promise.all([
+      db.select({ cnt: count() }).from(communityAnnouncementsTable).where(where),
+      db.select({
+        announcement: communityAnnouncementsTable,
+        categoryName: communityAnnouncementCategoriesTable.name,
+      }).from(communityAnnouncementsTable)
+        .leftJoin(communityAnnouncementCategoriesTable, eq(communityAnnouncementsTable.categoryId, communityAnnouncementCategoriesTable.id))
+        .where(where)
+        .orderBy(asc(communityAnnouncementsTable.sortOrder), desc(communityAnnouncementsTable.id))
+        .limit(ps).offset(offset),
+      db.select({ id: communityAnnouncementCategoriesTable.id, name: communityAnnouncementCategoriesTable.name })
+        .from(communityAnnouncementCategoriesTable).orderBy(asc(communityAnnouncementCategoriesTable.sortOrder)),
+    ]);
+
+    return res.json({
+      data: rows.map(r => ({ ...r.announcement, categoryName: r.categoryName })),
+      categories,
+      total: Number(total[0].cnt),
+      page: p,
+      pageSize: ps,
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to list community announcements");
+    return res.status(500).json({ error: "获取公告列表失败" });
+  }
+});
+
+router.post("/admin/community-announcements", requireAdmin, requirePermission("announcement"), async (req, res) => {
+  try {
+    const { title, content, categoryId, isPublished, sortOrder } = req.body as {
+      title: string; content?: string; categoryId?: number; isPublished?: boolean; sortOrder?: number;
+    };
+    if (!title?.trim()) return res.status(400).json({ error: "公告标题不能为空" });
+    const now = new Date();
+    const [row] = await db.insert(communityAnnouncementsTable).values({
+      title: title.trim(),
+      content: content?.trim() ?? "",
+      categoryId: categoryId ?? null,
+      isPublished: isPublished ?? false,
+      sortOrder: sortOrder ?? 0,
+      publishedAt: isPublished ? now : null,
+    }).returning();
+    return res.status(201).json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to create community announcement");
+    return res.status(500).json({ error: "创建公告失败" });
+  }
+});
+
+router.patch("/admin/community-announcements/:id", requireAdmin, requirePermission("announcement"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    const { title, content, categoryId, isPublished, sortOrder } = req.body as {
+      title?: string; content?: string; categoryId?: number | null; isPublished?: boolean; sortOrder?: number;
+    };
+    const now = new Date();
+    const set: Record<string, unknown> = { updatedAt: now };
+    if (title !== undefined) set.title = title.trim();
+    if (content !== undefined) set.content = content;
+    if (categoryId !== undefined) set.categoryId = categoryId;
+    if (sortOrder !== undefined) set.sortOrder = sortOrder;
+    if (isPublished !== undefined) {
+      set.isPublished = isPublished;
+      if (isPublished) set.publishedAt = now;
+    }
+    const [row] = await db.update(communityAnnouncementsTable).set(set)
+      .where(eq(communityAnnouncementsTable.id, id)).returning();
+    if (!row) return res.status(404).json({ error: "公告不存在" });
+    return res.json({ data: row });
+  } catch (err) {
+    logger.error({ err }, "Failed to update community announcement");
+    return res.status(500).json({ error: "更新公告失败" });
+  }
+});
+
+router.delete("/admin/community-announcements/:id", requireAdmin, requirePermission("announcement"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    await db.delete(communityAnnouncementsTable).where(eq(communityAnnouncementsTable.id, id));
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to delete community announcement");
+    return res.status(500).json({ error: "删除公告失败" });
   }
 });
 

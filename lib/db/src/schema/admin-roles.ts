@@ -20,6 +20,10 @@ export const ADMIN_PERMISSION_KEYS = [
   "screen",
   "operation",
   "contest",
+  // 社区管理模块
+  "community",
+  "announcement_category",
+  "announcement",
 ] as const;
 
 export type AdminPermissionKey = (typeof ADMIN_PERMISSION_KEYS)[number];
