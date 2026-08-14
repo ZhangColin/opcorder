@@ -103,7 +103,7 @@ export default function AgentUsePage() {
       <div className="flex-1 flex flex-col pt-16 sm:pt-20 max-w-[1200px] w-full mx-auto px-3 sm:px-6 pb-4">
         {/* Header */}
         <div className="flex items-center gap-3 py-3 border-b border-border/50">
-          <button onClick={() => navigate("/tools/market")} className="w-9 h-9 rounded-xl border border-border/60 bg-white flex items-center justify-center text-slate-500 hover:text-primary" aria-label="返回市场">
+          <button onClick={() => navigate("/tools/myagents")} className="w-9 h-9 rounded-xl border border-border/60 bg-white flex items-center justify-center text-slate-500 hover:text-primary" aria-label="返回我的智能体">
             <ArrowLeft size={17} />
           </button>
           <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center overflow-hidden flex-shrink-0">
