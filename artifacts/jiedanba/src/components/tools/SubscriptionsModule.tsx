@@ -1,10 +1,20 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bot, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SubscriptionsResponse, tGet, tPost, formatPrice, formatDate } from "./api";
-import { PageHeader, EmptyState, Loading, ErrorBanner } from "./shared";
+import { SubscriptionsResponse, SubscribeResponse, tGet, tPost, formatPrice, formatDate } from "./api";
+import { PageHeader, EmptyState, Loading, ErrorBanner, PayDialog } from "./shared";
 
 function yuan(fen: number) { return `¥${(fen / 100).toFixed(2)}`; }
+
+const RENEW_REMIND_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** 生效中但 3 天内到期 → 临期 */
+function isExpiringSoon(s: { status?: string | null; expiresAt?: string | null }) {
+  if (s.status !== "active" || !s.expiresAt) return false;
+  const t = new Date(s.expiresAt).getTime();
+  return t > Date.now() && t - Date.now() <= RENEW_REMIND_MS;
+}
 
 const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
   active:          { text: "生效中",  cls: "bg-green-50 text-green-600" },
@@ -21,6 +31,26 @@ export default function SubscriptionsModule() {
     queryFn: () => tGet<SubscriptionsResponse>("/tools/subscriptions"),
   });
 
+  const [paying, setPaying] = useState<{ agentId: number; agentName: string; qrCodeUrl: string; amountFen: number } | null>(null);
+
+  const rows = data?.items ?? [];
+  const totalSpentFen = data?.totalSpentFen ?? 0;
+
+  // 续费：复用订阅支付流程（到期/已退订等终结态可开新单）
+  const renewMut = useMutation({
+    mutationFn: (agentId: number) => tPost<SubscribeResponse>(`/tools/market/${agentId}/subscribe`),
+    onSuccess: (r, agentId) => {
+      const row = rows.find((s) => s.agentId === agentId);
+      if (r?.paymentRequired && r.qrCodeUrl) {
+        setPaying({ agentId, agentName: row?.agentName ?? "", qrCodeUrl: r.qrCodeUrl, amountFen: r.amountFen ?? row?.amountFen ?? 0 });
+      } else {
+        qc.invalidateQueries({ queryKey: ["/tools/subscriptions"] });
+        toast({ title: "续订成功", description: "订阅已重新生效" });
+      }
+    },
+    onError: (e: any) => toast({ title: "续费失败", description: e.message, variant: "destructive" }),
+  });
+
   const unsubMut = useMutation({
     mutationFn: (agentId: number) => tPost(`/tools/market/${agentId}/unsubscribe`),
     onSuccess: () => {
@@ -29,9 +59,6 @@ export default function SubscriptionsModule() {
     },
     onError: (e: any) => toast({ title: "退订失败", description: e.message, variant: "destructive" }),
   });
-
-  const rows = data?.items ?? [];
-  const totalSpentFen = data?.totalSpentFen ?? 0;
 
   return (
     <div>
@@ -58,7 +85,11 @@ export default function SubscriptionsModule() {
             </thead>
             <tbody>
               {rows.map((s) => {
-                const st = STATUS_LABEL[s.status ?? ""] ?? { text: s.status ?? "—", cls: "bg-slate-100 text-slate-500" };
+                const expiringSoon = isExpiringSoon(s);
+                const st = expiringSoon
+                  ? { text: "即将到期", cls: "bg-amber-50 text-amber-600" }
+                  : (STATUS_LABEL[s.status ?? ""] ?? { text: s.status ?? "—", cls: "bg-slate-100 text-slate-500" });
+                const canRenew = (s.status === "expired" || s.status === "cancelled") && s.agentId != null;
                 return (
                   <tr key={s.id} className="border-t border-border/40 hover:bg-slate-50/50">
                     <td className="px-5 py-3">
@@ -79,6 +110,15 @@ export default function SubscriptionsModule() {
                     <td className="px-5 py-3 text-slate-400 text-xs whitespace-nowrap">{s.expiresAt ? formatDate(s.expiresAt) : (s.status === "active" ? "长期有效" : "—")}</td>
                     <td className="px-5 py-3 text-slate-400 text-xs whitespace-nowrap">{formatDate(s.createdAt)}</td>
                     <td className="px-5 py-3 text-right">
+                      {canRenew && (
+                        <button
+                          onClick={() => renewMut.mutate(s.agentId!)}
+                          disabled={renewMut.isPending}
+                          className="text-xs font-bold text-primary hover:text-primary/80 disabled:opacity-50 mr-3"
+                        >
+                          {s.status === "expired" ? "续费" : "重新订阅"}
+                        </button>
+                      )}
                       {s.status === "active" && s.agentId != null && (
                         <button
                           onClick={() => {
@@ -97,6 +137,21 @@ export default function SubscriptionsModule() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {paying && (
+        <PayDialog
+          agentId={paying.agentId}
+          agentName={paying.agentName}
+          qrCodeUrl={paying.qrCodeUrl}
+          amountFen={paying.amountFen}
+          onPaid={() => {
+            setPaying(null);
+            qc.invalidateQueries({ queryKey: ["/tools/subscriptions"] });
+            toast({ title: "续费成功", description: "订阅已重新生效" });
+          }}
+          onClose={() => setPaying(null)}
+        />
       )}
     </div>
   );

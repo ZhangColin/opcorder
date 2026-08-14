@@ -9,6 +9,8 @@ import {
   usersTable,
   v2ClientDemandsTable,
   v2OutsourceOrdersTable,
+  toolSubscriptionsTable,
+  toolAgentsTable,
 } from "@workspace/db";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { logger } from "./logger";
@@ -306,6 +308,98 @@ async function autoCompleteV2WarrantyPeriods() {
 }
 
 /* ─────────────────────────────────────────────────
+   JOB 5: Tool subscription expiry — mark expired + renewal reminders
+   到期标记不再只依赖用户访问订阅页;到期前 3 天与到期时各发一条站内通知。
+   去重策略：以 notifications 表中同 related_id + related_type、且创建时间落在
+   本期提醒窗口内的记录是否存在为准（续费后 expires_at 前移,新窗口自然重新触发）。
+   ───────────────────────────────────────────────── */
+const RENEW_REMIND_DAYS = 3;
+
+async function processToolSubscriptionExpiry() {
+  try {
+    const now = new Date();
+
+    // 1) 到期标记（不依赖订阅页的惰性标记）
+    await db.update(toolSubscriptionsTable)
+      .set({ status: "expired", updatedAt: now })
+      .where(and(
+        eq(toolSubscriptionsTable.status, "active"),
+        sql`${toolSubscriptionsTable.expiresAt} IS NOT NULL AND ${toolSubscriptionsTable.expiresAt} < now()`,
+      ));
+
+    // 2) 到期前 3 天提醒（仅付费订阅;每个到期周期只发一条）
+    const remindRows = await db.select({
+      sub: toolSubscriptionsTable,
+      agentName: toolAgentsTable.name,
+    })
+      .from(toolSubscriptionsTable)
+      .leftJoin(toolAgentsTable, eq(toolSubscriptionsTable.agentId, toolAgentsTable.id))
+      .where(and(
+        eq(toolSubscriptionsTable.status, "active"),
+        sql`${toolSubscriptionsTable.expiresAt} IS NOT NULL`,
+        sql`${toolSubscriptionsTable.expiresAt} > now()`,
+        sql`${toolSubscriptionsTable.expiresAt} <= now() + interval '${sql.raw(String(RENEW_REMIND_DAYS))} days'`,
+        sql`NOT EXISTS (
+          SELECT 1 FROM notifications n
+          WHERE n.related_type = 'tool_sub_remind'
+            AND n.related_id = ${toolSubscriptionsTable.id}
+            AND n.created_at > ${toolSubscriptionsTable.expiresAt} - interval '${sql.raw(String(RENEW_REMIND_DAYS + 1))} days'
+        )`,
+      ));
+
+    for (const r of remindRows) {
+      const name = r.agentName ?? "智能体";
+      const expires = r.sub.expiresAt!;
+      const daysLeft = Math.max(1, Math.ceil((expires.getTime() - now.getTime()) / DAY_MS));
+      await db.insert(notificationsTable).values({
+        userId: r.sub.userId,
+        type: "system",
+        title: "智能体订阅即将到期",
+        content: `您订阅的智能体「${name}」将在 ${daysLeft} 天内到期。到期后智能体将停止服务,可前往「工具平台 → 订阅与账单」续费。`,
+        relatedId: r.sub.id,
+        relatedType: "tool_sub_remind",
+      });
+      logger.info({ subscriptionId: r.sub.id, userId: r.sub.userId }, "Tool subscription renewal reminder sent");
+    }
+
+    // 3) 到期通知（含被订阅页惰性标记为 expired 的订阅;每个到期周期只发一条）
+    const expiredRows = await db.select({
+      sub: toolSubscriptionsTable,
+      agentName: toolAgentsTable.name,
+    })
+      .from(toolSubscriptionsTable)
+      .leftJoin(toolAgentsTable, eq(toolSubscriptionsTable.agentId, toolAgentsTable.id))
+      .where(and(
+        eq(toolSubscriptionsTable.status, "expired"),
+        sql`${toolSubscriptionsTable.expiresAt} IS NOT NULL`,
+        // 只补发最近 7 天内到期的,避免历史数据触发大量通知
+        sql`${toolSubscriptionsTable.expiresAt} > now() - interval '7 days'`,
+        sql`NOT EXISTS (
+          SELECT 1 FROM notifications n
+          WHERE n.related_type = 'tool_sub_expired'
+            AND n.related_id = ${toolSubscriptionsTable.id}
+            AND n.created_at >= ${toolSubscriptionsTable.expiresAt}
+        )`,
+      ));
+
+    for (const r of expiredRows) {
+      const name = r.agentName ?? "智能体";
+      await db.insert(notificationsTable).values({
+        userId: r.sub.userId,
+        type: "system",
+        title: "智能体订阅已到期",
+        content: `您订阅的智能体「${name}」已到期停用。可前往「工具平台 → 订阅与账单」点击「续费」恢复使用。`,
+        relatedId: r.sub.id,
+        relatedType: "tool_sub_expired",
+      });
+      logger.info({ subscriptionId: r.sub.id, userId: r.sub.userId }, "Tool subscription expired notification sent");
+    }
+  } catch (err) {
+    logger.error({ err }, "Tool subscription expiry job failed");
+  }
+}
+
+/* ─────────────────────────────────────────────────
    Start all scheduled jobs
    ───────────────────────────────────────────────── */
 export function startScheduler() {
@@ -322,6 +416,9 @@ export function startScheduler() {
 
   autoCompleteV2WarrantyPeriods();
   setInterval(autoCompleteV2WarrantyPeriods, HOUR_MS); // hourly
+
+  processToolSubscriptionExpiry();
+  setInterval(processToolSubscriptionExpiry, HOUR_MS); // hourly
 
   startComputeScheduler();
 

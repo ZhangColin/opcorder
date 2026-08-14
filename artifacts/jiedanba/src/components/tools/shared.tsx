@@ -1,5 +1,46 @@
-import { ReactNode } from "react";
-import { Inbox, Loader2 } from "lucide-react";
+import { ReactNode, useState, useEffect, useRef } from "react";
+import { Inbox, Loader2, X, QrCode } from "lucide-react";
+import { tPost, PaymentStatusResponse } from "./api";
+
+/** 付费订阅扫码支付弹窗：展示二维码并轮询支付结果（订阅市场与续费共用） */
+export function PayDialog({ agentId, agentName, qrCodeUrl, amountFen, onPaid, onClose }: {
+  agentId: number; agentName: string; qrCodeUrl: string; amountFen: number;
+  onPaid: () => void; onClose: () => void;
+}) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const stopped = useRef(false);
+  useEffect(() => {
+    stopped.current = false;
+    const timer = setInterval(async () => {
+      if (stopped.current) return;
+      try {
+        const r = await tPost<PaymentStatusResponse>(`/tools/market/${agentId}/payment-status`);
+        if (r.paid) { stopped.current = true; clearInterval(timer); onPaid(); }
+        else if (r.terminal) { stopped.current = true; clearInterval(timer); setFailed(r.statusName ?? "支付未完成"); }
+      } catch { /* 轮询失败继续重试 */ }
+    }, 3000);
+    return () => { stopped.current = true; clearInterval(timer); };
+  }, [agentId, onPaid]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center relative" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600" aria-label="关闭"><X size={18} /></button>
+        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3"><QrCode size={22} className="text-primary" /></div>
+        <h3 className="font-bold text-slate-800 mb-1">扫码订阅「{agentName}」</h3>
+        <p className="text-sm text-slate-500 mb-4">¥{(amountFen / 100).toFixed(2)}/月 · 支付成功后自动生效</p>
+        {failed ? (
+          <p className="text-sm text-red-500 py-8">{failed}，请关闭后重新发起订阅</p>
+        ) : (
+          <>
+            <img src={qrCodeUrl} alt="支付二维码" className="w-52 h-52 mx-auto rounded-xl border border-border/60 object-contain" />
+            <p className="text-xs text-slate-400 mt-3 animate-pulse">等待支付中…</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ─── Section header ─────────────────── */
 export function PageHeader({ title, desc, action }: { title: string; desc?: string; action?: ReactNode }) {
