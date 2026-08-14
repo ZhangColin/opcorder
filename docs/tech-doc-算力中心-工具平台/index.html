@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>接单吧 算力中心与工具平台技术文档</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Noto Sans SC", sans-serif; color: #1f2937; font-size: 10.5pt; line-height: 1.75; margin: 0; }
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .cover .logo { width: 56px; height: 56px; background: #0047ab; border-radius: 14px; color: #fff; font-size: 28px; font-weight: 900; display: flex; align-items: center; justify-content: center; margin-bottom: 28px; }
+  .cover h1 { font-size: 30pt; font-weight: 900; color: #0f172a; margin: 0 0 8px; }
+  .cover h2 { font-size: 15pt; font-weight: 400; color: #64748b; margin: 0 0 40px; }
+  .cover .meta { border-top: 2px solid #0047ab; padding-top: 16px; color: #64748b; font-size: 10pt; }
+  h1.chapter { font-size: 19pt; font-weight: 900; color: #0047ab; border-bottom: 3px solid #0047ab; padding-bottom: 8px; margin: 0 0 18px; page-break-before: always; }
+  h1.nobreak { page-break-before: auto; }
+  h2 { font-size: 13.5pt; font-weight: 700; color: #0f172a; margin: 22px 0 8px; border-left: 4px solid #0047ab; padding-left: 10px; }
+  h3 { font-size: 11.5pt; font-weight: 700; color: #334155; margin: 14px 0 6px; }
+  p { margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5pt; page-break-inside: avoid; }
+  th { background: #eef4fc; color: #0f172a; font-weight: 700; text-align: left; }
+  th, td { border: 1px solid #d7dee8; padding: 5px 8px; vertical-align: top; }
+  code { font-family: "DejaVu Sans Mono", monospace; background: #f1f5f9; border-radius: 4px; padding: 1px 5px; font-size: 9pt; color: #b91c1c; }
+  pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 10px 14px; font-size: 8.5pt; overflow: hidden; page-break-inside: avoid; }
+  pre code { background: none; color: inherit; padding: 0; }
+  .flow { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin: 10px 0; page-break-inside: avoid; }
+  .flow ol { margin: 4px 0; padding-left: 20px; }
+  .flow li { margin: 4px 0; }
+  .note { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 9.8pt; page-break-inside: avoid; }
+  .term { background: #eef4fc; border-left: 4px solid #0047ab; padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 9.8pt; page-break-inside: avoid; }
+  .toc { page-break-after: always; }
+  .toc h1 { font-size: 17pt; color: #0047ab; }
+  .toc ul { list-style: none; padding-left: 0; }
+  .toc > ul > li { font-weight: 700; margin: 10px 0 4px; font-size: 11.5pt; }
+  .toc ul ul { padding-left: 18px; font-weight: 400; font-size: 10pt; color: #475569; }
+  .toc ul ul li { margin: 2px 0; }
+  .arrow { color: #0047ab; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ═══ 封面 ═══ -->
+<div class="cover">
+  <div class="logo">接</div>
+  <h1>算力中心与工具平台技术文档</h1>
+  <h2>算力中心 · 工具平台（AI 智能体生态）</h2>
+  <div class="meta">
+    <p>「接单吧」OPC 撮合交易平台 · 技术介绍文档</p>
+    <p>版本：v1.0 &nbsp;|&nbsp; 编写日期：2026 年 8 月 14 日 &nbsp;|&nbsp; 面向读者：技术与产品团队、对外合作伙伴</p>
+  </div>
+</div>
+
+<!-- ═══ 目录 ═══ -->
+<div class="toc">
+  <h1>目录</h1>
+  <ul>
+    <li>概述</li>
+    <li>第一章 算力中心
+      <ul>
+        <li>1.1 功能定位与业务价值</li>
+        <li>1.2 功能子模块与生命周期状态机</li>
+        <li>1.3 计费机制（按秒计费、账单水位、余额模型）</li>
+        <li>1.4 并发一致性设计（调度器、事务与锁）</li>
+        <li>1.5 前后端交互方式（接口清单）</li>
+        <li>1.6 数据存储结构</li>
+      </ul>
+    </li>
+    <li>第二章 工具平台
+      <ul>
+        <li>2.1 功能定位与业务价值</li>
+        <li>2.2 子模块总览（工作区 / 市场 / 收益账单）</li>
+        <li>2.3 智能体使用与对话机制（权限判定、角色约束、会话存储）</li>
+        <li>2.4 付费订阅闭环（下单 → 支付核验 → 激活 → 收益记账）</li>
+        <li>2.5 前后端交互方式（接口清单）</li>
+        <li>2.6 数据存储结构</li>
+        <li>2.7 权限控制与并发保护</li>
+      </ul>
+    </li>
+  </ul>
+</div>
+
+<!-- ═══ 概述 ═══ -->
+<h1 class="chapter nobreak">概述</h1>
+<p>「接单吧」在核心撮合交易能力之外，为平台用户（OPC 与发单方）构建了两大自助式生产力模块：</p>
+<table>
+  <tr><th style="width:20%">模块</th><th style="width:40%">解决的问题</th><th>技术形态</th></tr>
+  <tr><td><b>算力中心</b></td><td>AI 从业者需要随开随用的开发环境、训练与推理算力，且费用要按实际用量透明结算</td><td>Notebook / 训练任务 / 推理服务三类可计费资源的全生命周期管理，后台调度器按秒计费，账单流水与资源水位同事务原子记账</td></tr>
+  <tr><td><b>工具平台</b></td><td>创作者希望把自己的 AI 能力（智能体）沉淀为可复用、可变现的产品；使用者希望即订即用</td><td>智能体创建 → 发布市场 → 订阅付费 → 在线对话使用的完整闭环，LLM 调用统一封装并支持多供应商故障转移</td></tr>
+</table>
+<p>两个模块运行在与主站一致的技术栈上：后端 Express + Drizzle ORM + PostgreSQL（<code>artifacts/api-server</code>），前端 React + Vite（<code>artifacts/jiedanba</code>）；金额一律以<b>人民币分</b>（<code>amountFen</code>）整数存储；时间遵循「北京墙上时间裸存储」约定。大模型调用统一封装在 <code>src/lib/llm.ts</code>，支持后台配置多个 OpenAI 兼容供应商（如 DeepSeek），按激活状态排序自动故障转移（failover）。</p>
+<div class="term"><b>术语速查</b>：<b>Notebook</b>=在线交互式开发环境（类 Jupyter）；<b>推理服务</b>=把训练好的模型部署为在线 API；<b>副本（replica）</b>=同一推理服务并行运行的实例数；<b>水位（lastBilledAt）</b>=资源「已计费到哪个时间点」的游标；<b>咨询锁（advisory lock）</b>=PostgreSQL 提供的应用级互斥锁；<b>FOR UPDATE</b>=行级排他锁，事务内锁定所选行防止并发修改；<b>LLM</b>=大语言模型。</div>
+
+<!-- ═══════════════ 第一章 ═══════════════ -->
+<h1 class="chapter">第一章 算力中心</h1>
+
+<h2>1.1 功能定位与业务价值</h2>
+<p>算力中心是面向 AI 从业者的自助算力控制台：用户可以一键创建在线开发环境（Notebook）、提交模型训练任务、部署推理服务，并配套管理存储、镜像、API 密钥、代币资源与个人模型/数据集仓库。所有可计费资源<b>按秒累计、按实际运行时长扣费</b>，账单流水实时可查。</p>
+<p>业务价值：① 把「买卡、装环境、算账」的重资产流程变成开箱即用的云上自助服务；② 按量计费 + 透明账单降低使用门槛与信任成本；③ 与工具平台共享账号体系，构成「算力 → 模型 → 智能体产品化」的完整链路。</p>
+
+<h2>1.2 功能子模块与生命周期状态机</h2>
+<table>
+  <tr><th style="width:18%">子模块</th><th style="width:40%">生命周期</th><th>说明</th></tr>
+  <tr><td><b>Notebook 开发环境</b></td><td><code>creating</code> <span class="arrow">→</span>（调度器约 30 秒后）<code>running</code> <span class="arrow">→</span> <code>stopped</code>（可再 start）</td><td>可选环境类型 / 镜像 / 资源规格 / SSH 直连；重复 start 返回 409；停止与删除运行中的实例都会<b>先结算再变更</b></td></tr>
+  <tr><td><b>训练任务</b></td><td><code>pending</code> <span class="arrow">→</span> <code>running</code> <span class="arrow">→</span> <code>completed</code>（到达计划时长自动完成并结清）/ <code>stopped</code>（手动停止）</td><td>支持自定义命令、数据/输出路径；支持一键克隆（克隆为新的 pending 任务）；同步累计 <code>totalRuntimeSeconds</code></td></tr>
+  <tr><td><b>推理服务</b></td><td><code>deploying</code> <span class="arrow">→</span> <code>running</code>（副本全部就绪）<span class="arrow">⇄</span> <code>stopped</code></td><td>指定模型来源、规格与副本数；运行时费用按副本数放大；停止后副本归零</td></tr>
+  <tr><td><b>存储</b></td><td>常驻 <code>running</code></td><td>文件/对象存储的容量与用量管理（元数据）</td></tr>
+  <tr><td><b>计算资源实例</b></td><td>常驻 <code>running</code>，支持到期时间</td><td>包周期 GPU/CPU 实例的登记管理</td></tr>
+  <tr><td><b>代币资源</b></td><td>额度用尽或到期</td><td>大模型 Token 包：总量 / 已用量 / 有效期</td></tr>
+  <tr><td><b>API 密钥</b></td><td>创建 / 删除</td><td>生成 <code>sk-</code> 前缀密钥；数据库<b>只存 SHA-256 哈希与展示前缀</b>，明文仅在创建响应中一次性返回</td></tr>
+  <tr><td><b>镜像 / 仓库 / 收藏</b></td><td>—</td><td>自定义镜像登记；个人模型/数据集/镜像仓库（公开或私有）；收藏支持 toggle，私有且非本人的目标不暴露内容</td></tr>
+</table>
+<div class="note"><b>状态推进由谁完成？</b>创建后的 <code>creating/pending/deploying → running</code> 与训练任务的自动完成，均由后台<b>调度器</b>（每 30 秒一个 tick）推进，模拟真实云平台的异步就绪过程；用户侧的 start/stop/delete 则通过 REST 接口即时生效。</div>
+
+<h2>1.3 计费机制</h2>
+<h3>1.3.1 计费单位与价格来源</h3>
+<p>所有金额以人民币<b>分</b>存储。运行费用按「秒数 × 小时单价 ÷ 3600」<b>向上取整</b>到分：<code>ceil(seconds × rateFenPerHour / 3600)</code>。小时单价由资源规格字符串匹配得出：</p>
+<table>
+  <tr><th>规格关键字</th><th>小时单价</th><th>说明</th></tr>
+  <tr><td>H100 / H800</td><td>24.00 元/小时</td><td>旗舰训练卡</td></tr>
+  <tr><td>A100 / A800</td><td>16.00 元/小时</td><td>主流训练卡</td></tr>
+  <tr><td>V100 / 4090 / 3090 / L20 / L40 及其他 GPU</td><td>8.00 元/小时</td><td>通用 GPU</td></tr>
+  <tr><td>纯 CPU 规格</td><td>1.00 元/小时</td><td>—</td></tr>
+</table>
+<p>推理服务的费用再乘以副本数（取运行中副本数，至少按 1 计）。</p>
+<h3>1.3.2 账单与水位：原子记账模型</h3>
+<div class="flow"><ol>
+  <li>每个计费资源带一个<b>水位字段</b> <code>lastBilledAt</code>，表示「已经结算到哪个时刻」。</li>
+  <li>调度器每个 tick 对每满 60 秒未结算的运行中资源执行 <code>billSegment</code>：在<b>同一个数据库事务</b>内插入一条 <code>compute_bills</code> 支出流水，并把水位推进到本次结算点。</li>
+  <li>用户停止 / 删除运行中的资源时，路由先对该行加 <code>FOR UPDATE</code> 行锁，把「水位 → 当前时刻」这一段<b>先结清</b>，再改状态或删除——保证既不多扣（重复结算）也不漏扣（未结算就删）。</li>
+  <li>训练任务完成 / 资源停止后水位置空，重新启动时以新的启动时间为新计费起点。</li>
+</ol></div>
+<h3>1.3.3 余额与订单</h3>
+<p>账户余额不是独立字段，而是账单流水的实时聚合：<code>余额 = Σ收入(income) − Σ支出(expense)</code>，由 <code>GET /compute/account</code> 返回。充值以 <code>itemType=recharge</code> 的收入流水入账。<code>compute_orders</code> 记录资源开通订单（CO 前缀单号），与账单按用户 / 类型 / 金额 / 时间勾稽。</p>
+<div class="note"><b>已知演进方向</b>：当前运行账单不直接关联具体资源实例与计费区间，按实例逐段追溯需靠时间与类型推断；账单-实例关联字段已列入产品迭代计划。</div>
+
+<h2>1.4 并发一致性设计</h2>
+<table>
+  <tr><th style="width:30%">场景</th><th>机制</th></tr>
+  <tr><td>多实例部署下调度器重复执行</td><td>tick 事务内先抢 <code>pg_try_advisory_xact_lock</code>（事务级咨询锁），抢不到直接跳过——同一时刻全集群只有一个调度器在记账；事务结束锁自动释放，无泄漏风险</td></tr>
+  <tr><td>调度器与用户操作争抢同一资源</td><td>调度器选取候选行用 <code>FOR UPDATE SKIP LOCKED</code>（跳过被路由锁住的行）；路由 stop/delete 用 <code>FOR UPDATE</code> 锁行后先结算再变更</td></tr>
+  <tr><td>重复 start 重置计费起点</td><td>start 使用「状态前置条件更新」（仅当前状态允许才更新），重复 start 返回 409，不会覆盖水位</td></tr>
+  <tr><td>账单与水位不一致</td><td>两者永远在同一事务内提交，全有或全无</td></tr>
+</table>
+
+<h2>1.5 前后端交互方式</h2>
+<p>全部接口挂载于 <code>/api</code>，均要求登录（<code>requireAuth</code>）并按当前用户隔离数据；前端在 <code>components/compute/api.ts</code> 中统一封装带 Bearer Token 的请求方法。</p>
+<table>
+  <tr><th style="width:46%">接口</th><th>说明</th></tr>
+  <tr><td><code>GET/POST /compute/notebooks</code>，<code>PATCH/DELETE /:id</code>，<code>POST /:id/start|stop</code></td><td>Notebook 全生命周期</td></tr>
+  <tr><td><code>GET/POST /compute/training-jobs</code>，<code>PATCH/DELETE /:id</code>，<code>POST /:id/stop|clone</code></td><td>训练任务；clone 复制配置为新 pending 任务</td></tr>
+  <tr><td><code>GET/POST /compute/inference-services</code>，<code>PATCH/DELETE /:id</code>，<code>POST /:id/start|stop</code></td><td>推理服务</td></tr>
+  <tr><td><code>GET/POST/PATCH/DELETE /compute/{storages|resources|images}</code></td><td>存储 / 计算资源 / 镜像管理</td></tr>
+  <tr><td><code>GET/POST /compute/token-resources</code></td><td>代币资源</td></tr>
+  <tr><td><code>GET/POST /compute/api-keys</code>，<code>DELETE /:id</code></td><td>API 密钥；创建时一次性返回明文</td></tr>
+  <tr><td><code>GET/POST /compute/orders</code>、<code>GET /compute/bills</code>、<code>GET /compute/account</code></td><td>订单、账单流水、余额</td></tr>
+  <tr><td><code>GET/POST /compute/repo-items</code>，<code>DELETE /:id</code>；<code>GET /compute/favorites</code>，<code>POST /compute/favorites/toggle</code></td><td>个人仓库与收藏</td></tr>
+  <tr><td><code>GET /compute/overview</code></td><td>总览：四类资源统计 + 最近订单与账单</td></tr>
+</table>
+
+<h2>1.6 数据存储结构</h2>
+<table>
+  <tr><th style="width:26%">表</th><th>关键字段</th><th style="width:32%">说明</th></tr>
+  <tr><td><code>compute_notebooks</code></td><td>status、envType、image、resourceSpec、sshEnabled、startedAt/stoppedAt、<b>lastBilledAt</b>、totalRuntimeSeconds</td><td>开发环境；水位字段驱动按秒计费</td></tr>
+  <tr><td><code>compute_training_jobs</code></td><td>status、mode、command、datasetPath/outputPath、plannedDurationSeconds、lastBilledAt、totalRuntimeSeconds</td><td>训练任务；计划时长到达自动完成</td></tr>
+  <tr><td><code>compute_inference_services</code></td><td>status、modelSource、resourceSpec、replicas/runningReplicas、endpointUrl、lastBilledAt</td><td>推理服务；费用按副本数放大</td></tr>
+  <tr><td><code>compute_storages / compute_resources / compute_token_resources</code></td><td>容量与用量 / GPU 规格与到期时间 / token 总量与已用量</td><td>配套资源</td></tr>
+  <tr><td><code>compute_api_keys</code></td><td>keyPrefix、<b>keyHash</b>（SHA-256）、lastUsedAt</td><td>不存明文密钥</td></tr>
+  <tr><td><code>compute_images / compute_repo_items / compute_favorites</code></td><td>镜像 source/tag/size；仓库 repoType(model/dataset/image)、visibility、tags、downloads</td><td>镜像与个人市场</td></tr>
+  <tr><td><code>compute_orders</code></td><td>orderNo（CO 前缀）、itemType、amountFen、status</td><td>开通订单</td></tr>
+  <tr><td><code>compute_bills</code></td><td>billNo、itemType、amountFen、<b>direction(income/expense)</b></td><td>资金流水；余额=收入−支出的聚合</td></tr>
+</table>
+
+<!-- ═══════════════ 第二章 ═══════════════ -->
+<h1 class="chapter">第二章 工具平台</h1>
+
+<h2>2.1 功能定位与业务价值</h2>
+<p>工具平台是平台内的 <b>AI 智能体生态</b>：创作者把自己的专业能力封装成「只做一件事」的智能体（如合同风险审查、会议纪要整理、AI 生图方案、编程助手），发布到市场按月订阅变现；使用者订阅后在线对话使用，会话历史长期留存。</p>
+<p>业务价值：① 为 OPC / 创作者提供第二收入曲线（订阅分成）；② 使用者以极低成本获得垂直场景的 AI 生产力；③ 订阅支付、收益记账与主站支付体系复用同一套网关与核验逻辑，账实一致。</p>
+
+<h2>2.2 子模块总览</h2>
+<table>
+  <tr><th style="width:16%">分区</th><th style="width:26%">子模块</th><th>能力</th></tr>
+  <tr><td rowspan="4"><b>工作区</b></td><td>我的智能体</td><td>聚合「已订阅」+「我创建的」两类可用智能体，一键进入使用页</td></tr>
+  <tr><td>智能体管理</td><td>创建 / 编辑 / 发布（免费或付费）/ 下架 / 发布为模板</td></tr>
+  <tr><td>知识库</td><td>知识库元数据管理（名称、标签、容量、文档数）</td></tr>
+  <tr><td>工具管理</td><td>自定义工具的配置管理（kind + JSONB config + 启用开关）</td></tr>
+  <tr><td rowspan="3"><b>市场</b></td><td>智能体市场</td><td>浏览已发布智能体；详情页含作者、订阅数、收藏数；收藏 / 订阅 / 立即使用</td></tr>
+  <tr><td>模板中心</td><td>模板一键添加到自己的工作区</td></tr>
+  <tr><td>插件市场</td><td>插件安装与安装量统计</td></tr>
+  <tr><td rowspan="2"><b>收益与账单</b></td><td>创作者收益</td><td>本人智能体的订阅收益流水</td></tr>
+  <tr><td>订阅与账单</td><td>本人订阅列表、历史支付流水、累计支出；续费 / 退订 / 使用入口</td></tr>
+</table>
+
+<h2>2.3 智能体使用与对话机制</h2>
+<h3>2.3.1 使用权限判定（canUseAgent）</h3>
+<p>每次对话请求都在服务端重新判定使用权，<b>不信任前端状态</b>。满足其一即可使用：① 本人创建的智能体；② 已发布且免费；③ 存在 <code>active</code> 且未过期的订阅。付费未订阅用户收到 403，前端引导「前往市场订阅」。</p>
+<h3>2.3.2 角色约束（buildSystemPrompt）</h3>
+<p>系统提示词把智能体约束为「只做一件事的专业工具」而非通用聊天助手：信息不足时列出所需材料与输入示例；产出结构化交付物（表格 / 分级 / 编号清单）；workflow 类型分步展示执行过程；与职责无关的请求一律拒绝并引导回本职；全程简体中文。这保证了不同智能体有明确差异化的产品体验。</p>
+<h3>2.3.3 对话流程与会话存储</h3>
+<div class="flow"><ol>
+  <li>前端 <code>POST /tools/agents/:agentId/chat</code>（可携带 <code>conversationId</code> 续聊）。</li>
+  <li>服务端校验使用权后组装上下文：系统提示词 + 最近 20 条历史消息（单条上限 4000 字），调用 <code>callLLM</code>（多供应商故障转移）。</li>
+  <li><b>LLM 调用期间不持有任何数据库锁</b>；拿到回复后开启短事务，对会话行 <code>FOR UPDATE</code> <b>重读最新消息数组再追加</b>本轮问答——并发续聊场景下消息永不丢失（会话已被删则返回 404）。</li>
+  <li>新会话自动以首条消息前 30 字为标题；全部消息（含时间戳）以 JSONB 数组持久化，跨设备、跨会话可回看、可续聊、可删除。</li>
+  <li>前端使用页：左侧历史会话栏（点开续聊 / 删除），右侧聊天区乐观展示用户消息；发送失败自动回退并找回未发送文本；消息内容支持图片语法渲染（生图类智能体的产出直接以图片展示）。</li>
+</ol></div>
+
+<h2>2.4 付费订阅闭环</h2>
+<div class="flow"><b>下单 → 支付 → 核验 → 激活 → 记账 全链路</b><ol>
+  <li><b>下单</b>：短事务锁定该用户-智能体的唯一订阅行，写入 <code>pending_payment</code> 状态、冻结应付金额与业务单号（<code>TOOLSUB-</code> 前缀）；意向单先落库，避免「网关成功但本地无主订单」。</li>
+  <li><b>调起支付</b>：事务外调用支付网关创建支付单，再以短事务回填 <code>paymentOrderNo</code>；未支付的网关订单可复用，已终结的订单先清链再重建。</li>
+  <li><b>核验</b>：激活前服务端主动调 <code>queryPaymentStatus</code> 查单，必须为 PAID <b>且网关金额与冻结金额严格相等</b>——不信任回调报文，也不信任前端。</li>
+  <li><b>激活</b>：事务内对订阅行 <code>FOR UPDATE</code>，仅 <code>pending_payment</code> 且订单号匹配才转 <code>active</code>，生效期为支付时刻起 30 天；支付回调与前端轮询可能并发到达，行锁 + 状态门槛保证<b>只激活一次</b>。</li>
+  <li><b>记账</b>：同一事务写入一条不可变的支付流水（<code>tool_subscription_payments</code>，唯一冲突忽略保证幂等）与一条创作者收益（<code>tool_earnings</code>）。免费订阅直接激活、长期有效。</li>
+</ol></div>
+<div class="note"><b>账务口径</b>：订阅行是「当前状态」（每用户每智能体一行，续订复用更新）；<b>累计支出以支付流水表为事实源</b>，历史每笔成功支付均独立留痕，不随续订覆盖。到期在查询时惰性标记 expired；待支付订单不可退订。</div>
+
+<h2>2.5 前后端交互方式</h2>
+<p>全部接口要求登录；市场详情对非公开且非本人的智能体返回 404（不暴露资源存在性）。</p>
+<table>
+  <tr><th style="width:50%">接口</th><th>说明</th></tr>
+  <tr><td><code>GET/POST /tools/agents</code>，<code>PATCH/DELETE /:id</code>，<code>POST /:id/publish|unpublish|publish-template</code></td><td>智能体管理与上下架（仅 owner）</td></tr>
+  <tr><td><code>GET /tools/market</code>、<code>GET /tools/market/:agentId</code></td><td>市场列表与详情（作者、订阅数、收藏数、是否可用）</td></tr>
+  <tr><td><code>POST /tools/market/:agentId/favorite|subscribe|payment-status|unsubscribe</code></td><td>收藏 toggle、订阅下单、支付核验轮询、退订</td></tr>
+  <tr><td><code>POST /tools/agents/:agentId/chat</code></td><td>对话（新聊 / 续聊），服务端二次权限校验</td></tr>
+  <tr><td><code>GET /tools/agents/:agentId/conversations</code>，<code>GET/DELETE /tools/agent-conversations/:id</code></td><td>使用历史列表 / 会话详情 / 删除（仅本人）</td></tr>
+  <tr><td><code>GET/POST/PATCH/DELETE /tools/knowledge-bases</code>、<code>/tools/custom-tools</code></td><td>知识库与自定义工具（本人 CRUD）</td></tr>
+  <tr><td><code>GET /tools/templates</code>，<code>POST /:id/add-to-workspace</code>；<code>GET /tools/plugins</code>，<code>POST /:id/install</code></td><td>模板复制到工作区；插件安装</td></tr>
+  <tr><td><code>GET /tools/earnings</code>、<code>GET /tools/subscriptions</code></td><td>创作者收益；本人订阅 + 历史支付 + 累计支出</td></tr>
+</table>
+
+<h2>2.6 数据存储结构</h2>
+<table>
+  <tr><th style="width:28%">表</th><th>关键字段</th><th style="width:30%">说明</th></tr>
+  <tr><td><code>tool_agents</code></td><td>ownerId、name、appType(agent/workflow)、description、tags[]、category、<b>shareStatus</b>(private/published/template)、<b>priceFenPerMonth</b>、publishedAt</td><td>智能体主表；价格为 0 即免费</td></tr>
+  <tr><td><code>tool_agent_conversations</code></td><td>userId、agentId、title、<b>messages(JSONB 数组：role/content/at)</b></td><td>使用会话；追加走行锁重读</td></tr>
+  <tr><td><code>tool_subscriptions</code></td><td>userId+agentId 唯一、status(pending_payment/active/cancelled/expired)、amountFen、businessOrderNo、paymentOrderNo、paidAt、startsAt/expiresAt</td><td>订阅当前状态（一人一智能体一行）</td></tr>
+  <tr><td><code>tool_subscription_payments</code></td><td>subscriptionId、amountFen、业务/支付单号、paidAt</td><td>不可变成功支付历史，幂等写入</td></tr>
+  <tr><td><code>tool_earnings</code></td><td>ownerId、agentId、subscriberId、amountFen</td><td>创作者收益流水</td></tr>
+  <tr><td><code>tool_agent_favorites / tool_plugins / tool_plugin_installs</code></td><td>收藏关系；插件与安装记录、installCount</td><td>市场互动</td></tr>
+  <tr><td><code>tool_knowledge_bases / tool_custom_tools</code></td><td>知识库元数据；工具 kind + config(JSONB) + enabled</td><td>工作区配套资产</td></tr>
+</table>
+
+<h2>2.7 权限控制与并发保护</h2>
+<table>
+  <tr><th style="width:34%">控制点</th><th>规则</th></tr>
+  <tr><td>数据隔离</td><td>所有列表 / 详情 / 会话按当前用户或 owner 过滤；非公开智能体对外 404</td></tr>
+  <tr><td>使用权二次校验</td><td>对话接口独立执行 <code>canUseAgent</code>，不依赖前端传入的可用状态</td></tr>
+  <tr><td>支付防重</td><td>订阅行锁 + 状态门槛 + 支付流水唯一冲突忽略，回调与轮询并发只激活一次；金额服务端严格核对</td></tr>
+  <tr><td>对话并发</td><td>LLM 调用不持锁；落库阶段 <code>FOR UPDATE</code> 重读追加，消息零丢失</td></tr>
+  <tr><td>输入约束</td><td>单条消息 4000 字上限；上下文取最近 20 条；非法 ID（非纯数字）返回 404/400 而非 500</td></tr>
+  <tr><td>已知演进方向</td><td>收益行暂未冗余支付单外键（逐笔对账需经订阅+流水中转）；插件暂无卸载入口——均已列入产品迭代计划</td></tr>
+</table>
+
+</body>
+</html>

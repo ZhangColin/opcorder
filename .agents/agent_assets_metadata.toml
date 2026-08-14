@@ -115,3 +115,10 @@ uri = "file://docs/tech-doc-%E4%B8%89%E5%A4%A7%E5%8A%9F%E8%83%BD%E6%A8%A1%E5%9D%
 type = "pdf"
 title = "接单吧 三大功能模块技术文档（修订版）"
 description = "修正了接口动词（PUT）、Demo 状态值（error）、accumulated 注入行为描述，并补充报价卡读取权限现状说明"
+
+[[outputs]]
+id = "HulVA-us1zAiLRQdU2MIc"
+uri = "file://docs/tech-doc-%E7%AE%97%E5%8A%9B%E4%B8%AD%E5%BF%83-%E5%B7%A5%E5%85%B7%E5%B9%B3%E5%8F%B0/%E7%AE%97%E5%8A%9B%E4%B8%AD%E5%BF%83%E4%B8%8E%E5%B7%A5%E5%85%B7%E5%B9%B3%E5%8F%B0%E6%8A%80%E6%9C%AF%E6%96%87%E6%A1%A3.pdf"
+type = "pdf"
+title = "算力中心与工具平台技术文档"
+description = "与「三大功能模块技术文档」同风格的 PDF：算力中心（生命周期/按秒计费/事务一致性）与工具平台（智能体生态/对话机制/付费订阅闭环）两章。"
