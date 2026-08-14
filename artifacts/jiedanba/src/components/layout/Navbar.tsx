@@ -71,6 +71,8 @@ export function Navbar() {
     { href: "/academy",    label: "培训进阶" },
     { href: "/profile",    label: "个人中心" },
     { href: "/community",  label: "社区" },
+    { href: "/compute",    label: "算力中心" },
+    { href: "/tools",      label: "工具平台" },
   ];
 
   function handleAccountSettings() {

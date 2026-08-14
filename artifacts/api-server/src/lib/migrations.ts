@@ -3392,5 +3392,345 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 057a: added community_id to community_announcements");
   });
 
+  // Migration 058a: create 算力中心 (compute) tables
+  await once("058a", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_notebooks (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'creating',
+        env_type VARCHAR(100),
+        image VARCHAR(300),
+        resource_spec VARCHAR(200),
+        ssh_enabled BOOLEAN NOT NULL DEFAULT false,
+        description TEXT,
+        started_at TIMESTAMP,
+        stopped_at TIMESTAMP,
+        total_runtime_seconds INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_training_jobs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        mode VARCHAR(30) NOT NULL DEFAULT 'custom',
+        image VARCHAR(300),
+        resource_spec VARCHAR(200),
+        command TEXT,
+        dataset_path VARCHAR(500),
+        output_path VARCHAR(500),
+        description TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_inference_services (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        service_type VARCHAR(30) NOT NULL DEFAULT 'custom',
+        status VARCHAR(30) NOT NULL DEFAULT 'deploying',
+        model_source VARCHAR(500),
+        image VARCHAR(300),
+        resource_spec VARCHAR(200),
+        replicas INTEGER NOT NULL DEFAULT 1,
+        running_replicas INTEGER NOT NULL DEFAULT 0,
+        endpoint_url VARCHAR(500),
+        description TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_storages (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        storage_type VARCHAR(30) NOT NULL DEFAULT 'file',
+        region VARCHAR(100),
+        capacity_gb INTEGER NOT NULL DEFAULT 0,
+        used_gb INTEGER NOT NULL DEFAULT 0,
+        status VARCHAR(30) NOT NULL DEFAULT 'running',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_resources (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        gpu_model VARCHAR(100),
+        gpu_count INTEGER NOT NULL DEFAULT 0,
+        cpu_cores INTEGER NOT NULL DEFAULT 0,
+        memory_gb INTEGER NOT NULL DEFAULT 0,
+        region VARCHAR(100),
+        status VARCHAR(30) NOT NULL DEFAULT 'running',
+        expires_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_token_resources (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        model_name VARCHAR(200),
+        total_tokens INTEGER NOT NULL DEFAULT 0,
+        used_tokens INTEGER NOT NULL DEFAULT 0,
+        status VARCHAR(30) NOT NULL DEFAULT 'running',
+        expires_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_api_keys (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        key_prefix VARCHAR(50) NOT NULL,
+        key_hash VARCHAR(200) NOT NULL,
+        last_used_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_images (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        tag VARCHAR(100),
+        region VARCHAR(100),
+        size_mb INTEGER NOT NULL DEFAULT 0,
+        source VARCHAR(30) NOT NULL DEFAULT 'custom',
+        description TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_orders (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        order_no VARCHAR(50) NOT NULL,
+        item_type VARCHAR(50),
+        item_name VARCHAR(200),
+        amount_fen INTEGER NOT NULL DEFAULT 0,
+        status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_bills (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        bill_no VARCHAR(50) NOT NULL,
+        item_type VARCHAR(50),
+        amount_fen INTEGER NOT NULL DEFAULT 0,
+        direction VARCHAR(20) NOT NULL DEFAULT 'expense',
+        billed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_repo_items (
+        id SERIAL PRIMARY KEY,
+        owner_id INTEGER NOT NULL REFERENCES users(id),
+        repo_type VARCHAR(30) NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        visibility VARCHAR(20) NOT NULL DEFAULT 'private',
+        size_mb INTEGER NOT NULL DEFAULT 0,
+        downloads INTEGER NOT NULL DEFAULT 0,
+        tags TEXT[] NOT NULL DEFAULT '{}',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS compute_favorites (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        target_type VARCHAR(50) NOT NULL,
+        target_id INTEGER NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    logger.info("Migration 058a: created compute tables");
+  });
+
+  // Migration 058b: create 工具平台 (tools) tables and seed plugins
+  await once("058b", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_agents (
+        id SERIAL PRIMARY KEY,
+        owner_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        app_type VARCHAR(30) NOT NULL DEFAULT 'agent',
+        description TEXT,
+        icon_url VARCHAR(500),
+        tags TEXT[] NOT NULL DEFAULT '{}',
+        category VARCHAR(100),
+        share_status VARCHAR(30) NOT NULL DEFAULT 'private',
+        price_fen_per_month INTEGER NOT NULL DEFAULT 0,
+        published_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_knowledge_bases (
+        id SERIAL PRIMARY KEY,
+        owner_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        tags TEXT[] NOT NULL DEFAULT '{}',
+        size_mb INTEGER NOT NULL DEFAULT 0,
+        doc_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_custom_tools (
+        id SERIAL PRIMARY KEY,
+        owner_id INTEGER NOT NULL REFERENCES users(id),
+        name VARCHAR(200) NOT NULL,
+        kind VARCHAR(30) NOT NULL DEFAULT 'custom',
+        config JSONB NOT NULL DEFAULT '{}',
+        enabled BOOLEAN NOT NULL DEFAULT true,
+        ref_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_agent_favorites (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        agent_id INTEGER NOT NULL REFERENCES tool_agents(id),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        agent_id INTEGER NOT NULL REFERENCES tool_agents(id),
+        amount_fen INTEGER NOT NULL DEFAULT 0,
+        status VARCHAR(30) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_earnings (
+        id SERIAL PRIMARY KEY,
+        owner_id INTEGER NOT NULL REFERENCES users(id),
+        agent_id INTEGER NOT NULL REFERENCES tool_agents(id),
+        subscriber_id INTEGER REFERENCES users(id),
+        amount_fen INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_plugins (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(200) NOT NULL,
+        author VARCHAR(200),
+        description TEXT,
+        install_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_plugin_installs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        plugin_id INTEGER NOT NULL REFERENCES tool_plugins(id),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      INSERT INTO tool_plugins (name, author, description)
+      SELECT * FROM (VALUES
+        ('MCP SSE 网关', '接单吧官方', '通过 SSE 协议接入 MCP 工具服务网关'),
+        ('HelloDB 数据库助手', '接单吧官方', '自然语言查询与管理数据库的智能助手'),
+        ('OpenAI兼容图像生成', '接单吧官方', '兼容 OpenAI 接口的文生图/图生图服务')
+      ) AS v(name, author, description)
+      WHERE (SELECT COUNT(*) FROM tool_plugins) = 0
+    `);
+    logger.info("Migration 058b: created tools tables and seeded plugins");
+  });
+
+  // Migration 058c: add unique constraints (dedup existing rows first)
+  await once("058c", true, async () => {
+    // tool_subscriptions (user_id, agent_id)
+    await db.execute(sql`
+      DELETE FROM tool_subscriptions a
+      USING tool_subscriptions b
+      WHERE a.id > b.id AND a.user_id = b.user_id AND a.agent_id = b.agent_id
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE tool_subscriptions ADD CONSTRAINT tool_subscriptions_user_agent_uk UNIQUE (user_id, agent_id);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    // tool_agent_favorites (user_id, agent_id)
+    await db.execute(sql`
+      DELETE FROM tool_agent_favorites a
+      USING tool_agent_favorites b
+      WHERE a.id > b.id AND a.user_id = b.user_id AND a.agent_id = b.agent_id
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE tool_agent_favorites ADD CONSTRAINT tool_agent_favorites_user_agent_uk UNIQUE (user_id, agent_id);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    // tool_plugin_installs (user_id, plugin_id)
+    await db.execute(sql`
+      DELETE FROM tool_plugin_installs a
+      USING tool_plugin_installs b
+      WHERE a.id > b.id AND a.user_id = b.user_id AND a.plugin_id = b.plugin_id
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE tool_plugin_installs ADD CONSTRAINT tool_plugin_installs_user_plugin_uk UNIQUE (user_id, plugin_id);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    // compute_favorites (user_id, target_type, target_id)
+    await db.execute(sql`
+      DELETE FROM compute_favorites a
+      USING compute_favorites b
+      WHERE a.id > b.id AND a.user_id = b.user_id AND a.target_type = b.target_type AND a.target_id = b.target_id
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN
+        ALTER TABLE compute_favorites ADD CONSTRAINT compute_favorites_user_target_uk UNIQUE (user_id, target_type, target_id);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$
+    `);
+    logger.info("Migration 058c: added unique constraints");
+  });
+
   logger.info("Startup data migrations complete.");
 }

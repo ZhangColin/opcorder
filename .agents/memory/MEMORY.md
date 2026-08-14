@@ -4,7 +4,8 @@
 - [Agent form field type contract](agent-form-field-contract.md) — bidDeadline input must be type="date"; tool returns YYYY-MM-DD; datetime-local silently rejects bare dates.
 - [Agent accumulator cross-turn](agent-accumulator-cross-turn.md) — pre-populate accumulated{} from historyMessages before ReAct loop; validate_timeline may run in a prior turn.
 - [Vite base path routing](replit-proxy-base-path.md) — 新环境前端路由在根路径,vite base 必须用 BASE_PATH 环境变量(默认"/");写死 /jiedanba/ 会白屏。以 artifact.toml 为准。
-- [API server routing — which instance to restart](api-server-routing.md) — real API traffic hits port 8080 (artifacts/api-server workflow), NOT port 3000 (legacy API Server). Always restart artifacts/api-server workflow after backend changes.
+- [API server routing — which instance to restart](api-server-routing.md) — external traffic hits 8080 (artifacts/api-server),但 workspace 预览走 vite 代理→3000(legacy);改后端要两个 API 工作流都重启。
+- [JSX 泛型参数会炸 Babel](jsx-generic-babel.md) — jiedanba 前端 `<Comp<T> ...>` 泛型 JSX 语法导致 vite react-babel 解析失败白屏;靠推断或 `v as T`,别写 JSX 泛型实参。
 - [生产迁移经验](prod-migration-lessons.md) — 附件路径相对无需改写;大附件用签名URL清单迁移;恢复dump用DROP SCHEMA而非--clean;生产库用户可用面板连接串写入。
 - [Orphan port processes](orphan-port-processes.md) — EADDRINUSE 或白屏先查残留 node/vite 孤儿进程;vite 若被挤到备用端口,代理仍指向原端口导致白屏。
 - [Beijing time convention](beijing-time-convention.md) — all user-visible times are Beijing time; DB uses naive storage (Beijing number stored as UTC); always use timeZone:"UTC" in display and UTC accessors in form init.

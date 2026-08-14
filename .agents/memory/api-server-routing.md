@@ -4,7 +4,7 @@ description: Replit external proxy routes /jiedanba/api/* directly to the artifa
 ---
 
 ## Rule
-After changing any backend code in `artifacts/api-server/src/`, always restart the **`artifacts/api-server: API Server`** workflow (port 8080), not the legacy `API Server` workflow (port 3000).
+After changing any backend code in `artifacts/api-server/src/`, restart **both** API workflows: `artifacts/api-server: API Server` (port 8080, external traffic) **and** the legacy `API Server` (port 3000) — the jiedanba vite dev proxy (`/api` → localhost:3000) serves the workspace preview from the legacy instance, so new routes 404 in preview until it restarts.
 
 **Why:** Replit's external proxy routes `/jiedanba/api/*` requests directly to the artifact API server at port 8080. The vite proxy config (`target: process.env.API_PROXY_TARGET ?? "http://localhost:3000"`) is bypassed entirely for external traffic. The legacy `API Server` at port 3000 only receives internal curl/test calls.
 

@@ -57,7 +57,7 @@ import {
   Flame, Filter, ShieldCheck, Lock, EyeOff, KeyRound, UserCog, ShieldAlert, ChevronRight, Monitor, Bot, Video,
   Pin, Paperclip, ScrollText, Layers, PackageCheck, ChevronLeft,
   History, ArrowLeft, Building2, GripVertical,
-  Globe2, Tag, MessageSquare,
+  Globe2, Tag, MessageSquare, Cpu, Wrench,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
@@ -156,7 +156,9 @@ export type Module =
   | "skill_registry"
   | "contract_templates" | "contract_placeholders"
   // 社区管理
-  | "community_workbench" | "community_overview" | "announcement_category" | "announcement_mgmt" | "consult_mgmt";
+  | "community_workbench" | "community_overview" | "announcement_category" | "announcement_mgmt" | "consult_mgmt"
+  // AI 能力平台（外链）
+  | "ai_platforms";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean; permKey?: string };
 type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; permKeys?: string[]; children?: NavChild[] };
@@ -205,6 +207,14 @@ const NAV: NavItem[] = [
       { key: "announcement_category", label: "公告类别", moduleKey: "announcement_category" as Module, icon: Tag,      permKey: "announcement_category" },
       { key: "announcement_mgmt",     label: "公告",     moduleKey: "announcement_mgmt"     as Module, icon: Megaphone, permKey: "announcement" },
       { key: "consult_mgmt",          label: "咨询管理", moduleKey: "consult_mgmt"          as Module, icon: MessageSquare, permKey: "consult" },
+    ],
+  },
+
+  {
+    key: "ai_platforms", icon: Cpu, label: "AI 能力平台",
+    children: [
+      { key: "ai_compute", label: "算力中心", icon: Cpu,    href: "/compute" },
+      { key: "ai_tools",   label: "工具平台", icon: Wrench, href: "/tools" },
     ],
   },
 
