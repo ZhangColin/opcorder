@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import {
-  Bot, Database, Wrench, Store, LayoutTemplate, Puzzle, Wallet, Receipt,
+  Bot, Database, Wrench, Store, LayoutTemplate, Puzzle, Wallet, Receipt, Sparkles,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import AgentsModule from "@/components/tools/AgentsModule";
@@ -11,14 +11,16 @@ import TemplatesModule from "@/components/tools/TemplatesModule";
 import PluginsModule from "@/components/tools/PluginsModule";
 import EarningsModule from "@/components/tools/EarningsModule";
 import SubscriptionsModule from "@/components/tools/SubscriptionsModule";
+import MyAgentsModule from "@/components/tools/MyAgentsModule";
 
 type ModuleKey =
-  | "agents" | "knowledge" | "toolmgmt"
+  | "agents" | "knowledge" | "toolmgmt" | "myagents"
   | "market" | "templates" | "plugins" | "earnings" | "subscriptions";
 
 interface NavItem { key: ModuleKey; label: string; icon: React.ReactNode; }
 
 const WORKSPACE: NavItem[] = [
+  { key: "myagents", label: "我的智能体", icon: <Sparkles size={17} /> },
   { key: "agents", label: "智能体管理", icon: <Bot size={17} /> },
   { key: "knowledge", label: "知识库", icon: <Database size={17} /> },
   { key: "toolmgmt", label: "工具管理", icon: <Wrench size={17} /> },
@@ -36,6 +38,7 @@ const VALID = new Set<string>([...WORKSPACE, ...MARKET].map((i) => i.key));
 
 function renderModule(key: ModuleKey) {
   switch (key) {
+    case "myagents": return <MyAgentsModule />;
     case "agents": return <AgentsModule />;
     case "knowledge": return <KnowledgeModule />;
     case "toolmgmt": return <ToolMgmtModule />;
