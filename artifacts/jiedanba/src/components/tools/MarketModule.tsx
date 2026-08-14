@@ -1,10 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Search, Bot, Workflow, Heart, Star, ArrowRight, Upload, Store } from "lucide-react";
-import { MarketResponse, AppType, CATEGORIES, tGet, tPost, formatPrice } from "./api";
+import { Search, Bot, Workflow, Heart, Star, ArrowRight, Upload, Store, X, QrCode } from "lucide-react";
+import { MarketResponse, AppType, CATEGORIES, tGet, tPost, formatPrice, SubscribeResponse, PaymentStatusResponse } from "./api";
 import { EmptyState, Loading, ErrorBanner, GhostButton } from "./shared";
+
+/** 付费订阅扫码支付弹窗：展示二维码并轮询支付结果 */
+function PayDialog({ agentId, agentName, qrCodeUrl, amountFen, onPaid, onClose }: {
+  agentId: number; agentName: string; qrCodeUrl: string; amountFen: number;
+  onPaid: () => void; onClose: () => void;
+}) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const stopped = useRef(false);
+  useEffect(() => {
+    stopped.current = false;
+    const timer = setInterval(async () => {
+      if (stopped.current) return;
+      try {
+        const r = await tPost<PaymentStatusResponse>(`/tools/market/${agentId}/payment-status`);
+        if (r.paid) { stopped.current = true; clearInterval(timer); onPaid(); }
+        else if (r.terminal) { stopped.current = true; clearInterval(timer); setFailed(r.statusName ?? "支付未完成"); }
+      } catch { /* 轮询失败继续重试 */ }
+    }, 3000);
+    return () => { stopped.current = true; clearInterval(timer); };
+  }, [agentId, onPaid]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center relative" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600" aria-label="关闭"><X size={18} /></button>
+        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3"><QrCode size={22} className="text-primary" /></div>
+        <h3 className="font-bold text-slate-800 mb-1">扫码订阅「{agentName}」</h3>
+        <p className="text-sm text-slate-500 mb-4">¥{(amountFen / 100).toFixed(2)}/月 · 支付成功后自动生效</p>
+        {failed ? (
+          <p className="text-sm text-red-500 py-8">{failed}，请关闭后重新发起订阅</p>
+        ) : (
+          <>
+            <img src={qrCodeUrl} alt="支付二维码" className="w-52 h-52 mx-auto rounded-xl border border-border/60 object-contain" />
+            <p className="text-xs text-slate-400 mt-3 animate-pulse">等待支付中…</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function MarketModule() {
   const qc = useQueryClient();
@@ -31,9 +71,16 @@ export default function MarketModule() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["/tools/market"] });
 
+  const [paying, setPaying] = useState<{ agentId: number; agentName: string; qrCodeUrl: string; amountFen: number } | null>(null);
+
   const subscribeMut = useMutation({
-    mutationFn: (id: number) => tPost(`/tools/market/${id}/subscribe`),
-    onSuccess: () => {
+    mutationFn: (id: number) => tPost<SubscribeResponse>(`/tools/market/${id}/subscribe`),
+    onSuccess: (r, id) => {
+      if (r?.paymentRequired && r.qrCodeUrl) {
+        const agent = (data?.items ?? []).find((a) => a.id === id);
+        setPaying({ agentId: id, agentName: agent?.name ?? "", qrCodeUrl: r.qrCodeUrl, amountFen: r.amountFen ?? agent?.priceFenPerMonth ?? 0 });
+        return;
+      }
       invalidate();
       qc.invalidateQueries({ queryKey: ["/tools/subscriptions"] });
       toast({ title: "订阅成功", description: "已添加到「订阅与账单」" });
@@ -52,6 +99,18 @@ export default function MarketModule() {
 
   return (
     <div>
+      {paying && (
+        <PayDialog
+          {...paying}
+          onPaid={() => {
+            setPaying(null);
+            invalidate();
+            qc.invalidateQueries({ queryKey: ["/tools/subscriptions"] });
+            toast({ title: "支付成功，订阅已生效", description: "已添加到「订阅与账单」" });
+          }}
+          onClose={() => setPaying(null)}
+        />
+      )}
       {/* Hero */}
       <div className="rounded-3xl bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50 px-8 py-12 mb-6 text-center">
         <h1 className="text-3xl font-extrabold text-primary font-display mb-2">智能体市场</h1>

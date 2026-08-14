@@ -3755,5 +3755,48 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 059: compute lifecycle/billing columns added");
   });
 
+  await once("060", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE tool_subscriptions
+        ADD COLUMN IF NOT EXISTS payment_order_no varchar(100),
+        ADD COLUMN IF NOT EXISTS starts_at timestamp,
+        ADD COLUMN IF NOT EXISTS expires_at timestamp,
+        ADD COLUMN IF NOT EXISTS cancelled_at timestamp
+    `);
+    logger.info("Migration 060: tool subscription payment columns added");
+  });
+
+  await once("060b", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE tool_subscriptions
+        ADD COLUMN IF NOT EXISTS paid_at timestamp
+    `);
+    logger.info("Migration 060b: tool subscription paid_at added");
+  });
+
+  await once("060c", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE tool_subscriptions
+        ADD COLUMN IF NOT EXISTS business_order_no varchar(100)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS tool_subscriptions_business_order_no_idx ON tool_subscriptions (business_order_no)
+    `);
+    logger.info("Migration 060c: tool subscription business_order_no added");
+  });
+
+  await once("060d", true, async () => {
+    await db.execute(sql`DROP INDEX IF EXISTS tool_subscriptions_business_order_no_idx`);
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS tool_subscriptions_business_order_no_uk
+        ON tool_subscriptions (business_order_no) WHERE business_order_no IS NOT NULL
+    `);
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS tool_subscriptions_payment_order_no_uk
+        ON tool_subscriptions (payment_order_no) WHERE payment_order_no IS NOT NULL
+    `);
+    logger.info("Migration 060d: tool subscription order-no unique indexes");
+  });
+
   logger.info("Startup data migrations complete.");
 }

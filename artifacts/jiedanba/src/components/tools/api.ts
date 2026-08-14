@@ -119,7 +119,28 @@ export interface SubscriptionItem {
   authorName: string | null;
   amountFen: number;
   status: string | null;
+  startsAt: string | null;
+  expiresAt: string | null;
+  cancelledAt: string | null;
   createdAt: string;
+}
+
+/** POST /tools/market/:id/subscribe 付费时的响应 */
+export interface SubscribeResponse {
+  id: number;
+  status: string;
+  paymentRequired?: boolean;
+  qrCodeUrl?: string;
+  paymentOrderNo?: string;
+  amountFen?: number;
+}
+
+/** POST /tools/market/:id/payment-status */
+export interface PaymentStatusResponse {
+  paid: boolean;
+  terminal: boolean;
+  status: number;
+  statusName?: string;
 }
 export interface SubscriptionsResponse {
   totalSpentFen: number;

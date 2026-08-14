@@ -14,8 +14,71 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, ilike, or, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
+import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
+
+const NOTIFY_URL = "https://www.opcorder.com/api/payment/callback";
 
 const router: IRouter = Router();
+
+/**
+ * 支付成功后激活订阅（幂等）：
+ * 1) 服务端向支付网关查询订单,确认状态为已支付且金额与订阅冻结金额一致（不信任回调 body）
+ * 2) 事务 + FOR UPDATE 行锁,仅当状态为 pending_payment 且订单号匹配时生效并写入创作者收益,
+ *    因此回调与前端轮询并发触发也只会激活/记账一次。
+ * 供 payment-callback 与 payment-status 轮询共用。
+ */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** 调用方已持有该订阅行锁、并已核验网关支付状态与金额,此处仅做状态转换+记创作者收益 */
+async function activateLockedSub(tx: Tx, sub: typeof toolSubscriptionsTable.$inferSelect) {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 3600 * 1000); // 按月订阅
+  const [updated] = await tx.update(toolSubscriptionsTable)
+    .set({ status: "active", startsAt: now, expiresAt, paidAt: now, cancelledAt: null, updatedAt: now })
+    .where(eq(toolSubscriptionsTable.id, sub.id)).returning();
+  const [agent] = await tx.select().from(toolAgentsTable).where(eq(toolAgentsTable.id, sub.agentId));
+  if (agent) {
+    await tx.insert(toolEarningsTable).values({
+      ownerId: agent.ownerId,
+      agentId: sub.agentId,
+      subscriberId: sub.userId,
+      amountFen: sub.amountFen,
+    });
+  }
+  return updated;
+}
+
+export async function activateToolSubscription(paymentOrderNo: string): Promise<boolean> {
+  // 服务端确认支付状态与金额
+  const order = await queryPaymentStatus(paymentOrderNo);
+  if (order.status !== PAYMENT_STATUS.PAID) return false;
+
+  return await db.transaction(async (tx) => {
+    // 优先按支付单号匹配;若崩溃发生在「网关下单成功但尚未回填 payment_order_no」之间,
+    // 退化按业务单号（意向单,先于网关调用落库）匹配并当场补链,保证已付订单总能激活。
+    let [sub] = await tx.select().from(toolSubscriptionsTable)
+      .where(eq(toolSubscriptionsTable.paymentOrderNo, paymentOrderNo))
+      .for("update");
+    if (!sub && order.businessOrderNo) {
+      [sub] = await tx.select().from(toolSubscriptionsTable)
+        .where(eq(toolSubscriptionsTable.businessOrderNo, order.businessOrderNo))
+        .for("update");
+      if (sub && sub.status === "pending_payment" && !sub.paymentOrderNo) {
+        await tx.update(toolSubscriptionsTable)
+          .set({ paymentOrderNo, updatedAt: new Date() })
+          .where(eq(toolSubscriptionsTable.id, sub.id));
+        sub = { ...sub, paymentOrderNo };
+      }
+    }
+    if (!sub || sub.status !== "pending_payment" || sub.paymentOrderNo !== paymentOrderNo) return false;
+    if (Number(order.amount) !== sub.amountFen) {
+      logger.error({ paymentOrderNo, orderAmount: order.amount, subAmountFen: sub.amountFen }, "tool sub amount mismatch — not activating");
+      return false;
+    }
+    await activateLockedSub(tx, sub);
+    return true;
+  });
+}
 
 export const TOOL_CATEGORIES = ["金融", "教育", "医疗", "法律", "客服助手", "办公助手", "生活助手", "角色扮演", "创意绘画", "游戏", "情感", "其他"];
 
@@ -367,35 +430,218 @@ router.post("/tools/market/:agentId/subscribe", requireAuth, async (req, res) =>
     if (agent.shareStatus !== "published") return res.status(400).json({ error: "该智能体未发布" });
     if (agent.ownerId === userId) return res.status(400).json({ error: "不能订阅自己的智能体" });
 
-    // 幂等：已有 active 订阅时直接返回,不重复写入
-    const [active] = await db.select().from(toolSubscriptionsTable).where(and(
+    // 唯一约束 (user_id, agent_id)：每人每个智能体只有一行订阅记录,复用/更新该行
+    const now = new Date();
+    const [existing] = await db.select().from(toolSubscriptionsTable).where(and(
       eq(toolSubscriptionsTable.userId, userId),
       eq(toolSubscriptionsTable.agentId, agentId),
-      eq(toolSubscriptionsTable.status, "active"),
     ));
-    if (active) return res.json(serialize(active));
+
+    // 幂等：已有未过期的 active 订阅时直接返回
+    if (existing && existing.status === "active" && (!existing.expiresAt || existing.expiresAt > now)) {
+      return res.json(serialize(existing));
+    }
 
     const amountFen = agent.priceFenPerMonth ?? 0;
-    const sub = await db.transaction(async (tx) => {
-      const [created] = await tx.insert(toolSubscriptionsTable).values({
-        userId,
-        agentId,
-        amountFen,
-        status: "active",
-      }).returning();
-      await tx.insert(toolEarningsTable).values({
-        ownerId: agent.ownerId,
-        agentId,
-        subscriberId: userId,
-        amountFen,
+
+    // 免费智能体：直接生效（保持原有行为,收益表记 0 元用于订阅人次统计）
+    if (amountFen === 0) {
+      const sub = await db.transaction(async (tx) => {
+        let row;
+        if (existing) {
+          [row] = await tx.update(toolSubscriptionsTable)
+            .set({ status: "active", amountFen: 0, paymentOrderNo: null, startsAt: now, expiresAt: null, cancelledAt: null, updatedAt: now })
+            .where(eq(toolSubscriptionsTable.id, existing.id)).returning();
+        } else {
+          [row] = await tx.insert(toolSubscriptionsTable).values({
+            userId, agentId, amountFen: 0, status: "active", startsAt: now,
+          }).returning();
+        }
+        await tx.insert(toolEarningsTable).values({
+          ownerId: agent.ownerId, agentId, subscriberId: userId, amountFen: 0,
+        });
+        return row;
       });
-      return created;
+      return res.status(201).json(serialize(sub));
+    }
+
+    // 付费智能体三段式（保证任何时刻网关侧不存在无法追溯到订阅的可支付订单）：
+    //  Tx1（短事务,行锁）: 落库「支付意向」—— pending_payment + 唯一 business_order_no,先于网关调用提交;
+    //  网关调用（事务外）: 用已持久化的 business_order_no 下单;
+    //  Tx2（短事务,行锁）: 回填 payment_order_no。
+    // 若在网关成功后、回填前崩溃：意向单已持久化,支付回调/激活逻辑可按 business_order_no
+    // 反查并补链（见 activateToolSubscription）,用户已付订单仍能激活。
+    const reservation = await db.transaction(async (tx) => {
+      await tx.insert(toolSubscriptionsTable)
+        .values({ userId, agentId, amountFen, status: "pending_payment" })
+        .onConflictDoNothing();
+      const [row] = await tx.select().from(toolSubscriptionsTable)
+        .where(and(
+          eq(toolSubscriptionsTable.userId, userId),
+          eq(toolSubscriptionsTable.agentId, agentId),
+        )).for("update");
+
+      if (row.status === "active" && (!row.expiresAt || row.expiresAt > now)) {
+        return { kind: "active" as const, sub: row };
+      }
+
+      if (row.status === "pending_payment" && row.paymentOrderNo) {
+        // 已有关联订单,交给事务外查网关处理（复用/激活/换新单）
+        return { kind: "existing_order" as const, sub: row };
+      }
+
+      if (row.status === "pending_payment" && row.businessOrderNo && !row.paymentOrderNo) {
+        // 已有未回填的意向单:30 秒内视为另一请求正在下单;超时视为崩溃残留,复用同一业务单号重试。
+        // 行锁内刷新 updated_at 作为认领标记,并发的下一个请求会落入 busy 分支,不会重复下单。
+        const ageMs = now.getTime() - row.updatedAt.getTime();
+        if (ageMs < 30_000) return { kind: "busy" as const };
+        const [claimed] = await tx.update(toolSubscriptionsTable)
+          .set({ updatedAt: now })
+          .where(eq(toolSubscriptionsTable.id, row.id)).returning();
+        return { kind: "reserved" as const, sub: claimed, businessOrderNo: row.businessOrderNo };
+      }
+
+      const businessOrderNo = `TOOLSUB-${row.id}-${Date.now()}`;
+      const [updated] = await tx.update(toolSubscriptionsTable)
+        .set({ status: "pending_payment", amountFen, businessOrderNo, paymentOrderNo: null, paidAt: null, updatedAt: now })
+        .where(eq(toolSubscriptionsTable.id, row.id)).returning();
+      return { kind: "reserved" as const, sub: updated, businessOrderNo };
     });
 
-    return res.status(201).json(serialize(sub));
+    if (reservation.kind === "active") return res.json(serialize(reservation.sub));
+    if (reservation.kind === "busy") return res.status(409).json({ error: "正在生成支付单,请稍后重试" });
+
+    if (reservation.kind === "existing_order") {
+      const row = reservation.sub;
+      const prev = await queryPaymentStatus(row.paymentOrderNo!);
+      if (prev.status === PAYMENT_STATUS.PAID) {
+        const activated = await activateToolSubscription(row.paymentOrderNo!);
+        const [fresh] = await db.select().from(toolSubscriptionsTable).where(eq(toolSubscriptionsTable.id, row.id));
+        if (activated || fresh?.status === "active") return res.json(serialize(fresh));
+        return res.status(409).json({ error: "支付金额校验异常,请联系客服处理" });
+      }
+      if (prev.status === PAYMENT_STATUS.PENDING) {
+        // 复用仍可支付的原订单,绝不覆盖其关联
+        return res.status(201).json({
+          ...serialize(row),
+          paymentRequired: true,
+          qrCodeUrl: prev.qrCodeUrl,
+          paymentOrderNo: row.paymentOrderNo,
+        });
+      }
+      // 原订单已终结（取消/过期/失败）：CAS 清链后落新的意向单再下单。
+      // 谓词包含读取到的旧 payment_order_no —— 并发的两个请求只有一个能完成重置,
+      // 输掉的一方直接 409,不会调网关,因此不会产生无法追溯的支付单。
+      const businessOrderNo = `TOOLSUB-${row.id}-${Date.now()}`;
+      const [reset] = await db.update(toolSubscriptionsTable)
+        .set({ amountFen, businessOrderNo, paymentOrderNo: null, paidAt: null, updatedAt: new Date() })
+        .where(and(
+          eq(toolSubscriptionsTable.id, row.id),
+          eq(toolSubscriptionsTable.status, "pending_payment"),
+          eq(toolSubscriptionsTable.paymentOrderNo, row.paymentOrderNo!),
+          eq(toolSubscriptionsTable.businessOrderNo, row.businessOrderNo!),
+        ))
+        .returning();
+      if (!reset) return res.status(409).json({ error: "订阅状态已变化,请刷新后重试" });
+      reservation.sub = reset;
+      (reservation as any).businessOrderNo = businessOrderNo;
+    }
+
+    // 意向单已持久化,事务外调网关下单
+    const businessOrderNo = (reservation as any).businessOrderNo as string;
+    const order = await createPaymentOrder({
+      businessOrderNo,
+      amount: amountFen,
+      subject: `智能体订阅-${agent.name}`,
+      body: `订阅智能体「${agent.name}」1个月`,
+      businessName: "工具平台订阅",
+      notifyUrl: NOTIFY_URL,
+    });
+
+    // 短事务回填支付单号（仅当意向单未被并发改动时）
+    const [linked] = await db.update(toolSubscriptionsTable)
+      .set({ paymentOrderNo: order.paymentOrderNo, updatedAt: new Date() })
+      .where(and(
+        eq(toolSubscriptionsTable.id, reservation.sub.id),
+        eq(toolSubscriptionsTable.status, "pending_payment"),
+        eq(toolSubscriptionsTable.businessOrderNo, businessOrderNo),
+      )).returning();
+    if (!linked) {
+      // 极端并发下意向单已被改动:该订单仍可通过 business_order_no 被回调补链,不会成为无主订单
+      logger.warn({ businessOrderNo, paymentOrderNo: order.paymentOrderNo }, "tool sub link skipped — reservation changed");
+      return res.status(409).json({ error: "订阅正在处理中,请刷新后重试" });
+    }
+
+    return res.status(201).json({
+      ...serialize(linked),
+      paymentRequired: true,
+      qrCodeUrl: order.qrCodeUrl,
+      paymentOrderNo: order.paymentOrderNo,
+    });
   } catch (err) {
     logger.error({ err }, "subscribe");
     return res.status(500).json({ error: "订阅失败" });
+  }
+});
+
+/* 轮询支付结果；支付成功则激活订阅（幂等,可与回调并发） */
+router.post("/tools/market/:agentId/payment-status", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const agentId = parseInt(req.params.agentId as string);
+    const [sub] = await db.select().from(toolSubscriptionsTable).where(and(
+      eq(toolSubscriptionsTable.userId, userId),
+      eq(toolSubscriptionsTable.agentId, agentId),
+    ));
+    if (!sub) return res.status(404).json({ error: "未找到订阅记录" });
+    if (sub.status === "active") return res.json({ paid: true, terminal: true, status: PAYMENT_STATUS.PAID });
+    if (!sub.paymentOrderNo) return res.status(400).json({ error: "尚未创建支付订单" });
+
+    const order = await queryPaymentStatus(sub.paymentOrderNo);
+    if (order.status === PAYMENT_STATUS.PAID) {
+      await activateToolSubscription(sub.paymentOrderNo);
+      // 成功与否以激活后的订阅状态为准（金额核验失败等情况不得报成功）
+      const [fresh] = await db.select().from(toolSubscriptionsTable).where(eq(toolSubscriptionsTable.id, sub.id));
+      const activated = fresh?.status === "active";
+      return res.json({
+        status: order.status,
+        statusName: activated ? order.statusName : "支付确认异常,请联系客服",
+        paid: activated,
+        terminal: true,
+      });
+    }
+    return res.json({
+      status: order.status,
+      statusName: order.statusName,
+      paid: false,
+      terminal: (TERMINAL_STATUSES as number[]).includes(Number(order.status)),
+    });
+  } catch (err) {
+    logger.error({ err }, "tool sub payment-status");
+    return res.status(500).json({ error: "查询失败" });
+  }
+});
+
+/* 退订：仅允许取消已生效订阅,立即取消不退款（按月一次性扣费）。
+   待支付订单不允许「退订」——不支付即可,订单会自行过期;
+   若取消后订单被支付,激活逻辑仍能正常生效,避免扣款却无服务。 */
+router.post("/tools/market/:agentId/unsubscribe", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const agentId = parseInt(req.params.agentId as string);
+    const now = new Date();
+    const [row] = await db.update(toolSubscriptionsTable)
+      .set({ status: "cancelled", cancelledAt: now, updatedAt: now })
+      .where(and(
+        eq(toolSubscriptionsTable.userId, userId),
+        eq(toolSubscriptionsTable.agentId, agentId),
+        eq(toolSubscriptionsTable.status, "active"),
+      )).returning();
+    if (!row) return res.status(404).json({ error: "没有可退订的订阅" });
+    return res.json(serialize(row));
+  } catch (err) {
+    logger.error({ err }, "unsubscribe");
+    return res.status(500).json({ error: "退订失败" });
   }
 });
 
@@ -544,6 +790,14 @@ router.get("/tools/earnings", requireAuth, async (req, res) => {
 router.get("/tools/subscriptions", requireAuth, async (req, res) => {
   try {
     const userId = req.user!.id;
+    // 到期处理：过期的 active 订阅惰性标记为 expired
+    await db.update(toolSubscriptionsTable)
+      .set({ status: "expired", updatedAt: new Date() })
+      .where(and(
+        eq(toolSubscriptionsTable.userId, userId),
+        eq(toolSubscriptionsTable.status, "active"),
+        sql`${toolSubscriptionsTable.expiresAt} IS NOT NULL AND ${toolSubscriptionsTable.expiresAt} < now()`,
+      ));
     const rows = await db.select({
       subscription: toolSubscriptionsTable,
       agentName: toolAgentsTable.name,
@@ -555,9 +809,13 @@ router.get("/tools/subscriptions", requireAuth, async (req, res) => {
       .leftJoin(usersTable, eq(toolAgentsTable.ownerId, usersTable.id))
       .where(eq(toolSubscriptionsTable.userId, userId))
       .orderBy(desc(toolSubscriptionsTable.createdAt));
+    // 累计支出以 paid_at 为事实来源：只统计实际扣款成功的付费订阅
     const [totalRow] = await db.select({
       total: sql<number>`COALESCE(SUM(${toolSubscriptionsTable.amountFen}), 0)`,
-    }).from(toolSubscriptionsTable).where(eq(toolSubscriptionsTable.userId, userId));
+    }).from(toolSubscriptionsTable).where(and(
+      eq(toolSubscriptionsTable.userId, userId),
+      sql`${toolSubscriptionsTable.paidAt} IS NOT NULL`,
+    ));
     return res.json({
       totalSpentFen: Number(totalRow?.total ?? 0),
       items: rows.map((r) => serialize({

@@ -1,7 +1,8 @@
 import { logger } from "../lib/logger";
 import { Router, type IRouter } from "express";
-import { db, enrollmentsTable, demandPaymentsTable, demandsTable, notificationsTable, usersTable, v2PaymentPlansTable, v2ClientDemandsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, enrollmentsTable, demandPaymentsTable, demandsTable, notificationsTable, usersTable, v2PaymentPlansTable, v2ClientDemandsTable, toolSubscriptionsTable } from "@workspace/db";
+import { activateToolSubscription } from "./tools";
+import { eq, and, or } from "drizzle-orm";
 import { PAYMENT_STATUS } from "../lib/payment";
 import { Resend } from "resend";
 
@@ -35,7 +36,7 @@ router.post("/payment/callback", async (req, res) => {
   console.log(`[payment-callback] received paymentOrderNo=${body.paymentOrderNo} businessOrderNo=${body.businessOrderNo} status=${body.status}(${body.statusName}) paidAt=${body.paidAt}`);
 
   try {
-    const { paymentOrderNo, status } = body;
+    const { paymentOrderNo, status, businessOrderNo } = body;
 
     if (!paymentOrderNo) {
       console.warn("[payment-callback] missing paymentOrderNo");
@@ -158,8 +159,29 @@ router.post("/payment/callback", async (req, res) => {
       return res.status(200).send();
     }
 
+    // ── 4. Try to match a tool platform subscription ──────────────────────
+    // 支持按业务单号兜底匹配:网关下单成功但服务崩溃于回填 payment_order_no 之前时,
+    // 意向单(business_order_no)已持久化,回调仍可定位并激活(激活前会向网关核验)。
+    const [toolSub] = await db
+      .select()
+      .from(toolSubscriptionsTable)
+      .where(businessOrderNo
+        ? or(eq(toolSubscriptionsTable.paymentOrderNo, paymentOrderNo), eq(toolSubscriptionsTable.businessOrderNo, businessOrderNo))!
+        : eq(toolSubscriptionsTable.paymentOrderNo, paymentOrderNo))
+      .limit(1);
+
+    if (toolSub) {
+      if (status === PAYMENT_STATUS.PAID) {
+        const activated = await activateToolSubscription(paymentOrderNo);
+        console.log(`[payment-callback] toolSubscription ${toolSub.id} ${activated ? "activated" : "already processed"}`);
+      } else {
+        console.log(`[payment-callback] toolSubscription ${toolSub.id} status=${status} — no update`);
+      }
+      return res.status(200).send();
+    }
+
     // No matching record found
-    console.warn(`[payment-callback] no matching enrollment, demand payment, or v2 plan for paymentOrderNo=${paymentOrderNo}`);
+    console.warn(`[payment-callback] no matching enrollment, demand payment, v2 plan, or tool subscription for paymentOrderNo=${paymentOrderNo}`);
     return res.status(200).send();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "回调处理失败";

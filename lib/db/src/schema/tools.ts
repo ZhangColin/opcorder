@@ -59,7 +59,14 @@ export const toolSubscriptionsTable = pgTable("tool_subscriptions", {
   userId:           integer("user_id").notNull().references(() => usersTable.id),
   agentId:          integer("agent_id").notNull().references(() => toolAgentsTable.id),
   amountFen:        integer("amount_fen").notNull().default(0),
+  // pending_payment | active | cancelled | expired
   status:           varchar("status", { length: 30 }).notNull().default("active"),
+  businessOrderNo:  varchar("business_order_no", { length: 100 }),
+  paymentOrderNo:   varchar("payment_order_no", { length: 100 }),
+  paidAt:           timestamp("paid_at"),
+  startsAt:         timestamp("starts_at"),
+  expiresAt:        timestamp("expires_at"),
+  cancelledAt:      timestamp("cancelled_at"),
   createdAt:        timestamp("created_at").defaultNow().notNull(),
   updatedAt:        timestamp("updated_at").defaultNow().notNull(),
 });
