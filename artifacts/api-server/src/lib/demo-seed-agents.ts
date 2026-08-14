@@ -75,15 +75,19 @@ export async function seedDemoAgentUsage(db: Tx): Promise<void> {
         { role: "assistant", at: at("2026-08-11 10:13"), content: "已为你生成 828 大促海报的完整生图方案：\n\n## 一、正向提示词（英文，直接可用）\n```\nE-commerce promotional poster, cordless vacuum cleaner as hero product, floating in center with dynamic dust particles being absorbed, vibrant orange (#FF6A00) gradient background, futuristic tech style, glowing neon light trails, bold Chinese sale typography area reserved at top, studio lighting, ultra detailed product rendering, 8k, commercial photography\n```\n\n## 二、负向提示词\n```\nblurry, low quality, watermark, text artifacts, deformed product, cluttered background, dull colors\n```\n\n## 三、构图与光影建议\n| 要素 | 建议 |\n|---|---|\n| 构图 | 中心构图,产品悬浮 15° 倾斜,顶部预留 1/4 放「828 狂欢购」大字 |\n| 光影 | 主光左上 45° 冷白光突出金属质感,背景橙色渐变由深到浅 |\n| 点缀 | 吸入的粒子光轨从右下汇入吸尘器,强化「吸力」卖点 |\n\n## 四、推荐出图参数\n- 比例：3:4（主图）/ 16:9（首页 banner）\n- 采样步数：30-35，CFG 7\n\n> 下一步：告诉我海报上要放的促销文案与价格,我可以帮你调整文字排版区域的构图。" },
         { role: "user", at: at("2026-08-11 10:14"), content: "文案是「828狂欢购 直降600元」，帮我把文案融进方案" },
         { role: "assistant", at: at("2026-08-11 10:15"), content: "已更新方案（文字区域强化版）：\n\n## 排版建议\n1. **主标题**「828狂欢购」— 顶部居中,超粗黑体,白色描橙边,占画面宽度 70%\n2. **副标题**「直降600元」— 主标题正下方,做成橙底白字的爆炸贴纸样式,旋转 -8°\n3. 产品下方加一条细光带,放次要信息（如「限时3天」）\n\n## 提示词追加片段\n```\n..., large bold Chinese title \"828狂欢购\" at top center with orange outline, explosive price tag sticker \"直降600元\" below title, promotional badge style\n```\n\n注意：生图模型对中文字渲染不稳定,建议**出图后用设计工具叠加文字**,提示词中仅预留排版空间即可。需要我再出一版 16:9 首页 banner 的构图方案吗？" },
+        { role: "user", at: at("2026-08-11 10:16"), content: "不用了，直接按这个方案帮我出图" },
+        { role: "assistant", at: at("2026-08-11 10:17"), content: "已按方案完成出图（3:4 主图,顶部已预留标题排版区）：\n\n![828大促吸尘器海报](/demo/agent-draw-vacuum-poster.jpg)\n\n**出图说明**\n- 产品居中悬浮 15°,粒子光轨从右下汇入,突出吸力卖点\n- 橙色渐变背景 + 冷白主光,金属质感与科技感兼顾\n- 顶部留白区域可直接叠加「828狂欢购 直降600元」文案\n\n如需调整（换角度/改配色/出 16:9 banner 版）,直接告诉我。" },
       ],
     },
     {
       agentId: drawId,
       title: "公司年会邀请函背景图，国风一点",
-      createdAt: bj("2026-08-13 16:40"), updatedAt: bj("2026-08-13 16:42"),
+      createdAt: bj("2026-08-13 16:40"), updatedAt: bj("2026-08-13 16:45"),
       messages: [
         { role: "user", at: at("2026-08-13 16:40"), content: "公司年会邀请函背景图，国风一点，红金配色" },
         { role: "assistant", at: at("2026-08-13 16:42"), content: "国风年会邀请函背景生图方案：\n\n## 正向提示词\n```\nChinese new year gala invitation background, traditional Chinese style, deep red and gold color scheme, golden clouds pattern (祥云), subtle mountain silhouette in gold line art, elegant empty center area for text, ornate golden border frame, silk texture, festive and luxurious, flat illustration, 8k\n```\n\n## 负向提示词\n```\nphoto realistic, people, busy composition, western elements, low contrast\n```\n\n## 设计要点\n- **留白**：画面中央 60% 留纯色暗红区域,方便叠加「XX公司2026年会」字样\n- **点缀**：四角金色祥云 + 底部金线远山,顶部可加一枚烫金印章元素\n- **比例**：9:16（手机邀请函）为主,建议同时出 3:4 用于打印\n\n> 若要更隆重,可在提示词中加 `golden lantern elements, subtle firework particles`。需要我出配套的内页版式方案吗？" },
+        { role: "user", at: at("2026-08-13 16:43"), content: "就按这个出一张 9:16 的" },
+        { role: "assistant", at: at("2026-08-13 16:45"), content: "已完成出图（9:16 竖版,中央留白可直接排版文字）：\n\n![国风年会邀请函背景](/demo/agent-draw-gala-invitation.jpg)\n\n**出图说明**\n- 红金配色,四角祥云 + 底部金线远山,金色细边框收边\n- 中央 60% 暗红留白区,叠加「XX公司2026年会」等文字即可\n- 丝绸质感底纹,打印与手机端都适用\n\n需要打印用的 3:4 版本或配套内页版式,随时说。" },
       ],
     },
     // ── 编程助手 CodeMate ──

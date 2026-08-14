@@ -178,7 +178,7 @@ export default function AgentUsePage() {
                       <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
                         m.role === "user" ? "bg-primary text-white rounded-br-md" : "bg-slate-50 text-slate-700 rounded-bl-md"
                       }`}>
-                        {m.content}
+                        {renderMessageContent(m.content)}
                       </div>
                     </div>
                   ))
@@ -220,4 +220,24 @@ export default function AgentUsePage() {
       </div>
     </div>
   );
+}
+
+/** 渲染消息内容:支持 ![alt](url) 图片语法,其余按纯文本换行显示 */
+function renderMessageContent(content: string) {
+  const parts = content.split(/(!\[[^\]]*\]\([^)\s]+\))/g);
+  if (parts.length === 1) return content;
+  return parts.map((part, i) => {
+    const m = part.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
+    if (!m) return part;
+    return (
+      <a key={i} href={m[2]} target="_blank" rel="noreferrer" className="block my-2">
+        <img
+          src={m[2]}
+          alt={m[1]}
+          className="rounded-xl border border-border/40 max-w-full sm:max-w-[320px] shadow-sm hover:shadow-md transition-shadow"
+          loading="lazy"
+        />
+      </a>
+    );
+  });
 }
