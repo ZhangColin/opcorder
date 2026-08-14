@@ -134,13 +134,19 @@ export async function runSeed(): Promise<void> {
 
   for (const email of CLEANUP_ACCOUNTS) {
     try {
-      const deleted = await db
-        .delete(usersTable)
+      const [user] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
         .where(eq(usersTable.email, email))
-        .returning({ id: usersTable.id });
-      if (deleted.length > 0) {
-        logger.info({ email }, "Removed disallowed account");
-      }
+        .limit(1);
+      if (!user) continue;
+      // Delete child records that block the FK (NO ACTION) before removing the user.
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`DELETE FROM notifications WHERE user_id = ${user.id}`);
+        await tx.execute(sql`DELETE FROM opc_profiles WHERE user_id = ${user.id}`);
+        await tx.execute(sql`DELETE FROM users WHERE id = ${user.id}`);
+      });
+      logger.info({ email }, "Removed disallowed account");
     } catch (err) {
       logger.warn({ email, err }, "Cleanup skipped");
     }

@@ -3679,56 +3679,45 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 058b: created tools tables and seeded plugins");
   });
 
-  // Migration 058c: add unique constraints (dedup existing rows first)
+  // Migration 058c: add unique constraints (dedup existing rows first).
+  // Each constraint is checked in pg_constraint before ALTER so a partially-applied
+  // prior run (constraint exists but migration unrecorded) never fails on re-run.
   await once("058c", true, async () => {
+    async function ensureUnique(table: string, conname: string, columns: string): Promise<void> {
+      const { rows } = await db.execute(sql`
+        SELECT 1 FROM pg_constraint WHERE conname = ${conname} LIMIT 1
+      `);
+      if (rows.length > 0) return;
+      await db.execute(sql.raw(`ALTER TABLE ${table} ADD CONSTRAINT ${conname} UNIQUE (${columns})`));
+    }
     // tool_subscriptions (user_id, agent_id)
     await db.execute(sql`
       DELETE FROM tool_subscriptions a
       USING tool_subscriptions b
       WHERE a.id > b.id AND a.user_id = b.user_id AND a.agent_id = b.agent_id
     `);
-    await db.execute(sql`
-      DO $$ BEGIN
-        ALTER TABLE tool_subscriptions ADD CONSTRAINT tool_subscriptions_user_agent_uk UNIQUE (user_id, agent_id);
-      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
-      END $$
-    `);
+    await ensureUnique("tool_subscriptions", "tool_subscriptions_user_agent_uk", "user_id, agent_id");
     // tool_agent_favorites (user_id, agent_id)
     await db.execute(sql`
       DELETE FROM tool_agent_favorites a
       USING tool_agent_favorites b
       WHERE a.id > b.id AND a.user_id = b.user_id AND a.agent_id = b.agent_id
     `);
-    await db.execute(sql`
-      DO $$ BEGIN
-        ALTER TABLE tool_agent_favorites ADD CONSTRAINT tool_agent_favorites_user_agent_uk UNIQUE (user_id, agent_id);
-      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
-      END $$
-    `);
+    await ensureUnique("tool_agent_favorites", "tool_agent_favorites_user_agent_uk", "user_id, agent_id");
     // tool_plugin_installs (user_id, plugin_id)
     await db.execute(sql`
       DELETE FROM tool_plugin_installs a
       USING tool_plugin_installs b
       WHERE a.id > b.id AND a.user_id = b.user_id AND a.plugin_id = b.plugin_id
     `);
-    await db.execute(sql`
-      DO $$ BEGIN
-        ALTER TABLE tool_plugin_installs ADD CONSTRAINT tool_plugin_installs_user_plugin_uk UNIQUE (user_id, plugin_id);
-      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
-      END $$
-    `);
+    await ensureUnique("tool_plugin_installs", "tool_plugin_installs_user_plugin_uk", "user_id, plugin_id");
     // compute_favorites (user_id, target_type, target_id)
     await db.execute(sql`
       DELETE FROM compute_favorites a
       USING compute_favorites b
       WHERE a.id > b.id AND a.user_id = b.user_id AND a.target_type = b.target_type AND a.target_id = b.target_id
     `);
-    await db.execute(sql`
-      DO $$ BEGIN
-        ALTER TABLE compute_favorites ADD CONSTRAINT compute_favorites_user_target_uk UNIQUE (user_id, target_type, target_id);
-      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
-      END $$
-    `);
+    await ensureUnique("compute_favorites", "compute_favorites_user_target_uk", "user_id, target_type, target_id");
     logger.info("Migration 058c: added unique constraints");
   });
 
