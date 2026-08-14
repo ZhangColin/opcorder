@@ -106,6 +106,17 @@ export const toolPluginsTable = pgTable("tool_plugins", {
   updatedAt:    timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 智能体使用会话（使用历史）:messages 为 [{role:'user'|'assistant', content, at}] 数组
+export const toolAgentConversationsTable = pgTable("tool_agent_conversations", {
+  id:        serial("id").primaryKey(),
+  userId:    integer("user_id").notNull().references(() => usersTable.id),
+  agentId:   integer("agent_id").notNull().references(() => toolAgentsTable.id),
+  title:     varchar("title", { length: 200 }).notNull().default("新对话"),
+  messages:  jsonb("messages").$type<{ role: "user" | "assistant"; content: string; at: string }[]>().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 插件安装记录
 export const toolPluginInstallsTable = pgTable("tool_plugin_installs", {
   id:        serial("id").primaryKey(),
@@ -124,3 +135,4 @@ export type ToolSubscriptionPayment = typeof toolSubscriptionPaymentsTable.$infe
 export type ToolEarning = typeof toolEarningsTable.$inferSelect;
 export type ToolPlugin = typeof toolPluginsTable.$inferSelect;
 export type ToolPluginInstall = typeof toolPluginInstallsTable.$inferSelect;
+export type ToolAgentConversation = typeof toolAgentConversationsTable.$inferSelect;

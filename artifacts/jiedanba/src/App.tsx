@@ -58,6 +58,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const OrderHall = lazy(() => import("@/pages/OrderHall"));
 const ComputeCenter = lazy(() => import("@/pages/ComputeCenter"));
 const ToolsPlatform = lazy(() => import("@/pages/ToolsPlatform"));
+const AgentUsePage = lazy(() => import("@/pages/AgentUsePage"));
 const OpcDemandDetail = lazy(() => import("@/pages/OpcDemandDetail"));
 
 const queryClient = new QueryClient({
@@ -285,6 +286,7 @@ function Router() {
       </Route>
 
       {/* 算力中心 & 工具平台 */}
+      <Route path="/tools/use/:agentId" component={AgentUsePage} />
       <Route path="/compute/:module" component={ComputeCenter} />
       <Route path="/compute" component={ComputeCenter} />
       <Route path="/tools/:module" component={ToolsPlatform} />

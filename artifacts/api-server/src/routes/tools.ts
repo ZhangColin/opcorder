@@ -12,7 +12,9 @@ import {
   toolEarningsTable,
   toolPluginsTable,
   toolPluginInstallsTable,
+  toolAgentConversationsTable,
 } from "@workspace/db";
+import { callLLM, type LLMMessage } from "../lib/llm";
 import { eq, and, desc, ilike, or, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { createPaymentOrder, queryPaymentStatus, PAYMENT_STATUS, TERMINAL_STATUSES } from "../lib/payment";
@@ -430,6 +432,224 @@ router.get("/tools/market", requireAuth, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "market");
     return res.status(500).json({ error: "获取失败" });
+  }
+});
+
+/** 判断用户是否可使用某智能体：本人所有 / 已发布且免费 / 有未过期的 active 订阅 */
+async function canUseAgent(userId: number, agent: typeof toolAgentsTable.$inferSelect): Promise<boolean> {
+  if (agent.ownerId === userId) return true;
+  if (agent.shareStatus !== "published") return false;
+  const now = new Date();
+  if ((agent.priceFenPerMonth ?? 0) === 0) return true;
+  const [sub] = await db.select().from(toolSubscriptionsTable).where(and(
+    eq(toolSubscriptionsTable.userId, userId),
+    eq(toolSubscriptionsTable.agentId, agent.id),
+    eq(toolSubscriptionsTable.status, "active"),
+  ));
+  return !!sub && (!sub.expiresAt || sub.expiresAt > now);
+}
+
+// 市场智能体详情
+router.get("/tools/market/:agentId", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    if (!/^\d+$/.test(String(req.params.agentId))) return res.status(404).json({ error: "智能体不存在" });
+    const agentId = parseInt(req.params.agentId as string);
+    const [row] = await db.select({ agent: toolAgentsTable, authorName: usersTable.nickname })
+      .from(toolAgentsTable)
+      .leftJoin(usersTable, eq(toolAgentsTable.ownerId, usersTable.id))
+      .where(eq(toolAgentsTable.id, agentId));
+    if (!row) return res.status(404).json({ error: "智能体不存在" });
+    const agent = row.agent;
+    if (agent.shareStatus !== "published" && agent.shareStatus !== "template" && agent.ownerId !== userId) {
+      return res.status(404).json({ error: "智能体不存在" });
+    }
+    const [fav] = await db.select().from(toolAgentFavoritesTable).where(and(
+      eq(toolAgentFavoritesTable.userId, userId),
+      eq(toolAgentFavoritesTable.agentId, agentId),
+    ));
+    const [{ favoriteCount }] = await db.select({ favoriteCount: sql<number>`count(*)::int` })
+      .from(toolAgentFavoritesTable).where(eq(toolAgentFavoritesTable.agentId, agentId));
+    const [{ subscriberCount }] = await db.select({ subscriberCount: sql<number>`count(*)::int` })
+      .from(toolSubscriptionsTable).where(and(
+        eq(toolSubscriptionsTable.agentId, agentId),
+        eq(toolSubscriptionsTable.status, "active"),
+      ));
+    const usable = await canUseAgent(userId, agent);
+    return res.json(serialize({
+      ...agent,
+      authorName: row.authorName ?? "匿名用户",
+      favorited: !!fav,
+      favoriteCount,
+      subscriberCount,
+      usable,
+      isOwner: agent.ownerId === userId,
+    }));
+  } catch (err) {
+    logger.error({ err }, "market detail");
+    return res.status(500).json({ error: "获取失败" });
+  }
+});
+
+// ─── 智能体使用（对话）与使用历史 ────────────────────────────────────────────
+function parseId(v: unknown): number | null {
+  return /^\d+$/.test(String(v)) ? parseInt(String(v)) : null;
+}
+const MAX_CONTEXT_MESSAGES = 20;
+const MAX_MESSAGE_LEN = 4000;
+
+function buildSystemPrompt(agent: typeof toolAgentsTable.$inferSelect): string {
+  const isWorkflow = agent.appType === "workflow";
+  const parts = [
+    `你是「${agent.name}」，一个部署在接单吧工具平台上的${isWorkflow ? "自动化工作流" : "专用智能体"}。你不是通用聊天助手，你是一个只做一件事的专业工具。`,
+  ];
+  if (agent.description) parts.push(`你的功能定义（严格遵守，这是你唯一的职责范围）：${agent.description}`);
+  if (agent.category) parts.push(`所属领域：${agent.category}。`);
+  if (agent.tags?.length) parts.push(`能力标签：${agent.tags.join("、")}。`);
+  parts.push([
+    "工作方式要求：",
+    "1. 首次对话或用户输入信息不足时，不要泛泛而谈——先按你的功能定义，明确列出你需要用户提供哪些具体材料/信息（例如需要粘贴的文本、关键参数），并给出一个简短的输入示例。",
+    "2. 用户提供材料后，直接产出你功能定义中承诺的交付物，输出必须结构化、可直接使用（善用 Markdown 标题、表格、编号清单、风险/优先级分级等），而不是对话式闲聊。",
+    "3. 输出结尾可用一行提示用户下一步能补充什么以获得更精确的结果。",
+    isWorkflow
+      ? "4. 你是工作流：处理请求时按你的流程分步执行并展示每一步的名称、状态与产出（如「步骤1 解析输入 ✓」），最后汇总结果。"
+      : "4. 保持专业口吻，直接以从业专家身份给结论和依据，不要说「作为AI」之类的话。",
+    "5. 与你的功能定义无关的请求（包括闲聊、写代码、其他领域问题），一律拒绝执行：一句话说明你只负责什么，并引导用户回到你的功能上，不要给出无关问题的任何实质回答。",
+    "6. 全程使用简体中文。",
+  ].join("\n"));
+  return parts.join("\n");
+}
+
+// 发送消息（新会话或续聊）
+router.post("/tools/agents/:agentId/chat", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const agentId = parseId(req.params.agentId);
+    if (!agentId) return res.status(404).json({ error: "智能体不存在" });
+    const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+    if (!message) return res.status(400).json({ error: "消息不能为空" });
+    if (message.length > MAX_MESSAGE_LEN) return res.status(400).json({ error: "消息过长" });
+    const conversationId = req.body?.conversationId != null ? parseId(req.body.conversationId) : null;
+    if (req.body?.conversationId != null && !conversationId) return res.status(400).json({ error: "会话参数无效" });
+
+    const [agent] = await db.select().from(toolAgentsTable).where(eq(toolAgentsTable.id, agentId));
+    if (!agent) return res.status(404).json({ error: "智能体不存在" });
+    if (!(await canUseAgent(userId, agent))) {
+      return res.status(403).json({ error: "请先订阅该智能体后再使用" });
+    }
+
+    let convo: typeof toolAgentConversationsTable.$inferSelect | undefined;
+    if (conversationId) {
+      [convo] = await db.select().from(toolAgentConversationsTable).where(and(
+        eq(toolAgentConversationsTable.id, conversationId),
+        eq(toolAgentConversationsTable.userId, userId),
+        eq(toolAgentConversationsTable.agentId, agentId),
+      ));
+      if (!convo) return res.status(404).json({ error: "会话不存在" });
+    }
+
+    const history = convo?.messages ?? [];
+    const llmMessages: LLMMessage[] = [
+      { role: "system", content: buildSystemPrompt(agent) },
+      ...history.slice(-MAX_CONTEXT_MESSAGES).map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: message },
+    ];
+
+    const result = await callLLM(llmMessages);
+    const reply = result.content?.trim() || "（未生成回复，请重试）";
+
+    const newTurn = [
+      { role: "user" as const, content: message, at: new Date().toISOString() },
+      { role: "assistant" as const, content: reply, at: new Date().toISOString() },
+    ];
+
+    if (convo) {
+      // LLM 调用期间会话可能被并发写入或删除：行锁下重读最新消息再追加,避免覆盖丢消息
+      const saved = await db.transaction(async (tx) => {
+        const [fresh] = await tx.select().from(toolAgentConversationsTable)
+          .where(and(
+            eq(toolAgentConversationsTable.id, convo!.id),
+            eq(toolAgentConversationsTable.userId, userId),
+          ))
+          .for("update");
+        if (!fresh) return false;
+        await tx.update(toolAgentConversationsTable)
+          .set({ messages: [...fresh.messages, ...newTurn], updatedAt: new Date() })
+          .where(eq(toolAgentConversationsTable.id, fresh.id));
+        return true;
+      });
+      if (!saved) return res.status(404).json({ error: "会话已被删除" });
+      return res.json({ conversationId: convo.id, reply });
+    } else {
+      const title = message.length > 30 ? `${message.slice(0, 30)}…` : message;
+      const [created] = await db.insert(toolAgentConversationsTable).values({
+        userId, agentId, title, messages: newTurn,
+      }).returning();
+      return res.json({ conversationId: created.id, reply });
+    }
+  } catch (err) {
+    logger.error({ err }, "agent chat");
+    const msg = err instanceof Error && err.message.includes("大模型") ? err.message : "对话失败，请稍后重试";
+    return res.status(500).json({ error: msg });
+  }
+});
+
+// 某智能体的会话列表（使用历史）
+router.get("/tools/agents/:agentId/conversations", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const agentId = parseId(req.params.agentId);
+    if (!agentId) return res.status(404).json({ error: "智能体不存在" });
+    const rows = await db.select().from(toolAgentConversationsTable)
+      .where(and(
+        eq(toolAgentConversationsTable.userId, userId),
+        eq(toolAgentConversationsTable.agentId, agentId),
+      ))
+      .orderBy(desc(toolAgentConversationsTable.updatedAt));
+    return res.json({
+      items: rows.map((r) => serialize({
+        id: r.id, title: r.title, messageCount: r.messages.length,
+        createdAt: r.createdAt, updatedAt: r.updatedAt,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "agent conversations");
+    return res.status(500).json({ error: "获取失败" });
+  }
+});
+
+// 会话详情（完整消息）
+router.get("/tools/agent-conversations/:id", requireAuth, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(404).json({ error: "会话不存在" });
+    const [row] = await db.select().from(toolAgentConversationsTable).where(and(
+      eq(toolAgentConversationsTable.id, id),
+      eq(toolAgentConversationsTable.userId, req.user!.id),
+    ));
+    if (!row) return res.status(404).json({ error: "会话不存在" });
+    return res.json(serialize({ ...row }));
+  } catch (err) {
+    logger.error({ err }, "agent conversation detail");
+    return res.status(500).json({ error: "获取失败" });
+  }
+});
+
+// 删除会话
+router.delete("/tools/agent-conversations/:id", requireAuth, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(404).json({ error: "会话不存在" });
+    const [row] = await db.select().from(toolAgentConversationsTable).where(and(
+      eq(toolAgentConversationsTable.id, id),
+      eq(toolAgentConversationsTable.userId, req.user!.id),
+    ));
+    if (!row) return res.status(404).json({ error: "会话不存在" });
+    await db.delete(toolAgentConversationsTable).where(eq(toolAgentConversationsTable.id, id));
+    return res.status(204).end();
+  } catch (err) {
+    logger.error({ err }, "agent conversation delete");
+    return res.status(500).json({ error: "删除失败" });
   }
 });
 

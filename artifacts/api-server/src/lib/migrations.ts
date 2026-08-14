@@ -3823,6 +3823,25 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 061: tool_subscription_payments table created and backfilled");
   });
 
+  await once("063", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_agent_conversations (
+        id serial PRIMARY KEY,
+        user_id integer NOT NULL REFERENCES users(id),
+        agent_id integer NOT NULL REFERENCES tool_agents(id),
+        title varchar(200) NOT NULL DEFAULT '新对话',
+        messages jsonb NOT NULL DEFAULT '[]',
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS tool_agent_conversations_user_agent_idx
+        ON tool_agent_conversations (user_id, agent_id)
+    `);
+    logger.info("Migration 063: tool_agent_conversations table created");
+  });
+
   // Migration 062: 算力中心/工具平台演示数据(开发与生产各灌入一次)。
   // 不走 once():标记占位与全部插入放在同一事务——先 INSERT 标记(冲突即让位,并发安全),
   // 种子失败(含演示账号尚未建好)则整体回滚,下次启动自动重试,不会留下半套数据。

@@ -165,6 +165,39 @@ export interface MarketResponse {
   categories: string[];
 }
 
+/** GET /tools/market/:id 详情 */
+export interface MarketAgentDetail extends MarketAgent {
+  subscriberCount?: number;
+  usable: boolean;
+  isOwner: boolean;
+}
+
+/** 智能体使用会话 */
+export interface AgentConversationSummary {
+  id: number;
+  title: string;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface AgentChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  at: string;
+}
+export interface AgentConversationDetail {
+  id: number;
+  agentId: number;
+  title: string;
+  messages: AgentChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+export interface AgentChatResponse {
+  conversationId: number;
+  reply: string;
+}
+
 export const CATEGORIES = [
   "金融", "教育", "医疗", "法律", "客服助手", "办公助手",
   "生活助手", "角色扮演", "创意绘画", "游戏", "情感", "其他",

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Search, Bot, Workflow, Heart, Star, ArrowRight, Upload, Store } from "lucide-react";
-import { MarketResponse, AppType, CATEGORIES, tGet, tPost, formatPrice, SubscribeResponse } from "./api";
+import { Search, Bot, Workflow, Heart, Star, ArrowRight, Upload, Store, X, Play, Users, Loader2 } from "lucide-react";
+import { MarketResponse, AppType, CATEGORIES, tGet, tPost, formatPrice, formatDate, SubscribeResponse, MarketAgentDetail } from "./api";
 import { EmptyState, Loading, ErrorBanner, GhostButton, PayDialog } from "./shared";
 
 export default function MarketModule() {
@@ -29,7 +29,10 @@ export default function MarketModule() {
     queryFn: () => tGet<MarketResponse>(`/tools/market${qs.toString() ? `?${qs}` : ""}`),
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["/tools/market"] });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["/tools/market"] });
+    qc.invalidateQueries({ queryKey: ["/tools/market/detail"] });
+  };
 
   const [paying, setPaying] = useState<{ agentId: number; agentName: string; qrCodeUrl: string; amountFen: number } | null>(null);
 
@@ -57,6 +60,8 @@ export default function MarketModule() {
   const agents = data?.items ?? [];
   const categories = data?.categories ?? CATEGORIES;
 
+  const [detailId, setDetailId] = useState<number | null>(null);
+
   return (
     <div>
       {paying && (
@@ -69,6 +74,15 @@ export default function MarketModule() {
             toast({ title: "支付成功，订阅已生效", description: "已添加到「订阅与账单」" });
           }}
           onClose={() => setPaying(null)}
+        />
+      )}
+      {detailId != null && (
+        <AgentDetailDialog
+          agentId={detailId}
+          onClose={() => setDetailId(null)}
+          onSubscribe={(id) => subscribeMut.mutate(id)}
+          onFavorite={(id) => favMut.mutate(id)}
+          subscribing={subscribeMut.isPending}
         />
       )}
       {/* Hero */}
@@ -117,7 +131,11 @@ export default function MarketModule() {
        agents.length === 0 ? <EmptyState text="没有符合条件的智能体" icon={<Store size={26} className="text-primary/40" />} /> : (
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           {agents.map((a) => (
-            <div key={a.id} className="bg-white rounded-2xl p-5 border border-border/50 shadow-sm hover:shadow-md transition-shadow relative flex flex-col">
+            <div
+              key={a.id}
+              onClick={() => setDetailId(a.id)}
+              className="bg-white rounded-2xl p-5 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all relative flex flex-col cursor-pointer"
+            >
               {/* price corner */}
               <span className={`absolute top-4 right-4 text-[11px] font-bold px-2.5 py-1 rounded-full ${
                 !a.priceFenPerMonth ? "bg-green-50 text-green-600" : "bg-primary/8 text-primary"
@@ -154,14 +172,14 @@ export default function MarketModule() {
 
               <div className="flex items-center gap-2 pt-3 border-t border-border/40">
                 <button
-                  onClick={() => subscribeMut.mutate(a.id)}
+                  onClick={(e) => { e.stopPropagation(); subscribeMut.mutate(a.id); }}
                   disabled={subscribeMut.isPending}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 bg-primary text-white rounded-xl px-3 py-2 text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   立即订阅 <ArrowRight size={15} />
                 </button>
                 <button
-                  onClick={() => favMut.mutate(a.id)}
+                  onClick={(e) => { e.stopPropagation(); favMut.mutate(a.id); }}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${
                     a.favorited ? "bg-red-50 border-red-100 text-red-500" : "bg-white border-border/60 text-slate-400 hover:text-red-500 hover:border-red-200"
                   }`}
@@ -174,6 +192,98 @@ export default function MarketModule() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function AgentDetailDialog({ agentId, onClose, onSubscribe, onFavorite, subscribing }: {
+  agentId: number;
+  onClose: () => void;
+  onSubscribe: (id: number) => void;
+  onFavorite: (id: number) => void;
+  subscribing: boolean;
+}) {
+  const [, navigate] = useLocation();
+  const { data: a, isLoading, isError, error } = useQuery({
+    queryKey: ["/tools/market/detail", agentId],
+    queryFn: () => tGet<MarketAgentDetail>(`/tools/market/${agentId}`),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40" onClick={onClose}>
+      <div className="bg-white rounded-3xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 sm:p-8 relative" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50" aria-label="关闭">
+          <X size={18} />
+        </button>
+
+        {isLoading ? (
+          <div className="py-16 flex justify-center"><Loader2 size={24} className="animate-spin text-primary" /></div>
+        ) : isError || !a ? (
+          <p className="py-12 text-center text-sm text-red-500">{(error as Error)?.message ?? "加载失败"}</p>
+        ) : (
+          <>
+            <div className="flex items-start gap-4 mb-5 pr-10">
+              <div className="w-14 h-14 rounded-2xl bg-primary/8 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {a.iconUrl
+                  ? <img src={a.iconUrl} alt={a.name} className="w-full h-full object-cover" />
+                  : a.appType === "agent" ? <Bot size={26} className="text-primary" /> : <Workflow size={26} className="text-primary" />}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-extrabold text-slate-800">{a.name}</h2>
+                <p className="text-xs text-slate-400 mt-0.5">@{a.authorName ?? "匿名"} · {a.appType === "agent" ? "Agent" : "工作流"} · {a.category ?? "通用"}</p>
+                <span className={`inline-block mt-2 text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                  !a.priceFenPerMonth ? "bg-green-50 text-green-600" : "bg-primary/8 text-primary"
+                }`}>{formatPrice(a.priceFenPerMonth)}</span>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600 leading-relaxed mb-4 whitespace-pre-wrap">{a.description || "暂无描述"}</p>
+
+            {a.tags && a.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {a.tags.map((t) => (
+                  <span key={t} className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">{t}</span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-4 text-xs text-slate-400 mb-6">
+              <span className="inline-flex items-center gap-1"><Star size={13} className="text-amber-400 fill-amber-400" />{(a.rating ?? 0).toFixed(1)}</span>
+              <span className="inline-flex items-center gap-1"><Heart size={13} />{a.favoriteCount ?? 0} 收藏</span>
+              <span className="inline-flex items-center gap-1"><Users size={13} />{a.subscriberCount ?? 0} 人订阅</span>
+              {a.publishedAt && <span>发布于 {formatDate(a.publishedAt)}</span>}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {a.usable ? (
+                <button
+                  onClick={() => navigate(`/tools/use/${a.id}`)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 bg-primary text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-primary/90"
+                >
+                  <Play size={15} />立即使用
+                </button>
+              ) : (
+                <button
+                  onClick={() => onSubscribe(a.id)}
+                  disabled={subscribing}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 bg-primary text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-primary/90 disabled:opacity-50"
+                >
+                  订阅后使用 <ArrowRight size={15} />
+                </button>
+              )}
+              <button
+                onClick={() => onFavorite(a.id)}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-colors ${
+                  a.favorited ? "bg-red-50 border-red-100 text-red-500" : "bg-white border-border/60 text-slate-400 hover:text-red-500 hover:border-red-200"
+                }`}
+                aria-label="收藏"
+              >
+                <Heart size={16} className={a.favorited ? "fill-red-500" : ""} />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
