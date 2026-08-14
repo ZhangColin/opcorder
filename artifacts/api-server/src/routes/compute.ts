@@ -18,6 +18,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, sql, count, inArray } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
+import { billSegment } from "../lib/compute-scheduler";
 
 const router: IRouter = Router();
 
@@ -57,7 +58,6 @@ router.post("/compute/notebooks", requireAuth, async (req, res) => {
     const [row] = await db.insert(computeNotebooksTable).values({
       userId: req.user!.id,
       name: b.name,
-      status: b.status ?? "creating",
       envType: b.envType ?? null,
       image: b.image ?? null,
       resourceSpec: b.resourceSpec ?? null,
@@ -86,7 +86,8 @@ router.patch("/compute/notebooks/:id", requireAuth, async (req, res) => {
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
     const b = req.body ?? {};
     const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const f of ["name", "status", "envType", "image", "resourceSpec", "sshEnabled", "description"]) {
+    // status / 计费水位等生命周期字段禁止通过通用 PATCH 修改
+    for (const f of ["name", "envType", "image", "resourceSpec", "sshEnabled", "description"]) {
       if (b[f] !== undefined) patch[f] = b[f];
     }
     const [row] = await db.update(computeNotebooksTable).set(patch).where(eq(computeNotebooksTable.id, id)).returning();
@@ -103,7 +104,18 @@ router.delete("/compute/notebooks/:id", requireAuth, async (req, res) => {
     const owned = await ownNotebook(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
-    await db.delete(computeNotebooksTable).where(eq(computeNotebooksTable.id, id));
+    await db.transaction(async (tx) => {
+      const [nb] = await tx.select().from(computeNotebooksTable)
+        .where(eq(computeNotebooksTable.id, id)).for("update");
+      if (nb && nb.status === "running") {
+        // 运行中删除：先结清计费
+        await billSegment(tx, {
+          userId: nb.userId, itemType: "notebook",
+          lastBilledAt: nb.lastBilledAt, resourceSpec: nb.resourceSpec,
+        });
+      }
+      await tx.delete(computeNotebooksTable).where(eq(computeNotebooksTable.id, id));
+    });
     return res.json({ success: true });
   } catch (err) {
     logger.error({ err }, "delete notebook");
@@ -117,9 +129,13 @@ router.post("/compute/notebooks/:id/start", requireAuth, async (req, res) => {
     const owned = await ownNotebook(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
+    const now = new Date();
+    // 前置条件：running 状态不允许重复 start（会重置计费水位）
     const [row] = await db.update(computeNotebooksTable)
-      .set({ status: "running", startedAt: new Date(), updatedAt: new Date() })
-      .where(eq(computeNotebooksTable.id, id)).returning();
+      .set({ status: "running", startedAt: now, lastBilledAt: now, updatedAt: now })
+      .where(and(eq(computeNotebooksTable.id, id), sql`${computeNotebooksTable.status} <> 'running'`))
+      .returning();
+    if (!row) return res.status(409).json({ error: "已在运行中" });
     return res.json(serialize(row));
   } catch (err) {
     logger.error({ err }, "start notebook");
@@ -133,13 +149,24 @@ router.post("/compute/notebooks/:id/stop", requireAuth, async (req, res) => {
     const owned = await ownNotebook(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
-    const nb = owned.row!;
-    let extra = 0;
-    if (nb.startedAt) extra = Math.floor((Date.now() - nb.startedAt.getTime()) / 1000);
-    const [row] = await db.update(computeNotebooksTable)
-      .set({ status: "stopped", stoppedAt: new Date(), totalRuntimeSeconds: nb.totalRuntimeSeconds + extra, updatedAt: new Date() })
-      .where(eq(computeNotebooksTable.id, id)).returning();
-    return res.json(serialize(row));
+    const result = await db.transaction(async (tx) => {
+      const [nb] = await tx.select().from(computeNotebooksTable)
+        .where(eq(computeNotebooksTable.id, id)).for("update");
+      if (!nb) return null;
+      if (nb.status !== "running") return nb; // 幂等：非运行中直接返回现状
+      const now = new Date();
+      const extra = nb.startedAt ? Math.floor((now.getTime() - nb.startedAt.getTime()) / 1000) : 0;
+      await billSegment(tx, {
+        userId: nb.userId, itemType: "notebook",
+        lastBilledAt: nb.lastBilledAt, resourceSpec: nb.resourceSpec, now,
+      });
+      const [row] = await tx.update(computeNotebooksTable)
+        .set({ status: "stopped", stoppedAt: now, lastBilledAt: null, totalRuntimeSeconds: nb.totalRuntimeSeconds + extra, updatedAt: now })
+        .where(eq(computeNotebooksTable.id, id)).returning();
+      return row;
+    });
+    if (!result) return res.status(404).json({ error: "不存在" });
+    return res.json(serialize(result));
   } catch (err) {
     logger.error({ err }, "stop notebook");
     return res.status(500).json({ error: "操作失败" });
@@ -168,7 +195,6 @@ router.post("/compute/training-jobs", requireAuth, async (req, res) => {
     const [row] = await db.insert(computeTrainingJobsTable).values({
       userId: req.user!.id,
       name: b.name,
-      status: b.status ?? "pending",
       mode: b.mode ?? "custom",
       image: b.image ?? null,
       resourceSpec: b.resourceSpec ?? null,
@@ -199,7 +225,8 @@ router.patch("/compute/training-jobs/:id", requireAuth, async (req, res) => {
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
     const b = req.body ?? {};
     const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const f of ["name", "status", "mode", "image", "resourceSpec", "command", "datasetPath", "outputPath", "description"]) {
+    // status / 计费水位等生命周期字段禁止通过通用 PATCH 修改
+    for (const f of ["name", "mode", "image", "resourceSpec", "command", "datasetPath", "outputPath", "description"]) {
       if (b[f] !== undefined) patch[f] = b[f];
     }
     const [row] = await db.update(computeTrainingJobsTable).set(patch).where(eq(computeTrainingJobsTable.id, id)).returning();
@@ -216,7 +243,18 @@ router.delete("/compute/training-jobs/:id", requireAuth, async (req, res) => {
     const owned = await ownTraining(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
-    await db.delete(computeTrainingJobsTable).where(eq(computeTrainingJobsTable.id, id));
+    await db.transaction(async (tx) => {
+      const [job] = await tx.select().from(computeTrainingJobsTable)
+        .where(eq(computeTrainingJobsTable.id, id)).for("update");
+      if (job && job.status === "running") {
+        // 运行中删除：先结清计费
+        await billSegment(tx, {
+          userId: job.userId, itemType: "training",
+          lastBilledAt: job.lastBilledAt, resourceSpec: job.resourceSpec,
+        });
+      }
+      await tx.delete(computeTrainingJobsTable).where(eq(computeTrainingJobsTable.id, id));
+    });
     return res.json({ success: true });
   } catch (err) {
     logger.error({ err }, "delete training job");
@@ -230,10 +268,26 @@ router.post("/compute/training-jobs/:id/stop", requireAuth, async (req, res) => 
     const owned = await ownTraining(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
-    const [row] = await db.update(computeTrainingJobsTable)
-      .set({ status: "stopped", updatedAt: new Date() })
-      .where(eq(computeTrainingJobsTable.id, id)).returning();
-    return res.json(serialize(row));
+    const result = await db.transaction(async (tx) => {
+      const [job] = await tx.select().from(computeTrainingJobsTable)
+        .where(eq(computeTrainingJobsTable.id, id)).for("update");
+      if (!job) return null;
+      if (job.status !== "running" && job.status !== "pending") return job; // 幂等
+      const now = new Date();
+      const billed = await billSegment(tx, {
+        userId: job.userId, itemType: "training",
+        lastBilledAt: job.lastBilledAt, resourceSpec: job.resourceSpec, now,
+      });
+      const [row] = await tx.update(computeTrainingJobsTable)
+        .set({
+          status: "stopped", finishedAt: now, lastBilledAt: null,
+          totalRuntimeSeconds: job.totalRuntimeSeconds + billed, updatedAt: now,
+        })
+        .where(eq(computeTrainingJobsTable.id, id)).returning();
+      return row;
+    });
+    if (!result) return res.status(404).json({ error: "不存在" });
+    return res.json(serialize(result));
   } catch (err) {
     logger.error({ err }, "stop training job");
     return res.status(500).json({ error: "操作失败" });
@@ -289,12 +343,10 @@ router.post("/compute/inference-services", requireAuth, async (req, res) => {
       userId: req.user!.id,
       name: b.name,
       serviceType: b.serviceType ?? "custom",
-      status: b.status ?? "deploying",
       modelSource: b.modelSource ?? null,
       image: b.image ?? null,
       resourceSpec: b.resourceSpec ?? null,
       replicas: b.replicas ?? 1,
-      runningReplicas: b.runningReplicas ?? 0,
       endpointUrl: b.endpointUrl ?? null,
       description: b.description ?? null,
     }).returning();
@@ -320,7 +372,8 @@ router.patch("/compute/inference-services/:id", requireAuth, async (req, res) =>
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
     const b = req.body ?? {};
     const patch: Record<string, unknown> = { updatedAt: new Date() };
-    for (const f of ["name", "serviceType", "status", "modelSource", "image", "resourceSpec", "replicas", "runningReplicas", "endpointUrl", "description"]) {
+    // status / runningReplicas / 计费水位等生命周期字段禁止通过通用 PATCH 修改
+    for (const f of ["name", "serviceType", "modelSource", "image", "resourceSpec", "replicas", "endpointUrl", "description"]) {
       if (b[f] !== undefined) patch[f] = b[f];
     }
     const [row] = await db.update(computeInferenceServicesTable).set(patch).where(eq(computeInferenceServicesTable.id, id)).returning();
@@ -337,7 +390,19 @@ router.delete("/compute/inference-services/:id", requireAuth, async (req, res) =
     const owned = await ownInference(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
-    await db.delete(computeInferenceServicesTable).where(eq(computeInferenceServicesTable.id, id));
+    await db.transaction(async (tx) => {
+      const [svc] = await tx.select().from(computeInferenceServicesTable)
+        .where(eq(computeInferenceServicesTable.id, id)).for("update");
+      if (svc && svc.status === "running") {
+        // 运行中删除：先结清计费
+        await billSegment(tx, {
+          userId: svc.userId, itemType: "inference",
+          lastBilledAt: svc.lastBilledAt, resourceSpec: svc.resourceSpec,
+          replicas: svc.runningReplicas || svc.replicas,
+        });
+      }
+      await tx.delete(computeInferenceServicesTable).where(eq(computeInferenceServicesTable.id, id));
+    });
     return res.json({ success: true });
   } catch (err) {
     logger.error({ err }, "delete inference");
@@ -351,9 +416,13 @@ router.post("/compute/inference-services/:id/start", requireAuth, async (req, re
     const owned = await ownInference(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
+    const now = new Date();
+    // 前置条件：running 状态不允许重复 start（会重置计费水位）
     const [row] = await db.update(computeInferenceServicesTable)
-      .set({ status: "running", runningReplicas: owned.row!.replicas, updatedAt: new Date() })
-      .where(eq(computeInferenceServicesTable.id, id)).returning();
+      .set({ status: "running", runningReplicas: owned.row!.replicas, startedAt: now, lastBilledAt: now, updatedAt: now })
+      .where(and(eq(computeInferenceServicesTable.id, id), sql`${computeInferenceServicesTable.status} <> 'running'`))
+      .returning();
+    if (!row) return res.status(409).json({ error: "已在运行中" });
     return res.json(serialize(row));
   } catch (err) {
     logger.error({ err }, "start inference");
@@ -367,10 +436,27 @@ router.post("/compute/inference-services/:id/stop", requireAuth, async (req, res
     const owned = await ownInference(id, req.user!.id);
     if (owned.err === 404) return res.status(404).json({ error: "不存在" });
     if (owned.err === 403) return res.status(403).json({ error: "无权操作" });
-    const [row] = await db.update(computeInferenceServicesTable)
-      .set({ status: "stopped", runningReplicas: 0, updatedAt: new Date() })
-      .where(eq(computeInferenceServicesTable.id, id)).returning();
-    return res.json(serialize(row));
+    const result = await db.transaction(async (tx) => {
+      const [svc] = await tx.select().from(computeInferenceServicesTable)
+        .where(eq(computeInferenceServicesTable.id, id)).for("update");
+      if (!svc) return null;
+      if (svc.status !== "running" && svc.status !== "deploying") return svc; // 幂等
+      const now = new Date();
+      const billed = await billSegment(tx, {
+        userId: svc.userId, itemType: "inference",
+        lastBilledAt: svc.lastBilledAt, resourceSpec: svc.resourceSpec,
+        replicas: svc.runningReplicas || svc.replicas, now,
+      });
+      const [row] = await tx.update(computeInferenceServicesTable)
+        .set({
+          status: "stopped", runningReplicas: 0, lastBilledAt: null,
+          totalRuntimeSeconds: svc.totalRuntimeSeconds + billed, updatedAt: now,
+        })
+        .where(eq(computeInferenceServicesTable.id, id)).returning();
+      return row;
+    });
+    if (!result) return res.status(404).json({ error: "不存在" });
+    return res.json(serialize(result));
   } catch (err) {
     logger.error({ err }, "stop inference");
     return res.status(500).json({ error: "操作失败" });

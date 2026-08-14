@@ -8,4 +8,5 @@
 - [JSX 泛型参数会炸 Babel](jsx-generic-babel.md) — jiedanba 前端 `<Comp<T> ...>` 泛型 JSX 语法导致 vite react-babel 解析失败白屏;靠推断或 `v as T`,别写 JSX 泛型实参。
 - [生产迁移经验](prod-migration-lessons.md) — 附件路径相对无需改写;大附件用签名URL清单迁移;恢复dump用DROP SCHEMA而非--clean;生产库用户可用面板连接串写入。
 - [Orphan port processes](orphan-port-processes.md) — EADDRINUSE 或白屏先查残留 node/vite 孤儿进程;vite 若被挤到备用端口,代理仍指向原端口导致白屏。
+- [算力计费一致性](compute-billing-consistency.md) — 账单+水位必须同事务+FOR UPDATE;多实例用 xact 级咨询锁;PATCH 禁改生命周期字段。
 - [Beijing time convention](beijing-time-convention.md) — all user-visible times are Beijing time; DB uses naive storage (Beijing number stored as UTC); always use timeZone:"UTC" in display and UTC accessors in form init.

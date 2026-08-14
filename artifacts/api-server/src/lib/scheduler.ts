@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { eq, and, lt, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { startComputeScheduler } from "./compute-scheduler";
 import { queryRefundStatus, isRefundSuccess, isRefundFailed } from "./payment";
 import { Resend } from "resend";
 
@@ -321,6 +322,8 @@ export function startScheduler() {
 
   autoCompleteV2WarrantyPeriods();
   setInterval(autoCompleteV2WarrantyPeriods, HOUR_MS); // hourly
+
+  startComputeScheduler();
 
   logger.info("Background scheduler started (48h auto-convert every 15min, 7-day auto-accept every 1h, refund poll every 5min, v2 warranty every 1h)");
 }

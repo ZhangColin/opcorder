@@ -6,7 +6,7 @@ import { cList, cPost, cDelete } from "./api";
 import type { TrainingJob } from "./types";
 import {
   Card, StatusBadge, PrimaryButton, GhostButton, Modal, Field, inputCls,
-  EmptyState, LoadingState, ErrorState, TabBar, TableShell, fmtDate,
+  EmptyState, LoadingState, ErrorState, TabBar, TableShell, fmtDate, fmtRuntime,
 } from "./shared";
 
 const KEY = ["/compute/training-jobs"];
@@ -102,6 +102,7 @@ export default function TrainingModule() {
   const { data, isLoading, error } = useQuery<TrainingJob[]>({
     queryKey: KEY,
     queryFn: () => cList<TrainingJob>("/training-jobs"),
+    refetchInterval: 10000,
   });
 
   const action = useMutation({
@@ -145,6 +146,7 @@ export default function TrainingModule() {
               <th className="px-4 py-3">模式</th>
               <th className="px-4 py-3">镜像</th>
               <th className="px-4 py-3">资源规格</th>
+              <th className="px-4 py-3">运行时长</th>
               <th className="px-4 py-3">创建时间</th>
               <th className="px-4 py-3 text-right">操作</th>
             </>
@@ -157,6 +159,7 @@ export default function TrainingModule() {
               <td className="px-4 py-3 text-slate-500">{n.mode === "template" ? "模板" : "自定义"}</td>
               <td className="px-4 py-3 text-slate-500 max-w-[160px] truncate">{n.image ?? "—"}</td>
               <td className="px-4 py-3 text-slate-500">{n.resourceSpec ?? "—"}</td>
+              <td className="px-4 py-3 text-slate-500">{fmtRuntime(n.totalRuntimeSeconds)}</td>
               <td className="px-4 py-3 text-slate-500">{fmtDate(n.createdAt)}</td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-3">

@@ -82,6 +82,7 @@ export default function NotebooksModule() {
   const { data, isLoading, error } = useQuery<Notebook[]>({
     queryKey: KEY,
     queryFn: () => cList<Notebook>("/notebooks"),
+    refetchInterval: 10000,
   });
 
   const action = useMutation({

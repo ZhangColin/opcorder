@@ -105,7 +105,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'pending_payment' AFTER 'pending_review';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -115,13 +115,13 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE demand_payment_method AS ENUM ('online', 'offline');
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE demand_payment_status AS ENUM ('pending', 'confirmed', 'rejected');
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -176,7 +176,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'rejected';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -197,19 +197,19 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'completed';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'refunding' AFTER 'refund_pending';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'refunding';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -219,13 +219,13 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'rejected';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE demand_payment_status ADD VALUE IF NOT EXISTS 'refunding' AFTER 'refund_pending';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -243,7 +243,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE bid_status ADD VALUE IF NOT EXISTS 'withdrawn' AFTER 'rejected';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -294,13 +294,13 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refund_pending' AFTER 'paid';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'refund_pending';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -402,7 +402,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'order_completed' AFTER 'system';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
   });
@@ -470,7 +470,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'pending_payment' BEFORE 'in_progress';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     logger.info("Migration 009d: added pending_payment to order_status enum");
@@ -940,7 +940,7 @@ export async function runMigrations(): Promise<void> {
       await db.execute(sql.raw(`
         DO $$ BEGIN
           ALTER TYPE demand_type ADD VALUE IF NOT EXISTS '${val}';
-        EXCEPTION WHEN duplicate_object THEN NULL;
+        EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
         END $$
       `));
     }
@@ -1607,68 +1607,68 @@ export async function runMigrations(): Promise<void> {
         CREATE TYPE v2_client_demand_status AS ENUM (
           'draft','negotiating','quoting','pending_contract','executing','warranty','completed','closed'
         );
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_outsource_demand_status AS ENUM (
           'negotiating','executing','warranty','completed','closed'
         );
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_outsource_demand_mode AS ENUM ('public','invited');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_tender_status AS ENUM ('negotiating','quoted','won','lost');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_outsource_order_status AS ENUM (
           'pending_contract','executing','warranty','completed','cancelled'
         );
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_quotation_card_parent_type AS ENUM ('client_demand','tender');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_contract_channel AS ENUM ('a','b');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_contract_status AS ENUM (
           'draft','pending_publisher_confirm','publisher_rejected','pending_sign','signed'
         );
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_payment_plan_status AS ENUM ('pending','awaiting_review','paid');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_settlement_plan_status AS ENUM ('pending','payable','paid');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_deliverable_status AS ENUM ('pending','confirmed','revision','approved');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE v2_ticket_status AS ENUM ('open','closed');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
@@ -1676,7 +1676,7 @@ export async function runMigrations(): Promise<void> {
           'client_demand','outsource_demand','tender',
           'deliverable_a','deliverable_b','ticket_a','ticket_b'
         );
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
     `);
     logger.info("Migration 032a: created v2 enums");
   });
@@ -2064,7 +2064,7 @@ export async function runMigrations(): Promise<void> {
       await db.execute(sql`
         DO $$ BEGIN
           ALTER TYPE notification_type ADD VALUE IF NOT EXISTS ${sql.raw(`'${t}'`)};
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$
+        EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$
       `);
     }
     logger.info("Migration 032l: extended notification_type enum with v2 event types");
@@ -2743,13 +2743,13 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'contest_test_graded' AFTER 'v2_discussion_replied';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'contest_assignment_graded' AFTER 'contest_test_graded';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     logger.info("Migration 040a: added contest notification types to enum");
@@ -2760,7 +2760,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE contest_status AS ENUM ('draft', 'published', 'ended');
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
@@ -2827,7 +2827,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         CREATE TYPE contest_grade AS ENUM ('A', 'B', 'C', 'fail');
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
@@ -2836,7 +2836,7 @@ export async function runMigrations(): Promise<void> {
           'registered', 'test_submitted', 'test_passed', 'test_failed',
           'assignment_submitted', 'assignment_passed', 'assignment_failed'
         );
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     await db.execute(sql`
@@ -3263,7 +3263,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'v2_contract_esign_pending' AFTER 'v2_contract_signed';
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     logger.info("Migration 053b: added v2_contract_esign_pending to notification_type enum");
@@ -3690,7 +3690,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TABLE tool_subscriptions ADD CONSTRAINT tool_subscriptions_user_agent_uk UNIQUE (user_id, agent_id);
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     // tool_agent_favorites (user_id, agent_id)
@@ -3702,7 +3702,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TABLE tool_agent_favorites ADD CONSTRAINT tool_agent_favorites_user_agent_uk UNIQUE (user_id, agent_id);
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     // tool_plugin_installs (user_id, plugin_id)
@@ -3714,7 +3714,7 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TABLE tool_plugin_installs ADD CONSTRAINT tool_plugin_installs_user_plugin_uk UNIQUE (user_id, plugin_id);
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     // compute_favorites (user_id, target_type, target_id)
@@ -3726,10 +3726,33 @@ export async function runMigrations(): Promise<void> {
     await db.execute(sql`
       DO $$ BEGIN
         ALTER TABLE compute_favorites ADD CONSTRAINT compute_favorites_user_target_uk UNIQUE (user_id, target_type, target_id);
-      EXCEPTION WHEN duplicate_object THEN NULL;
+      EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL;
       END $$
     `);
     logger.info("Migration 058c: added unique constraints");
+  });
+
+  // Migration 059: compute lifecycle/billing columns
+  await once("059", true, async () => {
+    await db.execute(sql`
+      ALTER TABLE compute_notebooks
+        ADD COLUMN IF NOT EXISTS last_billed_at timestamp
+    `);
+    await db.execute(sql`
+      ALTER TABLE compute_training_jobs
+        ADD COLUMN IF NOT EXISTS started_at timestamp,
+        ADD COLUMN IF NOT EXISTS finished_at timestamp,
+        ADD COLUMN IF NOT EXISTS last_billed_at timestamp,
+        ADD COLUMN IF NOT EXISTS planned_duration_seconds integer,
+        ADD COLUMN IF NOT EXISTS total_runtime_seconds integer NOT NULL DEFAULT 0
+    `);
+    await db.execute(sql`
+      ALTER TABLE compute_inference_services
+        ADD COLUMN IF NOT EXISTS started_at timestamp,
+        ADD COLUMN IF NOT EXISTS last_billed_at timestamp,
+        ADD COLUMN IF NOT EXISTS total_runtime_seconds integer NOT NULL DEFAULT 0
+    `);
+    logger.info("Migration 059: compute lifecycle/billing columns added");
   });
 
   logger.info("Startup data migrations complete.");

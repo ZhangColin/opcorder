@@ -24,6 +24,9 @@ export interface TrainingJob {
   datasetPath?: string | null;
   outputPath?: string | null;
   description?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  totalRuntimeSeconds?: number | null;
   createdAt?: string | null;
 }
 
@@ -39,6 +42,8 @@ export interface InferenceService {
   runningReplicas?: number | null;
   endpointUrl?: string | null;
   description?: string | null;
+  startedAt?: string | null;
+  totalRuntimeSeconds?: number | null;
   createdAt?: string | null;
 }
 

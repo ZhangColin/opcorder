@@ -6,7 +6,7 @@ import { cList, cPost, cDelete } from "./api";
 import type { InferenceService } from "./types";
 import {
   Card, StatusBadge, PrimaryButton, GhostButton, Modal, Field, inputCls,
-  EmptyState, LoadingState, ErrorState, TabBar, TableShell, fmtDate, copyText,
+  EmptyState, LoadingState, ErrorState, TabBar, TableShell, fmtDate, fmtRuntime, copyText,
 } from "./shared";
 
 const KEY = ["/compute/inference-services"];
@@ -79,6 +79,7 @@ export default function InferenceModule() {
   const { data, isLoading, error } = useQuery<InferenceService[]>({
     queryKey: KEY,
     queryFn: () => cList<InferenceService>("/inference-services"),
+    refetchInterval: 10000,
   });
 
   const action = useMutation({
@@ -131,6 +132,7 @@ export default function InferenceModule() {
               <th className="px-4 py-3">访问地址</th>
               <th className="px-4 py-3">实例数</th>
               <th className="px-4 py-3">资源规格</th>
+              <th className="px-4 py-3">运行时长</th>
               <th className="px-4 py-3">创建时间</th>
               <th className="px-4 py-3 text-right">操作</th>
             </>
@@ -157,6 +159,7 @@ export default function InferenceModule() {
                 {s.runningReplicas ?? 0} / {s.replicas ?? 0}
               </td>
               <td className="px-4 py-3 text-slate-500">{s.resourceSpec ?? "—"}</td>
+              <td className="px-4 py-3 text-slate-500">{fmtRuntime(s.totalRuntimeSeconds)}</td>
               <td className="px-4 py-3 text-slate-500">{fmtDate(s.createdAt)}</td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-3">
