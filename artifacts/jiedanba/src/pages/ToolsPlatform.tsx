@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import {
   Bot, Database, Wrench, Store, LayoutTemplate, Puzzle, Wallet, Receipt,
 } from "lucide-react";
+import { Navbar } from "@/components/layout/Navbar";
 import AgentsModule from "@/components/tools/AgentsModule";
 import KnowledgeModule from "@/components/tools/KnowledgeModule";
 import ToolMgmtModule from "@/components/tools/ToolMgmtModule";
@@ -56,9 +57,11 @@ export default function ToolsPlatform() {
   const go = (key: ModuleKey) => navigate(`/tools/${key}`);
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="flex pt-16 sm:pt-20">
       {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 bg-white border-r border-border/60 flex flex-col py-6 sticky top-0 h-screen">
+      <aside className="hidden md:flex w-60 flex-shrink-0 bg-white border-r border-border/60 flex-col py-6 sticky top-16 sm:top-20 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] overflow-y-auto">
         <div className="px-6 mb-6">
           <h2 className="text-lg font-extrabold text-primary font-display">工具平台</h2>
           <p className="text-[11px] text-slate-400 mt-0.5">智能体 · 知识库 · 工具</p>
@@ -69,9 +72,30 @@ export default function ToolsPlatform() {
       </aside>
 
       {/* Content */}
-      <main className="flex-1 min-w-0 px-8 py-8 max-w-[1400px]">
+      <main className="flex-1 min-w-0 px-4 sm:px-8 py-6 sm:py-8 max-w-[1400px]">
+        {/* 移动端横向导航 */}
+        <div className="md:hidden mb-4 overflow-x-auto">
+          <div className="flex gap-1 w-max">
+            {[...WORKSPACE, ...MARKET].map((it) => {
+              const active = current === it.key;
+              return (
+                <button
+                  key={it.key}
+                  onClick={() => go(it.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors ${
+                    active ? "text-primary bg-primary/5" : "text-slate-500"
+                  }`}
+                >
+                  {it.icon}
+                  {it.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {renderModule(current)}
       </main>
+      </div>
     </div>
   );
 }

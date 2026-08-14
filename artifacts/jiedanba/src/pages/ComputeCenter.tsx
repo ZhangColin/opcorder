@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Code2, Cpu, Zap, HardDrive, Server, Coins,
   KeyRound, Boxes, ShoppingCart, Receipt, Box, Database, Layers, Star,
 } from "lucide-react";
+import { Navbar } from "@/components/layout/Navbar";
 import OverviewModule from "@/components/compute/OverviewModule";
 import NotebooksModule from "@/components/compute/NotebooksModule";
 import TrainingModule from "@/components/compute/TrainingModule";
@@ -91,9 +92,10 @@ export default function ComputeCenter() {
 
   return (
     <div className="min-h-screen bg-[#f9f9fc]">
-      <div className="max-w-[1600px] mx-auto flex">
+      <Navbar />
+      <div className="max-w-[1600px] mx-auto flex pt-16 sm:pt-20">
         {/* 左侧栏 */}
-        <aside className="hidden md:flex w-56 flex-shrink-0 flex-col bg-white border-r border-border/50 min-h-screen sticky top-0 py-6">
+        <aside className="hidden md:flex w-56 flex-shrink-0 flex-col bg-white border-r border-border/50 sticky top-16 sm:top-20 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] py-6">
           <div className="px-5 mb-6">
             <h1 className="text-lg font-black text-primary font-display flex items-center gap-2">
               <Cpu size={20} /> 算力中心
@@ -128,7 +130,7 @@ export default function ComputeCenter() {
 
         {/* 移动端顶部导航 */}
         <div className="flex-1 min-w-0">
-          <div className="md:hidden bg-white border-b border-border/50 px-4 py-3 overflow-x-auto sticky top-0 z-10">
+          <div className="md:hidden bg-white border-b border-border/50 px-4 py-3 overflow-x-auto sticky top-16 sm:top-20 z-10">
             <div className="flex gap-1 w-max">
               {NAV.flatMap((g) => g.items).map((it) => {
                 const active = module === it.key;
