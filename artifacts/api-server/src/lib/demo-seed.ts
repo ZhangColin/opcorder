@@ -20,6 +20,7 @@ import {
 import { inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -31,21 +32,32 @@ const bj = (s: string) => new Date(s.replace(" ", "T") + ":00Z");
  * 种子账号缺失时抛错 → 标记不落库,下次启动重试。
  */
 export async function seedComputeToolsDemoData(db: Tx): Promise<void> {
-  const emails = [
-    "zhangjinhua@aieducenter.com", // 主演示账号:算力使用者 + 订阅者
-    "hanwenchen@aieducenter.com",  // 创作者
-    "yulimin@aieducenter.com",     // 创作者
-    "liuqiang@aieducenter.com",    // 创作者 + 算力使用者
-  ];
-  const users = await db.select({ id: usersTable.id, email: usersTable.email })
-    .from(usersTable).where(inArray(usersTable.email, emails));
-  const uid = Object.fromEntries(users.map(u => [(u.email ?? "").split("@")[0], u.id]));
-  const zjh = uid["zhangjinhua"], hwc = uid["hanwenchen"], ylm = uid["yulimin"], lq = uid["liuqiang"];
-  if (!zjh || !hwc || !ylm || !lq) {
-    throw new Error(`Demo seed prerequisites missing: found users [${Object.keys(uid).join(",")}]`);
-  }
+  // 主演示账号(算力使用者 + 订阅者),必须已由 OPC 种子创建
+  const [zjhRow] = await db.select({ id: usersTable.id }).from(usersTable)
+    .where(inArray(usersTable.email, ["zhangjinhua@aieducenter.com"]));
+  if (!zjhRow) throw new Error("Demo seed prerequisites missing: zhangjinhua account not found");
+  const zjh = zjhRow.id;
 
-  // ── 算力中心（张锦华为主,刘强少量） ─────────────────────────────────────
+  // 三个虚构创作者账号,不存在则创建
+  const CREATORS = [
+    { email: "lujiaming@aieducenter.com", nickname: "陆嘉铭" },
+    { email: "suwanqing@aieducenter.com", nickname: "苏婉晴" },
+    { email: "chengyifan@aieducenter.com", nickname: "程一帆" },
+  ];
+  const creatorIds: Record<string, number> = {};
+  for (const c of CREATORS) {
+    const [existing] = await db.select({ id: usersTable.id }).from(usersTable)
+      .where(inArray(usersTable.email, [c.email]));
+    if (existing) { creatorIds[c.nickname] = existing.id; continue; }
+    const [created] = await db.insert(usersTable).values({
+      email: c.email, nickname: c.nickname, role: "opc",
+      passwordHash: await bcrypt.hash("opc@123456", 10),
+    }).returning({ id: usersTable.id });
+    creatorIds[c.nickname] = created.id;
+  }
+  const hwc = creatorIds["陆嘉铭"], ylm = creatorIds["苏婉晴"], lq = creatorIds["程一帆"];
+
+  // ── 算力中心（张锦华为主,程一帆少量） ─────────────────────────────────────
 
   // 镜像(先于开发/训练引用)
   await db.insert(computeImagesTable).values([
@@ -179,13 +191,13 @@ export async function seedComputeToolsDemoData(db: Tx): Promise<void> {
 
   // 订阅 → 支付流水 → 创作者收益（金额/时间一一勾稽;订单号符合业务格式）
   const subs = await db.insert(toolSubscriptionsTable).values([
-    // 张锦华付费订阅韩文臣的合同审查(已续费一次,当前有效)
+    // 张锦华付费订阅陆嘉铭的合同审查(已续费一次,当前有效)
     { userId: zjh, agentId: agentId("合同风险审查助手"), amountFen: 19_900, status: "active", businessOrderNo: "TOOLSUB-DEMO-1001", paymentOrderNo: "PAY20260811093012001", paidAt: bj("2026-08-11 09:30"), startsAt: bj("2026-08-11 09:30"), expiresAt: bj("2026-09-10 09:30"), createdAt: bj("2026-07-11 10:02"), updatedAt: bj("2026-08-11 09:30") },
     // 张锦华免费订阅周报速写
     { userId: zjh, agentId: agentId("周报速写"), amountFen: 0, status: "active", startsAt: bj("2026-07-16 08:50"), createdAt: bj("2026-07-16 08:50"), updatedAt: bj("2026-07-16 08:50") },
-    // 刘强付费订阅财务对账,已到期未续
+    // 程一帆付费订阅财务对账,已到期未续
     { userId: lq, agentId: agentId("财务对账机器人"), amountFen: 9_900, status: "expired", businessOrderNo: "TOOLSUB-DEMO-1003", paymentOrderNo: "PAY20260712110412003", paidAt: bj("2026-07-12 11:04"), startsAt: bj("2026-07-12 11:04"), expiresAt: bj("2026-08-11 11:04"), createdAt: bj("2026-07-12 11:00"), updatedAt: bj("2026-08-11 11:05") },
-    // 韩文臣付费订阅刘强的简历筛选,当前有效
+    // 陆嘉铭付费订阅程一帆的简历筛选,当前有效
     { userId: hwc, agentId: agentId("简历筛选与人才画像"), amountFen: 14_900, status: "active", businessOrderNo: "TOOLSUB-DEMO-1004", paymentOrderNo: "PAY20260802101512004", paidAt: bj("2026-08-02 10:15"), startsAt: bj("2026-08-02 10:15"), expiresAt: bj("2026-09-01 10:15"), createdAt: bj("2026-08-02 10:12"), updatedAt: bj("2026-08-02 10:15") },
   ]).returning({ id: toolSubscriptionsTable.id, userId: toolSubscriptionsTable.userId, agentId: toolSubscriptionsTable.agentId });
   const subId = (u: number, a: number) => subs.find(s => s.userId === u && s.agentId === a)!.id;
@@ -209,9 +221,9 @@ export async function seedComputeToolsDemoData(db: Tx): Promise<void> {
   const plugins = await db.insert(toolPluginsTable).values([
     { name: "网页内容抓取", author: "接单吧官方", description: "输入 URL 抓取正文并转为 Markdown,支持登录态站点", installCount: 2, createdAt: bj("2026-07-01 09:00"), updatedAt: bj("2026-07-01 09:00") },
     { name: "Excel 批量处理", author: "接单吧官方", description: "读写 xlsx,支持多 Sheet 合并、透视与公式回填", installCount: 2, createdAt: bj("2026-07-01 09:00"), updatedAt: bj("2026-07-01 09:00") },
-    { name: "OCR 文字识别", author: "韩文臣", description: "扫描件/照片转文字,支持表格结构还原,合同审查常用前置工具", installCount: 1, createdAt: bj("2026-07-09 15:30"), updatedAt: bj("2026-07-09 15:30") },
+    { name: "OCR 文字识别", author: "陆嘉铭", description: "扫描件/照片转文字,支持表格结构还原,合同审查常用前置工具", installCount: 1, createdAt: bj("2026-07-09 15:30"), updatedAt: bj("2026-07-09 15:30") },
     { name: "邮件发送", author: "接单吧官方", description: "对接企业邮箱发送通知邮件,支持模板变量与附件", installCount: 1, createdAt: bj("2026-07-01 09:00"), updatedAt: bj("2026-07-01 09:00") },
-    { name: "电子签章调用", author: "余黎敏", description: "对接 e 签宝发起签署流程,回传签署状态", installCount: 0, createdAt: bj("2026-07-28 11:20"), updatedAt: bj("2026-07-28 11:20") },
+    { name: "电子签章调用", author: "苏婉晴", description: "对接 e 签宝发起签署流程,回传签署状态", installCount: 0, createdAt: bj("2026-07-28 11:20"), updatedAt: bj("2026-07-28 11:20") },
   ]).returning({ id: toolPluginsTable.id, name: toolPluginsTable.name });
   const pluginId = (n: string) => plugins.find(p => p.name === n)!.id;
   await db.insert(toolPluginInstallsTable).values([
