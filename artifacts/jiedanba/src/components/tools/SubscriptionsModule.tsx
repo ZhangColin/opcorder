@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bot, Receipt, ChevronDown, ChevronRight } from "lucide-react";
+import { useLocation } from "wouter";
+import { Bot, Receipt, ChevronDown, ChevronRight, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SubscriptionsResponse, SubscribeResponse, tGet, tPost, formatPrice, formatDate } from "./api";
 import { PageHeader, EmptyState, Loading, ErrorBanner, PayDialog } from "./shared";
@@ -26,6 +27,7 @@ const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
 export default function SubscriptionsModule() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["/tools/subscriptions"],
     queryFn: () => tGet<SubscriptionsResponse>("/tools/subscriptions"),
@@ -129,6 +131,14 @@ export default function SubscriptionsModule() {
                     <td className="px-5 py-3 text-slate-400 text-xs whitespace-nowrap">{s.expiresAt ? formatDate(s.expiresAt) : (s.status === "active" ? "长期有效" : "—")}</td>
                     <td className="px-5 py-3 text-slate-400 text-xs whitespace-nowrap">{formatDate(s.createdAt)}</td>
                     <td className="px-5 py-3 text-right">
+                      {s.status === "active" && s.agentId != null && (
+                        <button
+                          onClick={() => navigate(`/tools/use/${s.agentId}`)}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-lg px-2.5 py-1.5 mr-3"
+                        >
+                          <Play size={12} />使用
+                        </button>
+                      )}
                       {canRenew && (
                         <button
                           onClick={() => renewMut.mutate(s.agentId!)}
