@@ -8,6 +8,7 @@ import {
   toolCustomToolsTable,
   toolAgentFavoritesTable,
   toolSubscriptionsTable,
+  toolSubscriptionPaymentsTable,
   toolEarningsTable,
   toolPluginsTable,
   toolPluginInstallsTable,
@@ -36,6 +37,17 @@ async function activateLockedSub(tx: Tx, sub: typeof toolSubscriptionsTable.$inf
   const [updated] = await tx.update(toolSubscriptionsTable)
     .set({ status: "active", startsAt: now, expiresAt, paidAt: now, cancelledAt: null, updatedAt: now })
     .where(eq(toolSubscriptionsTable.id, sub.id)).returning();
+  // 不可变支付流水：每笔成功支付一行,续订不覆盖历史。
+  // payment_order_no 唯一索引 + onConflictDoNothing 保证同一支付单只记一次。
+  await tx.insert(toolSubscriptionPaymentsTable).values({
+    subscriptionId: sub.id,
+    userId: sub.userId,
+    agentId: sub.agentId,
+    amountFen: sub.amountFen,
+    businessOrderNo: sub.businessOrderNo,
+    paymentOrderNo: sub.paymentOrderNo,
+    paidAt: now,
+  }).onConflictDoNothing();
   const [agent] = await tx.select().from(toolAgentsTable).where(eq(toolAgentsTable.id, sub.agentId));
   if (agent) {
     await tx.insert(toolEarningsTable).values({
@@ -809,13 +821,25 @@ router.get("/tools/subscriptions", requireAuth, async (req, res) => {
       .leftJoin(usersTable, eq(toolAgentsTable.ownerId, usersTable.id))
       .where(eq(toolSubscriptionsTable.userId, userId))
       .orderBy(desc(toolSubscriptionsTable.createdAt));
-    // 累计支出以 paid_at 为事实来源：只统计实际扣款成功的付费订阅
+    // 累计支出以支付流水表为事实来源：每笔成功扣款一行,续订不覆盖历史
     const [totalRow] = await db.select({
-      total: sql<number>`COALESCE(SUM(${toolSubscriptionsTable.amountFen}), 0)`,
-    }).from(toolSubscriptionsTable).where(and(
-      eq(toolSubscriptionsTable.userId, userId),
-      sql`${toolSubscriptionsTable.paidAt} IS NOT NULL`,
-    ));
+      total: sql<number>`COALESCE(SUM(${toolSubscriptionPaymentsTable.amountFen}), 0)`,
+    }).from(toolSubscriptionPaymentsTable)
+      .where(eq(toolSubscriptionPaymentsTable.userId, userId));
+    const payments = await db.select().from(toolSubscriptionPaymentsTable)
+      .where(eq(toolSubscriptionPaymentsTable.userId, userId))
+      .orderBy(desc(toolSubscriptionPaymentsTable.paidAt));
+    const paymentsBySub = new Map<number, ReturnType<typeof serialize>[]>();
+    for (const p of payments) {
+      const list = paymentsBySub.get(p.subscriptionId) ?? [];
+      list.push(serialize({
+        id: p.id,
+        amountFen: p.amountFen,
+        paymentOrderNo: p.paymentOrderNo,
+        paidAt: p.paidAt,
+      }));
+      paymentsBySub.set(p.subscriptionId, list);
+    }
     return res.json({
       totalSpentFen: Number(totalRow?.total ?? 0),
       items: rows.map((r) => serialize({
@@ -823,6 +847,7 @@ router.get("/tools/subscriptions", requireAuth, async (req, res) => {
         agentName: r.agentName ?? "",
         agentIcon: r.agentIcon ?? null,
         authorName: r.authorName ?? "匿名用户",
+        payments: paymentsBySub.get(r.subscription.id) ?? [],
       })),
     });
   } catch (err) {

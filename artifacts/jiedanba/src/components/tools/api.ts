@@ -110,6 +110,14 @@ export interface EarningsResponse {
   items: EarningItem[];
 }
 
+/** 订阅支付流水（每笔成功扣款一条） */
+export interface SubscriptionPayment {
+  id: number;
+  amountFen: number;
+  paymentOrderNo: string | null;
+  paidAt: string;
+}
+
 /** GET /tools/subscriptions raw response */
 export interface SubscriptionItem {
   id: number;
@@ -123,6 +131,7 @@ export interface SubscriptionItem {
   expiresAt: string | null;
   cancelledAt: string | null;
   createdAt: string;
+  payments: SubscriptionPayment[];
 }
 
 /** POST /tools/market/:id/subscribe 付费时的响应 */

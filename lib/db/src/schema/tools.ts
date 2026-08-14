@@ -71,6 +71,19 @@ export const toolSubscriptionsTable = pgTable("tool_subscriptions", {
   updatedAt:        timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 订阅支付流水（不可变:每笔成功支付一行,续订/重订不覆盖历史）
+export const toolSubscriptionPaymentsTable = pgTable("tool_subscription_payments", {
+  id:              serial("id").primaryKey(),
+  subscriptionId:  integer("subscription_id").notNull().references(() => toolSubscriptionsTable.id),
+  userId:          integer("user_id").notNull().references(() => usersTable.id),
+  agentId:         integer("agent_id").notNull().references(() => toolAgentsTable.id),
+  amountFen:       integer("amount_fen").notNull().default(0),
+  businessOrderNo: varchar("business_order_no", { length: 100 }),
+  paymentOrderNo:  varchar("payment_order_no", { length: 100 }),
+  paidAt:          timestamp("paid_at").notNull(),
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
+});
+
 // 收益
 export const toolEarningsTable = pgTable("tool_earnings", {
   id:          serial("id").primaryKey(),
@@ -107,6 +120,7 @@ export type ToolKnowledgeBase = typeof toolKnowledgeBasesTable.$inferSelect;
 export type ToolCustomTool = typeof toolCustomToolsTable.$inferSelect;
 export type ToolAgentFavorite = typeof toolAgentFavoritesTable.$inferSelect;
 export type ToolSubscription = typeof toolSubscriptionsTable.$inferSelect;
+export type ToolSubscriptionPayment = typeof toolSubscriptionPaymentsTable.$inferSelect;
 export type ToolEarning = typeof toolEarningsTable.$inferSelect;
 export type ToolPlugin = typeof toolPluginsTable.$inferSelect;
 export type ToolPluginInstall = typeof toolPluginInstallsTable.$inferSelect;

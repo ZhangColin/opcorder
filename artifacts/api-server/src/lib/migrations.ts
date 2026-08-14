@@ -3798,5 +3798,41 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 060d: tool subscription order-no unique indexes");
   });
 
+  await once("061", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tool_subscription_payments (
+        id serial PRIMARY KEY,
+        subscription_id integer NOT NULL REFERENCES tool_subscriptions(id),
+        user_id integer NOT NULL REFERENCES users(id),
+        agent_id integer NOT NULL REFERENCES tool_agents(id),
+        amount_fen integer NOT NULL DEFAULT 0,
+        business_order_no varchar(100),
+        payment_order_no varchar(100),
+        paid_at timestamp NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    // 同一支付单只允许一条流水（幂等保护）
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS tool_subscription_payments_payment_order_no_uk
+        ON tool_subscription_payments (payment_order_no) WHERE payment_order_no IS NOT NULL
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS tool_subscription_payments_user_id_idx
+        ON tool_subscription_payments (user_id)
+    `);
+    // 回填：把现有已支付订阅（单行）作为首笔流水,保证历史累计支出不丢失
+    await db.execute(sql`
+      INSERT INTO tool_subscription_payments (subscription_id, user_id, agent_id, amount_fen, business_order_no, payment_order_no, paid_at, created_at)
+      SELECT s.id, s.user_id, s.agent_id, s.amount_fen, s.business_order_no, s.payment_order_no, s.paid_at, s.paid_at
+      FROM tool_subscriptions s
+      WHERE s.paid_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM tool_subscription_payments p WHERE p.subscription_id = s.id
+        )
+    `);
+    logger.info("Migration 061: tool_subscription_payments table created and backfilled");
+  });
+
   logger.info("Startup data migrations complete.");
 }

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bot, Receipt } from "lucide-react";
+import { Bot, Receipt, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SubscriptionsResponse, SubscribeResponse, tGet, tPost, formatPrice, formatDate } from "./api";
 import { PageHeader, EmptyState, Loading, ErrorBanner, PayDialog } from "./shared";
@@ -32,6 +32,13 @@ export default function SubscriptionsModule() {
   });
 
   const [paying, setPaying] = useState<{ agentId: number; agentName: string; qrCodeUrl: string; amountFen: number } | null>(null);
+
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggle = (id: number) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const rows = data?.items ?? [];
   const totalSpentFen = data?.totalSpentFen ?? 0;
@@ -90,10 +97,22 @@ export default function SubscriptionsModule() {
                   ? { text: "即将到期", cls: "bg-amber-50 text-amber-600" }
                   : (STATUS_LABEL[s.status ?? ""] ?? { text: s.status ?? "—", cls: "bg-slate-100 text-slate-500" });
                 const canRenew = (s.status === "expired" || s.status === "cancelled") && s.agentId != null;
+                const payments = s.payments ?? [];
+                const isOpen = expanded.has(s.id);
                 return (
-                  <tr key={s.id} className="border-t border-border/40 hover:bg-slate-50/50">
+                  <Fragment key={s.id}>
+                  <tr className="border-t border-border/40 hover:bg-slate-50/50">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
+                        {payments.length > 0 ? (
+                          <button
+                            onClick={() => toggle(s.id)}
+                            className="text-slate-400 hover:text-primary flex-shrink-0"
+                            aria-label={isOpen ? "收起扣款记录" : "展开扣款记录"}
+                          >
+                            {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </button>
+                        ) : <span className="w-4 flex-shrink-0" />}
                         <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center flex-shrink-0"><Bot size={16} className="text-primary" /></div>
                         <span className="font-semibold text-slate-800">{s.agentName}</span>
                       </div>
@@ -132,6 +151,25 @@ export default function SubscriptionsModule() {
                       )}
                     </td>
                   </tr>
+                  {isOpen && payments.length > 0 && (
+                    <tr className="border-t border-border/40 bg-slate-50/40">
+                      <td colSpan={7} className="px-5 py-3">
+                        <div className="ml-6 text-xs">
+                          <div className="font-semibold text-slate-500 mb-1.5">历史扣款记录（{payments.length} 笔）</div>
+                          <div className="space-y-1">
+                            {payments.map((p) => (
+                              <div key={p.id} className="flex items-center gap-4 text-slate-600">
+                                <span className="font-bold text-slate-800 w-20">{yuan(p.amountFen)}</span>
+                                <span className="text-slate-400 whitespace-nowrap">{formatDate(p.paidAt)}</span>
+                                {p.paymentOrderNo && <span className="text-slate-400 font-mono">单号 {p.paymentOrderNo}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
