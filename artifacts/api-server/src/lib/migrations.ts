@@ -3823,5 +3823,20 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 061: tool_subscription_payments table created and backfilled");
   });
 
+  // Migration 062: 算力中心/工具平台演示数据(开发与生产各灌入一次)。
+  // 不走 once():标记占位与全部插入放在同一事务——先 INSERT 标记(冲突即让位,并发安全),
+  // 种子失败(含演示账号尚未建好)则整体回滚,下次启动自动重试,不会留下半套数据。
+  try {
+    await db.transaction(async (tx) => {
+      const { rows } = await tx.execute(sql`INSERT INTO schema_migrations(id) VALUES ('062') ON CONFLICT DO NOTHING RETURNING id`);
+      if (rows.length === 0) return; // 已灌入或其他实例已认领
+      const { seedComputeToolsDemoData } = await import("./demo-seed");
+      await seedComputeToolsDemoData(tx);
+      logger.info("Migration 062: compute/tools demo data seeded");
+    });
+  } catch (err) {
+    logger.warn({ err }, "Migration 062 (demo data) failed; will retry next startup");
+  }
+
   logger.info("Startup data migrations complete.");
 }
