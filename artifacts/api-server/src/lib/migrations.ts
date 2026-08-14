@@ -3857,5 +3857,18 @@ export async function runMigrations(): Promise<void> {
     logger.warn({ err }, "Migration 062 (demo data) failed; will retry next startup");
   }
 
+  // Migration 064: 演示智能体(生图/编程/会议纪要)+使用记录,同 062 模式(标记与数据同事务,失败重试)
+  try {
+    await db.transaction(async (tx) => {
+      const { rows } = await tx.execute(sql`INSERT INTO schema_migrations(id) VALUES ('064') ON CONFLICT DO NOTHING RETURNING id`);
+      if (rows.length === 0) return;
+      const { seedDemoAgentUsage } = await import("./demo-seed-agents");
+      await seedDemoAgentUsage(tx);
+      logger.info("Migration 064: demo agents + usage history seeded");
+    });
+  } catch (err) {
+    logger.warn({ err }, "Migration 064 (demo agent usage) failed; will retry next startup");
+  }
+
   logger.info("Startup data migrations complete.");
 }
