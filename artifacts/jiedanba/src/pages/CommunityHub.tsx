@@ -105,34 +105,20 @@ export default function CommunityHub() {
 
   return (
     <Layout>
-      {/* ── Hero:蓝色渐变横幅 + 搜索 ─────────────────────── */}
-      <section className="relative overflow-hidden primary-gradient -mt-20 sm:-mt-24 pt-32 sm:pt-36 pb-14">
-        {/* 装饰:右侧光晕与线框,填充横幅右半空间 */}
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
-          <div className="absolute -top-24 right-[8%] w-[420px] h-[420px] rounded-full bg-blue-400/25 blur-3xl" />
-          <div className="absolute bottom-[-140px] right-[28%] w-[320px] h-[320px] rounded-full bg-blue-300/15 blur-3xl" />
-          <div className="absolute top-10 right-[6%] hidden lg:flex flex-col gap-3 opacity-90">
-            <div className="w-64 h-16 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm flex items-center gap-3 px-4">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center"><Megaphone size={16} className="text-white" /></div>
-              <div className="space-y-1.5"><div className="w-36 h-2 rounded bg-white/40" /><div className="w-24 h-2 rounded bg-white/25" /></div>
-            </div>
-            <div className="w-64 h-16 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm flex items-center gap-3 px-4 translate-x-8">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center"><Users size={16} className="text-white" /></div>
-              <div className="space-y-1.5"><div className="w-32 h-2 rounded bg-white/40" /><div className="w-20 h-2 rounded bg-white/25" /></div>
-            </div>
-            <div className="w-64 h-16 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm flex items-center gap-3 px-4">
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center"><Building2 size={16} className="text-white" /></div>
-              <div className="space-y-1.5"><div className="w-40 h-2 rounded bg-white/40" /><div className="w-28 h-2 rounded bg-white/25" /></div>
-            </div>
-          </div>
-        </div>
-        <div className="relative max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-wide">社区</h1>
-          <p className="mt-3 text-white/75 text-sm sm:text-base">
-            连接平台、渠道社区与 OPC 交流,统一查看活动、政策与公告信息
+      <div className="space-y-8 pb-12">
+      {/* ── Hero:圆角渐变卡片(对齐培训进阶风格) ─────────── */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-[#0047ab] p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-8">
+        {/* 点阵纹理 */}
+        <div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none"
+          style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "24px 24px" }} />
+        <div className="relative z-10 space-y-4 w-full max-w-2xl">
+          <span className="inline-block px-3 py-1 bg-[#4dffb2] text-[#002112] font-bold text-xs rounded-full uppercase tracking-wider">社区中心</span>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight font-display">社区</h1>
+          <p className="text-white/80 text-lg leading-relaxed">
+            连接平台、渠道社区与 OPC 交流，统一查看活动、政策与公告信息。
           </p>
           <form
-            className="mt-7 max-w-2xl flex items-center bg-white rounded-2xl shadow-lg shadow-black/20 overflow-hidden"
+            className="flex items-center bg-white rounded-2xl shadow-lg shadow-black/20 overflow-hidden"
             onSubmit={(e) => { e.preventDefault(); setApplied(keyword); }}
           >
             <Search size={18} className="ml-4 text-slate-400 shrink-0" />
@@ -150,10 +136,34 @@ export default function CommunityHub() {
             </button>
           </form>
         </div>
+        {/* 右侧玻璃卡片(对齐培训进阶 Hero 右卡) */}
+        <div className="relative z-10 hidden md:flex flex-col gap-3 bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 w-full md:w-96 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><Building2 size={18} className="text-white" /></div>
+            <div>
+              <p className="text-sm font-bold">渠道社区</p>
+              <p className="text-xs text-white/60">汇聚各地社区,活动政策一站直达</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><Megaphone size={18} className="text-white" /></div>
+            <div>
+              <p className="text-sm font-bold">官方公告</p>
+              <p className="text-xs text-white/60">平台通知公告实时更新</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><Users size={18} className="text-white" /></div>
+            <div>
+              <p className="text-sm font-bold">OPC 交流</p>
+              <p className="text-xs text-white/60">与同行伙伴互通资源与经验</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ── 主体 ─────────────────────────────────────────── */}
-      <section className="max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-8">
+      <section>
         {isError ? (
           <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
             <p className="text-slate-500 text-sm">社区信息加载失败,请稍后重试</p>
@@ -309,6 +319,7 @@ export default function CommunityHub() {
         </div>
         )}
       </section>
+      </div>
     </Layout>
   );
 }
