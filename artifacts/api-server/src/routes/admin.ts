@@ -2032,6 +2032,60 @@ router.get("/announcements", async (_req, res) => {
   }
 });
 
+/* ─── PUBLIC: 社区门户(社区列表+各社区最新公告+平台公告, 无需登录) ─── */
+
+router.get("/community-portal", async (_req, res) => {
+  try {
+    const [communities, annRows, platformRows] = await Promise.all([
+      db.select({
+        id: communitiesTable.id,
+        name: communitiesTable.name,
+        description: communitiesTable.description,
+        logoUrl: communitiesTable.logoUrl,
+      }).from(communitiesTable)
+        .orderBy(asc(communitiesTable.sortOrder), asc(communitiesTable.id)),
+      // SQL 内每社区取最新 2 条(row_number 窗口),publishedAt NULLS LAST 兜底历史数据
+      db.execute(sql`
+        SELECT id, community_id AS "communityId", title, published_at AS "publishedAt", category_name AS "categoryName"
+        FROM (
+          SELECT a.id, a.community_id, a.title, a.published_at, c.name AS category_name,
+                 row_number() OVER (
+                   PARTITION BY a.community_id
+                   ORDER BY a.published_at DESC NULLS LAST, a.id DESC
+                 ) AS rn
+          FROM community_announcements a
+          LEFT JOIN community_announcement_categories c ON a.category_id = c.id
+          WHERE a.is_published = true AND a.community_id IS NOT NULL
+        ) t WHERE t.rn <= 2
+      `),
+      db.select({
+        id: communityAnnouncementsTable.id,
+        title: communityAnnouncementsTable.title,
+        publishedAt: communityAnnouncementsTable.publishedAt,
+        categoryName: communityAnnouncementCategoriesTable.name,
+      }).from(communityAnnouncementsTable)
+        .leftJoin(communityAnnouncementCategoriesTable, eq(communityAnnouncementsTable.categoryId, communityAnnouncementCategoriesTable.id))
+        .where(and(eq(communityAnnouncementsTable.isPublished, true), sql`${communityAnnouncementsTable.communityId} IS NULL`))
+        .orderBy(sql`${communityAnnouncementsTable.publishedAt} DESC NULLS LAST`, desc(communityAnnouncementsTable.id))
+        .limit(10),
+    ]);
+    type PortalAnn = { id: number; communityId: number; title: string; publishedAt: string | null; categoryName: string | null };
+    const byCommunity = new Map<number, PortalAnn[]>();
+    for (const a of annRows.rows as unknown as PortalAnn[]) {
+      const list = byCommunity.get(a.communityId) ?? [];
+      list.push(a);
+      byCommunity.set(a.communityId, list);
+    }
+    return res.json({
+      communities: communities.map(c => ({ ...c, announcements: byCommunity.get(c.id) ?? [] })),
+      platformAnnouncements: platformRows,
+    });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取社区门户数据失败" });
+  }
+});
+
 /* ─── LEARNING RESOURCES ─────────────────────────── */
 
 router.get("/admin/learning-resources", async (_req, res) => {
