@@ -106,11 +106,11 @@ export default function CommunityHub() {
   return (
     <Layout>
       {/* ── Hero:蓝色渐变横幅 + 搜索 ─────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 -mt-20 sm:-mt-24 pt-32 sm:pt-36 pb-14">
+      <section className="relative overflow-hidden primary-gradient -mt-20 sm:-mt-24 pt-32 sm:pt-36 pb-14">
         {/* 装饰:右侧光晕与线框,填充横幅右半空间 */}
         <div className="pointer-events-none absolute inset-0" aria-hidden>
-          <div className="absolute -top-24 right-[8%] w-[420px] h-[420px] rounded-full bg-blue-400/30 blur-3xl" />
-          <div className="absolute bottom-[-140px] right-[28%] w-[320px] h-[320px] rounded-full bg-cyan-300/20 blur-3xl" />
+          <div className="absolute -top-24 right-[8%] w-[420px] h-[420px] rounded-full bg-blue-400/25 blur-3xl" />
+          <div className="absolute bottom-[-140px] right-[28%] w-[320px] h-[320px] rounded-full bg-blue-300/15 blur-3xl" />
           <div className="absolute top-10 right-[6%] hidden lg:flex flex-col gap-3 opacity-90">
             <div className="w-64 h-16 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-sm flex items-center gap-3 px-4">
               <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center"><Megaphone size={16} className="text-white" /></div>
@@ -126,13 +126,13 @@ export default function CommunityHub() {
             </div>
           </div>
         </div>
-        <div className="relative max-w-[1400px] mx-auto w-full px-4 sm:px-6 lg:px-10">
+        <div className="relative max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-10">
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-wide">社区</h1>
-          <p className="mt-3 text-blue-100 text-sm sm:text-base">
+          <p className="mt-3 text-white/75 text-sm sm:text-base">
             连接平台、渠道社区与 OPC 交流,统一查看活动、政策与公告信息
           </p>
           <form
-            className="mt-7 max-w-2xl flex items-center bg-white rounded-2xl shadow-lg shadow-blue-900/20 overflow-hidden"
+            className="mt-7 max-w-2xl flex items-center bg-white rounded-2xl shadow-lg shadow-black/20 overflow-hidden"
             onSubmit={(e) => { e.preventDefault(); setApplied(keyword); }}
           >
             <Search size={18} className="ml-4 text-slate-400 shrink-0" />
@@ -153,7 +153,7 @@ export default function CommunityHub() {
       </section>
 
       {/* ── 主体 ─────────────────────────────────────────── */}
-      <section className="max-w-[1400px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-8">
+      <section className="max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-8">
         {isError ? (
           <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
             <p className="text-slate-500 text-sm">社区信息加载失败,请稍后重试</p>
