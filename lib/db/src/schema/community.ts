@@ -15,6 +15,7 @@ export const communityAnnouncementsTable = pgTable("community_announcements", {
   categoryId:  integer("category_id").references(() => communityAnnouncementCategoriesTable.id, { onDelete: "set null" }),
   communityId: integer("community_id").references(() => communitiesTable.id, { onDelete: "set null" }),
   title:       varchar("title", { length: 300 }).notNull(),
+  coverUrl:    text("cover_url"),
   content:     text("content").notNull().default(""),
   isPublished: boolean("is_published").notNull().default(false),
   sortOrder:   integer("sort_order").notNull().default(0),

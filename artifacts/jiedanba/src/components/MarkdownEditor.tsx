@@ -4,11 +4,13 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
 import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
 import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
-import { useEffect } from "react";
+import Image from "@tiptap/extension-image";
+import { useEffect, useRef, useState } from "react";
 import {
   Bold, Italic, Strikethrough, Code, Quote,
   List, ListOrdered, Heading1, Heading2, Heading3,
   Undo2, Redo2, Minus, RemoveFormatting,
+  ImagePlus, Loader2, FileCode2,
 } from "lucide-react";
 
 interface MarkdownEditorProps {
@@ -17,6 +19,10 @@ interface MarkdownEditorProps {
   placeholder?: string;
   hasError?: boolean;
   minHeight?: string;
+  /** 传入后工具栏出现「插入图片」按钮:上传文件并返回可访问 URL */
+  onUploadImage?: (file: File) => Promise<string>;
+  /** 开启后工具栏出现「源码」切换,可直接编辑 Markdown 原文 */
+  enableSourceMode?: boolean;
 }
 
 export function MarkdownEditor({
@@ -25,7 +31,12 @@ export function MarkdownEditor({
   placeholder = "请详细描述任务要求、工作内容、交付物规格、验收标准等…",
   hasError = false,
   minHeight,
+  onUploadImage,
+  enableSourceMode = false,
 }: MarkdownEditorProps) {
+  const [sourceMode, setSourceMode] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -44,6 +55,7 @@ export function MarkdownEditor({
       TableRow,
       TableCell,
       TableHeader,
+      Image.configure({ inline: false, allowBase64: false }),
     ],
     content: value,
     onUpdate({ editor }) {
@@ -83,14 +95,17 @@ export function MarkdownEditor({
     },
   });
 
-  // Sync external value into editor (e.g. AI fill-in)
+  // Sync external value into editor (e.g. AI fill-in)。
+  // 源码模式下不回灌:textarea 每次击键都会更新 value,若同步进 Tiptap 再被
+  // markdown 序列化规范化写回,会改写用户尚未写完的源码并丢失光标位置。
+  // 退出源码模式时本 effect 会因 sourceMode 变化重新执行,一次性完成同步。
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || sourceMode) return;
     const currentMd = (editor.storage as unknown as Record<string, { getMarkdown: () => string }>).markdown.getMarkdown();
     if (currentMd !== value) {
-      editor.commands.setContent(value);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
-  }, [value, editor]);
+  }, [value, editor, sourceMode]);
 
   if (!editor) return null;
 
@@ -213,6 +228,38 @@ export function MarkdownEditor({
         >
           <Minus size={15} />
         </ToolbarBtn>
+        {onUploadImage && (
+          <>
+            <Divider />
+            <ToolbarBtn
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploadingImage || sourceMode}
+              title="插入图片"
+            >
+              {uploadingImage ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />}
+            </ToolbarBtn>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                setUploadingImage(true);
+                try {
+                  const url = await onUploadImage(file);
+                  editor.chain().focus().setImage({ src: url, alt: file.name.replace(/\.[^.]+$/, "") }).run();
+                } catch {
+                  /* 上传方负责 toast 提示 */
+                } finally {
+                  setUploadingImage(false);
+                }
+              }}
+            />
+          </>
+        )}
         <Divider />
         {/* Clear + History */}
         <ToolbarBtn
@@ -236,12 +283,38 @@ export function MarkdownEditor({
         >
           <Redo2 size={15} />
         </ToolbarBtn>
+        {enableSourceMode && (
+          <>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setSourceMode(s => !s); }}
+              title={sourceMode ? "返回可视化编辑" : "编辑 Markdown 源码"}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                sourceMode ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              }`}
+            >
+              <FileCode2 size={14} /> {sourceMode ? "可视化" : "源码"}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Editor area — grows with content */}
-      <div style={minHeight ? { minHeight } : undefined} className="cursor-text" onClick={() => editor.commands.focus()}>
-        <EditorContent editor={editor} className="px-4 py-3" />
-      </div>
+      {sourceMode ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          spellCheck={false}
+          style={{ minHeight: minHeight ?? "200px" }}
+          className="w-full px-4 py-3 font-mono text-[13px] leading-relaxed text-slate-700 outline-none resize-y rounded-b-xl bg-slate-50/50"
+          placeholder="在此直接编辑 Markdown 源码…"
+        />
+      ) : (
+        <div style={minHeight ? { minHeight } : undefined} className="cursor-text" onClick={() => editor.commands.focus()}>
+          <EditorContent editor={editor} className="px-4 py-3" />
+        </div>
+      )}
     </div>
   );
 }

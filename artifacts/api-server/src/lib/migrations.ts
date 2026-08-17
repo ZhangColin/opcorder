@@ -3842,6 +3842,11 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 063: tool_agent_conversations table created");
   });
 
+  await once("065", true, async () => {
+    await db.execute(sql`ALTER TABLE community_announcements ADD COLUMN IF NOT EXISTS cover_url text`);
+    logger.info("Migration 065: community_announcements.cover_url added");
+  });
+
   // Migration 062: 算力中心/工具平台演示数据(开发与生产各灌入一次)。
   // 不走 once():标记占位与全部插入放在同一事务——先 INSERT 标记(冲突即让位,并发安全),
   // 种子失败(含演示账号尚未建好)则整体回滚,下次启动自动重试,不会留下半套数据。

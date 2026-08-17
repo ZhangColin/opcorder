@@ -10,6 +10,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 import { ObjectPermission } from "../lib/objectAcl";
 import { validateFileUpload, verifyUploadedFile } from "../lib/fileValidation";
 import { createUploadSession, consumeUploadSession } from "../lib/uploadSessions";
+import { requireAuth } from "../middleware/auth";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -29,7 +30,7 @@ const objectStorageService = new ObjectStorageService();
  * 4. Returns the presigned upload URL, the (future) published objectPath,
  *    and the session token. The session token is required for /verify.
  */
-router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireAuth, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -94,7 +95,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
  * Because files start in the quarantine path (blocked by /storage/objects/*),
  * skipping /verify leaves the file permanently inaccessible, not exploitable.
  */
-router.post("/storage/uploads/verify", async (req: Request, res: Response) => {
+router.post("/storage/uploads/verify", requireAuth, async (req: Request, res: Response) => {
   const parsed = VerifyUploadBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -160,6 +161,7 @@ router.post("/storage/uploads/verify", async (req: Request, res: Response) => {
  */
 router.post(
   "/storage/uploads/direct",
+  requireAuth,
   express.raw({ type: "*/*", limit: "55mb" }),
   async (req: Request, res: Response) => {
     const name = typeof req.query.name === "string" ? req.query.name.trim() : "";

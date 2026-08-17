@@ -3270,8 +3270,8 @@ router.get("/admin/community-announcements", requireAdmin, requirePermission("an
 
 router.post("/admin/community-announcements", requireAdmin, requirePermission("announcement"), async (req, res) => {
   try {
-    const { title, content, categoryId, isPublished, sortOrder, communityId } = req.body as {
-      title: string; content?: string; categoryId?: number; isPublished?: boolean; sortOrder?: number; communityId?: number | null;
+    const { title, content, categoryId, isPublished, sortOrder, communityId, coverUrl } = req.body as {
+      title: string; content?: string; categoryId?: number; isPublished?: boolean; sortOrder?: number; communityId?: number | null; coverUrl?: string | null;
     };
     if (!title?.trim()) return res.status(400).json({ error: "公告标题不能为空" });
 
@@ -3286,6 +3286,7 @@ router.post("/admin/community-announcements", requireAdmin, requirePermission("a
     const now = new Date();
     const [row] = await db.insert(communityAnnouncementsTable).values({
       title: title.trim(),
+      coverUrl: coverUrl?.trim() || null,
       content: content?.trim() ?? "",
       categoryId: categoryId ?? null,
       communityId: communityId ?? null,
@@ -3303,8 +3304,8 @@ router.post("/admin/community-announcements", requireAdmin, requirePermission("a
 router.patch("/admin/community-announcements/:id", requireAdmin, requirePermission("announcement"), async (req, res) => {
   try {
     const id = parseInt(req.params.id as string, 10);
-    const { title, content, categoryId, isPublished, sortOrder, communityId } = req.body as {
-      title?: string; content?: string; categoryId?: number | null; isPublished?: boolean; sortOrder?: number; communityId?: number | null;
+    const { title, content, categoryId, isPublished, sortOrder, communityId, coverUrl } = req.body as {
+      title?: string; content?: string; categoryId?: number | null; isPublished?: boolean; sortOrder?: number; communityId?: number | null; coverUrl?: string | null;
     };
 
     const managedIds = await getManagedCommunityIds(req);
@@ -3323,6 +3324,7 @@ router.patch("/admin/community-announcements/:id", requireAdmin, requirePermissi
     const now = new Date();
     const set: Record<string, unknown> = { updatedAt: now };
     if (title !== undefined) set.title = title.trim();
+    if (coverUrl !== undefined) set.coverUrl = coverUrl?.trim() || null;
     if (content !== undefined) set.content = content;
     if (categoryId !== undefined) set.categoryId = categoryId;
     if (communityId !== undefined) set.communityId = communityId;

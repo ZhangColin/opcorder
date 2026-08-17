@@ -161,7 +161,7 @@ export type Module =
   | "ai_platforms";
 
 type NavChild = { key: string; label: string; icon: React.ElementType; href?: string; moduleKey?: Module; superAdminOnly?: boolean; permKey?: string };
-type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; permKey?: string; permKeys?: string[]; children?: NavChild[] };
+type NavItem = { key: Module; icon: React.ElementType; label: string; superAdminOnly?: boolean; requireAllPerms?: boolean; permKey?: string; permKeys?: string[]; children?: NavChild[] };
 
 const NAV: NavItem[] = [
   { key: "dashboard", icon: LayoutDashboard, label: "数据看板",   permKey: "dashboard" },
@@ -211,7 +211,7 @@ const NAV: NavItem[] = [
   },
 
   {
-    key: "ai_platforms", icon: Cpu, label: "AI 能力平台",
+    key: "ai_platforms", icon: Cpu, label: "AI 能力平台", requireAllPerms: true,
     children: [
       { key: "ai_compute", label: "算力中心", icon: Cpu,    href: "/compute" },
       { key: "ai_tools",   label: "工具平台", icon: Wrench, href: "/tools" },
@@ -9748,7 +9748,7 @@ function AnnouncementCategoryManagement() {
 /* ─── Announcement Management ────────────────── */
 
 type AnnItem = {
-  id: number; title: string; content: string; categoryId: number | null; categoryName: string | null;
+  id: number; title: string; coverUrl: string | null; content: string; categoryId: number | null; categoryName: string | null;
   communityId: number | null; communityName: string | null;
   isPublished: boolean; sortOrder: number; publishedAt: string | null; createdAt: string;
 };
@@ -9759,6 +9759,8 @@ function AnnouncementManagement() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { askConfirm, confirmDialog } = useConfirm();
+  const { data: adminProfile } = useAdminProfile();
+  const isSuperAdmin = !!adminProfile?.isSuperAdmin;
 
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
@@ -9766,7 +9768,49 @@ function AnnouncementManagement() {
   const [filterCommunity, setFilterCommunity] = useState<string>("");
   const [editing, setEditing] = useState<AnnItem | null>(null);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ title: "", content: "", categoryId: "" as string, communityId: "" as string, isPublished: false, sortOrder: 0 });
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [form, setForm] = useState({ title: "", coverUrl: "", content: "", categoryId: "" as string, communityId: "" as string, isPublished: false, sortOrder: 0 });
+
+  /** 直传对象存储:request-url → PUT → verify,返回可访问 URL */
+  async function uploadImageFile(file: File): Promise<string> {
+    const reqRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+      method: "POST",
+      headers: getAdminHeaders(),
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+    if (!reqRes.ok) throw new Error("上传请求失败");
+    const { uploadURL, objectPath, sessionToken } = await reqRes.json();
+    const putRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+    if (!putRes.ok) throw new Error("文件上传失败");
+    const verifyRes = await fetch(`${BASE}/api/storage/uploads/verify`, {
+      method: "POST", headers: getAdminHeaders(),
+      body: JSON.stringify({ sessionToken }),
+    });
+    if (!verifyRes.ok) throw new Error("文件验证失败");
+    return `${BASE}/api/storage${objectPath}`;
+  }
+
+  async function handleCoverUpload(file: File) {
+    setUploadingCover(true);
+    try {
+      const url = await uploadImageFile(file);
+      setForm(f => ({ ...f, coverUrl: url }));
+      toast({ title: "封面上传成功" });
+    } catch (e) {
+      toast({ title: "上传失败", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
+  async function handleContentImageUpload(file: File): Promise<string> {
+    try {
+      return await uploadImageFile(file);
+    } catch (e) {
+      toast({ title: "图片上传失败", description: (e as Error).message, variant: "destructive" });
+      throw e;
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "announcements", page, keyword, filterCat, filterCommunity],
@@ -9791,6 +9835,7 @@ function AnnouncementManagement() {
     try {
       const payload = {
         title: form.title.trim(),
+        coverUrl: form.coverUrl || null,
         content: form.content,
         categoryId: form.categoryId ? parseInt(form.categoryId) : null,
         communityId: form.communityId ? parseInt(form.communityId) : null,
@@ -9806,7 +9851,7 @@ function AnnouncementManagement() {
       }
       qc.invalidateQueries({ queryKey: ["admin", "announcements"] });
       setEditing(null); setCreating(false);
-      setForm({ title: "", content: "", categoryId: "", communityId: "", isPublished: false, sortOrder: 0 });
+      setForm({ title: "", coverUrl: "", content: "", categoryId: "", communityId: "", isPublished: false, sortOrder: 0 });
     } catch (err) { toast({ title: "操作失败", description: (err as Error).message, variant: "destructive" }); }
   }
 
@@ -9836,16 +9881,16 @@ function AnnouncementManagement() {
 
   function startEdit(row: AnnItem) {
     setEditing(row); setCreating(false);
-    setForm({ title: row.title, content: row.content, categoryId: row.categoryId ? String(row.categoryId) : "", communityId: row.communityId ? String(row.communityId) : "", isPublished: row.isPublished, sortOrder: row.sortOrder });
+    setForm({ title: row.title, coverUrl: row.coverUrl ?? "", content: row.content, categoryId: row.categoryId ? String(row.categoryId) : "", communityId: row.communityId ? String(row.communityId) : "", isPublished: row.isPublished, sortOrder: row.sortOrder });
   }
-  function cancelEdit() { setEditing(null); setCreating(false); setForm({ title: "", content: "", categoryId: "", communityId: "", isPublished: false, sortOrder: 0 }); }
+  function cancelEdit() { setEditing(null); setCreating(false); setForm({ title: "", coverUrl: "", content: "", categoryId: "", communityId: "", isPublished: false, sortOrder: 0 }); }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-blue-900">公告管理</h2>
         {!showForm && (
-          <button onClick={() => { setCreating(true); setEditing(null); setForm({ title: "", content: "", categoryId: "", communityId: communities.length === 1 ? String(communities[0].id) : "", isPublished: false, sortOrder: 0 }); }}
+          <button onClick={() => { setCreating(true); setEditing(null); setForm({ title: "", coverUrl: "", content: "", categoryId: "", communityId: communities.length === 1 && !isSuperAdmin ? String(communities[0].id) : "", isPublished: false, sortOrder: 0 }); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
             <Plus size={15} /> 新建公告
           </button>
@@ -9864,12 +9909,39 @@ function AnnouncementManagement() {
                 placeholder="公告标题" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">所属社区</label>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">封面图</label>
+              <div className="flex items-center gap-3">
+                {form.coverUrl ? (
+                  <img src={form.coverUrl} alt="封面" className="w-32 h-20 rounded-lg object-cover border border-slate-200" />
+                ) : (
+                  <div className="w-32 h-20 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300">
+                    <ImageIcon size={22} />
+                  </div>
+                )}
+                <label className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-600 cursor-pointer hover:bg-slate-50 inline-flex items-center gap-1.5">
+                  {uploadingCover ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {form.coverUrl ? "更换封面" : "上传封面"}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploadingCover}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = ""; }} />
+                </label>
+                {form.coverUrl && (
+                  <button className="text-sm text-slate-400 hover:text-red-500"
+                    onClick={() => setForm(f => ({ ...f, coverUrl: "" }))}>
+                    移除
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">发布范围</label>
               <select value={form.communityId} onChange={e => setForm(f => ({ ...f, communityId: e.target.value }))}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary bg-white">
-                <option value="">— 未指定社区 —</option>
+                {isSuperAdmin
+                  ? <option value="">平台公告(不属于任何社区)</option>
+                  : <option value="" disabled>— 请选择社区 —</option>}
                 {communities.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
               </select>
+              {!isSuperAdmin && <p className="text-xs text-slate-400 mt-1">您只能在自己管理的社区发布公告</p>}
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-1">所属类别</label>
@@ -9880,8 +9952,9 @@ function AnnouncementManagement() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">内容（支持 Markdown）</label>
-              <MarkdownEditor value={form.content} onChange={v => setForm(f => ({ ...f, content: v }))} minHeight="240px" />
+              <label className="block text-sm font-semibold text-slate-600 mb-1">内容（图文混排,支持 Markdown 与源码编辑）</label>
+              <MarkdownEditor value={form.content} onChange={v => setForm(f => ({ ...f, content: v }))} minHeight="240px"
+                onUploadImage={handleContentImageUpload} enableSourceMode />
             </div>
             <div className="flex gap-6 items-center">
               <div>
@@ -9957,13 +10030,18 @@ function AnnouncementManagement() {
                 <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
                   <td className="px-5 py-3.5 text-slate-400 text-xs">{row.id}</td>
                   <td className="px-5 py-3.5">
-                    <p className="font-semibold text-blue-900 max-w-[220px] truncate">{row.title}</p>
-                    {row.content && <p className="text-slate-400 text-xs mt-0.5 max-w-[220px] truncate">{row.content.replace(/#+\s*/g, "").slice(0, 60)}</p>}
+                    <div className="flex items-center gap-2.5">
+                      {row.coverUrl && <img src={row.coverUrl} alt="" className="w-12 h-8 rounded object-cover border border-slate-200 shrink-0" />}
+                      <div>
+                        <p className="font-semibold text-blue-900 max-w-[220px] truncate">{row.title}</p>
+                        {row.content && <p className="text-slate-400 text-xs mt-0.5 max-w-[220px] truncate">{row.content.replace(/#+\s*/g, "").slice(0, 60)}</p>}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-5 py-3.5">
                     {row.communityName
                       ? <span className="px-2 py-0.5 bg-violet-50 text-violet-600 rounded-full text-xs font-semibold">{row.communityName}</span>
-                      : <span className="text-slate-300 text-xs">未指定</span>}
+                      : <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full text-xs font-semibold">平台公告</span>}
                   </td>
                   <td className="px-5 py-3.5">
                     {row.categoryName
@@ -10054,6 +10132,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
 
   function canSee(item: typeof NAV[0]): boolean {
     if (item.superAdminOnly) return isSuperAdmin;
+    if (item.requireAllPerms) return hasAllPerms;
     if (hasAllPerms) return true;
     if (item.permKeys) return item.permKeys.some(k => permissions.includes(k));
     if (!item.permKey) return true;
