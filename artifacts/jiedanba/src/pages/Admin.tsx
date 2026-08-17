@@ -63,6 +63,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/use-confirm";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { HtmlEditor } from "@/components/HtmlEditor";
+import { marked } from "marked";
 
 /* ─── API helpers ────────────────────────────────── */
 
@@ -9881,7 +9883,10 @@ function AnnouncementManagement() {
 
   function startEdit(row: AnnItem) {
     setEditing(row); setCreating(false);
-    setForm({ title: row.title, coverUrl: row.coverUrl ?? "", content: row.content, categoryId: row.categoryId ? String(row.categoryId) : "", communityId: row.communityId ? String(row.communityId) : "", isPublished: row.isPublished, sortOrder: row.sortOrder });
+    // 历史公告可能是 Markdown 存储;编辑时统一转成 HTML 进编辑器(此后保存即为 HTML)
+    const looksLikeHtml = /^\s*</.test(row.content);
+    const content = row.content && !looksLikeHtml ? (marked.parse(row.content, { async: false }) as string) : row.content;
+    setForm({ title: row.title, coverUrl: row.coverUrl ?? "", content, categoryId: row.categoryId ? String(row.categoryId) : "", communityId: row.communityId ? String(row.communityId) : "", isPublished: row.isPublished, sortOrder: row.sortOrder });
   }
   function cancelEdit() { setEditing(null); setCreating(false); setForm({ title: "", coverUrl: "", content: "", categoryId: "", communityId: "", isPublished: false, sortOrder: 0 }); }
 
@@ -9952,8 +9957,8 @@ function AnnouncementManagement() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">内容（图文混排,支持 Markdown 与源码编辑）</label>
-              <MarkdownEditor value={form.content} onChange={v => setForm(f => ({ ...f, content: v }))} minHeight="240px"
+              <label className="block text-sm font-semibold text-slate-600 mb-1">内容（图文混排,可切换 HTML 源码精细控制）</label>
+              <HtmlEditor value={form.content} onChange={v => setForm(f => ({ ...f, content: v }))} minHeight="240px"
                 onUploadImage={handleContentImageUpload} enableSourceMode />
             </div>
             <div className="flex gap-6 items-center">
@@ -10034,7 +10039,7 @@ function AnnouncementManagement() {
                       {row.coverUrl && <img src={row.coverUrl} alt="" className="w-12 h-8 rounded object-cover border border-slate-200 shrink-0" />}
                       <div>
                         <p className="font-semibold text-blue-900 max-w-[220px] truncate">{row.title}</p>
-                        {row.content && <p className="text-slate-400 text-xs mt-0.5 max-w-[220px] truncate">{row.content.replace(/#+\s*/g, "").slice(0, 60)}</p>}
+                        {row.content && <p className="text-slate-400 text-xs mt-0.5 max-w-[220px] truncate">{row.content.replace(/<[^>]+>/g, " ").replace(/#+\s*/g, "").replace(/\s+/g, " ").trim().slice(0, 60)}</p>}
                       </div>
                     </div>
                   </td>
