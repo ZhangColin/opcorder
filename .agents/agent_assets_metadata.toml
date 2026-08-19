@@ -122,3 +122,10 @@ uri = "file://docs/tech-doc-%E7%AE%97%E5%8A%9B%E4%B8%AD%E5%BF%83-%E5%B7%A5%E5%85
 type = "pdf"
 title = "算力中心与工具平台技术文档（中文字体修复版）"
 description = "已安装 Noto Sans SC 中文字体后重新渲染，正文、表格、标题均正常显示。"
+
+[[outputs]]
+id = "GWaUz0zNf0Isr9YBz9ZtB"
+uri = "file://deliverables/%E7%B4%AF%E8%AE%A1%E7%BB%93%E7%AE%97%E9%87%91%E9%A2%9D39000%E6%98%8E%E7%BB%86.xlsx"
+type = "table"
+title = "累计结算金额 ¥39,000 明细"
+description = "首页累计结算金额的构成:4 笔已完成订单明细(含分成拆分)与统计口径说明"
