@@ -129,3 +129,10 @@ uri = "file://deliverables/%E7%B4%AF%E8%AE%A1%E7%BB%93%E7%AE%97%E9%87%91%E9%A2%9
 type = "table"
 title = "累计结算金额 ¥39,000 明细"
 description = "首页累计结算金额的构成:4 笔已完成订单明细(含分成拆分)与统计口径说明"
+
+[[outputs]]
+id = "dqAnuGvxjpFV375InR7hX"
+uri = "file://deliverables/%E9%9C%80%E6%B1%82%E9%A2%84%E7%AE%97%E5%90%88%E8%AE%A1270%E4%B8%87%E6%98%8E%E7%BB%86.xlsx"
+type = "table"
+title = "需求预算合计 ¥2,709,337 明细"
+description = "后台仪表盘那个 200 多万数字的构成:51 条需求的预算明细、按状态汇总与统计口径说明"
