@@ -27,6 +27,7 @@ const PubNotifications = lazy(() => import("@/pages/pub/PubNotifications"));
 const PubProfile = lazy(() => import("@/pages/PublisherProfile"));
 const CommunityHub = lazy(() => import("@/pages/CommunityHub"));
 const CommunityDetail = lazy(() => import("@/pages/CommunityDetail"));
+const AnnouncementDetail = lazy(() => import("@/pages/AnnouncementDetail"));
 const Auth = lazy(() => import("@/pages/Auth"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const Portfolios = lazy(() => import("@/pages/Portfolios"));
@@ -294,6 +295,7 @@ function Router() {
       <Route path="/tools" component={ToolsPlatform} />
 
       {/* 社区 & 学习资源：游客也可访问 */}
+       <Route path="/community/announcements/:id" component={AnnouncementDetail} />
       <Route path="/community/:id" component={CommunityDetail} />
       <Route path="/community" component={CommunityHub} />
       <Route path="/academy">{() => <Layout><Academy /></Layout>}</Route>

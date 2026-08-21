@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import {
   ArrowLeft, Building2, CalendarDays, ClipboardPenLine, Headphones,
   Megaphone, MessageCircleMore, Send, ShieldCheck,
@@ -54,6 +54,7 @@ function fmtDate(iso: string | null): string {
 
 export default function CommunityDetail() {
   const params = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
   const communityId = Number(params.id);
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState("");
@@ -214,7 +215,13 @@ export default function CommunityDetail() {
                   {data?.announcements.length ? (
                     <ul className="divide-y divide-slate-100/90">
                       {data.announcements.map((announcement, index) => (
-                        <li key={announcement.id} className="group flex min-w-0 items-center gap-3 py-[18px]">
+                        <li key={announcement.id}>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/community/announcements/${announcement.id}`)}
+                            data-testid={`button-community-detail-announcement-${announcement.id}`}
+                            className="group flex w-full min-w-0 items-center gap-3 py-[18px] text-left"
+                          >
                           <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-xs font-bold text-slate-400 transition-colors group-hover:bg-primary/10 group-hover:text-primary sm:flex">
                             {String(index + 1).padStart(2, "0")}
                           </span>
@@ -228,6 +235,7 @@ export default function CommunityDetail() {
                             <CalendarDays size={13} />
                             {fmtDate(announcement.publishedAt)}
                           </time>
+                          </button>
                         </li>
                       ))}
                     </ul>

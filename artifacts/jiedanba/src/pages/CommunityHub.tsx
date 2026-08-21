@@ -52,14 +52,20 @@ function categoryClass(name: string | null): string {
 }
 
 /* 卡片内的最新公告行(标题超长省略,悬停可看全称) */
-function AnnLines({ anns }: { anns: PortalAnnouncement[] }) {
+function AnnLines({ anns, onOpen }: { anns: PortalAnnouncement[]; onOpen: (id: number) => void }) {
   if (anns.length === 0) {
     return <p className="text-xs text-slate-400">暂无公告,敬请期待</p>;
   }
   return (
     <div className="space-y-2">
       {anns.map((a, i) => (
-        <div key={a.id} className="flex items-center gap-2 text-xs min-w-0">
+        <button
+          key={a.id}
+          type="button"
+          onClick={() => onOpen(a.id)}
+          className="flex w-full items-center gap-2 text-left text-xs min-w-0 group/announcement"
+          data-testid={`button-community-announcement-${a.id}`}
+        >
           {i === 0 ? (
             <span className="text-red-500 font-semibold shrink-0">最新</span>
           ) : (
@@ -68,8 +74,8 @@ function AnnLines({ anns }: { anns: PortalAnnouncement[] }) {
           <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${categoryClass(a.categoryName)}`}>
             {a.categoryName ?? "公告"}
           </span>
-          <span className="text-slate-600 truncate" title={a.title}>{a.title}</span>
-        </div>
+          <span className="text-slate-600 truncate group-hover/announcement:text-primary transition-colors" title={a.title}>{a.title}</span>
+        </button>
       ))}
     </div>
   );
@@ -235,7 +241,7 @@ export default function CommunityHub() {
                           <p className="mt-0.5 text-xs text-slate-400 truncate" title={c.description}>{c.description}</p>
                         )}
                         <div className="mt-2.5">
-                          <AnnLines anns={c.announcements} />
+                          <AnnLines anns={c.announcements} onOpen={(id) => navigate(`/community/announcements/${id}`)} />
                         </div>
                       </div>
                     </div>
@@ -265,7 +271,7 @@ export default function CommunityHub() {
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-slate-800 text-sm truncate" title={c.name}>{c.name}</h3>
                       <div className="mt-1.5 hidden sm:block">
-                        <AnnLines anns={c.announcements.slice(0, 1)} />
+                        <AnnLines anns={c.announcements.slice(0, 1)} onOpen={(id) => navigate(`/community/announcements/${id}`)} />
                       </div>
                     </div>
                     <button
@@ -301,12 +307,19 @@ export default function CommunityHub() {
               ) : (
                 <ul className="divide-y divide-slate-50">
                   {platformAnns.map(a => (
-                    <li key={a.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0 text-sm min-w-0">
+                    <li key={a.id} className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/community/announcements/${a.id}`)}
+                        data-testid={`button-platform-announcement-${a.id}`}
+                        className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm first:pt-0 last:pb-0 group"
+                      >
                       <span className="flex items-center gap-2 flex-1 min-w-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
-                        <span className="text-slate-600 truncate" title={a.title}>{a.title}</span>
+                        <span className="text-slate-600 truncate group-hover:text-primary transition-colors" title={a.title}>{a.title}</span>
                       </span>
                       <span className="text-xs text-slate-400 shrink-0">{fmtDate(a.publishedAt)}</span>
+                      </button>
                     </li>
                   ))}
                 </ul>

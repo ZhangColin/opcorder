@@ -2124,6 +2124,51 @@ router.get("/community-portal/:id", async (req, res) => {
   }
 });
 
+/* ─── PUBLIC: 社区公告详情(平台官方与社区公告共用, 无需登录) ─── */
+
+router.get("/community-announcements/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "无效的公告编号" });
+    }
+
+    const [announcement] = await db
+      .select({
+        id: communityAnnouncementsTable.id,
+        title: communityAnnouncementsTable.title,
+        content: communityAnnouncementsTable.content,
+        coverUrl: communityAnnouncementsTable.coverUrl,
+        publishedAt: communityAnnouncementsTable.publishedAt,
+        createdAt: communityAnnouncementsTable.createdAt,
+        categoryName: communityAnnouncementCategoriesTable.name,
+        communityId: communityAnnouncementsTable.communityId,
+        communityName: communitiesTable.name,
+        communityLogoUrl: communitiesTable.logoUrl,
+      })
+      .from(communityAnnouncementsTable)
+      .leftJoin(
+        communityAnnouncementCategoriesTable,
+        eq(communityAnnouncementsTable.categoryId, communityAnnouncementCategoriesTable.id),
+      )
+      .leftJoin(communitiesTable, eq(communityAnnouncementsTable.communityId, communitiesTable.id))
+      .where(and(
+        eq(communityAnnouncementsTable.id, id),
+        eq(communityAnnouncementsTable.isPublished, true),
+      ))
+      .limit(1);
+
+    if (!announcement) return res.status(404).json({ error: "公告不存在或尚未发布" });
+    return res.json({
+      ...announcement,
+      source: announcement.communityId ? "community" : "platform",
+    });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取公告详情失败" });
+  }
+});
+
 router.post("/community-portal/:id/consultations", async (req, res) => {
   try {
     const communityId = Number(req.params.id);
