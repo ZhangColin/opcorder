@@ -1,4 +1,5 @@
 import { getAccessToken } from "@/lib/auth";
+import { fetchWithTimeout } from "@workspace/api-client-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -13,7 +14,7 @@ export async function v2Fetch(path: string, init?: RequestInit): Promise<Respons
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(init?.headers as Record<string, string> ?? {}),
   };
-  return fetch(v2Url(path), { ...init, headers });
+  return fetchWithTimeout(v2Url(path), { ...init, headers });
 }
 
 export async function v2Get<T>(path: string): Promise<T> {
@@ -30,7 +31,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   const token = getAccessToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, { headers });
+  const res = await fetchWithTimeout(`${BASE}${path}`, { headers });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error((e as any).error ?? `请求失败 (${res.status})`);
@@ -97,14 +98,14 @@ export async function uploadFile(file: File): Promise<string> {
   const contentType = resolveContentType(file);
   const token = getAccessToken();
   const params = new URLSearchParams({ name: file.name, contentType });
-  const res = await fetch(`${BASE}/api/storage/uploads/direct?${params}`, {
+  const res = await fetchWithTimeout(`${BASE}/api/storage/uploads/direct?${params}`, {
     method: "POST",
     headers: {
       "Content-Type": contentType,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: file,
-  });
+  }, 60_000);
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error((e as any).error ?? "上传失败，请重试");

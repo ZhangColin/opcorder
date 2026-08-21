@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "@workspace/api-client-react";
+
 const ACCESS_TOKEN_KEY = "jdb_user_id";
 const REFRESH_TOKEN_KEY = "jdb_refresh_token";
 const USER_KEY = "jdb_user";
@@ -94,11 +96,11 @@ export async function refreshAccessToken(apiBase: string): Promise<string | null
     }
 
     try {
-      const res = await fetch(`${apiBase}/api/auth/refresh`, {
+      const res = await fetchWithTimeout(`${apiBase}/api/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
-      });
+      }, 12_000);
 
       if (!res.ok) {
         clearSession();

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Layout } from "@/components/layout/Layout";
+import { fetchWithTimeout, isRequestTimeoutError } from "@workspace/api-client-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -62,13 +63,18 @@ export default function CommunityDetail() {
   const [email, setEmail] = useState("");
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
 
   const { data, error, isLoading, isError, refetch } = useQuery<CommunityDetailData>({
     queryKey: ["community-detail", communityId],
     enabled: Number.isInteger(communityId) && communityId > 0,
-    queryFn: async () => {
-      const response = await fetch(`${BASE}/api/community-portal/${communityId}`);
+    queryFn: async ({ signal }) => {
+      const response = await fetchWithTimeout(
+        `${BASE}/api/community-portal/${communityId}`,
+        { signal },
+        12_000,
+      );
       if (response.status === 404) throw new Error("NOT_FOUND");
       if (!response.ok) throw new Error("加载失败");
       return response.json();
@@ -79,33 +85,44 @@ export default function CommunityDetail() {
   const submitConsultation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!name.trim() || !phone.trim() || !email.trim() || !content.trim()) {
+      setSubmitError("请填写完整信息");
       toast.error("请填写完整信息");
       return;
     }
+    setSubmitError("");
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${BASE}/api/community-portal/${communityId}/consultations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-          content: content.trim(),
-        }),
-      });
+      const response = await fetchWithTimeout(
+        `${BASE}/api/community-portal/${communityId}/consultations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name.trim(),
+            phone: phone.trim(),
+            email: email.trim(),
+            content: content.trim(),
+          }),
+        },
+        20_000,
+      );
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error || "提交失败");
       }
       toast.success("咨询已提交，我们会尽快与您联系");
+      setSubmitError("");
       setFormOpen(false);
       setName("");
       setPhone("");
       setEmail("");
       setContent("");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "提交失败，请重试");
+      const message = isRequestTimeoutError(err)
+        ? "提交响应超时，请检查网络后重试"
+        : err instanceof Error ? err.message : "提交失败，请重试";
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -143,7 +160,9 @@ export default function CommunityDetail() {
           <section className="rounded-2xl border border-slate-100 bg-white py-20 text-center">
             <Megaphone size={34} className="mx-auto text-slate-300" />
             <h1 className="mt-4 text-lg font-bold text-slate-700">社区信息加载失败</h1>
-            <p className="mt-2 text-sm text-slate-400">请检查网络后重新加载。</p>
+            <p className="mt-2 text-sm text-slate-400">
+              {isRequestTimeoutError(error) ? "服务器响应超时，请重新加载。" : "请检查网络后重新加载。"}
+            </p>
             <button type="button" onClick={() => refetch()} className="mt-5 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold">
               重新加载
             </button>
@@ -314,7 +333,13 @@ export default function CommunityDetail() {
         )}
       </div>
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) setSubmitError("");
+        }}
+      >
         <DialogContent className="max-w-lg overflow-hidden rounded-3xl border-0 p-0 shadow-2xl">
           <div className="bg-[linear-gradient(115deg,#00327d,#0758c9)] px-6 py-5 text-white">
             <div className="flex items-center gap-3">
@@ -392,6 +417,11 @@ export default function CommunityDetail() {
                 className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
               />
             </div>
+            {submitError && (
+              <p role="alert" data-testid="consult-submit-error" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-600">
+                {submitError}
+              </p>
+            )}
             <DialogFooter className="pt-2">
               <button type="button" onClick={() => setFormOpen(false)} data-testid="button-consult-cancel" className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
                 取消

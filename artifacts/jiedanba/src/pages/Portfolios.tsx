@@ -76,9 +76,7 @@ export default function Portfolios() {
       <PortfolioDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        userId={user?.id ?? 1}
         initial={editingItem}
-        currentLevel={profile?.level}
       />
 
       <div className="space-y-8">

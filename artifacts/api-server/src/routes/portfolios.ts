@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, portfoliosTable, opcTrackCertsTable, catCategoriesTable } from "@workspace/db";
+import { db, portfoliosTable, catCategoriesTable } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import {
   ListPortfoliosQueryParams,
@@ -58,31 +58,10 @@ router.post("/portfolios", requireAuth, async (req, res) => {
     const userId = req.user!.id;
 
     const extra = req.body as Record<string, unknown>;
-    const applyLevel = extra.applyLevel ? String(extra.applyLevel) : null;
     const catCategoryId = extra.catCategoryId ? Number(extra.catCategoryId) : null;
 
-    if (applyLevel && !catCategoryId) {
-      return res.status(400).json({ error: "申请赛道认证时必须指定赛道分类（catCategoryId）" });
-    }
-
-    if (applyLevel && catCategoryId) {
-      const LEVEL_ORDER = ["C", "B", "A"] as const;
-      const applyIdx = LEVEL_ORDER.indexOf(applyLevel as typeof LEVEL_ORDER[number]);
-      const existingRows = await db.execute(sql`
-        SELECT level FROM opc_track_certs
-        WHERE user_id = ${userId} AND cat_category_id = ${catCategoryId}
-        ORDER BY certified_at DESC LIMIT 1
-      `);
-      if (existingRows.rows.length > 0) {
-        const certLevel = (existingRows.rows[0] as { level: string }).level;
-        const certIdx = LEVEL_ORDER.indexOf(certLevel as typeof LEVEL_ORDER[number]);
-        const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-        if (applyIdx < 0 || applyIdx <= certIdx) {
-          return res.status(409).json({
-            error: `您在此赛道已持有 ${LEVEL_NAME[certLevel] ?? certLevel} 认证，只能申请更高等级，不能重复申请相同或更低等级。`,
-          });
-        }
-      }
+    if (extra.applyLevel) {
+      return res.status(410).json({ error: "作品申请 OPC 等级认证已关闭" });
     }
 
     const [portfolio] = await db.insert(portfoliosTable).values({
@@ -92,8 +71,8 @@ router.post("/portfolios", requireAuth, async (req, res) => {
       coverImage: body.coverImage,
       description: body.description,
       projectUrl: body.projectUrl,
-      applyLevel,
-      levelApplyStatus: applyLevel ? "pending" : null,
+      applyLevel: null,
+      levelApplyStatus: null,
       catCategoryId: catCategoryId ?? undefined,
     }).returning();
 
@@ -128,35 +107,8 @@ router.put("/portfolios/:portfolioId", requireAuth, async (req, res) => {
     if (body.description !== undefined) updateData.description = body.description;
     if (body.projectUrl !== undefined) updateData.projectUrl = body.projectUrl;
 
-    if ("applyLevel" in extra) {
-      const applyLevel = extra.applyLevel ? String(extra.applyLevel) : null;
-      const catCategoryId = extra.catCategoryId ? Number(extra.catCategoryId) : null;
-      if (applyLevel && !catCategoryId) {
-        return res.status(400).json({ error: "申请赛道认证时必须指定赛道分类（catCategoryId）" });
-      }
-      if (applyLevel && catCategoryId) {
-        const LEVEL_ORDER = ["C", "B", "A"] as const;
-        const applyIdx = LEVEL_ORDER.indexOf(applyLevel as typeof LEVEL_ORDER[number]);
-        const existingRows = await db.execute(sql`
-          SELECT level FROM opc_track_certs
-          WHERE user_id = ${req.user!.id} AND cat_category_id = ${catCategoryId}
-          ORDER BY certified_at DESC LIMIT 1
-        `);
-        if (existingRows.rows.length > 0) {
-          const certLevel = (existingRows.rows[0] as { level: string }).level;
-          const certIdx = LEVEL_ORDER.indexOf(certLevel as typeof LEVEL_ORDER[number]);
-          const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-          if (applyIdx < 0 || applyIdx <= certIdx) {
-            return res.status(409).json({
-              error: `您在此赛道已持有 ${LEVEL_NAME[certLevel] ?? certLevel} 认证，只能申请更高等级，不能重复申请相同或更低等级。`,
-            });
-          }
-        }
-      }
-      updateData.applyLevel = applyLevel;
-      updateData.levelApplyStatus = applyLevel ? "pending" : null;
-      updateData.levelApplyNote = null;
-      updateData.reviewedAt = null;
+    if (extra.applyLevel) {
+      return res.status(410).json({ error: "作品申请 OPC 等级认证已关闭" });
     }
     if ("catCategoryId" in extra) {
       updateData.catCategoryId = extra.catCategoryId ? Number(extra.catCategoryId) : null;

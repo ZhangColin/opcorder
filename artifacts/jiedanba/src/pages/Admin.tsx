@@ -65,6 +65,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { HtmlEditor } from "@/components/HtmlEditor";
 import { marked } from "marked";
+import { fetchWithTimeout } from "@workspace/api-client-react";
 
 /* ─── API helpers ────────────────────────────────── */
 
@@ -79,7 +80,7 @@ function getAdminHeaders() {
 }
 
 async function adminGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { headers: getAdminHeaders() });
+  const res = await fetchWithTimeout(`${BASE}${path}`, { headers: getAdminHeaders() });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `请求失败 (${res.status})`);
@@ -88,7 +89,7 @@ async function adminGet<T>(path: string): Promise<T> {
 }
 
 async function adminPatch(path: string, body: object) {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetchWithTimeout(`${BASE}${path}`, {
     method: "PATCH",
     headers: getAdminHeaders(),
     body: JSON.stringify(body),
@@ -101,7 +102,7 @@ async function adminPatch(path: string, body: object) {
 }
 
 async function adminPost(path: string, body: object, opts?: { signal?: AbortSignal }) {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetchWithTimeout(`${BASE}${path}`, {
     method: "POST",
     headers: getAdminHeaders(),
     body: JSON.stringify(body),
@@ -115,7 +116,7 @@ async function adminPost(path: string, body: object, opts?: { signal?: AbortSign
 }
 
 async function adminPut(path: string, body: object) {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetchWithTimeout(`${BASE}${path}`, {
     method: "PUT",
     headers: getAdminHeaders(),
     body: JSON.stringify(body),
@@ -128,7 +129,7 @@ async function adminPut(path: string, body: object) {
 }
 
 async function adminDelete(path: string) {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetchWithTimeout(`${BASE}${path}`, {
     method: "DELETE",
     headers: getAdminHeaders(),
   });

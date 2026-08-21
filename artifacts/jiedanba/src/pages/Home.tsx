@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { TrendingUp, Award, ArrowRight, Activity, Zap, BarChart2, X, Star, CheckCircle2, Trophy, BellRing, ClipboardList, Tag, Lock, Globe, Clock, CalendarDays } from "lucide-react";
-import { useGetOverviewStats, useGetOpcLeaderboard, useGetCurrentUser, useListNotifications } from "@workspace/api-client-react";
+import { fetchWithTimeout, useGetOverviewStats, useGetOpcLeaderboard, useGetCurrentUser, useListNotifications } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { OPC_LEVELS } from "@/lib/constants";
 import { v2Get } from "@/lib/v2api";
@@ -213,8 +213,8 @@ export default function Home() {
   const { data: leaderboard, isLoading: leaderboardLoading } = useGetOpcLeaderboard({ limit: 3 });
   const { data: contests = [], isLoading: contestsLoading } = useQuery<ContestItem[]>({
     queryKey: ["home-public-contests"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/contests`);
+    queryFn: async ({ signal }) => {
+      const res = await fetchWithTimeout(`${BASE}/api/contests`, { signal }, 12_000);
       if (!res.ok) return [];
       return res.json();
     },

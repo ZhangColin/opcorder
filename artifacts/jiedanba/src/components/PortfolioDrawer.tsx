@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
   X, Upload, Link2, Camera, Save, Trash2, CheckCircle2,
-  AlertCircle, ChevronDown, Image as ImageIcon, Trophy,
+  AlertCircle, ChevronDown, Image as ImageIcon,
 } from "lucide-react";
 import {
   useCreatePortfolio,
@@ -10,7 +10,6 @@ import {
   type Portfolio,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getAccessToken } from "@/lib/auth";
 
 /* ─── Constants ──────────────────────────────── */
 
@@ -55,27 +54,12 @@ function compressImage(file: File, maxPx = 900, quality = 0.82): Promise<string>
 interface PortfolioDrawerProps {
   open:          boolean;
   onClose:       () => void;
-  userId:        number;
   initial?:      Portfolio | null;
-  currentLevel?: string;
 }
 
 /* ─── Component ──────────────────────────────── */
 
-const LEVEL_OPTIONS = [
-  { value: "C", label: "C 级 — 入门认证（有真实项目经验）" },
-  { value: "B", label: "B 级 — 进阶认证（独立负责完整项目）" },
-  { value: "A", label: "A 级 — 专家认证（行业标杆项目）" },
-];
-
-const LEVEL_STATUS_LABEL: Record<string, { text: string; color: string }> = {
-  pending:    { text: "审核中",   color: "text-amber-600 bg-amber-50 border-amber-200" },
-  approved:   { text: "认证通过", color: "text-green-700 bg-green-50 border-green-200" },
-  downgraded: { text: "降级通过", color: "text-blue-700  bg-blue-50  border-blue-200"  },
-  rejected:   { text: "未通过",   color: "text-red-600   bg-red-50   border-red-200"   },
-};
-
-export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }: PortfolioDrawerProps) {
+export function PortfolioDrawer({ open, onClose, initial }: PortfolioDrawerProps) {
   const [title,       setTitle]       = useState(initial?.title       ?? "");
   const [type,        setType]        = useState(initial?.type        ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -83,8 +67,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
   const [coverImage,  setCoverImage]  = useState(initial?.coverImage  ?? "");
   const [imgMode,     setImgMode]     = useState<"upload" | "url">("upload");
   const [status,      setStatus]      = useState<"idle" | "saving" | "saved" | "error" | "deleting" | "confirmDelete">("idle");
-  const [applyForLevel, setApplyForLevel] = useState(!!initial?.applyLevel);
-  const [applyLevel,    setApplyLevel]    = useState<string>(initial?.applyLevel ?? "C");
 
   const [categories, setCategories] = useState<Array<{id: number; name: string}>>([]);
   useEffect(() => {
@@ -94,46 +76,12 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       .catch(() => {});
   }, []);
 
-  const [trackCerts, setTrackCerts] = useState<Array<{cat_category_id: number; level: string}>>([]);
-  useEffect(() => {
-    const token = getAccessToken();
-    if (!token) return;
-    fetch(`${_API_BASE}/api/opc/track-certs`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : [])
-      .then(d => { if (Array.isArray(d)) setTrackCerts(d); })
-      .catch(() => {});
-  }, [userId]);
-
   const fileRef = useRef<HTMLInputElement>(null);
   const qc      = useQueryClient();
 
   const { mutateAsync: create } = useCreatePortfolio();
   const { mutateAsync: update } = useUpdatePortfolio();
   const { mutateAsync: remove } = useDeletePortfolio();
-
-  /* Derived: level already held for the CURRENTLY selected track */
-  const LEVEL_ORDER = ["C", "B", "A"] as const;
-  const computedCatIdLive     = categories.find(c => c.name === type)?.id ?? null;
-  const trackCurrentLevel     = computedCatIdLive
-    ? (trackCerts.find(tc => tc.cat_category_id === computedCatIdLive)?.level ?? null)
-    : null;
-  const trackCurrentLevelIdx  = trackCurrentLevel ? LEVEL_ORDER.indexOf(trackCurrentLevel as typeof LEVEL_ORDER[number]) : -1;
-  /* Only show levels strictly higher than what user already holds for this track */
-  const availableLevelOptions = LEVEL_OPTIONS.filter(
-    o => LEVEL_ORDER.indexOf(o.value as typeof LEVEL_ORDER[number]) > trackCurrentLevelIdx
-  );
-
-  /* If OPC has already reached max (A) for this track, or already holds exact target, block apply */
-  const alreadyAtMaxForTrack = !!type && availableLevelOptions.length === 0;
-
-  /* Auto-uncheck when track changes to one where no higher level is possible */
-  useEffect(() => {
-    if (!open) return;
-    if (applyForLevel && alreadyAtMaxForTrack) {
-      setApplyForLevel(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, trackCerts, open]);
 
   /* Reset form when initial changes (opening for different item) */
   useEffect(() => {
@@ -144,8 +92,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       setProjectUrl(initial?.projectUrl   ?? "");
       setCoverImage(initial?.coverImage   ?? "");
       setStatus("idle");
-      setApplyForLevel(!!initial?.applyLevel);
-      setApplyLevel(initial?.applyLevel ?? "C");
       /* Auto-detect mode from existing coverImage */
       if (initial?.coverImage?.startsWith("data:")) setImgMode("upload");
       else if (initial?.coverImage)                 setImgMode("url");
@@ -172,24 +118,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       alert("请填写项目名称和简介");
       return;
     }
-    const computedCatId = categories.find(c => c.name === type)?.id ?? null;
-    if (applyForLevel && !computedCatId) {
-      alert("申请赛道认证时请先选择项目类型");
-      return;
-    }
-    if (applyForLevel && alreadyAtMaxForTrack) {
-      alert(`您在「${type}」赛道已持有最高等级（A级·专家）认证，无需再次申请。`);
-      return;
-    }
-    if (applyForLevel && trackCurrentLevel) {
-      const applyIdx   = LEVEL_ORDER.indexOf(applyLevel as typeof LEVEL_ORDER[number]);
-      const currentIdx = LEVEL_ORDER.indexOf(trackCurrentLevel as typeof LEVEL_ORDER[number]);
-      if (applyIdx <= currentIdx) {
-        const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-        alert(`您在「${type}」赛道已持有 ${LEVEL_NAME[trackCurrentLevel] ?? trackCurrentLevel} 认证，只能申请更高等级，不能重复申请相同等级。`);
-        return;
-      }
-    }
     setStatus("saving");
     const payload = {
       title:         title.trim(),
@@ -197,8 +125,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
       description:   description.trim(),
       coverImage:    coverImage || undefined,
       projectUrl:    projectUrl.trim() || undefined,
-      applyLevel:    applyForLevel ? applyLevel : null,
-      catCategoryId: applyForLevel && computedCatId ? computedCatId : null,
     };
     try {
       if (initial?.id) {
@@ -332,86 +258,6 @@ export function PortfolioDrawer({ open, onClose, userId, initial, currentLevel }
               </select>
             </div>
 
-            {/* ── 等级认证申请（紧跟项目类型） ── */}
-            <div className="border border-slate-200 rounded-2xl p-4 bg-gradient-to-br from-amber-50/60 to-orange-50/40">
-              <div className="flex items-center justify-between mb-2">
-                <label className={`flex items-center gap-2 select-none ${alreadyAtMaxForTrack ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
-                  <input
-                    type="checkbox"
-                    checked={applyForLevel}
-                    onChange={e => setApplyForLevel(e.target.checked)}
-                    className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
-                    disabled={initial?.levelApplyStatus === "pending" || alreadyAtMaxForTrack}
-                  />
-                  <span className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
-                    <Trophy size={14} className="text-amber-500" />
-                    用此作品申请OPC等级认证
-                  </span>
-                </label>
-                {initial?.levelApplyStatus && (
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.color}`}>
-                    {LEVEL_STATUS_LABEL[initial.levelApplyStatus]?.text}
-                  </span>
-                )}
-              </div>
-              {alreadyAtMaxForTrack && (
-                <p className="text-[11px] text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-1 flex items-center gap-1.5">
-                  <CheckCircle2 size={12} className="shrink-0" />
-                  您在「{type}」赛道已持有最高等级（A级·专家）认证，无需再次申请。
-                </p>
-              )}
-
-              {initial?.levelApplyStatus === "pending" && (
-                <p className="text-[11px] text-amber-600 bg-amber-100 rounded-lg px-3 py-2 mb-2">
-                  等级申请已提交，等待平台专家评审中。评审期间无法修改等级，但可更新作品内容。
-                </p>
-              )}
-
-              {applyForLevel && initial?.levelApplyStatus !== "pending" && (
-                <div className="mt-2 space-y-3">
-                  {type && (
-                    <p className="text-[11px] text-amber-700 bg-amber-100/70 rounded-lg px-3 py-1.5">
-                      赛道：<strong>{type}</strong>（与项目类型一致）
-                    </p>
-                  )}
-                  <div>
-                    <label className="text-[11px] font-semibold text-amber-700 block mb-1.5">申请等级</label>
-                    {availableLevelOptions.length > 0 ? (
-                      <select
-                        value={availableLevelOptions.some(o => o.value === applyLevel) ? applyLevel : availableLevelOptions[0].value}
-                        onChange={e => setApplyLevel(e.target.value)}
-                        className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-amber-300 outline-none">
-                        {availableLevelOptions.map(o => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                        ℹ️ 您在「{type}」赛道已达最高等级（A级·专家），无需再次申请。
-                      </p>
-                    )}
-                  </div>
-                  {trackCurrentLevel && availableLevelOptions.length > 0 && (() => {
-                    const LEVEL_NAME: Record<string, string> = { A: "A级·专家", B: "B级·进阶", C: "C级·基础" };
-                    return (
-                      <p className="text-[11px] text-slate-500">
-                        您在此赛道当前等级：{LEVEL_NAME[trackCurrentLevel] ?? trackCurrentLevel}，只能申请更高等级。
-                      </p>
-                    );
-                  })()}
-                  {!trackCurrentLevel && (
-                    <p className="text-[11px] text-slate-500">保存后将自动发起等级申请，由平台专家在5个工作日内评审。</p>
-                  )}
-                </div>
-              )}
-
-              {initial?.levelApplyNote && (
-                <div className="mt-2 bg-white/70 border border-slate-200 rounded-xl px-3 py-2.5">
-                  <p className="text-[11px] font-bold text-slate-500 mb-0.5">评审意见</p>
-                  <p className="text-sm text-slate-700">{initial.levelApplyNote}</p>
-                </div>
-              )}
-            </div>
           </section>
 
           {/* ── 项目简介 ── */}

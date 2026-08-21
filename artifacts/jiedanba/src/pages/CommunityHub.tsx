@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout/Layout";
+import { fetchWithTimeout, isRequestTimeoutError } from "@workspace/api-client-react";
 import {
   Search, Megaphone, Building2, LayoutGrid, List as ListIcon,
   ChevronRight, Users,
@@ -87,10 +88,10 @@ export default function CommunityHub() {
   const [applied, setApplied] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
 
-  const { data, isLoading, isError, refetch } = useQuery<PortalData>({
+  const { data, error, isLoading, isError, refetch } = useQuery<PortalData>({
     queryKey: ["community-portal"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/api/community-portal`);
+    queryFn: async ({ signal }) => {
+      const res = await fetchWithTimeout(`${BASE}/api/community-portal`, { signal }, 12_000);
       if (!res.ok) throw new Error("加载失败");
       return res.json();
     },
@@ -169,7 +170,9 @@ export default function CommunityHub() {
       <section>
         {isError ? (
           <div className="bg-white rounded-2xl border border-slate-100 py-16 text-center">
-            <p className="text-slate-500 text-sm">社区信息加载失败,请稍后重试</p>
+            <p className="text-slate-500 text-sm">
+              {isRequestTimeoutError(error) ? "服务器响应超时，请重新加载" : "社区信息加载失败，请稍后重试"}
+            </p>
             <button
               type="button"
               onClick={() => refetch()}

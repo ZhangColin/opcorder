@@ -1,5 +1,6 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  timeoutMs?: number;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -10,6 +11,23 @@ export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+export const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+
+export class RequestTimeoutError extends Error {
+  readonly name = "RequestTimeoutError";
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`Request timed out after ${timeoutMs}ms`);
+    Object.setPrototypeOf(this, new.target.prototype);
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+export function isRequestTimeoutError(error: unknown): error is RequestTimeoutError {
+  return error instanceof RequestTimeoutError
+    || (error instanceof Error && error.name === "RequestTimeoutError");
+}
 
 // ---------------------------------------------------------------------------
 // Module-level configuration
@@ -55,6 +73,79 @@ export function setOn401Handler(handler: (() => Promise<string | null>) | null):
 
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
+}
+
+export async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return fetch(input, init);
+  }
+
+  const controller = new AbortController();
+  const sourceSignal = init.signal ?? (isRequest(input) ? input.signal : null);
+  let timedOut = false;
+  let cleanedUp = false;
+  let timer: ReturnType<typeof setTimeout>;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    clearTimeout(timer);
+    sourceSignal?.removeEventListener("abort", abortFromSource);
+  };
+  const abortFromSource = () => {
+    controller.abort();
+    cleanup();
+  };
+
+  if (sourceSignal?.aborted) controller.abort();
+  else sourceSignal?.addEventListener("abort", abortFromSource, { once: true });
+
+  timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+    cleanup();
+  }, timeoutMs);
+
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    const method = resolveMethod(input, init.method);
+    const hasNoBody = method === "HEAD"
+      || NO_BODY_STATUS.has(response.status)
+      || response.headers.get("content-length") === "0"
+      || response.body === null;
+
+    if (hasNoBody) {
+      cleanup();
+      return response;
+    }
+
+    const bodyMethods = ["arrayBuffer", "blob", "formData", "json", "text"] as const;
+    for (const methodName of bodyMethods) {
+      const original = response[methodName].bind(response) as () => Promise<unknown>;
+      Object.defineProperty(response, methodName, {
+        configurable: true,
+        value: async () => {
+          try {
+            return await original();
+          } catch (error) {
+            if (timedOut) throw new RequestTimeoutError(timeoutMs);
+            throw error;
+          } finally {
+            cleanup();
+          }
+        },
+      });
+    }
+
+    return response;
+  } catch (error) {
+    cleanup();
+    if (timedOut) throw new RequestTimeoutError(timeoutMs);
+    throw error;
+  }
 }
 
 function resolveMethod(input: RequestInfo | URL, explicitMethod?: string): string {
@@ -336,7 +427,12 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const {
+    responseType = "auto",
+    timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+    headers: headersInit,
+    ...init
+  } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -369,7 +465,7 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetchWithTimeout(input, { ...init, method, headers }, timeoutMs);
 
   // On 401 — try to refresh the token once and retry the original request
   if (response.status === 401 && _on401) {
@@ -377,7 +473,11 @@ export async function customFetch<T = unknown>(
     if (newToken) {
       const retryHeaders = new Headers(headers);
       retryHeaders.set("authorization", `Bearer ${newToken}`);
-      const retryResponse = await fetch(input, { ...init, method, headers: retryHeaders });
+      const retryResponse = await fetchWithTimeout(
+        input,
+        { ...init, method, headers: retryHeaders },
+        timeoutMs,
+      );
       if (!retryResponse.ok) {
         const errorData = await parseErrorBody(retryResponse, method);
         throw new ApiError(retryResponse, errorData, requestInfo);

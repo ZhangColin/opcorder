@@ -821,9 +821,7 @@ export default function Profile() {
       <PortfolioDrawer
         open={portfolioDrawer}
         onClose={() => setPortfolioDrawer(false)}
-        userId={user?.id ?? 1}
         initial={editingPortfolio}
-        currentLevel={profile?.level}
       />
 
       <div className="space-y-6">

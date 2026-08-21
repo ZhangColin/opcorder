@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter, setOn401Handler } from "@workspace/api-client-react";
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, lazy, Suspense, useState } from "react";
 import { getValidAccessToken, clearSession, refreshAccessToken, isTokenExpiredSync, getRefreshToken, getAccessToken, getStoredUser } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
@@ -132,8 +132,10 @@ function roleHomePath(role: string | null): string {
 function PublicOpcGate({ children }: { children: React.ReactNode }) {
   const role = getRole();
   const [, navigate] = useLocation();
+  useEffect(() => {
+    if (role !== null && role !== "opc") navigate(roleHomePath(role));
+  }, [navigate, role]);
   if (role !== null && role !== "opc") {
-    navigate(roleHomePath(role));
     return null;
   }
   return <>{children}</>;
@@ -143,8 +145,10 @@ function PublicOpcGate({ children }: { children: React.ReactNode }) {
 function OpcGate({ children }: { children: React.ReactNode }) {
   const role = getRole();
   const [, navigate] = useLocation();
+  useEffect(() => {
+    if (role !== "opc") navigate(roleHomePath(role));
+  }, [navigate, role]);
   if (role !== "opc") {
-    navigate(roleHomePath(role));
     return null;
   }
   return <>{children}</>;
@@ -154,8 +158,10 @@ function OpcGate({ children }: { children: React.ReactNode }) {
 function PublisherGate({ children }: { children: React.ReactNode }) {
   const role = getRole();
   const [, navigate] = useLocation();
+  useEffect(() => {
+    if (role !== "publisher") navigate(roleHomePath(role));
+  }, [navigate, role]);
   if (role !== "publisher") {
-    navigate(roleHomePath(role));
     return null;
   }
   return <>{children}</>;
@@ -166,8 +172,10 @@ function PublisherGate({ children }: { children: React.ReactNode }) {
 function AdminGate({ children }: { children: React.ReactNode }) {
   const role = getRole();
   const [, navigate] = useLocation();
+  useEffect(() => {
+    if (role !== "admin") navigate(roleHomePath(role));
+  }, [navigate, role]);
   if (role !== "admin") {
-    navigate(roleHomePath(role));
     return null;
   }
   return <>{children}</>;
@@ -177,8 +185,10 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 function AuthGate({ children }: { children: React.ReactNode }) {
   const role = getRole();
   const [, navigate] = useLocation();
+  useEffect(() => {
+    if (!role) navigate("/login");
+  }, [navigate, role]);
   if (!role) {
-    navigate("/login");
     return null;
   }
   return <>{children}</>;
@@ -398,13 +408,42 @@ function App() {
         <SessionWatcher />
         <WouterRouter base={ROUTER_BASE}>
           <SiteFaviconUpdater />
-          <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-muted-foreground">加载中…</div>}>
+          <Suspense fallback={<PageLoadingFallback />}>
             <Router />
           </Suspense>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
+  );
+}
+
+function PageLoadingFallback() {
+  const [isSlow, setIsSlow] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsSlow(true), 12_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-6 text-center text-muted-foreground">
+      {isSlow ? (
+        <>
+          <p className="text-base font-semibold text-slate-700">页面加载时间过长</p>
+          <p className="max-w-md text-sm text-slate-500">网络连接或页面资源暂时不可用，请刷新后重试。</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"
+          >
+            刷新页面
+          </button>
+        </>
+      ) : (
+        <p>加载中…</p>
+      )}
+    </div>
   );
 }
 

@@ -6,6 +6,7 @@ import {
   AlertCircle, ArrowLeft, Building2, CalendarDays, FileText, Megaphone, RefreshCw, Tag,
 } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
+import { fetchWithTimeout, isRequestTimeoutError } from "@workspace/api-client-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -157,8 +158,12 @@ export default function AnnouncementDetail() {
   const { data, error, isLoading, isError, refetch } = useQuery<AnnouncementDetailData>({
     queryKey: ["community-announcement", announcementId],
     enabled: validId,
-    queryFn: async () => {
-      const response = await fetch(`${BASE}/api/community-announcements/${announcementId}`);
+    queryFn: async ({ signal }) => {
+      const response = await fetchWithTimeout(
+        `${BASE}/api/community-announcements/${announcementId}`,
+        { signal },
+        12_000,
+      );
       if (response.status === 404) throw new Error("NOT_FOUND");
       if (!response.ok) throw new Error("加载失败");
       return response.json();
@@ -206,7 +211,7 @@ export default function AnnouncementDetail() {
           <NoticeState
             icon={<AlertCircle size={36} />}
             title="公告加载失败"
-            description="请检查网络后重新加载。"
+            description={isRequestTimeoutError(error) ? "服务器响应超时，请重新加载。" : "请检查网络后重新加载。"}
             action={<button type="button" onClick={() => refetch()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"><RefreshCw size={15} />重新加载</button>}
           />
         ) : data ? (

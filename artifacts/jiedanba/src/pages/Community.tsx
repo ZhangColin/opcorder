@@ -12,7 +12,7 @@ import {
 import {
   useGetOpcLeaderboard, useGetCurrentUser, useGetOpcProfile,
   useListPosts, useCreatePost, useTogglePostLike,
-  useListPostComments, useCreatePostComment,
+  useListPostComments, useCreatePostComment, fetchWithTimeout,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePublisherCompanyLogo } from "@/hooks/use-publisher-profile";
@@ -594,8 +594,8 @@ export default function Community() {
 
   const { data: announcements = [] } = useQuery<AnnItem[]>({
     queryKey: ["public-announcements"],
-    queryFn: async () => {
-      const res = await fetch(`${COMM_BASE}/api/announcements`);
+    queryFn: async ({ signal }) => {
+      const res = await fetchWithTimeout(`${COMM_BASE}/api/announcements`, { signal }, 12_000);
       if (!res.ok) return [];
       return res.json();
     },
@@ -611,7 +611,12 @@ export default function Community() {
 
   useEffect(() => { setPage(1); }, [feedTab, searchQuery]);
 
-  const { data: postsData, isLoading: postsLoading } = useListPosts({
+  const {
+    data: postsData,
+    isLoading: postsLoading,
+    isError: postsError,
+    refetch: refetchPosts,
+  } = useListPosts({
     sort: feedTab,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
@@ -804,6 +809,17 @@ export default function Community() {
             {postsLoading ? (
               <div className="flex items-center justify-center py-20 text-slate-400">
                 <Loader2 size={24} className="animate-spin mr-2" /> 加载中…
+              </div>
+            ) : postsError && !postsData ? (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+                <p className="text-sm font-medium">社区内容加载失败，请重新加载</p>
+                <button
+                  type="button"
+                  onClick={() => refetchPosts()}
+                  className="rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+                >
+                  重新加载
+                </button>
               </div>
             ) : posts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
