@@ -58,7 +58,6 @@ export default function CommunityDetail() {
   const [formOpen, setFormOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
-  const [logoIsScreenshot, setLogoIsScreenshot] = useState(false);
 
   const { data, error, isLoading, isError, refetch } = useQuery<CommunityDetailData>({
     queryKey: ["community-detail", communityId],
@@ -145,16 +144,7 @@ export default function CommunityDetail() {
                     <img
                       src={data.logoUrl}
                       alt={data.name ?? "社区 Logo"}
-                      className={logoIsScreenshot ? "absolute max-w-none" : "h-full w-full object-contain"}
-                      style={logoIsScreenshot ? {
-                        width: "1327%",
-                        height: "747%",
-                        left: "-65%",
-                        top: "-383%",
-                      } : undefined}
-                      onLoad={(event) => {
-                        setLogoIsScreenshot(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight > 1.35);
-                      }}
+                      className="h-full w-full object-cover"
                       onError={() => setLogoLoadFailed(true)}
                     />
                   ) : (
