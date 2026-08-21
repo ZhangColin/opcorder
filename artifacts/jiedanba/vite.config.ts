@@ -23,6 +23,13 @@ if (!isBuild && (Number.isNaN(port) || port <= 0)) {
 // In this environment the web artifact is routed at the ROOT path "/",
 // so do NOT hardcode "/jiedanba/" here — that breaks the preview.
 const basePath = process.env.BASE_PATH ?? "/";
+const replitDevHost = process.env.REPLIT_DEV_DOMAIN
+  ? new URL(
+      process.env.REPLIT_DEV_DOMAIN.includes("://")
+        ? process.env.REPLIT_DEV_DOMAIN
+        : `https://${process.env.REPLIT_DEV_DOMAIN}`,
+    ).hostname
+  : undefined;
 
 export default defineConfig({
   base: basePath,
@@ -60,6 +67,14 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
+    hmr: replitDevHost
+      ? {
+          protocol: "wss",
+          host: replitDevHost,
+          clientPort: 443,
+          timeout: 30_000,
+        }
+      : undefined,
     fs: {
       strict: true,
       deny: ["**/.*"],

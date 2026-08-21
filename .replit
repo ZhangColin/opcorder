@@ -78,5 +78,17 @@ APP_BASE_URL = "https://www.opcorder.com"
 defaultBucketID = "replit-objstore-c1949c7c-efeb-4e1f-9eef-4ef3e64d9013"
 
 [[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
 localPort = 8080
 externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 24926
+externalPort = 3000

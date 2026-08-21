@@ -2748,8 +2748,9 @@ router.get("/admin/settlement-accounts", requireAdmin, async (req, res) => {
         bankBranch: settlementAccountsTable.bankBranch,
         bankAccount: settlementAccountsTable.bankAccount,
         accountName: settlementAccountsTable.accountName,
-        contactName: settlementAccountsTable.contactName,
+        contactPerson: settlementAccountsTable.contactPerson,
         contactPhone: settlementAccountsTable.contactPhone,
+        contactAddress: settlementAccountsTable.contactAddress,
         businessLicenseUrl: settlementAccountsTable.businessLicenseUrl,
         legalRepIdFrontUrl: settlementAccountsTable.legalRepIdFrontUrl,
         legalRepIdBackUrl: settlementAccountsTable.legalRepIdBackUrl,
@@ -2769,6 +2770,7 @@ router.get("/admin/settlement-accounts", requireAdmin, async (req, res) => {
 
     return res.json(rows.map(r => ({
       ...r,
+      contactName: r.contactPerson,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     })));
