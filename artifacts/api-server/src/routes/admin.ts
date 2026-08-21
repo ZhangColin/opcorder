@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable, communityAnnouncementCategoriesTable, communityAnnouncementsTable, communitiesTable, communityAdminsTable } from "@workspace/db";
+import { db, usersTable, demandsTable, demandPaymentsTable, ordersTable, bidsTable, postsTable, postCommentsTable, coursesTable, enrollmentsTable, portfoliosTable, notificationsTable, siteSettingsTable, sensitiveWordsTable, learningResourcesTable, adminRolesTable, adminRoleAssignmentsTable, ADMIN_PERMISSION_KEYS, systemLogsTable, settlementAccountsTable, announcementsTable, quoteDimensionsTable, quoteTiersTable, catCategoriesTable, creditLevelsTable, opcTrackCertsTable, opcUserCatTagsTable, portfolioReviewLogsTable, demandInvitationsTable, subOrdersTable, userLoginLogsTable, platformInfoTable, platformContractConfigTable, communityAnnouncementCategoriesTable, communityAnnouncementsTable, communitiesTable, communityAdminsTable, communityConsultationsTable } from "@workspace/db";
 import { eq, desc, count, sql, and, ilike, or, asc, inArray, ne } from "drizzle-orm";
 import { requireAdmin, requirePermission, requireSuperAdmin } from "../middleware/adminAuth";
 import { Resend } from "resend";
@@ -231,7 +231,6 @@ const PATH_PERMISSION_MAP: Array<{ prefix: string; permission: string }> = [
   // to avoid startsWith collision between /api/admin/community and community-*
 ];
 
-import { Request, Response, NextFunction } from "express";
 router.use("/admin", (req: Request, res: Response, next: NextFunction) => {
   const perms = req.user?.adminPermissions ?? [];
   if (perms.includes("*")) return next(); // super admin
@@ -2125,6 +2124,52 @@ router.get("/community-portal/:id", async (req, res) => {
   }
 });
 
+router.post("/community-portal/:id/consultations", async (req, res) => {
+  try {
+    const communityId = Number(req.params.id);
+    if (!Number.isInteger(communityId) || communityId <= 0) {
+      return res.status(400).json({ error: "无效的社区编号" });
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const content = typeof body.content === "string" ? body.content.trim() : "";
+
+    if (!name || !phone || !email || !content) {
+      return res.status(400).json({ error: "姓名、电话、邮箱和咨询内容均为必填项" });
+    }
+    if (name.length > 100) return res.status(400).json({ error: "姓名不能超过 100 个字符" });
+    if (phone.length > 30 || !/^[0-9+\-\s()]{6,30}$/.test(phone)) {
+      return res.status(400).json({ error: "请输入有效的电话号码" });
+    }
+    if (email.length > 255 || !isValidEmail(email)) {
+      return res.status(400).json({ error: "请输入有效的邮箱地址" });
+    }
+    if (content.length > 5000) return res.status(400).json({ error: "咨询内容不能超过 5000 个字符" });
+
+    const [community] = await db.select({ id: communitiesTable.id })
+      .from(communitiesTable)
+      .where(eq(communitiesTable.id, communityId))
+      .limit(1);
+    if (!community) return res.status(404).json({ error: "社区不存在" });
+
+    const [row] = await db.insert(communityConsultationsTable).values({
+      communityId,
+      name,
+      phone,
+      email,
+      content,
+    }).returning({ id: communityConsultationsTable.id });
+
+    return res.status(201).json({ id: row.id, message: "咨询提交成功" });
+  } catch (err) {
+    logger.error({ err }, "Failed to submit community consultation");
+    return res.status(500).json({ error: "提交咨询失败，请稍后重试" });
+  }
+});
+
 /* ─── LEARNING RESOURCES ─────────────────────────── */
 
 router.get("/admin/learning-resources", async (_req, res) => {
@@ -3305,6 +3350,154 @@ async function getManagedCommunityIds(req: Request): Promise<number[] | null> {
     .where(eq(communityAdminsTable.userId, req.user!.id));
   return rows.map(r => r.communityId);
 }
+
+router.get("/admin/community-consultations", requireAdmin, requirePermission("consult"), async (req, res) => {
+  try {
+    const {
+      name, phone, email, communityId, dateFrom, dateTo, tag, status,
+      page = "1", pageSize = "20", export: exportMode,
+    } = req.query as Record<string, string>;
+    const exportAll = exportMode === "1";
+    const { page: p, pageSize: ps, offset } = paginate({ page, pageSize });
+    const managedIds = await getManagedCommunityIds(req);
+
+    if (status && status !== "pending" && status !== "replied") {
+      return res.status(400).json({ error: "无效的回复状态" });
+    }
+
+    const conditions = [];
+    if (name?.trim()) conditions.push(ilike(communityConsultationsTable.name, `%${name.trim()}%`));
+    if (phone?.trim()) conditions.push(ilike(communityConsultationsTable.phone, `%${phone.trim()}%`));
+    if (email?.trim()) conditions.push(ilike(communityConsultationsTable.email, `%${email.trim()}%`));
+    if (communityId) {
+      const parsedCommunityId = Number(communityId);
+      if (!Number.isInteger(parsedCommunityId) || parsedCommunityId <= 0) {
+        return res.status(400).json({ error: "无效的社区筛选条件" });
+      }
+      conditions.push(eq(communityConsultationsTable.communityId, parsedCommunityId));
+    }
+    if (status) conditions.push(eq(communityConsultationsTable.status, status));
+    if (tag?.trim()) conditions.push(sql`${communityConsultationsTable.tags} @> ARRAY[${tag.trim()}]::TEXT[]`);
+
+    if (dateFrom) {
+      const from = new Date(`${dateFrom}T00:00:00.000Z`);
+      if (Number.isNaN(from.getTime())) return res.status(400).json({ error: "无效的开始日期" });
+      conditions.push(sql`${communityConsultationsTable.createdAt} >= ${from}`);
+    }
+    if (dateTo) {
+      const until = new Date(`${dateTo}T00:00:00.000Z`);
+      if (Number.isNaN(until.getTime())) return res.status(400).json({ error: "无效的结束日期" });
+      until.setUTCDate(until.getUTCDate() + 1);
+      conditions.push(sql`${communityConsultationsTable.createdAt} < ${until}`);
+    }
+
+    if (managedIds !== null) {
+      if (managedIds.length === 0) {
+        return res.json({ data: [], communities: [], availableTags: [], total: 0, page: p, pageSize: ps });
+      }
+      conditions.push(inArray(communityConsultationsTable.communityId, managedIds));
+    }
+    const where = conditions.length ? and(...conditions) : undefined;
+    const scopeWhere = managedIds !== null
+      ? inArray(communityConsultationsTable.communityId, managedIds)
+      : undefined;
+    const communityWhere = managedIds !== null ? inArray(communitiesTable.id, managedIds) : undefined;
+
+    const rowsQuery = db.select({
+      consultation: communityConsultationsTable,
+      communityName: communitiesTable.name,
+    }).from(communityConsultationsTable)
+      .innerJoin(communitiesTable, eq(communityConsultationsTable.communityId, communitiesTable.id))
+      .where(where)
+      .orderBy(desc(communityConsultationsTable.createdAt), desc(communityConsultationsTable.id));
+
+    const [totalRows, rows, communities, tagRows] = await Promise.all([
+      db.select({ cnt: count() }).from(communityConsultationsTable).where(where),
+      exportAll ? rowsQuery : rowsQuery.limit(ps).offset(offset),
+      db.select({ id: communitiesTable.id, name: communitiesTable.name })
+        .from(communitiesTable)
+        .where(communityWhere)
+        .orderBy(asc(communitiesTable.sortOrder), asc(communitiesTable.id)),
+      db.select({ tags: communityConsultationsTable.tags })
+        .from(communityConsultationsTable)
+        .where(scopeWhere),
+    ]);
+
+    const availableTags = Array.from(new Set(tagRows.flatMap(row => row.tags ?? []))).sort();
+    return res.json({
+      data: rows.map(row => ({ ...row.consultation, communityName: row.communityName })),
+      communities,
+      availableTags,
+      total: Number(totalRows[0]?.cnt ?? 0),
+      page: exportAll ? 1 : p,
+      pageSize: exportAll ? rows.length : ps,
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to list community consultations");
+    return res.status(500).json({ error: "获取咨询列表失败" });
+  }
+});
+
+router.patch("/admin/community-consultations/:id", requireAdmin, requirePermission("consult"), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "无效的咨询编号" });
+
+    const [existing] = await db.select()
+      .from(communityConsultationsTable)
+      .where(eq(communityConsultationsTable.id, id))
+      .limit(1);
+    if (!existing) return res.status(404).json({ error: "咨询不存在" });
+
+    const managedIds = await getManagedCommunityIds(req);
+    if (managedIds !== null && !managedIds.includes(existing.communityId)) {
+      return res.status(403).json({ error: "只能处理自己管理社区的咨询" });
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const set: Record<string, unknown> = { updatedAt: new Date() };
+    if (body.replyNote !== undefined) {
+      if (typeof body.replyNote !== "string") return res.status(400).json({ error: "回复备注格式不正确" });
+      const replyNote = body.replyNote.trim();
+      if (replyNote.length > 5000) return res.status(400).json({ error: "回复备注不能超过 5000 个字符" });
+      set.replyNote = replyNote || null;
+    }
+    if (body.status !== undefined) {
+      if (body.status !== "pending" && body.status !== "replied") {
+        return res.status(400).json({ error: "无效的回复状态" });
+      }
+      set.status = body.status;
+      set.repliedAt = body.status === "replied" ? new Date() : null;
+    }
+    if (body.tags !== undefined) {
+      if (!Array.isArray(body.tags) || body.tags.some(tagValue => typeof tagValue !== "string")) {
+        return res.status(400).json({ error: "标签格式不正确" });
+      }
+      const tags = Array.from(new Set(
+        (body.tags as string[]).map(tagValue => tagValue.trim()).filter(Boolean),
+      ));
+      if (tags.length > 20 || tags.some(tagValue => tagValue.length > 40)) {
+        return res.status(400).json({ error: "最多设置 20 个标签，每个标签不超过 40 个字符" });
+      }
+      set.tags = tags;
+    }
+
+    if (Object.keys(set).length === 1) return res.status(400).json({ error: "没有可更新的内容" });
+
+    const [updated] = await db.update(communityConsultationsTable)
+      .set(set)
+      .where(eq(communityConsultationsTable.id, id))
+      .returning();
+    const [community] = await db.select({ name: communitiesTable.name })
+      .from(communitiesTable)
+      .where(eq(communitiesTable.id, updated.communityId))
+      .limit(1);
+    return res.json({ ...updated, communityName: community?.name ?? "" });
+  } catch (err) {
+    logger.error({ err }, "Failed to update community consultation");
+    return res.status(500).json({ error: "更新咨询失败" });
+  }
+});
 
 router.get("/admin/community-announcements", requireAdmin, requirePermission("announcement"), async (req, res) => {
   try {

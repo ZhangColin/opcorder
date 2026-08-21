@@ -56,7 +56,11 @@ export default function CommunityDetail() {
   const params = useParams<{ id: string }>();
   const communityId = Number(params.id);
   const [formOpen, setFormOpen] = useState(false);
-  const [message, setMessage] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [content, setContent] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
 
   const { data, error, isLoading, isError, refetch } = useQuery<CommunityDetailData>({
@@ -71,11 +75,39 @@ export default function CommunityDetail() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const submitPlaceholder = (event: FormEvent<HTMLFormElement>) => {
+  const submitConsultation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    toast.info("表单提交方式将在后续确定后接入");
-    setFormOpen(false);
-    setMessage("");
+    if (!name.trim() || !phone.trim() || !email.trim() || !content.trim()) {
+      toast.error("请填写完整信息");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${BASE}/api/community-portal/${communityId}/consultations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          content: content.trim(),
+        }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "提交失败");
+      }
+      toast.success("咨询已提交，我们会尽快与您联系");
+      setFormOpen(false);
+      setName("");
+      setPhone("");
+      setEmail("");
+      setContent("");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "提交失败，请重试");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isMissing = !Number.isInteger(communityId) || communityId <= 0 || error?.message === "NOT_FOUND";
@@ -291,31 +323,74 @@ export default function CommunityDetail() {
               <ClipboardPenLine size={19} className="text-primary" />
               联系官方运营
             </DialogTitle>
-            <DialogDescription>请留下想咨询的内容，具体提交方式将在后续确定。</DialogDescription>
+            <DialogDescription>请留下您的联系方式和咨询内容，官方运营会尽快与您联系。</DialogDescription>
           </DialogHeader>
-          <form onSubmit={submitPlaceholder} className="space-y-4">
+          <form onSubmit={submitConsultation} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">所属社区</label>
-              <input value={data?.name ?? ""} readOnly className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500 outline-none" />
+              <label htmlFor="operation-name" className="block text-sm font-medium text-slate-700 mb-1.5">姓名 <span className="text-red-500">*</span></label>
+              <input
+                id="operation-name"
+                required
+                maxLength={100}
+                autoComplete="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="请输入您的姓名"
+                data-testid="input-consult-name"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
             </div>
             <div>
-              <label htmlFor="operation-message" className="block text-sm font-medium text-slate-700 mb-1.5">咨询内容</label>
+              <label htmlFor="operation-phone" className="block text-sm font-medium text-slate-700 mb-1.5">电话 <span className="text-red-500">*</span></label>
+              <input
+                id="operation-phone"
+                type="tel"
+                required
+                maxLength={30}
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="请输入您的电话号码"
+                data-testid="input-consult-phone"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+            <div>
+              <label htmlFor="operation-email" className="block text-sm font-medium text-slate-700 mb-1.5">邮箱 <span className="text-red-500">*</span></label>
+              <input
+                id="operation-email"
+                type="email"
+                required
+                maxLength={255}
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="请输入您的电子邮箱"
+                data-testid="input-consult-email"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+            <div>
+              <label htmlFor="operation-content" className="block text-sm font-medium text-slate-700 mb-1.5">咨询内容 <span className="text-red-500">*</span></label>
               <textarea
-                id="operation-message"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
+                id="operation-content"
+                required
+                maxLength={5000}
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
                 placeholder="请输入您希望官方运营协助的事项"
-                rows={5}
+                rows={4}
+                data-testid="input-consult-content"
                 className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
               />
             </div>
-            <DialogFooter>
-              <button type="button" onClick={() => setFormOpen(false)} className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <DialogFooter className="pt-2">
+              <button type="button" onClick={() => setFormOpen(false)} data-testid="button-consult-cancel" className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
                 取消
               </button>
-              <button type="submit" className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90">
+              <button type="submit" disabled={isSubmitting} data-testid="button-consult-submit" className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-60">
                 <Send size={15} />
-                提交咨询
+                {isSubmitting ? "提交中..." : "提交咨询"}
               </button>
             </DialogFooter>
           </form>

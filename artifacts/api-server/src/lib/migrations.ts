@@ -3847,6 +3847,51 @@ export async function runMigrations(): Promise<void> {
     logger.info("Migration 065: community_announcements.cover_url added");
   });
 
+  await once("066", true, async () => {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS community_consultations (
+        id           SERIAL PRIMARY KEY,
+        community_id INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        name         VARCHAR(100) NOT NULL,
+        phone        VARCHAR(30) NOT NULL,
+        email        VARCHAR(255) NOT NULL,
+        content      TEXT NOT NULL,
+        status       VARCHAR(20) NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending', 'replied')),
+        tags         TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+        reply_note   TEXT,
+        replied_at   TIMESTAMP,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS community_consultations_community_id_idx
+        ON community_consultations (community_id)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS community_consultations_created_at_idx
+        ON community_consultations (created_at DESC)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS community_consultations_status_idx
+        ON community_consultations (status)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS community_consultations_tags_idx
+        ON community_consultations USING GIN (tags)
+    `);
+    await db.execute(sql`
+      UPDATE admin_roles
+      SET permissions = array_append(permissions, 'consult'),
+          description = '负责社区公告与咨询的管理',
+          updated_at = NOW()
+      WHERE name = '社区管理员'
+        AND NOT ('consult' = ANY(permissions))
+    `);
+    logger.info("Migration 066: community consultations created and consult permission granted");
+  });
+
   // Migration 062: 算力中心/工具平台演示数据(开发与生产各灌入一次)。
   // 不走 once():标记占位与全部插入放在同一事务——先 INSERT 标记(冲突即让位,并发安全),
   // 种子失败(含演示账号尚未建好)则整体回滚,下次启动自动重试,不会留下半套数据。

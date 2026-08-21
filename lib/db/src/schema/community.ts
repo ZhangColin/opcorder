@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, boolean, timestamp, integer, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, boolean, timestamp, integer, primaryKey, index } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const communityAnnouncementCategoriesTable = pgTable("community_announcement_categories", {
@@ -42,7 +42,27 @@ export const communityAdminsTable = pgTable("community_admins", {
   createdAt:   timestamp("created_at").defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.communityId, t.userId] })]);
 
+export const communityConsultationsTable = pgTable("community_consultations", {
+  id:          serial("id").primaryKey(),
+  communityId: integer("community_id").notNull().references(() => communitiesTable.id, { onDelete: "cascade" }),
+  name:        varchar("name", { length: 100 }).notNull(),
+  phone:       varchar("phone", { length: 30 }).notNull(),
+  email:       varchar("email", { length: 255 }).notNull(),
+  content:     text("content").notNull(),
+  status:      varchar("status", { length: 20 }).notNull().default("pending"),
+  tags:        text("tags").array().notNull().default([]),
+  replyNote:   text("reply_note"),
+  repliedAt:   timestamp("replied_at"),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+  updatedAt:   timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("community_consultations_community_id_idx").on(t.communityId),
+  index("community_consultations_created_at_idx").on(t.createdAt),
+  index("community_consultations_status_idx").on(t.status),
+]);
+
 export type Community = typeof communitiesTable.$inferSelect;
 export type CommunityAdmin = typeof communityAdminsTable.$inferSelect;
 export type CommunityAnnouncementCategory = typeof communityAnnouncementCategoriesTable.$inferSelect;
 export type CommunityAnnouncement = typeof communityAnnouncementsTable.$inferSelect;
+export type CommunityConsultation = typeof communityConsultationsTable.$inferSelect;
