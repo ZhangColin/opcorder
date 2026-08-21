@@ -58,6 +58,7 @@ export default function CommunityDetail() {
   const [formOpen, setFormOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+  const [logoIsScreenshot, setLogoIsScreenshot] = useState(false);
 
   const { data, error, isLoading, isError, refetch } = useQuery<CommunityDetailData>({
     queryKey: ["community-detail", communityId],
@@ -139,12 +140,21 @@ export default function CommunityDetail() {
               </div>
 
               <div className="relative flex min-h-[130px] items-center gap-5 md:gap-7">
-                <div className="flex h-24 w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/80 bg-white shadow-[0_14px_35px_rgba(0,20,80,0.35)] md:h-28 md:w-44">
+                <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white shadow-[0_14px_35px_rgba(0,20,80,0.35)] md:h-32 md:w-32">
                   {data?.logoUrl && !logoLoadFailed ? (
                     <img
                       src={data.logoUrl}
                       alt={data.name ?? "社区 Logo"}
-                      className="h-full w-full object-contain"
+                      className={logoIsScreenshot ? "absolute max-w-none" : "h-full w-full object-contain"}
+                      style={logoIsScreenshot ? {
+                        width: "1327%",
+                        height: "747%",
+                        left: "-65%",
+                        top: "-383%",
+                      } : undefined}
+                      onLoad={(event) => {
+                        setLogoIsScreenshot(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight > 1.35);
+                      }}
                       onError={() => setLogoLoadFailed(true)}
                     />
                   ) : (
