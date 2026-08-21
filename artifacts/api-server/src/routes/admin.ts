@@ -2086,6 +2086,45 @@ router.get("/community-portal", async (_req, res) => {
   }
 });
 
+/* ─── PUBLIC: 社区详情(社区基础信息+全部已发布公告, 无需登录) ─── */
+
+router.get("/community-portal/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "无效的社区编号" });
+    }
+
+    const [communityRows, announcements] = await Promise.all([
+      db.select({
+        id: communitiesTable.id,
+        name: communitiesTable.name,
+        description: communitiesTable.description,
+        logoUrl: communitiesTable.logoUrl,
+      }).from(communitiesTable).where(eq(communitiesTable.id, id)).limit(1),
+      db.select({
+        id: communityAnnouncementsTable.id,
+        title: communityAnnouncementsTable.title,
+        publishedAt: communityAnnouncementsTable.publishedAt,
+        categoryName: communityAnnouncementCategoriesTable.name,
+      }).from(communityAnnouncementsTable)
+        .leftJoin(communityAnnouncementCategoriesTable, eq(communityAnnouncementsTable.categoryId, communityAnnouncementCategoriesTable.id))
+        .where(and(
+          eq(communityAnnouncementsTable.communityId, id),
+          eq(communityAnnouncementsTable.isPublished, true),
+        ))
+        .orderBy(sql`${communityAnnouncementsTable.publishedAt} DESC NULLS LAST`, desc(communityAnnouncementsTable.id)),
+    ]);
+
+    const community = communityRows[0];
+    if (!community) return res.status(404).json({ error: "社区不存在" });
+    return res.json({ ...community, announcements });
+  } catch (err) {
+    logger.error({ err }, "Route handler error");
+    return res.status(500).json({ error: "获取社区详情失败" });
+  }
+});
+
 /* ─── LEARNING RESOURCES ─────────────────────────── */
 
 router.get("/admin/learning-resources", async (_req, res) => {

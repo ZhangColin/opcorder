@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useLocation } from "wouter";
 import { Layout } from "@/components/layout/Layout";
 import {
   Search, Megaphone, Building2, LayoutGrid, List as ListIcon,
@@ -51,10 +51,6 @@ function categoryClass(name: string | null): string {
   return CATEGORY_COLORS[h % CATEGORY_COLORS.length];
 }
 
-function enterCommunity() {
-  toast.info("社区详情页建设中,敬请期待");
-}
-
 /* 卡片内的最新公告行(标题超长省略,悬停可看全称) */
 function AnnLines({ anns }: { anns: PortalAnnouncement[] }) {
   if (anns.length === 0) {
@@ -80,6 +76,7 @@ function AnnLines({ anns }: { anns: PortalAnnouncement[] }) {
 }
 
 export default function CommunityHub() {
+  const [, navigate] = useLocation();
   const [keyword, setKeyword] = useState("");
   const [applied, setApplied] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -245,7 +242,7 @@ export default function CommunityHub() {
                     <div className="mt-4 pt-3 border-t border-slate-50 flex justify-end">
                       <button
                         type="button"
-                        onClick={enterCommunity}
+                        onClick={() => navigate(`/community/${c.id}`)}
                         className="inline-flex items-center gap-1 px-4 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-semibold hover:bg-primary hover:text-white transition-colors"
                       >
                         进入社区 <ChevronRight size={13} />
@@ -273,7 +270,7 @@ export default function CommunityHub() {
                     </div>
                     <button
                       type="button"
-                      onClick={enterCommunity}
+                      onClick={() => navigate(`/community/${c.id}`)}
                       className="inline-flex items-center gap-1 px-4 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-semibold hover:bg-primary hover:text-white transition-colors shrink-0"
                     >
                       进入社区 <ChevronRight size={13} />
