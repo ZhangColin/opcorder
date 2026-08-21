@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const COMMUNITY_CROPPED_LOGO = `${BASE}/community/origin-community-logo.png`;
 const OFFICIAL_OPERATOR_AVATAR = `${BASE}/community/official-operator.png`;
 
 interface CommunityAnnouncement {
@@ -58,7 +57,7 @@ export default function CommunityDetail() {
   const communityId = Number(params.id);
   const [formOpen, setFormOpen] = useState(false);
   const [message, setMessage] = useState("");
-  const [validatedLogoUrl, setValidatedLogoUrl] = useState<string | null>(null);
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
 
   const { data, error, isLoading, isError, refetch } = useQuery<CommunityDetailData>({
     queryKey: ["community-detail", communityId],
@@ -80,8 +79,6 @@ export default function CommunityDetail() {
   };
 
   const isMissing = !Number.isInteger(communityId) || communityId <= 0 || error?.message === "NOT_FOUND";
-  const showLogo = Boolean(data?.logoUrl && data.logoUrl === validatedLogoUrl);
-
   return (
     <Layout>
       <div className="space-y-5 pb-14">
@@ -142,29 +139,13 @@ export default function CommunityDetail() {
               </div>
 
               <div className="relative flex min-h-[130px] items-center gap-5 md:gap-7">
-                {data?.logoUrl && (
-                  <img
-                    src={data.logoUrl}
-                    alt=""
-                    aria-hidden="true"
-                    className="absolute w-px h-px opacity-0 pointer-events-none"
-                    onError={() => setValidatedLogoUrl(null)}
-                    onLoad={(event) => {
-                      const ratio = event.currentTarget.naturalWidth / event.currentTarget.naturalHeight;
-                      setValidatedLogoUrl(ratio <= 1.35 && ratio >= 0.74 ? data.logoUrl : null);
-                    }}
-                  />
-                )}
-                <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-[4px] border-white bg-white shadow-[0_14px_35px_rgba(0,20,80,0.35)] md:h-32 md:w-32">
-                  {data?.logoUrl ? (
+                <div className="flex h-24 w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/80 bg-white shadow-[0_14px_35px_rgba(0,20,80,0.35)] md:h-28 md:w-44">
+                  {data?.logoUrl && !logoLoadFailed ? (
                     <img
-                      src={showLogo ? data.logoUrl : COMMUNITY_CROPPED_LOGO}
+                      src={data.logoUrl}
                       alt={data.name ?? "社区 Logo"}
-                      className="h-full w-full object-cover"
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none";
-                        setValidatedLogoUrl(null);
-                      }}
+                      className="h-full w-full object-contain"
+                      onError={() => setLogoLoadFailed(true)}
                     />
                   ) : (
                     <Building2 size={38} className="text-primary/45" />
