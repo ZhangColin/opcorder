@@ -6,108 +6,126 @@ id = "Tt1D0ubob7lF7glOysbpq"
 uri = "file://screenshots/接单吧_页面截图.tar.gz"
 type = "unspecified"
 title = "接单吧_页面截图.tar.gz（23张，1.9MB）"
+logical_id = "5c1519c3-ac6f-4d32-b3f3-77aee7d356b1"
 
 [[outputs]]
 id = "YR0J6iwyLT_EV2n_q7oe4"
 uri = "file://scripts/截图脚本_本地运行.tar.gz"
 type = "unspecified"
 title = "截图脚本（在您自己电脑上运行）"
+logical_id = "569473ca-cc02-49ed-99e5-76cd4641fa8b"
 
 [[outputs]]
 id = "1eAa92G3dH0CdI3yrUgE3"
 uri = "file://exports/users_export.csv"
 type = "table"
 title = "接单吧用户数据导出 (648条)"
+logical_id = "ddc74cff-ee5d-438f-896d-049b051c2a6e"
 
 [[outputs]]
 id = "lHOgBclMQBsruCl7JedWf"
 uri = "file://OPC操作手册.md"
 type = "text"
 title = "OPC操作手册 - 接单吧平台用户指南"
+logical_id = "b323d4fa-ce2e-43bf-bfec-14cb14bbe864"
 
 [[outputs]]
 id = "EjqJeqiqBJ_NeRQ1VQEMg"
 uri = "file://exports/接单吧数据导出_2026-04-23.xlsx"
 type = "table"
 title = "接单吧数据导出_2026-04-23.xlsx"
+logical_id = "6e254aa8-e7fc-407c-834b-52893646206a"
 
 [[outputs]]
 id = "IECDJRa3GLIIkQjuUXz4c"
 uri = "file://exports/接单吧数据导出_V1_2026-04-23.xlsx"
 type = "table"
 title = "接单吧数据导出_V1_2026-04-23.xlsx"
+logical_id = "f62b0a73-6ee2-4889-87c0-25b4ccc25284"
 
 [[outputs]]
 id = "Q7iZIrM8GbfueZ9MI4mcZ"
 uri = "file://screenshots/demand7_full.jpg"
 type = "image"
 title = "截图1：社区运营数据分析报告（JDB-20260324-0007，已匹配）"
+logical_id = "c663ccff-dc4b-4867-90aa-8fb27403578b"
 
 [[outputs]]
 id = "Cv6brkH8KMhJKHhzMZFb7"
 uri = "file://screenshots/demand2_6milestones_full.jpg"
 type = "image"
 title = "截图2：政企AI培训需求——全部 6 个交付里程碑"
+logical_id = "659b38fd-f2c2-4894-bfee-e104f9ca815b"
 
 [[outputs]]
 id = "QiMDlTNbyRKQU_Ee5LP4v"
 uri = "file://screenshots/publisher_demands.jpg"
 type = "image"
 title = "截图3：发单方视角—⌔3 个已匹配案例列表"
+logical_id = "29c8f05f-db59-49ad-ac3f-6f0c5e9e14c1"
 
 [[outputs]]
 id = "7jT4GXpOYDt-wcqQmr68j"
 uri = "file://backup_production_2026-05-07.sql.gz"
 type = "unspecified"
 title = "接单吧生产环境数据库全量备份 2026-05-07"
+logical_id = "67e05c77-c780-49f7-93e0-476156046e85"
 
 [[outputs]]
 id = "ERWE4H6bPStB-rKOxyubq"
 uri = "file://backups/prod_backup_20260518_151156.sql.gz"
 type = "unspecified"
 title = "生产数据库备份 2026-05-18 (gzip)"
+logical_id = "c93ba51a-4322-4599-9bff-17765bb65aaf"
 
 [[outputs]]
 id = "oOZu_k3epjs2-pgSQijPX"
 uri = "file://.local/docs/database-schema-zh.md"
 type = "text"
 title = "接单吧 数据库表结构说明（中文）"
+logical_id = "8c37b3ff-bbd9-4d31-90af-97308526e87c"
 
 [[outputs]]
 id = "V4deoYGlU8_QJoYlPRfLa"
 uri = "file://docs/agent-system-design.md"
 type = "text"
 title = "接单吧智能体系统技术文档"
+logical_id = "b0547ec9-19cf-4114-b9d5-d10bffc44f85"
 
 [[outputs]]
 id = "wlYJjO04bQjs9VgngJAE3"
 uri = "file://接单吧OPC撮合交易平台_软件说明书_V1.0.pdf"
 type = "pdf"
 title = "软件设计说明书"
+logical_id = "e021b3fd-8a86-45f3-8c6e-f550c700d2e3"
 
 [[outputs]]
 id = "H4qXpAL4rwWjUIfUPrnVN"
 uri = "file://接单吧OPC撮合交易平台_源程序文档_V1.0.pdf"
 type = "pdf"
 title = "源程序文档 V1.0（已修复方块问题）"
+logical_id = "edb22554-4895-4c70-846d-56548c9d20ee"
 
 [[outputs]]
 id = "M51bX_IvwRK12qT53ocQ4"
 uri = "file://接单吧OPC撮合交易平台_软件设计说明书_V1.0.pdf"
 type = "pdf"
 title = "① 软件设计说明书（GB 8567结构，99KB）"
+logical_id = "a4fc8242-d428-4c34-ac94-a8bb6c82a6fa"
 
 [[outputs]]
 id = "3h9L2gxLEgCe3s8hQiUoX"
 uri = "file://接单吧OPC撮合交易平台_用户操作手册_V1.0.pdf"
 type = "pdf"
 title = "② 用户操作手册（35KB）"
+logical_id = "5505fac2-13f5-48d1-b754-ba10f5ca2f5d"
 
 [[outputs]]
 id = "DxEACsJjzriHYOQJqh5Ci"
 uri = "file://artifacts_source.zip"
 type = "unspecified"
 title = "artifacts 源码包（排除 node_modules/dist 等，15MB）"
+logical_id = "23741213-65be-4573-8da0-16fe5913369c"
 
 [[outputs]]
 id = "hEQBk-u8JsKY8tQdow-4N"
@@ -115,6 +133,7 @@ uri = "file://docs/tech-doc-%E4%B8%89%E5%A4%A7%E5%8A%9F%E8%83%BD%E6%A8%A1%E5%9D%
 type = "pdf"
 title = "接单吧 三大功能模块技术文档（修订版）"
 description = "修正了接口动词（PUT）、Demo 状态值（error）、accumulated 注入行为描述，并补充报价卡读取权限现状说明"
+logical_id = "2b89ed1e-9802-414b-b80b-ea67c18ad1c1"
 
 [[outputs]]
 id = "HulVA-us1zAiLRQdU2MIc"
@@ -122,6 +141,7 @@ uri = "file://docs/tech-doc-%E7%AE%97%E5%8A%9B%E4%B8%AD%E5%BF%83-%E5%B7%A5%E5%85
 type = "pdf"
 title = "算力中心与工具平台技术文档（中文字体修复版）"
 description = "已安装 Noto Sans SC 中文字体后重新渲染，正文、表格、标题均正常显示。"
+logical_id = "7cfbc00a-3a96-45d3-9179-bc25b1559fba"
 
 [[outputs]]
 id = "GWaUz0zNf0Isr9YBz9ZtB"
@@ -129,6 +149,7 @@ uri = "file://deliverables/%E7%B4%AF%E8%AE%A1%E7%BB%93%E7%AE%97%E9%87%91%E9%A2%9
 type = "table"
 title = "累计结算金额 ¥39,000 明细"
 description = "首页累计结算金额的构成:4 笔已完成订单明细(含分成拆分)与统计口径说明"
+logical_id = "85331ae2-5fa3-4e27-9f99-1081dbd76e1d"
 
 [[outputs]]
 id = "dqAnuGvxjpFV375InR7hX"
@@ -136,3 +157,18 @@ uri = "file://deliverables/%E9%9C%80%E6%B1%82%E9%A2%84%E7%AE%97%E5%90%88%E8%AE%A
 type = "table"
 title = "需求预算合计 ¥2,709,337 明细"
 description = "后台仪表盘那个 200 多万数字的构成:51 条需求的预算明细、按状态汇总与统计口径说明"
+logical_id = "1c862336-4304-4549-a29c-0e45e2a26bc9"
+
+[[outputs]]
+id = "p84S5qwx1l0c91dZbiMVU"
+uri = "file://exports/production-opc-unified-social-credit-codes-2026-08-23.xlsx"
+type = "table"
+title = "生产库 OPC 统一社会信用代码清单"
+description = "从生产库只读导出，共 38 名已提交统一社会信用代码的 OPC；包含联系方式、企业信息、审核状态与提交时间。"
+logical_id = "71347145-be4f-4232-b3df-5734c46859ef"
+content_hash = "sha256:7bf5ae4c26dab2dd48c92dd77cb895bf8124fe73112b9edbaf904660594b2463"
+size = 20596
+mtime_ms = 1787480318521
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/71347145-be4f-4232-b3df-5734c46859ef/6ce2335c-f2a6-4ca6-9bbc-95a2f25134cb"
+storage_version_token = "1787480340319380"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
