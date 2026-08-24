@@ -172,3 +172,17 @@ mtime_ms = 1787480318521
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/71347145-be4f-4232-b3df-5734c46859ef/6ce2335c-f2a6-4ca6-9bbc-95a2f25134cb"
 storage_version_token = "1787480340319380"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "Ot1qc0Zc0F64LJfhmnoyi"
+uri = "file://exports/production-opcs-with-phone-location-2026-08-24.xlsx"
+type = "table"
+title = "生产库有手机号的 OPC 及号段属地"
+description = "共 1,580 名 OPC；1,577 个手机号识别到离线号段属地，3 个号码标注为未识别。属地为号码原始号段归属，不代表当前实际所在地。"
+logical_id = "d1058103-8229-4844-8277-a9dc65e2c287"
+content_hash = "sha256:747d3a8f0e916fccce8071d998b7e513c736659ccbf782e8e471888de3f39b2b"
+size = 243911
+mtime_ms = 1787534653601
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/d1058103-8229-4844-8277-a9dc65e2c287/7c98009a-4081-401a-a68e-a15da1bc1d92"
+storage_version_token = "1787534664942490"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
