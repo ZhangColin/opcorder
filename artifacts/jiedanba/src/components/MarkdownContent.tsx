@@ -7,13 +7,15 @@ interface MarkdownContentProps {
   className?: string;
 }
 
+export function renderMarkdownHtml(content: string) {
+  if (!content) return "";
+  const raw = marked.parse(content, { async: false }) as string;
+  return DOMPurify.sanitize(raw);
+}
+
 /** Renders a Markdown string as safe, styled rich text. */
 export function MarkdownContent({ content, className = "" }: MarkdownContentProps) {
-  const html = useMemo(() => {
-    if (!content) return "";
-    const raw = marked.parse(content, { async: false }) as string;
-    return DOMPurify.sanitize(raw);
-  }, [content]);
+  const html = useMemo(() => renderMarkdownHtml(content), [content]);
 
   return (
     <div
