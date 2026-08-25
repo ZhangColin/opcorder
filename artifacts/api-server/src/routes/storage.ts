@@ -275,13 +275,18 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
 
-    const fileName = typeof req.query.filename === "string" && req.query.filename.trim()
-      ? req.query.filename.trim()
-      : null;
+    const requestedFileName = typeof req.query.filename === "string"
+      ? req.query.filename
+      : typeof req.query.name === "string"
+        ? req.query.name
+        : "";
+    const fileName = requestedFileName.trim() || null;
     if (fileName) {
       const clean = fileName.replace(/[\r\n"]/g, "").trim();
       const asciiFallback = clean.replace(/[^\x20-\x7E]/g, "_") || "file";
-      const disposition = req.query.download === "1" ? "attachment" : "inline";
+      const disposition = req.query.download === "1" || typeof req.query.name === "string"
+        ? "attachment"
+        : "inline";
       res.setHeader(
         "Content-Disposition",
         `${disposition}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(clean)}`,

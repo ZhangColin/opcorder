@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ChevronDown, X, ExternalLink, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { ContestAttachmentList } from "@/components/ContestAttachmentList";
 import { getAccessToken } from "@/lib/auth";
 import { useAdminInlineNav } from "@/context/AdminInlineNavContext";
 
@@ -178,12 +179,7 @@ function SubmissionBlock({ label, question, content, attachments, urls, grade, o
         {attachments && attachments.length > 0 && (
           <div className="mt-3 flex flex-col gap-1.5">
             <p className="text-xs font-semibold text-slate-500 flex items-center gap-1"><Paperclip size={12} /> 附件</p>
-            {attachments.map((a, i) => (
-              <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                <Paperclip size={11} /> {a.name}
-              </a>
-            ))}
+          <ContestAttachmentList attachments={attachments} />
           </div>
         )}
         {urls && urls.length > 0 && (
