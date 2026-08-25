@@ -3,7 +3,7 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Loader2, AlertCircle, ArrowLeft, Clock, CheckCircle2, Paperclip,
-  Link2, X, UploadCloud, Trophy, ChevronRight,
+  Link2, X, UploadCloud, Trophy, ChevronRight, Download,
 } from "lucide-react";
 import { apiGet, uploadFile } from "@/lib/v2api";
 import { getAccessToken } from "@/lib/auth";
@@ -99,10 +99,24 @@ function AttachmentList({ items }: { items: Array<{ name: string; url: string }>
   return (
     <div className="flex flex-col gap-1.5 mt-2">
       {items.map((a, i) => (
-        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
-          <Paperclip size={11} className="text-slate-400 shrink-0" /> {a.name}
-        </a>
+        <div key={i}
+          className="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+          <a href={a.url} target="_blank" rel="noopener noreferrer"
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-blue-600 hover:underline">
+            <Paperclip size={11} className="text-slate-400 shrink-0" />
+            <span className="truncate">{a.name}</span>
+          </a>
+          <a
+            href={a.url}
+            download={a.name}
+            aria-label={`下载 ${a.name}`}
+            title="下载到本地"
+            className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-white hover:text-blue-600"
+          >
+            <Download size={12} />
+            <span>下载</span>
+          </a>
+        </div>
       ))}
     </div>
   );
