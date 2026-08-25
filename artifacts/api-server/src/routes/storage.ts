@@ -275,16 +275,19 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
 
-    const fileName = typeof req.query.name === "string" && req.query.name.trim()
-      ? req.query.name.trim()
+    const fileName = typeof req.query.filename === "string" && req.query.filename.trim()
+      ? req.query.filename.trim()
       : null;
     if (fileName) {
-      const safe = fileName.replace(/[^\w\u4e00-\u9fa5.\-_ ()]/g, "_");
+      const clean = fileName.replace(/[\r\n"]/g, "").trim();
+      const asciiFallback = clean.replace(/[^\x20-\x7E]/g, "_") || "file";
+      const disposition = req.query.download === "1" ? "attachment" : "inline";
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${safe}"; filename*=UTF-8''${encodeURIComponent(safe)}`
+        `${disposition}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(clean)}`,
       );
     }
+    res.setHeader("Cache-Control", "private, no-cache");
 
     if (response.body) {
       const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);

@@ -94,6 +94,16 @@ const GRADE_CFG: Record<string, { label: string; cls: string }> = {
 };
 
 /* ─── Attachment list (read-only) ─── */
+function attachmentUrl(url: string, name: string, download = false) {
+  const separator = url.includes("?") ? "&" : "?";
+  const params = new URLSearchParams({
+    filename: name,
+    mode: download ? "download" : "view",
+  });
+  if (download) params.set("download", "1");
+  return `${url}${separator}${params.toString()}`;
+}
+
 function AttachmentList({ items }: { items: Array<{ name: string; url: string }> }) {
   if (!items.length) return null;
   return (
@@ -101,14 +111,13 @@ function AttachmentList({ items }: { items: Array<{ name: string; url: string }>
       {items.map((a, i) => (
         <div key={i}
           className="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
-          <a href={a.url} target="_blank" rel="noopener noreferrer"
+          <a href={attachmentUrl(a.url, a.name)} target="_blank" rel="noopener noreferrer"
             className="flex min-w-0 flex-1 items-center gap-1.5 text-blue-600 hover:underline">
             <Paperclip size={11} className="text-slate-400 shrink-0" />
             <span className="truncate">{a.name}</span>
           </a>
           <a
-            href={a.url}
-            download={a.name}
+            href={attachmentUrl(a.url, a.name, true)}
             aria-label={`下载 ${a.name}`}
             title="下载到本地"
             className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-slate-500 hover:bg-white hover:text-blue-600"
