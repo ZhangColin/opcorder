@@ -91,12 +91,16 @@ export class ObjectStorageService {
     const [metadata] = await file.getMetadata();
     const aclPolicy = await getObjectAclPolicy(file);
     const isPublic = aclPolicy?.visibility === "public";
+    const storedContentType = (metadata.contentType as string) || "application/octet-stream";
+    const contentType = storedContentType.startsWith("text/") && !/;\s*charset=/i.test(storedContentType)
+      ? `${storedContentType}; charset=utf-8`
+      : storedContentType;
 
     const nodeStream = file.createReadStream();
     const webStream = Readable.toWeb(nodeStream) as ReadableStream;
 
     const headers: Record<string, string> = {
-      "Content-Type": (metadata.contentType as string) || "application/octet-stream",
+      "Content-Type": contentType,
       "Cache-Control": `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`,
     };
     if (metadata.size) {
