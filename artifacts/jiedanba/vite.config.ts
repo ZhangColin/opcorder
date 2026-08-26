@@ -34,7 +34,14 @@ const replitDevHost = process.env.REPLIT_DEV_DOMAIN
 export default defineConfig({
   base: basePath,
   plugins: [
-    react(),
+    react({
+      // Admin.tsx is intentionally excluded from Babel/Fast Refresh.
+      // It is a very large TSX module; running react-refresh's Babel pass on
+      // every edit creates a multi-megabyte dev payload and blocks the browser
+      // main thread. Vite's built-in esbuild still compiles it, and changes to
+      // this page use a fast full-page reload instead of a slow HMR transform.
+      exclude: /\/src\/pages\/Admin\.tsx$/,
+    }),
     tailwindcss(),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
@@ -62,6 +69,19 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+  },
+  environments: {
+    client: {
+      dev: {
+        // Compile the entry route and the large admin route immediately after
+        // startup instead of making the first browser navigation pay that cost.
+        warmup: [
+          "src/main.tsx",
+          "src/App.tsx",
+          "src/pages/Admin.tsx",
+        ],
+      },
+    },
   },
   server: {
     port,

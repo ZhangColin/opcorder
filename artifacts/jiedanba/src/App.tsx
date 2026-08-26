@@ -3,65 +3,99 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter, setOn401Handler } from "@workspace/api-client-react";
-import { useEffect, lazy, Suspense, useState } from "react";
+import { useEffect, lazy, Suspense, useState, type ComponentType, type LazyExoticComponent } from "react";
 import { getValidAccessToken, clearSession, refreshAccessToken, isTokenExpiredSync, getRefreshToken, getAccessToken, getStoredUser } from "@/lib/auth";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 
 import { Layout } from "@/components/layout/Layout";
 // 首页保持同步加载,保证首屏最快渲染;其余页面全部按需加载
 import Home from "@/pages/Home";
-const Login = lazy(() => import("@/pages/Login"));
-const PubDemandList = lazy(() => import("@/pages/pub/PubDemandList"));
-const PubCreateDemand = lazy(() => import("@/pages/pub/PubCreateDemand"));
-const PubDemandDetail = lazy(() => import("@/pages/pub/PubDemandDetail"));
-const PubContractList = lazy(() => import("@/pages/pub/PubContractList"));
-const PubContractDetail = lazy(() => import("@/pages/pub/PubContractDetail"));
-const PubPaymentList = lazy(() => import("@/pages/pub/PubPaymentList"));
-const PubPaymentDetail = lazy(() => import("@/pages/pub/PubPaymentDetail"));
-const PubDeliveryList = lazy(() => import("@/pages/pub/PubDeliveryList"));
-const PubDeliveryDetail = lazy(() => import("@/pages/pub/PubDeliveryDetail"));
-const PubTicketList = lazy(() => import("@/pages/pub/PubTicketList"));
-const PubTicketDetail = lazy(() => import("@/pages/pub/PubTicketDetail"));
-const PubHome = lazy(() => import("@/pages/pub/PubHome"));
-const PubNotifications = lazy(() => import("@/pages/pub/PubNotifications"));
-const PubProfile = lazy(() => import("@/pages/PublisherProfile"));
-const CommunityHub = lazy(() => import("@/pages/CommunityHub"));
-const CommunityDetail = lazy(() => import("@/pages/CommunityDetail"));
-const AnnouncementDetail = lazy(() => import("@/pages/AnnouncementDetail"));
-const Auth = lazy(() => import("@/pages/Auth"));
-const Profile = lazy(() => import("@/pages/Profile"));
-const Portfolios = lazy(() => import("@/pages/Portfolios"));
-const Academy = lazy(() => import("@/pages/Academy"));
-const AcademyDetail = lazy(() => import("@/pages/AcademyDetail"));
-const Notifications = lazy(() => import("@/pages/Notifications"));
-const AccountSettings = lazy(() => import("@/pages/AccountSettings"));
-const OpcV2Home = lazy(() => import("@/pages/opc-v2/OpcV2Home"));
-const OpcV2DemandHall = lazy(() => import("@/pages/opc-v2/OpcV2DemandHall"));
-const OpcV2TenderList = lazy(() => import("@/pages/opc-v2/OpcV2TenderList"));
-const OpcV2TenderDetail = lazy(() => import("@/pages/opc-v2/OpcV2TenderDetail"));
-const OpcV2OrderList = lazy(() => import("@/pages/opc-v2/OpcV2OrderList"));
-const OpcV2OrderDetail = lazy(() => import("@/pages/opc-v2/OpcV2OrderDetail"));
-const OpcV2IncomeList = lazy(() => import("@/pages/opc-v2/OpcV2IncomeList"));
-const OpcV2DeliveryList = lazy(() => import("@/pages/opc-v2/OpcV2DeliveryList"));
-const OpcV2TicketList = lazy(() => import("@/pages/opc-v2/OpcV2TicketList"));
-const OpcV2TicketDetail = lazy(() => import("@/pages/opc-v2/OpcV2TicketDetail"));
-const OpcV2IncomeDetail = lazy(() => import("@/pages/opc-v2/OpcV2IncomeDetail"));
-const OpcV2ContestList = lazy(() => import("@/pages/opc-v2/OpcV2ContestList"));
-const OpcV2ContestDetail = lazy(() => import("@/pages/opc-v2/OpcV2ContestDetail"));
-const ContestRegistrationDetail = lazy(() => import("@/pages/ContestRegistrationDetail"));
-const ContestDetail = lazy(() => import("@/pages/ContestDetail"));
-const Admin = lazy(() => import("@/pages/Admin"));
-const ScreenDisplay = lazy(() => import("@/pages/ScreenDisplay"));
-const ActivityRegister = lazy(() => import("@/pages/ActivityRegister"));
-const Terms = lazy(() => import("@/pages/Terms"));
-const Privacy = lazy(() => import("@/pages/Privacy"));
-const Support = lazy(() => import("@/pages/Support"));
-const NotFound = lazy(() => import("@/pages/not-found"));
-const OrderHall = lazy(() => import("@/pages/OrderHall"));
-const ComputeCenter = lazy(() => import("@/pages/ComputeCenter"));
-const ToolsPlatform = lazy(() => import("@/pages/ToolsPlatform"));
-const AgentUsePage = lazy(() => import("@/pages/AgentUsePage"));
-const OpcDemandDetail = lazy(() => import("@/pages/OpcDemandDetail"));
+
+const DEV_LAZY_RELOAD_KEY = "jiedanba:dev-lazy-reload";
+
+function lazyPage<T extends ComponentType<any>>(
+  loader: () => Promise<{ default: T }>,
+): LazyExoticComponent<T> {
+  return lazy(async () => {
+    if (!import.meta.env.DEV) return loader();
+
+    let timer: number | undefined;
+    try {
+      return await Promise.race([
+        loader(),
+        new Promise<never>((_, reject) => {
+          timer = window.setTimeout(
+            () => reject(new Error("开发服务器模块加载超时")),
+            8_000,
+          );
+        }),
+      ]);
+    } catch (error) {
+      const lastReload = Number(sessionStorage.getItem(DEV_LAZY_RELOAD_KEY) ?? 0);
+      if (Date.now() - lastReload > 30_000) {
+        sessionStorage.setItem(DEV_LAZY_RELOAD_KEY, String(Date.now()));
+        window.location.reload();
+        return new Promise<never>(() => {});
+      }
+      throw error;
+    } finally {
+      if (timer !== undefined) window.clearTimeout(timer);
+    }
+  });
+}
+
+const Login = lazyPage(() => import("@/pages/Login"));
+const PubDemandList = lazyPage(() => import("@/pages/pub/PubDemandList"));
+const PubCreateDemand = lazyPage(() => import("@/pages/pub/PubCreateDemand"));
+const PubDemandDetail = lazyPage(() => import("@/pages/pub/PubDemandDetail"));
+const PubContractList = lazyPage(() => import("@/pages/pub/PubContractList"));
+const PubContractDetail = lazyPage(() => import("@/pages/pub/PubContractDetail"));
+const PubPaymentList = lazyPage(() => import("@/pages/pub/PubPaymentList"));
+const PubPaymentDetail = lazyPage(() => import("@/pages/pub/PubPaymentDetail"));
+const PubDeliveryList = lazyPage(() => import("@/pages/pub/PubDeliveryList"));
+const PubDeliveryDetail = lazyPage(() => import("@/pages/pub/PubDeliveryDetail"));
+const PubTicketList = lazyPage(() => import("@/pages/pub/PubTicketList"));
+const PubTicketDetail = lazyPage(() => import("@/pages/pub/PubTicketDetail"));
+const PubHome = lazyPage(() => import("@/pages/pub/PubHome"));
+const PubNotifications = lazyPage(() => import("@/pages/pub/PubNotifications"));
+const PubProfile = lazyPage(() => import("@/pages/PublisherProfile"));
+const CommunityHub = lazyPage(() => import("@/pages/CommunityHub"));
+const CommunityDetail = lazyPage(() => import("@/pages/CommunityDetail"));
+const AnnouncementDetail = lazyPage(() => import("@/pages/AnnouncementDetail"));
+const Auth = lazyPage(() => import("@/pages/Auth"));
+const Profile = lazyPage(() => import("@/pages/Profile"));
+const Portfolios = lazyPage(() => import("@/pages/Portfolios"));
+const Academy = lazyPage(() => import("@/pages/Academy"));
+const AcademyDetail = lazyPage(() => import("@/pages/AcademyDetail"));
+const Notifications = lazyPage(() => import("@/pages/Notifications"));
+const AccountSettings = lazyPage(() => import("@/pages/AccountSettings"));
+const OpcV2Home = lazyPage(() => import("@/pages/opc-v2/OpcV2Home"));
+const OpcV2DemandHall = lazyPage(() => import("@/pages/opc-v2/OpcV2DemandHall"));
+const OpcV2TenderList = lazyPage(() => import("@/pages/opc-v2/OpcV2TenderList"));
+const OpcV2TenderDetail = lazyPage(() => import("@/pages/opc-v2/OpcV2TenderDetail"));
+const OpcV2OrderList = lazyPage(() => import("@/pages/opc-v2/OpcV2OrderList"));
+const OpcV2OrderDetail = lazyPage(() => import("@/pages/opc-v2/OpcV2OrderDetail"));
+const OpcV2IncomeList = lazyPage(() => import("@/pages/opc-v2/OpcV2IncomeList"));
+const OpcV2DeliveryList = lazyPage(() => import("@/pages/opc-v2/OpcV2DeliveryList"));
+const OpcV2TicketList = lazyPage(() => import("@/pages/opc-v2/OpcV2TicketList"));
+const OpcV2TicketDetail = lazyPage(() => import("@/pages/opc-v2/OpcV2TicketDetail"));
+const OpcV2IncomeDetail = lazyPage(() => import("@/pages/opc-v2/OpcV2IncomeDetail"));
+const OpcV2ContestList = lazyPage(() => import("@/pages/opc-v2/OpcV2ContestList"));
+const OpcV2ContestDetail = lazyPage(() => import("@/pages/opc-v2/OpcV2ContestDetail"));
+const ContestRegistrationDetail = lazyPage(() => import("@/pages/ContestRegistrationDetail"));
+const ContestDetail = lazyPage(() => import("@/pages/ContestDetail"));
+const Admin = lazyPage(() => import("@/pages/Admin"));
+const ScreenDisplay = lazyPage(() => import("@/pages/ScreenDisplay"));
+const ActivityRegister = lazyPage(() => import("@/pages/ActivityRegister"));
+const Terms = lazyPage(() => import("@/pages/Terms"));
+const Privacy = lazyPage(() => import("@/pages/Privacy"));
+const Support = lazyPage(() => import("@/pages/Support"));
+const NotFound = lazyPage(() => import("@/pages/not-found"));
+const OrderHall = lazyPage(() => import("@/pages/OrderHall"));
+const ComputeCenter = lazyPage(() => import("@/pages/ComputeCenter"));
+const ToolsPlatform = lazyPage(() => import("@/pages/ToolsPlatform"));
+const AgentUsePage = lazyPage(() => import("@/pages/AgentUsePage"));
+const OpcDemandDetail = lazyPage(() => import("@/pages/OpcDemandDetail"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
