@@ -10425,10 +10425,22 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [inlineRoute, setInlineRoute] = useState<string | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
   useEffect(() => { setInlineRoute(null); }, [active]);
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    const closeMenu = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
+  }, [showProfileMenu]);
 
   const role = getStoredUser()?.role;
   const adminNickname = getStoredUser()?.nickname ?? "管理员";
@@ -10616,13 +10628,6 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
         </nav>
 
         <div className="border-t border-white/10 pt-4 flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => setShowChangePassword(true)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
-          >
-            <Lock size={17} /> 修改密码
-          </button>
           <button onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors">
             <LogOut size={17} /> 退出登录
@@ -10652,19 +10657,50 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
           </div>
           <div className="flex items-center gap-4">
             <div className="h-8 w-px bg-slate-200" />
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold text-blue-900">{profile?.nickname ?? adminNickname}</p>
-                <p className="text-[10px] text-slate-500 flex items-center justify-end gap-1">
-                  {isSuperAdmin
-                    ? <><ShieldAlert size={10} className="text-amber-500" /> 超级管理员</>
-                    : "平台管理员"
-                  }
-                </p>
-              </div>
-              <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
-                {(profile?.nickname ?? adminNickname)[0]}
-              </div>
+            <div ref={profileMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setShowProfileMenu(open => !open)}
+                aria-expanded={showProfileMenu}
+                aria-haspopup="menu"
+                className="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-slate-100"
+              >
+                <div className="text-right">
+                  <p className="text-sm font-bold text-blue-900">{profile?.nickname ?? adminNickname}</p>
+                  <p className="text-[10px] text-slate-500 flex items-center justify-end gap-1">
+                    {isSuperAdmin
+                      ? <><ShieldAlert size={10} className="text-amber-500" /> 超级管理员</>
+                      : "平台管理员"
+                    }
+                  </p>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
+                  {(profile?.nickname ?? adminNickname)[0]}
+                </div>
+                <ChevronDown
+                  size={14}
+                  className={`text-slate-400 transition-transform ${showProfileMenu ? "rotate-180" : ""}`}
+                />
+              </button>
+              {showProfileMenu && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setShowChangePassword(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-blue-900"
+                  >
+                    <Lock size={16} />
+                    修改密码
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
