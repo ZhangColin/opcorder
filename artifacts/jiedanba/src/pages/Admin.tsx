@@ -10627,12 +10627,6 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
           })}
         </nav>
 
-        <div className="border-t border-white/10 pt-4 flex flex-col gap-1">
-          <button onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors">
-            <LogOut size={17} /> 退出登录
-          </button>
-        </div>
       </aside>
 
       {/* Main */}
@@ -10698,6 +10692,19 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
                   >
                     <Lock size={16} />
                     修改密码
+                  </button>
+                  <div className="my-1 border-t border-slate-100" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      handleLogout();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+                  >
+                    <LogOut size={16} />
+                    退出登录
                   </button>
                 </div>
               )}
