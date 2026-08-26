@@ -4541,7 +4541,7 @@ function AnnouncementsManagement() {
   );
 }
 
-function ChangePasswordCard() {
+function ChangePasswordCard({ onSuccess }: { onSuccess?: () => void } = {}) {
   const { toast } = useToast();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword]         = useState("");
@@ -4565,6 +4565,7 @@ function ChangePasswordCard() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      onSuccess?.();
     },
     onError: (e: Error) => toast({ title: "修改失败", description: e.message, variant: "destructive" }),
   });
@@ -10423,6 +10424,7 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
   const [active, setActive] = useState<Module>(initialModule ?? "dashboard");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [inlineRoute, setInlineRoute] = useState<string | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -10513,6 +10515,21 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
 
   return (
     <div className="flex min-h-screen bg-[#f3f3f6] text-[#1a1c1e]">
+      {showChangePassword && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg">
+            <button
+              type="button"
+              onClick={() => setShowChangePassword(false)}
+              aria-label="关闭修改密码窗口"
+              className="absolute right-4 top-4 z-10 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X size={18} />
+            </button>
+            <ChangePasswordCard onSuccess={() => setShowChangePassword(false)} />
+          </div>
+        </div>
+      )}
 
       {/* Sidebar */}
       <aside className="w-64 fixed left-0 top-0 h-screen z-50 bg-slate-900 flex flex-col p-4">
@@ -10599,6 +10616,13 @@ export default function Admin({ initialModule }: { initialModule?: Module } = {}
         </nav>
 
         <div className="border-t border-white/10 pt-4 flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => setShowChangePassword(true)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <Lock size={17} /> 修改密码
+          </button>
           <button onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors">
             <LogOut size={17} /> 退出登录
