@@ -722,7 +722,7 @@ function UserManagement() {
     <div className="space-y-6">
       {showBulkEmail && <UserBulkEmailModal onClose={() => setShowBulkEmail(false)} />}
       {showBulkNotify && <UserBulkNotifyModal onClose={() => setShowBulkNotify(false)} />}
-      <SectionHeader title="用户管理" sub="OPC 账户审核、角色权限配置、认证等级调整、封禁/解封" />
+      <SectionHeader title="用户管理" sub="OPC 账户审核、角色权限配置、封禁/解封" />
       <div className="flex items-center gap-3 flex-wrap">
         {ROLE_FILTERS.map(f => (
           <button key={f} onClick={() => { setRoleFilter(f); setPage(1); }}
@@ -759,8 +759,8 @@ function UserManagement() {
           <Bell size={13} /> 群发站内信
         </button>
       </div>
-      <TableShell headers={["用户", "邮箱", "手机号", "身份", "等级", "信用分", "注册日期", "状态", "操作"]}>
-        {isLoading ? <LoadingRow cols={9} /> : users.length === 0 ? <EmptyRow cols={9} /> :
+      <TableShell headers={["用户", "邮箱", "手机号", "身份", "信用分", "注册日期", "状态", "操作"]}>
+        {isLoading ? <LoadingRow cols={8} /> : users.length === 0 ? <EmptyRow cols={8} /> :
           users.map(u => (
             <Fragment key={u.id}>
               <tr className={`hover:bg-slate-50/60 transition-colors ${expandedOpcId === u.id ? "bg-slate-50/40" : ""}`}>
@@ -773,14 +773,6 @@ function UserManagement() {
                 <td className="px-6 py-4 text-xs text-slate-400">{u.email || "—"}</td>
                 <td className="px-6 py-4 text-xs text-slate-400">{u.phone || "—"}</td>
                 <td className="px-6 py-4"><StatusBadge label={roleLabel(u.role)} color={roleColor(u.role)} /></td>
-                <td className="px-6 py-4">
-                  {u.opcLevel ? (
-                    <select defaultValue={u.opcLevel} onChange={e => mutate.mutate({ id: u.id, action: "setLevel", value: e.target.value })}
-                      className="text-xs font-bold border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/30">
-                      {[{ v: "newbie", label: "新手" }, { v: "C", label: "C级·基础" }, { v: "B", label: "B级·进阶" }, { v: "A", label: "A级·专家" }].map(l => <option key={l.v} value={l.v}>{l.label}</option>)}
-                    </select>
-                  ) : <span className="text-slate-400 text-sm">—</span>}
-                </td>
                 <td className="px-6 py-4">
                   {u.creditScore !== null ? (
                     <div className="flex items-center gap-2">
@@ -821,7 +813,7 @@ function UserManagement() {
               </tr>
               {expandedOpcId === u.id && u.role === "opc" && (
                 <tr>
-                  <td colSpan={9} className="p-0">
+                  <td colSpan={8} className="p-0">
                     <OpcUserDetail userId={u.id} />
                   </td>
                 </tr>
