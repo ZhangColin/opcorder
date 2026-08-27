@@ -186,3 +186,38 @@ mtime_ms = 1787534653601
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/d1058103-8229-4844-8277-a9dc65e2c287/7c98009a-4081-401a-a68e-a15da1bc1d92"
 storage_version_token = "1787534664942490"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "y35KIMgqhr0hwbaMTT5hJ"
+uri = "file://exports/legacy-orders-349000-2026-08-27.xlsx"
+type = "table"
+title = "旧版订单明细（¥349,000）"
+description = "共 10 笔旧版订单，按创建时间和订单 ID 排序；含订单号、需求编号、项目名称、金额、状态、创建时间及合计行，并注明不包含 ORD-202605-7890。"
+logical_id = "9f95c522-1ad8-4e58-9da1-9329d46e13c4"
+content_hash = "sha256:944b77003cb6460eebc66f698682d4375f1349fa647f915c5183cedf863eed01"
+size = 11444
+mtime_ms = 1787816264961
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/9f95c522-1ad8-4e58-9da1-9329d46e13c4/5be92333-7130-444f-a72c-eb1e9c19acb1"
+storage_version_token = "1787816271570961"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "mDrqRWAhHnq-X718C8o9P"
+uri = "file://exports/newer-orders-from-ORD-202605-7890-2026-08-27.xlsx"
+type = "table"
+title = "后续新增订单明细"
+description = "包含 ORD-202605-7890 起的后续新增订单。目前共 1 笔，金额合计 ¥20,350，含订单、需求、项目、状态和创建时间等核对字段。"
+logical_id = "895ddbe9-efa0-4402-a133-e1edb5ed9f46"
+content_hash = "sha256:55eb113fb10a8e14bd70afba50caf0c4fb9856ceecafd446fd96aa7347c78fb7"
+size = 10085
+mtime_ms = 1787816341335
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/895ddbe9-efa0-4402-a133-e1edb5ed9f46/f0c363c6-d38e-4091-ae2d-33edc6f72fc1"
+storage_version_token = "1787816350454017"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "IxW_k_E3cR14o4nB17fCb"
+uri = "file://attached_assets/newer-orders-from-ORD-202605-7890-2026-08-27.xlsx"
+type = "table"
+title = "后续新增订单明细（重新上传）"
+description = "包含 ORD-202605-7890 起的后续新增订单。目前共 1 笔，合计 ¥20,350。已重新上传到稳定附件目录。"
