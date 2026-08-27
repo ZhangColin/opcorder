@@ -236,3 +236,17 @@ mtime_ms = 1787818295353
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/c8102900-9167-488b-8391-8046cefe9000/d18ca19c-0b7a-4cb6-b943-0008cdb7f194"
 storage_version_token = "1787818303664748"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "ub-EKn7SbqeFqtLAIAeiH"
+uri = "file://exports/all-production-opcs-with-track-ratings-2026-08-27.xlsx"
+type = "table"
+title = "生产库全部 OPC（含赛道与评级）"
+description = "共 2,226 名 OPC；沿用上一份 UTF-8/OpenXML 格式，包含结算账户、统一社会信用代码、赛道评级、综合等级、平均评分和信用等级。"
+logical_id = "cf7e1411-5eb9-4cdc-ac0f-562f9dfc793b"
+content_hash = "sha256:607e617a95a45df44f679384b418ed5888653d86643f7e81c5b1fcd6b9b5fb8d"
+size = 216928
+mtime_ms = 1787819102516
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/cf7e1411-5eb9-4cdc-ac0f-562f9dfc793b/8ec48421-11d0-4f9b-aac4-a56d00b01965"
+storage_version_token = "1787819109341723"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
