@@ -191,28 +191,28 @@ content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.shee
 id = "y35KIMgqhr0hwbaMTT5hJ"
 uri = "file://exports/legacy-orders-349000-2026-08-27.xlsx"
 type = "table"
-title = "旧版订单明细（¥349,000）"
-description = "10 笔旧版订单，合计 ¥349,000；已重新生成并核验。"
+title = "旧版订单明细（已补发单方和接单方）"
+description = "10 笔订单，合计 ¥349,000；包含双方名称、手机号和邮箱。"
 logical_id = "9f95c522-1ad8-4e58-9da1-9329d46e13c4"
-content_hash = "sha256:18f8d2e2a0076e088b7698fcde41b3edf634370f72e18542f29c1ccde7577496"
-size = 11035
-mtime_ms = 1787816729861
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/9f95c522-1ad8-4e58-9da1-9329d46e13c4/93aedaaa-43bb-425a-892e-6b5e0d3d4cc8"
-storage_version_token = "1787816737043954"
+content_hash = "sha256:26ada7aaa3368cf6ee451602cb8f10f8395e00c5c838bda592ca609e8ed2e8fa"
+size = 12062
+mtime_ms = 1787817021365
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/9f95c522-1ad8-4e58-9da1-9329d46e13c4/8ee04287-7859-426d-aa0b-ec9d0eb1c0aa"
+storage_version_token = "1787817033074009"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 [[outputs]]
 id = "mDrqRWAhHnq-X718C8o9P"
 uri = "file://exports/newer-orders-from-ORD-202605-7890-2026-08-27.xlsx"
 type = "table"
-title = "后续新增订单明细"
-description = "从 ORD-202605-7890 起的后续订单；目前 1 笔，合计 ¥20,350。"
+title = "后续新增订单明细（已补发单方和接单方）"
+description = "从 ORD-202605-7890 起；包含双方名称、手机号和邮箱。"
 logical_id = "895ddbe9-efa0-4402-a133-e1edb5ed9f46"
-content_hash = "sha256:2912f3f5fed7451f76cc6162ddfb2d44e4e06ecc7d38a45cfc3398003185a464"
-size = 9800
-mtime_ms = 1787816729865
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/895ddbe9-efa0-4402-a133-e1edb5ed9f46/2722e0fa-93bd-4614-ade4-87baacd949b7"
-storage_version_token = "1787816738440842"
+content_hash = "sha256:174be84e90afbab178c241367e888931d6c60e51df968213ae4609b14566ea94"
+size = 10028
+mtime_ms = 1787817021373
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/895ddbe9-efa0-4402-a133-e1edb5ed9f46/d77a7c15-03df-4ece-b130-6dd50cc160e2"
+storage_version_token = "1787817034492202"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 [[outputs]]
