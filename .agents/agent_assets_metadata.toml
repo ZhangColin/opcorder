@@ -222,3 +222,17 @@ type = "table"
 title = "后续新增订单明细（重新上传）"
 description = "包含 ORD-202605-7890 起的后续新增订单。目前共 1 笔，合计 ¥20,350。已重新上传到稳定附件目录。"
 logical_id = "e9b1c750-7e26-49b0-82c4-c045cf5d3bb3"
+
+[[outputs]]
+id = "4472fQghUv-0s1cRxobIJ"
+uri = "file://exports/production-opc-unified-social-credit-codes-with-track-ratings-2026-08-27.xlsx"
+type = "table"
+title = "当前有统一社会信用代码的 OPC（含赛道与评级）"
+description = "生产库只读导出，共 40 条；沿用原 Excel 结构，新增赛道、赛道评级、综合等级、平均评分和信用等级。"
+logical_id = "c8102900-9167-488b-8391-8046cefe9000"
+content_hash = "sha256:030a5bcb8ef1456e7f54792e56ec5c2624b79d0e9467e09c3f72288511f355f8"
+size = 26042
+mtime_ms = 1787818151305
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/c8102900-9167-488b-8391-8046cefe9000/67958767-2032-40c5-8571-676543bfe7e5"
+storage_version_token = "1787818169940743"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
