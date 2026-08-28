@@ -278,3 +278,17 @@ mtime_ms = 1787820717056
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/d3dcbaa6-d412-4358-868c-ba1272650fa5/a709888a-d9ce-4f47-92be-84cbe47cbff2"
 storage_version_token = "1787820717917904"
 content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+[[outputs]]
+id = "BTClnFb4m-9yU69HVEAMI"
+uri = "file://exports/jiedanba-software-design-spec-v1.0.pdf"
+type = "pdf"
+title = "接单吧 OPC 撮合交易平台—软件设计说明书 V1.0"
+description = "项目总体技术架构文档：总体设计、技术选型、模块设计、数据库、API、安全设计与关键流程。"
+logical_id = "542c9a8c-6a07-46ec-9e1b-37125a58b7b3"
+content_hash = "sha256:b00ff0745b90f01f5c73c53abe126d2fc404f70945e471a6ecaa33025790e859"
+size = 101274
+mtime_ms = 1787905650198
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/542c9a8c-6a07-46ec-9e1b-37125a58b7b3/777f496a-2d06-4f80-b808-7a55ed2d94be"
+storage_version_token = "1787905656294978"
+content_type = "application/pdf"
