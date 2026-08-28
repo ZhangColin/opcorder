@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/llm-leadership-deck/"
+title = "企业本地大模型建设路线"
+description = "企业本地大模型部署、应用与运维四阶段建设路线"
+version = "1.0.0"
+id = "artifacts/enterprise-local-llm-leadership-deck"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/llm-leadership-deck/" ]
+localPort = 20356
+
+[services.development]
+run = "pnpm --filter @workspace/enterprise-local-llm-leadership-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/enterprise-local-llm-leadership-deck", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/enterprise-local-llm-leadership-deck/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20356"
+BASE_PATH = "/llm-leadership-deck/"

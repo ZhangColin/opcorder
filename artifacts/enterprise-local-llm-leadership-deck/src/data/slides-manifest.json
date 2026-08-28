@@ -1,0 +1,74 @@
+[
+  {
+    "id": "3a9ff9aa-4198-4cbe-a936-3e30f3038c01",
+    "position": 1,
+    "filepath": "src/pages/slides/Slide01Cover.tsx",
+    "title": "企业本地大模型建设路线",
+    "description": "四阶段建设总览封面",
+    "speakerNotes": ""
+  },
+  {
+    "id": "d5ff6d20-3f85-4200-b891-3a2d34a21902",
+    "position": 2,
+    "filepath": "src/pages/slides/Slide02Roadmap.tsx",
+    "title": "总体路线：先建底座，再上模型，再做应用，最后持续运营",
+    "description": "四个阶段与验收门槛",
+    "speakerNotes": ""
+  },
+  {
+    "id": "14f434fa-cb2a-4ea7-aa54-b520cc8db303",
+    "position": 3,
+    "filepath": "src/pages/slides/Slide03Infrastructure.tsx",
+    "title": "阶段一：硬件及系统安装",
+    "description": "基础环境建设",
+    "speakerNotes": ""
+  },
+  {
+    "id": "ea06dc10-4e46-4320-88c0-31c587147404",
+    "position": 4,
+    "filepath": "src/pages/slides/Slide04ModelDeploy.tsx",
+    "title": "阶段二：大模型部署与调试",
+    "description": "模型部署、调试与灰度",
+    "speakerNotes": ""
+  },
+  {
+    "id": "c7298107-f114-4ff3-a5f4-d8f5af984505",
+    "position": 5,
+    "filepath": "src/pages/slides/Slide05Scenario.tsx",
+    "title": "阶段三：先看场景，再决定用什么模型",
+    "description": "按业务场景选择模型",
+    "speakerNotes": ""
+  },
+  {
+    "id": "8dfef972-a661-43c8-a314-a68b42c1c606",
+    "position": 6,
+    "filepath": "src/pages/slides/Slide06ModelMix.tsx",
+    "title": "高模型、低模型和多模态模型如何分工",
+    "description": "不同模型的分工与组合",
+    "speakerNotes": ""
+  },
+  {
+    "id": "af89187b-bc10-4aeb-8314-50bd5e73f707",
+    "position": 7,
+    "filepath": "src/pages/slides/Slide07Scale.tsx",
+    "title": "应用落地：从单点试用到规模化推广",
+    "description": "应用落地五步法",
+    "speakerNotes": ""
+  },
+  {
+    "id": "16f933cd-3ab3-4a83-b44a-e09438c8f808",
+    "position": 8,
+    "filepath": "src/pages/slides/Slide08Operations.tsx",
+    "title": "阶段四：监控与运维",
+    "description": "长期稳定运营体系",
+    "speakerNotes": ""
+  },
+  {
+    "id": "733f58d5-4078-4ab3-8fc9-417f8c421909",
+    "position": 9,
+    "filepath": "src/pages/slides/Slide09Gates.tsx",
+    "title": "建设需要关注的四个管理门槛",
+    "description": "管理决策与投资原则",
+    "speakerNotes": ""
+  }
+]

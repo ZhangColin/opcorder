@@ -250,3 +250,31 @@ mtime_ms = 1787819102516
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/cf7e1411-5eb9-4cdc-ac0f-562f9dfc793b/8ec48421-11d0-4f9b-aac4-a56d00b01965"
 storage_version_token = "1787819109341723"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "ZmSRKlrIEAl39x83mS7KW"
+uri = "file://.local/outputs/-----------.pptx"
+type = "slides"
+title = "企业本地大模型建设路线（PPTX）"
+description = "企业本地大模型部署、应用与运维四阶段建设路线，共 9 页。"
+logical_id = "f3c9fb3f-62fe-451f-9fbd-170f4f7182f6"
+content_hash = "sha256:b729812ed969ed425c425ab279684d09c763537e576dba13a600ed8e33d875bf"
+size = 1995181
+mtime_ms = 1787820082295
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/f3c9fb3f-62fe-451f-9fbd-170f4f7182f6/ac88fab6-a6f9-47a9-8f35-146ab7d204ea"
+storage_version_token = "1787820084011789"
+content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+[[outputs]]
+id = "XPYYHS762_qZOtRH2o-TR"
+uri = "file://.local/outputs/---------------.pptx"
+type = "slides"
+title = "企业本地大模型建设路线（最终版 PPTX）"
+description = "已优化长文本换行，全部改为通用演示文案；9 页内容无遮挡或截断。"
+logical_id = "d3dcbaa6-d412-4358-868c-ba1272650fa5"
+content_hash = "sha256:cbcfa890979002ac28b2d52b3e44c929cea34681f131cbd72458202aa55dae45"
+size = 1997577
+mtime_ms = 1787820717056
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/d3dcbaa6-d412-4358-868c-ba1272650fa5/a709888a-d9ce-4f47-92be-84cbe47cbff2"
+storage_version_token = "1787820717917904"
+content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
