@@ -292,3 +292,17 @@ mtime_ms = 1787905650198
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/542c9a8c-6a07-46ec-9e1b-37125a58b7b3/777f496a-2d06-4f80-b808-7a55ed2d94be"
 storage_version_token = "1787905656294978"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "RJV6ZRnrKtT-hJ6UkCrn_"
+uri = "file://exports/jiedanba-current-architecture-deployment-operations.md"
+type = "text"
+title = "接单吧当前项目技术架构与部署运维手册"
+description = "基于当前代码重新编写的 Markdown：技术栈、Monorepo 结构、前后端与数据库架构、Replit 发布、源码下载后自建部署、迁移、存储、备份和日常运维。"
+logical_id = "20d2011e-a206-4a91-802d-364aab17d213"
+content_hash = "sha256:a861c69d27d604e93da3b982266d644942663af5ebe8e64692cbdba3e4b6b44a"
+size = 30662
+mtime_ms = 1787906039569
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:33bad13f-8eb9-4ba5-86c9-638633da294a/20d2011e-a206-4a91-802d-364aab17d213/9cb91a74-40a2-4b59-b4a8-f1821878b6e1"
+storage_version_token = "1787906048598299"
+content_type = "text/markdown"
