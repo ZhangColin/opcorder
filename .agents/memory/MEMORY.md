@@ -12,3 +12,5 @@
 - [算力计费一致性](compute-billing-consistency.md) — 账单+水位必须同事务+FOR UPDATE;多实例用 xact 级咨询锁;PATCH 禁改生命周期字段。
 - [付费订阅接支付的规则](paid-subscription-flow.md) — 激活前服务端查单核验金额;pending 订单复用不覆盖;账单以 paid_at 为准;待支付不可取消。
 - [Beijing time convention](beijing-time-convention.md) — all user-visible times are Beijing time; DB uses naive storage (Beijing number stored as UTC); always use timeZone:"UTC" in display and UTC accessors in form init.
+- [国内迁移范围](domestic-migration-scope.md) — 等效搬迁现有正常生产；按代码部署和数据搬迁两块写具体操作，不以能力升级为前提。
+- [Bash中文变量边界](bash-unicode-boundaries.md) — 变量后紧接中文时使用显式花括号，避免本机Bash把后续字符解析进变量名。

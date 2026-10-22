@@ -1,0 +1,112 @@
+# 系统架构说明
+
+## 1. 架构目标
+
+本项目不是通用聊天机器人，而是一个以三份指定资料为唯一事实来源的AI课程顾问。架构设计优先满足四个目标：
+
+1. 评审可在 15 分钟内完成本地运行并复现一次完整对话。
+2. 学生课程、教师培训、OPC 平台信息不得混用。
+3. 资料没有答案时，由程序直接拒答，不把判断责任交给大模型。
+4. 每个知识回答都能返回文档与章节来源，支持一条回答引用多份资料。
+
+## 2. 总体方案
+
+采用单仓库、单进程、服务端一体化架构。前端与 API 由同一个 Next.js 应用提供，避免独立前后端带来的跨域、双进程和部署配置负担。API 只通过服务层访问数据库、检索器和大模型，不在 Route Handler 中堆放业务逻辑。
+
+```text
+Browser
+  │
+  │ POST /api/v1/chat
+  │ GET  /api/v1/sessions/{id}/messages
+  ▼
+Next.js App Router
+  │
+  ├── Request Validator          请求校验
+  ├── Conversation Service       对话编排
+  │     ├── Session Context Resolver   上下文/对象识别
+  │     ├── Knowledge Retriever        FTS5 检索
+  │     ├── Evidence Guard             证据门槛
+  │     ├── Prompt Builder             动态提示词
+  │     ├── LLM Provider Adapter       模型适配
+  │     └── Answer Validator           答案校验
+  │
+  ├── SQLite Repository
+  │     ├── sessions / messages / message_sources / chat_requests
+  │
+  └── Static Source Assets
+        ├── Golden Dataset             评测基准
+        └── Structured knowledge chunks + in-memory FTS5
+```
+
+## 3. 核心请求链路
+
+一次问答从请求到落库的完整流程：
+
+```text
+1. 校验 Content-Type、message、长度、UUID
+2. 根据 sessionId 读取最近对话上下文
+3. 识别知识域：student_camp / teacher_training / opc_platform / cross_domain
+4. 在对应知识域执行 FTS5 检索并进行意图加权排序
+5. Evidence Guard 判断证据是否达到门槛
+6a. 证据不足：程序直接返回 refusal，不调用大模型
+6b. 证据充分：只把命中的资料块注入动态 System Prompt
+7. 大模型组织自然语言答案
+8. Answer Validator 检查数字、日期、地点和承诺性表述；不通过则回退为证据原文
+9. 在同一事务中保存用户消息、AI 消息和来源引用
+10. 返回统一结构的 JSON
+```
+
+关键点在于第 5–6 步：**拒答发生在调用大模型之前**。资料外的问题不会消耗模型调用，也不会给模型编造的机会；只有证据充分的请求才进入生成环节。
+
+## 4. 组件职责边界
+
+| 组件 | 职责 | 明确不负责 |
+|---|---|---|
+| Route Handler | HTTP 解析、调用服务、映射状态码 | 检索、Prompt 拼接、SQL |
+| Request Validator | 类型、长度、枚举和 UUID 校验 | 业务推断 |
+| Conversation Service | 编排完整对话事务 | 直接依赖具体模型 SDK |
+| Context Resolver | 从当前问题和最近上下文确定知识域 | 生成课程事实 |
+| Knowledge Retriever | 召回并排序知识块 | 判断最终能否回答 |
+| Evidence Guard | 根据证据门槛决定 grounded 或 refusal | 组织自然语言 |
+| Prompt Builder | 注入受限证据和对象提示 | 全量注入原始文档 |
+| LLM Provider Adapter | 统一模型调用、超时与错误映射 | 决定知识库是否有答案 |
+| Answer Validator | 检查来源和高风险事实 | 修改原始事实 |
+| Repository | 事务、会话、消息和来源持久化 | 业务路由 |
+
+## 5. 知识组织与检索
+
+原始资料（三份文档）作为审计原件保留，不在请求时解析。构建阶段把资料预处理为结构化知识块，每块包含：唯一 `chunk_id`、来源 `source_id`、知识域、文档名与章节、正文、结构化事实、关键词、别名与意图标签。
+
+检索采用 SQLite FTS5，配合适合中文连续文本的 trigram 分词建立索引，并在内存中维护索引实例。检索得分由三部分加权：文本三元组重叠、别名命中、意图标签匹配；同时按知识域过滤，从源头避免学生/教师/平台信息串域。
+
+Golden Dataset（24 条标准问答）不直接作为线上答案表，而是作为检索阈值、事实正确性和拒答行为的离线评测基准。
+
+## 6. 会话与历史
+
+不建立用户注册系统。首次聊天时服务端生成随机 UUID 会话，浏览器本地保存 `sessionId`，该 ID 作为匿名会话访问凭据。历史接口只能按完整 UUID 读取单个会话，不提供会话列表、搜索或跨会话查询。
+
+消息持久化规则：
+
+- 参数校验失败不写数据库。
+- 有效用户消息进入会话后保存。
+- grounded 与 refusal 回答都保存，保证历史完整。
+- 上游模型失败保存失败状态，但不保存密钥、完整 Prompt 或内部堆栈。
+- 来源使用独立关联表保存，支持一条回答引用多份资料。
+- `chat_requests` 保存已完成或失败结果，使重复 `clientMessageId` 不重复调用模型、不重复写消息（幂等）。
+
+## 7. 安全与运行边界
+
+- 所有密钥只允许存在服务端环境变量，不进入代码、文档或版本控制。
+- 聊天请求最大 2000 个 Unicode 字符。
+- API 响应不返回内部异常、SQL、Prompt 或密钥。
+- 历史接口设置 `Cache-Control: no-store`。
+- 模型调用设置超时，不做无限重试。
+- 未配置密钥时，资料外问题仍可程序拒答；资料内需要模型组织答案的问题返回统一的服务不可用错误码，不静默失败。
+
+## 8. 前端实现边界
+
+页面由 Next.js 客户端组件提供，浏览器只保存匿名 `sessionId` 到 localStorage；会话内容始终通过历史接口恢复，不在前端维护课程知识副本。页面展示用户/顾问头像、来源引用、加载、错误与拒答状态。前端视觉方案由 AI 生成，但仅保留视觉方向，课程回答不使用任何前端模拟数据。
+
+## 9. 明确不做
+
+用户系统、管理后台、资料上传、向量数据库、多 Agent、Function Calling、支付、多模型切换、语音和数据看板均超出本次测试范围，刻意不引入，以保持方案聚焦与可复现。
