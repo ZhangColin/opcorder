@@ -60,6 +60,8 @@ attached_assets/
 # Database backups at project root
 *.sql
 *.sql.gz
+*.dump
+/local-dev/
 
 # Misc workspace files
 exports/
